@@ -79,14 +79,14 @@ FROM archive_entries WHERE archive_blob_id=? ORDER BY ordinal`,
 
 func (store writes) Put(ctx context.Context, id string, entries []importing.ArchiveEntry, now int64) error {
 	for _, entry := range entries {
-		if _, err := recordstore.CreateReferences(
+		if _, err := recordstore.InsertRows(
 			ctx,
 			store.transaction,
 			"archive_entries",
 			`INSERT INTO archive_entries(archive_blob_id,ordinal,
 original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,
-uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?) ON CONFLICT(archive_blob_id,ordinal) DO NOTHING`,
+uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(archive_blob_id,ordinal) DO NOTHING`,
 			id,
 			entry.Ordinal,
 			entry.OriginalPath,

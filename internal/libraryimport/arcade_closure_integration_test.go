@@ -19,9 +19,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -40,7 +40,7 @@ func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 
 type arcadeGroupingFixture struct {
 	database *store.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	service  *Service
 	datID    string
 	files    []importSourceFile
@@ -59,7 +59,7 @@ func newArcadeGroupingFixture(ctx context.Context, t *testing.T) arcadeGroupingF
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic dat")))
 	testassert.False(t, err != nil, err)
@@ -162,7 +162,7 @@ NULL,
 		t.Fatal(err)
 	}
 
-	fixture := arcadeGroupingFixture{database: database, blobs: blobs, datID: datID, service: (&Service{database: database.SQL}).WithBlobStore(blobs)}
+	fixture := arcadeGroupingFixture{database: database, blobs: blobs, datID: datID, service: (&Service{database: database.SQL}).WithFileStore(blobs)}
 	fixture.files = fixture.createArchives(ctx, t)
 	return fixture
 }
@@ -187,11 +187,11 @@ func (fixture arcadeGroupingFixture) createArchives(ctx context.Context, t *test
 		fixtures[index].file = importSourceFile{
 			ID:     fixtures[index].id,
 			Path:   fixtures[index].name,
-			BlobID: "blob-" + fixtures[index].id,
+			BlobID: metadata.ID,
 			SHA256: metadata.SHA256,
 		}
 		entryDigest := sha256.Sum256(fixtures[index].body)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.ID), importing.DefaultArchiveLimits())
 		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixtures[index].name, entries, scanErr)
 		machine := strings.TrimSuffix(fixtures[index].name, ".zip")
 		if _, err := database.SQL.ExecContext(ctx, `
@@ -264,7 +264,7 @@ func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Conte
 	testassert.False(t, err != nil, err)
 	_, fullGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{ID: "full", Path: "child.zip", BlobID: "full-blob", SHA256: fullMetadata.SHA256}},
+		[]importSourceFile{{ID: "full", Path: "child.zip", BlobID: fullMetadata.ID, SHA256: fullMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
 	if preparationErr != nil {
@@ -285,7 +285,7 @@ func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Conte
 	_, fullWithCloneExtraGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			ID: "full-with-clone-extra", Path: "child.zip", BlobID: "full-with-clone-extra-blob",
+			ID: "full-with-clone-extra", Path: "child.zip", BlobID: fullWithCloneExtraMetadata.ID,
 			SHA256: fullWithCloneExtraMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},
@@ -304,7 +304,7 @@ func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *
 	testassert.False(t, err != nil, err)
 	_, mergedGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{ID: "merged", Path: "child.zip", BlobID: "merged-blob", SHA256: mergedMetadata.SHA256}},
+		[]importSourceFile{{ID: "merged", Path: "child.zip", BlobID: mergedMetadata.ID, SHA256: mergedMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
 	if preparationErr != nil {
@@ -320,7 +320,7 @@ func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *
 	_, nestedMismatchGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			ID: "nested-mismatch", Path: "child.zip", BlobID: "nested-mismatch-blob",
+			ID: "nested-mismatch", Path: "child.zip", BlobID: nestedMismatchMetadata.ID,
 			SHA256: nestedMismatchMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},

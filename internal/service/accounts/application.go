@@ -13,7 +13,6 @@ type Modules struct {
 	Initialization *InitializationService
 	Authentication *Authentication
 	Passwords      *PasswordService
-	Recovery       *RecoveryService
 	Directory      *DirectoryService
 	Administration *AdministrationService
 	Links          *LinkService
@@ -97,8 +96,4 @@ func (service *Service) Context(ctx context.Context, cookie string) (Context, er
 		return Context{}, fmt.Errorf("read authentication context: %w", err)
 	}
 	return result, nil
-}
-
-func (service *Service) OfflineAdminReset(ctx context.Context, username, password, confirmation string) error {
-	return service.modules.Recovery.Reset(ctx, username, password, confirmation)
 }

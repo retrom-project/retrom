@@ -14,8 +14,8 @@ import (
 	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 )
@@ -34,7 +34,7 @@ func testUploadReception(t *testing.T, source string) {
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.Falsef(t, err != nil, "open database: %v", err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.Falsef(t, err != nil, "open blob store: %v", err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(
@@ -76,7 +76,7 @@ func testUploadReception(t *testing.T, source string) {
 	final, err := service.Get(ctx, session.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return final.State != "COMPLETE" }, func() bool { return final.Files[0].State != "COMPLETE" }), "final upload = %s/%s, error = %v", final.State, final.Files[0].State, err)
 	var count int
-	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM blobs WHERE size_bytes=?", len(contents)).Scan(
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM stored_files WHERE size_bytes=?", len(contents)).Scan(
 		&count,
 	); err != nil ||
 		count != 1 {
@@ -109,7 +109,7 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 			database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
 			testassert.False(t, err != nil, err)
 			defer func() { cleanup.Error("close", database.Close()) }()
-			blobs, _ := blobstore.Open(dataDir)
+			blobs, _ := filestore.Open(dataDir)
 			_, err = uploadservice.New(New(database.SQL),
 				blobs,
 				dataDir,
@@ -126,7 +126,7 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 
@@ -187,7 +187,7 @@ func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(

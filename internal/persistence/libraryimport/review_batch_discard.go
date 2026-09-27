@@ -7,8 +7,8 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 type ReviewBatchDiscards struct{ database dbapi.DB }

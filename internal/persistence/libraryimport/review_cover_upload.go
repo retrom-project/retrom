@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -51,7 +52,7 @@ func (records reviewCoverRecords) Source(
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT f.id,f.upload_session_id,b.id,b.sha256,upload.purpose,b.size_bytes
 FROM import_files f
-JOIN blobs b ON b.id=f.blob_id
+JOIN stored_files b ON b.id=f.blob_id
 JOIN upload_sessions upload ON upload.id=f.upload_session_id
 WHERE f.id=? AND f.released_at_ms IS NULL
 `, fileID).Scan(
@@ -99,7 +100,8 @@ func (records reviewCoverRecords) ExistingByUpload(
 		ctx,
 		records.executor,
 		`
-SELECT a.id,a.import_item_id,a.upload_file_id,a.blob_id,a.media_type,a.width_px,a.height_px,a.created_at_ms,
+SELECT a.id,a.import_item_id,a.upload_file_id,a.blob_id,a.media_type,a.width_px,a.height_px,
+a.created_at_ms,
 EXISTS(SELECT 1 FROM upload_consumptions c JOIN import_files f ON f.id=a.upload_file_id
  WHERE c.consumer_type='REVIEW_ASSET' AND c.consumer_id=a.id AND c.upload_file_id=a.upload_file_id
  AND c.upload_session_id=f.upload_session_id AND c.released_at_ms IS NULL)
@@ -112,7 +114,6 @@ FROM review_uploaded_assets a WHERE a.upload_file_id=?
 		&asset.UploadFileID,
 		&asset.BlobID,
 		&asset.MediaType,
-
 		&asset.Width,
 		&asset.Height,
 		&asset.CreatedAtMS,
@@ -127,8 +128,31 @@ FROM review_uploaded_assets a WHERE a.upload_file_id=?
 	return existing, true, nil
 }
 
-func (records reviewCoverRecords) InsertAsset(ctx context.Context, asset application.ReviewCoverRecord) error {
-	_, err := recordstore.CreateReferences(
+func (records reviewCoverRecords) InsertAsset(
+	ctx context.Context,
+	asset application.ReviewCoverRecord,
+) error {
+	var uploadID string
+	if err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`SELECT upload_session_id FROM import_files WHERE id=? AND blob_id=?`,
+		asset.UploadFileID,
+		asset.BlobID,
+	).Scan(&uploadID); err != nil {
+		return fmt.Errorf("read cover upload owner: %w", err)
+	}
+	if err := fileownership.Transfer(
+		ctx,
+		records.executor,
+		asset.BlobID,
+		fileownership.Owner{Kind: "UPLOAD", ID: uploadID},
+		fileownership.Owner{Kind: "IMPORT_ITEM", ID: asset.ItemID},
+	); err != nil {
+		return fmt.Errorf("review cover upload: %w", err)
+	}
+
+	_, err := recordstore.InsertRows(
 		ctx,
 		records.executor,
 		"review_uploaded_assets",
@@ -152,12 +176,16 @@ id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,crea
 	return nil
 }
 
-func (records reviewCoverRecords) Consume(ctx context.Context, consumption application.ReviewCoverConsumption) error {
+func (records reviewCoverRecords) Consume(
+	ctx context.Context,
+	consumption application.ReviewCoverConsumption,
+) error {
 	_, err := recordstore.CreateUploadConsumptions(
 		ctx,
 		records.executor,
 		`
-INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
+INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,
+created_at_ms)
 VALUES(?,?,?,'REVIEW_ASSET',?,?)
 `,
 		consumption.ID,

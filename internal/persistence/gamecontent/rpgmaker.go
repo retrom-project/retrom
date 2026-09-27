@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/core/rpgmaker/detector"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	"retrom/internal/service/gamecontent"
@@ -22,17 +23,22 @@ func (writes writes) rpgProfile(ctx context.Context, value gamecontent.Publicati
 	if profile.Profile.EngineVersion != "" {
 		engine = &profile.Profile.EngineVersion
 	}
-	if profile.Profile.ExpectedGeneration == detector.RPGMV || profile.Profile.ExpectedGeneration == detector.RPGMZ {
+	if profile.Profile.ExpectedGeneration == detector.RPGMV ||
+		profile.Profile.ExpectedGeneration == detector.RPGMZ {
 		value := "index.html"
 		entryHTML = &value
 	}
-	encoded, err := profilemodel.Encode(profilemodel.Game, profilemodel.RPGMakerProject, &profilemodel.RPGGame{
-		EvidenceFamily: profile.Profile.EvidenceFamily, EvidenceGeneration: generation,
-		EvidenceConfidence: string(profile.Profile.EvidenceConfidence), EngineVersion: engine,
-		EntryHTMLPath: entryHTML, FileCount: profile.FileCount, TotalBytes: profile.TotalBytes,
-		ProjectFingerprint: profile.ProjectFingerprint, RequirementsSHA256: profile.RequirementsSHA256,
-		Analysis: json.RawMessage(profile.AnalysisJSON),
-	})
+	encoded, err := profilemodel.Encode(
+		profilemodel.Game,
+		profilemodel.RPGMakerProject,
+		&profilemodel.RPGGame{
+			EvidenceFamily: profile.Profile.EvidenceFamily, EvidenceGeneration: generation,
+			EvidenceConfidence: string(profile.Profile.EvidenceConfidence), EngineVersion: engine,
+			EntryHTMLPath: entryHTML, FileCount: profile.FileCount, TotalBytes: profile.TotalBytes,
+			ProjectFingerprint: profile.ProjectFingerprint, RequirementsSHA256: profile.RequirementsSHA256,
+			Analysis: json.RawMessage(profile.AnalysisJSON),
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("encode replacement RPG profile: %w", err)
 	}
@@ -61,7 +67,8 @@ func (writes writes) rpgVariant(ctx context.Context, value gamecontent.Publicati
 	err = requireChanged(
 		writes.transaction.ExecContext(
 			ctx,
-			`UPDATE game_variants SET runtime_profile_json=? WHERE id=? AND runtime_profile_json IS NOT NULL`,
+			`UPDATE game_variants SET runtime_profile_json=? WHERE id=? AND runtime_profile_json IS
+NOT NULL`,
 			encoded, snapshot.VariantID,
 		),
 	)
@@ -69,9 +76,23 @@ func (writes writes) rpgVariant(ctx context.Context, value gamecontent.Publicati
 		return err
 	}
 	for index, file := range value.Prepared.RPGMaker.VariantFiles {
-		id, err := blobcatalog.EnsureRecord(ctx, writes.transaction, file.Metadata, "application/octet-stream", value.Now)
+		id, err := filecatalog.EnsureRecord(
+			ctx,
+			writes.transaction,
+			file.Metadata,
+			"application/octet-stream",
+			value.Now,
+		)
 		if err != nil {
 			return fmt.Errorf("register replacement RPG file: %w", err)
+		}
+		if err := fileownership.Adopt(
+			ctx,
+			writes.transaction,
+			id,
+			fileownership.Owner{Kind: "GAME", ID: snapshot.GameID},
+		); err != nil {
+			return fmt.Errorf("rpgmaker: %w", err)
 		}
 		_, err = recordstore.CreateVariantFiles(
 			ctx,

@@ -3,7 +3,7 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 )
@@ -56,7 +56,7 @@ type ServerExecution struct {
 	ExecutionNo, AtMS         int64
 }
 type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, int64) (string, error)
+	Ensure(context.Context, filestore.Metadata, int64) (string, error)
 }
 type ReleaseSignal interface{ Signal() }
 
@@ -77,6 +77,7 @@ type ActiveInstallation struct {
 	Size, ValidatedVersion                          int64
 }
 type InstallationWrite struct {
+	UploadSessionID                                                            string
 	ID, RequirementID, BlobID, Filename, MD5, SHA1, SHA256, Status, SourceKind string
 	Size, RequirementVersion, AtMS                                             int64
 	DetailsJSON                                                                []byte

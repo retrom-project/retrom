@@ -9,9 +9,10 @@ import (
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
 	"retrom/internal/multidisc"
-	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/contentquery"
 	validationpersistence "retrom/internal/persistence/corevalidation"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	validationservice "retrom/internal/service/corevalidation"
 	application "retrom/internal/service/libraryimport"
@@ -242,7 +243,12 @@ VALUES(?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
 		return fmt.Errorf("insert multi-disc source snapshot: %w", err)
 	}
 	for _, file := range write.BaseFiles {
-		if _, err := recordstore.CreateReferences(
+		if err := fileownership.Transfer(ctx, scope.transaction, file.BlobID,
+			fileownership.Owner{Kind: "UPLOAD", ID: write.Input.UploadSessionID},
+			fileownership.Owner{Kind: "IMPORT_ITEM", ID: write.Input.ImportItemID}); err != nil {
+			return fmt.Errorf("multidisc attachment commit: %w", err)
+		}
+		if _, err := recordstore.InsertRows(
 			ctx,
 			scope.transaction,
 			"import_item_source_snapshot_files",
@@ -292,11 +298,15 @@ VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
 func (scope multiDiscAttachmentCommitScope) insertValidation(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
-	canonicalBlobID, err := blobcatalog.EnsureRecord(
+	canonicalBlobID, err := filecatalog.EnsureRecord(
 		ctx, scope.transaction, write.CanonicalPlaylist, "application/vnd.retrom.m3u", write.NowMS,
 	)
 	if err != nil {
 		return fmt.Errorf("register multi-disc canonical playlist: %w", err)
+	}
+	if err := fileownership.Adopt(ctx, scope.transaction, canonicalBlobID,
+		fileownership.Owner{Kind: "IMPORT_ITEM", ID: write.Input.ImportItemID}); err != nil {
+		return fmt.Errorf("multidisc attachment commit: %w", err)
 	}
 	inputDigest := application.PrepublishDigest(application.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: write.SourceSnapshotID,
@@ -326,7 +336,7 @@ VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: canonicalBlobID, SortOrder: 0,
 	})
 	for _, file := range validationFiles {
-		if _, err := recordstore.CreateReferences(ctx, scope.transaction, "import_item_validation_files", `
+		if _, err := recordstore.InsertRows(ctx, scope.transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
 sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
 `, write.ValidationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, write.NowMS); err != nil {

@@ -35,7 +35,7 @@ VALUES(?,?,'CREATED',?,?,?,?,?,?,?)
 		return fmt.Errorf("uploads/insert session: %w", err)
 	}
 	for _, file := range session.Files {
-		if _, err := recordstore.CreateReferences(
+		if _, err := recordstore.InsertRows(
 			ctx,
 			records.executor,
 			"upload_files",

@@ -5,7 +5,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/releaseeffects"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func BindUploads(executor dbapi.Executor) releaseeffects.Uploads {

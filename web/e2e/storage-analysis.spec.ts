@@ -6,18 +6,17 @@ import { seedStorageCleanupCandidate } from "./storage-cleanup-fixture";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const categoryOrder = [
-  "GAME_CONTENT", "BIOS", "SAVES", "MEDIA", "WORKFLOW", "RUNTIME_SNAPSHOT",
-  "SHARED_DURABLE", "OTHER_REFERENCED", "UNREFERENCED",
+  "GAME_CONTENT", "BIOS", "SAVES", "MEDIA", "WORKFLOW", "PENDING_DELETE",
 ];
 
 type StorageResponse = {
   scope: string;
   generatedAtMs: number;
-  totals: { registeredBytes: string; protectedBytes: string; unreferencedBytes: string; blobCount: number };
-  categories: Array<{ code: string; bytes: string; blobCount: number }>;
+  totals: { registeredBytes: string; retainedBytes: string; pendingDeleteBytes: string; fileCount: number };
+  categories: Array<{ code: string; bytes: string; fileCount: number }>;
   details: {
-    saveStates: { activeCount: number; deletedCount: number; stateReferenceBytes: string; screenshotReferenceBytes: string };
-    cleanupCandidates: { blobCount: number; bytes: string };
+    saveStates: { activeCount: number; deletedCount: number; stateBytes: string; screenshotBytes: string };
+    cleanupCandidates: { fileCount: number; bytes: string };
   };
   excluded: string[];
 };
@@ -29,25 +28,25 @@ test.beforeEach(async ({ page }) => {
   expect(login.ok()).toBe(true);
 });
 
-test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and exposes guarded cleanup", async ({ page }, testInfo) => {
+test("ACC-STOR-001 registered file analysis is exact, private, responsive, and exposes guarded cleanup", async ({ page }, testInfo) => {
   await seedStorageCleanupCandidate(page.request, origin);
   const response = await page.request.get("/api/v1/admin/storage-analysis");
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("private, no-store");
   const body = await response.json() as StorageResponse;
-  expect(body.scope).toBe("REGISTERED_CAS_PAYLOAD_V1");
+  expect(body.scope).toBe("OWNED_FILES_V1");
   expect(body.categories.map((category) => category.code)).toEqual(categoryOrder);
   expect(body.excluded).toEqual([
     "DATABASE_FILES", "UPLOAD_PARTS", "JOB_SCRATCH", "DEPENDENCY_ROOT",
     "FILESYSTEM_OVERHEAD", "UNREGISTERED_ORPHANS", "VOLUME_FREE_SPACE",
   ]);
   const registered = BigInt(body.totals.registeredBytes);
-  const protectedBytes = BigInt(body.totals.protectedBytes);
-  const unreferenced = BigInt(body.totals.unreferencedBytes);
+  const retainedBytes = BigInt(body.totals.retainedBytes);
+  const unreferenced = BigInt(body.totals.pendingDeleteBytes);
   expect(registered).toBeGreaterThan(0n);
-  expect(protectedBytes + unreferenced).toBe(registered);
+  expect(retainedBytes + unreferenced).toBe(registered);
   expect(body.categories.reduce((sum, category) => sum + BigInt(category.bytes), 0n)).toBe(registered);
-  expect(body.categories.reduce((sum, category) => sum + category.blobCount, 0)).toBe(body.totals.blobCount);
+  expect(body.categories.reduce((sum, category) => sum + category.fileCount, 0)).toBe(body.totals.fileCount);
   const serialized = JSON.stringify(body);
   for (const forbidden of ["sha256", "blobId", "launchId", "capability", "originalFilename", "relativePath"]) {
     expect(serialized).not.toContain(forbidden);
@@ -68,14 +67,14 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and ex
     }
     await expect(page.getByRole("heading", { name: "容量分析", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "按用途分析" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "仅计算已登记 CAS payload" })).toBeVisible();
-    await expect(page.getByText("REGISTERED_CAS_PAYLOAD_V1", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "仅计算已登记文件" })).toBeVisible();
+    await expect(page.getByText("OWNED_FILES_V1", { exact: true })).toBeVisible();
     const cleanup = page.getByRole("button", { name: "立即清理" });
     await expect(cleanup).toBeVisible();
     if (await cleanup.isEnabled()) {
       await cleanup.click();
-      const dialog = page.getByRole("alertdialog", { name: "立即清理未引用数据？" });
-      await expect(dialog).toContainText("删除前仍会重新检查引用计数");
+      const dialog = page.getByRole("alertdialog", { name: "立即删除待清理文件？" });
+      await expect(dialog).toContainText("这会提交待删除文件并重试失败任务");
       await expect(dialog.getByRole("textbox")).toHaveCount(0);
       await dialog.getByRole("button", { name: "取消" }).click();
     }
@@ -97,9 +96,9 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and ex
   await cleanupButton.click();
   await page.getByRole("alertdialog").getByRole("button", { name: "立即清理", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText(/立即清理已完成/);
-  await expect(page.getByLabel("清理候选引用量，精确值 0 bytes", { exact: true })).toBeVisible();
-  const candidates = page.locator(".storage-details article").filter({ hasText: "清理候选视图" });
-  await expect(candidates).toContainText("0 个 Blob");
+  await expect(page.getByLabel("清理候选大小，精确值 0 bytes", { exact: true })).toBeVisible();
+  const candidates = page.locator(".storage-details article").filter({ hasText: "删除队列" });
+  await expect(candidates).toContainText("0 个文件");
   await expect(page.getByLabel("等待回收，精确值 0 bytes", { exact: true })).toBeVisible();
   await expect(cleanupButton).toBeDisabled();
   await page.evaluate(axe.source);

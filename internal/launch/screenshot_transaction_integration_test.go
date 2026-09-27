@@ -176,7 +176,7 @@ func screenshotReleasePayload(t *testing.T, fixture reviewCheckpointFixture) {
 	t.Helper()
 	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,
  cancellable,state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
- VALUES('screenshot-release','IMPORT_ITEM',?,'PAYLOAD_RELEASE',?,1,'{}',0,'QUEUED',0,4,0,0,0)`,
+ VALUES('screenshot-release','IMPORT_ITEM',?,'OWNER_CLEANUP',?,1,'{}',0,'QUEUED',0,4,0,0,0)`,
 		fixture.itemID, strings.Repeat("a", 64))
 	mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET payload_state='RELEASING',payload_release_job_id='screenshot-release' WHERE id=?`, fixture.itemID)
 }

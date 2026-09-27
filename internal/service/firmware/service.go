@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 
@@ -22,7 +22,7 @@ var (
 
 type Service struct {
 	repository Repository
-	blobs      *blobstore.Store
+	blobs      *filestore.Store
 	releases   ReleaseSignal
 	now        func() time.Time
 }
@@ -31,12 +31,12 @@ func New(repository Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
 	service.blobs = blobs
 	return service
 }
 
-func (service *Service) WithPayloadRelease(releases ReleaseSignal) *Service {
+func (service *Service) WithCleanup(releases ReleaseSignal) *Service {
 	service.releases = releases
 	return service
 }
@@ -95,7 +95,7 @@ func (service *Service) prepareInstall(
 		entries, err := importing.ScanZIP(
 			ctx,
 			service.blobs.Path(
-				prepared.snapshot.Upload.SHA256,
+				prepared.snapshot.Upload.BlobID,
 			),
 			importing.DefaultArchiveLimits(),
 		)
@@ -155,8 +155,13 @@ func sameInstallSource(current, prepared installSnapshot) bool {
 		current.Upload.BlobID == prepared.Upload.BlobID && current.Upload.SHA256 == prepared.Upload.SHA256
 }
 
-func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot installSnapshot, status string,
-	details map[string]any, now int64,
+func persistBrowserInstallation(
+	ctx context.Context,
+	scope WriteScope,
+	snapshot installSnapshot,
+	status string,
+	details map[string]any,
+	now int64,
 ) (Installation, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -175,8 +180,9 @@ func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot 
 		return Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
 	if err := scope.Installations.Create(ctx, InstallationWrite{
-		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, Filename: upload.RelativePath,
-		MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
+		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, UploadSessionID: upload.SessionID,
+		Filename: upload.RelativePath,
+		MD5:      upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
 		RequirementVersion: requirement.Version, DetailsJSON: encoded, AtMS: now, SourceKind: "BROWSER_UPLOAD",
 	}); err != nil {
 		return Installation{}, fmt.Errorf("persist BIOS installation: %w", err)

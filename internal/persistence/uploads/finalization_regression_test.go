@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 )
 
 func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, release := make(chan struct{}), make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
 		close(entered)
 		<-release
 		return fixture.blobs.Put(reader)
@@ -49,8 +49,8 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	failure := errors.New("temporary CAS write unavailable")
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (blobstore.Metadata, error) {
-		return blobstore.Metadata{}, failure
+	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (filestore.Metadata, error) {
+		return filestore.Metadata{}, failure
 	}}, fixture.root, finalizationNow)
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
 	awaitFinalizeState(t, fixture.database, job, "FAILED")

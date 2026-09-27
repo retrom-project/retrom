@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/testsupport"
 )
 
@@ -55,21 +55,21 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 			return result, nil
 		},
 	})
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(t.Context(), fault, blobs, func() time.Time { return *fixture.now })
+	releaser, err := cleanupjobs.New(t.Context(), fault, blobs, func() time.Time { return *fixture.now })
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer releaser.Close()
-	err = releaser.ReconcileGC(t.Context())
+	err = releaser.ReconcileDeletion(t.Context())
 	var state string
 	var version int64
 	var retained, candidates int
 	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
-(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
+(SELECT count(*) FROM file_deletions WHERE blob_id=?)
 FROM review_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||
 		retained != 1 || candidates != 0 {

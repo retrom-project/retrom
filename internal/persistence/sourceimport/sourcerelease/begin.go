@@ -7,7 +7,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/releaseops"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func Begin(ctx context.Context, executor dbapi.Executor, update recordstore.Update,

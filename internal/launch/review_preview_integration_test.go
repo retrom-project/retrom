@@ -23,11 +23,11 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -59,10 +59,10 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	importService := libraryimport.New(database.SQL, time.Now)
+	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
 		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{
@@ -109,7 +109,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	testassert.False(t, err != nil, err)
-	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
+	parentBlobID, err := filecatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var baseValidationID, sourceSnapshotID, datVersionID string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -132,7 +132,7 @@ FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "import_item_validation_files", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
 VALUES(?,'PARENT','review-parent.zip',?,0,0)
 `, arcadeValidationID, parentBlobID); err != nil {
@@ -148,7 +148,7 @@ WHERE id=? AND effective_source_snapshot_id=?
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	ready, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
@@ -219,7 +219,7 @@ WHERE game_id=? RETURNING id
 `, datVersionID, arcadeOverrideSnapshot, approved.GameID).Scan(&arcadeOverrideVariantID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "variant_files", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "variant_files", `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 `, arcadeOverrideVariantID, parentBlobID); err != nil {

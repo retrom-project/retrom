@@ -101,7 +101,7 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 			return productPreparation{}, err
 		}
 	}
-	// Provider, CAS, signing and the first clock invocation happen before a writer opens.
+	// Provider, file storage, signing and the first clock invocation happen before a writer opens.
 	preparation.plan.NowMS = service.environment.Now().UnixMilli()
 	return preparation, nil
 }

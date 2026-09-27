@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func SchedulingConsumption(ctx context.Context, executor dbapi.Executor, id string) (application.Consumption, error) {
@@ -24,7 +24,7 @@ func SchedulingConsumption(ctx context.Context, executor dbapi.Executor, id stri
 		return result, nil
 	}
 	err = dbapi.QueryRowContext(ctx, executor, `SELECT id FROM jobs
-WHERE kind='PAYLOAD_RELEASE' AND scope_type='UPLOAD_CONSUMPTION' AND scope_id=?`, id).Scan(&result.ExistingJobID)
+WHERE kind='OWNER_CLEANUP' AND scope_type='UPLOAD_CONSUMPTION' AND scope_id=?`, id).Scan(&result.ExistingJobID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return application.Consumption{}, fmt.Errorf("read scheduled consumption job: %w", err)
 	}

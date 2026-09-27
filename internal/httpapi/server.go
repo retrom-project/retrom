@@ -13,8 +13,8 @@ import (
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
 	librarycomposition "retrom/internal/composition/libraryimport"
-	payloadcomposition "retrom/internal/composition/payloadrelease"
 
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
@@ -32,12 +32,12 @@ import (
 
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/blobstore"
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/core/scummvm"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -111,7 +111,7 @@ type Server struct {
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
 	dependencies            *dependencies.Set
-	blobs                   *blobstore.Store
+	blobs                   *filestore.Store
 	credentials             *retromruntime.Credentials
 	cursors                 *cursor.Codec
 	uploads                 *uploads.Service
@@ -145,7 +145,7 @@ type Server struct {
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	sourceImports           *sourceimport.Service
-	payloadReleases         *payloadcomposition.Service
+	cleanupJobs             *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
@@ -200,7 +200,7 @@ func New(
 	config config.Config,
 	database dbapi.DB,
 	dependencySet *dependencies.Set,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	credentials *retromruntime.Credentials,
 	authenticator Authenticator,
 	accountService *accounts.Service,
@@ -217,7 +217,7 @@ func New(
 	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
 	launcher.ResumeQueuedValidationJobs()
 	importer := libraryimport.New(database, now, scraper).
-		WithBlobStore(blobs).
+		WithFileStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
 	if len(scummVMDetector) > 0 {
 		importer.WithScummVMDetector(scummVMDetector[0])
@@ -226,8 +226,8 @@ func New(
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
-		WithPayloadRelease(payloadReleaseService)
+	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithFileStore(blobs).
+		WithCleanup(payloadReleaseService)
 	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
@@ -264,12 +264,12 @@ func New(
 		catalogService:      composition.NewCatalog(database),
 		serverImports:       serverImportService,
 		sourceImports:       sourceImportService,
-		payloadReleases:     payloadReleaseService,
+		cleanupJobs:         payloadReleaseService,
 		diagnosticsService:  composition.NewDiagnostics(database),
 		platformDirectories: platforminstance.New(platformpersistence.New(database), now),
 		metadata:            scraper,
-		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
-			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
+		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithFileStore(blobs).
+			WithCleanup(payloadReleaseService).WithDeletionStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		gameImpact:         gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
 		gameListService:    composition.NewGameList(database),
@@ -320,7 +320,7 @@ func (server *Server) Close() {
 	server.serverImports.Close()
 	server.sourceImports.Close()
 	server.metadata.Close()
-	server.payloadReleases.Close()
+	server.cleanupJobs.Close()
 }
 
 // Contract branches stay contiguous for a single auditable decision.

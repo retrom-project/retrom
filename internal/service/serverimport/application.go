@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
@@ -24,7 +24,7 @@ type Root struct {
 type (
 	SourceRoot struct{ ID, Label, Path, Digest string }
 	BlobStore  interface {
-		Put(io.Reader) (blobstore.Metadata, error)
+		Put(io.Reader) (filestore.Metadata, error)
 		Path(string) string
 	}
 )
@@ -94,7 +94,10 @@ func New(repositories Repositories, options Options) *Service {
 			repositories.Recovery,
 			options.Blobs,
 		),
-		discovery: NewDiscovery(repositories.Discovery, options.Now), leases: NewLeases(repositories.Leases, options.Now),
+		discovery: NewDiscovery(
+			repositories.Discovery,
+			options.Now,
+		), leases: NewLeases(repositories.Leases, options.Now),
 		outcomes: NewOutcomes(
 			repositories.Outcomes,
 			options.Now,

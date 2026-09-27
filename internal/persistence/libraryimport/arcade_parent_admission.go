@@ -103,7 +103,10 @@ WHERE id=? AND import_item_id=?
 		return application.ArcadeParentAttachmentValidation{}, false, nil
 	}
 	if err != nil {
-		return application.ArcadeParentAttachmentValidation{}, false, fmt.Errorf("read arcade parent validation: %w", err)
+		return application.ArcadeParentAttachmentValidation{}, false, fmt.Errorf(
+			"read arcade parent validation: %w",
+			err,
+		)
 	}
 	result.DATVersionID, result.HasDATVersion = nullableString(datID)
 	return result, true, nil
@@ -121,7 +124,7 @@ SELECT session.id,session.state,'COMPLETE',file.relative_path,file.blob_id,
     WHERE consumption.upload_session_id=session.id AND consumption.upload_file_id IS NULL)
 FROM import_files file
 JOIN upload_sessions session ON session.id=file.upload_session_id
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE file.id=?
 `, uploadFileID).Scan(
 		&result.UploadSessionID, &result.SessionState, &result.FileState, &result.RelativePath,
@@ -194,8 +197,11 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 		return fmt.Errorf("record arcade parent queue event: %w", err)
 	}
 	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
-		Set:    `review_version=review_version+1,review_updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND review_version=?`, Args: []any{write.DraftID, write.ExpectedDraftVersion}},
+		Set: `review_version=review_version+1,review_updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND review_version=?`,
+			Args:  []any{write.DraftID, write.ExpectedDraftVersion},
+		},
 		Values: []any{write.NowMS},
 	})
 	if err != nil {

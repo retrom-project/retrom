@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func ReadOwner(ctx context.Context, executor dbapi.Executor, scope application.Scope,

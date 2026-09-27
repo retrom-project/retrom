@@ -16,7 +16,7 @@ export interface paths {
         };
         get: operations["getAdminImportBatchDiscard"];
         put?: never;
-        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and immediate GC use their existing workers. */
+        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games retain their independently owned files. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Domain cleanup and immediate file deletion use durable workers. */
         post: operations["postAdminImportBatchDiscard"];
         delete?: never;
         options?: never;
@@ -720,7 +720,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by organized source review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/source-imports`. */
         get: operations["getAdminImports"];
         put?: never;
-        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, independent file materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;
@@ -1864,7 +1864,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings. */
+        /** @description Returns one read-only snapshot of registered independently owned files usage. Byte quantities are decimal strings. */
         get: operations["getAdminStorageAnalysis"];
         put?: never;
         post?: never;
@@ -1883,7 +1883,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Reconciles unreferenced registered CAS payload and retries failed cleanup jobs. Every Blob's reference count is rechecked before deletion. */
+        /** @description Schedules retired registered files for deletion and retries failed cleanup jobs. Each file's owner and retirement state are rechecked before deletion. */
         post: operations["postAdminStorageCleanup"];
         delete?: never;
         options?: never;
@@ -2283,7 +2283,7 @@ export interface components {
             games: components["schemas"]["DiagnosticsGameCounts"];
             saveStates: components["schemas"]["DiagnosticsLifecycleCounts"];
             /** Format: int64 */
-            blobs: number;
+            storedFiles: number;
             jobs: components["schemas"]["DiagnosticsJobCounts"];
             datVersions: components["schemas"]["DiagnosticsDATCounts"];
         };
@@ -2327,7 +2327,7 @@ export interface components {
         };
         StorageAnalysis: {
             /** @enum {string} */
-            scope: "REGISTERED_CAS_PAYLOAD_V1";
+            scope: "OWNED_FILES_V1";
             /** Format: int64 */
             generatedAtMs: number;
             totals: components["schemas"]["StorageAnalysisTotals"];
@@ -2337,17 +2337,17 @@ export interface components {
         };
         StorageAnalysisTotals: {
             registeredBytes: string;
-            protectedBytes: string;
-            unreferencedBytes: string;
+            retainedBytes: string;
+            pendingDeleteBytes: string;
             /** Format: int64 */
-            blobCount: number;
+            fileCount: number;
         };
         StorageAnalysisCategory: {
             /** @enum {string} */
-            code: "GAME_CONTENT" | "BIOS" | "SAVES" | "MEDIA" | "WORKFLOW" | "RUNTIME_SNAPSHOT" | "SHARED_DURABLE" | "OTHER_REFERENCED" | "UNREFERENCED";
+            code: "GAME_CONTENT" | "BIOS" | "SAVES" | "MEDIA" | "WORKFLOW" | "PENDING_DELETE";
             bytes: string;
             /** Format: int64 */
-            blobCount: number;
+            fileCount: number;
         };
         StorageAnalysisDetails: {
             saveStates: components["schemas"]["StorageAnalysisSaveStates"];
@@ -2358,17 +2358,17 @@ export interface components {
             activeCount: number;
             /** Format: int64 */
             deletedCount: number;
-            stateReferenceBytes: string;
-            screenshotReferenceBytes: string;
+            stateBytes: string;
+            screenshotBytes: string;
         };
         StorageAnalysisCleanupCandidates: {
             /** Format: int64 */
-            blobCount: number;
+            fileCount: number;
             bytes: string;
         };
         StorageCleanupResult: {
             /** Format: int64 */
-            scheduledBlobCount: number;
+            scheduledFileCount: number;
             scheduledBytes: string;
             /** Format: int64 */
             acceptedAtMs: number;
@@ -2610,9 +2610,7 @@ export interface components {
         AdminGameDeleteImpact: {
             impactDigest: string;
             registeredBytes: string;
-            exclusiveBytes: string;
-            sharedBytes: string;
-            blobCount: number;
+            fileCount: number;
             saveStateCount: number;
             assetCount: number;
             contentFileCount: number;
@@ -3910,7 +3908,7 @@ export interface components {
             /** @enum {string} */
             status: "not_ready";
             /** @enum {string} */
-            reasonCode: "DATABASE_UNAVAILABLE" | "CAS_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
+            reasonCode: "DATABASE_UNAVAILABLE" | "FILE_STORAGE_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
         };
         AuthUser: {
             /** Format: uuid */
@@ -4090,7 +4088,6 @@ export interface components {
             bios?: unknown;
             biosSetCount?: unknown;
             biosUrl?: unknown;
-            blobCount?: unknown;
             blocked?: unknown;
             blockedCount?: unknown;
             blockerCode?: unknown;
@@ -4582,7 +4579,7 @@ export interface components {
                 "application/json": components["schemas"]["DiagnosticsSnapshot"];
             };
         };
-        /** @description Registered CAS payload capacity snapshot */
+        /** @description Registered independently owned files capacity snapshot */
         StorageAnalysisResponse: {
             headers: {
                 [name: string]: unknown;
@@ -4591,7 +4588,7 @@ export interface components {
                 "application/json": components["schemas"]["StorageAnalysis"];
             };
         };
-        /** @description Registered CAS payload accepted for cleanup or retry */
+        /** @description Registered independently owned files accepted for cleanup or retry */
         StorageCleanupResponse: {
             headers: {
                 [name: string]: unknown;

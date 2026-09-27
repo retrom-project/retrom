@@ -27,7 +27,7 @@ SELECT
 (SELECT count(*) FROM games WHERE status='DELETED'),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NULL),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NOT NULL),
-(SELECT count(*) FROM blobs),
+(SELECT count(*) FROM stored_files),
 (SELECT count(*) FROM jobs WHERE state='QUEUED'),
 (SELECT count(*) FROM jobs WHERE state='RUNNING'),
 (SELECT count(*) FROM jobs WHERE state='CANCEL_REQUESTED'),

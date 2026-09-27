@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	application "retrom/internal/service/launch"
 )
 
@@ -17,7 +17,7 @@ var (
 	errLockedPlaylistMismatch = errors.New("locked playlist mismatch")
 )
 
-type productBlobVerifier struct{ blobs *blobstore.Store }
+type productBlobVerifier struct{ blobs *filestore.Store }
 
 func (verifier productBlobVerifier) Verify(ctx context.Context, check application.ProductBlobCheck) error {
 	if err := ctx.Err(); err != nil {
@@ -26,7 +26,7 @@ func (verifier productBlobVerifier) Verify(ctx context.Context, check applicatio
 	if verifier.blobs == nil {
 		return nil
 	}
-	file, err := verifier.blobs.OpenDigest(check.Digest)
+	file, err := verifier.blobs.OpenID(check.BlobID)
 	if err != nil {
 		return fmt.Errorf("open locked blob: %w", err)
 	}

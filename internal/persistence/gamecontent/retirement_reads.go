@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/persistence/blobgc"
+	"retrom/internal/persistence/filedeletion"
 
 	"retrom/internal/cleanup"
 
@@ -19,7 +19,7 @@ type retirementRecords struct{ executor dbapi.Executor }
 func BindRetirement(executor dbapi.Executor) gamecontent.RetirementScope {
 	records := retirementRecords{executor}
 	return gamecontent.RetirementScope{
-		Read: records, Write: records, GC: blobgc.Bind(executor),
+		Read: records, Write: records, DeletionQueue: filedeletion.Bind(executor),
 		Payload: payloadrepo.BindScheduling(executor),
 	}
 }

@@ -37,7 +37,7 @@ b.id,
 b.sha256,
 b.size_bytes
 FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN stored_files b ON b.id=f.final_blob_id
 WHERE f.id=?
 AND f.state='COMPLETE'
 `, uploadFileID).Scan(&upload.UploadID, &upload.BlobID, &upload.Digest, &upload.SizeBytes)

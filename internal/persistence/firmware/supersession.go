@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
-	payloadrelease "retrom/internal/persistence/uploads/payloadpurge"
+	cleanupjobs "retrom/internal/persistence/uploads/payloadpurge"
 	"retrom/internal/service/firmware"
 )
 
@@ -18,7 +18,7 @@ type supersessionRecords struct{ executor dbapi.Executor }
 
 func BindSupersession(executor dbapi.Executor) firmware.SupersessionScope {
 	records := supersessionRecords{executor: executor}
-	return firmware.SupersessionScope{Read: records, Write: records, Payload: payloadrelease.BindScheduling(executor)}
+	return firmware.SupersessionScope{Read: records, Write: records, Payload: cleanupjobs.BindScheduling(executor)}
 }
 
 func (records supersessionRecords) Current(

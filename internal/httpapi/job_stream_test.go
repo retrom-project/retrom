@@ -15,10 +15,10 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/accounts"
 	"retrom/internal/store"
@@ -283,7 +283,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	}
 	origin, _ := url.Parse("http://localhost:3000")
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.Falsef(t, err != nil, "open blobs: %v", err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.Falsef(t, err != nil, "create credentials: %v", err)

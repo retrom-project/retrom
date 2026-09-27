@@ -68,9 +68,9 @@ func seedRPGReviewFixture(
 		{"rpg-checkpoint", strings.Repeat("4", 64)},
 	} {
 		mustRPGLaunchSQL(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES(?,?,10,?,?,?,'application/octet-stream',?)`, blob.id, blob.sha, strings.Repeat("a", 32),
-			strings.Repeat("b", 40), strings.Repeat("c", 8), now)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
+VALUES(?,?,10,?,?,?,'application/octet-stream',?,'IMPORT_ITEM',?)`, blob.id, blob.sha, strings.Repeat("a", 32),
+			strings.Repeat("b", 40), strings.Repeat("c", 8), now, fixture.itemID)
 	}
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
@@ -179,7 +179,7 @@ func bindRPGFixtureValidation(t *testing.T, database dbapi.DB) {
 
 func mustRPGReferenceSQL(t *testing.T, database dbapi.DB, table, query string, arguments ...any) {
 	t.Helper()
-	if _, err := recordstore.CreateReferences(t.Context(), database, table, query, arguments...); err != nil {
+	if _, err := recordstore.InsertRows(t.Context(), database, table, query, arguments...); err != nil {
 		t.Fatal(err)
 	}
 }

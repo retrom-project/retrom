@@ -13,18 +13,18 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func seedReplacementSave(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	gameID string,
 ) (string, string, []string) {
 	t.Helper()
@@ -76,11 +76,14 @@ VALUES(?,?,?,'SOURCE_V1',?)
 	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
 	screenshotBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
 	stateDigest := sha256.Sum256(statePayload)
-	if _, err := recordstore.CreateReferences(ctx, database, "save_states", `
+	if _, err := recordstore.InsertRows(ctx, database, "save_states", `
 INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
 VALUES(?,?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
 `, saveID, profileID, gameID, checkpointFormat, stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload), screenshotBlobID, now, now, launchID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `UPDATE stored_files SET owner_kind='SAVE_STATE',owner_id=? WHERE id IN (?,?)`, saveID, stateBlobID, screenshotBlobID); err != nil {
 		t.Fatal(err)
 	}
 	return saveID, launchID, []string{stateBlobID, screenshotBlobID}
@@ -90,7 +93,7 @@ func ensureReplacementBlob(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	contents []byte,
 ) string {
 	t.Helper()
@@ -98,7 +101,7 @@ func ensureReplacementBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(
+	blobID, err := filecatalog.EnsureRecord(
 		ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli(),
 	)
 	if err != nil {
@@ -166,9 +169,9 @@ SELECT
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
+			`SELECT count(*) FROM file_deletions WHERE blob_id=?`, blobID,
 		).Scan(&candidates); err != nil || candidates != 1 {
-			t.Fatalf("save payload %s GC candidates = %d, error=%v", blobID, candidates, err)
+			t.Fatalf("save payload %s DeletionQueue candidates = %d, error=%v", blobID, candidates, err)
 		}
 	}
 }

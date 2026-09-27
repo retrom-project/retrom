@@ -86,7 +86,7 @@ func (records validationWorkerRecords) replaceValidationBIOSFiles(
 	variantID string,
 	biosSnapshot corevalidation.Snapshot,
 ) error {
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		records.executor,
 		"variant_files",

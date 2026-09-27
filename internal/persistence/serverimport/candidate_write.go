@@ -26,14 +26,14 @@ func (records discoveryRecords) candidate(
 INSERT INTO server_bios_import_candidates(id,server_import_id,requirement_id,relative_path,basename,
 association_kind,size_bytes,md5,sha1,sha256,crc32,state,exact_hash,expected_size_match,exact_basename,
 safe_archive,launchable,matched_count,aliased_count,mismatched_count,missing_count,extra_count,rank_ordinal,
-not_selected_reason,evaluation_details_json,created_at_ms,updated_at_ms,evaluated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+not_selected_reason,evaluation_details_json,created_at_ms,updated_at_ms,evaluated_at_ms,storage_file_id)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULLIF(?,''))
 `, candidate.ID, unit.ImportID, candidate.RequirementID, candidate.Facts.RelativePath, candidate.Facts.Basename,
 		candidate.Association, candidate.Facts.SizeBytes, values.md5, values.sha1, values.sha256, values.crc32,
 		candidate.State, values.staticExact, values.staticSize,
 		value.ExactBasename, values.safe, values.launchable,
 		values.matched, values.aliased, values.mismatched, values.missing, values.extra, values.rank,
-		values.notSelected, string(value.Details), now, now, now)
+		values.notSelected, string(value.Details), now, now, now, candidate.StorageID)
 	if err != nil {
 		return fmt.Errorf("persist server import candidate: %w", err)
 	}

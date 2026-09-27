@@ -16,17 +16,17 @@ func (repository *SessionQueries) Bundle(
 	kind string,
 ) (application.BundleRecord, bool, error) {
 	query := `
- SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.sha256
+ SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.id,blob.sha256
  FROM launch_sessions session
  LEFT JOIN launch_external_files file ON file.launch_session_id=session.id AND file.kind=?
- LEFT JOIN blobs blob ON blob.id=file.blob_id
+ LEFT JOIN stored_files blob ON blob.id=file.blob_id
  WHERE session.id=? ORDER BY file.logical_name`
 	if ref.Preview {
 		query = `
- SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.sha256
+ SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.id,blob.sha256
  FROM review_preview_sessions session
  LEFT JOIN review_preview_files file ON file.preview_session_id=session.id AND file.role=?
- LEFT JOIN blobs blob ON blob.id=file.blob_id
+ LEFT JOIN stored_files blob ON blob.id=file.blob_id
  WHERE session.id=? ORDER BY file.sort_order,file.logical_name`
 	}
 	rows, err := repository.executor.QueryContext(ctx, query, kind, ref.ID)
@@ -37,12 +37,12 @@ func (repository *SessionQueries) Bundle(
 	result := application.BundleRecord{Files: []application.BundleFile{}}
 	found := false
 	for rows.Next() {
-		var name, digest sql.NullString
+		var name, id, digest sql.NullString
 		err := rows.Scan(
 			&result.Session.CredentialHash,
 			&result.Session.State,
 			&result.Session.HardExpiresAtMS,
-			&name,
+			&name, &id,
 			&digest,
 		)
 		if err != nil {
@@ -50,7 +50,10 @@ func (repository *SessionQueries) Bundle(
 		}
 		found = true
 		if name.Valid {
-			result.Files = append(result.Files, application.BundleFile{LogicalName: name.String, SHA256: digest.String})
+			result.Files = append(
+				result.Files,
+				application.BundleFile{BlobID: id.String, LogicalName: name.String, SHA256: digest.String},
+			)
 		}
 	}
 	if err := rows.Err(); err != nil {

@@ -3,7 +3,7 @@ package sourceimport
 import (
 	"context"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 )
 
 type payloadItemMemory struct{ memory *itemWorkFake }

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/service/saves"
 )
 
@@ -50,11 +50,11 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(saves.Wri
 
 func (store records) Ensure(
 	ctx context.Context,
-	metadata blobstore.Metadata,
+	metadata filestore.Metadata,
 	mediaType string,
 	now int64,
 ) (string, error) {
-	id, err := blobcatalog.EnsureRecord(ctx, store.executor, metadata, mediaType, now)
+	id, err := filecatalog.EnsureRecord(ctx, store.executor, metadata, mediaType, now)
 	if err != nil {
 		return "", fmt.Errorf("register checkpoint blob: %w", err)
 	}

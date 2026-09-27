@@ -137,6 +137,7 @@ func discoveryGroup(id string, candidates []*EvaluatedCandidate) (DiscoveryGroup
 		}
 		value := CandidateWrite{
 			Evidence: CandidateEvidence{
+				StorageID:     candidate.Metadata.ID,
 				ID:            candidate.ID,
 				RequirementID: id,
 				Association:   candidate.Association,

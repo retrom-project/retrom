@@ -37,7 +37,7 @@ export async function seedStorageCleanupCandidate(api: APIRequestContext, origin
   await expect.poll(async () => (await (await api.get(`/api/v1/admin/imports/${importJobId}`)).json()).state).toBe("REVIEW_PENDING");
   const discarded = await api.post(`/api/v1/admin/import-batches/IMPORT/${importJobId}/discard`, { headers: headers(), data: {} });
   expect(discarded.ok()).toBe(true);
-  // Immediate GC may finish before any page reads the pending candidate. Prove
+  // Automatic deletion may finish before any page reads the pending candidate. Prove
   // the normal release completed, then seed a stable failed job for UI retry.
   await expect.poll(async () => {
     const batch = await api.get(`/api/v1/admin/import-batches/IMPORT/${importJobId}/discard`);
@@ -48,7 +48,7 @@ export async function seedStorageCleanupCandidate(api: APIRequestContext, origin
     return (await analysis.json()).totals;
   }).toEqual(before.totals);
   expect(process.env.RETROM_E2E_DATABASE).toBeTruthy();
-  execFileSync("go", ["run", "scripts/acceptance/seed-failed-gc.go"], { cwd: path.resolve("..") });
+  execFileSync("go", ["run", "scripts/acceptance/seed-failed-deletion.go"], { cwd: path.resolve("..") });
   const analysis = await api.get("/api/v1/admin/storage-analysis");
-  expect((await analysis.json()).details.cleanupCandidates.blobCount).toBe(1);
+  expect((await analysis.json()).details.cleanupCandidates.fileCount).toBe(1);
 }

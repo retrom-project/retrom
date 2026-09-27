@@ -48,7 +48,7 @@ func (records reviewApprovalRecords) Screenshots(ctx context.Context, itemID str
 
 func (records reviewApprovalRecords) BlobExists(ctx context.Context, id string) (bool, error) {
 	var exists bool
-	if err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT EXISTS(SELECT 1 FROM blobs WHERE id=?)`,
+	if err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=?)`,
 		id).Scan(&exists); err != nil {
 		return false, fmt.Errorf("read approved source blob: %w", err)
 	}

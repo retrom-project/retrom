@@ -87,7 +87,7 @@ CREATE TABLE favorite_folder_games (
 CREATE TABLE "game_assets" (
   id TEXT PRIMARY KEY,
   game_id TEXT NOT NULL REFERENCES games(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind IN ('COVER','BACKGROUND','SCREENSHOT','VIDEO')),
   ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 31),
   width_px INTEGER,
@@ -187,7 +187,7 @@ CREATE TABLE "variant_files" (
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   PRIMARY KEY(game_variant_id,role,logical_name)
 );
@@ -199,12 +199,11 @@ CREATE TABLE "game_files" (
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   source_archive_blob_id TEXT,
   source_archive_entry_ordinal INTEGER,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   PRIMARY KEY(game_id,role,logical_name),
-  FOREIGN KEY(source_archive_blob_id,source_archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id,ordinal),
   CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
 );
 

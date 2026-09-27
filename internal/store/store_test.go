@@ -239,7 +239,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 16, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 15, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
@@ -247,7 +247,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 		}
 	}
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES('archive',?,1,?,?,?,'application/zip',1)
 `, strings.Repeat("a", 64), strings.Repeat("b", 32), strings.Repeat("c", 40), strings.Repeat("d", 8)); err != nil {
 		t.Fatal(err)

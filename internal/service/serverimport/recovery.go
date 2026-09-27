@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/serversource"
 )
 
 type CandidateEvidence struct {
-	ID, RequirementID, Association, State string
-	Facts                                 firmware.FileFacts
-	Static                                *firmware.StaticEvaluation
-	DAT                                   *firmware.DATEvaluation
-	Details                               map[string]any
+	ID, StorageID, RequirementID, Association, State string
+	Facts                                            firmware.FileFacts
+	Static                                           *firmware.StaticEvaluation
+	DAT                                              *firmware.DATEvaluation
+	Details                                          map[string]any
 }
 type RecoveryRepository interface {
 	Items(context.Context, string) ([]CatalogItem, error)
@@ -104,7 +104,7 @@ func (service *Recovery) Candidates(
 			return nil, err
 		}
 		if candidate.Metadata.SHA256 != "" {
-			candidate.Metadata.Path = service.blobs.Path(candidate.Metadata.SHA256)
+			candidate.Metadata.Path = service.blobs.Path(candidate.Metadata.ID)
 		}
 		if candidate.DAT != nil {
 			entries, ok := expected[item.RequirementID]
@@ -132,7 +132,8 @@ func restoreCandidate(record CandidateEvidence, item CatalogItem) (*EvaluatedCan
 			Name:         facts.Basename,
 			SizeBytes:    facts.SizeBytes,
 		},
-		Metadata: blobstore.Metadata{
+		Metadata: filestore.Metadata{
+			ID:     record.StorageID,
 			Size:   facts.SizeBytes,
 			MD5:    facts.MD5,
 			SHA1:   facts.SHA1,

@@ -7,7 +7,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type (
@@ -23,7 +23,10 @@ func (records Records) CheckedUpdate(
 ) error {
 	update.Scope.Where = "rowid IN (SELECT rowid FROM " + table + " WHERE " +
 		update.Scope.Where + " ORDER BY rowid LIMIT 200)"
-	count, err := records.ReadCount(ctx, "SELECT count(*) FROM "+table+" WHERE "+update.Scope.Where, update.Scope.Args...)
+	count, err := records.ReadCount(
+		ctx,
+		"SELECT count(*) FROM "+table+" WHERE "+update.Scope.Where,
+		update.Scope.Args...)
 	if err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -65,7 +65,7 @@ func TestOwnedSourceRejectsDifferentCopiedBlobAtDeclaredPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, different, "application/octet-stream", ownedSourceNow().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(fixture.ctx, fixture.database, different, "application/octet-stream", ownedSourceNow().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}

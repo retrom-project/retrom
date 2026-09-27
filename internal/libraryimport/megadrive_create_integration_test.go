@@ -11,7 +11,7 @@ import (
 
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/testsupport"
 )
@@ -38,11 +38,11 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/octet-stream", time.Now().UnixMilli())
+			blobID, err := filecatalog.EnsureRecord(ctx, database.SQL, metadata, "application/octet-stream", time.Now().UnixMilli())
 			if err != nil {
 				t.Fatal(err)
 			}
-			service := New(database.SQL, time.Now).WithBlobStore(blobs)
+			service := New(database.SQL, time.Now).WithFileStore(blobs)
 			result, err := service.CreateServerSource(ctx,
 				testsupport.MustPlatformInstanceID(t, database.SQL, "megadrive/genesis_plus_gx"),
 				contentcapability.ModeStandard,
@@ -60,7 +60,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			var name, digest string
 			if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT source.logical_name,blob.sha256
-FROM import_item_source_files source JOIN blobs blob ON blob.id=source.blob_id
+FROM import_item_source_files source JOIN stored_files blob ON blob.id=source.blob_id
 WHERE source.import_item_id=? AND source.role='CONTENT'
 `, item.ItemID).Scan(&name, &digest); err != nil {
 				t.Fatal(err)

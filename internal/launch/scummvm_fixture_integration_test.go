@@ -22,10 +22,10 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/core/scummvm"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -66,11 +66,11 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
+	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
 	itemID := uploadScummVMFixture(t, database.SQL, blobs, dir, importer, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dir)
 	if err != nil {
@@ -80,7 +80,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	return scummVMFixture{service, importer, database.SQL, itemID}
 }
 
@@ -105,7 +105,7 @@ func scummVMFixtureDetector(t *testing.T, roots []string) *scummvm.Detector {
 	})
 }
 
-func uploadScummVMFixture(t *testing.T, database dbapi.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
+func uploadScummVMFixture(t *testing.T, database dbapi.DB, blobs *filestore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	var body bytes.Buffer

@@ -679,9 +679,7 @@ components:
       required:
         - impactDigest
         - registeredBytes
-        - exclusiveBytes
-        - sharedBytes
-        - blobCount
+        - fileCount
         - saveStateCount
         - assetCount
         - contentFileCount
@@ -694,13 +692,7 @@ components:
         registeredBytes:
           type: string
           pattern: ^[0-9]+$
-        exclusiveBytes:
-          type: string
-          pattern: ^[0-9]+$
-        sharedBytes:
-          type: string
-          pattern: ^[0-9]+$
-        blobCount:
+        fileCount:
           type: integer
           minimum: 0
         saveStateCount:

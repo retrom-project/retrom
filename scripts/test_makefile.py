@@ -232,7 +232,7 @@ class MakefileDependencyTests(unittest.TestCase):
 
     def test_review_queue_seeder_preserves_provider_validation_identity(self) -> None:
         script = (
-            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-review-queue.sh"
+            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-review-queue.py"
         ).read_text(encoding="utf-8")
         self.assertIn("provider_id,target_id", script)
         self.assertNotIn("target_contract_sha256", script)

@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 
 	"github.com/google/uuid"
 )
@@ -95,7 +95,8 @@ func (service *WorkflowControl) Retry(ctx context.Context, id string, version in
 }
 
 func canRetry(before WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || before.Execution == math.MaxInt64 || before.Summary.ImportJobID == nil {
+	if !validWorkflowVersion(before, version) || before.Execution == math.MaxInt64 ||
+		before.Summary.ImportJobID == nil {
 		return false
 	}
 	if !before.Summary.Retryable || before.OtherActive || before.RetryableItems == 0 {

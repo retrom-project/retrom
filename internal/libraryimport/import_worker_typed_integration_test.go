@@ -137,7 +137,7 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 		source,
 		testsupport.SQLFaultHooks{
 			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
-				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
+				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'OWNER_CLEANUP'") {
 					release++
 					return cause
 				}
@@ -185,7 +185,7 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 	if err := dbapi.QueryRowContext(
 		t.Context(), source,
 
-		`SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id=?`,
+		`SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP' AND scope_id=?`,
 		work.importID,
 	).Scan(
 		&count,

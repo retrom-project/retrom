@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	payloadcomposition "retrom/internal/composition/payloadrelease"
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -26,14 +26,15 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
@@ -70,7 +71,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "payload", "game.a26"))
 	testassert.False(t, err != nil, err)
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
@@ -107,7 +108,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "atari2600/stella2014"),
 		MetadataProvider:         "NONE",
@@ -128,7 +129,7 @@ FROM import_items i
 JOIN import_item_source_files source ON source.import_item_id=i.id AND source.role='CONTENT'
 JOIN archive_entries entry ON entry.archive_blob_id=source.source_archive_blob_id
  AND entry.ordinal=source.source_archive_entry_ordinal
-JOIN blobs content ON content.id=source.blob_id
+JOIN stored_files content ON content.id=source.blob_id
 WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(
 		&itemID,
@@ -190,7 +191,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
 	defaultTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
-	blobs, _ := blobstore.Open(dataDir)
+	blobs, _ := filestore.Open(dataDir)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
 	upload, err := uploadService.Create(
@@ -233,7 +234,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	created, err := New(
 		database.SQL,
 		time.Now,
-	).WithBlobStore(blobs).
+	).WithFileStore(blobs).
 		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE", TagIDs: []string{defaultTag.TagID}})
 	testassert.Falsef(t, err != nil, "create import: %v", err)
 	var itemID string
@@ -363,13 +364,13 @@ WHERE core_id='mgba' AND logical_name='gba_bios.bin' AND enabled=1
 	}
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT size_bytes,md5,sha1,sha256
-FROM blobs
+FROM stored_files
 WHERE id=?
 `, sourceBlobID).Scan(&sourceSize, &md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
 	}
 	const biosInstallationID = "01990000-0000-7000-8000-000000000010"
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
@@ -394,11 +395,18 @@ WHERE d.id=?
 	}
 	biosSnapshot, err := corevalidation.ParseSnapshot(biosSnapshotJSON)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return biosValidationID == refreshedValidationID }, func() bool { return validationBIOSBlobID != sourceBlobID }, func() bool { return len(biosSnapshot.BIOS) != 1 }, func() bool { return biosSnapshot.BIOS[0].InstallationID == nil }, func() bool { return *biosSnapshot.BIOS[0].InstallationID != biosInstallationID }), "refreshed BIOS validation = %s snapshot=%s blob=%s error=%v", biosValidationID, biosSnapshotJSON, validationBIOSBlobID, err)
+	coverMetadata, err := blobs.Copy(ctx, sourceBlobID)
+	testassert.False(t, err != nil, err)
+	coverBlobID, err := filecatalog.EnsureRecord(ctx, database.SQL, coverMetadata, "image/png", time.Now().UnixMilli())
+	testassert.False(t, err != nil, err)
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE stored_files SET owner_kind='IMPORT_ITEM',owner_id=? WHERE id=?`, itemID, coverBlobID); err != nil {
+		t.Fatal(err)
+	}
 	manualCoverID := "01990000-0000-7000-8000-000000000001"
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "review_uploaded_assets", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "review_uploaded_assets", `
 INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
-`, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
+`, manualCoverID, itemID, upload.Files[0].ID, coverBlobID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	selected, err := importer.PatchDraft(ctx, itemID, 5, DraftPatch{
@@ -423,7 +431,7 @@ WHERE g.id=?
 		func() bool { return title != "Sudoku" },
 		func() bool { return titleInitial != "S" },
 		func() bool { return variantStatus != "READY" },
-		func() bool { return publishedCoverBlobID != sourceBlobID },
+		func() bool { return publishedCoverBlobID != coverBlobID },
 	), "published title/initial/status/cover = %s/%s/%s/%s", title, titleInitial, variantStatus, publishedCoverBlobID)
 	var publishedTags int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -491,7 +499,7 @@ SELECT
 	), "released import = items:%d job:%d files:%d source:%d assets:%d published:%d",
 		releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows)
 	var publishedDiscard, retainedBlob int
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT (SELECT count(*) FROM games WHERE title='Discarded'),(SELECT count(*) FROM blobs WHERE id=?)`, discardBlobID).Scan(&publishedDiscard, &retainedBlob); err != nil || publishedDiscard != 0 || retainedBlob != 1 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT (SELECT count(*) FROM games WHERE title='Discarded'),(SELECT count(*) FROM stored_files WHERE id=?)`, discardBlobID).Scan(&publishedDiscard, &retainedBlob); err != nil || publishedDiscard != 0 || retainedBlob != 1 {
 		t.Fatalf("discard payload: %d %d %v", publishedDiscard, retainedBlob, err)
 	}
 }

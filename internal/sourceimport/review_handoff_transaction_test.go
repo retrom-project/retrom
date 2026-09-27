@@ -63,8 +63,8 @@ func readHandoffState(t *testing.T, service *Service) handoffStoredState {
 	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT d.metadata_json,d.review_version,i.search_text,p.execution_state,p.warnings_json,p.version,
  parent.version,parent.review_pending_item_count,(SELECT count(*) FROM job_events),
  (SELECT count(*) FROM import_item_assets WHERE import_item_id=d.id),
- (SELECT COALESCE(sum(ref_count),0) FROM blobs),
- (SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE')
+ (SELECT count(*) FROM stored_files WHERE owner_kind='IMPORT_ITEM' AND owner_id='handoff-item' AND retired_at_ms IS NULL),
+ (SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP')
  FROM import_items d JOIN import_items i ON i.id=d.id
  JOIN source_import_items p ON p.library_import_item_id=i.id JOIN source_imports parent ON parent.id=p.import_id
  WHERE p.id='item'`).Scan(&result.Metadata, &result.DraftVersion, &result.Search, &result.State, &result.Warnings, &result.ItemVersion,
@@ -113,7 +113,7 @@ func TestReviewHandoffCommitsMetadataWarningsCountsAndEventOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := readHandoffState(t, service)
-	if after.State != "REVIEW_PENDING" || after.DraftVersion != before.DraftVersion+1 || after.ItemVersion != before.ItemVersion+2 || after.ParentVersion != before.ParentVersion+1 || after.Media != 2 || after.References != before.References+2 || after.ReleaseJobs != before.ReleaseJobs+1 || after.Pending != 1 || after.Events != before.Events+2 {
+	if after.State != "REVIEW_PENDING" || after.DraftVersion != before.DraftVersion+1 || after.ItemVersion != before.ItemVersion+2 || after.ParentVersion != before.ParentVersion+1 || after.Media != 2 || after.References != before.References+1 || after.ReleaseJobs != before.ReleaseJobs+1 || after.Pending != 1 || after.Events != before.Events+2 {
 		t.Fatalf("handoff projections: before=%#v after=%#v", before, after)
 	}
 	expected := `[{"code":"SOURCE_WARNING","field":"file"},{"code":"FIELD_TRUNCATED","field":"developer"}]`

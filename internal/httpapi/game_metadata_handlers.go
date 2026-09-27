@@ -43,7 +43,14 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		return
 	}
 	if errors.Is(err, gamemetadata.ErrMetadataInvalid) {
-		writeError(writer, request, http.StatusUnprocessableEntity, "SCRAPE_METADATA_INVALID", "候选元数据无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"SCRAPE_METADATA_INVALID",
+			"候选元数据无效",
+			map[string]any{},
+		)
 		return
 	}
 	if errors.Is(err, gamemetadata.ErrCandidateAsset) {
@@ -69,8 +76,8 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		server.databaseError(writer, request, err)
 		return
 	}
-	if server.payloadReleases != nil {
-		server.payloadReleases.Signal()
+	if server.cleanupJobs != nil {
+		server.cleanupJobs.Signal()
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(

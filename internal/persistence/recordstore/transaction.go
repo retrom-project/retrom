@@ -23,6 +23,9 @@ type validator func(context.Context, dbapi.Executor, ...any) error
 func create(
 	ctx context.Context, db dbapi.Executor, query string, args []any, table, columns string, check validator,
 ) (sql.Result, error) {
+	if !validTable(table) {
+		return nil, ErrInvariant
+	}
 	return Atomic(ctx, db, func(tx dbapi.Executor) (sql.Result, error) {
 		keys, err := insertedKeys(ctx, tx, query, args, "rowid,"+columns)
 		if err != nil {
@@ -35,9 +38,6 @@ func create(
 			if err := check(ctx, tx, key[1:]...); err != nil {
 				return nil, err
 			}
-		}
-		if err := insertedReferences(ctx, tx, table, keys); err != nil {
-			return nil, err
 		}
 		return driver.RowsAffected(len(keys)), nil
 	})

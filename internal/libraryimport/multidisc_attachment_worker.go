@@ -168,7 +168,7 @@ func (service *Service) multiDiscFileForValidation(
 	if err := service.heartbeatMultiDiscAttachment(ctx, candidate); err != nil {
 		return multidisc.File{}, err
 	}
-	reader, err := service.blobs.OpenDigest(file.blobSHA)
+	reader, err := service.blobs.OpenID(file.blobID)
 	if err != nil {
 		return multidisc.File{}, multiDiscAttachmentStoreError("open disc", err)
 	}

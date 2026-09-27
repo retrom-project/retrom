@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
 
 type mediaFixture struct {
 	database dbapi.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	now      time.Time
 	jobID    string
 	assets   []hasheous.AssetRef
@@ -62,7 +62,7 @@ func newEmptyMediaFixture(t *testing.T) *mediaFixture {
 	t.Helper()
 	fixture := &mediaFixture{database: recoveryDatabase(t), now: recoveryTime}
 	var err error
-	fixture.blobs, err = blobstore.Open(t.TempDir())
+	fixture.blobs, err = filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

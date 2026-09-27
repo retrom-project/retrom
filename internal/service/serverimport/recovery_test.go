@@ -32,7 +32,7 @@ func (memory *recoveryMemory) DATEntries(context.Context, string, string) ([]fir
 	memory.reads++
 	return memory.entries, memory.err
 }
-func (*recoveryMemory) Path(sha string) string { return "cas/" + sha }
+func (*recoveryMemory) Path(sha string) string { return "files/" + sha }
 
 func TestRecoveryDistinguishesCompletedDiscoveryFromPartialWork(t *testing.T) {
 	for _, phase := range []string{"", "PREPARING_ROOT", "DISCOVERING", "DISCOVERY_COMPLETED", "RANKING", "INSTALLING", "QUEUEING_REVALIDATION"} {
@@ -48,14 +48,14 @@ func TestRecoveryDistinguishesCompletedDiscoveryFromPartialWork(t *testing.T) {
 func TestRecoveryRestoresStatusAndReadsDATOncePerRequirement(t *testing.T) {
 	version, machine := "dat", "machine"
 	item := CatalogItem{RequirementID: "requirement", SourceKind: "DAT_MACHINE", DATVersionID: &version, DATMachineName: &machine}
-	evidence := CandidateEvidence{ID: "one", RequirementID: item.RequirementID, State: "ELIGIBLE", Facts: firmware.FileFacts{SHA256: "digest"}, DAT: &firmware.DATEvaluation{SafeArchive: true, Launchable: true, MismatchedCount: 1}}
+	evidence := CandidateEvidence{ID: "one", StorageID: "file-id", RequirementID: item.RequirementID, State: "ELIGIBLE", Facts: firmware.FileFacts{SHA256: "digest"}, DAT: &firmware.DATEvaluation{SafeArchive: true, Launchable: true, MismatchedCount: 1}}
 	memory := &recoveryMemory{records: []CandidateEvidence{evidence, evidence}, entries: []firmware.ExpectedDATEntry{{Name: "boot.rom"}}}
 	groups, err := NewRecovery(memory, memory).Candidates(t.Context(), "import", []CatalogItem{item})
 	if err != nil {
 		t.Fatal(err)
 	}
 	values := groups[item.RequirementID]
-	if len(values) != 2 || memory.reads != 1 || values[0].DAT.Status != "HASH_WARNING" || values[0].DAT.Method != "DAT_ENTRY_WARNING" || values[0].Metadata.Path != "cas/digest" || values[0].ExpectedDATEntries[0].Name != "boot.rom" {
+	if len(values) != 2 || memory.reads != 1 || values[0].DAT.Status != "HASH_WARNING" || values[0].DAT.Method != "DAT_ENTRY_WARNING" || values[0].Metadata.Path != "files/file-id" || values[0].ExpectedDATEntries[0].Name != "boot.rom" {
 		t.Fatalf("restored evidence: %+v reads=%d", values, memory.reads)
 	}
 	if memory.records[0].DAT.Status != "" {

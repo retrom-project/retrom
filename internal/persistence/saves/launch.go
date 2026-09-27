@@ -60,23 +60,23 @@ func (store records) Restore(ctx context.Context, id string) (saves.Restore, err
 	var result saves.Restore
 	var checkpoint []byte
 	err := dbapi.QueryRowContext(ctx, store.executor, `
-SELECT target.checkpoint_json,blob.sha256,blob.size_bytes,save.checkpoint_format
+SELECT target.checkpoint_json,blob.id,blob.sha256,blob.size_bytes,save.checkpoint_format
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
  AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=launch.id
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN blobs blob ON blob.id=save.payload_blob_id
+JOIN stored_files blob ON blob.id=save.payload_blob_id
  AND blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes
 WHERE launch.id=? AND (binding.launch_session_id IS NULL OR
  (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))
 UNION ALL
-SELECT target.checkpoint_json,blob.sha256,blob.size_bytes,preview.restore_checkpoint_format
+SELECT target.checkpoint_json,blob.id,blob.sha256,blob.size_bytes,preview.restore_checkpoint_format
 FROM review_preview_sessions preview
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
-JOIN blobs blob ON blob.id=preview.restore_payload_blob_id WHERE preview.id=?`, id, id).
-		Scan(&checkpoint, &result.Digest, &result.Size, &result.Format)
+JOIN stored_files blob ON blob.id=preview.restore_payload_blob_id WHERE preview.id=?`, id, id).
+		Scan(&checkpoint, &result.BlobID, &result.Digest, &result.Size, &result.Format)
 	if errors.Is(err, sql.ErrNoRows) {
 		return saves.Restore{}, saves.ErrCheckpointIncompatible
 	}

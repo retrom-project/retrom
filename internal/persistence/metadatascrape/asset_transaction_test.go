@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
 )
@@ -25,7 +25,7 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 		t.Fatalf("publication conflict leaked %d database connection(s)", stats.InUse)
 	}
 	var blobsCount int
-	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM blobs`).Scan(&blobsCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM stored_files`).Scan(&blobsCount); err != nil {
 		t.Fatal(err)
 	}
 	if blobsCount != 0 {

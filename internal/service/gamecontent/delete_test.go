@@ -98,7 +98,7 @@ func TestDeleteAdminGamePersistsAtomicWorkflowAndSignalsRelease(t *testing.T) {
 		impact: DeleteGameImpact{ImpactDigest: "impact", RegisteredBytes: "42", SourceKinds: []string{"USER_UPLOAD"}},
 	}
 	signal := &deleteGameTestSignal{}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
+	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithCleanup(signal)
 
 	result, err := service.DeleteAdminGame(t.Context(), validDeleteGameRequest())
 	if err != nil {

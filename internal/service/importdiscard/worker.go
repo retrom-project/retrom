@@ -10,7 +10,7 @@ import (
 )
 
 // Start reconciles persisted dispositions, including requests interrupted by a restart.
-// Work is bounded; the existing import jobs and PAYLOAD_RELEASE jobs retain their own lifecycle.
+// Work is bounded; the existing import jobs and OWNER_CLEANUP jobs retain their own lifecycle.
 func (service *Service) Start() {
 	service.wait.Add(1)
 	go func() {

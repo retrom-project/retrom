@@ -19,7 +19,7 @@ func (records *ReviewDependencies) MultiDiscSource(
 SELECT file.logical_name,blob.size_bytes,blob.sha256,
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxTotalBytes'),?)
-FROM import_item_source_snapshot_files file JOIN blobs blob ON blob.id=file.blob_id
+FROM import_item_source_snapshot_files file JOIN stored_files blob ON blob.id=file.blob_id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
 JOIN import_items item ON item.id=snapshot.import_item_id JOIN import_jobs job ON job.id=item.import_job_id
 WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
@@ -35,8 +35,10 @@ WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
 	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.ordinal,entry.source_reference,entry.canonical_name,entry.state,
-entry.source_logical_name,blob.size_bytes,blob.sha256 FROM import_item_multidisc_entries entry
-LEFT JOIN blobs blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
+entry.source_logical_name,blob.size_bytes,blob.sha256 FROM import_item_multidisc_entries
+entry
+LEFT JOIN stored_files blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=?
+ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return application.MultiDiscSource{}, fmt.Errorf("query review discs: %w", err)
 	}
@@ -70,7 +72,8 @@ SELECT attachment.id,attachment.state,attachment.error_code,attachment.diagnosti
 attachment.job_id,job.state,job.error_retryable,job.version,
 attachment.version,attachment.created_at_ms,attachment.updated_at_ms,attachment.finished_at_ms
 FROM review_multidisc_attachments attachment JOIN jobs job ON job.id=attachment.job_id
-WHERE attachment.import_item_id=? ORDER BY attachment.created_at_ms DESC,attachment.id DESC`, itemID)
+WHERE attachment.import_item_id=? ORDER BY attachment.created_at_ms DESC,attachment.id
+DESC`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query multi-disc attachments: %w", err)
 	}

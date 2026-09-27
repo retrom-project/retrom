@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
@@ -17,7 +18,10 @@ type (
 
 func NewRecorder(database dbapi.DB) *ResultRepository { return &ResultRepository{database: database} }
 
-func (repository *ResultRepository) WithWrite(ctx context.Context, work func(metadatascrape.ResultScope) error) error {
+func (repository *ResultRepository) WithWrite(
+	ctx context.Context,
+	work func(metadatascrape.ResultScope) error,
+) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin scrape result: %w", err)
@@ -37,11 +41,12 @@ func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.
 	var allowed bool
 	err := dbapi.QueryRowContext(
 		ctx, records.transaction,
-
 		`SELECT EXISTS(SELECT 1 FROM metadata_scrape_runs r
- JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND
+ JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=?
+AND
 j.execution_no=?
- AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND
+ AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>?
+AND
 j.execution_deadline_at_ms>?
  AND (r.game_id IS NULL OR g.status='PUBLISHED'))`,
 		claim.RunID,
@@ -63,7 +68,6 @@ func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascr
 	var hashes metadatascrape.Hashes
 	err := dbapi.QueryRowContext(
 		ctx, records.transaction,
-
 		`SELECT crc32,md5,sha1,sha256 FROM content_hash_evidence WHERE id=?`,
 		id,
 	).
@@ -78,9 +82,23 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 	var blobID *string
 	state := "NONE"
 	if value.Blob != nil {
-		id, err := blobcatalog.EnsureRecord(ctx, records.transaction, *value.Blob, "application/json", value.Now)
+		id, err := filecatalog.EnsureRecord(
+			ctx,
+			records.transaction,
+			*value.Blob,
+			"application/json",
+			value.Now,
+		)
 		if err != nil {
 			return fmt.Errorf("register raw provider response: %w", err)
+		}
+		if err := fileownership.Adopt(
+			ctx,
+			records.transaction,
+			id,
+			fileownership.Owner{Kind: "PROVIDER_RESPONSE", ID: value.ID},
+		); err != nil {
+			return fmt.Errorf("results: %w", err)
 		}
 		blobID = &id
 		state = "RETAINED"
@@ -89,12 +107,13 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 	if value.HTTPStatus != 0 {
 		status = &value.HTTPStatus
 	}
-	_, err := recordstore.CreateReferences(
+	_, err := recordstore.InsertRows(
 		ctx,
 		records.transaction,
 		"metadata_provider_responses",
 		`INSERT INTO metadata_provider_responses
- (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
+ (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,
+fetched_at_ms,expires_at_ms)
  VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)`,
 		value.ID,
 		value.RequestDigest,
@@ -115,7 +134,8 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 		ctx,
 		records.transaction,
 		`INSERT INTO metadata_provider_cache
- (provider,request_digest,current_response_id,expires_at_ms,updated_at_ms) VALUES('HASHEOUS',?,?,?,?)
+ (provider,request_digest,current_response_id,expires_at_ms,updated_at_ms) VALUES('HASHEOUS',
+?,?,?,?)
  ON CONFLICT(provider,request_digest) DO UPDATE SET current_response_id=excluded.current_response_id,
  expires_at_ms=excluded.expires_at_ms,updated_at_ms=excluded.updated_at_ms`,
 		value.RequestDigest,

@@ -17,16 +17,18 @@ func (store requirementRecords) Get(ctx context.Context, id string) (firmware.Re
 q.catalog_digest,q.archive_members_json
 FROM bios_requirements q JOIN runtime_targets target ON target.provider_id=q.provider_id
 AND target.target_id=q.target_id
-WHERE q.id=?`, id).Scan(&value.ID, &value.SourceKind, &value.FileKind, &value.LogicalName, &value.Size,
-		&value.MD5, &value.SHA1, &value.SHA256, &value.Version, &value.Enabled, &value.ProviderID, &value.TargetID,
-		&value.SourceVersion, &value.CatalogDigest, &value.ArchiveMembersJSON)
+WHERE q.id=?`, id).
+		Scan(&value.ID, &value.SourceKind, &value.FileKind, &value.LogicalName, &value.Size,
+			&value.MD5, &value.SHA1, &value.SHA256, &value.Version, &value.Enabled, &value.ProviderID, &value.TargetID,
+			&value.SourceVersion, &value.CatalogDigest, &value.ArchiveMembersJSON)
 	return optionalBIOSRecord(value, err)
 }
 
 func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload, bool, error) {
 	var value firmware.Upload
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT f.id,f.upload_session_id,f.relative_path,f.state,
- b.id,b.size_bytes,b.md5,b.sha1,b.sha256 FROM upload_files f JOIN blobs b ON b.id=f.final_blob_id WHERE f.id=?`, id).
+ b.id,b.size_bytes,b.md5,b.sha1,b.sha256 FROM upload_files f JOIN stored_files b ON b.id=f.final_blob_id
+WHERE f.id=?`, id).
 		Scan(
 			&value.ID,
 			&value.SessionID,
@@ -41,10 +43,14 @@ func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload,
 	return optionalBIOSRecord(value, err)
 }
 
-func (store installationRecords) Active(ctx context.Context, id string) (firmware.ActiveInstallation, bool, error) {
+func (store installationRecords) Active(
+	ctx context.Context,
+	id string,
+) (firmware.ActiveInstallation, bool, error) {
 	var value firmware.ActiveInstallation
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
- status,validated_requirement_version FROM bios_installations WHERE requirement_id=? AND is_active=1`, id).
+ status,validated_requirement_version FROM bios_installations WHERE requirement_id=? AND
+is_active=1`, id).
 		Scan(
 			&value.ID,
 			&value.BlobID,

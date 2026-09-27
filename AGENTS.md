@@ -68,7 +68,7 @@
 - 禁止使用数据库 VIEW 和 TRIGGER；迁移与运行时代码不得创建或依赖它们，相关查询、校验与联动使用应用层显式 SQL，并在事务中保证一致性。
 - HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
 - 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
-- 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
+- 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/filestore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
 - 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。
 - 已发布数据库只能通过有序 migration 演进；运行时代码不得动态修补 schema。每个迁移都要覆盖新建库和旧库升级路径。
 - SQLite 中表示业务时刻的字段必须为 Unix 毫秒 `INTEGER`，命名为 `*_at_ms`；Go/API 使用 `int64`。详细规则见存储专题。
@@ -132,7 +132,7 @@
 | 沉浸模式入口、平台/游戏浏览、资料库、收藏、存档、音频、焦点、全屏恢复、菜单或返回导航 | `ACC-IMM-001`–`012` 中与改动直接对应的精确 Case；涉及真实启动/返回时覆盖对应 Player Case，并保留普通 UI 隔离 | 只有改到共享 adapter、Core 帧执行、runtime config/content 时才追加 `ACC-RUN/SAVE` |
 | 普通 Player 外围 UI（工具栏、全屏、方向门禁、退出导航） | 对应 `ACC-RUN-002`–`004`、`ACC-MOB-*` 或领域精确 Case；共享分支需补普通/沉浸隔离 | 进入 iframe 装载、帧步进、state、输入 adapter 或内容装配时扩大到受影响 Core 产品 Case |
 | Core adapter、EmulatorJS 版本、运行配置、ROM/BIOS/Parent、存档/多盘恢复 | 对应 `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-MDISC-*` 与受影响 Core 的真实产品链 | 修改所有 Core 共享 adapter/loader、manifest 或无法枚举消费者时运行完整 `make web-e2e` |
-| 导入、审核、媒体、删除、容量/GC | 对应格式和链路的 `ACC-PEG/ES/GAME/MEDIA/STOR-*`，以及相关 HTTP/SQLite/CAS 集成测试 | 只有修改共享导入/审核/ownership/release 基础设施时扩大到所有直接消费者 |
+| 导入、审核、媒体、删除、容量/文件删除 | 对应格式和链路的 `ACC-PEG/ES/GAME/MEDIA/STOR-*`，以及相关 HTTP/SQLite/独立文件存储集成测试 | 只有修改共享导入/审核/ownership/release 基础设施时扩大到所有直接消费者 |
 | 依赖 manifest、DAT、许可、镜像 | `data-check/prepare-deps/deps-check` 或 `build-images` | 物化结果进入 Player/Core 时再追加对应运行产品 Case |
 
 Case 的步骤、硬超时和通过标准只以 `docs/project-acceptance.md` 为准；上表只负责选用场景，不复制验收规范。
@@ -212,9 +212,9 @@ make ci
 
 ## 9. 安全与破坏性操作
 
-- 文件上传、归档展开、CAS、运行时内容端点和路径处理必须防止目录穿越、符号链接逃逸、压缩炸弹和越权 Blob 访问，并有负向测试。
+- 文件上传、归档展开、独立文件存储、运行时内容端点和路径处理必须防止目录穿越、符号链接逃逸、压缩炸弹和越权 Blob 访问，并有负向测试。
 - 不记录 ROM/BIOS 内容、launch capability/cookie、完整宿主路径或上游敏感响应；可记录非秘密 `launchId` 用于关联诊断。
-- 删除、覆盖、批量迁移或垃圾回收前必须精确解析目标并证明仍受引用保护；优先使用可恢复方案。
+- 删除、覆盖、批量迁移或文件回收前必须精确解析目标、验证所属领域与退休状态；优先使用可恢复方案。
 - 不得对用户工作树执行 `git reset --hard`、无范围删除或其他难以恢复的操作，除非用户明确授权。
 
 ## 10. 交付说明

@@ -20,7 +20,7 @@ func ValidateReviewRuntimeScreenshots(ctx context.Context, db dbapi.Executor, ke
 func UpsertReviewRuntimeScreenshots(
 	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
 ) (sql.Result, error) {
-	return upsertReferences(
+	return upsertRecords(
 		ctx,
 		db,
 		"review_runtime_screenshots",

@@ -70,8 +70,9 @@ INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms)
 VALUES(?,?,?,7000)
 `, profileID, folderID, favoriteGameID)
 	statePayload := []byte("state")
-	stateBlobID := seedImmersiveBlob(t, server, transaction, string(statePayload), "application/octet-stream", 7000)
-	screenshotBlobID := seedImmersiveBlob(t, server, transaction, "screenshot", "image/png", 7000)
+	stateBlobID := seedImmersiveBlob(t, server, transaction, savedGameID, string(statePayload), "application/octet-stream", 7000)
+	screenshotBlobID := seedImmersiveBlob(t, server, transaction, savedGameID, "screenshot", "image/png", 7000)
+	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='SAVE_STATE',owner_id=? WHERE id IN (?,?)`, saveStateID, stateBlobID, screenshotBlobID)
 	var launchID string
 	err = dbapi.QueryRowContext(t.Context(), transaction, `
 SELECT launch.id

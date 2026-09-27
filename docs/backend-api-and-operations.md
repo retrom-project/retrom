@@ -12,7 +12,7 @@
 
 ## 1. 架构结论
 
-一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件写入本地 SHA-256 CAS。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
+一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件写入本地 SHA-256 独立文件存储。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
 
 ~~~mermaid
 flowchart LR
@@ -23,13 +23,13 @@ flowchart LR
     Go --> API["HTTP API / runtime content"]
     Go --> Worker["进程内 Worker"]
     Go --> DB["SQLite"]
-    Go --> CAS["本地 CAS"]
+    Go --> 独立文件存储["本地独立文件存储"]
     Worker --> DB
-    Worker --> CAS
+    Worker --> 独立文件存储
     Worker -->|哈希元信息查询| Hasheous["Hasheous API"]
 ~~~
 
-选择该形态是为了让浏览器始终看到同一 HTTPS origin，同时保持后端自托管、备份和故障恢复简单。Go 与 Next.js 应用只处理 HTTP；证书生命周期和 TLS 策略完全留在 NG。
+选择该形态是为了让浏览器始终看到同一 HTTPS origin，同时保持后端自托管和故障排查简单。Go 与 Next.js 应用只处理 HTTP；证书生命周期和 TLS 策略完全留在 NG。
 
 ## 2. 进程与模块边界
 
@@ -44,7 +44,7 @@ internal/format/emulationstation/meta/ 严格 EmulationStation XML 解析与规�
 internal/format/emulationstation/gamelist/ 有界 XML 文件组织扫描与统一结果适配
 internal/format/pegasus/meta/ Pegasus metadata 解析与规范化
 internal/persistence/importfiles/ 所有来源共享的接收文件表
-internal/sourceimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
+internal/sourceimport/   服务器目录、metadata/媒体读取、独立文件存储写入及路径脱敏适配器
 internal/service/sourceimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
 internal/persistence/sourceimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/metadata/        Hasheous 适配器与缓存
@@ -78,7 +78,7 @@ internal/persistence/isolation/ 票据、会话与 capability 读取及原子签
 internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策
 internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
-internal/blobstore/       CAS 写入、读取、引用与垃圾回收
+internal/filestore/       独立文件存储写入、读取、引用与垃圾回收
 internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
 internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
@@ -94,12 +94,10 @@ internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放�
 internal/service/gamecontent/ 内容替换校验、执行身份与发布业务编排
 internal/persistence/gamecontent/ 上传消费、租约、内容及事件的原子持久化
 internal/persistence/contentquery/ 共用内容能力投影与数据库值映射
-internal/service/maintenance/ 离线备份、恢复校验和安全撤销编排
-internal/persistence/maintenance/ 数据库检查点、引用清单和恢复写事务
 internal/composition/     Repository 注入和跨模块端口适配
 internal/persistence/jobs/ 任务状态、快照和事件的事务读写
-internal/service/blobgc/  确定性 GC 维护入口与计数结果
-internal/persistence/blobgc/ Blob 计数与保护引用读取
+internal/service/filedeletion/  确定性 后台删除 维护入口与计数结果
+internal/persistence/filedeletion/ Blob 计数与保护引用读取
 internal/database/        SQL 查询、执行、事务接口及单行查询辅助
 internal/database/sqlite/ SQLite 连接池与事务适配器
 internal/store/           SQLite 初始化、迁移与 lineage 校验
@@ -115,7 +113,7 @@ data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-de
 data/runtime-target-bindings/ 产品 Core 到 Provider Target 的唯一绑定 catalog
 ```
 
-依赖方向遵循 `httpapi/jobs -> application modules -> store/blobstore`。HTTP handler 不直接拼 SQL，DAT 解析器不写游戏元信息，Hasheous 适配器不判断 Arcade 可运行性。
+依赖方向遵循 `httpapi/jobs -> application modules -> store/filestore`。HTTP handler 不直接拼 SQL，DAT 解析器不写游戏元信息，Hasheous 适配器不判断 Arcade 可运行性。
 
 前端按能力分区：
 
@@ -139,7 +137,7 @@ Handler 负责协议解析、身份提取和结果映射，通过 Service 执行
 
 数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。SQLite 适配器在 `internal/database/sqlite` 内持有 `sql.DB`、`sql.Tx` 和独占连接，提供普通、只读及 `BEGIN IMMEDIATE` 事务；Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
-公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
+公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`fileownership` 维护唯一 owner，`filecatalog` 登记独立文件。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
@@ -147,17 +145,17 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 
 独立运行域授权 Service 验证凭据编码、会话类型/状态、过期与撤销，Repository 返回业务记录并将票据消费与 capability 签发绑定到同一事务；凭据只以 digest 进入持久化端口。
 
-通用任务 Service 先判定取消或重试资格，再通过一个事务内的业务端口写入任务、事件及新的执行输入；服务器 BIOS 导入的关联取消共享该事务。存储故障保留原因，缺失记录与版本冲突映射为业务冲突。GC 维护入口通过独立端口调用持久 payload release dispatcher，并读取计数与保护集合。
+通用任务 Service 先判定取消或重试资格，再通过一个事务内的业务端口写入任务、事件及新的执行输入；服务器 BIOS 导入的关联取消共享该事务。存储故障保留原因，缺失记录与版本冲突映射为业务冲突。后台删除维护入口通过独立端口调用持久 cleanup dispatcher，仅从文件 owner 的退休决定补齐删除任务。
 
 Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
 
-Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewSourceImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/sourceimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
+Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewSourceImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/sourceimport` 包只保留文件/独立文件存储适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
 
 Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
 
-沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
+沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 独立文件、owner、退休状态与用途快照，Service 按 owner 分类并完成受检整数汇总；聚合不再占用数据库事务。
 
-分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、GC 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
+分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、后台删除 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
 
 ## 3. HTTP 与数据约定
 
@@ -227,7 +225,7 @@ handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂�
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 Blob 即时回收。当前 `composition/payloadrelease` 组装领域释放与 GC，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 Blob 即时回收。当前 `composition/cleanupjobs` 组装领域释放与 后台删除，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 FILE_DELETE；领域终态只创建持久 Job，不自行删独立文件存储。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 
@@ -268,7 +266,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 创建容器、网络或 volume；
 - 登录 registry、push 镜像或部署服务；
 - 启停本地开发进程；
-- 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
+- 读取或打包用户 ROM、BIOS、SQLite、独立文件存储、测试截图或 TLS 私钥。
 
 两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先读取 `data/runtime-providers/release.json` 的唯一 tag，从固定 runtime 仓库的该 Release 解析 `provider-release.json`，校验两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
 
@@ -307,7 +305,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 PFB 是与 `make dev` 并列的本机容器化联调入口。只有 `make pfb-*` 可以管理开发容器、共享网络、共享开发网关和 PFB 状态；它不改变生产双镜像，也不成为 `ci`、`build-images` 或普通 `make dev` 的隐式依赖。
 
-- 每个 PFB 使用同一棵 Retrom/runtime Git worktree、一个应用容器和位于 Retrom worktree `.pfb/workspace/` 下的独立数据、CAS、secret、Provider 开发层、Node、Next 与 Go cache。应用容器不发布宿主端口。
+- 每个 PFB 使用同一棵 Retrom/runtime Git worktree、一个应用容器和位于 Retrom worktree `.pfb/workspace/` 下的独立数据、独立文件存储、secret、Provider 开发层、Node、Next 与 Go cache。应用容器不发布宿主端口。
 - 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者；registry、锁和生成的 Nginx 配置归根工作区被 Git 忽略的 `.pfb/` 管理，不使用用户全局状态目录。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；二者同 site、不同 origin。
 - 裸 `http://localhost:3000` 只对 GET/HEAD 307 到显式选中的 PFB；写方法返回 409。合法 app/runtime Host 经严格解析后映射到 `retrom-pfb-<pfb-id>` Docker 网络别名，未知或畸形 Host 不连接任何上游。
 - 普通 `make dev` 使用宿主 `127.0.0.1:4000`，共享网关使用 `127.0.0.1:3000`，两者必须能够并行运行。全部 PFB 命令与直接 CLI 都拒绝 root/sudo；PFB 应用与共享网关容器显式使用发起命令的普通用户 UID/GID。
@@ -366,11 +364,10 @@ TLS 终结外置不等于忽略代理安全：
 RETROM_DATA_DIR/
   retrom.lock
   retrom.db
-  blobs/sha256/ab/cd/<full-sha256>
+  files/<id-prefix>/<uuid>
   secrets/launch-capability.key
   tmp/uploads/
   tmp/jobs/
-  backups/
 ```
 
 一期环境变量契约固定如下；配置在启动时一次读取并校验，业务代码不直接读环境：
@@ -407,7 +404,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 9. 账户模式与安全边界
 
-无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，通过网页 `/setup` 填写管理员用户名、显示名称、密码及密码确认即可创建首位管理员并登录；初始化完成后不可重开。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
+无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，通过网页 `/setup` 填写管理员用户名、显示名称、密码及密码确认即可创建首位管理员并登录；初始化完成后不可重开。
 
 初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
 
@@ -423,31 +420,27 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 离线管理员恢复由 Service 校验目标、准备密码哈希，并在写入前重新检查管理员角色与版本。Repository 将账户启用、凭据替换、安全会话与重置链接撤销、默认密码标记清除和审计作为一个事务提交；任一步失败均回滚。
 
-已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档或截图；主机操作者因可读取 data root/backup/进程内存属于更高信任域，部署方必须用文件权限、磁盘加密和备份访问控制保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
+已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档或截图；主机操作者因可读取 data root/进程内存属于更高信任域，部署方必须用文件权限与磁盘加密保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
 
 ## 10. 可观测性与故障诊断
 
 - 每个 HTTP 请求和后台任务携带 `request_id` / `job_id`，结构化日志包含稳定错误码。
-- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、两个 active Provider Bundle 的完整性、当前 Provider Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
+- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、独立文件存储数据根、两个 active Provider Bundle 的完整性、当前 Provider Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`FILE_STORAGE_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
 - 管理后台任务详情展示阶段、进度、最近错误、重试次数和下次重试时间，不展示堆栈。
 - 启动失败日志关联 `launchId`、game、GameVariant、Provider Target、DAT 版本和缺失依赖，但不记录 capability。
 - RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、`providerId/targetId/bundleSha256`、checkpoint format、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、Provider/Target version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - EmulationStation 事件只记录 import/job ID、phase、封闭计数、执行时长和稳定错误码；不得记录 XML 文本、`command/emulator/core/provider` 值、标题、ROM/媒体 basename、绝对路径、facts digest 或底层 `os.PathError`。管理员失败详情只使用 OpenAPI 封闭字段和截断后的低敏技术 code。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
-- `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记 CAS payload 的用途总量；不得扫描宿主目录或返回资源标识。`POST /api/v1/admin/storage-cleanups` 只允许 ADMIN 在 CSRF/幂等保护下把当前未引用候选推进为立即可执行，仍由既有 PayloadRelease/BLOB_GC worker 逐 Blob 复核并回收；HTTP 不同步删除文件，也不返回 Blob/Job 标识。`OTHER_REFERENCED` 非零时日志只记录 category、count 和 bytes，禁止输出 Blob ID/hash/路径。
+- `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记独立文件存储 payload 的用途总量；不得扫描宿主目录或返回资源标识。`POST /api/v1/admin/storage-cleanups` 只允许 ADMIN 在 CSRF/幂等保护下把当前已退休候选推进为立即可执行，仍由既有 OwnerCleanup/FILE_DELETE worker 逐 Blob 复核并回收；HTTP 不同步删除文件，也不返回 Blob/Job 标识。未知 owner 分类使统计失败；日志不得输出文件 ID/hash/路径。
 
-## 11. 备份、恢复与 lineage
+## 11. 数据库初始化
 
-一致备份使用同一 `retrom` 二进制的离线 `backup`/`restore` 子命令；没有 HTTP Backup API，也不允许在 serve/worker 仍持有数据根 lock 时复制。bundle 包含离线 checkpoint、关闭全部 handle 后复制并二次校验的单文件 SQLite 快照、该快照全部 `blobs` 行对应的 CAS 文件、未完成 UploadPart、`secrets/launch-capability.key`、已配置版本的小型 dependency manifest/SHA256SUMS，以及 `backup.json` 中唯一的 active/有序版本配置与 migration lineage digest；已排队但尚未完成 GC 的 Blob 仍有数据库行，不能从原样快照的 bundle 中裁掉。精确 v2 目录与封闭 JSON schema见存储专题；不存在第二份运行配置文件。内置大 DAT/runtime/许可 payload 不进入 bundle，由部署方在恢复服务启动前按 manifest 预先物化。该流程只依赖标准 SQL/文件 API，不要求 `modernc.org/sqlite` 暴露私有 Backup API。密钥按 secret 文件处理且不出现在日志或 manifest 明文。
-
-精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability 全部无效。命令本身不启动服务、不覆盖旧目录。
-
-当前未发布基线只接受 001–016 bootstrap 的精确有序前缀或完整集合；旧开发数据库停机归档并重建，不进行兼容升级。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
+当前未发布基线使用 `001`–`015` bootstrap 创建新数据库，不提供旧开发数据的兼容转换。启动时只接受当前 migration 的精确有序前缀或完整集合；未知版本、名称或 checksum 不匹配时在业务写入前拒绝启动。数据库细节见[存储与数据库](./storage-and-database.md)。
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。Provider 安装、Target binding、dispatcher 与向前升级执行 `ACC-PROVIDER-001`–`008`；RPG 七世代、运行依赖、unique origin 和跨 Launch 精确 checkpoint 恢复执行 `ACC-RPG-001`–`012`，其中 `ACC-RPG-008` 必须显式传 `RPG_MZ_SMOKE_ROOT`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；EmulationStation parser、外部来源、handoff、恢复/释放和产品运行链执行 `ACC-ES-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。Provider 安装、Target binding、dispatcher 与向前升级执行 `ACC-PROVIDER-001`–`008`；RPG 七世代、运行依赖、unique origin 和跨 Launch 精确 checkpoint 恢复执行 `ACC-RPG-001`–`012`，其中 `ACC-RPG-008` 必须显式传 `RPG_MZ_SMOKE_ROOT`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、崩溃恢复、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；EmulationStation parser、外部来源、handoff、恢复/释放和产品运行链执行 `ACC-ES-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 联合覆盖。
 
 ## 13. 服务器导入运维
 

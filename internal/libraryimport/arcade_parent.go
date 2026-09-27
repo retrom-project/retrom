@@ -261,7 +261,7 @@ func (setup *parentAttachmentSetup) loadUpload() error {
 	}
 	setup.uploadSessionID, setup.originalName = upload.UploadSessionID, upload.RelativePath
 	setup.blobID, setup.blobSHA, setup.blobSize = upload.BlobID, upload.BlobSHA, upload.BlobSize
-	info, err := os.Stat(setup.service.blobs.Path(setup.blobSHA))
+	info, err := os.Stat(setup.service.blobs.Path(setup.blobID))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != setup.blobSize {
 		return parentError(ParentErrorInvalid, err)
 	}

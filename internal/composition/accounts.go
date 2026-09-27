@@ -45,7 +45,6 @@ func NewAccounts(
 		),
 		Authentication: accounts.NewAuthentication(accountpersistence.NewAuthentication(database), hasher, mint, dummy, now),
 		Passwords:      accounts.NewPasswords(accountpersistence.NewPasswords(database), hasher, blocklist, mint, now),
-		Recovery:       accounts.NewRecovery(accountpersistence.NewRecovery(database), hasher, blocklist, now),
 		Directory:      accounts.NewDirectory(accountpersistence.NewDirectory(database), now),
 		Administration: accounts.NewAdministration(accountpersistence.NewAdministration(database), now),
 		Links:          accounts.NewLinks(links, credentials, now),

@@ -4,19 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )
 
 func (records screenshotRecords) Replace(ctx context.Context, plan application.ScreenshotWrite) error {
 	image, source, now := plan.Image, plan.Source, plan.AtMS
-	blobID, err := blobcatalog.EnsureRecord(
+	blobID, err := filecatalog.EnsureRecord(
 		ctx,
 		records.executor,
-		blobstore.Metadata{
-			Path:   image.StoragePath,
+		filestore.Metadata{
+			ID: image.BlobID, Path: image.StoragePath,
 			SHA256: image.SHA256,
 			MD5:    image.MD5,
 			SHA1:   image.SHA1,
@@ -29,8 +30,16 @@ func (records screenshotRecords) Replace(ctx context.Context, plan application.S
 	if err != nil {
 		return fmt.Errorf("register screenshot blob: %w", err)
 	}
+	if err := fileownership.Adopt(
+		ctx,
+		records.executor,
+		blobID,
+		fileownership.Owner{Kind: "IMPORT_ITEM", ID: source.ItemID},
+	); err != nil {
+		return fmt.Errorf("screenshot write: %w", err)
+	}
 	// Retain only the current trial result for the item, including across validations.
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		records.executor,
 		"review_runtime_screenshots",
@@ -59,13 +68,11 @@ provider_id=excluded.provider_id,target_id=excluded.target_id,
 blob_id=excluded.blob_id,media_type=excluded.media_type,
 width_px=excluded.width_px,height_px=excluded.height_px,
 captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms`,
-
 		plan.ID,
 		source.ItemID,
 		source.PreviewID,
 		source.SourceSnapshotID,
 		source.ValidationID,
-
 		source.ProviderID,
 		source.TargetID,
 		blobID,

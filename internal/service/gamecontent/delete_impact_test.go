@@ -21,16 +21,16 @@ func TestImpactQueriesClassifyUniqueBlobsAndFreezeTheDigest(t *testing.T) {
 	t.Parallel()
 	input := ImpactSnapshot{
 		GameID: "game", Blobs: []ImpactBlob{
-			{ID: "exclusive", SizeBytes: 10, ProtectiveReferences: 2, GameReferences: 2},
-			{ID: "shared", SizeBytes: 20, ProtectiveReferences: 3, GameReferences: 1},
-			{ID: "exclusive", SizeBytes: 10, ProtectiveReferences: 2, GameReferences: 2},
+			{ID: "exclusive", SizeBytes: 10},
+			{ID: "shared", SizeBytes: 20},
+			{ID: "exclusive", SizeBytes: 10},
 		}, SourceKinds: []string{"IMPORT_RECEIVE", "IMPORT_RECEIVE", "IMPORT_REVIEW", "ADMIN_REPLACE"},
 		Counts: ImpactCounts{SaveStates: 1, Assets: 2, ContentFiles: 3, ActiveLaunches: 4},
 	}
 	result, err := NewImpactQueries(impactMemory{snapshot: input}).Game(t.Context(), "game")
 	want := GameImpact{
-		ImpactDigest: result.ImpactDigest, RegisteredBytes: "30", ExclusiveBytes: "10", SharedBytes: "20",
-		BlobCount: 2, SaveStateCount: 1, AssetCount: 2, ContentFileCount: 3, ActiveLaunchCount: 4,
+		ImpactDigest: result.ImpactDigest, RegisteredBytes: "30",
+		FileCount: 2, SaveStateCount: 1, AssetCount: 2, ContentFileCount: 3, ActiveLaunchCount: 4,
 		SourceKinds: []string{"ADMIN_REPLACE", "SERVER_SCAN", "USER_UPLOAD"},
 	}
 	if err != nil || !reflect.DeepEqual(result, want) {
@@ -57,7 +57,7 @@ func TestImpactQueriesRejectCorruptOrOverflowingSnapshots(t *testing.T) {
 	for name, snapshot := range map[string]ImpactSnapshot{
 		"overflow":           {GameID: "game", Blobs: []ImpactBlob{{ID: "a", SizeBytes: math.MaxInt64}, {ID: "b", SizeBytes: 1}}},
 		"negative-size":      {GameID: "game", Blobs: []ImpactBlob{{ID: "a", SizeBytes: -1}}},
-		"negative-reference": {GameID: "game", Blobs: []ImpactBlob{{ID: "a", ProtectiveReferences: -1}}},
+		"empty-file-id":      {GameID: "game", Blobs: []ImpactBlob{{ID: "", SizeBytes: 1}}},
 		"negative-count":     {GameID: "game", Counts: ImpactCounts{SaveStates: -1}},
 		"duplicate-mismatch": {GameID: "game", Blobs: []ImpactBlob{{ID: "a", SizeBytes: 1}, {ID: "a", SizeBytes: 2}}},
 		"scope":              {GameID: "another"},

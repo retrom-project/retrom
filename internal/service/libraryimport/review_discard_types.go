@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
@@ -78,7 +78,7 @@ type ReviewBatchDiscardRepository interface {
 	Release(context.Context, string, int64) error
 }
 type ReviewDiscardScope struct {
-	Payload payloadrelease.ItemSchedulingScope
+	Payload cleanupjobs.ItemSchedulingScope
 	Reader  ReviewDiscardReader
 	Tags    tagging.ReferenceReader
 	Writer  ReviewDiscardWriter

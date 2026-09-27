@@ -79,7 +79,7 @@ func (service *Service) applyCandidateInScope(
 	if !changed {
 		return ErrVersionConflict
 	}
-	if err := scope.StageCandidates(ctx, result.ReplacedBlobIDs); err != nil {
+	if err := scope.StageCandidates(ctx, request.GameID, result.ReplacedBlobIDs, now); err != nil {
 		return fmt.Errorf("stage replaced candidate assets: %w", err)
 	}
 	result.Version = request.ExpectedVersion + 1

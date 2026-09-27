@@ -58,3 +58,7 @@ func TestContentRetirementPreservesMutationCause(t *testing.T) {
 		t.Fatalf("retirement lost write cause: %v", err)
 	}
 }
+
+func (memory *retirementMemory) RetireContent(context.Context, string, int64) error {
+	return memory.failure
+}

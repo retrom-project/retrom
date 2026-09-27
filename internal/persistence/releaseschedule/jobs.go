@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 // Records writes only immutable jobs and events inside a domain-owned transaction.
@@ -16,7 +16,7 @@ func (records Records) CreateJob(ctx context.Context, job application.ScheduledJ
 	result, err := records.Executor.ExecContext(ctx, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,'PAYLOAD_RELEASE',?,1,'{"inputExecutionNo":1}',0,'QUEUED',0,4,1,?,?,?)
+VALUES(?,?,?,'OWNER_CLEANUP',?,1,'{"inputExecutionNo":1}',0,'QUEUED',0,4,1,?,?,?)
 `, job.ID, job.Scope.Type, job.Scope.ID, job.DedupeKey, job.NowMS, job.NowMS, job.NowMS)
 	if err := schedulingWrite(result, err); err != nil {
 		return fmt.Errorf("create payload release job: %w", err)

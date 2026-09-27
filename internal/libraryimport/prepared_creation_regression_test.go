@@ -4,9 +4,12 @@ package libraryimport
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,9 +19,9 @@ import (
 func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 	t.Parallel()
 	service, request, digest := preparedRPGFixture(t)
-	artifactPath := service.blobs.Path(digest)
-	if _, err := os.Stat(artifactPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("fixture already materialized RPG output: %v", err)
+	artifactRoot := filepath.Dir(filepath.Dir(service.blobs.Path("018fbe68-0000-7000-8000-000000000001")))
+	if preparedDigestExists(t, artifactRoot, digest) {
+		t.Fatal("fixture already materialized RPG output")
 	}
 	cause := errors.New("stop at prepared creation write")
 	artifactReady := false
@@ -30,8 +33,7 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 				return nil
 			}
 			writes++
-			_, err := os.Stat(artifactPath)
-			artifactReady = err == nil
+			artifactReady = preparedDigestExists(t, artifactRoot, digest)
 			return cause
 		},
 	})
@@ -42,4 +44,22 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 	if !artifactReady {
 		t.Fatal("RPG MKXPZ builder had not run when creation started writing")
 	}
+}
+
+func preparedDigestExists(t *testing.T, root, digest string) bool {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(root, "*", "*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprintf("%x", sha256.Sum256(contents)) == digest {
+			return true
+		}
+	}
+	return false
 }

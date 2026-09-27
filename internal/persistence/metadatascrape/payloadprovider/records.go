@@ -7,8 +7,9 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type Records struct{ Executor dbapi.Executor }
@@ -62,6 +63,14 @@ AND ` + providerNoRunning,
 	})
 	if err := expirationWrite(result, err, 1); err != nil {
 		return fmt.Errorf("release expired provider response: %w", err)
+	}
+	if err := fileownership.RetireAll(
+		ctx,
+		records.Executor,
+		fileownership.Owner{Kind: "PROVIDER_RESPONSE", ID: before.ID},
+		now,
+	); err != nil {
+		return fmt.Errorf("retire owned file: %w", err)
 	}
 	return nil
 }

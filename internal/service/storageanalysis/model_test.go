@@ -6,28 +6,19 @@ import (
 	"testing"
 )
 
-func TestClassifyUsesDurablePrecedenceAndSharedFallback(t *testing.T) {
-	t.Parallel()
-	tests := map[string]struct {
-		protected bool
-		flags     Usage
-		want      CategoryCode
-	}{
-		"unreferenced ignores flags": {false, UsageGame, CategoryUnreferenced},
-		"durable wins over workflow": {true, UsageGame | UsageWorkflow, CategoryGameContent},
-		"durable wins over runtime":  {true, UsageBIOS | UsageRuntime, CategoryBIOS},
-		"shared durable":             {true, UsageSaves | UsageMedia, CategorySharedDurable},
-		"workflow before runtime":    {true, UsageWorkflow | UsageRuntime, CategoryWorkflow},
-		"runtime":                    {true, UsageRuntime, CategoryRuntimeSnapshot},
-		"other protected":            {true, 0, CategoryOtherReferenced},
+func TestClassifyUsesOnlyTheFileOwnerAndRetirement(t *testing.T) {
+	for usage, category := range map[Usage]CategoryCode{UsageGame: CategoryGameContent, UsageBIOS: CategoryBIOS, UsageSaves: CategorySaves, UsageMedia: CategoryMedia, UsageWorkflow: CategoryWorkflow} {
+		got, err := classify(true, usage)
+		if err != nil || got != category {
+			t.Fatalf("owner %v: %s %v", usage, got, err)
+		}
+		got, err = classify(false, usage)
+		if err != nil || got != CategoryPendingDelete {
+			t.Fatalf("retired %v: %s %v", usage, got, err)
+		}
 	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			if got := classify(test.protected, test.flags); got != test.want {
-				t.Fatalf("classify() = %s, want %s", got, test.want)
-			}
-		})
+	if _, err := classify(true, 0); err == nil {
+		t.Fatal("unknown owner accepted")
 	}
 }
 

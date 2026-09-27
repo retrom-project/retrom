@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/uploads/receivedfiles"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gameassets"
 )
@@ -50,7 +53,7 @@ AND ordinal=0`, gameID, kind).Scan(&exists)
 }
 
 func (scope writeScope) RemoveSlot(
-	ctx context.Context, gameID, kind string, ordinal int64,
+	ctx context.Context, gameID, kind string, ordinal, now int64,
 ) ([]string, error) {
 	rows, err := scope.executor.QueryContext(ctx, `
 SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
@@ -70,7 +73,16 @@ SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER B
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
 	}
-	if _, err := recordstore.DeleteReferences(
+	if _, err := scope.executor.ExecContext(ctx, `UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?)
+ WHERE owner_kind='GAME' AND owner_id=? AND id IN(SELECT blob_id FROM game_assets WHERE
+game_id=? AND kind=? AND ordinal=?)`,
+		now, gameID, gameID, kind, ordinal); err != nil {
+		return nil, fmt.Errorf("retire game media: %w", err)
+	}
+	if err := receivedfiles.ReleaseRetired(ctx, scope.executor, "GAME", gameID, now); err != nil {
+		return nil, fmt.Errorf("release retired game media inputs: %w", err)
+	}
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		scope.executor,
 		"game_assets",
@@ -82,6 +94,16 @@ SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER B
 }
 
 func (scope writeScope) Create(ctx context.Context, asset application.AssetRecord) error {
+	if err := fileownership.Transfer(
+		ctx,
+		scope.executor,
+		asset.BlobID,
+		fileownership.Owner{Kind: "UPLOAD", ID: asset.UploadID},
+		fileownership.Owner{Kind: "GAME", ID: asset.GameID},
+	); err != nil {
+		return fmt.Errorf("writes: %w", err)
+	}
+
 	if _, err := recordstore.CreateGameAssets(ctx, scope.executor, `
 INSERT INTO game_assets(id,
 game_id,

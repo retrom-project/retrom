@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	errProtectedBlobMissing = errors.New("STORAGE_ANALYSIS_PROTECTED_BLOB_MISSING")
+	errRetainedFileMissing  = errors.New("STORAGE_ANALYSIS_RETAINED_FILE_MISSING")
 	errTotalInvariant       = errors.New("STORAGE_ANALYSIS_TOTAL_INVARIANT_FAILED")
 	errCategoryInvariant    = errors.New("STORAGE_ANALYSIS_CATEGORY_INVARIANT_FAILED")
 	errCandidateBlobMissing = errors.New("STORAGE_ANALYSIS_CANDIDATE_BLOB_MISSING")
@@ -15,7 +15,7 @@ var (
 
 func aggregate(
 	blobs map[string]int64,
-	protected map[string]struct{},
+	retained map[string]struct{},
 	usageByID map[string]Usage,
 ) (Snapshot, error) {
 	index := make(map[CategoryCode]int, len(categoryOrder))
@@ -24,37 +24,43 @@ func aggregate(
 		index[code] = position
 		categories[position].Code = code
 	}
-	for id := range protected {
+	for id := range retained {
 		if _, ok := blobs[id]; !ok {
-			return Snapshot{}, fmt.Errorf("storageanalysis/service: %w", errProtectedBlobMissing)
+			return Snapshot{}, fmt.Errorf("storageanalysis/service: %w", errRetainedFileMissing)
 		}
 	}
 	var totals Totals
 	for id, size := range blobs {
+		if id == "" || size < 0 {
+			return Snapshot{}, errTotalInvariant
+		}
 		var err error
 		totals.RegisteredBytes, err = addChecked(totals.RegisteredBytes, size)
 		if err != nil {
 			return Snapshot{}, err
 		}
-		totals.BlobCount, err = addChecked(totals.BlobCount, 1)
+		totals.FileCount, err = addChecked(totals.FileCount, 1)
 		if err != nil {
 			return Snapshot{}, err
 		}
-		_, isProtected := protected[id]
-		code := classify(isProtected, usageByID[id])
+		_, isRetained := retained[id]
+		code, err := classify(isRetained, usageByID[id])
+		if err != nil {
+			return Snapshot{}, err
+		}
 		category := &categories[index[code]]
 		category.Bytes, err = addChecked(category.Bytes, size)
 		if err != nil {
 			return Snapshot{}, err
 		}
-		category.BlobCount, err = addChecked(category.BlobCount, 1)
+		category.FileCount, err = addChecked(category.FileCount, 1)
 		if err != nil {
 			return Snapshot{}, err
 		}
-		if isProtected {
-			totals.ProtectedBytes, err = addChecked(totals.ProtectedBytes, size)
+		if isRetained {
+			totals.RetainedBytes, err = addChecked(totals.RetainedBytes, size)
 		} else {
-			totals.UnreferencedBytes, err = addChecked(totals.UnreferencedBytes, size)
+			totals.PendingDeleteBytes, err = addChecked(totals.PendingDeleteBytes, size)
 		}
 		if err != nil {
 			return Snapshot{}, err
@@ -64,8 +70,8 @@ func aggregate(
 }
 
 func validateTotals(totals Totals, categories []Category) error {
-	protectedAndUnreferenced, err := addChecked(totals.ProtectedBytes, totals.UnreferencedBytes)
-	if err != nil || protectedAndUnreferenced != totals.RegisteredBytes {
+	retainedAndPendingDelete, err := addChecked(totals.RetainedBytes, totals.PendingDeleteBytes)
+	if err != nil || retainedAndPendingDelete != totals.RegisteredBytes {
 		return fmt.Errorf("storageanalysis/service: %w", errTotalInvariant)
 	}
 	var categoryBytes int64
@@ -75,12 +81,12 @@ func validateTotals(totals Totals, categories []Category) error {
 		if err != nil {
 			return err
 		}
-		categoryCount, err = addChecked(categoryCount, category.BlobCount)
+		categoryCount, err = addChecked(categoryCount, category.FileCount)
 		if err != nil {
 			return err
 		}
 	}
-	if categoryBytes != totals.RegisteredBytes || categoryCount != totals.BlobCount {
+	if categoryBytes != totals.RegisteredBytes || categoryCount != totals.FileCount {
 		return fmt.Errorf("storageanalysis/service: %w", errCategoryInvariant)
 	}
 	return nil

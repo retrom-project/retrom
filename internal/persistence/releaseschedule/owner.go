@@ -2,7 +2,7 @@ package releaseschedule
 
 import (
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func OwnerUpdate(before application.Owner, jobID string) recordstore.Update {

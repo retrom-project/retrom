@@ -6,7 +6,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/releaseops"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func Consume(ctx context.Context, executor dbapi.Executor, change application.EffectConsumptionChange) error {

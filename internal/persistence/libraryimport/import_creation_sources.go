@@ -2,7 +2,10 @@ package libraryimport
 
 import (
 	"context"
+	"fmt"
 
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -12,7 +15,8 @@ func (records creationRecords) Source(ctx context.Context, change application.Cr
 		ctx,
 		`
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,
- source_manifest_digest,search_text,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,1,?,?)`,
+ source_manifest_digest,search_text,version,created_at_ms,updated_at_ms) VALUES(?,?,?,
+?,?,?,?,1,?,?)`,
 		change.ItemID,
 		change.ImportID,
 		change.GroupKey,
@@ -27,13 +31,40 @@ INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,
 		return err
 	}
 	for _, file := range change.Files {
-		result, err = recordstore.CreateReferences(
+		if file.Payload != nil {
+			if _, err := filecatalog.EnsureRecord(
+				ctx,
+				records.transaction,
+				*file.Payload,
+				"application/octet-stream",
+				change.NowMS,
+			); err != nil {
+				return fmt.Errorf("import creation sources: %w", err)
+			}
+		}
+		if file.ArchiveOrdinal == nil && file.File.BlobID != file.BlobID {
+			if err := records.copyArchiveFacts(ctx, file.File.BlobID, file.BlobID); err != nil {
+				return err
+			}
+		}
+		if err := fileownership.Adopt(
+			ctx,
+			records.transaction,
+			file.BlobID,
+			fileownership.Owner{Kind: "IMPORT_ITEM", ID: change.ItemID},
+		); err != nil {
+			return fmt.Errorf("import creation sources: %w", err)
+		}
+
+		result, err = recordstore.InsertRows(
 			ctx,
 			records.transaction,
 			"import_item_source_files",
 			`
-INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,
- source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms) VALUES(?,?,?,?,?,?,?,?,?)`,
+INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,
+blob_id,
+ source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms) VALUES(?,
+?,?,?,?,?,?,?,?)`,
 			change.ItemID,
 			file.Role,
 			file.LogicalName,
@@ -53,33 +84,22 @@ INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_fil
 	}
 	for _, disc := range change.Discs {
 		result, err = recordstore.CreateImportItemMultidiscEntries(
-
 			ctx,
-
 			records.transaction,
-
 			`
-INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,normalized_reference,
- canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-
+INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,
+normalized_reference,
+ canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms) VALUES(?,
+?,?,?,?,?,?,?,?,?)`,
 			change.SnapshotID,
-
 			disc.Ordinal,
-
 			disc.SourceReference,
-
 			disc.NormalizedReference,
-
 			disc.CanonicalName,
-
 			disc.State,
-
 			creationNullable(disc.UploadFileID),
-
 			creationNullable(disc.BlobID),
-
 			creationNullable(disc.SourceLogicalName),
-
 			change.NowMS,
 		)
 		if err := creationMutation(result, err, "insert creation disc", 1); err != nil {
@@ -106,7 +126,7 @@ VALUES(?,?,?,?,?,'IDENTIFICATION',?)`,
 	if err := creationMutation(result, err, "insert creation snapshot", 1); err != nil {
 		return err
 	}
-	result, err = recordstore.CreateReferences(ctx, records.transaction, "import_item_source_snapshot_files", `
+	result, err = recordstore.InsertRows(ctx, records.transaction, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
  blob_id,
  source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)

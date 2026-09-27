@@ -63,7 +63,7 @@ type coverBlobFixture struct {
 	openError  error
 }
 
-func (blobs coverBlobFixture) OpenDigest(string) (io.ReadCloser, error) {
+func (blobs coverBlobFixture) OpenID(string) (io.ReadCloser, error) {
 	if blobs.beforeOpen != nil {
 		blobs.beforeOpen()
 	}
@@ -128,7 +128,7 @@ func TestReviewCoverPreparationErrorsPreserveCause(t *testing.T) {
 			t.Parallel()
 			repository, _ := coverFixture(t)
 			result, err := coverService(repository, test.blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewCoverCASUnavailable) || result != (ReviewCoverResult{}) || repository.transactions != 0 {
+			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewCoverStorageUnavailable) || result != (ReviewCoverResult{}) || repository.transactions != 0 {
 				t.Fatalf("CAS failure lost cause or entered transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
 			}
 		})

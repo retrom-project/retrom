@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
@@ -57,7 +57,7 @@ type multiDiscAttachmentCandidate struct {
 	baseEntries          []multidisc.Entry
 	resultEntries        []multidisc.Entry
 	uploadFiles          []attachedMultiDiscFile
-	canonicalPlaylist    blobstore.Metadata
+	canonicalPlaylist    filestore.Metadata
 	resultManifestJSON   string
 	resultManifestDigest string
 }

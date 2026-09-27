@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	validation "retrom/internal/service/corevalidation"
 )
 
@@ -240,10 +240,13 @@ func (run *creationCommit) registerValidationArtifacts(
 func (run *creationCommit) registerArtifact(
 	ctx context.Context,
 	scope ImportCreationScope,
-	metadata blobstore.Metadata,
+	metadata filestore.Metadata,
 	kind string,
 ) (string, error) {
-	id, err := scope.Sources.Artifact(ctx, CreationArtifact{Metadata: metadata, MediaType: kind, NowMS: run.header.NowMS})
+	id, err := scope.Sources.Artifact(
+		ctx,
+		CreationArtifact{Metadata: metadata, MediaType: kind, NowMS: run.header.NowMS},
+	)
 	if err != nil {
 		return "", fmt.Errorf("register creation validation artifact: %w", err)
 	}

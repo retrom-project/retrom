@@ -17,14 +17,14 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -89,8 +89,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
 	seedGameDetailRuntime(t, server, transaction, gameID, variantID, saveStateID, &fixture)
 	videoPayload, screenshot := fixture.videoPayload, fixture.screenshot
-	videoMetadata := fixture.videoMetadata
-	latestLaunchID, videoBlobID, screenshotBlobID := fixture.latestLaunchID, fixture.videoBlobID, fixture.screenshotBlobID
+	latestLaunchID, screenshotBlobID := fixture.latestLaunchID, fixture.screenshotBlobID
 	recorder := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
 	testassert.Falsef(t, recorder.Code != http.StatusOK, "game detail status = %d: %s", recorder.Code, recorder.Body.String())
@@ -167,7 +166,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	assertGameHomeAndActivity(t, server, gameID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
 	assertScreenshotlessSaveProjections(t, server, gameID)
 	assertGameProfileIsolation(t, server, gameID, saveStateID, now)
-	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload, videoMetadata, videoBlobID)
+	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload)
 }
 
 func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID string) {
@@ -398,7 +397,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 
 func assertGameAdminMutations(
 	t *testing.T, server *Server, gameID, contentID, coverBlobID string, now int64,
-	videoPayload []byte, videoMetadata blobstore.Metadata, videoBlobID string,
+	videoPayload []byte,
 ) {
 	var originalCoverAssetID, originalVideoAssetID string
 	mustScanHTTPTest(t, dbapi.QueryRowContext(context.Background(), server.database, `
@@ -452,12 +451,17 @@ SELECT
 `, gameID, gameID), &preservedCoverID, &preservedVideoID)
 	testassert.Falsef(t, preservedCoverID != originalCoverAssetID || preservedVideoID != originalVideoAssetID,
 		"unselected candidate media changed: cover=%s video=%s", preservedCoverID, preservedVideoID)
+	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
+	testassert.False(t, err != nil, err)
+	videoBlobID, err := filecatalog.EnsureRecord(t.Context(), server.database, videoMetadata, "video/mp4", now)
+	testassert.False(t, err != nil, err)
 	videoUploadID := "01980000-0000-7000-8000-000000000111"
 	videoUploadFileID := "01980000-0000-7000-8000-000000000112"
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?);
 `, videoUploadID, len(videoPayload), videoMetadata.SHA256, now+60_000, now, now)
+	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, videoUploadID, videoBlobID)
 	mustCreateHTTPReferences(t, server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
@@ -576,7 +580,7 @@ VALUES(?,'GAME',?,'METADATA_SCRAPE',?,1,'{}',0,'SUCCEEDED',1,2,?,?,?,?)
 `, jobID, gameID, strings.Repeat("7", 64), now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(context.Background(), database, "metadata_provider_responses", `
+	if _, err := recordstore.InsertRows(context.Background(), database, "metadata_provider_responses", `
 INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,
 raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES(?,'HASHEOUS',?,200,'HIT',NULL,'NONE',?,?)
@@ -597,7 +601,7 @@ VALUES(?,?,?,'doom-refreshed','{"title":"Doom refreshed","description":"Updated"
 `, candidateID, runID, responseID, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(context.Background(), database, "scrape_candidate_assets", `
+	if _, err := recordstore.InsertRows(context.Background(), database, "scrape_candidate_assets", `
 INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,
 ordinal,source_path,status,blob_id,width_px,height_px,media_type,error_code,fetched_at_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?,?)
@@ -656,7 +660,7 @@ VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
 type gameDetailSeed struct {
 	now                                           int64
 	videoPayload, screenshot                      []byte
-	videoMetadata                                 blobstore.Metadata
+	videoMetadata                                 filestore.Metadata
 	latestLaunchID, videoBlobID, screenshotBlobID string
 }
 
@@ -682,7 +686,7 @@ INSERT INTO games(
 )
 `, gameID, "首页游戏简介\n保留当前元信息。", strings.Repeat("0", 64), now, now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO blobs(id,
+INSERT INTO stored_files(id,
 sha256,
 size_bytes,
 md5,
@@ -721,7 +725,7 @@ created_at_ms) VALUES(?,
 	fixture.videoPayload = []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
 	fixture.videoMetadata, err = server.blobs.Put(bytes.NewReader(fixture.videoPayload))
 	testassert.False(t, err != nil, err)
-	fixture.videoBlobID, err = blobcatalog.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
+	fixture.videoBlobID, err = filecatalog.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
 	testassert.False(t, err != nil, err)
 	mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
@@ -769,7 +773,7 @@ INSERT INTO game_variants(
 	fixture.screenshot = []byte("retrom-save-fixture.screenshot")
 	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
 	testassert.False(t, err != nil, err)
-	fixture.screenshotBlobID, err = blobcatalog.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
+	fixture.screenshotBlobID, err = filecatalog.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
 	testassert.False(t, err != nil, err)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
@@ -819,7 +823,7 @@ VALUES(?,?,'local',?,?,?,?,?,1,'FINISHED',1,?,?)
 
 func mustCreateHTTPReferences(t *testing.T, db dbapi.Executor, table, query string, args ...any) {
 	t.Helper()
-	if _, err := recordstore.CreateReferences(t.Context(), db, table, query, args...); err != nil {
+	if _, err := recordstore.InsertRows(t.Context(), db, table, query, args...); err != nil {
 		t.Fatal(err)
 	}
 }

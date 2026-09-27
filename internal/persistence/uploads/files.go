@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/persistence/importfiles"
 	service "retrom/internal/service/uploads"
 )
@@ -23,31 +24,22 @@ func (records fileRecords) Target(ctx context.Context, key service.FileKey) (ser
 	result := service.PartTarget{FileKey: key}
 	var code sql.NullString
 	err := dbapi.QueryRowContext(
-
 		ctx,
 		records.executor,
-
 		`
-SELECT file.declared_size_bytes,file.state,session.state,session.version,session.expires_at_ms,file.last_error_code
+SELECT file.declared_size_bytes,file.state,session.state,session.version,session.expires_at_ms,
+file.last_error_code
 FROM upload_files file JOIN upload_sessions session ON session.id=file.upload_session_id
 WHERE file.id=? AND session.id=?
 `,
-
 		key.FileID,
-
 		key.UploadID,
 	).Scan(
-
 		&result.DeclaredSize,
-
 		&result.FileState,
-
 		&result.SessionState,
-
 		&result.SessionVersion,
-
 		&result.ExpiresAtMS,
-
 		&code,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -65,7 +57,8 @@ func (records fileRecords) AddReceived(ctx context.Context, input service.FilePr
 		records.executor.ExecContext(
 			ctx,
 			`
-UPDATE upload_files SET received_size_bytes=received_size_bytes+?,state='PARTIAL',updated_at_ms=? WHERE id=?
+UPDATE upload_files SET received_size_bytes=received_size_bytes+?,state='PARTIAL',updated_at_ms=?
+WHERE id=?
 `,
 			input.Bytes,
 			input.AtMS,
@@ -78,7 +71,8 @@ func (records fileRecords) MarkFinalizing(ctx context.Context, id string, now in
 	if _, err := records.executor.ExecContext(
 		ctx,
 		`
-UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_id=? AND state!='COMPLETE'
+UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_id=? AND
+state!='COMPLETE'
 `,
 		now,
 		id,
@@ -89,9 +83,17 @@ UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_
 }
 
 func (records fileRecords) Publish(ctx context.Context, input service.FilePublication) error {
-	err := requireChange(
+	if err := fileownership.Adopt(
+		ctx,
+		records.executor,
+		input.BlobID,
+		fileownership.Owner{Kind: "UPLOAD", ID: input.Run.UploadID},
+	); err != nil {
+		return fmt.Errorf("files: %w", err)
+	}
 
-		recordstore.UpdateReferences(
+	err := requireChange(
+		recordstore.UpdateRows(
 			ctx,
 			records.executor,
 			"upload_files",
@@ -131,7 +133,8 @@ session.finalization_no=?
 
 func (records fileRecords) FailPending(ctx context.Context, input service.PendingFailure) error {
 	if _, err := records.executor.ExecContext(ctx, `
-UPDATE upload_files SET state='FAILED',last_error_code=?,updated_at_ms=? WHERE upload_session_id=? AND
+UPDATE upload_files SET state='FAILED',last_error_code=?,updated_at_ms=? WHERE upload_session_id=?
+AND
 state!='COMPLETE'
 `, input.Code, input.AtMS, input.UploadID); err != nil {
 		return fmt.Errorf("uploads/fail unfinished files: %w", err)
@@ -139,8 +142,12 @@ state!='COMPLETE'
 	return nil
 }
 
-func (records blobRecords) Ensure(ctx context.Context, metadata blobstore.Metadata, now int64) (string, error) {
-	id, err := blobcatalog.EnsureRecord(ctx, records.executor, metadata, "application/octet-stream", now)
+func (records blobRecords) Ensure(
+	ctx context.Context,
+	metadata filestore.Metadata,
+	now int64,
+) (string, error) {
+	id, err := filecatalog.EnsureRecord(ctx, records.executor, metadata, "application/octet-stream", now)
 	if err != nil {
 		return "", fmt.Errorf("uploads/register blob: %w", err)
 	}

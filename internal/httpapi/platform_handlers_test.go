@@ -20,7 +20,8 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 
 	"github.com/google/uuid"
 
@@ -165,23 +166,27 @@ SELECT state,coalesce(last_error_code,'') FROM import_jobs WHERE id=?
 func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	now := time.UnixMilli(1_786_000_000_000)
+	now := server.now()
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.Close()
 	server.importer = libraryimport.New(server.database, server.now, server.metadata).
-		WithBlobStore(server.blobs).WithMultiDiscImportEnabled(true)
+		WithFileStore(server.blobs).WithMultiDiscImportEnabled(true)
 	server.importer.Start()
 	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryservice.ImportAdmissionOptions{
 		Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
 	})
-	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
-	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
-	testassert.False(t, err != nil, err)
 	createUpload := func(uploadID, fileID string) {
 		t.Helper()
+		metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
+		testassert.False(t, err != nil, err)
+		blobID, err := filecatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
+		testassert.False(t, err != nil, err)
+		if err := fileownership.Adopt(t.Context(), server.database, blobID,
+			fileownership.Owner{Kind: "UPLOAD", ID: uploadID}); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := server.database.ExecContext(context.Background(), `
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
 expires_at_ms,created_at_ms,updated_at_ms)
@@ -189,7 +194,7 @@ VALUES(?,'COMPLETE','DIRECTORY',1,?, ?,1,?,?,?)
 `, uploadID, metadata.Size, strings.Repeat("a", 64), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := recordstore.CreateReferences(context.Background(), server.database, "upload_files", `
+		if _, err := recordstore.InsertRows(context.Background(), server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)

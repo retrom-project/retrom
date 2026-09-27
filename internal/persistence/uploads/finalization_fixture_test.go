@@ -12,7 +12,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
 )
@@ -20,7 +20,7 @@ import (
 type finalizationFixture struct {
 	root     string
 	database dbapi.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	service  *uploadservice.Service
 }
 
@@ -38,7 +38,7 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,9 +91,9 @@ func (fixture *finalizationFixture) complete(t *testing.T, session uploadservice
 }
 
 type finalizationBlobs struct {
-	put func(io.Reader) (blobstore.Metadata, error)
+	put func(io.Reader) (filestore.Metadata, error)
 }
 
-func (blobs finalizationBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs finalizationBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	return blobs.put(reader)
 }

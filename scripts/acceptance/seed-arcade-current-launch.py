@@ -9,7 +9,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from fixture_references import adjust_references
+from fixture_files import own_rows
 
 
 CORE_TITLES = {
@@ -128,12 +128,8 @@ FROM variant_dependencies WHERE game_variant_id=?
 """,
         (variant_id, now, source["variant_id"]),
     )
-    adjust_references(connection, connection.execute(
-        "SELECT blob_id,source_archive_blob_id FROM game_files WHERE game_id=?", (game_id,),
-    ).fetchall())
-    adjust_references(connection, connection.execute(
-        "SELECT blob_id FROM variant_files WHERE game_variant_id=?", (variant_id,),
-    ).fetchall())
+    own_rows(connection, "game_files", "game_id", game_id, "GAME", game_id)
+    own_rows(connection, "variant_files", "game_variant_id", variant_id, "GAME", game_id, extra="AND role<>'BIOS_BUNDLE'")
     connection.commit()
     foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
     if foreign_keys:

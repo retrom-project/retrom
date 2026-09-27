@@ -44,7 +44,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 		source,
 		testsupport.SQLFaultHooks{
 			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
-				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
+				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'OWNER_CLEANUP'") {
 					attempts++
 					return cause
 				}

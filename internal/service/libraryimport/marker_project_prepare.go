@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/blobstore"
 	contentprofile "retrom/internal/content/profile"
 	butterscotchdetector "retrom/internal/core/butterscotch/detector"
 	onsdetector "retrom/internal/core/ons/detector"
 	"retrom/internal/core/rpgmaker/fileset"
 	tyranodetector "retrom/internal/core/tyranoscript/detector"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
@@ -188,7 +188,7 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 	}
 	paths := make(map[int]string, len(project.Files))
 	for _, file := range project.Files {
-		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].SHA256)
+		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].BlobID)
 	}
 	snapshot, err := definition.detect(project.Files, paths)
 	if err != nil {
@@ -257,7 +257,7 @@ func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
 		return format, nil
 	}
 	detected, err := importing.DetectElectronASARZIP(
-		service.blobs.Path(file.SHA256), importing.RPGMakerArchiveLimits(),
+		service.blobs.Path(file.BlobID), importing.RPGMakerArchiveLimits(),
 	)
 	if err != nil {
 		return "", fmt.Errorf("detect TyranoScript Electron archive: %w", err)
@@ -273,7 +273,7 @@ func (service *ImportPreparation) scanMarkerProjectArchive(
 	file ImportFile,
 	definition markerProjectDefinition,
 	format contentprofile.ArchiveFormat,
-) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, fileset.Project, map[int]importing.ArchiveEntry, error) {
+) ([]importing.ArchiveEntry, map[int]*filestore.Candidate, fileset.Project, map[int]importing.ArchiveEntry, error) {
 	entries, candidates, err := service.scanProjectArchive(ctx, file, format)
 	if err != nil {
 		return nil, nil, fileset.Project{}, nil, err
@@ -309,8 +309,8 @@ func markerProjectNotFound(err error) bool {
 func (service *ImportPreparation) scanWrappedTyranoScriptNWJS(
 	ctx context.Context,
 	entries []importing.ArchiveEntry,
-	candidates map[int]*blobstore.Candidate,
-) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, bool, error) {
+	candidates map[int]*filestore.Candidate,
+) ([]importing.ArchiveEntry, map[int]*filestore.Candidate, bool, error) {
 	selectedPath := ""
 	for _, entry := range entries {
 		if !strings.EqualFold(filepath.Ext(entry.NormalizedPath), ".exe") {
@@ -431,7 +431,7 @@ func archiveProjectEntries(
 
 func ArchiveProjectPaths(
 	files []fileset.SourceFile,
-	metadata map[int]blobstore.Metadata,
+	metadata map[int]filestore.Metadata,
 ) (map[int]string, error) {
 	paths := make(map[int]string, len(files))
 	for _, file := range files {

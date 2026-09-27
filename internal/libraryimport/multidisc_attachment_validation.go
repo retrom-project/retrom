@@ -79,7 +79,7 @@ func (service *Service) multiDiscAttachmentValidationFiles(
 }
 
 func (service *Service) readMultiDiscAttachmentPlaylist(playlist attachedMultiDiscFile) ([]byte, error) {
-	reader, err := service.blobs.OpenDigest(playlist.blobSHA)
+	reader, err := service.blobs.OpenID(playlist.blobID)
 	if err != nil {
 		return nil, multiDiscAttachmentStoreError("open playlist", err)
 	}

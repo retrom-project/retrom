@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/composition"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -47,13 +47,13 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 }
 
 type reviewCoverBarrierBlobs struct {
-	store      *blobstore.Store
+	store      *filestore.Store
 	beforeOpen func()
 }
 
-func (blobs reviewCoverBarrierBlobs) OpenDigest(digest string) (io.ReadCloser, error) {
+func (blobs reviewCoverBarrierBlobs) OpenID(digest string) (io.ReadCloser, error) {
 	blobs.beforeOpen()
-	file, err := blobs.store.OpenDigest(digest)
+	file, err := blobs.store.OpenID(digest)
 	if err != nil {
 		return nil, err
 	}

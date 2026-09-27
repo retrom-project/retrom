@@ -3,7 +3,7 @@ package gamecontent
 import (
 	"context"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 type RetirementOwnerKind string
@@ -48,12 +48,13 @@ type RetirementReader interface {
 	Consumption(context.Context, string) (string, error)
 }
 type RetirementWriter interface {
+	RetireContent(context.Context, string, int64) error
 	Change(context.Context, RetirementChange) error
 	Remove(context.Context, string, RetirementReferenceKind, []RetirementReference) error
 }
 type RetirementScope struct {
-	Read    RetirementReader
-	Write   RetirementWriter
-	GC      payloadrelease.GCScope
-	Payload payloadrelease.ConsumptionSchedulingScope
+	Read          RetirementReader
+	Write         RetirementWriter
+	DeletionQueue cleanupjobs.DeletionScope
+	Payload       cleanupjobs.ConsumptionSchedulingScope
 }

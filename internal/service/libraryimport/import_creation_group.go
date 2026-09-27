@@ -12,7 +12,7 @@ import (
 
 	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 func (service *ImportCreations) prepareGroup(
@@ -154,6 +154,9 @@ func (run *creationCommit) sourceChange(record *creationGroup) (CreationSource, 
 		if source.ArchiveOrdinal != nil {
 			blobID = run.materialized[source.ArchiveBlobID][*source.ArchiveOrdinal]
 		}
+		if source.Payload != nil {
+			blobID = source.Payload.ID
+		}
 		if blobID == "" {
 			return CreationSource{}, ErrInvalid
 		}
@@ -188,11 +191,11 @@ func (run *creationCommit) discardDuplicate(
 	); err != nil {
 		return false, creationError("discard duplicate", err)
 	}
-	if _, err := payloadrelease.NewScheduler(nil).TerminalItem(
+	if _, err := cleanupjobs.NewScheduler(nil).TerminalItem(
 		ctx,
 		scope.Payload,
 		record.itemID,
-		payloadrelease.ReasonImportDiscarded,
+		cleanupjobs.ReasonImportDiscarded,
 		run.header.NowMS,
 	); err != nil {
 		return false, creationError("discard duplicate", err)

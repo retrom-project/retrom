@@ -1,10 +1,13 @@
 package libraryimport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"reflect"
 	"testing"
+
+	"retrom/internal/filestore"
 )
 
 type preparationCatalogStub struct{ failure error }
@@ -42,7 +45,17 @@ func TestImportPreparationPreservesCatalogFailure(t *testing.T) {
 func TestImportPreparationRetainsResolvedInputAndSourceGroups(t *testing.T) {
 	t.Parallel()
 	_, facts, request := admissionServiceFixture()
-	preparation := NewImportPreparation(facts, preparationCatalogStub{}, nil, ImportPreparationOptions{})
+	files, err := filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := files.Put(bytes.NewReader(make([]byte, 32)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts.files[0].BlobID = metadata.ID
+	facts.files[0].SHA256 = metadata.SHA256
+	preparation := NewImportPreparation(facts, preparationCatalogStub{}, files, ImportPreparationOptions{})
 	result, err := preparation.Prepare(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)

@@ -11,7 +11,7 @@ import (
 	library "retrom/internal/persistence/libraryimport"
 	"retrom/internal/persistence/recordstore"
 	payload "retrom/internal/persistence/sourceimport/sourcerelease"
-	payloadService "retrom/internal/service/payloadrelease"
+	payloadService "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/sourceimport"
 )
 

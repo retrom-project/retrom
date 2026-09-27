@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -82,13 +82,13 @@ func preparedArcadeErrorFixture(t *testing.T) (*Service, CreateRequest) {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	insertArcadeParentCatalog(t, database.SQL)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload := uploadCompleteFile(t, t.Context(), database.SQL, uploader, "a.zip", arcadeZIP(t, "a.bin", []byte("child")))
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	return importer, CreateRequest{UploadID: upload.uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"), MetadataProvider: "NONE"}
 }

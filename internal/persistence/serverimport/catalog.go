@@ -29,7 +29,7 @@ LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.provider
  AND dat.target_id=requirement.target_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1
-LEFT JOIN blobs blob ON blob.id=installation.blob_id
+LEFT JOIN stored_files blob ON blob.id=installation.blob_id
 WHERE requirement.enabled=1
 ORDER BY requirement.id COLLATE BINARY
 `)

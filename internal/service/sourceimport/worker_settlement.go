@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 
 	library "retrom/internal/service/libraryimport"
 )

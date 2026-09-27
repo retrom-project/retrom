@@ -85,7 +85,7 @@ func preparedCommitFixture(t *testing.T) (*Service, creationPlan) {
 	t.Helper()
 	database, blobs, directory := openImportGroupFixture(t, t.Context())
 	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, directory, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	plan, err := service.prepareCreation(t.Context(), onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)

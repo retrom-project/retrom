@@ -20,7 +20,7 @@ import (
 	"retrom/internal/composition"
 	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -97,7 +97,7 @@ func createReviewSnapshotItem(t *testing.T, server *Server) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", 0)
+	blobID, err := filecatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

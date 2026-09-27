@@ -41,7 +41,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 `).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
-	created, err := libraryimport.New(server.database, time.Now).WithBlobStore(server.blobs).Create(
+	created, err := libraryimport.New(server.database, time.Now).WithFileStore(server.blobs).Create(
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID: uploadID, TargetPlatformInstanceID: platformInstanceID,

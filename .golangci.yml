@@ -58,7 +58,7 @@ linters:
         storage-layer:
           files:
             - "internal/store/**/*.go"
-            - "internal/blobstore/**/*.go"
+            - "internal/filestore/**/*.go"
           deny:
             - pkg: retrom/internal/httpapi
               desc: storage must not depend on HTTP

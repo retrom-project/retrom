@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/multidisc"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/gamecontent"
 )
@@ -40,9 +41,7 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 			recordstore.Update{
 				Set: `content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
  source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?`,
-
 				Values: []any{prepared.ContentKind, value.JobID, string(prepared.Manifest), prepared.ManifestDigest, value.Now},
-
 				Scope: recordstore.Scope{
 					Where: `id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'`,
 					Args:  []any{snapshot.GameID, snapshot.GameVersion, snapshot.BaseManifestDigest},
@@ -52,7 +51,7 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 	); err != nil {
 		return err
 	}
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		writes.transaction,
 		"game_files",
@@ -61,6 +60,16 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 		return fmt.Errorf("remove old game files: %w", err)
 	}
 	for _, file := range prepared.Files {
+		if err := fileownership.Transfer(
+			ctx,
+			writes.transaction,
+			file.BlobID,
+			fileownership.Owner{Kind: "UPLOAD", ID: snapshot.UploadSessionID},
+			fileownership.Owner{Kind: "GAME", ID: snapshot.GameID},
+		); err != nil {
+			return fmt.Errorf("publication: %w", err)
+		}
+
 		_, err := recordstore.CreateGameFiles(
 			ctx,
 			writes.transaction,
@@ -81,7 +90,7 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 
 func (writes writes) variant(ctx context.Context, value gamecontent.Publication) error {
 	snapshot := value.Snapshot
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		writes.transaction,
 		"variant_files",
@@ -103,7 +112,6 @@ func (writes writes) variant(ctx context.Context, value gamecontent.Publication)
 			recordstore.Update{
 				Set: `provider_id=?,target_id=?,dat_version_id=?,status='READY',compatibility_code='READY',
  dependency_snapshot_json=?,version=version+1,updated_at_ms=?`,
-
 				Values: []any{
 					snapshot.ProviderID,
 					snapshot.TargetID,
@@ -113,15 +121,17 @@ func (writes writes) variant(ctx context.Context, value gamecontent.Publication)
 					),
 					value.Now,
 				},
-
-				Scope: recordstore.Scope{Where: `id=? AND game_id=?`, Args: []any{snapshot.VariantID, snapshot.GameID}},
+				Scope: recordstore.Scope{
+					Where: `id=? AND game_id=?`,
+					Args:  []any{snapshot.VariantID, snapshot.GameID},
+				},
 			},
 		),
 	)
 }
 
 func (writes writes) playlist(ctx context.Context, value gamecontent.Publication) error {
-	id, err := blobcatalog.EnsureRecord(
+	id, err := filecatalog.EnsureRecord(
 		ctx,
 		writes.transaction,
 		value.Prepared.CanonicalPlaylist,
@@ -130,6 +140,14 @@ func (writes writes) playlist(ctx context.Context, value gamecontent.Publication
 	)
 	if err != nil {
 		return fmt.Errorf("register replacement playlist: %w", err)
+	}
+	if err := fileownership.Adopt(
+		ctx,
+		writes.transaction,
+		id,
+		fileownership.Owner{Kind: "GAME", ID: value.Snapshot.GameID},
+	); err != nil {
+		return fmt.Errorf("publication: %w", err)
 	}
 	_, err = recordstore.CreateVariantFiles(
 		ctx,

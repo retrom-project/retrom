@@ -23,7 +23,7 @@
 
 本地 Blob 去重使用 SHA-256；外部规范的身份 hash 独立保存：
 
-- `sha256`：CAS 地址和文件完整性。
+- `sha256`：独立文件存储地址和文件完整性。
 - `md5`：常见 BIOS 文件身份。
 - `sha1`：DAT ROM/disk entry。
 - `crc32`：DAT 与 ZIP entry 快速匹配。
@@ -32,7 +32,7 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 上传 BIOS 时：
 
-- 流式写入 CAS 并计算全部支持 hash。
+- 流式写入独立文件存储并计算全部支持 hash。
 - 保存原始文件名用于审计，挂载时使用 Requirement 的逻辑文件名。
 - 单文件存在但 hash 与期望不同：保存并显示 Warning，不强制拒绝。
 - DAT archive 内部缺少目录列出的 entry：保留 `MISSING_ENTRY` 警告；entry 名存在但 size/hash 与 DAT 不同则为 `HASH_WARNING`。两者均保存、装入并允许启动，目录校验只提示用户可能存在问题。
@@ -113,7 +113,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size
 | `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
 | `o2em` | `o2rom.bin` | `REQUIRED`，1024 bytes，MD5 `562d5ebf9e030a40d6fabfc2f33139fd` | `BIOS_BUNDLE` |
 
-MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 时撤销使用旧 BIOS 的 Launch/Play，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件标识不持有 Blob；旧安装及 Variant 的最后一个 owner 释放后，常规 GC 立即排队回收无引用文件。外部文件不得在仍运行的 Launch 内静默漂移。
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 时撤销使用旧 BIOS 的 Launch/Play，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件标识不持有 Blob；旧 Variant 读取关系清空后，BIOS 领域退休旧安装文件，后台删除立即排队。外部文件不得在仍运行的 Launch 内静默漂移。
 
 ### 3.6 Arcade Core
 
@@ -125,7 +125,7 @@ MAME 2003 和 MAME 2003-Plus 的旧 List XML 没有显式 `isbios` 属性；当�
 
 数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.9 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
-Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时 CAS 会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
+Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时独立文件存储会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
 
 ### 3.7 dosbox_pure
 
@@ -318,7 +318,7 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 ## 12. 服务器目录批量导入
 
-任务创建时直接从数据库冻结当前 Provider catalog 中、被产品 Core binding 引用的全部 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；不在当前 catalog/binding 闭包内的旧 Target、历史 DAT slot 和当前游戏库范围不参与。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
+任务创建时直接从数据库冻结当前 Provider catalog 中、被产品 Core binding 引用的全部 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；不在当前 catalog/binding 闭包内的旧 Target、历史 DAT slot 和当前游戏库范围不参与。相同候选内容可满足多个 Requirement，每次 Installation 都获得独立文件，不跨 Requirement 共享物理 ID。
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。ARCHIVE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 

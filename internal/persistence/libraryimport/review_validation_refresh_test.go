@@ -100,7 +100,7 @@ source_manifest_digest,prepublish_input_digest,status,compatibility_code,depende
 VALUES('refresh-source','item',?,?,?,?,?,?,?,'READY','READY','{}',2,'snapshot')`,
 		instance, 1, coreID, providerID, targetID, sourceDigest, sourceDigest)
 	metadataExec(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), "application/octet-stream")
 	newID := "refresh-created"
 	repository := BindReviewValidation(database)
@@ -140,7 +140,7 @@ func TestReviewValidationRefreshRepositoryOrdersContentIdentity(t *testing.T) {
 	database := metadataDatabase(t)
 	digest := strings.Repeat("f", 64)
 	metadataExec(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES('content-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("a", 32), strings.Repeat("b", 40), strings.Repeat("c", 8), "application/octet-stream")
 	metadataExec(t, database, `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)

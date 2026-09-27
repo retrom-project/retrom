@@ -34,8 +34,8 @@ func (service *Service) DeleteAdminGame(
 	if err != nil {
 		return DeleteGameResult{}, fmt.Errorf("delete admin game: %w", err)
 	}
-	if result.PayloadReleaseQueued && service.payloadReleases != nil {
-		service.payloadReleases.Signal()
+	if result.PayloadReleaseQueued && service.cleanupJobs != nil {
+		service.cleanupJobs.Signal()
 	}
 	return result, nil
 }
@@ -216,9 +216,7 @@ func storeDeleteGameReplay(
 func deleteGameAuditImpact(impact DeleteGameImpact) map[string]any {
 	return map[string]any{
 		"registeredBytes":   impact.RegisteredBytes,
-		"exclusiveBytes":    impact.ExclusiveBytes,
-		"sharedBytes":       impact.SharedBytes,
-		"blobCount":         impact.BlobCount,
+		"fileCount":         impact.FileCount,
 		"saveStateCount":    impact.SaveStateCount,
 		"assetCount":        impact.AssetCount,
 		"contentFileCount":  impact.ContentFileCount,

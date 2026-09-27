@@ -17,8 +17,8 @@ import (
 
 	"retrom/internal/serversource"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
+	"retrom/internal/filestore"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -47,9 +47,9 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	}
 	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
 	testassert.False(t, err != nil, err)
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
@@ -72,7 +72,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithBlobStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithFileStore(blobs), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
 	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
@@ -116,7 +116,7 @@ func verifyServerImportRecovery(
 	service *Service,
 	database dbapi.DB,
 	created Summary,
-	releases *payloadrelease.Service,
+	releases *cleanupjobs.Service,
 ) string {
 	t.Helper()
 	reclaimCompletedImport(ctx, t, service, database, created)
@@ -177,12 +177,12 @@ SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND
 	return installationID
 }
 
-func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database dbapi.DB, releases *payloadrelease.Service) {
+func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database dbapi.DB, releases *cleanupjobs.Service) {
 	var pending int
 	err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=0 AND blob_id IS NOT NULL AND payload_released_at_ms IS NULL`).Scan(&pending)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, pending == 1, "server import must defer retirement")
-	testassert.False(t, releases.ReconcileGC(ctx) != nil, "reconcile server BIOS")
+	testassert.False(t, releases.ReconcileDeletion(ctx) != nil, "reconcile server BIOS")
 	t.Helper()
 	var retiredPayloads int
 	if err := dbapi.QueryRowContext(ctx, database, `

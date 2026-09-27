@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
@@ -73,7 +73,7 @@ type ReviewApprovalRepository interface {
 }
 
 type ReviewApprovalScope struct {
-	Payload      payloadrelease.ItemSchedulingScope
+	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
 	Validation   ReviewValidationReader

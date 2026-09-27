@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
@@ -59,7 +59,7 @@ func TestPrepareTyranoScriptDirectoryRejectsMissingEngineMarker(t *testing.T) {
 
 func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,9 +69,9 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "game", Path: "game.exe", BlobID: "game", SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "game", Path: "game.exe", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 
 func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,10 +101,9 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", BlobID: "wrapped-nwjs",
-		SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -125,7 +124,7 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 
 func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,10 +147,9 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *test
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "ambiguous", Path: "ambiguous.zip", BlobID: "ambiguous",
-		SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "ambiguous", Path: "ambiguous.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	_, _, _, err = New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
+	_, _, _, err = New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if !errors.Is(err, importing.ErrArchiveUnsafe) {
@@ -161,7 +159,7 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *test
 
 func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,9 +169,9 @@ func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "electron", Path: "electron.zip", BlobID: "electron", SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "electron", Path: "electron.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -209,7 +207,7 @@ func assertTyranoScriptSnapshot(t *testing.T, contents string) {
 
 func tyranoScriptImportFixture(t *testing.T) (*Service, []importSourceFile) {
 	t.Helper()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,10 +227,10 @@ func tyranoScriptImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithBlobStore(blobs), files
+	return New(nil, nil).WithFileStore(blobs), files
 }
 
 func tyranoScriptNWJSExecutable(t *testing.T) []byte {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func TestPrepareNXEngineDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.T) {
@@ -85,7 +85,7 @@ func TestPrepareNXEngineDirectoryRejectsInvalidExecutable(t *testing.T) {
 
 func nxengineImportFixture(t *testing.T) (*Service, []importSourceFile) {
 	t.Helper()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +103,8 @@ func nxengineImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithBlobStore(blobs), files
+	return New(nil, nil).WithFileStore(blobs), files
 }

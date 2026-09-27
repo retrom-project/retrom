@@ -171,7 +171,10 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 		return application.ReviewValidationRefreshRecord{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf("query fallback review validation: %w", err)
+		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf(
+			"query fallback review validation: %w",
+			err,
+		)
 	}
 	return result, true, nil
 }
@@ -200,7 +203,7 @@ INSERT INTO import_item_core_validations(
 func (records *ReviewValidation) CopyFiles(
 	ctx context.Context, value application.ReviewValidationRefreshFileCopy,
 ) error {
-	_, err := recordstore.CreateReferences(ctx, records.executor, "import_item_validation_files", `
+	_, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 )
@@ -226,7 +229,7 @@ WHERE import_item_core_validation_id=?
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
-		if _, err := recordstore.CreateReferences(ctx, records.executor, "import_item_validation_files", `
+		if _, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 ) VALUES(?,'BIOS_BUNDLE',?,?,?,?)

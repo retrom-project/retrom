@@ -98,7 +98,7 @@ attachment.dat_version_id,attachment.upload_file_id,
 file.upload_session_id,attachment.original_filename,file.blob_id,blob.sha256,blob.size_bytes
 FROM review_arcade_parent_attachments attachment
 JOIN import_files file ON file.id=attachment.upload_file_id
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE attachment.job_id=? AND attachment.state='RUNNING'
 `, jobID).Scan(
 		&candidate.AttachmentID, &candidate.ItemID, &candidate.DraftID, &candidate.BaseSnapshotID,
@@ -106,7 +106,10 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 		&candidate.DATID, &candidate.UploadFileID, &candidate.UploadSessionID, &candidate.OriginalName,
 		&candidate.BlobID, &candidate.BlobSHA, &candidate.BlobSize,
 	); err != nil {
-		return application.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf("read claimed arcade parent attachment: %w", err)
+		return application.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf(
+			"read claimed arcade parent attachment: %w",
+			err,
+		)
 	}
 	if candidate.AttachmentID != result.Input.AttachmentID || candidate.ItemID != result.Input.ImportItemID ||
 		candidate.DraftID != result.Input.ReviewDraftID || candidate.BaseSnapshotID != result.Input.BaseSourceSnapshotID ||
@@ -143,8 +146,8 @@ func (repository *ArcadeParentAttachmentWorker) SourceSnapshot(
 SELECT file.role,file.logical_name,file.upload_file_id,file.blob_id,blob.sha256,blob.size_bytes,
 file.source_archive_blob_id,file.source_archive_entry_ordinal,COALESCE(archive.sha256,'')
 FROM import_item_source_snapshot_files file
-JOIN blobs blob ON blob.id=file.blob_id
-LEFT JOIN blobs archive ON archive.id=file.source_archive_blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
+LEFT JOIN stored_files archive ON archive.id=file.source_archive_blob_id
 WHERE file.source_snapshot_id=?
 ORDER BY file.role,file.logical_name
 `, snapshotID)

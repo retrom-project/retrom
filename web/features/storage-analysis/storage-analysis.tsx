@@ -19,7 +19,7 @@ const cleanupEndpoint = "/api/v1/admin/storage-cleanups";
 const fixedExcluded = Object.keys(excludedPresentation) as StorageSnapshot["excluded"];
 
 type StorageCleanupResult = {
-  scheduledBlobCount: number;
+  scheduledFileCount: number;
   scheduledBytes: string;
   acceptedAtMs: number;
 };
@@ -48,9 +48,9 @@ function ByteValue({ bytes, label, className }: { bytes: string; label: string; 
 
 function Summary({ snapshot }: { snapshot: StorageSnapshot }) {
   const items = [
-    { label: "已登记 CAS", bytes: snapshot.totals.registeredBytes, note: `${snapshot.totals.blobCount} 个 Blob` },
-    { label: "受保护数据", bytes: snapshot.totals.protectedBytes, note: `${storagePercentage(snapshot.totals.protectedBytes, snapshot.totals.registeredBytes)} 已被引用` },
-    { label: "等待回收", bytes: snapshot.totals.unreferencedBytes, note: `${storagePercentage(snapshot.totals.unreferencedBytes, snapshot.totals.registeredBytes)} 当前未引用` },
+    { label: "已登记文件", bytes: snapshot.totals.registeredBytes, note: `${snapshot.totals.fileCount} 个文件` },
+    { label: "保留数据", bytes: snapshot.totals.retainedBytes, note: `${storagePercentage(snapshot.totals.retainedBytes, snapshot.totals.registeredBytes)} 继续保留` },
+    { label: "等待回收", bytes: snapshot.totals.pendingDeleteBytes, note: `${storagePercentage(snapshot.totals.pendingDeleteBytes, snapshot.totals.registeredBytes)} 已安排删除` },
   ];
   return <section className="storage-summary" aria-label="容量总览">
     {items.map((item) => <article key={item.label}>
@@ -62,7 +62,7 @@ function Summary({ snapshot }: { snapshot: StorageSnapshot }) {
 }
 
 function CapacityBar({ snapshot }: { snapshot: StorageSnapshot }) {
-  return <div className="storage-bar" role="img" aria-label={`已登记容量 ${formatStorageBytes(snapshot.totals.registeredBytes)}，按九个用途分类`}>
+  return <div className="storage-bar" role="img" aria-label={`已登记容量 ${formatStorageBytes(snapshot.totals.registeredBytes)}，按六个用途分类`}>
     {snapshot.categories.map((category) => <i
       aria-hidden="true"
       className={`storage-tone-${category.code.toLowerCase().replaceAll("_", "-")}`}
@@ -83,17 +83,17 @@ function CategoryCard({ category, total }: { category: StorageCategory; total: s
     </div>
     <div className="storage-category-value">
       <ByteValue bytes={category.bytes} label={presentation.label} />
-      <small>{category.blobCount} 个 Blob · {storagePercentage(category.bytes, total)}</small>
+      <small>{category.fileCount} 个文件 · {storagePercentage(category.bytes, total)}</small>
     </div>
   </article>;
 }
 
 function Breakdown({ snapshot }: { snapshot: StorageSnapshot }) {
   if (snapshot.totals.registeredBytes === "0") {
-    return <EmptyState title="还没有已登记的 CAS 数据" description="导入游戏、安装 BIOS 或创建存档后，这里会按实际 Blob 引用显示容量。" />;
+    return <EmptyState title="还没有已登记的文件" description="导入游戏、安装 BIOS 或创建存档后，这里会按各类文件显示容量。" />;
   }
   return <section className="panel storage-breakdown" aria-labelledby="storage-breakdown-title">
-    <div className="panel-head"><div><h2 id="storage-breakdown-title">按用途分析</h2><p>同一个 Blob 只统计一次；长期业务用途优先于流程和运行快照。</p></div></div>
+    <div className="panel-head"><div><h2 id="storage-breakdown-title">按用途分析</h2><p>按文件的当前用途分类；内容相同的独立文件分别计量。</p></div></div>
     <div className="panel-body">
       <CapacityBar snapshot={snapshot} />
       <div className="storage-category-list">
@@ -106,26 +106,26 @@ function Breakdown({ snapshot }: { snapshot: StorageSnapshot }) {
 function Details({ snapshot }: { snapshot: StorageSnapshot }) {
   const saves = snapshot.details.saveStates;
   const cleanup = snapshot.details.cleanupCandidates;
-  return <section className="storage-details" aria-label="引用视图">
+  return <section className="storage-details" aria-label="文件详情">
     <article className="panel">
-      <div><span>存档引用视图</span><strong>{saves.activeCount} 份有效 · {saves.deletedCount} 份软删除</strong></div>
+      <div><span>存档文件</span><strong>{saves.activeCount} 份有效 · {saves.deletedCount} 份软删除</strong></div>
       <dl>
-        <div><dt>状态文件</dt><dd><ByteValue bytes={saves.stateReferenceBytes} label="存档状态文件引用量" /></dd></div>
-        <div><dt>截图文件</dt><dd><ByteValue bytes={saves.screenshotReferenceBytes} label="存档截图引用量" /></dd></div>
+        <div><dt>状态文件</dt><dd><ByteValue bytes={saves.stateBytes} label="存档状态文件大小" /></dd></div>
+        <div><dt>截图文件</dt><dd><ByteValue bytes={saves.screenshotBytes} label="存档截图大小" /></dd></div>
       </dl>
-      <p>状态文件与截图是两个可重叠的引用视图，不与用途分类相加。</p>
+      <p>状态文件与截图属于各自存档，已包含在上方用途分类中。</p>
     </article>
     <article className="panel">
-      <div><span>清理候选视图</span><strong>{cleanup.blobCount} 个 Blob</strong></div>
-      <ByteValue className="storage-detail-total" bytes={cleanup.bytes} label="清理候选引用量" />
-      <p>替换或移除后，失去最后引用的数据会进入清理队列；后台删除 Blob 后，已登记总量才会下降。ROM 替换会清理绑定旧内容的存档；BIOS 替换会撤销使用旧 BIOS 的启动，存档仍可使用。</p>
+      <div><span>删除队列</span><strong>{cleanup.fileCount} 个文件</strong></div>
+      <ByteValue className="storage-detail-total" bytes={cleanup.bytes} label="清理候选大小" />
+      <p>替换或移除后，所有者移除的文件会进入清理队列；后台删除文件后，已登记总量才会下降。ROM 替换会清理绑定旧内容的存档；BIOS 替换会撤销使用旧 BIOS 的启动，存档仍可使用。</p>
     </article>
   </section>;
 }
 
 function ScopeNote({ excluded = fixedExcluded }: { excluded?: StorageSnapshot["excluded"] }) {
   return <section className="storage-scope" aria-labelledby="storage-scope-title">
-    <div><p className="eyebrow">统计边界</p><h2 id="storage-scope-title">仅计算已登记 CAS payload</h2><p>口径版本 <code>REGISTERED_CAS_PAYLOAD_V1</code>。页面不等同于磁盘占用或可用空间。</p></div>
+    <div><p className="eyebrow">统计边界</p><h2 id="storage-scope-title">仅计算已登记文件</h2><p>口径版本 <code>OWNED_FILES_V1</code>。页面不等同于磁盘占用或可用空间。</p></div>
     <ul>{excluded.map((code) => <li key={code}>{excludedPresentation[code]}</li>)}</ul>
   </section>;
 }
@@ -170,8 +170,8 @@ function useStorageAnalysis() {
         const value = await fetchSnapshot(controller.signal);
         if (controller.signal.aborted) {return;}
         setSnapshot(value);
-        const unreferenced = value.categories.find((category) => category.code === "UNREFERENCED");
-        if (value.details.cleanupCandidates.blobCount === 0 && unreferenced?.blobCount === 0) {
+        const unreferenced = value.categories.find((category) => category.code === "PENDING_DELETE");
+        if (value.details.cleanupCandidates.fileCount === 0 && unreferenced?.fileCount === 0) {
           setTrackingCleanup(false);
           setNotice("立即清理已完成，容量分析已更新。");
         } else {
@@ -201,10 +201,10 @@ function useStorageAnalysis() {
     try {
       const result = await scheduleCleanup();
       setCleanupOpen(false);
-      setNotice(result.scheduledBlobCount
-        ? `已安排立即清理 ${result.scheduledBlobCount} 个 Blob（${formatStorageBytes(result.scheduledBytes)}）；正在自动更新容量分析。`
+      setNotice(result.scheduledFileCount
+        ? `已安排立即清理 ${result.scheduledFileCount} 个文件（${formatStorageBytes(result.scheduledBytes)}）；正在自动更新容量分析。`
         : "当前没有仍可立即清理的未引用数据。");
-      if (result.scheduledBlobCount > 0) {setTrackingCleanup(true);}
+      if (result.scheduledFileCount > 0) {setTrackingCleanup(true);}
       else {
         try {setSnapshot(await fetchSnapshot());}
         catch (reason) {setError(reason instanceof Error ? `清理已提交，但刷新分析失败：${reason.message}` : "清理已提交，但刷新分析失败");}
@@ -224,10 +224,10 @@ type StorageViewState = ReturnType<typeof useStorageAnalysis>;
 
 function StorageHeader({ state }: { state: StorageViewState }) {
   const busy = state.loading || state.refreshing || state.cleaning;
-  const canCleanup = Boolean(state.snapshot && state.snapshot.totals.unreferencedBytes !== "0");
+  const canCleanup = Boolean(state.snapshot && state.snapshot.totals.pendingDeleteBytes !== "0");
   return <PageHeader
     title="容量分析"
-    description="查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。"
+    description="查看 Retrom 已登记文件的业务用途，定位长期数据、流程数据与等待回收内容。"
     actions={<div className="storage-header-actions">
       <button className="button danger" type="button" disabled={busy || !canCleanup} onClick={() => state.setCleanupOpen(true)}>立即清理</button>
       <button className="button secondary" type="button" disabled={busy} onClick={() => void state.refresh()}>{state.refreshing ? "正在刷新…" : "刷新分析"}</button>
@@ -256,18 +256,18 @@ function StorageContent({ state, generated }: { state: StorageViewState; generat
 }
 
 function StorageCleanupDialog({ state }: { state: StorageViewState }) {
-  const unreferenced = state.snapshot?.categories.find((category) => category.code === "UNREFERENCED");
+  const unreferenced = state.snapshot?.categories.find((category) => category.code === "PENDING_DELETE");
   return <ConfirmDialog
     open={state.cleanupOpen}
-    title="立即清理未引用数据？"
-    description="这会补齐未引用数据的清理任务并重试失败任务；每个 Blob 删除前仍会重新检查引用计数。"
+    title="立即删除待清理文件？"
+    description="这会提交待删除文件并重试失败任务。仍在使用的游戏、媒体和存档会保留。"
     confirmLabel="立即清理"
     tone="danger"
     busy={state.cleaning}
     onCancel={() => state.setCleanupOpen(false)}
     onConfirm={() => void state.cleanup()}
   >
-    <p>当前快照中有 <strong>{unreferenced?.blobCount ?? 0} 个 Blob</strong>、<strong>{formatStorageBytes(state.snapshot?.totals.unreferencedBytes ?? "0")}</strong> 未被引用。实际回收量以后台复核结果为准。</p>
+    <p>当前快照中有 <strong>{unreferenced?.fileCount ?? 0} 个文件</strong>、<strong>{formatStorageBytes(state.snapshot?.totals.pendingDeleteBytes ?? "0")}</strong> 等待删除。实际回收量以后台复核结果为准。</p>
   </ConfirmDialog>;
 }
 

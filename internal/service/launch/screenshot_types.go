@@ -24,6 +24,7 @@ type ScreenshotSource struct {
 }
 
 type ScreenshotImage struct {
+	BlobID                                           string
 	SHA256, MD5, SHA1, CRC32, MediaType, StoragePath string
 	SizeBytes, WidthPX, HeightPX                     int64
 }

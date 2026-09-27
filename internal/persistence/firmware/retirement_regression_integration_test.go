@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/testsupport"
 )
@@ -27,7 +27,7 @@ func (result retirementFailedCount) RowsAffected() (int64, error) { return 0, re
 
 func faultRetirementService(t *testing.T, db dbapi.DB, now int64, prefix, fragment string,
 	cause error, hits *atomic.Int64,
-) *payloadrelease.Service {
+) *cleanupjobs.Service {
 	t.Helper()
 	fault := testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
 		AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
@@ -39,11 +39,11 @@ func faultRetirementService(t *testing.T, db dbapi.DB, now int64, prefix, fragme
 			return result, nil
 		},
 	})
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := payloadrelease.New(t.Context(), fault, blobs, func() time.Time { return time.UnixMilli(now) })
+	service, err := cleanupjobs.New(t.Context(), fault, blobs, func() time.Time { return time.UnixMilli(now) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestBIOSRetirementRollsBackUnconfirmedInstallationRelease(t *testing.T) {
 	cause := errors.New("BIOS retirement count failure")
 	var hits atomic.Int64
 	service := faultRetirementService(t, db, now, "UPDATE bios_installations SET", "blob_id=NULL", cause, &hits)
-	err := service.ReconcileGC(t.Context())
+	err := service.ReconcileDeletion(t.Context())
 	var retained, variants int
 	readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT blob_id IS NOT NULL,
 (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant')
@@ -87,7 +87,7 @@ func TestLaunchRetirementRollsBackUnconfirmedWrites(t *testing.T) {
 			cause := errors.New(point.name + " retirement count failure")
 			var hits atomic.Int64
 			service := faultRetirementService(t, db, now, point.prefix, point.fragment, cause, &hits)
-			err := service.ReconcileGC(t.Context())
+			err := service.ReconcileDeletion(t.Context())
 			if !errors.Is(err, cause) || hits.Load() != 1 {
 				t.Fatalf("unconfirmed retirement: hits=%d err=%v", hits.Load(), err)
 			}

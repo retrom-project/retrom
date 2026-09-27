@@ -24,7 +24,7 @@
 | [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md) | 真实 DAT 的来源、SHA-256、统计值、artifact 绑定与升级校验 |
 | [运行时、启动与游玩数据](./runtime-and-play-data.md) | 一键启动、默认全屏、预检、EmulatorJS、DOS、存档与游玩时长 |
 | [核心运行时验证基线](./core-runtime-validation.md) | 35 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
-| [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
+| [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、独立文件存储、归档安全、后台删除 |
 | [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、当前态、外键、索引与数据库级保护 |
 | [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、认证/CSRF、上传分块、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
@@ -122,14 +122,14 @@ flowchart LR
 
 ### 3.5 原始内容不可变并用 SHA-256 去重
 
-- 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
+- 上传内容流式计算 SHA-256，写入按独立 UUID 寻址的文件存储。每个游戏独占 ROM、封面、视频等数据；相同内容也分别保存。哈希用于完整性、DAT 和重复内容提示。
 - Blob 发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
-- 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给即时排队的 GC。替换失败不触碰 current 或存档。
+- 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再将该游戏的旧文件标记退休并持久排队删除。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
 
-一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地 CAS；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
+一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
 
 生产环境由已有 NG（Nginx/网关/反向代理）对外暴露同一个 HTTPS origin，再通过明文 HTTP 路由至两个应用。Retrom 不加载证书、不监听 HTTPS，也不负责 TLS 跳转或 HSTS。开发环境的 `make dev` 直接启动宿主机 Go 与 Next.js 进程，不使用 Docker。
 
@@ -140,8 +140,8 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 - 默认 `release` 模式的空实例进入 `PENDING`，访问 `/setup` 并提交合法账号信息和密码即可创建首位启用管理员；初始化完成后不可重开。
 - `--mode=test` 只供明确的开发/验收数据根使用，会在空库创建 `test/test` 并显示警告；除此之外不放宽认证、授权、Origin、CSRF、cookie 或数据隔离。
 - 已初始化实例的普通 API 要求有效 AuthSession，`/api/v1/admin/**` 另要求 `ADMIN`。普通管理员只管理账号和共享内容，不能查看其他用户的存档名称、截图、游玩记录或保存内容。
-- 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 和旧备份必须使用全新空数据根重建，不做数据转换。
-- Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号和恢复安全围栏会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
+- 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 必须使用全新空数据根重建，不做数据转换。
+- Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
 
 ### 3.8 多盘内容是一个不可拆分当前态
 
@@ -157,7 +157,7 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一在 owner 计数归零后经异步 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 Blob 引用计数与释放规则。
+统一导入、审核只在可重试/待决期间持有自己的 ROM、媒体、预览和 provider 证据。ImportItem 发布将选定内容和媒体交给 Game；终态只清理剩余 Item 文件。Game 永久删除保留墓碑和审计，异步清理其独占内容、媒体、存档与运行关系。各领域明确退休文件，通用 OWNER_CLEANUP/FILE_DELETE 处理有界清理、租约和失败重试，不维护公共引用计数、保护图或跨游戏物理共享。
 
 ### 3.13 沉浸模式是独立电视交互面
 
@@ -194,7 +194,7 @@ Provider 激活只向前：允许更高版本在稳定 Target 仍存在且 check
 
 普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
-需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/CAS/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关，registry、锁和生成的网关配置由根工作区被Git忽略的`.pfb/`管理而不写入用户全局目录。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
+需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/独立文件存储/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关，registry、锁和生成的网关配置由根工作区被Git忽略的`.pfb/`管理而不写入用户全局目录。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
 
 PFB只用于test模式的发布前产品联调，不承担候选归档。Retrom/runtime源码直接bind mount；runtime watcher只生成按字节摘要验证的loose模块/本地adapter资源，core只由显式命令构建。loose开发层不能进入正式manifest、release-input digest、生产镜像或tag workflow。正式晋升仍按core Release、runtime Release、Retrom production pin顺序进行，并以从正式Provider安装重跑同一产品Case为准。
 
@@ -209,7 +209,7 @@ flowchart LR
     PD --> EP["EmulatorJS Provider · 55 Targets"]
     PD --> RP["retrom-runtime Provider · 22 Targets"]
     S --> D["SQLite WAL"]
-    S --> B["本地 SHA-256 CAS"]
+    S --> B["本地 SHA-256 独立文件存储"]
     S --> J["SQLite 队列 + 进程内 Worker"]
     J --> A["Arcade DAT 解析器"]
     J --> H["Hasheous 哈希元信息查询"]
@@ -272,7 +272,7 @@ erDiagram
 - Game 不保存可为空的 `platform_id` 作为另一条归属路径，只保存非空 `platform_instance_id`。
 - Game 的当前字段和 `game_files` 唯一决定普通启动内容；目录默认核心、Provider Target 或 DAT 变化不得反向改写它。
 - GameVariant 引用稳定 Provider/Target，Launch 冻结 Bundle 和资源，SaveState 引用 Game 与 checkpoint format；恢复只由当前 Target 的 `readFormats` 判定。
-- BIOS 要求和 DAT 活动版本按 Provider Target 隔离；同一个 Blob 可以去重，但 Installation/校验状态不可跨 Target 串用。
+- BIOS 要求和 DAT 活动版本按 Provider Target 隔离；每个 Installation 独占文件与校验状态，不跨 Target 复用物理文件。
 - ImportJob/ImportItem 记录创建时的游戏目录、默认 Core、Provider Target、DAT 和刮削证据快照；在途结果不因后续 catalog 变化而漂移。
 - 审核发布、游戏目录移动、DAT 启用和文件当前态切换必须可审计。
 - Favorite 与 FavoriteFolder 都由认证 Profile 私有拥有；FolderMembership 必须同时引用同一 Profile 的 Favorite 与 Folder。收藏关系不改变 Game 的 PlatformInstance 唯一归属，管理员也没有跨 Profile 查询旁路。
@@ -363,7 +363,7 @@ erDiagram
 - 游戏目录
 - 用户管理
 - 运行依赖（BIOS 文件；Arcade DAT 由 release 自动管理）
-- 容量分析（紧跟运行依赖；分析已登记 CAS payload 用途，并允许 ADMIN 显式推进未引用数据的既有 GC，不表示卷空间）
+- 容量分析（紧跟运行依赖；分析已登记独立文件存储 payload 用途，并允许 ADMIN 显式推进已退休文件的既有 后台删除，不表示卷空间）
 
 “游戏入库”是可点击的父级总览；五个子项使用明确缩进并保持同级，其中“本地扫描”位于“导入游戏”之后、“任务进度”之前并进入服务器 BIOS 导入能力。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
 
@@ -394,7 +394,7 @@ erDiagram
 ~~~mermaid
 flowchart LR
     A["选择游戏目录"] --> B["上传文件 / 目录"]
-    B --> C["SHA-256 / CAS / 分组"]
+    B --> C["SHA-256 / 独立文件存储 / 分组"]
     C --> D["Arcade DAT 依赖识别"]
     C --> E["Hasheous 元信息候选"]
     D --> F["人工审核"]
@@ -409,7 +409,7 @@ flowchart LR
 
 服务器导入是一期管理能力：管理员可从服务器根目录浏览、选择服务进程有读取权限的目录，无需配置应用目录白名单；容器内可见范围由部署挂载决定。浏览器提交固定 root ID `filesystem` 与相对 `/` 的规范目录，导入只读取来源，不跟随符号链接或执行来源命令。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
 
-两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对全局待审队列启动一次有界快速审批。Worker 逐项重新检查严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对全局待审队列启动一次有界快速审批。Worker 逐项重新检查严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付。外部 source 与原始 metadata 不属于 Retrom 数据根或独立文件存储；交接审核后的 ROM、封面和 VIDEO 由 ImportItem 独立持有，发布时交给 Game。已创建的 Launch 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
 
 游戏详情是唯一允许请求 VIDEO 的用户页面。详情先用 COVER 保持稳定的 3:4 识别位，媒体区在前台与 viewport 内累计可见满两秒后才尝试 `muted + playsInline + loop`；收到 `playing` 前不隐藏封面，播放拒绝、解码/停滞、隐藏标签页与减少动态效果均有确定性封面回退或手动入口。首页、游戏库、收藏、最近、存档和搜索的 DTO/查询保持 cover-only。
 
@@ -430,7 +430,7 @@ flowchart LR
 - EmulatorJS Provider Bundle 锁定 44 个 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
-- 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
+- 用户上传内容、下载媒体、存档和截图进入运行时独立文件存储，不提交到代码仓库。
 - 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。旧 DatVersion 只为已创建 Launch 的冻结证据和审计提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
 
@@ -452,7 +452,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 - Go 模块化单体、SQLite migrations、统一错误、OpenAPI。
 - Platform/Core 种子、PlatformInstance 约束与初始目录。
-- 本地 CAS、受控内容端点、任务队列和 Next.js App Shell。
+- 本地独立文件存储、受控内容端点、任务队列和 Next.js App Shell。
 - 按[工程质量、Lint 与测试规范](./engineering-quality-and-testing.md)建立固定版本 lint、统一 Makefile、关键路径测试和 CI；补齐 `make dev` 本地进程编排，以及 `retrom`/`retrom-web` 的只构建镜像 targets；拒绝 SQLite TEXT 业务时刻字段。
 
 ### Phase 2：导入与管理
@@ -470,7 +470,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 4：存档与稳定性
 
 - 显式状态存档、截图、普通启动残留隔离和 PlaySession。
-- Blob GC、备份恢复、诊断导出和 Chrome E2E。
+- 文件后台删除、诊断导出和 Chrome E2E。
 - `320px` 起的手机、平板、1280×800 最小桌面、2560×1440 与 4K 视觉回归；移动 Player 另覆盖竖屏阻断、横屏恢复与暂停所有权。
 
 ### Phase 5：收藏与收藏夹垂直切片
@@ -487,7 +487,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 8：Runtime Provider 原子切换
 
-- 以 001–016 无 trigger/view 的直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
+- 以 001–015 无 trigger/view 的直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
 - EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 

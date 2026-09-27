@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/authn"
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/filecatalog"
 )
 
 const approvalActorID = "01980000-0000-7000-8000-000000009611"
@@ -27,6 +28,20 @@ func prepareApprovalSelections(t *testing.T, fixture deduplicateFixture, itemID 
  SELECT 'approval-selected-cover',?,file.id,file.final_blob_id,'COVER',1,1,'image/png',?
  FROM upload_files file JOIN import_jobs parent ON parent.upload_session_id=file.upload_session_id
  JOIN import_items item ON item.import_job_id=parent.id WHERE item.id=? LIMIT 1`, itemID, fixture.service.now().UnixMilli(), itemID)
+	var oldID string
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT blob_id FROM review_uploaded_assets WHERE id='approval-selected-cover'`).Scan(&oldID); err != nil {
+		t.Fatal(err)
+	}
+	copy, err := fixture.service.blobs.Copy(t.Context(), oldID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newID, err := filecatalog.EnsureRecord(t.Context(), fixture.database, copy, "image/png", fixture.service.now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.execute(t, `UPDATE stored_files SET owner_kind='IMPORT_ITEM',owner_id=? WHERE id=?`, itemID, newID)
+	fixture.execute(t, `UPDATE review_uploaded_assets SET blob_id=? WHERE id='approval-selected-cover'`, newID)
 	fixture.execute(t, `UPDATE import_items SET cover_uploaded_asset_id='approval-selected-cover' WHERE id=?`, itemID)
 	return authn.WithPrincipal(t.Context(), authn.Principal{UserID: approvalActorID})
 }

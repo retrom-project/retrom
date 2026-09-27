@@ -15,9 +15,7 @@ func deleteRows(
 		return nil, fmt.Errorf("%w: missing delete scope", ErrInvariant)
 	}
 	return Atomic(ctx, db, func(tx dbapi.Executor) (sql.Result, error) {
-		return referenceMutation(ctx, tx, table, scope, true, func() (sql.Result, error) {
-			return tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE "+scope.Where, scope.Args...)
-		})
+		return tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE "+scope.Where, scope.Args...)
 	})
 }
 

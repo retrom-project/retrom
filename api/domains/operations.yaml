@@ -8,14 +8,14 @@ paths:
   /api/v1/admin/storage-analysis:
     get:
       operationId: getAdminStorageAnalysis
-      description: Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings.
+      description: Returns one read-only snapshot of registered independently owned files usage. Byte quantities are decimal strings.
       responses:
         '200':
           $ref: '#/components/responses/StorageAnalysisResponse'
   /api/v1/admin/storage-cleanups:
     post:
       operationId: postAdminStorageCleanup
-      description: Reconciles unreferenced registered CAS payload and retries failed cleanup jobs. Every Blob's reference count is rechecked before deletion.
+      description: Schedules retired registered files for deletion and retries failed cleanup jobs. Each file's owner and retirement state are rechecked before deletion.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
         - $ref: ../components/common.yaml#/components/parameters/CSRFToken
@@ -84,7 +84,7 @@ components:
       required:
         - games
         - saveStates
-        - blobs
+        - storedFiles
         - jobs
         - datVersions
       properties:
@@ -92,7 +92,7 @@ components:
           $ref: '#/components/schemas/DiagnosticsGameCounts'
         saveStates:
           $ref: '#/components/schemas/DiagnosticsLifecycleCounts'
-        blobs:
+        storedFiles:
           type: integer
           format: int64
           minimum: 0
@@ -176,7 +176,7 @@ components:
         scope:
           type: string
           enum:
-            - REGISTERED_CAS_PAYLOAD_V1
+            - OWNED_FILES_V1
         generatedAtMs:
           type: integer
           format: int64
@@ -185,8 +185,8 @@ components:
           $ref: '#/components/schemas/StorageAnalysisTotals'
         categories:
           type: array
-          minItems: 9
-          maxItems: 9
+          minItems: 6
+          maxItems: 6
           items:
             $ref: '#/components/schemas/StorageAnalysisCategory'
         details:
@@ -210,20 +210,20 @@ components:
       additionalProperties: false
       required:
         - registeredBytes
-        - protectedBytes
-        - unreferencedBytes
-        - blobCount
+        - retainedBytes
+        - pendingDeleteBytes
+        - fileCount
       properties:
         registeredBytes:
           type: string
           pattern: ^[0-9]+$
-        protectedBytes:
+        retainedBytes:
           type: string
           pattern: ^[0-9]+$
-        unreferencedBytes:
+        pendingDeleteBytes:
           type: string
           pattern: ^[0-9]+$
-        blobCount:
+        fileCount:
           type: integer
           format: int64
           minimum: 0
@@ -233,7 +233,7 @@ components:
       required:
         - code
         - bytes
-        - blobCount
+        - fileCount
       properties:
         code:
           type: string
@@ -243,14 +243,11 @@ components:
             - SAVES
             - MEDIA
             - WORKFLOW
-            - RUNTIME_SNAPSHOT
-            - SHARED_DURABLE
-            - OTHER_REFERENCED
-            - UNREFERENCED
+            - PENDING_DELETE
         bytes:
           type: string
           pattern: ^[0-9]+$
-        blobCount:
+        fileCount:
           type: integer
           format: int64
           minimum: 0
@@ -271,8 +268,8 @@ components:
       required:
         - activeCount
         - deletedCount
-        - stateReferenceBytes
-        - screenshotReferenceBytes
+        - stateBytes
+        - screenshotBytes
       properties:
         activeCount:
           type: integer
@@ -282,20 +279,20 @@ components:
           type: integer
           format: int64
           minimum: 0
-        stateReferenceBytes:
+        stateBytes:
           type: string
           pattern: ^[0-9]+$
-        screenshotReferenceBytes:
+        screenshotBytes:
           type: string
           pattern: ^[0-9]+$
     StorageAnalysisCleanupCandidates:
       type: object
       additionalProperties: false
       required:
-        - blobCount
+        - fileCount
         - bytes
       properties:
-        blobCount:
+        fileCount:
           type: integer
           format: int64
           minimum: 0
@@ -306,11 +303,11 @@ components:
       type: object
       additionalProperties: false
       required:
-        - scheduledBlobCount
+        - scheduledFileCount
         - scheduledBytes
         - acceptedAtMs
       properties:
-        scheduledBlobCount:
+        scheduledFileCount:
           type: integer
           format: int64
           minimum: 0
@@ -329,13 +326,13 @@ components:
           schema:
             $ref: '#/components/schemas/DiagnosticsSnapshot'
     StorageAnalysisResponse:
-      description: Registered CAS payload capacity snapshot
+      description: Registered independently owned files capacity snapshot
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/StorageAnalysis'
     StorageCleanupResponse:
-      description: Registered CAS payload accepted for cleanup or retry
+      description: Registered independently owned files accepted for cleanup or retry
       content:
         application/json:
           schema:

@@ -70,7 +70,7 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 func admissionDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, table := range []string{"jobs", "job_events", "job_input_snapshots", "import_jobs", "import_items", "import_group_requests", "import_job_files", "upload_consumptions", "upload_sessions", "upload_files", "blobs", "blob_gc_candidates"} {
+	for _, table := range []string{"jobs", "job_events", "job_input_snapshots", "import_jobs", "import_items", "import_group_requests", "import_job_files", "upload_consumptions", "upload_sessions", "upload_files", "stored_files", "file_deletions"} {
 		result[table] = approvalTableRows(t, database, table)
 	}
 	return result

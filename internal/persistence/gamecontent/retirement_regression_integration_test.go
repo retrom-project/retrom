@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -28,7 +28,7 @@ import (
 
 type retirementFixture struct {
 	db                                  dbapi.DB
-	releases                            *payloadrelease.Service
+	releases                            *cleanupjobs.Service
 	gameID, variantID, saveID, launchID string
 }
 
@@ -53,14 +53,14 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dir, time.Now)
 	t.Cleanup(uploadService.Close)
 	uploadID := completeUpload(t, t.Context(), database.SQL, uploadService, "retirement.gba", []byte("original retirement content"))
-	importer := libraryimport.New(database.SQL, time.Now)
+	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	created, err := importer.Create(t.Context(), libraryimport.CreateRequest{UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE"})
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 		t.Fatal(err)
 	}
 	saveID, launchID, _ := seedReplacementSave(t, t.Context(), database.SQL, blobs, published.GameID)
-	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

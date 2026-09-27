@@ -156,7 +156,7 @@ python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/r
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
-python3 scripts/acceptance/check-blob-counts.py "$temporary_root/data/retrom.db"
+python3 scripts/acceptance/check-owned-files.py "$temporary_root/data/retrom.db"
 playwright_command=(npm run test:e2e)
 if [[ -n "$e2e_grep" ]]; then
   playwright_command+=(-- --grep "$e2e_grep")
@@ -176,7 +176,7 @@ emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulat
   RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/console-snes9x.json" "$temporary_root/console-nestopia.json" "$temporary_root/console-mame2003_plus.json" "$temporary_root/console-fbalpha2012_cps1.json" "$temporary_root/console-fbalpha2012_cps2.json")" \
   "${playwright_command[@]}")
 
-python3 scripts/acceptance/check-blob-counts.py "$temporary_root/data/retrom.db"
+python3 scripts/acceptance/check-owned-files.py "$temporary_root/data/retrom.db"
 RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e
 wait "$process_id"

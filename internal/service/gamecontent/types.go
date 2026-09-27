@@ -1,8 +1,8 @@
 package gamecontent
 
 import (
-	"retrom/internal/blobstore"
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/filestore"
 )
 
 type JobSnapshot struct {
@@ -46,7 +46,7 @@ type PreparedReplacement struct {
 	Files                   []ReplacementFile
 	Manifest                []byte
 	ManifestDigest          string
-	CanonicalPlaylist       blobstore.Metadata
+	CanonicalPlaylist       filestore.Metadata
 	OrderedDiscSHA256       []string
 	FirstContentLogicalName string
 	RPGMaker                *PreparedRPGMakerReplacement

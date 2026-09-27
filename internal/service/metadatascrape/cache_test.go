@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -72,7 +72,7 @@ func TestMetadataCacheStorageFailureDoesNotBecomeMiss(t *testing.T) {
 func assertCacheScenario(t *testing.T, test cacheScenario) {
 	t.Helper()
 
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func assertCacheScenario(t *testing.T, test cacheScenario) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cache.value.RawSHA256 = metadata.SHA256
+		cache.value.RawFileID = metadata.ID
 	}
 	provider := &lookupProvider{}
 	if test.corrupt {

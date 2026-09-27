@@ -172,7 +172,7 @@ func (repository *MultiDiscAttachmentWorker) BaseFiles(
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT file.role,file.logical_name,file.upload_file_id,file.blob_id,blob.sha256,blob.size_bytes,file.sort_order
 FROM import_item_source_snapshot_files file
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE file.source_snapshot_id=? AND file.role IN ('PLAYLIST_SOURCE','DISC')
 ORDER BY file.role,file.sort_order
 `, snapshotID)
@@ -224,7 +224,7 @@ FROM upload_sessions WHERE id=?
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT file.relative_path,file.id,file.blob_id,blob.sha256,blob.size_bytes
 FROM import_files file
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE file.upload_session_id=? AND file.released_at_ms IS NULL
 ORDER BY file.relative_path,file.id
 `, sessionID)

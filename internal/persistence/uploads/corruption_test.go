@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
 )
@@ -22,7 +22,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}

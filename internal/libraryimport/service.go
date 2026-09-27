@@ -14,8 +14,8 @@ import (
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/core/scummvm"
+	"retrom/internal/filestore"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
@@ -24,7 +24,7 @@ import (
 type Service struct {
 	scummVMDetector        *scummvm.Detector
 	database               dbapi.DB
-	blobs                  *blobstore.Store
+	blobs                  *filestore.Store
 	now                    func() time.Time
 	scraper                *metadatascrape.Service
 	tags                   *tagging.Service
@@ -44,7 +44,7 @@ func reviewActor(ctx context.Context) authn.Actor {
 	return authn.ActorFromContext(ctx, "release-setup")
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
 	service.blobs = blobs
 	return service
 }
@@ -65,8 +65,8 @@ func New(database dbapi.DB, now func() time.Time, scraper ...*metadatascrape.Ser
 }
 
 // Reconfigure reuses the unresolved rejected files from an existing import. The
-// cloned UploadSession owns new logical UploadFiles but points at the same CAS
-// blobs, so the browser never has to upload the bytes again.
+// replacement UploadSession receives independent copies, so the browser never
+// has to upload the bytes again and either session can release its own files.
 func (service *Service) Reconfigure(
 	ctx context.Context,
 	sourceImportJobID string,
@@ -89,5 +89,5 @@ func (service *Service) Reconfigure(
 }
 
 func (service *Service) removeUnusedClonedUpload(ctx context.Context, uploadID string) {
-	_ = librarypersistence.NewReconfigurations(service.database).RemoveUnused(ctx, uploadID)
+	_ = librarypersistence.NewReconfigurations(service.database).RemoveUnused(ctx, uploadID, service.now().UnixMilli())
 }

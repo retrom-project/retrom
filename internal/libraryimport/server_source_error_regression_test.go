@@ -32,7 +32,7 @@ func TestServerSourcePreservesBlobReadFailure(t *testing.T) {
 	}
 	var ignored int64
 	expected := errors.Unwrap(dbapi.QueryRowContext(
-		fixture.ctx, fixture.database, `SELECT size_bytes FROM blobs WHERE id=?`, request.Files[0].BlobID).Scan(&ignored))
+		fixture.ctx, fixture.database, `SELECT size_bytes FROM stored_files WHERE id=?`, request.Files[0].BlobID).Scan(&ignored))
 	_, _, _, err := fixture.service.validateServerFiles(fixture.ctx, request.Files)
 	if expected == nil || !errors.Is(err, expected) {
 		t.Fatalf("blob read cause lost: got=%v expected=%v", err, expected)

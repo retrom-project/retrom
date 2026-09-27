@@ -15,9 +15,9 @@ import (
 	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
@@ -28,7 +28,7 @@ type reviewCheckpointFixture struct {
 	database dbapi.DB
 	launcher *Service
 	saver    *saves.Service
-	releaser *payloadrelease.Service
+	releaser *cleanupjobs.Service
 	now      *time.Time
 	itemID   string
 }
@@ -52,11 +52,11 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(t.Context(), database.SQL, blobs, clock)
+	releaser, err := cleanupjobs.New(t.Context(), database.SQL, blobs, clock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,9 +150,9 @@ func TestReviewRestoreFreezesTheCheckpointWithoutAnOriginalCloseGate(t *testing.
 		"point-C", reviewCheckpointRequest(t, "point-C")); err != nil {
 		t.Fatal(err)
 	}
-	digest, err := fixture.saver.StateDigest(t.Context(), restored.PreviewID, restored.Capability)
-	if err != nil || digest != restore["sha256"] {
-		t.Fatalf("new preview followed mutable original checkpoint instead of frozen B: %s %v", digest, err)
+	digest, err := fixture.saver.StateFile(t.Context(), restored.PreviewID, restored.Capability)
+	if err != nil || digest.Digest != restore["sha256"] {
+		t.Fatalf("new preview followed mutable original checkpoint instead of frozen B: %s %v", digest.Digest, err)
 	}
 }
 
@@ -210,7 +210,7 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, saves.ErrCredential) {
 		t.Fatalf("expired trial can write checkpoint: %v", err)
 	}
-	if err := fixture.releaser.ReconcileGC(t.Context()); err != nil {
+	if err := fixture.releaser.ReconcileDeletion(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	var remaining int

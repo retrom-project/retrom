@@ -11,17 +11,17 @@ import (
 
 const productProjectIndexFiles = `
 SELECT file.logical_name,file.format_version,blob.sha256,blob.size_bytes,'GAME',0,0
-FROM launch_content_files file JOIN blobs blob ON blob.id=file.blob_id
+FROM launch_content_files file JOIN stored_files blob ON blob.id=file.blob_id
 WHERE file.launch_session_id=? ORDER BY file.logical_name`
 
 const previewProjectIndexFiles = `
 SELECT logical_name,format,digest,size_bytes,role,sort_order,is_primary FROM (
  SELECT preview.content_logical_name AS logical_name,preview.content_format AS format,
  blob.sha256 AS digest,blob.size_bytes,'GAME' AS role,0 AS sort_order,1 AS is_primary
- FROM review_preview_sessions preview JOIN blobs blob ON blob.id=preview.content_blob_id WHERE preview.id=?
+ FROM review_preview_sessions preview JOIN stored_files blob ON blob.id=preview.content_blob_id WHERE preview.id=?
  UNION ALL
  SELECT file.logical_name,preview.content_format,blob.sha256,blob.size_bytes,file.role,file.sort_order,0
- FROM review_preview_files file JOIN blobs blob ON blob.id=file.blob_id
+ FROM review_preview_files file JOIN stored_files blob ON blob.id=file.blob_id
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
 ) ORDER BY logical_name`

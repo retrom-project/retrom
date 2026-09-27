@@ -31,13 +31,13 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
@@ -56,7 +56,7 @@ func completeMultiDiscUpload(
 	t *testing.T,
 	ctx context.Context,
 	database *store.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	sourceType string,
 	files []multiDiscUploadFile,
@@ -97,7 +97,7 @@ func completeMultiDiscDirectory(
 	t *testing.T,
 	ctx context.Context,
 	database *store.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	files []multiDiscUploadFile,
 ) string {
@@ -105,7 +105,7 @@ func completeMultiDiscDirectory(
 	return completeMultiDiscUpload(t, ctx, database, blobs, dataDir, "DIRECTORY", files)
 }
 
-func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *blobstore.Store, *Service) {
+func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *filestore.Store, *Service) {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -131,11 +131,11 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	bios, err := blobs.Put(bytes.NewReader([]byte("deterministic invalid Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
+	biosBlobID, err := filecatalog.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -146,14 +146,14 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 		t.Fatal(err)
 	}
 	installationID := "01990000-0000-7000-8000-" + requirementID[len(requirementID)-12:]
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 `, installationID, requirementID, biosBlobID, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs).WithMultiDiscImportEnabled(true)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs).WithMultiDiscImportEnabled(true)
 	return ctx, dataDir, database, blobs, importer
 }
 
@@ -250,17 +250,17 @@ SELECT printf('%d:%s:%s:%s',ordinal,state,normalized_reference,canonical_name)
 FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, firstSnapshotID)
 	testassert.Falsef(t, fmt.Sprint(entries) != "[0:PRESENT:disc one.chd:disc-001.chd 1:PRESENT:disc two.chd:disc-002.chd]", "entries = %v", entries)
-	var playlistSHA string
+	var playlistID string
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT blob.sha256
+SELECT blob.id
 FROM import_item_core_validations validation
 JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE validation.source_snapshot_id=? AND file.role='MULTI_DISC_PLAYLIST'
-`, firstSnapshotID).Scan(&playlistSHA); err != nil {
+`, firstSnapshotID).Scan(&playlistID); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := blobs.OpenDigest(playlistSHA)
+	reader, err := blobs.OpenID(playlistID)
 	testassert.False(t, err != nil, err)
 	canonical, err := io.ReadAll(reader)
 	cleanup.Error("close", reader.Close())

@@ -8,7 +8,7 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 
 	"github.com/google/uuid"
 )

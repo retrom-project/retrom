@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	runtimebundle "retrom/internal/runtime/bundle"
 )
 
@@ -75,7 +75,7 @@ type IdempotencyRecords interface {
 	Remember(context.Context, ReplayWrite) error
 }
 type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, string, int64) (string, error)
+	Ensure(context.Context, filestore.Metadata, string, int64) (string, error)
 }
 type CheckpointRecords interface {
 	Duration(context.Context, string) (Duration, error)
@@ -105,9 +105,9 @@ type Launch struct {
 	localDraft                              bool
 }
 type Restore struct {
-	Checkpoint     runtimebundle.Checkpoint
-	Format, Digest string
-	Size           int64
+	Checkpoint             runtimebundle.Checkpoint
+	BlobID, Format, Digest string
+	Size                   int64
 }
 type ReplayKey struct {
 	PrincipalID, Key string
@@ -127,7 +127,7 @@ type (
 	SaveCreation struct {
 		LaunchID, ProfileID, GameID, PayloadID string
 		DOSEntry, ScreenshotID                 *string
-		Payload                                blobstore.Metadata
+		Payload                                filestore.Metadata
 		Result                                 ManualResult
 	}
 )
@@ -149,6 +149,6 @@ type StoredSave struct {
 }
 type SaveUpdate struct {
 	SaveID, LaunchID, PayloadID, ScreenshotID   string
-	Payload                                     blobstore.Metadata
+	Payload                                     filestore.Metadata
 	ExpectedDataVersion, AtMS, ActiveDurationMS int64
 }

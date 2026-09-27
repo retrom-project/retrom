@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/blobstore"
 	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/core/scummvm"
+	"retrom/internal/filestore"
 )
 
 type ImportPreparation struct {
 	facts           ImportFactsReader
 	catalog         ImportPreparationCatalog
-	blobs           *blobstore.Store
+	blobs           *filestore.Store
 	scummVMDetector *scummvm.Detector
 	options         ImportPreparationOptions
 }
 
 func NewImportPreparation(
-	facts ImportFactsReader, catalog ImportPreparationCatalog, blobs *blobstore.Store, options ImportPreparationOptions,
+	facts ImportFactsReader, catalog ImportPreparationCatalog, blobs *filestore.Store, options ImportPreparationOptions,
 ) *ImportPreparation {
 	return &ImportPreparation{
 		facts: facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
@@ -61,6 +61,9 @@ func (service *ImportPreparation) Prepare(ctx context.Context, raw ImportRequest
 	if err != nil {
 		return PreparedImport{}, fmt.Errorf("prepare import artifacts: %w", err)
 	}
+	if err := service.prepareOwnedFiles(ctx, &plan); err != nil {
+		return PreparedImport{}, err
+	}
 	return plan, nil
 }
 
@@ -85,7 +88,12 @@ func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *Pr
 	}
 	target := plan.Target
 	target.CoreID = detector.VirtualCoreID
-	resolved, err := ResolveImportBinding(ctx, service.facts, target, string(plan.Groups[0].RPGProfile.ExpectedGeneration))
+	resolved, err := ResolveImportBinding(
+		ctx,
+		service.facts,
+		target,
+		string(plan.Groups[0].RPGProfile.ExpectedGeneration),
+	)
 	if err != nil {
 		return fmt.Errorf("resolve prepared RPG target: %w", err)
 	}
@@ -93,26 +101,26 @@ func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *Pr
 	return service.activeDAT(ctx, plan)
 }
 
-type preparationArtifactBlobs struct{ store *blobstore.Store }
+type preparationArtifactBlobs struct{ store *filestore.Store }
 
-func (blobs preparationArtifactBlobs) OpenDigest(digest string) (io.ReadCloser, error) {
+func (blobs preparationArtifactBlobs) OpenID(digest string) (io.ReadCloser, error) {
 	if blobs.store == nil {
 		return nil, ErrInvalid
 	}
-	file, err := blobs.store.OpenDigest(digest)
+	file, err := blobs.store.OpenID(digest)
 	if err != nil {
 		return nil, fmt.Errorf("open prepared artifact source: %w", err)
 	}
 	return file, nil
 }
 
-func (blobs preparationArtifactBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs preparationArtifactBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	if blobs.store == nil {
-		return blobstore.Metadata{}, ErrInvalid
+		return filestore.Metadata{}, ErrInvalid
 	}
 	result, err := blobs.store.Put(reader)
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("store prepared artifact: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("store prepared artifact: %w", err)
 	}
 	return result, nil
 }

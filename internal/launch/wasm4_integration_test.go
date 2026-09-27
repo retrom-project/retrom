@@ -21,9 +21,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -77,7 +77,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	}
 	waitForWASM4Job(t, database.SQL, jobID)
 
-	importService := libraryimport.New(database.SQL, time.Now)
+	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: createSingleBlobDirectory(t, database.SQL, input, actorID),
@@ -141,7 +141,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "wasm4-preview-1",

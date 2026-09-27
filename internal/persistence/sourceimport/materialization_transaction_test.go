@@ -29,6 +29,7 @@ VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaa
 			ItemID:  "item-0",
 			Ordinal: 0,
 		}, application.VerifiedBlob{
+			ID:     "018fbe68-0000-7000-8000-000000000001",
 			SHA256: strings.Repeat("c", 64),
 			MD5:    strings.Repeat("c", 32),
 			SHA1:   strings.Repeat("c", 40),
@@ -40,7 +41,7 @@ VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaa
 func materialRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := workflowRows(t, db)
-	for _, table := range []string{"blobs", "source_import_item_files", "source_import_item_assets"} {
+	for _, table := range []string{"stored_files", "source_import_item_files", "source_import_item_assets"} {
 		result[table] = workflowTable(t, db, table)
 	}
 	return result

@@ -77,7 +77,7 @@ type CandidateApplyScope interface {
 	ReplaceGameAssets(context.Context, string, string) ([]string, error)
 	CreateSelectedGameAssets(context.Context, string, string, []CandidateAssetSelection, int64) ([]string, error)
 	UpdateGameMetadata(context.Context, GameMetadataUpdate) (bool, error)
-	StageCandidates(context.Context, []string) error
+	StageCandidates(context.Context, string, []string, int64) error
 }
 
 type CandidateApplyRepository interface {

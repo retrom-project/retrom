@@ -25,9 +25,11 @@ func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
 	if !validProductMultiDiscEvidence(locked.MultiDisc, discs, canonical, playlist) {
 		return ProductContent{}, ErrBlocked
 	}
-	checks := []ProductBlobCheck{{Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical}}
+	checks := []ProductBlobCheck{
+		{BlobID: playlist.BlobID, Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical},
+	}
 	for _, disc := range discs {
-		checks = append(checks, ProductBlobCheck{Digest: disc.Digest, SizeBytes: disc.SizeBytes})
+		checks = append(checks, ProductBlobCheck{BlobID: disc.BlobID, Digest: disc.Digest, SizeBytes: disc.SizeBytes})
 	}
 	return ProductContent{
 		Files: []ProductContentFile{

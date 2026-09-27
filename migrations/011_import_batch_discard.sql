@@ -1,4 +1,4 @@
--- One durable disposition per import batch; payload deletion stays in PAYLOAD_RELEASE/GC.
+-- One durable disposition per import batch; payload deletion stays in OWNER_CLEANUP/GC.
 CREATE TABLE import_batch_discards (
   kind TEXT NOT NULL CHECK(kind IN ('IMPORT','SOURCE')),
   import_id TEXT NOT NULL,

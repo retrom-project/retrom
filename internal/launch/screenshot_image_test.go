@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/mediaasset"
 )
 
@@ -24,7 +24,7 @@ func (source *screenshotUnlimitedBytes) Read(output []byte) (int, error) {
 
 func TestScreenshotImagesBoundsStreamAndDiscardsInvalidCandidate(t *testing.T) {
 	root := t.TempDir()
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestScreenshotImagesBoundsStreamAndDiscardsInvalidCandidate(t *testing.T) {
 }
 
 func TestScreenshotImagesRejectsEmptyAndMalformedMedia(t *testing.T) {
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,10 +53,10 @@ func TestScreenshotImagesRejectsEmptyAndMalformedMedia(t *testing.T) {
 }
 
 func TestScreenshotImagesPreservesStagingAndPublishingCauses(t *testing.T) {
-	for _, location := range []string{"tmp/jobs", "blobs/sha256"} {
+	for _, location := range []string{"tmp/jobs", "files"} {
 		t.Run(location, func(t *testing.T) {
 			root := t.TempDir()
-			blobs, err := blobstore.Open(root)
+			blobs, err := filestore.Open(root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -81,7 +81,7 @@ func TestScreenshotImagesPreservesStagingAndPublishingCauses(t *testing.T) {
 }
 
 func TestInspectScreenshotFilePreservesOpenCause(t *testing.T) {
-	_, err := inspectScreenshotFile(blobstore.Metadata{Path: filepath.Join(t.TempDir(), "missing"), Size: 100})
+	_, err := inspectScreenshotFile(filestore.Metadata{Path: filepath.Join(t.TempDir(), "missing"), Size: 100})
 	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrReviewScreenshotInvalid) {
 		t.Fatal(err)
 	}

@@ -59,7 +59,7 @@ func receiveFixture(t *testing.T) dbapi.DB {
 		}
 	})
 	db := database.SQL
-	_, err = db.ExecContext(t.Context(), `INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+	_, err = db.ExecContext(t.Context(), `INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
  VALUES('blob',?,3,?,?,?,'application/octet-stream',1);
  INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
  VALUES('upload','COMPLETE','DIRECTORY',2,6,?,100,1,1);

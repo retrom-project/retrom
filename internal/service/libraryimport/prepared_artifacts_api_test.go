@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/filestore"
 )
 
 func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {
@@ -28,10 +28,10 @@ func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {
 
 type failingPreparedArtifactBlobs struct{ cause error }
 
-func (blobs failingPreparedArtifactBlobs) OpenDigest(string) (io.ReadCloser, error) {
+func (blobs failingPreparedArtifactBlobs) OpenID(string) (io.ReadCloser, error) {
 	return nil, blobs.cause
 }
 
-func (blobs failingPreparedArtifactBlobs) Put(io.Reader) (blobstore.Metadata, error) {
-	return blobstore.Metadata{}, blobs.cause
+func (blobs failingPreparedArtifactBlobs) Put(io.Reader) (filestore.Metadata, error) {
+	return filestore.Metadata{}, blobs.cause
 }

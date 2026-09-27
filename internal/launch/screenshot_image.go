@@ -7,13 +7,13 @@ import (
 	"io"
 	"os"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/mediaasset"
 	application "retrom/internal/service/launch"
 )
 
-type screenshotImages struct{ blobs *blobstore.Store }
+type screenshotImages struct{ blobs *filestore.Store }
 
 func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
 	if images.blobs == nil || reader == nil {
@@ -42,11 +42,11 @@ func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (appl
 		return application.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
 	}
 	return application.ScreenshotImage{
-		StoragePath: metadata.Path,
-		SHA256:      metadata.SHA256,
-		MD5:         metadata.MD5,
-		SHA1:        metadata.SHA1,
-		CRC32:       metadata.CRC32,
+		BlobID: metadata.ID, StoragePath: metadata.Path,
+		SHA256: metadata.SHA256,
+		MD5:    metadata.MD5,
+		SHA1:   metadata.SHA1,
+		CRC32:  metadata.CRC32,
 
 		SizeBytes: metadata.Size,
 		MediaType: image.MediaType,
@@ -55,7 +55,7 @@ func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (appl
 	}, nil
 }
 
-func inspectScreenshotFile(metadata blobstore.Metadata) (mediaasset.Image, error) {
+func inspectScreenshotFile(metadata filestore.Metadata) (mediaasset.Image, error) {
 	if metadata.Size < 1 || metadata.Size > mediaasset.MaxImageBytes {
 		return mediaasset.Image{}, ErrReviewScreenshotInvalid
 	}

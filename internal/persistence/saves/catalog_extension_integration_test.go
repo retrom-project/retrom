@@ -59,9 +59,9 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 		t.Fatalf("extension binding count=%d err=%v", count, err)
 	}
 	restored := fixture.createLaunchFromSave(t, &saved.SaveStateID)
-	digest, err := fixture.saves.StateDigest(fixture.ctx, restored.LaunchID, restored.Capability)
-	if err != nil || digest != fmt.Sprintf("%x", sha256.Sum256([]byte("unchanged state"))) {
-		t.Fatalf("existing save no longer restores exact payload: %s %v", digest, err)
+	digest, err := fixture.saves.StateFile(fixture.ctx, restored.LaunchID, restored.Capability)
+	if err != nil || digest.Digest != fmt.Sprintf("%x", sha256.Sum256([]byte("unchanged state"))) {
+		t.Fatalf("existing save no longer restores exact payload: %s %v", digest.Digest, err)
 	}
 }
 

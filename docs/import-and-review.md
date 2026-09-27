@@ -35,7 +35,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 
 ## 2. 任务层级
 
-- `UploadSession/UploadFile/UploadPart`：一次浏览器文件或目录上传及可恢复分块；分块齐备后由 `UPLOAD_FINALIZE` 异步 Job 流式组装、重算 hash 并发布 CAS。
+- `UploadSession/UploadFile/UploadPart`：一次浏览器文件或目录上传及可恢复分块；分块齐备后由 `UPLOAD_FINALIZE` 异步 Job 流式组装、重算 hash 并发布独立文件存储。
 - `ImportJob`：从一个已完成 UploadSession 创建的一次导入。
 - `ImportItem`：识别出的单个游戏候选。
 - `ImportItemCoreValidation/ImportItemValidationFile`：发布前针对目标游戏目录默认核心完成的不可变验证结论和派生依赖文件；普通审核通过复制 READY 证据，截图人工放行复制同一当前阻断证据中已实际具备的文件，两者都不在事务中重新扫描/打包。
@@ -60,9 +60,9 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 - MetadataProvider 配置版本。
 - `created_at_ms`。
 
-浏览器创建请求只在短事务中冻结 Upload version/manifest、请求、标签和目标候选集合，创建 `QUEUED` ImportJob 后立即返回；ZIP/7z 扫描、项目根规范化、内容 hash、世代/核心裁决和 CAS member 物化由 `IMPORT_GROUP` worker 完成。任务尚未完成内部绑定时配置快照明确为 `bindingState=PENDING`，不把暂存外键显示成已选择核心；Worker 成功时以同一事务写入最终配置、Item、Validation/Review 和 SUCCEEDED 事件。只有准入本身无效才同步拒绝；依赖读取项目 bytes 才能发现的确定性错误进入任务级 `FAILED` 并显示稳定错误码。
+浏览器创建请求只在短事务中冻结 Upload version/manifest、请求、标签和目标候选集合，创建 `QUEUED` ImportJob 后立即返回；ZIP/7z 扫描、项目根规范化、内容 hash、世代/核心裁决和独立文件存储 member 物化由 `IMPORT_GROUP` worker 完成。任务尚未完成内部绑定时配置快照明确为 `bindingState=PENDING`，不把暂存外键显示成已选择核心；Worker 成功时以同一事务写入最终配置、Item、Validation/Review 和 SUCCEEDED 事件。只有准入本身无效才同步拒绝；依赖读取项目 bytes 才能发现的确定性错误进入任务级 `FAILED` 并显示稳定错误码。
 
-普通导入的格式识别、分组与运行绑定统一由 `ImportPreparation` Service 编排，并返回共享 `Prepared*` 业务结果；同步、队列和服务器来源创建共用这一入口。Repository 提供当前目标及 DAT 依赖事实；真正缺失或不兼容的内容保留领域诊断，数据库读取失败必须保留原因并停止创建审核。EasyRPG 索引和 MKXPZ 与已有归档物化一样，在数据库写事务前完成构建及 CAS 写入；事务只登记已准备产物并形成审核和验证引用。构建、读取或 CAS 写入失败不能创建部分审核。
+普通导入的格式识别、分组与运行绑定统一由 `ImportPreparation` Service 编排，并返回共享 `Prepared*` 业务结果；同步、队列和服务器来源创建共用这一入口。Repository 提供当前目标及 DAT 依赖事实；真正缺失或不兼容的内容保留领域诊断，数据库读取失败必须保留原因并停止创建审核。EasyRPG 索引和 MKXPZ 与已有归档物化一样，在数据库写事务前完成构建及独立文件存储写入；事务只登记已准备产物并形成审核和验证引用。构建、读取或独立文件存储写入失败不能创建部分审核。
 
 同步创建、队列准备后的提交、服务器来源绑定和重新配置共用 `ImportCreations` Service 的创建规则。身份、manifest 与产物准备在事务外完成；Repository 在短事务中重验冻结的上传、目录、运行绑定、DAT 与执行权限，原子保存来源、Item、Validation、审核、标签、刮削任务和聚合结果。提交前使用当前时钟再次核对原 execution、attempt、租约与期限；失败补偿也不能改写替代执行。读取原因必须保留，写入行数或返回主键数不能确认时回滚整个创建，提交成功后才交给受管理的刮削 worker。
 
@@ -116,7 +116,7 @@ ImportJob 按下列优先级聚合，不能让同一计数组合得到两种状�
 
 ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
 
-Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组后识别、默认 CoreValidation 与派生文件，随后在一个短事务把 Item 转为 SCRAPING，并创建该 Item 的首个 MetadataScrapeRun/`METADATA_SCRAPE` Job；到此 pipeline Job 即 SUCCEEDED，不持有线程轮询另一个 Job。Metadata Job 对每条 eligible evidence 执行有界查询；HIT、MISS、INVALID_RESPONSE，以及用尽内部 attempt 后的 RATE_LIMITED/TIMEOUT/NETWORK_ERROR 都是该 evidence 的持久终态。所有 evidence 已终态（或本来为零）时，Job/Run 为 SUCCEEDED/COMPLETED，provider 错误作为 Warning 留在 Response/Attempt，不把 Item 错误地打成失败。只有数据库/CAS/领域不变量故障或整个 Job execution deadline 导致证据集合无法闭合时，Run/Job 才为 FAILED，并按 retryable 属性把 Item 转为 FAILED_RETRYABLE/FAILED_FINAL。候选创建时同时投递独立 MEDIA_FETCH Job；媒体仍在 PENDING/FETCHING 或单项失败都不阻止 Run 完成和 Item 进入 REVIEW_PENDING，只有 READY 媒体可被采用。
+Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组后识别、默认 CoreValidation 与派生文件，随后在一个短事务把 Item 转为 SCRAPING，并创建该 Item 的首个 MetadataScrapeRun/`METADATA_SCRAPE` Job；到此 pipeline Job 即 SUCCEEDED，不持有线程轮询另一个 Job。Metadata Job 对每条 eligible evidence 执行有界查询；HIT、MISS、INVALID_RESPONSE，以及用尽内部 attempt 后的 RATE_LIMITED/TIMEOUT/NETWORK_ERROR 都是该 evidence 的持久终态。所有 evidence 已终态（或本来为零）时，Job/Run 为 SUCCEEDED/COMPLETED，provider 错误作为 Warning 留在 Response/Attempt，不把 Item 错误地打成失败。只有数据库/独立文件存储/领域不变量故障或整个 Job execution deadline 导致证据集合无法闭合时，Run/Job 才为 FAILED，并按 retryable 属性把 Item 转为 FAILED_RETRYABLE/FAILED_FINAL。候选创建时同时投递独立 MEDIA_FETCH Job；媒体仍在 PENDING/FETCHING 或单项失败都不阻止 Run 完成和 Item 进入 REVIEW_PENDING，只有 READY 媒体可被采用。
 
 Metadata worker 以独立 worker ID 和 execution number 领取任务，领取与 STARTED 事件在同一事务提交。未领取成功不得解析或执行任务；响应、候选发布和最终收口都校验当前执行归属。整个 metadata execution 的预算为 1 小时，单次查询的 15 秒超时保持独立；每 15 秒续租，租约为 60 秒。运行上下文取消后，失败或取消投影使用有界的独立收口上下文，保留原始错误原因，不能覆盖其他 worker 或终态 Job。
 
@@ -132,7 +132,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 来源结果统一显示“管理员已丢弃”，但原错误码、文件名和错误详情继续可读；普通任务保留拒绝文件与失败执行证据。已丢弃批次不能重新配置、重新执行或发布，重新导入需新建批次。后台按批次身份恢复处置，关闭页面或服务重启不会丢失请求；重复请求不会新增同一审核决定，失败可继续处理。无需额外保存多次运行记录。
 
-待审核之前被拒绝的内部上传也属于本批次占用。引用移除交给既有 PayloadRelease；共享 Game/其他批次的引用和服务器原文件保留，无引用 Blob 立即排入异步 GC。当前内部上传必须有明确的批次归属；归属校验失败时事务回滚并报告稳定错误。请求、进度和失败由批次处置 API 提供；统一验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
+待审核之前被拒绝的内部上传也属于本批次占用。文件退休交给所属领域的 OwnerCleanup；Game、其他批次的独立文件及服务器原文件保留，退休文件立即排入异步后台删除。当前内部上传必须有明确的批次归属；归属校验失败时事务回滚并报告稳定错误。请求、进度和失败由批次处置 API 提供；统一验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
 
 ## 5. 文件和目录分组
 
@@ -140,14 +140,14 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 - 单 ROM 主机/掌机：每个受支持的 raw ROM、ZIP 或 7z UploadFile 是一个 primary 分组，不按父目录把多个 ROM 误合为一个游戏。ZIP/7z 安全扫描后的唯一平台候选 entry 成为 Item `CONTENT`；raw ROM 自身成为 CONTENT。光盘类 CHD 与 PSP ISO/CSO 只作为 raw 单文件，不接受 archive wrapper。
 - WASM-4：每个 raw `.wasm` UploadFile 是一个 `SINGLE_FILE/SOURCE_V1` Item，大小必须在 1–65,536 bytes；不接受 ZIP/7z wrapper，也不把通用 WebAssembly 文件猜成其他平台内容。导入阶段只冻结 cart bytes，审核预览必须通过锁定的 WASM-4 Web runtime 实际启动并取得有效画面后才能批准。
-- Arcade：先用目标 Provider Target 锁定的活动 DAT，将每个安全顶层 ZIP 的 basename 精确解析为 machine。只有 `classification=NORMAL` 的 archive 形成自己的 primary Item；`EXPLICIT_BIOS` 和 `ROMOF_INFERENCE` 是依赖 archive，绝不单独发布成 Game。再根据每个 primary Item 的 DAT 闭包，把同 UploadSession 中精确 basename/machine 命中的 parent/BIOS/base ZIP 以 COMPANION 关联。NORMAL parent 可作为多个 Item 的 companion，同时仍可作为自己的 machine Item；不得扫全局 CAS 补依赖。被闭包引用的依赖 archive 为 SOURCE；未被任何 Item 引用的依赖 archive 为 `REJECTED/ARCADE_UNUSED_DEPENDENCY_ARCHIVE`，任务页引导用户改由 BIOS 管理安装或与需要它的 ROMset 同批导入，不创建假游戏。
+- Arcade：先用目标 Provider Target 锁定的活动 DAT，将每个安全顶层 ZIP 的 basename 精确解析为 machine。只有 `classification=NORMAL` 的 archive 形成自己的 primary Item；`EXPLICIT_BIOS` 和 `ROMOF_INFERENCE` 是依赖 archive，绝不单独发布成 Game。再根据每个 primary Item 的 DAT 闭包，把同 UploadSession 中精确 basename/machine 命中的 parent/BIOS/base ZIP 以 COMPANION 关联。NORMAL parent 可作为多个 Item 的 companion，同时仍可作为自己的 machine Item；不得扫全局独立文件存储补依赖。被闭包引用的依赖 archive 为 SOURCE；未被任何 Item 引用的依赖 archive 为 `REJECTED/ARCADE_UNUSED_DEPENDENCY_ARCHIVE`，任务页引导用户改由 BIOS 管理安装或与需要它的 ROMset 同批导入，不创建假游戏。
 - MS-DOS：`sourceType=DIRECTORY` 时整个 session 的全部非 sidecar 文件是一个 Item，其 common root 从 relative path 派生；`sourceType=FILES` 时只允许恰一个 ZIP UploadFile。多个独立 ZIP/文件不猜测为一款 DOS 游戏，以 `AMBIGUOUS_DOS_BUNDLE` 拒绝并要求重新选择目录或单 ZIP。目录文件或 ZIP entry 逐项形成 DOS_SOURCE，后端生成确定性运行 bundle 但不改写原 bytes。
 - RPG Maker：只接受一次目录选择结果，或 `sourceType=FILES` 下恰一个 ZIP/7z；若干散文件、多归档或 URL 一律拒绝。规范化后最多 10,000 个项目文件，逐项形成 `PROJECT_FILE`；项目根内的 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z`、工具 sidecar 和其他内层 archive 都按原始 bytes 作为不透明项目文件保留，绝不递归展开、识别其内层目录或执行其中内容。完整根目录/内容证据规则只由第 17 节执行。
 - ONS：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求项目根存在 `0.txt`、`00.txt`、`nscript.dat` 或 `nscr_sec.dat` 之一，并至少存在一份 TTF 字体；项目全部文件以 `PROJECT_FILE` 原样保留，NSA/SAR/NS2 等资源包不递归展开。文本脚本在限定探测窗口内是合法 UTF-8 时记为 `utf8`，否则按 ONS 兼容基线记为 `gbk`。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
 - KiriKiri：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求项目根存在 `startup.tjs` 或 `data.xp3`；全部项目文件以 `PROJECT_FILE` 原样保留，XP3 不递归展开。存在 `data.xp3` 时固定选择它；没有该名称而恰有一个 XP3 时选择该文件；多个其他 XP3 无法唯一裁决时拒绝导入。静态识别只证明 KiriKiri 项目形状，兼容状态固定为 `KIRIKIRI_RUNTIME_TRIAL_REQUIRED`，审核预览实际出现画面并完成按需截图后才允许批准。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
 - Cave Story/NXEngine：完整目录或恰一个 ZIP/7z，剥离共同包装目录后须包含唯一 `Doukutsu.exe`、`data/npc.tbl`、`data/Stage/Start.pxm` 与 `Start.tsc`。可执行文件仅检查 MZ 标记与有界长度，不作为 Windows 代码执行。最多 4096 个文件、单文件 32 MiB、项目 64 MiB；拒绝危险路径和不区分大小写的重复路径。形成 `NXENGINE_PROJECT`，静态检测后为 `NXENGINE_RUNTIME_TRIAL_REQUIRED`，按普通审核预览和截图流程批准。游戏项目资源不会自动成为原生存档。
 - GameMaker/Butterscotch：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求根目录恰有一个不区分大小写的 `data.win`，并验证其 `FORM` header 与声明长度；全部文件以 `PROJECT_FILE` 原样保留，不解析、修改或执行其他项目文件。静态结果只证明 GameMaker 容器形状，兼容状态固定为 `BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED`，审核预览由锁定 Butterscotch core 实际运行并完成按需截图后才允许批准。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
-- 多文件项目的外层 solid 7z 先在受限 worker 中完整扫描一次；安全扫描通过后，待物化成员必须按 archive ordinal 由一个受限 worker 顺序流入 CAS，复用同一 solid decoder。不得为每个项目文件重新打开归档并重复解压同一 solid block。物化结果仍逐项复核扫描阶段冻结的 size/CRC32/MD5/SHA-1/SHA-256，不能用批量处理弱化完整性门禁。
+- 多文件项目的外层 solid 7z 先在受限 worker 中完整扫描一次；安全扫描通过后，待物化成员必须按 archive ordinal 由一个受限 worker 顺序流入独立文件存储，复用同一 solid decoder。不得为每个项目文件重新打开归档并重复解压同一 solid block。物化结果仍逐项复核扫描阶段冻结的 size/CRC32/MD5/SHA-1/SHA-256，不能用批量处理弱化完整性门禁。
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - 浏览器目录上传优先从 Retrom 自绘 Dialog 调用 File System Access API 的 `showDirectoryPicker`，递归读取 `FileSystemDirectoryHandle` 并只传递以所选根目录开头的规范相对路径；Chrome / Edge 走该路径时，系统选择完成后不再出现“上传 N 个文件到此网站”的二次确认。Brave 虽基于 Chromium但禁用该 API，因此能力检测失败时回退到 `input[webkitdirectory]` 与 `File.webkitRelativePath`，并接受 Brave 自身不可绕过的原生上传确认。两条路径的选择结果都必须回到同一个 Dialog 展示根目录名、文件数、总大小和相对路径预览，管理员明确点击“使用此目录”后才进入导入配置；取消系统选择、Dialog 取消或 Escape 均不保留待确认文件。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
@@ -158,7 +158,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 可接收格式固定如下；这里列出 Retrom 已验证并承诺接收的产品子集，不直接照搬某个核心声明的全部 `valid_extensions`。扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前标为 `REJECTED`。普通 ROM wrapper 的 nested archive 仍拒绝；DOS 与 RPG Maker 项目根内的 archive 只作为不透明游戏文件保留且绝不递归展开，因此允许存在。压缩比门禁对超过 16 MiB 的单成员生效，小型空白存档即使高度可压缩也仍受总展开量和成员数上限约束。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO、3DS、CCI 均不接受 7z。
 
-单 ROM 主机/掌机的 ZIP/7z 在后端物化唯一 primary entry 到 CAS，发布后的 GameFiles 以一个 `CONTENT` GameContentFile 指向物化后的原始 entry bytes；原 archive Blob、ArchiveEntry、`archiveFormat` 与两者 hash 继续作为来源/审核证据。运行时不得再次把这类 wrapper archive 交给 EmulatorJS 猜 entry。Arcade ZIP 和 DOS bundle 是有意的多 entry 运行内容，不适用这一物化规则；Arcade 的 `CONTENT` 是 ROMset ZIP，DOS 的每个安全成员/目录文件是带规范相对逻辑名的 `DOS_SOURCE`。
+单 ROM 主机/掌机的 ZIP/7z 在后端物化唯一 primary entry 到独立文件存储，发布后的 GameFiles 以一个 `CONTENT` GameContentFile 指向物化后的原始 entry bytes；原 archive Blob、ArchiveEntry、`archiveFormat` 与两者 hash 继续作为来源/审核证据。运行时不得再次把这类 wrapper archive 交给 EmulatorJS 猜 entry。Arcade ZIP 和 DOS bundle 是有意的多 entry 运行内容，不适用这一物化规则；Arcade 的 `CONTENT` 是 ROMset ZIP，DOS 的每个安全成员/目录文件是带规范相对逻辑名的 `DOS_SOURCE`。
 
 | 基础平台 | 一期输入 | ImportItem 与 primary content 规则 |
 | --- | --- | --- |
@@ -199,7 +199,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 | ONS (`ons`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 `ONS_PROJECT` Item；识别结果冻结脚本 marker、字体路径与 `utf8/gbk` 编码。导入只证明项目形状可识别，初始兼容状态固定为 `ONS_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，以 `retrom-runtime` 的 ONS adapter 实际启动；核心 READY 后由管理员按需保存真实运行截图，才沿用运行截图人工放行机制解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
 | KiriKiri (`kirikiri`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 `KIRIKIRI_PROJECT` Item；识别结果冻结 `startup.tjs`/`data.xp3` marker 与可空的唯一 XP3 入口。导入只证明项目形状可识别，初始兼容状态固定为 `KIRIKIRI_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，以 `retrom-runtime` 的 KiriKiri adapter 实际启动；核心 READY 后由管理员按需保存真实运行截图，才解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
 | GameMaker (`butterscotch`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 `BUTTERSCOTCH_PROJECT` Item；识别结果冻结根 `data.win` marker 与 `GAMEMAKER_RUNTIME_TRIAL_REQUIRED`。导入只证明容器形状可识别，初始兼容状态固定为 `BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，以 `retrom-runtime` 的 Butterscotch adapter 实际启动；核心 READY 后由管理员按需保存真实运行截图，才解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
-| TyranoScript (`tyranoscript`) | 一个目录树、恰一个安全 ZIP/7z、恰一个包含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP、恰一个带追加 `package.nw` ZIP 的 Windows NW.js EXE，或恰一个仅包装该 NW.js EXE 与桌面边车的安全 ZIP | 整个规范项目只形成一个 `TYRANOSCRIPT_PROJECT` Item；根目录必须同时存在 `index.html`、`data/scenario/first.ks`、`data/system/Config.tjs`、`tyrano/plugins/kag/kag.js` 与 `tyrano/tyrano.js`。直接或外层 ZIP 中的 NW.js EXE 都先验证 PE 头和追加 ZIP；外层 ZIP 只有恰一个通过该验证的 EXE 时才进入第二层项目扫描，其他桌面边车不进入项目清单。Electron 输入验证完整外层 ZIP 后安全解析 ASAR header，以 64 位 offset 单次顺序流式物化虚拟成员，并按 header 严格映射可选 `app.asar.unpacked` 文件。三条桌面包装路径都复用归档路径、大小、casefold、资源上限与 CAS 校验，桌面程序从不执行。识别结果冻结 marker 与 `TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，在独立 origin 运行项目自带引擎并注入 `retrom-runtime` bridge；真实 READY 后由管理员按需保存有效画面，才解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
+| TyranoScript (`tyranoscript`) | 一个目录树、恰一个安全 ZIP/7z、恰一个包含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP、恰一个带追加 `package.nw` ZIP 的 Windows NW.js EXE，或恰一个仅包装该 NW.js EXE 与桌面边车的安全 ZIP | 整个规范项目只形成一个 `TYRANOSCRIPT_PROJECT` Item；根目录必须同时存在 `index.html`、`data/scenario/first.ks`、`data/system/Config.tjs`、`tyrano/plugins/kag/kag.js` 与 `tyrano/tyrano.js`。直接或外层 ZIP 中的 NW.js EXE 都先验证 PE 头和追加 ZIP；外层 ZIP 只有恰一个通过该验证的 EXE 时才进入第二层项目扫描，其他桌面边车不进入项目清单。Electron 输入验证完整外层 ZIP 后安全解析 ASAR header，以 64 位 offset 单次顺序流式物化虚拟成员，并按 header 严格映射可选 `app.asar.unpacked` 文件。三条桌面包装路径都复用归档路径、大小、casefold、资源上限与独立文件存储校验，桌面程序从不执行。识别结果冻结 marker 与 `TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，在独立 origin 运行项目自带引擎并注入 `retrom-runtime` bridge；真实 READY 后由管理员按需保存有效画面，才解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
 
 主机/掌机 ZIP 中零个 primary 候选是 `REJECTED/NO_SUPPORTED_CONTENT`，多个是 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT`；两者都不创建 ImportItem，任务页列出文件和重打包/重新上传入口，不能用文件名打破平局，也不能宣称审核页支持一期不存在的“重新归组”。DOS 按上表是有意的多 entry bundle，不应用唯一 ROM entry 限制，但没有任何安全可执行候选时同样以 `REJECTED/NO_DOS_PROGRAM` 处理。Arcade ZIP 按 machine/DAT 规则识别，不应用主机唯一 entry 限制；未命中 DAT 的 archive 为 `REJECTED/ARCADE_MACHINE_NOT_FOUND`，命中但只是未使用依赖的 archive 使用上述独立 reason。
 
@@ -207,7 +207,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 ScummVM 目录或恰一个 ZIP/7z 输入形成一个 `SCUMMVM_PROJECT`。完整复用上游检测器，
 Host 不维护文件签名、引擎、语言或游戏版本识别库。文件先经过现有归档限额、路径穿越、符号链接、
-Unicode／大小写冲突和大小校验，再从 CAS 校验摘要后物化到私有临时目录，调用与 Web 核心相同基线的原生检测工具。
+Unicode／大小写冲突和大小校验，再从独立文件存储校验摘要后物化到私有临时目录，调用与 Web 核心相同基线的原生检测工具。
 临时目录结束后删除；嵌入的游戏资源归档按普通不透明文件保留。
 
 检测结果作为 `kind: SCUMMVM` 的依赖快照写入当前不可变 validation，包含探测版本、来源清单摘要、
@@ -222,7 +222,7 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 ## 6. 哈希语义
 
-- CAS 去重始终使用原始上传 Blob SHA-256。
+- 独立文件存储去重始终使用原始上传 Blob SHA-256。
 - 一期刮削 hash profile 只有三个稳定 code：`RAW_FILE` 对实际文件 bytes 计算 CRC32/MD5/SHA-1/SHA-256；`SINGLE_ARCHIVE_MEMBER` 对安全扫描后唯一被平台规则选中的 ROM member 原始 bytes 计算四种 hash；`ARCADE_DAT_ENTRIES` 使用下述 DAT entry 规则，只保存上游 DAT 真实提供的 CRC32/SHA-1，缺失值为 NULL 而不伪造。`provider=HASHEOUS` 时，profile code、来源 Blob/entry、该 profile 适用的 hash 和 query_order 作为本次 MetadataScrapeRun 的不可变 ContentHashEvidence 持久化；没有 eligible hash 时 evidence 可以为零。`provider=NONE` 只创建明确的 no-op Run/Job，不创建 ContentHashEvidence、QueryAttempt、ProviderResponse 或 Candidate；内容来源与全部实际 hash 仍由 ImportItem source manifest、Blob 和 ArchiveEntry 保留，不会因没有 provider evidence 而丢失。
 - 一期不剥 iNES/FDS/SNES copier header、不改 padding/endian、不应用 patch，也不把重新打包后的 ZIP hash 冒充内容 hash。未来增加规范化算法必须使用新 profile code、固定测试向量并重新刮削，不能改变 V1 结果。
 - 非 Arcade archive 若存在零个或多个候选 ROM member，则不猜 primary member，按第 5 节生成 Blocker；DOS 目录/bundle 不做 Hasheous 精确 hash 命中声明。
@@ -233,7 +233,7 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 每个 ImportItem 或 Game 只保留一份当前 MetadataScrapeRun。显式重新抓取在同一事务取消旧的活动抓取/媒体 Job、删除旧 run 及候选/查询证据/媒体引用、清空指向旧候选的草稿选择，再建立当前 run；任一步失败保留原结果。已发布 GameAsset 不依赖候选生命周期。Provider response 缓存仍按 TTL 复用，是按查询键共享的网络缓存，不是按游戏保留的抓取历史。
 
-抓取结果由 Service 决定缓存复用、候选去重后的媒体登记和命中证据内容，原始响应文件在数据库写事务前写入 CAS。Repository 在同一事务内登记响应及 Blob 引用、更新缓存、保存查询 attempt、候选、命中与待抓取媒体；事务提交失败不得报告候选创建成功。
+抓取结果由 Service 决定缓存复用、候选去重后的媒体登记和命中证据内容，原始响应文件在数据库写事务前写入独立文件存储。Repository 在同一事务内登记响应及 Blob 引用、更新缓存、保存查询 attempt、候选、命中与待抓取媒体；事务提交失败不得报告候选创建成功。
 
 
 抓取调度由 `internal/service/metadatascrape.Scheduler` 判断 Provider、游戏/审核版本、原始文件与归档证据，并决定 Arcade 查询排序、去重与上限。任务、当前抓取记录、证据和版本推进使用同一个 Repository 写事务；初次导入通过调用方已有事务绑定同样的业务端口。只有提交成功后才启动抓取，数据库错误不应被转换成版本冲突。
@@ -244,7 +244,7 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 每个新下载的 Asset 与独立 `MEDIA_FETCH` Job、不可变输入和 QUEUED 事件在候选结果的同一事务创建。Job scope 与 Run 的实际 GAME/IMPORT_ITEM owner 一致，输入冻结 Asset、Run、Response 与来源摘要。Metadata 完成后仍可继续下载；只有 READY 资源可被显式采用，媒体完成不会覆盖已有审核草稿。
 
-`internal/service/metadatascrape.MediaWorker` 管理媒体领取、排序、预算、下载与失败决策；Repository 保存执行和资产状态，Hasheous 适配器执行受限网络读取。网络读取和 CAS 准备在写事务外完成，最终事务重新检查原 execution/attempt/worker、期限、来源与当前 owner，一起登记 Blob/引用、READY 状态和 Job 完成事件；失败全部回滚。Game 已删除、Item 已终态或 payload 已释放时，不得重新添回媒体引用。网络、解码、CAS 与存储错误保留原始原因。
+`internal/service/metadatascrape.MediaWorker` 管理媒体领取、排序、预算、下载与失败决策；Repository 保存执行和资产状态，Hasheous 适配器执行受限网络读取。网络读取和独立文件存储准备在写事务外完成，最终事务重新检查原 execution/attempt/worker、期限、来源与当前 owner，一起登记 Blob/引用、READY 状态和 Job 完成事件；失败全部回滚。Game 已删除、Item 已终态或 payload 已释放时，不得重新添回媒体引用。网络、解码、独立文件存储与存储错误保留原始原因。
 
 META 与 MEDIA 分别使用最多两个执行名额；媒体名额还由数据库核对未到期的 RUNNING/CANCEL_REQUESTED 租约，同一 Run 同时只进行一次读取。持久队列恢复沿用原 execution、冻结输入、attempt 与最初 30 分钟媒体期限，每个媒体 execution 最多 4 次 attempt，租约 60 秒、每 15 秒续租。较短的请求 deadline 或进程关闭不能被记为媒体 execution 超时。关闭先停止两个执行组的新登记并取消全部活动工作，再等待读取、监测和收口退出。
 
@@ -278,7 +278,7 @@ type MetadataProvider interface {
 - 只发送内容 hash，不上传 ROM、路径、本地文件名或自造的 platform hint。
 - 保存独立 scrape run、provider ID、每次原始 response Blob、`fetched_at_ms`、缓存状态、候选聚合命中和采用关系；Arcade 多 entry 命中同一 provider game ID 时保留全部 hit。所有查询收集完成后才按 `(query_order, attempt_no, response.id)` 决定 primary，候选文本和媒体只从该 primary response 归一化；不能由最先返回的并发请求抢占 primary。
 - 每个 evidence 的网络重试或缓存复用都创建 MetadataScrapeQueryAttempt；MISS/timeout/429 因没有候选也不能丢失 run→response 关联。请求 body 只含非空 hash，值规范为 lowercase hex（CRC32 恰 8 位，MD5/SHA-1/SHA-256 长度分别 32/40/64）。`request_digest` 固定为 lowercase SHA-256(RFC 8785 canonical `{"provider":"HASHEOUS","endpointContract":"BY_HASH_V1","body":<实际上游 JSON>}`)，因此 cache key 不受 Go map 顺序影响。
-- 只接受 lookup attributes 返回的同一 `hasheous.org` `/api/v1/images/<opaque-id>` 图片；每个引用先建立带稳定 ID 的 ScrapeCandidateAsset，再由后端按 HTTP 契约执行 DNS/redirect SSRF 校验、10 MiB/40 MP/图片格式限制后写入 CAS。响应声明必须是受支持的图片类型，实际格式以魔数与完整解码结果为准；上游把 JPEG 错标成 PNG 等受支持图片子类型时允许按真实格式保存，声明为 HTML/SVG/其他非图片或内容无法解码时仍拒绝。单个媒体失败只把该 asset 标为 FAILED，不阻断候选文本或人工审核；只有 READY asset 可被草稿选择和发布。
+- 只接受 lookup attributes 返回的同一 `hasheous.org` `/api/v1/images/<opaque-id>` 图片；每个引用先建立带稳定 ID 的 ScrapeCandidateAsset，再由后端按 HTTP 契约执行 DNS/redirect SSRF 校验、10 MiB/40 MP/图片格式限制后写入独立文件存储。响应声明必须是受支持的图片类型，实际格式以魔数与完整解码结果为准；上游把 JPEG 错标成 PNG 等受支持图片子类型时允许按真实格式保存，声明为 HTML/SVG/其他非图片或内容无法解码时仍拒绝。单个媒体失败只把该 asset 标为 FAILED，不阻断候选文本或人工审核；只有 READY asset 可被草稿选择和发布。
 - Run 结束后按“命中数降序、primary query_order 升序、provider game ID UTF-8 byte 升序”，再按 asset kind/ordinal/ID 冻结媒体顺序。每个 Run 持久预算为 100 MiB，包含成功、失败和重试实际读到的响应 bytes。读取前原子预留本次上限，已知读取量收口后退还未使用部分；读取完成前崩溃时无法证明未使用的预留保留收费，重启或人工重试不能重置预算。人工重试沿用同一 Asset、顺序与 Run 预算，并等待该 Run 已运行的其他位置结束。预算耗尽后的剩余项不再请求网络，标为 `ASSET_RUN_BUDGET_EXCEEDED`；文本候选与 raw response 不受媒体预算截断。单资源最多读取 10 MiB 加一个超限探测字节，该字节也计入预算。
 - 使用查询缓存、并发限制、超时和指数退避。
 - 重新刮削针对创建时的 Game current GameFiles 建立带精确 content FK 的 MetadataScrapeRun、evidence、候选与媒体，不直接覆盖已发布元信息；“最新批次”只在仍等于 Game current content 的 COMPLETED run 中按 `created_at_ms,id` 稳定排序确定，只有显式 apply 才生成 Game 当前元信息字段。
@@ -399,7 +399,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 确认配置的目标目录选择器只展示当前启用的游戏目录。未输入搜索词时按基础平台类型折叠为“街机、家用主机、掌机、电脑、游戏引擎与运行环境”，未知平台进入“其他”；自建目录继承其基础平台的类型。每个可选项直接显示目录名、基础平台和默认核心，只有目录是可提交的选项。搜索同时匹配目录名、平台名和核心名，搜索结果跨类型直接平铺，不要求逐层展开；最近使用的至多三个有效目录只作为当前用户的快捷入口，不自动选中。用户选择目标后仍按原有流程显示平台、默认核心和内容能力；文件名或扩展名不得静默决定目标目录。
 
-“重新配置并导入”只处理 STANDARD 原任务中尚未解决的 REJECTED UploadFile。页面读取原任务详情，展示只读文件清单与原平台/元信息源，允许重新选择游戏目录后提交；浏览器不恢复或伪造 file input。服务端为这些文件创建新的 COMPLETE UploadSession/UploadFile，逐项引用原 final Blob，并以新配置创建 replacement ImportJob，所以网络不重新上传 bytes、原 session 也不会被二次消费。新任务创建、source file resolution、source 聚合计数和双向任务 lineage 在同一 Import 创建事务提交；失败时 source 仍保持待处理。原 REJECTED reason 永久保留，任务页改显示 replacement 链接且不再把已接管文件计入异常。重新处理仍执行当前归档安全和平台 profile 规则，绝不把 `ARCHIVE_UNSAFE` 当作用户可绕过的门禁。MULTI 的拒绝目录必须重新选择完整 DIRECTORY 并重新预检，不能把 M3U 或 CHD 子集送入此复用流程。
+“重新配置并导入”只处理 STANDARD 原任务中尚未解决的 REJECTED UploadFile。页面读取原任务详情，展示只读文件清单与原平台/元信息源，允许重新选择游戏目录后提交；浏览器不恢复或伪造 file input。服务端为这些文件创建新的 COMPLETE UploadSession/UploadFile，在事务外逐项复制成独立文件，短事务登记新上传所有权，并以新配置创建 replacement ImportJob，所以网络不重新上传 bytes、原 session 也不会被二次消费。原上传与替代上传分别释放自己的文件。新任务创建、source file resolution、source 聚合计数和双向任务 lineage 在同一 Import 创建事务提交；失败时 source 仍保持待处理。原 REJECTED reason 永久保留，任务页改显示 replacement 链接且不再把已接管文件计入异常。重新处理仍执行当前归档安全和平台 profile 规则，绝不把 `ARCHIVE_UNSAFE` 当作用户可绕过的门禁。MULTI 的拒绝目录必须重新选择完整 DIRECTORY 并重新预检，不能把 M3U 或 CHD 子集送入此复用流程。
 
 审核详情页首集中展示条目摘要和审核决定；“运行游戏”作为独立次操作，“丢弃条目 / 通过并发布”在下一行等宽排列，实时保存状态位于同一决策卡片；不再展示重复的“可以发布”信息。下方左栏回答“能不能发布”并展示来源文件，右栏回答“发布成什么”并承载实时保存的元信息与封面；窄桌面折叠为单栏。运行检查必须把稳定 compatibility code 映射为可操作说明：缺必需 BIOS 时列出逻辑文件名并链接到完整 BIOS 目录，DAT 缺失时链接到街机数据目录。审核页不提供“重新运行检查”按钮；草稿 PATCH、来源替换、运行依赖或 DAT 处理必须在同一服务端事务中按当前真实输入生成或复用 Validation、切换 ReviewDraft 的当前选择；前端在写成功后只执行一次有界的审核详情读取，以当前服务端投影刷新发布状态。内容策略摘要必须先把 JSON 规范化，字段顺序和空白不能制造输入漂移。GET 只投影当前 Validation，不向客户端暴露 `validationStale`；BLOCKED 结果也应成为 current，使管理员可以继续尽最大可能的诊断预览。READY 结果必须在原页面立即启用发布，不得要求刷新页面、只显示“需要检查”或要求重新导入。Provider Bundle 只向前升级不改变稳定 Provider/Target，也不得单独改变审核结论。依赖计数必须包含 BIOS，不能在存在缺失 BIOS 时显示“没有发现异常”。未知 code 至少展示原 code，不能吞掉原因。若当前内容已关联到未删除游戏，页面常驻展示已有游戏链接；点击发布后用危险确认框明确说明会创建重复游戏，用户选择“仍然发布为新游戏”后才提交确认集合。服务端在点击间出现的新重复项必须返回新集合并再次显示同一确认框。
 
@@ -415,9 +415,9 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 “快速审批”先打开影响预览，明确 matched、严格 READY candidate，以及阻断截图放行、重复内容、活动 Parent/多盘补传和其他不 READY/已过期排除数。只有严格 `READY`、当前 generation/来源/目录/Provider Target/active DAT/BIOS/DOS entry/dependency snapshot 均一致、标题合法、没有重复内容和活动 Attachment 的 Item 才能进入 candidate；仅靠按需运行截图启用逐项按钮的条目永不自动发布。dependency snapshot 必须按内容类型进入同一普通发布校验分支：两者统一使用 schemaVersion=1，静态 BIOS/多盘为 `kind=STATIC`，Arcade 为 `kind=ARCADE` 并包含 machine/DAT/closure/dependencies；后者重新核对当前 active DAT 的闭包、required entries 与冻结 ValidationFile，不得送入 STATIC 解析器。预览返回 scope digest 与候选 manifest digest；确认创建时服务端在一个事务重新枚举，任何筛选或 Item 输入漂移都以 `REVIEW_BULK_PREVIEW_STALE` 要求重新确认。空范围拒绝启动，单批上限 10,000，全实例同时只允许一个 active batch。
 
-后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；批次结果保存 Game ID，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
+后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；批次结果保存 Game ID，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
 
-“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/Blob/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，更新 ImportItem 当前状态，并推进普通/服务器来源计数、调度既有 PayloadRelease。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
+“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/SHA256/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，更新 ImportItem 当前状态，并推进普通/服务器来源计数、调度既有 OwnerCleanup。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
 
 审核详情的来源文件和单个 archive 成员审计预览分别最多渲染前 200 项并显示完整总数。完整清单仍保存在来源证据、参与内容摘要与发布，但不得作为 Client Component 属性重复发送或让数千行 DOM 阻塞审核操作 hydration。
 
@@ -427,7 +427,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 ## 12. Worker
 
-默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、PayloadRelease 最多 4、GC 1；业务释放和 GC 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到 CAS。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
+默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、OwnerCleanup 最多 4、后台删除 1；业务释放和 后台删除 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到独立文件存储。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
 
 ## 13. 多盘目录、缺盘与补传
 
@@ -451,11 +451,11 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 启动 Service 先在短读事务中取得冻结的 root/source 摘要与有界 metadata evidence，释放数据库连接后再通过 no-follow 文件描述符、共享读取并发预算和可取消的读取重验大小、facts 与 digest。当前 root 配置必须与扫描时一致；创建 execution 前的写事务再次检查版本、到期时间、冻结摘要、活动标签和全实例执行容量，不能让校验期间过期或被修改的计划进入队列。所有 job/execution/audit ID 生成成功后，Job、不可变输入、阻断/跳过投影、计划状态、事件、操作者审计和 payload 释放登记一起提交；失败全部回滚，成功后才唤醒 worker。重复启动已执行计划返回既有状态，不重复创建 execution。
 
-映射冻结后，Worker 在数据库事务外经 no-follow fd 读取源文件并写 CAS，再复用普通导入的 content profile、archive、M3U、DAT/Arcade companion、BIOS、CoreValidation、duplicate 和审核管线。单文件、单 archive/DOS ZIP、以及一个 M3U 加按序 2–8 个 CHD 走既有能力；其他多个可启动文件稳定阻断，不取第一项。同一任务、同一目标游戏目录下其他游戏显式声明的 ZIP 只有在冻结 DAT 的 parent/romof 闭包中被当前 machine 直接或间接依赖时才可成为 Arcade companion；不得把 Collection 中全部 ZIP 作为候选传给单个游戏。
+映射冻结后，Worker 在数据库事务外经 no-follow fd 读取源文件并写独立文件存储，再复用普通导入的 content profile、archive、M3U、DAT/Arcade companion、BIOS、CoreValidation、duplicate 和审核管线。单文件、单 archive/DOS ZIP、以及一个 M3U 加按序 2–8 个 CHD 走既有能力；其他多个可启动文件稳定阻断，不取第一项。同一任务、同一目标游戏目录下其他游戏显式声明的 ZIP 只有在冻结 DAT 的 parent/romof 闭包中被当前 machine 直接或间接依赖时才可成为 Arcade companion；不得把 Collection 中全部 ZIP 作为候选传给单个游戏。
 
-`internal/service/sourceimport.ImportExecutor` 编排永久关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与 CAS 读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
+`internal/service/sourceimport.ImportExecutor` 编排永久关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与独立文件存储读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
-普通 ImportJob/Item 的创建与 来源 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/CAS 来源重新选取结果。
+普通 ImportJob/Item 的创建与 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/独立文件存储来源重新选取结果。
 
 内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 来源 metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。来源 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 来源 Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `sourceImportId` 精确收窄，来源 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过全局待审队列的快速审批发布。Approve 才在普通审核事务内形成 `IMPORT_RECEIVE` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 来源 COVER；Discard 把来源 Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 来源 聚合。
 
@@ -473,7 +473,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
 
-来源 Item 完成普通审核交接，或进入发布、审核丢弃、跳过、阻断、取消、不可重试错误后，仅长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。每个 SourceItem 都使用自己的 SOURCE_IMPORT_ITEM release Job。交接事务先为 ImportItem 建立完整内容及 `import_item_assets` 的 COVER/VIDEO 引用，再登记 Source 释放；审核等待期间 Source payload 可以释放，普通 `REVIEW_PENDING` ImportItem 继续持有待审核数据。可重试且尚未交接的来源错误保留 Source payload。文件与来源 COVER/VIDEO 转为 `PAYLOAD_RELEASED` 后，来源管理页显示清理结论；审核页仍使用 ImportItem 所有的媒体 URL。`SKIPPED_EXISTING` 保留全部识别匹配与永久关联，Source 与普通终态 Item 各自释放。
+来源 Item 完成普通审核交接，或进入发布、审核丢弃、跳过、阻断、取消、不可重试错误后，仅长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。每个 SourceItem 都使用自己的 SOURCE_IMPORT_ITEM release Job。交接事务先为 ImportItem 建立完整内容及 `import_item_assets` 的 COVER/VIDEO 引用，再登记 Source 释放；来源释放事务同时清空内部 upload_files/import_files 的载荷指针，保留其 ID 与导入历史；这些传输记录不形成第二个所有者。审核等待期间 Source payload 可以释放，普通 `REVIEW_PENDING` ImportItem 继续持有待审核数据。可重试且尚未交接的来源错误保留 Source payload。文件与来源 COVER/VIDEO 转为 `RELEASED` 后，来源管理页显示清理结论；审核页仍使用 ImportItem 所有的媒体 URL。`SKIPPED_EXISTING` 保留全部识别匹配与永久关联，Source 与普通终态 Item 各自释放。
 
 
 
@@ -503,11 +503,11 @@ EmulationStation Collection 使用完全相同的 `tagIds`、snapshot、删除�
 
 ## 17. RPG Maker 项目识别、资源与发布验证
 
-`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传 CAS bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
+`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传独立文件存储 bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
 
 目标目录默认核心必须是虚拟 `rpgmaker`；服务端运行全部有界 signature parser，唯一检测出 generation 后再选择 `retrom-runtime` Provider 的固定 Target。多 generation 为 ambiguous，无证据为 unsupported，无法唯一裁决时拒绝；用户不能选择、覆盖或 fallback 到另一个 Target。
 
-项目根规范化固定按以下顺序执行：删除 `__MACOSX/**`、任意目录的 `.DS_Store`、`Thumbs.db`、`desktop.ini`；对全部路径执行上述安全门禁；若全部剩余文件共享同一第一 segment 且物理根没有文件，只剥离这一层，绝不递归剥第二层；只比较 `.` 与 `www/` 两个候选，不递归搜索其他目录，恰一个包含任一完整 family marker 才成立，零个返回 `RPG_PROJECT_NOT_FOUND`、两个返回 `RPG_PROJECT_ROOT_AMBIGUOUS`；选择 `www/` 时外层 desktop wrapper 不进入项目；对最终路径同时建立 NFC 原文与 NFKC case-fold 索引，任一碰撞返回 `RPG_PATH_COLLISION`；世代确定后只对项目根文件按 ASCII case-insensitive 完整匹配排除会话状态：2000/2003 的 `Save[0-9]+.lsd`、`*.dyn`、`Save.lgs`、`easyrpg_log.txt`，以及对应 RGSS 世代的 `Save*.rxdata`、`Save*.rvdata` 或 `Save*.rvdata2`；这些排除项只进入审核诊断，不进入 GameFiles/filesDigest。其余项目根文件无论扩展名与内部格式均按原始 bytes 保留。规范化后以紧凑清单 V2 冻结 fileCount/totalBytes/filesDigest，精确文件仍逐行引用 CAS。MV/MZ runtime 内容读取先逐 byte 精确匹配；仅在精确项不存在时，按同一项目唯一 ASCII case-insensitive 候选回退，以兼容 Windows 项目中脚本与资源名的大小写差异。导入期碰撞门禁保证候选唯一，运行期仍重新证明恰有一个候选，否则 404；不得推广为 Unicode 模糊匹配或普通内容端点行为。
+项目根规范化固定按以下顺序执行：删除 `__MACOSX/**`、任意目录的 `.DS_Store`、`Thumbs.db`、`desktop.ini`；对全部路径执行上述安全门禁；若全部剩余文件共享同一第一 segment 且物理根没有文件，只剥离这一层，绝不递归剥第二层；只比较 `.` 与 `www/` 两个候选，不递归搜索其他目录，恰一个包含任一完整 family marker 才成立，零个返回 `RPG_PROJECT_NOT_FOUND`、两个返回 `RPG_PROJECT_ROOT_AMBIGUOUS`；选择 `www/` 时外层 desktop wrapper 不进入项目；对最终路径同时建立 NFC 原文与 NFKC case-fold 索引，任一碰撞返回 `RPG_PATH_COLLISION`；世代确定后只对项目根文件按 ASCII case-insensitive 完整匹配排除会话状态：2000/2003 的 `Save[0-9]+.lsd`、`*.dyn`、`Save.lgs`、`easyrpg_log.txt`，以及对应 RGSS 世代的 `Save*.rxdata`、`Save*.rvdata` 或 `Save*.rvdata2`；这些排除项只进入审核诊断，不进入 GameFiles/filesDigest。其余项目根文件无论扩展名与内部格式均按原始 bytes 保留。规范化后以紧凑清单 V2 冻结 fileCount/totalBytes/filesDigest，精确文件仍逐行引用独立文件存储。MV/MZ runtime 内容读取先逐 byte 精确匹配；仅在精确项不存在时，按同一项目唯一 ASCII case-insensitive 候选回退，以兼容 Windows 项目中脚本与资源名的大小写差异。导入期碰撞门禁保证候选唯一，运行期仍重新证明恰有一个候选，否则 404；不得推广为 Unicode 模糊匹配或普通内容端点行为。
 
 世代证据必须满足：2000/2003 同时有有效 `RPG_RT.ldb/.lmt`，有界 LCF parser 仅在 `ldb_id=2003` 时 exact 2003，缺省/0 只能 family-only；XP/VX/VX Ace 的 `Game.ini`、Scripts 后缀、项目 marker、加密 archive 和 Library 前缀必须全部指向同一 RGSS1/2/3；MV/MZ 必须分别具备完整 `rpg_*`/`rmmz_*` marker、严格 System.json 和本地安全 index.html，路径逃逸、form/popup/top-navigation、确凿外网调用或确凿 Node/NW/native 运行依赖直接拒绝。单独存在 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 只证明上传包同时携带 desktop wrapper，不证明 Web 路径会调用它；这些文件与其他项目文件一样按原始 bytes 保留为 `PROJECT_FILE`、进入 filesDigest，但不作为世代证据。Native Web Launch 从完整 source snapshot 另建最小运行投影，只锁定 `index.html` 与固定 Web 资源 MIME allowlist，排除根 `package.json` 和所有 native executable 后缀；因此 runtime 内容端点对被排除文件固定返回 404，而 source snapshot/filesDigest 不被删改。MV/MZ 官方 Web deployment 自带的 core/Pixi 与大量插件会保留由 `Utils.isNwjs()` 等浏览器假分支保护的 `process`、`nw` 和 `require(...)` 代码；静态导入允许这些不可达兼容分支，因为隔离 runtime 不注入 Node/NW API。静态门禁仍会拒绝可证明的不安全入口；启动后的兼容性问题由管理员在真实 Launch 中判断，完整机器验证不再是人工发布前置。
 
@@ -527,7 +527,7 @@ Approve 在短事务内重新核对当前 effective source、精确文件、Core
 
 RPG Maker 项目形状、selected-core/evidence 分层、pack、普通试玩和发布绑定执行 `ACC-RPG-001`–`012`。
 
-本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与独立文件存储约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
 
 ## Java ME JAR
 
@@ -540,7 +540,7 @@ Java ME 使用普通文件上传和审核流程。目录公开 `.jar` 扩展名�
 TIC-80 平台 `tic80` 使用独立核心/Target `tic80`；PICO-8 平台 `pico8` 使用核心/Target `fake08`。
 普通 `GENERAL` 文件上传接受 `.tic`、`.p8`、`.p8.png`（大小写不敏感），普通 `.png` 不作为卡带。
 ZIP/7z 作为单卡带运输格式，只能包含一个匹配的主文件；卡带内部资源不作为项目文件树展开。
-原始字节进入现有 `SINGLE_FILE` 审核与 CAS 流程，通过 `ROM_BLOB` 交给 Provider，运行时逐字节验证 size/SHA-256，最大 4 MiB。
+原始字节进入现有 `SINGLE_FILE` 审核与独立文件存储流程，通过 `ROM_BLOB` 交给 Provider，运行时逐字节验证 size/SHA-256，最大 4 MiB。
 扩展名只决定导入候选，卡带解析与可运行性仍由审核预览和锁定核心检查；不新增 BIOS、RTP 或数据库内容类型。
 TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不承诺所有上游语言、编辑器或多卡带项目。
 实际产品验证见 [ACC-TIC-001 与 ACC-PICO-001](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链)。

@@ -21,15 +21,15 @@ import (
 	validationservice "retrom/internal/service/corevalidation"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	launchpersistence "retrom/internal/persistence/launch"
 	launchservice "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	firmwarerepo "retrom/internal/persistence/firmware"
 	retromruntime "retrom/internal/runtime"
 	firmwareservice "retrom/internal/service/firmware"
@@ -62,7 +62,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
@@ -79,7 +79,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 		t.Helper()
 		metadata, putErr := blobs.Put(bytes.NewReader([]byte(generation + "-" + item.logicalName)))
 		testassert.False(t, putErr != nil, putErr)
-		blobID, recordErr := blobcatalog.EnsureRecord(
+		blobID, recordErr := filecatalog.EnsureRecord(
 			ctx,
 			database.SQL,
 			metadata,
@@ -88,7 +88,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 		)
 		testassert.False(t, recordErr != nil, recordErr)
 		installationID, _ := uuid.NewV7()
-		if _, execErr := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+		if _, execErr := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
@@ -103,7 +103,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	seedOptionalExternalBIOS(t, ctx, database.SQL, target.ProviderID, target.TargetID)
 	gameMetadata, err := blobs.Put(bytes.NewReader([]byte("nds-content")))
 	testassert.False(t, err != nil, err)
-	gameBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
+	gameBlobID, err := filecatalog.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	snapshot, status, _, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, target.ProviderID, target.TargetID, "game.nds")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "MelonDS BIOS snapshot = %#v/%s, error=%v", snapshot, status, err)

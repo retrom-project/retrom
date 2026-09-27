@@ -19,7 +19,7 @@ CREATE TABLE "import_job_file_resolutions" (
   actor_kind TEXT NOT NULL CHECK(actor_kind IN ('USER','SYSTEM')),
   actor_user_id TEXT REFERENCES users(id),
   actor_label TEXT CHECK(actor_label IN (
-    'release-setup','offline-recovery','startup-test-bootstrap','restore-security-fence'
+    'release-setup','startup-test-bootstrap'
   )),
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(import_job_id,upload_file_id),
@@ -74,7 +74,7 @@ CREATE TABLE import_items (
 CREATE TABLE import_item_assets (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   kind TEXT NOT NULL CHECK(kind IN ('COVER','VIDEO')),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   media_type TEXT NOT NULL CHECK(length(media_type)>0),
   width_px INTEGER CHECK(width_px>0),
   height_px INTEGER CHECK(height_px>0),
@@ -88,13 +88,12 @@ CREATE TABLE "import_item_source_files" (
   role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL,
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   source_archive_blob_id TEXT,
   source_archive_entry_ordinal INTEGER,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(import_item_id,role,logical_name),
-  FOREIGN KEY(source_archive_blob_id,source_archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id,ordinal),
   CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
 );
 
@@ -118,13 +117,12 @@ CREATE TABLE "import_item_source_snapshot_files" (
   role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL,
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   source_archive_blob_id TEXT,
   source_archive_entry_ordinal INTEGER,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(source_snapshot_id,role,logical_name),
-  FOREIGN KEY(source_archive_blob_id,source_archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id,ordinal),
   CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
 );
 
@@ -135,7 +133,7 @@ CREATE TABLE "import_item_validation_files" (
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(import_item_core_validation_id,role,logical_name)
@@ -159,9 +157,9 @@ CREATE TABLE import_item_multidisc_entries (
   source_reference TEXT NOT NULL,
   normalized_reference TEXT NOT NULL,
   canonical_name TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('PRESENT','MISSING','PAYLOAD_RELEASED')),
+  state TEXT NOT NULL CHECK(state IN ('PRESENT','MISSING','RELEASED')),
   upload_file_id TEXT REFERENCES upload_files(id),
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   source_logical_name TEXT,
   payload_released_at_ms INTEGER,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -174,7 +172,7 @@ CREATE TABLE import_item_multidisc_entries (
   CHECK(
     state='PRESENT' AND upload_file_id IS NOT NULL AND blob_id IS NOT NULL AND source_logical_name IS NOT NULL AND payload_released_at_ms IS NULL OR
     state='MISSING' AND upload_file_id IS NULL AND blob_id IS NULL AND source_logical_name IS NULL AND payload_released_at_ms IS NULL OR
-    state='PAYLOAD_RELEASED' AND upload_file_id IS NULL AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
+    state='RELEASED' AND upload_file_id IS NULL AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
   )
 );
 
@@ -182,7 +180,7 @@ CREATE TABLE review_uploaded_assets (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   upload_file_id TEXT NOT NULL UNIQUE REFERENCES upload_files(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind = 'COVER'),
   width_px INTEGER NOT NULL CHECK(width_px > 0),
   height_px INTEGER NOT NULL CHECK(height_px > 0),
@@ -227,7 +225,7 @@ CREATE TABLE review_preview_files (
     (role IN ('PROJECT_FILE','RUNTIME_FILE') OR logical_name NOT LIKE '%/%')
   ),
   virtual_path TEXT,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(preview_session_id,role,logical_name),
@@ -301,7 +299,7 @@ CREATE TABLE metadata_provider_responses (
   request_digest TEXT NOT NULL CHECK(length(request_digest) = 64),
   http_status INTEGER,
   outcome TEXT NOT NULL CHECK(outcome IN ('HIT','MISS','RATE_LIMITED','TIMEOUT','INVALID_RESPONSE','NETWORK_ERROR')),
-  raw_response_blob_id TEXT REFERENCES blobs(id),
+  raw_response_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   raw_payload_state TEXT NOT NULL CHECK(raw_payload_state IN ('NONE','RETAINED','RELEASED')),
   raw_payload_released_at_ms INTEGER,
   fetched_at_ms INTEGER NOT NULL,
@@ -352,7 +350,7 @@ CREATE TABLE scrape_candidate_assets (
   ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 31),
   source_path TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('PENDING','FETCHING','READY','FAILED','CANCELLED')),
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   width_px INTEGER,
   height_px INTEGER,
   media_type TEXT,
@@ -377,7 +375,7 @@ CREATE TABLE content_hash_evidence (
     length(profile) BETWEEN 2 AND 64 AND profile=upper(profile)
     AND profile NOT GLOB '*[^A-Z0-9_]*'
   ),
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   archive_blob_id TEXT,
   archive_entry_ordinal INTEGER,
   payload_released_at_ms INTEGER,
@@ -388,7 +386,6 @@ CREATE TABLE content_hash_evidence (
   query_order INTEGER NOT NULL CHECK(query_order >= 0),
   created_at_ms INTEGER NOT NULL,
   UNIQUE(scrape_run_id, profile, query_order),
-  FOREIGN KEY(archive_blob_id, archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id, ordinal),
   CHECK(
     payload_released_at_ms IS NULL AND ((blob_id IS NOT NULL) != (archive_blob_id IS NOT NULL)) OR
     payload_released_at_ms IS NOT NULL AND blob_id IS NULL AND archive_blob_id IS NULL AND archive_entry_ordinal IS NULL
@@ -507,7 +504,7 @@ CREATE TABLE "review_arcade_parent_attachments" (
   target_id TEXT NOT NULL,
   dat_version_id TEXT NOT NULL REFERENCES dat_versions(id),
   upload_file_id TEXT REFERENCES upload_files(id),
-  accepted_blob_id TEXT REFERENCES blobs(id),
+  accepted_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   payload_released_at_ms INTEGER,
   original_filename TEXT NOT NULL CHECK(length(CAST(original_filename AS BLOB)) BETWEEN 1 AND 255),
   observed_size_bytes INTEGER CHECK(observed_size_bytes IS NULL OR observed_size_bytes >= 0),
@@ -543,7 +540,7 @@ CREATE TABLE "review_preview_sessions" (
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
   content_kind TEXT NOT NULL REFERENCES content_kinds(id),
-  content_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  content_blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
   content_format TEXT NOT NULL CHECK(
     length(content_format) BETWEEN 2 AND 64 AND content_format=upper(content_format)
@@ -551,11 +548,11 @@ CREATE TABLE "review_preview_sessions" (
   ),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
-  checkpoint_payload_blob_id TEXT REFERENCES blobs(id),
+  checkpoint_payload_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   checkpoint_format TEXT CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
   checkpoint_created_at_ms INTEGER CHECK(checkpoint_created_at_ms>=0),
   restore_from_preview_id TEXT,
-  restore_payload_blob_id TEXT REFERENCES blobs(id),
+  restore_payload_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   restore_checkpoint_format TEXT CHECK(length(restore_checkpoint_format) BETWEEN 1 AND 128),
   emulator_game_id INTEGER CHECK(emulator_game_id IS NULL OR emulator_game_id>0),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
@@ -585,7 +582,7 @@ CREATE TABLE "review_runtime_screenshots" (
   validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
   provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
   target_id TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   media_type TEXT NOT NULL CHECK(media_type IN ('image/png','image/jpeg')),
   width_px INTEGER NOT NULL CHECK(width_px BETWEEN 1 AND 40000000),
   height_px INTEGER NOT NULL CHECK(height_px BETWEEN 1 AND 40000000),

@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type Records struct{ Executor dbapi.Executor }
@@ -63,7 +64,7 @@ upload_files.final_blob_id=?
 AND EXISTS(SELECT 1 FROM upload_sessions session WHERE session.id=upload_files.upload_session_id AND
 session.state=? AND session.version=?)
 AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") + `=?`
-	result, err := recordstore.UpdateReferences(
+	result, err := recordstore.UpdateRows(
 		ctx,
 		records.Executor,
 		"upload_files",
@@ -88,7 +89,7 @@ AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") +
 	if err := effectCount(result, err, 1); err != nil {
 		return fmt.Errorf("purge upload reference: %w", err)
 	}
-	if _, err := recordstore.UpdateReferences(
+	if _, err := recordstore.UpdateRows(
 		ctx,
 		records.Executor,
 		"import_files",
@@ -99,6 +100,15 @@ AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") +
 		},
 	); err != nil {
 		return fmt.Errorf("release received import file: %w", err)
+	}
+	if err := fileownership.Retire(
+		ctx,
+		records.Executor,
+		fileownership.Owner{Kind: "UPLOAD", ID: file.SessionID},
+		file.BlobID,
+		now,
+	); err != nil {
+		return fmt.Errorf("retire owned file: %w", err)
 	}
 	return nil
 }

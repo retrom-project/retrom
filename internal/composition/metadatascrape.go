@@ -5,7 +5,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
@@ -13,7 +13,7 @@ import (
 
 func NewMetadata(
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	provider *hasheous.Provider,
 	now func() time.Time,
 ) *metadatascrape.Service {

@@ -18,7 +18,7 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 
 ```text
 .pfb/workspace/
-├── data/                 # SQLite、CAS、上传、secret
+├── data/                 # SQLite、独立文件存储、上传、secret
 ├── providers/
 │   ├── active.json       # 已完整验证的基座 Provider identity
 │   ├── installed/        # 基座 manifest 与大体积静态资源
@@ -195,4 +195,4 @@ PFB 上顺序验证已含业务数据的扩展。不因验收夹具前置或失�
 - legacy migration 幂等且保留源卷，reset 有可恢复归档，remove/destroy 都需要 exact ID；
 - 真实游戏链完成登录、详情、Launch、Provider dispatcher、画面、输入和需要的 checkpoint/恢复。对于 Butterscotch，canvas 必须保持 640×480 backing，并成为 runtime surface 内最大居中的 4:3 矩形。
 
-服务器导入无需配置目录白名单。PFB 将管理工作区 `retrom-project/.dev-data` 只读挂载到 `/server-data`；独立 Retrom checkout 使用自身 `.dev-data`。此目录用于操作者放置 BIOS、Pegasus/gamelist 来源，与每个 PFB 独立的数据库/CAS 分开。来源不进入镜像，也不随 PFB 停止或重建删除。管理员还可浏览容器内其他可读取的普通目录。
+服务器导入无需配置目录白名单。PFB 将管理工作区 `retrom-project/.dev-data` 只读挂载到 `/server-data`；独立 Retrom checkout 使用自身 `.dev-data`。此目录用于操作者放置 BIOS、Pegasus/gamelist 来源，与每个 PFB 独立的数据库/独立文件存储分开。来源不进入镜像，也不随 PFB 停止或重建删除。管理员还可浏览容器内其他可读取的普通目录。

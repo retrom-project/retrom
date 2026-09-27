@@ -25,7 +25,7 @@ import (
 	validationservice "retrom/internal/service/corevalidation"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
@@ -364,7 +364,7 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return changed.Code != http.StatusOK }, func() bool { return changed.Header().Get("ETag") != `"v2"` }), "default core change = %d %s", changed.Code, changed.Body.String())
 
 	saveID := "01980000-0000-7000-8000-000000000191"
-	seedProductSave(t, server.database, saveID, sourceLaunch.LaunchID, "Old core save")
+	seedProductSave(t, server, saveID, sourceLaunch.LaunchID, "Old core save")
 	pending, err := server.launcher.Create(
 		ctx,
 		"local",
@@ -448,7 +448,7 @@ func TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone(t *
 	server := newReadyHTTPServer(t)
 	gameID, _ := seedMovableGame(t, server)
 	cloneMovableGame(t, server, gameID, "194", "195", "196", "197", "198")
-	sharedGameID := "01980000-0000-7000-8000-000000000194"
+	otherGameID := "01980000-0000-7000-8000-000000000194"
 	ctx := context.Background()
 	const historyUserID = "01980000-0000-7000-8000-000000009996"
 	const historyProfileID = "01980000-0000-7000-8000-000000009997"
@@ -499,7 +499,7 @@ WHERE g.id=?
 		t.Fatal(err)
 	}
 	saveID := "01980000-0000-7000-8000-000000000193"
-	seedProductSave(t, server.database, saveID, created.LaunchID, "Delete fixture save")
+	seedProductSave(t, server, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,
 started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
@@ -529,7 +529,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		t.Fatal(err)
 	}
 	secondSaveID := "01980000-0000-7000-8000-000000000199"
-	seedProductSave(t, server.database, secondSaveID, created.LaunchID, "Concurrent save")
+	seedProductSave(t, server, secondSaveID, created.LaunchID, "Concurrent save")
 	sendDelete := func(targetID, etag, title, digest, key string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodDelete,
@@ -548,7 +548,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		t.Fatalf("stale impact delete = %d %s", response.Code, response.Body.String())
 	}
 	impact, err = server.gameImpact.Game(ctx, gameID)
-	if err != nil || impact.SharedBytes == "0" {
+	if err != nil || impact.RegisteredBytes == "0" {
 		t.Fatalf("shared game impact = %#v, error=%v", impact, err)
 	}
 	if response := sendDelete(gameID, `"v2"`, "Move fixture", impact.ImpactDigest, uuid.NewString()); response.Code != http.StatusConflict {
@@ -652,29 +652,25 @@ WHERE g.id=?
 		func() bool { return !strings.Contains(recentHistory.Body.String(), `"availability":"DELETED"`) },
 		func() bool { return !strings.Contains(recentHistory.Body.String(), `"coverUrl":null`) },
 	), "deleted recent tombstone = %d %s", recentHistory.Code, recentHistory.Body.String())
-	var protectedBlob, prematureCandidate int64
-	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT
-(SELECT count(*) FROM blobs WHERE id=?),
-(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, blobID, blobID).
-		Scan(&protectedBlob, &prematureCandidate); err != nil || protectedBlob != 1 || prematureCandidate != 0 {
-		t.Fatalf("shared blob after first delete = blob:%d candidate:%d error:%v", protectedBlob, prematureCandidate, err)
+	var otherID string
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT blob_id FROM game_files WHERE game_id=?`, otherGameID).Scan(&otherID); err != nil {
+		t.Fatal(err)
 	}
-	sharedImpact, err := server.gameImpact.Game(ctx, sharedGameID)
+	if otherID == blobID {
+		t.Fatal("games share a physical file")
+	}
+	assertOwnedGameFile(t, server, otherGameID, otherID)
+	assertRetiredGameFile(t, server, blobID)
+	otherImpact, err := server.gameImpact.Game(ctx, otherGameID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sharedDeleted := sendDelete(sharedGameID, `"v1"`, "Move fixture194", sharedImpact.ImpactDigest, uuid.NewString())
-	if sharedDeleted.Code != http.StatusAccepted {
-		t.Fatalf("delete last shared game = %d %s", sharedDeleted.Code, sharedDeleted.Body.String())
+	otherDeleted := sendDelete(otherGameID, `"v1"`, "Move fixture194", otherImpact.ImpactDigest, uuid.NewString())
+	if otherDeleted.Code != http.StatusAccepted {
+		t.Fatalf("delete last shared game = %d %s", otherDeleted.Code, otherDeleted.Body.String())
 	}
-	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
-	var candidateCount, remainingBlob int64
-	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT
-(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?),
-(SELECT count(*) FROM blobs WHERE id=?)`, blobID, blobID,
-	).Scan(&candidateCount, &remainingBlob); err != nil || remainingBlob == 1 && candidateCount != 1 {
-		t.Fatalf("last shared release = blobs:%d candidate:%d error=%v", remainingBlob, candidateCount, err)
-	}
+	waitForPayloadState(t, server.database, otherGameID, "RELEASED")
+	assertRetiredGameFile(t, server, otherID)
 }
 
 func waitForPayloadState(t *testing.T, database dbapi.DB, gameID, expected string) {
@@ -727,9 +723,10 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	contents := []byte("move-game")
 	metadata, err := server.blobs.Put(bytes.NewReader(contents))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	gameID := "01980000-0000-7000-8000-000000000176"
+	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='GAME',owner_id=? WHERE id=?`, gameID, blobID)
 	variantID := "01980000-0000-7000-8000-000000000179"
 	_, dependencySnapshot := validationFixture(t, server.database, target, gameID, "move.gbc")
 	now := time.Now().UnixMilli()
@@ -782,6 +779,19 @@ func cloneMovableGame(
 	t.Helper()
 	id := func(suffix string) string { return "01980000-0000-7000-8000-000000000" + suffix }
 	ctx := context.Background()
+	var sourceID string
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT blob_id FROM game_files WHERE game_id=?`, sourceGameID).Scan(&sourceID); err != nil {
+		t.Fatal(err)
+	}
+	copied, err := server.blobs.Copy(ctx, sourceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copiedID, err := filecatalog.EnsureRecord(ctx, server.database, copied, "application/octet-stream", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='GAME',owner_id=? WHERE id=?`, id(gameSuffix), copiedID)
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
@@ -807,10 +817,10 @@ WHERE id=?
 		{`
 INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order,
 source_archive_blob_id, source_archive_entry_ordinal)
-SELECT ?, role, logical_name, blob_id, sort_order, source_archive_blob_id, source_archive_entry_ordinal
+SELECT ?, role, logical_name, ?, sort_order, source_archive_blob_id, source_archive_entry_ordinal
 FROM game_files
 WHERE game_id=?
-`, []any{id(gameSuffix), sourceGameID}, "game_files"},
+`, []any{id(gameSuffix), copiedID, sourceGameID}, "game_files"},
 		{`
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
@@ -831,8 +841,9 @@ WHERE game_id=? AND core_id='gambatte'
 	}
 }
 
-func seedProductSave(t *testing.T, database dbapi.DB, saveID, launchID, name string) {
+func seedProductSave(t *testing.T, server *Server, saveID, launchID, name string) {
 	t.Helper()
+	database := server.database
 	var profileID, gameID string
 	var checkpointFormat, payloadBlobID, payloadSHA256 string
 	var dosEntryPath sql.NullString
@@ -846,7 +857,7 @@ FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN game_files content
   ON content.game_id=launch.game_id AND content.role='CONTENT'
-JOIN blobs blob ON blob.id=content.blob_id
+JOIN stored_files blob ON blob.id=content.blob_id
 WHERE launch.id=?
 ORDER BY content.sort_order,content.logical_name
 LIMIT 1
@@ -856,8 +867,17 @@ LIMIT 1
 	); err != nil {
 		t.Fatal(err)
 	}
+	copied, err := server.blobs.Copy(t.Context(), payloadBlobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payloadBlobID, err = filecatalog.EnsureRecord(t.Context(), database, copied, "application/octet-stream", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExecHTTPTest(t, database, `UPDATE stored_files SET owner_kind='SAVE_STATE',owner_id=? WHERE id=?`, saveID, payloadBlobID)
 	now := time.Now().UnixMilli()
-	if _, err := recordstore.CreateReferences(context.Background(), database, "save_states", `
+	if _, err := recordstore.InsertRows(context.Background(), database, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,dos_entry_path,
  payload_blob_id,payload_sha256,payload_size_bytes,

@@ -38,7 +38,7 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 				t.Fatalf("changed %s published media", change)
 			}
 			var count int
-			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM stored_files`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {

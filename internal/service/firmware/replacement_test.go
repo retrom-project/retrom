@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 )
@@ -23,7 +23,7 @@ func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			request := ServerInstallRequest{
 				SourceKind: "STATIC", ReplaceIfBetter: test.replace,
-				Metadata: blobstore.Metadata{SHA256: test.digest}, Status: "MATCHED",
+				Metadata: filestore.Metadata{SHA256: test.digest}, Status: "MATCHED",
 			}
 			if test.evidence {
 				expectation := firmware.StaticExpectation{LogicalName: "bios.bin"}
@@ -44,7 +44,7 @@ func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) 
 }
 
 func TestServerReplacementRefreshesChangedValidationForSameBytes(t *testing.T) {
-	request := ServerInstallRequest{ReplaceIfBetter: true, Metadata: blobstore.Metadata{SHA256: "same"}, Status: "MATCHED"}
+	request := ServerInstallRequest{ReplaceIfBetter: true, Metadata: filestore.Metadata{SHA256: "same"}, Status: "MATCHED"}
 	active := ActiveInstallation{ID: "active", SHA256: "same", ValidatedVersion: 1, Status: "MATCHED"}
 	result, handled, err := evaluateExistingInstallation(t.Context(), nil, request, 2, active, true)
 	if err != nil || handled || result.PreviousInstallationID != "active" {

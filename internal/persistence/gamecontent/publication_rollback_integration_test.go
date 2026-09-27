@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 )
@@ -32,13 +32,13 @@ func (writer failingPublicationWriter) Publish(ctx context.Context, value gameco
 	return context.DeadlineExceeded
 }
 
-func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *blobstore.Store, uploadService *uploads.Service,
-	releases *payloadrelease.Service, gameID string, version int64, blobID, saveID string,
+func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *filestore.Store, uploadService *uploads.Service,
+	releases *cleanupjobs.Service, gameID string, version int64, blobID, saveID string,
 ) {
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
 	repository := failingPublicationRepository{New(database)}
-	service := gamecontent.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontent.New(repository, time.Now).WithFileStore(blobs).WithCleanup(releases).WithDeletionStager(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
 		t.Fatal(err)

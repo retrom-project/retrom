@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
 	contentprofile "retrom/internal/content/profile"
 	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/multidisc"
 )
@@ -107,7 +107,7 @@ func (service *ImportPreparation) prepareProfileFile(
 	if err != nil {
 		return rejectedDisposition(file, archiveSelectionReason(err)), nil, nil
 	}
-	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.SHA256), candidate)
+	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.BlobID), candidate)
 	if err != nil {
 		return rejectedDisposition(file, ArchiveReason(err)), nil, nil
 	}
@@ -118,7 +118,7 @@ func (service *ImportPreparation) prepareProfileFile(
 	}}}
 	archive := &PreparedArchive{
 		BlobID: file.BlobID, Entries: entries,
-		Materialized: map[int]blobstore.Metadata{ordinal: selected},
+		Materialized: map[int]filestore.Metadata{ordinal: selected},
 	}
 	return sourceDisposition(file), group, archive
 }
@@ -166,7 +166,7 @@ func (service *ImportPreparation) scanProfileArchive(
 	file ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, error) {
-	archivePath := service.blobs.Path(file.SHA256)
+	archivePath := service.blobs.Path(file.BlobID)
 	var entries []importing.ArchiveEntry
 	var err error
 	if archiveFormat == contentprofile.ArchiveZIP {
@@ -184,7 +184,7 @@ func (service *ImportPreparation) readMultiDiscBlob(file ImportFile, maximum int
 	if service.blobs == nil || file.Size > maximum {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenDigest(file.SHA256)
+	reader, err := service.blobs.OpenID(file.BlobID)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
@@ -200,7 +200,7 @@ func (service *ImportPreparation) readMultiDiscHeader(file ImportFile) ([]byte, 
 	if service.blobs == nil || file.Size < 8 {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenDigest(file.SHA256)
+	reader, err := service.blobs.OpenID(file.BlobID)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
@@ -279,7 +279,7 @@ func preparedMultiDiscGroup(
 	directory string,
 	playlist ImportFile,
 	parsed multidisc.Result,
-	canonical blobstore.Metadata,
+	canonical filestore.Metadata,
 ) (PreparedGroup, []PreparedDisposition, error) {
 	playlistOrder := 0
 	group := PreparedGroup{

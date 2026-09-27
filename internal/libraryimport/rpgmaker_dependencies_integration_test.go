@@ -19,7 +19,7 @@ func TestRPGReviewRequiresExplicitSelfContainedConfirmation(t *testing.T) {
 	ctx := t.Context()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", requiredRPGPackArchive(t))
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "STANDARD", TagIDs: []string{},

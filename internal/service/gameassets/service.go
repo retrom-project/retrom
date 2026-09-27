@@ -7,7 +7,7 @@ import (
 	"retrom/internal/mediaasset"
 )
 
-// Prepare validates the completed upload and inspects its immutable CAS bytes.
+// Prepare validates the completed upload and inspects its immutable file bytes.
 func (service *Service) Prepare(ctx context.Context, uploadFileID, kind string) (PreparedAsset, error) {
 	if uploadFileID == "" || !ValidUpload(kind, 0) {
 		return PreparedAsset{}, ErrInvalid
@@ -22,11 +22,11 @@ func (service *Service) Prepare(ctx context.Context, uploadFileID, kind string) 
 		return PreparedAsset{}, &ValidationError{Code: "ASSET_UPLOAD_INVALID", Message: "上传文件不可用"}
 	}
 	if service.blobs == nil {
-		return PreparedAsset{}, &ValidationError{Code: "CAS_UNAVAILABLE", Message: "媒体字节不可用"}
+		return PreparedAsset{}, &ValidationError{Code: "FILE_STORAGE_UNAVAILABLE", Message: "媒体字节不可用"}
 	}
-	file, err := service.blobs.OpenDigest(upload.Digest)
+	file, err := service.blobs.OpenID(upload.BlobID)
 	if err != nil {
-		return PreparedAsset{}, &ValidationError{Code: "CAS_UNAVAILABLE", Message: "媒体字节不可用", Cause: err}
+		return PreparedAsset{}, &ValidationError{Code: "FILE_STORAGE_UNAVAILABLE", Message: "媒体字节不可用", Cause: err}
 	}
 	defer func() { _ = file.Close() }()
 	prepared := PreparedAsset{
@@ -93,13 +93,14 @@ func (service *Service) createInScope(
 	if version != request.ExpectedVersion {
 		return ErrVersionConflict
 	}
-	replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, request.Ordinal)
+	replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, request.Ordinal, request.NowMS)
 	if err != nil {
 		return fmt.Errorf("remove replaced game asset: %w", err)
 	}
 	if err := scope.Create(ctx, AssetRecord{
 		ID: assetID, GameID: request.GameID, BlobID: request.Asset.BlobID, Kind: request.Kind,
-		Ordinal: request.Ordinal, WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
+		UploadID: request.Asset.UploadID,
+		Ordinal:  request.Ordinal, WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		MediaType: request.Asset.MediaType, CreatedAtMS: request.NowMS,
 	}); err != nil {
 		return fmt.Errorf("create game asset: %w", err)
@@ -154,7 +155,7 @@ func (service *Service) Delete(ctx context.Context, request DeleteRequest) (Dele
 		if !exists {
 			return ErrAssetNotFound
 		}
-		replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, 0)
+		replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, 0, request.NowMS)
 		if err != nil {
 			return fmt.Errorf("remove game asset: %w", err)
 		}

@@ -54,7 +54,7 @@ CREATE TABLE auth_sessions (
   revoked_at_ms INTEGER,
   revoked_reason TEXT CHECK(revoked_reason IN (
     'LOGOUT','PASSWORD_CHANGED','PASSWORD_RESET','ROLE_CHANGED','USER_DISABLED',
-    'USER_DELETED','OFFLINE_RECOVERY','RESTORE','EXPIRED'
+    'USER_DELETED','EXPIRED'
   )),
   CHECK((revoked_at_ms IS NULL) = (revoked_reason IS NULL)),
   CHECK(revoked_at_ms IS NULL OR revoked_at_ms >= created_at_ms)

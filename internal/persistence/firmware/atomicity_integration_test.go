@@ -17,6 +17,10 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		Scan(&requirementID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := database.ExecContext(t.Context(), `INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
+SELECT 'replacement-file',sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,'UPLOAD','missing-upload' FROM stored_files WHERE owner_kind='BIOS_INSTALLATION' AND owner_id='previous'`); err != nil {
+		t.Fatal(err)
+	}
 	created := false
 	err := New(database).WithWrite(t.Context(), func(scope firmwareservice.WriteScope) error {
 		active, found, err := scope.ReadScope.Installations.Active(t.Context(), requirementID)
@@ -27,7 +31,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 			return err
 		}
 		if err := scope.Installations.Create(t.Context(), firmwareservice.InstallationWrite{
-			ID: "replacement", RequirementID: requirementID, BlobID: active.BlobID, Filename: active.Filename,
+			ID: "replacement", RequirementID: requirementID, BlobID: "replacement-file", UploadSessionID: "missing-upload", Filename: active.Filename,
 			Size: active.Size, MD5: active.MD5, SHA1: active.SHA1, SHA256: active.SHA256,
 			Status: active.Status, RequirementVersion: active.ValidatedVersion, DetailsJSON: []byte(`{}`),
 			AtMS: now, SourceKind: "BROWSER_UPLOAD",

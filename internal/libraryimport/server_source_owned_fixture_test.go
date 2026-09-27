@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/persistence/recordstore"
 	sourcepersistence "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/libraryimport"
@@ -22,7 +22,7 @@ func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServ
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", ownedSourceNow().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", ownedSourceNow().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ SELECT 'owner-collection','owner-plan','metadata.pegasus.txt',0,'Collection',1,'
 FROM platform_instances p JOIN runtime_target_bindings b ON b.core_id=p.default_core_id WHERE p.id=?`, fixture.platform)
 	fixture.execute(t, `INSERT INTO source_import_items(id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,created_at_ms,updated_at_ms)
 VALUES('unlinked-source','owner-plan','owner-collection','metadata.pegasus.txt',0,?,'Duplicate','READY','COPYING','SINGLE_FILE','{}','{}',?,1,1)`, digest, digest)
-	if _, err := recordstore.CreateReferences(t.Context(), fixture.database, "source_import_item_files", `INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,blob_id,role,logical_name,state,created_at_ms,updated_at_ms)
+	if _, err := recordstore.InsertRows(t.Context(), fixture.database, "source_import_item_files", `INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,blob_id,role,logical_name,state,created_at_ms,updated_at_ms)
 VALUES('unlinked-source',0,'FILE',?,?,?,?,'CONTENT',?,'COPIED',1,1)`, file.RelativePath, file.SizeBytes, digest, file.BlobID, file.RelativePath); err != nil {
 		t.Fatal(err)
 	}

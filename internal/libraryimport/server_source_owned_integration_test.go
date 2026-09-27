@@ -7,12 +7,12 @@ import (
 	"reflect"
 	"testing"
 
-	payloadcomposition "retrom/internal/composition/payloadrelease"
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
 
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) {

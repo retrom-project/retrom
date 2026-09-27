@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 )
 
 func scheduleTerminalPayloads(ctx context.Context, scope payload.ReleaseScope, id string, now int64) error {

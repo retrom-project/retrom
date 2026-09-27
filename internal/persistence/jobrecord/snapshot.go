@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 const Columns = `COALESCE(job.id,''),COALESCE(job.kind,''),COALESCE(job.scope_type,''),
@@ -53,7 +53,9 @@ func Arguments(work application.Work) []any {
 	return []any{
 		work.ID, work.Kind, work.Scope.Type, work.Scope.ID, work.State, work.WorkerID, work.ExecutionNo,
 		work.Attempt, work.MaxAttempts, work.Version, work.AvailableMS, timeFence(work.Started), timeFence(work.Deadline),
-		timeFence(work.Lease), timeFence(work.Heartbeat), work.InputFound, work.InputJSON, work.InputDigest, work.InputFound,
+		timeFence(
+			work.Lease,
+		), timeFence(work.Heartbeat), work.InputFound, work.InputJSON, work.InputDigest, work.InputFound,
 	}
 }
 

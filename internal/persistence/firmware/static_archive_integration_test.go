@@ -20,8 +20,8 @@ import (
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	firmwaremanifest "retrom/internal/firmware/manifest"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/service/uploads"
@@ -59,7 +59,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 			if err != nil {
 				t.Fatal(err)
 			}
-			blobs, err := blobstore.Open(dir)
+			blobs, err := filestore.Open(dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +77,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 				t.Fatal(err)
 			}
 			fileID := completeFirmwareUpload(t, ctx, database.SQL, upload, "fixture.zip", archive.Bytes())
-			service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs)
+			service := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs)
 			installed, err := service.Install(ctx, "fixture", 1, firmwareservice.InstallRequest{UploadFileID: fileID})
 			if test.status == "INVALID" {
 				var invalid *firmware.ArchiveContentError

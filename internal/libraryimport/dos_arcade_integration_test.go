@@ -24,12 +24,12 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
@@ -41,7 +41,7 @@ import (
 func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	inputs := []struct {
 		path     string
@@ -61,12 +61,12 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 			importSourceFile{
 				ID:     fmt.Sprintf("file-%d", index),
 				Path:   input.path,
-				BlobID: fmt.Sprintf("blob-%d", index),
+				BlobID: metadata.ID,
 				SHA256: metadata.SHA256,
 			},
 		)
 	}
-	service := (&Service{}).WithBlobStore(blobs)
+	service := (&Service{}).WithFileStore(blobs)
 	dispositions, groups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 4 }, func() bool { return len(groups[0].DOSEntries) != 3 }, func() bool { return groups[0].DefaultDOSEntry != "GAME/DOOM.EXE" }, func() bool { return groups[0].Bundle == nil }), "DOS grouping = dispositions:%d groups:%#v", len(dispositions), groups)
 	testassert.Falsef(t, testassert.Any(func() bool { return !groups[0].DOSEntries[0].Safe }, func() bool { return groups[0].DOSEntries[1].Safe }, func() bool { return groups[0].DOSEntries[2].Path != "GAME/INSTALL.BAT" }, func() bool { return groups[0].DOSEntries[2].Rank != 2 }), "DOS direct safety = %#v", groups[0].DOSEntries)
@@ -77,7 +77,7 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 	zipBytes := makeZIP(t, map[string][]byte{"GAME/DOOM.EXE": []byte("exe"), "GAME/DATA.WAD": []byte("wad")})
 	zipMetadata, err := blobs.Put(bytes.NewReader(zipBytes))
 	testassert.False(t, err != nil, err)
-	zipFile := importSourceFile{ID: "zip-file", Path: "Doom.zip", BlobID: "zip-blob", SHA256: zipMetadata.SHA256}
+	zipFile := importSourceFile{ID: "zip-file", Path: "Doom.zip", BlobID: zipMetadata.ID, SHA256: zipMetadata.SHA256}
 	zipDispositions, zipGroups, archives := service.prepareDOSFiles(
 		context.Background(),
 		"FILES",
@@ -85,7 +85,7 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(zipDispositions) != 1 }, func() bool { return len(zipGroups) != 1 }, func() bool { return len(zipGroups[0].Sources) != 2 }, func() bool { return len(archives) != 1 }, func() bool { return len(archives[0].Materialized) != 2 }), "DOS ZIP grouping = dispositions:%#v groups:%#v archives:%#v", zipDispositions, zipGroups, archives)
 	for _, source := range zipGroups[0].Sources {
-		testassert.Falsef(t, testassert.Any(func() bool { return source.Role != "DOS_SOURCE" }, func() bool { return source.ArchiveOrdinal == nil }, func() bool { return source.ArchiveBlobID != "zip-blob" }), "DOS ZIP source = %#v", source)
+		testassert.Falsef(t, testassert.Any(func() bool { return source.Role != "DOS_SOURCE" }, func() bool { return source.ArchiveOrdinal == nil }, func() bool { return source.ArchiveBlobID != zipMetadata.ID }), "DOS ZIP source = %#v", source)
 	}
 	for _, unsafe := range []string{"GAME/100%.BAT", "GAME/QUOTE\".EXE", "GAME/TRAILING .EXE ", "GAME/TRAILING.EXE.", "游戏.EXE"} {
 		testassert.Falsef(t, directDOSPathSafe(unsafe), "unsafe DOS path accepted: %q", unsafe)
@@ -108,12 +108,12 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	}
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
 	testassert.False(t, err != nil, err)
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
 	metadata, err := blobs.Put(bytes.NewReader(archive))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -126,7 +126,7 @@ NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
 		strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,1,?,?)
@@ -169,7 +169,7 @@ func testArcadeImportUsesInstalledBIOS(t *testing.T, installationStatus string) 
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
 	if err != nil {
@@ -216,7 +216,7 @@ is_explicit_bios,classification) VALUES
 	} {
 		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
 		testassert.False(t, putErr != nil, putErr)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.ID), importing.DefaultArchiveLimits())
 		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
 		if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
@@ -227,7 +227,7 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	}
 	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
+	biosBlobID, err := filecatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -240,7 +240,7 @@ VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
 		strings.Repeat("a", 64), datID, now, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
@@ -283,7 +283,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importService := New(database.SQL, time.Now).WithFileStore(blobs)
 	created, err := importService.Create(ctx, CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),
@@ -332,7 +332,7 @@ WHERE item.import_job_id=?
 	testassert.False(t, err != nil, err)
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
-	replacementBlobID, err := blobcatalog.EnsureRecord(
+	replacementBlobID, err := filecatalog.EnsureRecord(
 		ctx, database.SQL, replacementMetadata, "application/zip", now,
 	)
 	testassert.False(t, err != nil, err)
@@ -342,7 +342,7 @@ WHERE requirement_id=? AND is_active=1
 `, now+1, requirementID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000204',?,?,?, ?,?,?,?,1,'HASH_WARNING','{}',1,1,?,?)

@@ -113,6 +113,7 @@ type ProductCreatePlan struct {
 	OverrideBIOS                 *corevalidation.Snapshot
 }
 type ProductBlobCheck struct {
+	BlobID    string
 	Digest    string
 	SizeBytes int64
 	Exact     []byte

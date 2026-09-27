@@ -65,7 +65,7 @@ AND NOT EXISTS(SELECT 1 FROM upload_consumptions WHERE upload_session_id=owner.u
 }
 
 func (writes writes) DeleteUpload(ctx context.Context, id string) error {
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		writes.transaction,
 		"import_files",
@@ -73,7 +73,7 @@ func (writes writes) DeleteUpload(ctx context.Context, id string) error {
 	); err != nil {
 		return fmt.Errorf("release normalized upload: %w", err)
 	}
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		writes.transaction,
 		"upload_files",

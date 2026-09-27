@@ -10,7 +10,7 @@ import (
 
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/testsupport"
 )
 
@@ -21,11 +21,11 @@ func TestServerSourceProjectResultRetainsDeclaredArchivePath(t *testing.T) {
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", archive)
 	var file ServerSourceFile
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT file.relative_path,file.final_blob_id,blob.size_bytes
-FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?`, uploadID).Scan(&file.RelativePath, &file.BlobID, &file.SizeBytes); err != nil {
+FROM upload_files file JOIN stored_files blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?`, uploadID).Scan(&file.RelativePath, &file.BlobID, &file.SizeBytes); err != nil {
 		t.Fatal(err)
 	}
 	target := testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker")
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	result, err := service.CreateServerSourceOnce(ctx, "project-path-fixture", target, contentcapability.ModeStandard, []ServerSourceFile{file}, nil, "")
 	if err != nil || len(result.Items) != 1 {
 		t.Fatalf("project source result=%#v error=%v", result, err)
@@ -43,7 +43,7 @@ func TestOwnedProjectArchiveBindsAndReplaysCanonicalMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/zip", ownedSourceNow().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/zip", ownedSourceNow().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}

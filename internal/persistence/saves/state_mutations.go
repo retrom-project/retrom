@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/saves"
 )
@@ -26,29 +27,43 @@ func (repository *Repository) Rename(
 	if err != nil {
 		return fmt.Errorf("update save name: %w", err)
 	}
-	return repository.checkMutationResult(ctx, request.SaveStateID, request.ProfileID, result)
+	return checkMutationResult(ctx, repository.database, request.SaveStateID, request.ProfileID, result)
 }
 
 func (repository *Repository) Delete(
 	ctx context.Context,
 	request application.DeleteRequest,
 ) error {
-	result, err := recordstore.UpdateSaveStates(ctx, repository.database, recordstore.Update{
-		Set: `deleted_at_ms=?,version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND profile_id=? AND version=? AND deleted_at_ms IS NULL`,
-			Args:  []any{request.SaveStateID, request.ProfileID, request.ExpectedVersion},
-		},
-		Values: []any{request.UpdatedAtMS, request.UpdatedAtMS},
+	_, err := recordstore.Atomic(ctx, repository.database, func(tx dbapi.Executor) (sql.Result, error) {
+		result, err := recordstore.UpdateSaveStates(ctx, tx, recordstore.Update{
+			Set: `deleted_at_ms=?,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND profile_id=? AND version=? AND deleted_at_ms IS NULL`,
+				Args:  []any{request.SaveStateID, request.ProfileID, request.ExpectedVersion},
+			},
+			Values: []any{request.UpdatedAtMS, request.UpdatedAtMS},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("delete save: %w", err)
+		}
+		if err := checkMutationResult(ctx, tx, request.SaveStateID, request.ProfileID, result); err != nil {
+			return nil, err
+		}
+		return result, fileownership.RetireAll(
+			ctx,
+			tx,
+			fileownership.Owner{Kind: "SAVE_STATE", ID: request.SaveStateID},
+			request.UpdatedAtMS,
+		)
 	})
 	if err != nil {
-		return fmt.Errorf("delete save: %w", err)
+		return fmt.Errorf("delete save state: %w", err)
 	}
-	return repository.checkMutationResult(ctx, request.SaveStateID, request.ProfileID, result)
+	return nil
 }
 
-func (repository *Repository) checkMutationResult(
-	ctx context.Context,
+func checkMutationResult(
+	ctx context.Context, database dbapi.Executor,
 	id, profileID string,
 	result sql.Result,
 ) error {
@@ -60,7 +75,7 @@ func (repository *Repository) checkMutationResult(
 		return nil
 	}
 	var exists int
-	err = dbapi.QueryRowContext(ctx, repository.database,
+	err = dbapi.QueryRowContext(ctx, database,
 		`SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL`,
 		id, profileID,
 	).Scan(&exists)

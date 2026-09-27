@@ -79,20 +79,20 @@ CREATE TABLE source_import_item_files (
   relative_path TEXT NOT NULL CHECK(length(CAST(relative_path AS BLOB)) BETWEEN 1 AND 4096),
   size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes>=0),
   source_facts_digest TEXT CHECK(source_facts_digest IS NULL OR (length(source_facts_digest)=64 AND source_facts_digest=lower(source_facts_digest))),
-  blob_id TEXT REFERENCES blobs(id),
-  source_archive_blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  source_archive_blob_id TEXT,
   source_archive_entry_ordinal INTEGER,
   role TEXT CHECK(role IS NULL OR role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
   logical_name TEXT,
-  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED','PAYLOAD_RELEASED')),
+  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED','RELEASED')),
   payload_released_at_ms INTEGER,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   PRIMARY KEY(item_id,ordinal),
   UNIQUE(item_id,relative_path),
   CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL)),
-  CHECK(state='PAYLOAD_RELEASED' AND blob_id IS NULL AND source_archive_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
-        state<>'PAYLOAD_RELEASED' AND payload_released_at_ms IS NULL)
+  CHECK(state='RELEASED' AND blob_id IS NULL AND source_archive_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+        state<>'RELEASED' AND payload_released_at_ms IS NULL)
 );
 
 CREATE TABLE source_import_item_assets (
@@ -102,11 +102,11 @@ CREATE TABLE source_import_item_assets (
   relative_path TEXT NOT NULL CHECK(length(CAST(relative_path AS BLOB)) BETWEEN 1 AND 4096),
   size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes>=0),
   source_facts_digest TEXT CHECK(source_facts_digest IS NULL OR (length(source_facts_digest)=64 AND source_facts_digest=lower(source_facts_digest))),
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   media_type TEXT,
   width_px INTEGER,
   height_px INTEGER,
-  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','MISSING','AMBIGUOUS','INVALID','TOO_LARGE','SOURCE_CHANGED','READ_FAILED','PAYLOAD_RELEASED')),
+  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','MISSING','AMBIGUOUS','INVALID','TOO_LARGE','SOURCE_CHANGED','READ_FAILED','RELEASED')),
   payload_released_at_ms INTEGER,
   warning_code TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -114,8 +114,8 @@ CREATE TABLE source_import_item_assets (
   PRIMARY KEY(item_id,kind),
   CHECK(kind<>'COVER' OR media_type IS NULL OR (media_type IN ('image/png','image/jpeg','image/webp') AND width_px>0 AND height_px>0)),
   CHECK(kind<>'VIDEO' OR media_type IS NULL OR (media_type IN ('video/mp4','video/webm') AND width_px IS NULL AND height_px IS NULL)),
-  CHECK(state='PAYLOAD_RELEASED' AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
-        state<>'PAYLOAD_RELEASED' AND payload_released_at_ms IS NULL)
+  CHECK(state='RELEASED' AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+        state<>'RELEASED' AND payload_released_at_ms IS NULL)
 );
 
 CREATE TABLE "source_import_collections" (
@@ -205,7 +205,7 @@ CREATE TABLE "source_import_items" (
 CREATE TABLE source_import_item_companions (
  item_id TEXT NOT NULL REFERENCES source_import_items(id),
  candidate_item_id TEXT NOT NULL REFERENCES source_import_items(id),
- blob_id TEXT NOT NULL REFERENCES blobs(id),
+ blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
  created_at_ms INTEGER NOT NULL,
  PRIMARY KEY (item_id,candidate_item_id)
 );

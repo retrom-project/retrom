@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
@@ -13,8 +13,8 @@ func (service *ImportPreparation) materializeArchiveEntries(
 	ctx context.Context,
 	archivePath string,
 	expected []importing.ArchiveEntry,
-) (map[int]blobstore.Metadata, error) {
-	materialized := make(map[int]blobstore.Metadata, len(expected))
+) (map[int]filestore.Metadata, error) {
+	materialized := make(map[int]filestore.Metadata, len(expected))
 	if len(expected) == 0 {
 		return materialized, nil
 	}
@@ -48,7 +48,7 @@ func (service *ImportPreparation) materializeArchiveEntries(
 	return materialized, nil
 }
 
-func archiveMetadataMatches(entry importing.ArchiveEntry, metadata blobstore.Metadata) bool {
+func archiveMetadataMatches(entry importing.ArchiveEntry, metadata filestore.Metadata) bool {
 	return metadata.Size == entry.Size && metadata.CRC32 == entry.CRC32 && metadata.MD5 == entry.MD5 &&
 		metadata.SHA1 == entry.SHA1 && metadata.SHA256 == entry.SHA256
 }

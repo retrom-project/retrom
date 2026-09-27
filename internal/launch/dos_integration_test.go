@@ -26,10 +26,10 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -54,7 +54,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	files := []uploads.FileDeclaration{
 		{ClientFileID: "exe", RelativePath: "DOOM/DOOM.EXE", SizeBytes: 3},
@@ -87,7 +87,7 @@ WHERE id=?
 		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	dosID := testsupport.MustPlatformInstanceID(t, database.SQL, "dos/dosbox_pure")
 	createdImport, err := importService.Create(
 		ctx,
@@ -137,8 +137,8 @@ WHERE d.id=?
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	selected := "DOOM/DOOM.EXE"
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
-	var blobCountBefore int
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blobs`).Scan(&blobCountBefore); err != nil {
+	var fileCountBefore int
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM stored_files`).Scan(&fileCountBefore); err != nil {
 		t.Fatal(err)
 	}
 	direct, err := service.Create(
@@ -165,7 +165,7 @@ WHERE d.id=?
 		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, directEnvelope, "external")) != 0 },
 	), "DOS direct envelope = %#v", directEnvelope)
 	var directFormat, directLogicalName, directBlobID string
-	var blobCountAfter int
+	var fileCountAfter int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT format_version,
 logical_name,
@@ -176,9 +176,9 @@ WHERE launch_session_id=?
 		directFormat != "RETROM_DOS_DIRECT_ZIP_V1" || directLogicalName != "game.zip" {
 		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directBlobID, err)
 	}
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blobs`).Scan(&blobCountAfter); err != nil ||
-		blobCountAfter != blobCountBefore {
-		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", blobCountBefore, blobCountAfter, err)
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM stored_files`).Scan(&fileCountAfter); err != nil ||
+		fileCountAfter != fileCountBefore {
+		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", fileCountBefore, fileCountAfter, err)
 	}
 	locked, err := service.Content(ctx, direct.LaunchID, direct.Capability, directLogicalName)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return locked.Format != "RETROM_DOS_DIRECT_ZIP_V1" }, func() bool { return locked.CoreID != "dosbox_pure" }, func() bool { return locked.DOSEntry == nil }, func() bool { return *locked.DOSEntry != selected }, func() bool { return locked.Digest == "" }), "DOS direct content: %v", err)

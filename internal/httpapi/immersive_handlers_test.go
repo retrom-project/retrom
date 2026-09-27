@@ -13,7 +13,7 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -166,14 +166,15 @@ func seedImmersiveBlob(
 	t *testing.T,
 	server *Server,
 	transaction dbapi.Tx,
-	payload, mediaType string,
+	ownerID, payload, mediaType string,
 	now int64,
 ) string {
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte(payload)))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(t.Context(), transaction, metadata, mediaType, now)
+	blobID, err := filecatalog.EnsureRecord(t.Context(), transaction, metadata, mediaType, now)
 	testassert.False(t, err != nil, err)
+	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='GAME',owner_id=? WHERE id=?`, ownerID, blobID)
 	return blobID
 }
 
@@ -187,14 +188,14 @@ func seedImmersiveAssets(
 ) {
 	t.Helper()
 	if seed.CoverID != "" {
-		coverBlobID := seedImmersiveBlob(t, server, transaction, coverPayload, "image/png", now)
+		coverBlobID := seedImmersiveBlob(t, server, transaction, seed.GameID, coverPayload, "image/png", now)
 		mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'COVER',0,500,700,'image/png',?)
 `, seed.CoverID, seed.GameID, coverBlobID, now)
 	}
 	if seed.VideoID != "" {
-		videoBlobID := seedImmersiveBlob(t, server, transaction, videoPayload, "video/webm", now)
+		videoBlobID := seedImmersiveBlob(t, server, transaction, seed.GameID, videoPayload, "video/webm", now)
 		mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)

@@ -63,7 +63,7 @@ source_flags_json,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,?,'PENDING',
 
 func (records scanRecords) files(ctx context.Context, item application.ScanItem, now int64) error {
 	for _, file := range item.Files {
-		result, err := recordstore.CreateReferences(
+		result, err := recordstore.InsertRows(
 			ctx,
 			records.tx,
 			"source_import_item_files",
@@ -88,7 +88,7 @@ item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,state
 
 func (records scanRecords) assets(ctx context.Context, item application.ScanItem, now int64) error {
 	for _, asset := range item.Assets {
-		result, err := recordstore.CreateReferences(
+		result, err := recordstore.InsertRows(
 			ctx,
 			records.tx,
 			"source_import_item_assets",

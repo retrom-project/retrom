@@ -29,7 +29,7 @@ SELECT save.checkpoint_format,blob.sha256,blob.size_bytes
 FROM save_states save
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=?
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN blobs blob ON blob.id=save.payload_blob_id
+JOIN stored_files blob ON blob.id=save.payload_blob_id
 WHERE save.id=? AND save.deleted_at_ms IS NULL
 AND (binding.launch_session_id IS NULL OR
  (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))`, ref.ID, *source.SaveID).
@@ -49,7 +49,7 @@ func configPreviewRestore(ctx context.Context, executor dbapi.Executor, id strin
 	var size sql.NullInt64
 	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT preview.restore_payload_blob_id,preview.restore_checkpoint_format,blob.sha256,blob.size_bytes
-FROM review_preview_sessions preview LEFT JOIN blobs blob ON blob.id=preview.restore_payload_blob_id
+FROM review_preview_sessions preview LEFT JOIN stored_files blob ON blob.id=preview.restore_payload_blob_id
 WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
 	if err != nil {
 		return application.ConfigRestore{}, fmt.Errorf("read preview config restore: %w", err)

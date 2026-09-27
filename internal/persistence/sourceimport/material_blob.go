@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filecatalog"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -17,7 +17,8 @@ func registerVerifiedMaterial(
 	mediaType string,
 	now int64,
 ) (string, error) {
-	metadata := blobstore.Metadata{
+	metadata := filestore.Metadata{
+		ID:     blob.ID,
 		Path:   blob.StoragePath,
 		SHA256: blob.SHA256,
 		MD5:    blob.MD5,
@@ -25,13 +26,17 @@ func registerVerifiedMaterial(
 		CRC32:  blob.CRC32,
 		Size:   blob.Size,
 	}
-	blobID, err := blobcatalog.EnsureRecord(ctx, db, metadata, mediaType, now)
+	blobID, err := filecatalog.EnsureRecord(ctx, db, metadata, mediaType, now)
 	if err != nil {
 		return "", fmt.Errorf("register Source material blob: %w", err)
 	}
-	actual := application.VerifiedBlob{StoragePath: blob.StoragePath}
-	if err := dbapi.QueryRowContext(ctx, db, `SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, blobID).Scan(
-
+	actual := application.VerifiedBlob{ID: blob.ID, StoragePath: blob.StoragePath}
+	if err := dbapi.QueryRowContext(
+		ctx,
+		db,
+		`SELECT sha256,md5,sha1,crc32,size_bytes FROM stored_files WHERE id=?`,
+		blobID,
+	).Scan(
 		&actual.SHA256,
 		&actual.MD5,
 		&actual.SHA1,

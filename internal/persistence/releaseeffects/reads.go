@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func (records records) Payload(ctx context.Context, scope application.Scope) (application.EffectPayload, error) {

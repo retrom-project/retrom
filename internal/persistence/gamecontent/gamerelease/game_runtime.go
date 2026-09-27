@@ -24,7 +24,7 @@ state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,versio
 			},
 			Values: []any{now, now},
 		}); err != nil {
-		return fmt.Errorf("payloadrelease/revoke launches: %w", err)
+		return fmt.Errorf("cleanupjobs/revoke launches: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(ctx, "play_sessions",
 		"rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)",
@@ -32,7 +32,7 @@ state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,versio
 UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
 WHERE rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)
 `, now, now, gameID); err != nil {
-		return fmt.Errorf("payloadrelease/end play sessions: %w", err)
+		return fmt.Errorf("cleanupjobs/end play sessions: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "launch_sessions",
 		sessionstore.ChangeLaunch, recordstore.Update{
@@ -42,7 +42,7 @@ WHERE rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIV
 				Args:  []any{gameID},
 			},
 		}); err != nil {
-		return fmt.Errorf("payloadrelease/unlink launch saves: %w", err)
+		return fmt.Errorf("cleanupjobs/unlink launch saves: %w", err)
 	}
 	return nil
 }

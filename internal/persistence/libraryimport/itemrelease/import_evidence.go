@@ -21,14 +21,14 @@ func (records Records) ClearEvidence(ctx context.Context, itemID string, now int
 			Values: []any{now, now},
 		},
 	); err != nil {
-		return fmt.Errorf("payloadrelease/release parent evidence: %w", err)
+		return fmt.Errorf("cleanupjobs/release parent evidence: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
 		"import_item_multidisc_entries",
 		recordstore.UpdateImportItemMultidiscEntries,
 		recordstore.Update{
-			Set: `state='PAYLOAD_RELEASED',upload_file_id=NULL,blob_id=NULL,payload_released_at_ms=?`,
+			Set: `state='RELEASED',upload_file_id=NULL,blob_id=NULL,payload_released_at_ms=?`,
 			Scope: recordstore.Scope{
 				Where: `
 blob_id IS NOT NULL AND source_snapshot_id IN (
@@ -40,7 +40,7 @@ blob_id IS NOT NULL AND source_snapshot_id IN (
 			Values: []any{now},
 		},
 	); err != nil {
-		return fmt.Errorf("payloadrelease/release multidisc evidence: %w", err)
+		return fmt.Errorf("cleanupjobs/release multidisc evidence: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
@@ -59,7 +59,7 @@ payload_released_at_ms IS NULL AND scrape_run_id IN (
 			Values: []any{now},
 		},
 	); err != nil {
-		return fmt.Errorf("payloadrelease/release hash evidence: %w", err)
+		return fmt.Errorf("cleanupjobs/release hash evidence: %w", err)
 	}
 
 	return nil

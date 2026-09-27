@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobstore"
-	payloadcomposition "retrom/internal/composition/payloadrelease"
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	gameassetspersistence "retrom/internal/persistence/gameassets"
 	gameassetsservice "retrom/internal/service/gameassets"
 )
@@ -22,12 +22,12 @@ var (
 // the caller-owned payload release scheduler.
 func NewGameAssets(
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	now func() time.Time,
-	payloadReleases *payloadcomposition.Service,
+	cleanupJobs *payloadcomposition.Service,
 ) *gameassetsservice.Service {
 	return gameassetsservice.New(
-		gameassetspersistence.New(database, gameAssetPayloadReleases{service: payloadReleases}),
+		gameassetspersistence.New(database, gameAssetPayloadReleases{service: cleanupJobs}),
 		blobs,
 		now,
 	)

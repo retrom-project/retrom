@@ -20,12 +20,12 @@ func TestServerRPGArchiveHandoffReplaysCanonicalImport(t *testing.T) {
 	var file ServerSourceFile
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT file.relative_path,file.final_blob_id,blob.size_bytes
-FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?
+FROM upload_files file JOIN stored_files blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?
 `, uploadID).Scan(&file.RelativePath, &file.BlobID, &file.SizeBytes); err != nil {
 		t.Fatal(err)
 	}
 	targetID := testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker")
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	first, err := service.CreateServerSourceOnce(ctx, "fixture-source-item", targetID,
 		contentcapability.ModeStandard, []ServerSourceFile{file}, nil, "")
 	if err != nil {

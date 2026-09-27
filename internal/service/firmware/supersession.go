@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 type SupersededInstallation struct {
@@ -25,7 +25,7 @@ type SupersessionWriter interface {
 type SupersessionScope struct {
 	Read    SupersessionReader
 	Write   SupersessionWriter
-	Payload payloadrelease.ConsumptionSchedulingScope
+	Payload cleanupjobs.ConsumptionSchedulingScope
 }
 
 func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementID string, now int64) error {
@@ -50,7 +50,7 @@ func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementI
 	if consumptionID == "" {
 		return nil
 	}
-	if _, err := payloadrelease.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
+	if _, err := cleanupjobs.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
 		return fmt.Errorf("schedule superseded BIOS consumption: %w", err)
 	}
 	return nil

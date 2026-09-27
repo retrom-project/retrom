@@ -17,7 +17,7 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/composition"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/testsupport"
 )
 
@@ -74,7 +74,7 @@ func createReviewCoverUpload(t *testing.T, server *Server) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, blob, "image/png", 0)
+	blobID, err := filecatalog.EnsureRecord(t.Context(), server.database, blob, "image/png", server.now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,11 +85,12 @@ INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifes
 VALUES(?,'COMPLETE','FILES',1,?,?,9999999999999,0,0)`, uploadID, blob.Size, blob.SHA256); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(t.Context(), server.database, "upload_files", `
+	if _, err := recordstore.InsertRows(t.Context(), server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'review-cover.png',?,?,?,'COMPLETE',0,0)`, fileID, uploadID, blob.Size, blob.Size, blobID); err != nil {
 		t.Fatal(err)
 	}
 	mustCreateHTTPReferences(t, server.database, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE id=?`, fileID)
+	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, uploadID, blobID)
 	return fileID
 }

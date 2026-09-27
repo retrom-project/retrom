@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -22,7 +22,7 @@ func NewRecorder(repository ResultRepository, blobs AssetBlobs, now func() time.
 }
 
 type preparedRaw struct {
-	blob *blobstore.Metadata
+	blob *filestore.Metadata
 }
 
 type preparedCandidate struct {
@@ -112,7 +112,7 @@ func recordResponse(
 	ctx context.Context,
 	writer ResultWriter,
 	lookup ResolvedLookup,
-	blob *blobstore.Metadata,
+	blob *filestore.Metadata,
 	now int64,
 ) (string, string, error) {
 	if lookup.CachedResponseID != "" {

@@ -40,7 +40,7 @@ SELECT entry.ordinal,entry.state,entry.blob_id,entry.source_logical_name,
 FROM import_item_multidisc_entries entry
 LEFT JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=entry.source_snapshot_id
  AND file.role='DISC' AND file.sort_order=entry.ordinal
-LEFT JOIN blobs blob ON blob.id=entry.blob_id
+LEFT JOIN stored_files blob ON blob.id=entry.blob_id
 WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return facts, fmt.Errorf("query approval discs: %w", err)

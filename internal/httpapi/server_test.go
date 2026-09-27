@@ -36,7 +36,7 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	handler.ServeHTTP(live, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health/live", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return live.Code != http.StatusOK }, func() bool { return live.Header().Get("X-Request-ID") == "" }), "live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
 
-	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Protected","description":"","sortOrder":900}`
+	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Retained","description":"","sortOrder":900}`
 	unauthenticated := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
@@ -209,7 +209,7 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1024,?,?,?,'application/zip',?)
 `, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now)
 	mustExecHTTPTest(t, transaction, `
@@ -242,8 +242,8 @@ VALUES(?,?,?,'stvbios.zip',1024,?,?,?,1,'MATCHED','{}',1,1,?,?)
 `, installationID, requirementID, blobID, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
-archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
-VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,'d0e0889d',?,?,?,NULL,?)
+archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
+VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,'d0e0889d',?,?,?,?)
 `, blobID, strings.Repeat("3", 32), strings.Repeat("1", 40), strings.Repeat("4", 64), now)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -299,7 +299,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 				Active  int64 `json:"active"`
 				Deleted int64 `json:"deleted"`
 			} `json:"saveStates"`
-			Blobs int64 `json:"blobs"`
+			Blobs int64 `json:"storedFiles"`
 			Jobs  struct {
 				Queued          int64 `json:"queued"`
 				Running         int64 `json:"running"`
@@ -322,7 +322,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 16 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 15 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
@@ -349,7 +349,7 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1,?,?,?,'application/zip',?)
 `, blobID, digest, strings.Repeat("a", 32), strings.Repeat("b", 40), strings.Repeat("c", 8), timestamp)
 	mustExecHTTPTest(t, transaction, `

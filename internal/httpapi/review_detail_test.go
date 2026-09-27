@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -92,7 +92,6 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	candidateAssetID := "01980000-0000-7000-8000-000000000130"
 	readyCoverAssetID := "01980000-0000-7000-8000-000000000131"
 	sourceBlobID := "01980000-0000-7000-8000-000000000132"
-	coverBlobID := "01980000-0000-7000-8000-000000000133"
 	uploadFileID := "01980000-0000-7000-8000-000000000134"
 	coverUploadFileID := "01980000-0000-7000-8000-000000000136"
 	sourceSnapshotID := "01980000-0000-7000-8000-000000000137"
@@ -102,11 +101,13 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	testassert.False(t, err != nil, err)
 	coverMetadata, err := server.blobs.Put(bytes.NewReader(coverPayload))
 	testassert.False(t, err != nil, err)
+	coverBlobID := coverMetadata.ID
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
 	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
+	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, uploadID, coverBlobID)
 	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, scrapeJobID, timestamp)
 	seedReviewMetadataEvidence(t, transaction, scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID, readyCoverAssetID, coverBlobID, digest, timestamp)
 	recorder := httptest.NewRecorder()
@@ -241,17 +242,17 @@ func assertSourceReviewSources(
 	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverBlobID string,
 	manifest, digest string,
 	timestamp int64,
-	coverMetadata blobstore.Metadata,
+	coverMetadata filestore.Metadata,
 ) {
 	sourceImportID := "01980000-0000-7000-8000-000000000138"
 	pegasusScanJobID := "01980000-0000-7000-8000-000000000139"
 	pegasusWorkJobID := "01980000-0000-7000-8000-000000000140"
 	pegasusCollectionID := "01980000-0000-7000-8000-000000000141"
 	pegasusItemID := "01980000-0000-7000-8000-000000000142"
-	pegasusVideoBlobID := "01980000-0000-7000-8000-000000000143"
 	videoPayload := []byte("source review video fixture")
 	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
+	pegasusVideoBlobID := videoMetadata.ID
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
@@ -291,7 +292,7 @@ INSERT INTO source_import_items(
 		importID, itemID, timestamp, timestamp, timestamp,
 	)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,?,?,?,?,'video/mp4',?)
 `, pegasusVideoBlobID, videoMetadata.SHA256, videoMetadata.Size, videoMetadata.MD5,
 		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
@@ -308,8 +309,8 @@ INSERT INTO source_import_item_assets(
 	mustCreateHTTPReferences(t, server.database, "import_item_assets", `
 INSERT INTO import_item_assets(import_item_id,kind,blob_id,media_type,width_px,height_px,created_at_ms)
 SELECT ?,kind,blob_id,media_type,width_px,height_px,? FROM source_import_item_assets WHERE item_id=?`, itemID, timestamp, pegasusItemID)
-	if _, err := recordstore.UpdateReferences(t.Context(), server.database, "source_import_item_assets", recordstore.Update{
-		Set: "blob_id=NULL,state='PAYLOAD_RELEASED',payload_released_at_ms=?", Values: []any{timestamp},
+	if _, err := recordstore.UpdateRows(t.Context(), server.database, "source_import_item_assets", recordstore.Update{
+		Set: "blob_id=NULL,state='RELEASED',payload_released_at_ms=?", Values: []any{timestamp},
 		Scope: recordstore.Scope{Where: "item_id=?", Args: []any{pegasusItemID}},
 	}); err != nil {
 		t.Fatal(err)
@@ -372,7 +373,7 @@ func seedReviewSources(
 	uploadID, digest, importID string, target testsupport.RuntimeTargetIdentity,
 	itemID, sourceBlobID, coverBlobID string,
 	uploadFileID, coverUploadFileID, sourceSnapshotID, manifest string,
-	timestamp int64, coverMetadata blobstore.Metadata,
+	timestamp int64, coverMetadata filestore.Metadata,
 ) {
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO upload_sessions(id,
@@ -452,7 +453,7 @@ updated_at_ms) VALUES(?,
 ?)
 `, itemID, importID, digest, manifest, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES
 (?,?,4096,?,?,?,'application/octet-stream',?),
 (?,?,?,?,?,?,'image/png',?)
 `, sourceBlobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), timestamp,
@@ -466,9 +467,9 @@ VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
 	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
-archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
-VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba','ZIP','DEFLATE',4096,?,?,?,?,?,?)
-	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), sourceBlobID, timestamp)
+archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
+VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba','ZIP','DEFLATE',4096,?,?,?,?,?)
+	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), timestamp)
 	mustCreateHTTPReferences(t, transaction, "import_item_source_files", `
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)

@@ -20,9 +20,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -44,7 +44,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	}
 	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
 
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
 		),
@@ -132,7 +132,7 @@ SELECT file.role,blob.sha256,file.blob_id,file.source_archive_entry_ordinal
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=draft.effective_source_snapshot_id
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 `, created.ImportJobID).Scan(&role, &nestedSHA, &nestedBlobID, &nestedOrdinal); err != nil {
 		t.Fatal(err)

@@ -4,12 +4,10 @@
 Uses the public screenshot fixture as a layout-only payload; never launch it.
 """
 import importlib.util
-import hashlib
 import sqlite3
 import sys
-import zlib
 from pathlib import Path
-from fixture_references import adjust_references
+from fixture_files import own_rows, put_owned, retire_save
 from ui_layout_state import validate_database
 
 
@@ -18,27 +16,12 @@ def ensure_video(db, database_path, game_id, timestamp):
         return
     root = Path(__file__).resolve().parents[2]
     contents = (root / "testdata/public-roms/gba-smoke/emulationstation-smoke-video.webm").read_bytes()
-    digest = hashlib.sha256(contents).hexdigest()
-    target = database_path.parent / "blobs/sha256" / digest[:2] / digest[2:4] / digest
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        if target.read_bytes() != contents:
-            raise ValueError("layout video CAS content differs from the public fixture")
-    else:
-        target.write_bytes(contents)
-    db.execute(
-        "INSERT OR IGNORE INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) "
-        "VALUES('0198ff00-9002-7000-8000-000000000001',?,?,?,?,?,'video/webm',?)",
-        (digest, len(contents), hashlib.md5(contents).hexdigest(), hashlib.sha1(contents).hexdigest(),
-         f"{zlib.crc32(contents):08x}", timestamp),
-    )
-    blob_id = db.execute("SELECT id FROM blobs WHERE sha256=?", (digest,)).fetchone()[0]
+    blob_id = put_owned(db, contents, "GAME", game_id, "video/webm")
     db.execute(
         "INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,media_type,created_at_ms) "
         "VALUES('0198ff00-9002-7000-8000-000000000002',?,?,'VIDEO',0,'video/webm',?)",
         (game_id, blob_id, timestamp),
     )
-    adjust_references(db, [(blob_id,)])
 
 
 def seed(path: Path) -> str:
@@ -60,12 +43,10 @@ def seed(path: Path) -> str:
                    "created_at_ms": original["created_at_ms"] - index * 60000}
             if index == 2:
                 row["screenshot_blob_id"] = None
-            adjust_references(db, db.execute(
-                "SELECT payload_blob_id,screenshot_blob_id FROM save_states WHERE id=?", (row["id"],),
-            ).fetchall(), -1)
+            retire_save(db, "id=?", (row["id"],))
             columns = list(row)
             db.execute(f"INSERT OR REPLACE INTO save_states({','.join(columns)}) VALUES({','.join('?' for _ in columns)})", list(row.values()))
-            adjust_references(db, [(row["payload_blob_id"], row["screenshot_blob_id"])])
+            own_rows(db, "save_states", "id", row["id"], "SAVE_STATE", row["id"], ("payload_blob_id", "screenshot_blob_id"))
         db.execute("UPDATE games SET description=? WHERE id=?", (("公开测试游戏的玩法说明。" * 30) + "\n\n最后一段：完整简介应随页面滚动。", original["game_id"]))
         return original["game_id"]
 

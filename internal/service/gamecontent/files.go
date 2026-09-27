@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
 	contentmanifest "retrom/internal/content/manifest"
 	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
 )
 
@@ -122,7 +122,7 @@ func replacementPlaylist(files []UploadedFile) (UploadedFile, error) {
 }
 
 func (service *Service) readReplacementPlaylist(playlist UploadedFile) ([]byte, error) {
-	playlistFile, err := service.blobs.OpenDigest(playlist.SHA256)
+	playlistFile, err := service.blobs.OpenID(playlist.BlobID)
 	if err != nil {
 		return nil, &replacementValidationError{code: "GAME_CONTENT_INPUT_UNAVAILABLE"}
 	}
@@ -154,7 +154,7 @@ func (service *Service) replacementDiscCandidates(
 }
 
 func (service *Service) replacementDiscCandidate(file UploadedFile) (multidisc.File, error) {
-	blob, err := service.blobs.OpenDigest(file.SHA256)
+	blob, err := service.blobs.OpenID(file.BlobID)
 	if err != nil {
 		return multidisc.File{}, &replacementValidationError{code: "GAME_CONTENT_INPUT_UNAVAILABLE"}
 	}
@@ -172,7 +172,7 @@ func (service *Service) replacementDiscCandidate(file UploadedFile) (multidisc.F
 func buildPreparedMultiDiscReplacement(
 	playlist UploadedFile,
 	parsed multidisc.Result,
-	canonical blobstore.Metadata,
+	canonical filestore.Metadata,
 ) (PreparedReplacement, error) {
 	replacement := PreparedReplacement{
 		ContentKind: multidisc.ContentKind, CanonicalPlaylist: canonical,

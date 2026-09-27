@@ -1,9 +1,9 @@
 package libraryimport
 
 import (
-	"retrom/internal/blobstore"
 	"retrom/internal/core/rpgmaker/detector"
 	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
@@ -14,6 +14,7 @@ type PreparedDisposition struct {
 }
 
 type PreparedSource struct {
+	Payload        *filestore.Metadata
 	File           ImportFile
 	Role           string
 	LogicalName    string
@@ -25,7 +26,7 @@ type PreparedSource struct {
 type PreparedArchive struct {
 	BlobID       string
 	Entries      []importing.ArchiveEntry
-	Materialized map[int]blobstore.Metadata
+	Materialized map[int]filestore.Metadata
 }
 
 type PreparedGroup struct {
@@ -33,7 +34,7 @@ type PreparedGroup struct {
 	DOSEntries          []PreparedDOSEntry
 	DefaultDOSEntry     string
 	BundleBlobID        string
-	Bundle              *blobstore.Metadata
+	Bundle              *filestore.Metadata
 	ValidationStatus    string
 	CompatibilityCode   string
 	DependencySnapshot  string
@@ -44,7 +45,7 @@ type PreparedGroup struct {
 	GroupKey            string
 	MultiEntries        []PreparedMultiDiscEntry
 	MultiDependency     *corevalidation.MultiDiscSnapshot
-	CanonicalPlaylist   *blobstore.Metadata
+	CanonicalPlaylist   *filestore.Metadata
 	RPGProfile          *detector.Profile
 	RPGProjectRoot      string
 	RPGRemovedFiles     []string
@@ -58,7 +59,7 @@ type PreparedMultiDiscEntry struct {
 }
 
 type PreparedValidationFile struct {
-	Artifact                  *blobstore.Metadata
+	Artifact                  *filestore.Metadata
 	Role, LogicalName, BlobID string
 	SortOrder                 int
 }

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobrefs"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testsupport"
 
@@ -51,7 +50,7 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 			id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
 			expected := cause
 			if mode == "zero" {
-				expected = blobrefs.ErrCount
+				expected = application.ErrVersionConflict
 			}
 			if !errors.Is(err, expected) || id != "" || writes != 1 {
 				t.Fatalf("mode=%s id=%s err=%v writes=%d", mode, id, err, writes)
@@ -103,7 +102,7 @@ func (repository materialCommitFailure) WithMaterialization(
 		tx := records.tx
 		if _, err := tx.ExecContext(
 			ctx,
-			`CREATE TABLE material_commit_failure(owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`,
+			`CREATE TABLE material_commit_failure(owner TEXT REFERENCES stored_files(id) DEFERRABLE INITIALLY DEFERRED)`,
 		); err != nil {
 			return err
 		}

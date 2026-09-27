@@ -21,16 +21,16 @@ type storageAnalysisResponse struct {
 }
 
 type storageAnalysisTotals struct {
-	RegisteredBytes   string `json:"registeredBytes"`
-	ProtectedBytes    string `json:"protectedBytes"`
-	UnreferencedBytes string `json:"unreferencedBytes"`
-	BlobCount         int64  `json:"blobCount"`
+	RegisteredBytes    string `json:"registeredBytes"`
+	RetainedBytes      string `json:"retainedBytes"`
+	PendingDeleteBytes string `json:"pendingDeleteBytes"`
+	FileCount          int64  `json:"fileCount"`
 }
 
 type storageAnalysisCategory struct {
 	Code      storageanalysis.CategoryCode `json:"code"`
 	Bytes     string                       `json:"bytes"`
-	BlobCount int64                        `json:"blobCount"`
+	FileCount int64                        `json:"fileCount"`
 }
 
 type storageAnalysisDetails struct {
@@ -39,19 +39,19 @@ type storageAnalysisDetails struct {
 }
 
 type storageAnalysisSaveStates struct {
-	ActiveCount              int64  `json:"activeCount"`
-	DeletedCount             int64  `json:"deletedCount"`
-	StateReferenceBytes      string `json:"stateReferenceBytes"`
-	ScreenshotReferenceBytes string `json:"screenshotReferenceBytes"`
+	ActiveCount     int64  `json:"activeCount"`
+	DeletedCount    int64  `json:"deletedCount"`
+	StateBytes      string `json:"stateBytes"`
+	ScreenshotBytes string `json:"screenshotBytes"`
 }
 
 type storageAnalysisCleanupCandidates struct {
-	BlobCount int64  `json:"blobCount"`
+	FileCount int64  `json:"fileCount"`
 	Bytes     string `json:"bytes"`
 }
 
 type storageCleanupResponse struct {
-	ScheduledBlobCount int64  `json:"scheduledBlobCount"`
+	ScheduledFileCount int64  `json:"scheduledFileCount"`
 	ScheduledBytes     string `json:"scheduledBytes"`
 	AcceptedAtMS       int64  `json:"acceptedAtMs"`
 }
@@ -72,14 +72,14 @@ func (server *Server) adminStorageAnalysis(writer http.ResponseWriter, request *
 
 func (server *Server) adminStorageCleanup(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	result, err := server.payloadReleases.ScheduleImmediateGC(request.Context(), principal.UserID)
+	result, err := server.cleanupJobs.ScheduleImmediateDeletion(request.Context(), principal.UserID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(writer, http.StatusAccepted, storageCleanupResponse{
-		ScheduledBlobCount: result.BlobCount,
+		ScheduledFileCount: result.FileCount,
 		ScheduledBytes:     decimalBytes(result.Bytes),
 		AcceptedAtMS:       result.AcceptedAtMS,
 	})
@@ -89,27 +89,27 @@ func storageAnalysisHTTPResponse(snapshot storageanalysis.Snapshot) storageAnaly
 	categories := make([]storageAnalysisCategory, len(snapshot.Categories))
 	for index, category := range snapshot.Categories {
 		categories[index] = storageAnalysisCategory{
-			Code: category.Code, Bytes: decimalBytes(category.Bytes), BlobCount: category.BlobCount,
+			Code: category.Code, Bytes: decimalBytes(category.Bytes), FileCount: category.FileCount,
 		}
 	}
 	return storageAnalysisResponse{
 		Scope: snapshot.Scope, GeneratedAtMS: snapshot.GeneratedAtMS,
 		Totals: storageAnalysisTotals{
-			RegisteredBytes:   decimalBytes(snapshot.Totals.RegisteredBytes),
-			ProtectedBytes:    decimalBytes(snapshot.Totals.ProtectedBytes),
-			UnreferencedBytes: decimalBytes(snapshot.Totals.UnreferencedBytes),
-			BlobCount:         snapshot.Totals.BlobCount,
+			RegisteredBytes:    decimalBytes(snapshot.Totals.RegisteredBytes),
+			RetainedBytes:      decimalBytes(snapshot.Totals.RetainedBytes),
+			PendingDeleteBytes: decimalBytes(snapshot.Totals.PendingDeleteBytes),
+			FileCount:          snapshot.Totals.FileCount,
 		},
 		Categories: categories,
 		Details: storageAnalysisDetails{
 			SaveStates: storageAnalysisSaveStates{
-				ActiveCount:              snapshot.Details.SaveStates.ActiveCount,
-				DeletedCount:             snapshot.Details.SaveStates.DeletedCount,
-				StateReferenceBytes:      decimalBytes(snapshot.Details.SaveStates.StateReferenceBytes),
-				ScreenshotReferenceBytes: decimalBytes(snapshot.Details.SaveStates.ScreenshotReferenceBytes),
+				ActiveCount:     snapshot.Details.SaveStates.ActiveCount,
+				DeletedCount:    snapshot.Details.SaveStates.DeletedCount,
+				StateBytes:      decimalBytes(snapshot.Details.SaveStates.StateBytes),
+				ScreenshotBytes: decimalBytes(snapshot.Details.SaveStates.ScreenshotBytes),
 			},
 			CleanupCandidates: storageAnalysisCleanupCandidates{
-				BlobCount: snapshot.Details.CleanupCandidates.BlobCount,
+				FileCount: snapshot.Details.CleanupCandidates.FileCount,
 				Bytes:     decimalBytes(snapshot.Details.CleanupCandidates.Bytes),
 			},
 		},

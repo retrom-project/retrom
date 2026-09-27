@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func TestPrepareKiriKiriDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestPrepareKiriKiriDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *tes
 		"Fixture/data.xp3":    []byte("fixture XP3"),
 		"Fixture/.DS_Store":   []byte("noise"),
 	})
-	service := New(nil, nil).WithBlobStore(blobs)
+	service := New(nil, nil).WithFileStore(blobs)
 	dispositions, groups, archives, err := service.prepareKiriKiriProject(context.Background(), "DIRECTORY", files)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestPrepareKiriKiriDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *tes
 
 func storeKiriKiriDirectoryFixture(
 	t *testing.T,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	contents map[string][]byte,
 ) []importSourceFile {
 	t.Helper()
@@ -41,7 +41,7 @@ func storeKiriKiriDirectoryFixture(
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return files

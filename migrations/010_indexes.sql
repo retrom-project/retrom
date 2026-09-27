@@ -57,7 +57,6 @@ ON favorite_games(game_id,profile_id);
 CREATE INDEX favorite_games_profile_created
 ON favorite_games(profile_id,created_at_ms DESC,game_id DESC);
 
-CREATE INDEX fk_archive_entries_materialized ON archive_entries(materialized_blob_id);
 
 CREATE INDEX fk_bios_installations_blob ON bios_installations(blob_id);
 

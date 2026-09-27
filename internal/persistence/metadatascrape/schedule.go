@@ -121,7 +121,7 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 
 func (writes scheduleWrites) Evidence(ctx context.Context, evidence []metadatascrape.HashEvidence) error {
 	for _, item := range evidence {
-		_, err := recordstore.CreateReferences(
+		_, err := recordstore.InsertRows(
 			ctx,
 			writes.transaction,
 			"content_hash_evidence",

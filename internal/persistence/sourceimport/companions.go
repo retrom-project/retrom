@@ -2,7 +2,11 @@ package sourceimport
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+
+	"retrom/internal/persistence/fileownership"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -13,7 +17,11 @@ import (
 type Companions struct{ database dbapi.DB }
 
 func NewCompanions(database dbapi.DB) *Companions { return &Companions{database: database} }
-func (repository *Companions) WithCompanions(ctx context.Context, work func(application.CompanionScope) error) error {
+
+func (repository *Companions) WithCompanions(
+	ctx context.Context,
+	work func(application.CompanionScope) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source companion transaction: %w", err)
@@ -79,23 +87,38 @@ func (records companionRecords) Register(
 	if !valid {
 		return "", application.ErrVersionConflict
 	}
+	owner, candidate := change.Before.Item.ID, change.Candidate.ItemID
+	var existing, digest string
+	var size int64
+	err = dbapi.QueryRowContext(ctx, records.tx, `SELECT file.id,file.sha256,file.size_bytes
+ FROM source_import_item_companions companion JOIN stored_files file ON file.id=companion.blob_id
+ WHERE companion.item_id=? AND companion.candidate_item_id=? AND file.owner_kind='SOURCE_IMPORT_ITEM'
+ AND file.owner_id=? AND file.retired_at_ms IS NULL`, owner, candidate, owner).Scan(&existing, &digest, &size)
+	if err == nil {
+		if digest != change.Blob.SHA256 || size != change.Blob.Size {
+			return "", application.ErrVersionConflict
+		}
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("read existing Source companion: %w", err)
+	}
 	id, err := registerVerifiedMaterial(ctx, records.tx, change.Blob, "application/zip", change.NowMS)
 	if err != nil {
 		return "", err
 	}
-	owner, candidate := change.Before.Item.ID, change.Candidate.ItemID
-	if _, err := recordstore.CreateReferences(ctx, records.tx, "source_import_item_companions", `
+	if err := fileownership.Adopt(
+		ctx,
+		records.tx,
+		id,
+		fileownership.Owner{Kind: "SOURCE_IMPORT_ITEM", ID: owner},
+	); err != nil {
+		return "", fmt.Errorf("companions: %w", err)
+	}
+	if _, err := recordstore.InsertRows(ctx, records.tx, "source_import_item_companions", `
  INSERT INTO source_import_item_companions(item_id,candidate_item_id,blob_id,created_at_ms)
- VALUES(?,?,?,?) ON CONFLICT(item_id,candidate_item_id) DO NOTHING`, owner, candidate, id, change.NowMS); err != nil {
-		return "", fmt.Errorf("protect Source companion: %w", err)
-	}
-	var current string
-	if err := dbapi.QueryRowContext(ctx, records.tx, `SELECT blob_id FROM source_import_item_companions
- WHERE item_id=? AND candidate_item_id=?`, owner, candidate).Scan(&current); err != nil {
-		return "", fmt.Errorf("verify Source companion: %w", err)
-	}
-	if current != id {
-		return "", application.ErrVersionConflict
+ VALUES(?,?,?,?)`, owner, candidate, id, change.NowMS); err != nil {
+		return "", fmt.Errorf("record Source companion: %w", err)
 	}
 	return id, nil
 }

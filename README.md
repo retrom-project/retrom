@@ -69,7 +69,7 @@ make build-images
 
 参与项目发布时，PR 的 `branch-image` CI 会在 GitHub 上构建仅供测试的分支镜像，无需在开发机重复执行上述命令。生产镜像只由 Retrom tag 的 `docker-image` 工作流构建和发布。
 
-全新生产实例通过网页 `/setup` 填写管理员用户名、显示名称和确认后的密码，直接创建首位管理员并登录。完整配置、路由及初始化步骤见[后端与部署说明](docs/backend-api-and-operations.md)；长期运行前请按[存储、备份与恢复](docs/storage-and-database.md)准备备份。
+全新生产实例通过网页 `/setup` 填写管理员用户名、显示名称和确认后的密码，直接创建首位管理员并登录。完整配置、路由及初始化步骤见[后端与部署说明](docs/backend-api-and-operations.md)，数据根与文件所有权见[存储与数据库](docs/storage-and-database.md)。
 
 ## 开发
 

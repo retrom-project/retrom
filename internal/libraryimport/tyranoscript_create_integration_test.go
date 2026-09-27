@@ -20,9 +20,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -57,7 +57,7 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 		t.Fatal(err)
 	}
 	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "tyranoscript/tyranoscript",
 		),

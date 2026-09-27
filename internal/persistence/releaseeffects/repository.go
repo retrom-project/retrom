@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/payloadworker"
-	application "retrom/internal/service/payloadrelease"
+	"retrom/internal/persistence/cleanupjobs"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type Repository struct {
@@ -51,6 +51,6 @@ func Mutations(ctx context.Context, executor dbapi.Executor, scope application.S
 
 func Bind(executor dbapi.Executor, domain Domain, uploads Uploads) application.EffectScope {
 	records := records{executor: executor, domain: domain, uploads: uploads}
-	worker := payloadworker.BindWorker(executor)
+	worker := cleanupjobs.BindWorker(executor)
 	return application.EffectScope{Read: records, Write: records, Uploads: uploads.Files, Worker: worker}
 }

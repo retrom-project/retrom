@@ -29,9 +29,9 @@ import (
 
 	"retrom/internal/persistence/storequery"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	retromsaves "retrom/internal/service/saves"
@@ -64,7 +64,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "ons-preview-1",
@@ -173,7 +173,7 @@ func assertONSProductRoundTrip(
 	ctx context.Context,
 	service *Service,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	gameID string,
 	screenshot []byte,
 ) {
@@ -244,10 +244,10 @@ WHERE launch.id=? AND save.id=?
 		restoreGame["indexUrl"] != productGame["indexUrl"] {
 		t.Fatalf("ONS restore envelope = %#v", restoreEnvelope)
 	}
-	digest, err := saveService.StateDigest(ctx, restored.LaunchID, restored.Capability)
+	digest, err := saveService.StateFile(ctx, restored.LaunchID, restored.Capability)
 	expected := sha256.Sum256(checkpoint)
-	if err != nil || digest != fmt.Sprintf("%x", expected) {
-		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest, err)
+	if err != nil || digest.Digest != fmt.Sprintf("%x", expected) {
+		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest.Digest, err)
 	}
 	if _, err := database.ExecContext(ctx, `
 UPDATE runtime_targets SET checkpoint_json='{"writeFormat":"replacement-v2","readFormats":["replacement-v2"],"maxBytes":268435456}'
@@ -326,7 +326,7 @@ func createONSReviewItem(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 ) (string, *libraryimport.Service) {
 	t.Helper()
@@ -357,7 +357,7 @@ func createONSReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
+	importService := libraryimport.New(database, time.Now).WithFileStore(blobs)
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database, "ons/onscripter_yuri"),

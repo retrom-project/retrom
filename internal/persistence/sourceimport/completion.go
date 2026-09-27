@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	payload "retrom/internal/persistence/sourceimport/sourcerelease"
-	payloadService "retrom/internal/service/payloadrelease"
+	payloadService "retrom/internal/service/cleanupjobs"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -59,7 +59,9 @@ FROM source_import_items WHERE import_id=?`, id).Scan(&result.Blocked, &result.F
 
 func (records completionRecords) Complete(ctx context.Context, change application.CompletionChange) error {
 	before, counts := change.Before, change.Counts
-	result, err := records.tx.ExecContext(ctx, `UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,
+	result, err := records.tx.ExecContext(
+		ctx,
+		`UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,
 heartbeat_at_ms=NULL,worker_id=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND version=? AND state='RUNNING' AND execution_no=? AND attempt_count=? AND worker_id=?
 AND leased_until_ms=? AND leased_until_ms>? AND execution_deadline_at_ms=? AND execution_deadline_at_ms>?
@@ -67,9 +69,22 @@ AND NOT EXISTS(SELECT 1 FROM source_import_items WHERE import_id=?
 AND execution_state IN ('PENDING','COPYING','VALIDATING'))
 AND EXISTS(SELECT 1 FROM source_imports plan WHERE plan.id=? AND plan.import_job_id=jobs.id
 AND plan.version=? AND plan.state=?)`,
-		change.NowMS, change.NowMS, before.JobID, before.JobVersion, before.ExecutionNo, before.Attempt, before.WorkerID,
-		before.LeaseUntilMS, change.NowMS, before.DeadlineMS, change.NowMS, before.ImportID,
-		before.ImportID, before.ImportVersion, before.ImportState)
+		change.NowMS,
+		change.NowMS,
+		before.JobID,
+		before.JobVersion,
+		before.ExecutionNo,
+		before.Attempt,
+		before.WorkerID,
+		before.LeaseUntilMS,
+		change.NowMS,
+		before.DeadlineMS,
+		change.NowMS,
+		before.ImportID,
+		before.ImportID,
+		before.ImportVersion,
+		before.ImportState,
+	)
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}

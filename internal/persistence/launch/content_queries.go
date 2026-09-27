@@ -29,7 +29,7 @@ func (repository *ContentQueries) ProductContent(
 SELECT l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
-b.sha256,
+b.id,b.sha256,
 lc.format_version,
 l.core_id,
 l.provider_id,l.target_id,l.bundle_sha256,
@@ -39,7 +39,7 @@ l.dos_entry_path,
  WHERE file.launch_session_id=l.id AND file.kind='DISC')
 FROM launch_sessions l
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
-JOIN blobs b ON b.id=lc.blob_id
+JOIN stored_files b ON b.id=lc.blob_id
 LEFT JOIN games game ON game.id=l.game_id
 LEFT JOIN platform_instances instance ON instance.id=game.platform_instance_id
 LEFT JOIN platforms platform ON platform.id=instance.platform_id
@@ -68,12 +68,12 @@ func (repository *ContentQueries) PreviewContent(
 	id, logicalName string,
 ) (application.ContentRecord, bool, error) {
 	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
+SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.id,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
 (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
 FROM review_preview_sessions preview
-JOIN blobs blob ON blob.id=preview.content_blob_id
+JOIN stored_files blob ON blob.id=preview.content_blob_id
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
@@ -94,7 +94,7 @@ WITH preview_files AS (
  SELECT preview_session_id,logical_name,blob_id FROM review_preview_files
  WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
 )
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
+SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.id,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,NULL,0
 FROM review_preview_sessions preview
@@ -106,7 +106,7 @@ JOIN preview_files file ON file.preview_session_id=preview.id AND (
  AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
  AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
 )
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE preview.id=?
 
 `, id, id, logicalName, folded, logicalName, logicalName, logicalName, id))
@@ -117,7 +117,7 @@ func scanContent(row dbapi.Scanner) (application.ContentRecord, bool, error) {
 	var dosEntry sql.NullString
 	session, content := &result.Session, &result.Content
 	err := row.Scan(&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
-		&content.Digest, &content.Format, &content.CoreID, &content.ProviderID, &content.TargetID,
+		&content.BlobID, &content.Digest, &content.Format, &content.CoreID, &content.ProviderID, &content.TargetID,
 		&content.BundleSHA256, &content.PlatformKey, &dosEntry, &content.DiscCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ContentRecord{}, false, nil

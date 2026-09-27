@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/gamecontent/gamerelease"
 	"retrom/internal/persistence/releaseeffects"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 	"retrom/internal/testsupport"
 
 	"modernc.org/sqlite"

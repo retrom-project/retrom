@@ -25,15 +25,15 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
@@ -54,7 +54,7 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	contents := []byte("retrom-invalid-bios\n")
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
@@ -109,14 +109,14 @@ SELECT b.md5,
 b.sha1,
 b.sha256
 FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN stored_files b ON b.id=f.final_blob_id
 WHERE f.id=?
 `, upload.Files[0].ID).Scan(&md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
-	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	service := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releases)
 	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
@@ -151,7 +151,7 @@ func seedFirmwareReplacementLifecycle(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	runtimeIdentity testsupport.RuntimeTargetIdentity, installationID, biosBlobID string,
 ) firmwareReplacementLifecycle {
 	t.Helper()
@@ -248,7 +248,7 @@ func ensureFirmwareBlob(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	contents []byte,
 ) string {
 	t.Helper()
@@ -256,7 +256,7 @@ func ensureFirmwareBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ SELECT
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
+			`SELECT count(*) FROM file_deletions WHERE blob_id=?`, blobID,
 		).Scan(&candidates); err != nil || candidates != 0 {
 			t.Fatalf("BIOS replacement payload %s candidates = %d, error=%v", blobID, candidates, err)
 		}
@@ -433,7 +433,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
@@ -455,7 +455,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	result, err := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).Install(
+	result, err := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs).Install(
 		ctx, "requirement-test", 1, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)

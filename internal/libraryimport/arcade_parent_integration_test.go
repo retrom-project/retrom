@@ -22,9 +22,9 @@ import (
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
@@ -68,12 +68,12 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	ctx = authn.WithPrincipal(ctx, authn.Principal{
 		UserID: adminID, ProfileID: profileID, Role: "ADMIN",
 	})
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: root.uploadID, TargetPlatformInstanceID: arcadeID,
@@ -124,7 +124,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
@@ -136,7 +136,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	})
 	wrongZIP := arcadeZIP(t, "wrong.bin", []byte("wrong"))
 	child := uploadCompleteFile(t, ctx, database.SQL, uploadService, "a.zip", childZIP)
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: child.uploadID, TargetPlatformInstanceID: arcadeID,

@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	composition "retrom/internal/composition/launch"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -70,7 +70,7 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,12 +85,12 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	source := launch.NewSources(blobs, credentials).WithRuntimeProvider(builder)
 	service := composition.New(database.SQL, source, "http://localhost:3000", now)
 	t.Cleanup(service.Close)
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs)
 	itemID := uploadAssemblyROM(t, database.SQL, blobs, dir, importer, now)
 	return assemblyFixture{database.SQL, source, service, importer, itemID, now}
 }
 
-func uploadAssemblyROM(t *testing.T, database dbapi.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
+func uploadAssemblyROM(t *testing.T, database dbapi.DB, blobs *filestore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "public-roms", "nes-smoke", "nes-smoke.nes"))
 	if err != nil {

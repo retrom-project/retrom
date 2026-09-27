@@ -89,7 +89,7 @@ func (repository scanCommitFailure) WithScan(ctx context.Context, work func(appl
 			return errors.New("unexpected scan records fixture")
 		}
 		if _, err := records.tx.ExecContext(ctx, `CREATE TABLE scan_commit_failure(
-owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`); err != nil {
+owner TEXT REFERENCES stored_files(id) DEFERRABLE INITIALLY DEFERRED)`); err != nil {
 			return err
 		}
 		_, err := records.tx.ExecContext(ctx, `INSERT INTO scan_commit_failure VALUES('missing')`)

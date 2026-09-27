@@ -25,7 +25,7 @@ CREATE TABLE upload_files (
   relative_path TEXT NOT NULL,
   declared_size_bytes INTEGER NOT NULL CHECK(declared_size_bytes BETWEEN 0 AND 8589934592),
   received_size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(received_size_bytes >= 0),
-  final_blob_id TEXT REFERENCES blobs(id),
+  final_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   state TEXT NOT NULL CHECK(state IN ('PENDING','PARTIAL','FINALIZING','COMPLETE','FAILED','PURGED')),
   payload_released_at_ms INTEGER,
   last_error_code TEXT,
@@ -45,7 +45,7 @@ CREATE TABLE import_files (
   id TEXT PRIMARY KEY REFERENCES upload_files(id),
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   relative_path TEXT NOT NULL,
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
   released_at_ms INTEGER,
@@ -65,7 +65,7 @@ CREATE TABLE upload_parts (
 );
 
 CREATE TABLE archive_entries (
-  archive_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  archive_blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
   ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
   original_relative_path TEXT NOT NULL,
   normalized_path TEXT NOT NULL,
@@ -79,7 +79,6 @@ CREATE TABLE archive_entries (
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
   sha1 TEXT NOT NULL CHECK(length(sha1) = 40),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
-  materialized_blob_id TEXT REFERENCES blobs(id),
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(archive_blob_id, ordinal),
   UNIQUE(archive_blob_id, normalized_path),

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func TestPrepareONSDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.T) {
@@ -69,7 +69,7 @@ func TestPrepareONSDirectoryRejectsProjectWithoutFont(t *testing.T) {
 
 func onsImportFixture(t *testing.T) (*Service, []importSourceFile) {
 	t.Helper()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,8 +86,8 @@ func onsImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithBlobStore(blobs), files
+	return New(nil, nil).WithFileStore(blobs), files
 }

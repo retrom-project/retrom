@@ -37,7 +37,7 @@ func (scope *memoryWriteScope) AssetExists(context.Context, string, string) (boo
 	return scope.exists, nil
 }
 
-func (scope *memoryWriteScope) RemoveSlot(context.Context, string, string, int64) ([]string, error) {
+func (scope *memoryWriteScope) RemoveSlot(context.Context, string, string, int64, int64) ([]string, error) {
 	scope.calls = append(scope.calls, "remove")
 	return []string{"old-blob"}, nil
 }

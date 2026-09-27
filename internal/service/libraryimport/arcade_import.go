@@ -189,7 +189,7 @@ func (service *ImportPreparation) prepareArcadeArchive(
 		candidate.reason = "UNSUPPORTED_CONTENT_FORMAT"
 		return candidate, nil, nil
 	}
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DefaultArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.BlobID), importing.DefaultArchiveLimits())
 	if err != nil {
 		candidate.reason = ArchiveReason(err)
 		return candidate, nil, nil

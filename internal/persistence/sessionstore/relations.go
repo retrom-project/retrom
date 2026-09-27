@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobrefs"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -70,13 +69,6 @@ AND launch.state IN ('FINISHED','EXPIRED','REVOKED'))
 }
 
 func createSaveVersion(ctx context.Context, tx dbapi.Executor, id string) error {
-	refs, err := blobrefs.Capture(ctx, tx, "save_states", "id=?", id)
-	if err != nil {
-		return fmt.Errorf("read save references: %w", err)
-	}
-	if err := blobrefs.Commit(ctx, tx, blobrefs.Snapshot{}, refs); err != nil {
-		return fmt.Errorf("protect save references: %w", err)
-	}
 	if err := recordstore.ValidateSaveStates(ctx, tx, id); err != nil {
 		return fmt.Errorf("validate session record: %w", err)
 	}

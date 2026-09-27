@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -29,14 +29,14 @@ type assetBytes struct {
 	err   error
 }
 
-func (blobs *assetBytes) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs *assetBytes) Put(reader io.Reader) (filestore.Metadata, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
-		return blobstore.Metadata{}, err
+		return filestore.Metadata{}, err
 	}
 	blobs.calls++
 	blobs.bytes = string(data)
-	return blobstore.Metadata{SHA256: "digest", Size: int64(len(data))}, blobs.err
+	return filestore.Metadata{SHA256: "digest", Size: int64(len(data))}, blobs.err
 }
 
 func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {

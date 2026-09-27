@@ -67,7 +67,7 @@ func TestImportWorkerProgressRejectsStaleExecution(t *testing.T) {
 
 func TestImportWorkerRecoveryPreservesOtherLiveOwner(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
-	recovered := New(service.database, service.now).WithBlobStore(service.blobs)
+	recovered := New(service.database, service.now).WithFileStore(service.blobs)
 	if err := recovered.testExecutions().Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 		service.database,
 		testsupport.SQLFaultHooks{
 			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
-				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
+				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'OWNER_CLEANUP'") {
 					release++
 					return cause
 				}

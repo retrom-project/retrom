@@ -49,7 +49,7 @@ FROM platform_instances pi WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms I
 func (records ImportFacts) Files(ctx context.Context, uploadID string) ([]application.ImportFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT f.id,f.relative_path,f.blob_id,b.sha256,b.size_bytes
-FROM import_files f JOIN blobs b ON b.id=f.blob_id
+FROM import_files f JOIN stored_files b ON b.id=f.blob_id
 WHERE f.upload_session_id=? AND f.released_at_ms IS NULL ORDER BY f.relative_path,f.id`, uploadID)
 	if err != nil {
 		return nil, fmt.Errorf("query import source files: %w", err)

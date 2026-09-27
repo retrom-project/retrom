@@ -16,12 +16,12 @@ func productCreationFiles(
 	variant bool,
 ) ([]application.ProductFile, error) {
 	query := `SELECT file.role,file.blob_id,file.logical_name,blob.sha256,blob.size_bytes,file.sort_order
-FROM game_files file JOIN blobs blob ON blob.id=file.blob_id WHERE file.game_id=?
+FROM game_files file JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_id=?
 ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 WHEN 'DOS_SOURCE' THEN 2 ELSE 3 END,
 file.sort_order,file.logical_name`
 	if variant {
 		query = `SELECT file.role,file.blob_id,file.logical_name,blob.sha256,blob.size_bytes,file.sort_order
-FROM variant_files file JOIN blobs blob ON blob.id=file.blob_id WHERE file.game_variant_id=?
+FROM variant_files file JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_variant_id=?
 ORDER BY file.role,file.sort_order,file.logical_name`
 	}
 	rows, err := executor.QueryContext(ctx, query, owner)

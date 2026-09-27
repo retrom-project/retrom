@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
 	uploadservice "retrom/internal/service/uploads"
@@ -22,9 +22,9 @@ func TestFinalizationManualRetryKeepsRoundAndCompletedFiles(t *testing.T) {
 	job := fixture.complete(t, session)
 	var calls atomic.Int64
 	failure := errors.New("temporary second-file CAS failure")
-	worker := uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	worker := uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
 		if calls.Add(1) == 2 {
-			return blobstore.Metadata{}, failure
+			return filestore.Metadata{}, failure
 		}
 		return fixture.blobs.Put(reader)
 	}}, fixture.root, finalizationNow)

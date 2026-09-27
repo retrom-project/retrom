@@ -10,6 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
 	"retrom/internal/persistence/contentquery"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 
@@ -43,6 +44,11 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	}
 	if err := validateArcadeParentCommitJob(ctx, transaction, request.JobID, request.WorkerID); err != nil {
 		return err
+	}
+	if err := fileownership.Transfer(ctx, transaction, request.Candidate.BlobID,
+		fileownership.Owner{Kind: "UPLOAD", ID: request.Candidate.UploadSessionID},
+		fileownership.Owner{Kind: "IMPORT_ITEM", ID: request.Candidate.ItemID}); err != nil {
+		return fmt.Errorf("arcade parent commit: %w", err)
 	}
 	artifacts, err := insertArcadeParentCommitArtifacts(
 		ctx, transaction, request.Candidate, request.Entries, request.Files,
@@ -455,7 +461,7 @@ INSERT INTO import_item_core_validations(
 		return arcadeParentCommitStoreError("insert source validation", err)
 	}
 	for _, file := range validation.Files {
-		if _, err := recordstore.CreateReferences(ctx, transaction, "import_item_validation_files", `
+		if _, err := recordstore.InsertRows(ctx, transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?)
@@ -553,7 +559,7 @@ func insertArcadeParentSnapshotFiles(
 		if file.ArchiveOrdinal != nil {
 			archiveOrdinal = *file.ArchiveOrdinal
 		}
-		if _, err := recordstore.CreateReferences(
+		if _, err := recordstore.InsertRows(
 			ctx,
 			transaction,
 			"import_item_source_snapshot_files",
@@ -587,7 +593,7 @@ func insertArcadeParentArchiveEntries(
 	now int64,
 ) error {
 	for _, entry := range entries {
-		if _, err := recordstore.CreateReferences(
+		if _, err := recordstore.InsertRows(
 			ctx,
 			transaction,
 			"archive_entries",
@@ -595,8 +601,8 @@ func insertArcadeParentArchiveEntries(
 INSERT OR IGNORE INTO archive_entries(
   archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
   archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,
-  materialized_blob_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?)
+  created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
 `,
 			archiveBlobID,
 			entry.Ordinal,

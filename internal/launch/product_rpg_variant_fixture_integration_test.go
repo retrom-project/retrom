@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	savepersistence "retrom/internal/persistence/saves"
@@ -32,7 +32,7 @@ import (
 type productRPGFixture struct {
 	service  *Service
 	database dbapi.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	gameID   string
 	now      func() time.Time
 }
@@ -56,12 +56,12 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploadID := uploadProductRPGFixture(t, database.SQL, blobs, dataDir, generation, now)
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs)
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
@@ -90,13 +90,13 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	return productRPGFixture{service: service, database: database.SQL, blobs: blobs, gameID: approved.GameID, now: now}
 }
 
-func uploadProductRPGFixture(t *testing.T, database dbapi.DB, blobs *blobstore.Store, dataDir, generation string, now func() time.Time) string {
+func uploadProductRPGFixture(t *testing.T, database dbapi.DB, blobs *filestore.Store, dataDir, generation string, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	archive := productRPGArchive(t, generation)

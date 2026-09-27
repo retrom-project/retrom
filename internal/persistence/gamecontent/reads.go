@@ -26,11 +26,14 @@ func (records records) Upload(ctx context.Context, id string) (gamecontent.Uploa
 	return result, nil
 }
 
-func (records records) Input(ctx context.Context, id string, execution int64) (gamecontent.StoredInput, error) {
+func (records records) Input(
+	ctx context.Context,
+	id string,
+	execution int64,
+) (gamecontent.StoredInput, error) {
 	var result gamecontent.StoredInput
 	err := dbapi.QueryRowContext(
 		ctx, records.executor,
-
 		`SELECT input.input_json,input.input_digest FROM job_input_snapshots input
  JOIN jobs job ON job.id=input.job_id
  WHERE input.job_id=? AND input.execution_no=? AND job.kind='GAME_CONTENT_REPLACE'`,
@@ -46,7 +49,8 @@ func (records records) Input(ctx context.Context, id string, execution int64) (g
 
 func (records records) Identity(ctx context.Context, id string) ([]gamecontent.IdentityFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `SELECT file.role,blob.sha256 FROM game_files file
- JOIN blobs blob ON blob.id=file.blob_id WHERE file.game_id=? ORDER BY file.sort_order,file.role,file.logical_name`, id)
+ JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_id=? ORDER BY file.sort_order,
+file.role,file.logical_name`, id)
 	if err != nil {
 		return nil, fmt.Errorf("read current content identity: %w", err)
 	}

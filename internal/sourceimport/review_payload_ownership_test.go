@@ -3,7 +3,7 @@ package sourceimport
 import (
 	"testing"
 
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	media "retrom/internal/persistence/mediaaccess"
 	access "retrom/internal/service/mediaaccess"
@@ -15,7 +15,7 @@ func TestReviewOwnsMediaAfterIndependentSourceReleaseAndHandoffReplay(t *testing
 	if err := completeHandoff(t.Context(), service, unit, item); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(t.Context(), service.database, nil, service.now)
+	releases, err := cleanupjobs.New(t.Context(), service.database, nil, service.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,10 +29,10 @@ func TestReviewOwnsMediaAfterIndependentSourceReleaseAndHandoffReplay(t *testing
  source.payload_state,item.payload_state,
  (SELECT count(*) FROM source_import_item_assets WHERE item_id=source.id AND blob_id IS NOT NULL),
  (SELECT count(*) FROM import_item_assets WHERE import_item_id=item.id),
- (SELECT ref_count FROM blobs WHERE id='handoff-media')
+ (SELECT owner_kind='IMPORT_ITEM' AND owner_id=item.id AND retired_at_ms IS NULL FROM stored_files WHERE id='handoff-media')
  FROM source_import_items source JOIN import_items item ON item.id=source.library_import_item_id
  WHERE source.id='item'`).Scan(&sourceState, &itemState, &sourceRefs, &itemRefs, &count)
-	if err != nil || sourceState != "RELEASED" || itemState != "RETAINED" || sourceRefs != 0 || itemRefs != 2 || count != 2 {
+	if err != nil || sourceState != "RELEASED" || itemState != "RETAINED" || sourceRefs != 0 || itemRefs != 2 || count != 1 {
 		t.Fatalf("ownership after release: %s/%s refs=%d/%d count=%d error=%v",
 			sourceState, itemState, sourceRefs, itemRefs, count, err)
 	}

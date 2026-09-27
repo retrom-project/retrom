@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func TestGameSaveRejectsChangedSlotBeforePublishing(t *testing.T) {
@@ -60,8 +60,8 @@ func assertGameSaveAdvanced(t *testing.T, result ManualResult, memory *gameSaveM
 
 func parsedGameSave(digest string) parsedManual {
 	return parsedManual{
-		metadata: manualMetadata{Name: "replacement"}, payload: blobstore.Metadata{SHA256: digest},
-		screenshot: &blobstore.Metadata{SHA256: "image"},
+		metadata: manualMetadata{Name: "replacement"}, payload: filestore.Metadata{SHA256: digest},
+		screenshot: &filestore.Metadata{SHA256: "image"},
 	}
 }
 
@@ -109,7 +109,7 @@ func (memory *gameSaveMemory) Bind(_ context.Context, _, _ string, version int64
 	return nil
 }
 
-func (memory *gameSaveMemory) Ensure(context.Context, blobstore.Metadata, string, int64) (string, error) {
+func (memory *gameSaveMemory) Ensure(context.Context, filestore.Metadata, string, int64) (string, error) {
 	memory.images++
 	return "image", nil
 }

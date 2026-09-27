@@ -11,23 +11,23 @@ import (
 	"io/fs"
 	"sort"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/uploadfiles"
 )
 
-func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part) (blobstore.Metadata, error) {
+func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part) (filestore.Metadata, error) {
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Offset < parts[j].Offset })
 	var offset int64
 	for _, part := range parts {
 		if part.Offset != offset || part.Size != min(PartSize, file.Size-offset) || part.Size <= 0 {
-			return blobstore.Metadata{}, &BrokenPart{
+			return filestore.Metadata{}, &BrokenPart{
 				FileID: file.ID, Number: int(offset / PartSize), Missing: true, Cause: errPartMissing,
 			}
 		}
 		offset += part.Size
 	}
 	if offset != file.Size {
-		return blobstore.Metadata{}, &BrokenPart{
+		return filestore.Metadata{}, &BrokenPart{
 			FileID: file.ID, Number: int(offset / PartSize), Missing: true, Cause: errPartMissing,
 		}
 	}
@@ -35,10 +35,10 @@ func (service *Service) assembleFile(ctx context.Context, file Candidate, parts 
 	metadata, err := service.blobs.Put(reader)
 	err = errors.Join(err, reader.Close())
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("%w: %w", errFinalizeIO, err)
+		return filestore.Metadata{}, fmt.Errorf("%w: %w", errFinalizeIO, err)
 	}
 	if metadata.Size != file.Size {
-		return blobstore.Metadata{}, fmt.Errorf("%w: assembled size mismatch", errFinalizeIO)
+		return filestore.Metadata{}, fmt.Errorf("%w: assembled size mismatch", errFinalizeIO)
 	}
 	return metadata, nil
 }

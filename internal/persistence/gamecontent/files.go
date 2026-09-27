@@ -17,7 +17,7 @@ f.final_blob_id,
 b.SHA256,
 b.size_bytes
 FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN stored_files b ON b.id=f.final_blob_id
 WHERE f.upload_session_id=?
 AND f.state='COMPLETE'
 ORDER BY f.relative_path,

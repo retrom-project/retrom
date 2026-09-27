@@ -121,7 +121,7 @@ func (records records) adminGameFiles(ctx context.Context, gameID string) ([]app
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT file.role,file.logical_name,file.sort_order,blob.size_bytes,blob.sha256
 FROM game_files file
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN stored_files blob ON blob.id=file.blob_id
 WHERE file.game_id=?
 ORDER BY file.sort_order,file.role,file.logical_name
 `, gameID)

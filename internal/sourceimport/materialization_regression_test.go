@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 )
 
-func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsset, blobstore.Metadata) {
+func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsset, filestore.Metadata) {
 	t.Helper()
 	service, unit, _ := handoffFixture(t)
 	mustExecSourceTest(
@@ -37,7 +37,7 @@ VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaa
 			MediaType: "image/png",
 			Width:     &one,
 			Height:    &one,
-		}, blobstore.Metadata{
+		}, filestore.Metadata{
 			SHA256: strings.Repeat("b", 64),
 			MD5:    strings.Repeat("b", 32),
 			SHA1:   strings.Repeat("b", 40),
@@ -63,7 +63,7 @@ func TestMaterializationRejectsReplacedOwner(t *testing.T) {
 				_ = service.closeAssetWarning(t.Context(), unit, "item", asset, "PEGASUS_IMAGE_INVALID")
 			}
 			var changed int
-			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM blobs WHERE sha256=?) +
+			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM stored_files WHERE sha256=?) +
 (SELECT count(*) FROM source_import_item_assets WHERE item_id='item' AND state<>'DISCOVERED')+
 (SELECT count(*) FROM source_imports WHERE phase='VALIDATING')`, metadata.SHA256).Scan(&changed)
 			if err != nil {

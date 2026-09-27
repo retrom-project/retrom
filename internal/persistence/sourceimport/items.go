@@ -36,11 +36,11 @@ validation.dependency_snapshot_json,
 COALESCE(collection.tag_snapshot_json,'[]'),
 EXISTS(
  SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.state IN ('COPIED','PAYLOAD_RELEASED')
+ WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.state IN ('COPIED','RELEASED')
 ),
 EXISTS(
  SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.state IN ('COPIED','PAYLOAD_RELEASED')
+ WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.state IN ('COPIED','RELEASED')
 )
 FROM source_import_items item
 LEFT JOIN jobs release_job ON release_job.id=item.payload_release_job_id

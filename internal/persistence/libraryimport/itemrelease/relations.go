@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func Relations(ctx context.Context, executor dbapi.Executor, facts *application.EffectOwner) error {

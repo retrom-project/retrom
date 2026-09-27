@@ -6,7 +6,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/persistence/dberrors"
 	repository "retrom/internal/persistence/sourceimport"
 	tagrepository "retrom/internal/persistence/tagging"
@@ -18,7 +18,7 @@ import (
 	"retrom/internal/sourceimport"
 )
 
-func NewSourceImport(database dbapi.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
+func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	source := sourceimport.NewSources(blobs, credentials, roots)

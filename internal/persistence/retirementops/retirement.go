@@ -10,7 +10,7 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func Files(ctx context.Context, executor dbapi.Executor, query string, args ...any,

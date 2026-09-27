@@ -3,7 +3,6 @@ package storageanalysis
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 )
 
@@ -21,12 +20,7 @@ func (service *Service) Analyze(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("storageanalysis: read snapshot: %w", err)
 	}
-	for _, member := range source.Archives {
-		if _, protected := source.Protected[member.ArchiveID]; protected {
-			source.Usage[member.MemberID] |= source.Usage[member.ArchiveID]
-		}
-	}
-	snapshot, err := aggregate(source.Blobs, source.Protected, source.Usage)
+	snapshot, err := aggregate(source.Blobs, source.Retained, source.Usage)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -37,20 +31,6 @@ func (service *Service) Analyze(ctx context.Context) (Snapshot, error) {
 	snapshot.Scope = Scope
 	snapshot.GeneratedAtMS = service.now().UnixMilli()
 	snapshot.Excluded = append([]string(nil), Excluded[:]...)
-	for _, category := range snapshot.Categories {
-		if category.Code == CategoryOtherReferenced && category.BlobCount > 0 {
-			slog.WarnContext(
-				ctx,
-				"storage analysis found uncategorized protected blobs",
-				"category",
-				category.Code,
-				"blob_count",
-				category.BlobCount,
-				"bytes",
-				category.Bytes,
-			)
-		}
-	}
 	return snapshot, nil
 }
 
@@ -62,11 +42,11 @@ func details(source ReadModel) (Details, error) {
 		},
 	}
 	var err error
-	result.SaveStates.StateReferenceBytes, err = referenceBytes(source.Saves.PayloadIDs, source.Blobs, errSaveBlobMissing)
+	result.SaveStates.StateBytes, err = referenceBytes(source.Saves.PayloadIDs, source.Blobs, errSaveBlobMissing)
 	if err != nil {
 		return Details{}, err
 	}
-	result.SaveStates.ScreenshotReferenceBytes, err = referenceBytes(
+	result.SaveStates.ScreenshotBytes, err = referenceBytes(
 		source.Saves.ScreenshotIDs,
 		source.Blobs,
 		errSaveBlobMissing,
@@ -74,11 +54,15 @@ func details(source ReadModel) (Details, error) {
 	if err != nil {
 		return Details{}, err
 	}
-	result.CleanupCandidates.Bytes, err = referenceBytes(source.CleanupCandidates, source.Blobs, errCandidateBlobMissing)
+	result.CleanupCandidates.Bytes, err = referenceBytes(
+		source.CleanupCandidates,
+		source.Blobs,
+		errCandidateBlobMissing,
+	)
 	if err != nil {
 		return Details{}, err
 	}
-	result.CleanupCandidates.BlobCount = int64(len(source.CleanupCandidates))
+	result.CleanupCandidates.FileCount = int64(len(source.CleanupCandidates))
 	return result, nil
 }
 

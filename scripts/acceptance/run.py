@@ -111,11 +111,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-DEV-001": (180, "scripts/acceptance/local-development.sh"),
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
     "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
-    "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
+    "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1"),
     "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
-    "ACC-CAS-001": (120, "go test ./internal/blobstore -run '^TestPutDeduplicatesConcurrentContent$' -count=1"),
-    "ACC-CAS-002": (120, "go test ./internal/persistence/blobgc -run 'TestRunOnceCollectsUnreferencedBlobAndRespectsNewOwner|TestOldGarbage|TestGarbageRestores|TestRegistrationRejects' -count=1"),
-    "ACC-BKP-001": (300, "go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
+    "ACC-CAS-001": (120, "go test ./internal/filestore ./internal/persistence/fileownership -count=1"),
+    "ACC-CAS-002": (120, "go test ./internal/persistence/filedeletion ./internal/persistence/uploads/receivedfiles -run 'TestWorkerDeletesOnlyRetiredOwnersIndependentFiles|TestOldFileDeletion|TestFileDeletionRetries|TestRegistrationRejects|TestRetiredOwner' -count=1"),
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/format/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
@@ -129,7 +128,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-API-001": (120, "go test ./internal/httpapi ./internal/cursor -count=1"),
     "ACC-FAV-001": (
         120,
-        "go test ./internal/store ./internal/service/favorites ./internal/persistence/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/store ./internal/service/favorites ./internal/persistence/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1",
     ),
     "ACC-FAV-002": (
         120,
@@ -139,7 +138,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),
     "ACC-TAG-001": (
         120,
-        "go test ./internal/store ./internal/service/tagging ./internal/persistence/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/store ./internal/service/tagging ./internal/persistence/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1",
     ),
     "ACC-TAG-002": (
         120,
@@ -176,7 +175,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-005": (
         120,
-        "go test ./internal/composition -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestOfflineAdminResetRotatesCredentialAndSecurityState|TestAccountSecurityAuditUsesClosedActions' -count=1",
+        "go test ./internal/composition -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestAccountSecurityAuditUsesClosedActions' -count=1",
     ),
     "ACC-AUTH-006": (
         120,
@@ -256,8 +255,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-IMP-009": (
         240,
         "go test ./internal/libraryimport ./internal/store -run 'TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence|TestMigrationsCreateCurrentSchemaWithoutProductSeeds' -count=1 && "
-        "go test -tags=integration ./internal/libraryimport -run '^TestReviewBulkApprovalPublishes(StrictReadyCandidatesAtomically|CurrentTypedArcadeSnapshot)$' -count=1 -timeout=60s && "
-        "go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 -timeout=60s",
+        "go test -tags=integration ./internal/libraryimport -run '^TestReviewBulkApprovalPublishes(StrictReadyCandidatesAtomically|CurrentTypedArcadeSnapshot)$' -count=1 -timeout=60s",
     ),
     "ACC-IMP-010": (
         180,
@@ -295,7 +293,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-006": (
         300,
-        "go test ./internal/service/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary|TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
+        "go test ./internal/service/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary|TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
     ),
     "ACC-BIOS-007": (
         240,
@@ -315,7 +313,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-004": (
         300,
-        "go test ./internal/sourceimport ./internal/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run 'TestBackupRestoreRoundTripAndOnlineRefusal|TestRestore.*Source|TestRestoredSource' -count=1 && go test ./internal/persistence/blobgc -run 'TestRunOnceCollectsUnreferencedBlobAndRespectsNewOwner|TestOldGarbage|TestGarbageRestores|TestRegistrationRejects' -count=1 && go test ./internal/httpapi -run 'TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
+        "go test ./internal/sourceimport ./internal/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test ./internal/persistence/filedeletion ./internal/persistence/uploads/receivedfiles -run 'TestWorkerDeletesOnlyRetiredOwnersIndependentFiles|TestOldFileDeletion|TestFileDeletionRetries|TestRegistrationRejects|TestRetiredOwner' -count=1 && go test ./internal/httpapi -run 'TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
@@ -333,7 +331,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/payloadrelease ./internal/persistence/gamecontent/gamerelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
+        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/cleanupjobs ./internal/persistence/gamecontent/gamerelease ./internal/persistence/filedeletion -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (
@@ -458,8 +456,8 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     "ACC-STOR-001": (
         240,
-        "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/httpapi ./internal/service/payloadrelease ./internal/persistence/gamecontent/gamerelease "
-        "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestGCImmediate|TestReleaseCommitsBounded' -count=1 && "
+        "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/httpapi ./internal/service/cleanupjobs ./internal/persistence/gamecontent/gamerelease "
+        "-run 'TestAnalyze|TestAdminStorageAnalysis|TestDeletionImmediate|TestReleaseCommitsBounded' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),
     **{
@@ -584,7 +582,7 @@ def prepare() -> int:
     run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + secrets.token_hex(4)
     run_dir = ARTIFACTS / run_id
     (run_dir / "cases").mkdir(parents=True)
-    (run_dir / "work" / "data" / "cas").mkdir(parents=True)
+    (run_dir / "work" / "data" / "files").mkdir(parents=True)
     (run_dir / "work" / "seed").mkdir(parents=True)
     (run_dir / "defects.json").write_text("[]\n", encoding="utf-8")
 

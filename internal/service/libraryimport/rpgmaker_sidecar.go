@@ -7,16 +7,16 @@ import (
 	"io"
 	"os"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
 func (service *ImportPreparation) rpgMakerNestedArchiveFormat(
 	file ImportFile,
 ) (importing.NestedArchiveFormat, error) {
-	reader, err := os.Open(service.blobs.Path(file.SHA256))
+	reader, err := os.Open(service.blobs.Path(file.BlobID))
 	if err != nil {
 		return importing.NestedArchiveNone, fmt.Errorf("open RPG Maker project file: %w", err)
 	}
@@ -34,18 +34,18 @@ func (service *ImportPreparation) scanProjectArchive(
 	ctx context.Context,
 	file ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
-) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
-	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.SHA256), archiveFormat)
+) ([]importing.ArchiveEntry, map[int]*filestore.Candidate, error) {
+	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.BlobID), archiveFormat)
 }
 
 func (service *ImportPreparation) scanProjectArchivePath(
 	ctx context.Context,
 	archivePath string,
 	archiveFormat contentprofile.ArchiveFormat,
-) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
+) ([]importing.ArchiveEntry, map[int]*filestore.Candidate, error) {
 	limits := importing.RPGMakerArchiveLimits()
 	var entries []importing.ArchiveEntry
-	candidates := make(map[int]*blobstore.Candidate)
+	candidates := make(map[int]*filestore.Candidate)
 	var err error
 	consumer := func(entry importing.ArchiveEntry, reader io.Reader) (importing.ArchiveContent, error) {
 		candidate, stageErr := service.blobs.Stage(reader)
@@ -88,10 +88,10 @@ func (service *ImportPreparation) projectArchiveReadMetadata(
 	ctx context.Context,
 	file ImportFile,
 	entries []importing.ArchiveEntry,
-	candidates map[int]*blobstore.Candidate,
-) (map[int]blobstore.Metadata, error) {
+	candidates map[int]*filestore.Candidate,
+) (map[int]filestore.Metadata, error) {
 	missing := make([]importing.ArchiveEntry, 0)
-	result := make(map[int]blobstore.Metadata, len(entries))
+	result := make(map[int]filestore.Metadata, len(entries))
 	for _, entry := range entries {
 		if candidate, exists := candidates[entry.Ordinal]; exists {
 			result[entry.Ordinal] = candidate.Metadata()
@@ -102,7 +102,7 @@ func (service *ImportPreparation) projectArchiveReadMetadata(
 	if len(missing) == 0 {
 		return result, nil
 	}
-	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.SHA256), missing)
+	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.BlobID), missing)
 	if err != nil {
 		return nil, err
 	}
@@ -114,10 +114,10 @@ func (service *ImportPreparation) projectArchiveReadMetadata(
 
 func projectArchiveMaterialization(
 	entries []importing.ArchiveEntry,
-	candidates map[int]*blobstore.Candidate,
-	readMetadata map[int]blobstore.Metadata,
-) (map[int]blobstore.Metadata, error) {
-	result := make(map[int]blobstore.Metadata, len(entries))
+	candidates map[int]*filestore.Candidate,
+	readMetadata map[int]filestore.Metadata,
+) (map[int]filestore.Metadata, error) {
+	result := make(map[int]filestore.Metadata, len(entries))
 	for _, entry := range entries {
 		if candidate, exists := candidates[entry.Ordinal]; exists {
 			metadata, err := candidate.Commit()
@@ -136,7 +136,7 @@ func projectArchiveMaterialization(
 	return result, nil
 }
 
-func discardProjectArchiveCandidates(candidates map[int]*blobstore.Candidate) {
+func discardProjectArchiveCandidates(candidates map[int]*filestore.Candidate) {
 	for _, candidate := range candidates {
 		cleanup.Error("discard project archive candidate", candidate.Discard())
 	}

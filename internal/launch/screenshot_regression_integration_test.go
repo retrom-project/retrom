@@ -14,18 +14,18 @@ import (
 
 	"modernc.org/sqlite"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 )
 
 func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCreated, []byte) {
 	t.Helper()
 	fixture := newReviewCheckpointFixture(t)
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.launcher.WithBlobStore(blobs)
+	fixture.launcher.WithFileStore(blobs)
 	preview := fixture.preview(t, "screenshot-regression")
 	var imageBytes bytes.Buffer
 	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
@@ -37,7 +37,7 @@ func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCrea
 func screenshotCounts(t *testing.T, database dbapi.DB) (int, int) {
 	t.Helper()
 	var screenshots, blobs int
-	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(*) FROM blobs)`).Scan(&screenshots, &blobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(*) FROM stored_files)`).Scan(&screenshots, &blobs); err != nil {
 		t.Fatal(err)
 	}
 	return screenshots, blobs

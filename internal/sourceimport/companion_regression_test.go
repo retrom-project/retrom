@@ -24,7 +24,7 @@ func TestArcadeCompanionsRejectReplacedOwnerBeforeRegisteringCAS(t *testing.T) {
 		t.Fatalf("old worker got companions=%#v err=%v", result, err)
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM stored_files`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -63,7 +63,7 @@ func TestArcadeCompanionRechecksOwnerAndCandidateAfterPhysicalCopy(t *testing.T)
 				t.Fatalf("changed %s accepted blob=%s err=%v", change.name, blobID, err)
 			}
 			var count int
-			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM stored_files`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {
@@ -115,7 +115,7 @@ func TestCopiedCompanionHasIdempotentSourceOwnership(t *testing.T) {
 		var count, refs int
 		if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT
    (SELECT count(*) FROM source_import_item_companions WHERE item_id='primary'),
-   ref_count FROM blobs WHERE id=?`, files[0].BlobID).Scan(&count, &refs); err != nil {
+   owner_kind='SOURCE_IMPORT_ITEM' AND owner_id='primary' AND retired_at_ms IS NULL FROM stored_files WHERE id=?`, files[0].BlobID).Scan(&count, &refs); err != nil {
 			t.Fatal(err)
 		}
 		if count != 1 || refs != 1 {

@@ -6,8 +6,8 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/core/scummvm"
+	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
@@ -15,7 +15,7 @@ import (
 )
 
 type CreationOptions struct {
-	Blobs            *blobstore.Store
+	Blobs            *filestore.Store
 	Tags             *tagging.Service
 	Scraper          *metadatascrape.Service
 	ScummVMDetector  *scummvm.Detector

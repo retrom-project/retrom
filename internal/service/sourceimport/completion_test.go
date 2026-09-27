@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/service/cleanupjobs"
 )
 
 type completionFake struct {

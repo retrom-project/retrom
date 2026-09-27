@@ -85,7 +85,7 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
 		index.files = append(index.files, detector.File{Path: file.Path, Size: file.SizeBytes})
-		index.paths[file.Path] = service.blobs.Path(source.SHA256)
+		index.paths[file.Path] = service.blobs.Path(source.BlobID)
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {

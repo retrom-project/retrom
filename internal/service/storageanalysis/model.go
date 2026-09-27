@@ -5,20 +5,17 @@ import (
 	"math"
 )
 
-const Scope = "REGISTERED_CAS_PAYLOAD_V1"
+const Scope = "OWNED_FILES_V1"
 
 type CategoryCode string
 
 const (
-	CategoryGameContent     CategoryCode = "GAME_CONTENT"
-	CategoryBIOS            CategoryCode = "BIOS"
-	CategorySaves           CategoryCode = "SAVES"
-	CategoryMedia           CategoryCode = "MEDIA"
-	CategoryWorkflow        CategoryCode = "WORKFLOW"
-	CategoryRuntimeSnapshot CategoryCode = "RUNTIME_SNAPSHOT"
-	CategorySharedDurable   CategoryCode = "SHARED_DURABLE"
-	CategoryOtherReferenced CategoryCode = "OTHER_REFERENCED"
-	CategoryUnreferenced    CategoryCode = "UNREFERENCED"
+	CategoryGameContent   CategoryCode = "GAME_CONTENT"
+	CategoryBIOS          CategoryCode = "BIOS"
+	CategorySaves         CategoryCode = "SAVES"
+	CategoryMedia         CategoryCode = "MEDIA"
+	CategoryWorkflow      CategoryCode = "WORKFLOW"
+	CategoryPendingDelete CategoryCode = "PENDING_DELETE"
 )
 
 var categoryOrder = [...]CategoryCode{
@@ -27,10 +24,7 @@ var categoryOrder = [...]CategoryCode{
 	CategorySaves,
 	CategoryMedia,
 	CategoryWorkflow,
-	CategoryRuntimeSnapshot,
-	CategorySharedDurable,
-	CategoryOtherReferenced,
-	CategoryUnreferenced,
+	CategoryPendingDelete,
 }
 
 var Excluded = [...]string{
@@ -44,27 +38,27 @@ var Excluded = [...]string{
 }
 
 type Totals struct {
-	RegisteredBytes   int64
-	ProtectedBytes    int64
-	UnreferencedBytes int64
-	BlobCount         int64
+	RegisteredBytes    int64
+	RetainedBytes      int64
+	PendingDeleteBytes int64
+	FileCount          int64
 }
 
 type Category struct {
 	Code      CategoryCode
 	Bytes     int64
-	BlobCount int64
+	FileCount int64
 }
 
 type SaveStateDetails struct {
-	ActiveCount              int64
-	DeletedCount             int64
-	StateReferenceBytes      int64
-	ScreenshotReferenceBytes int64
+	ActiveCount     int64
+	DeletedCount    int64
+	StateBytes      int64
+	ScreenshotBytes int64
 }
 
 type CleanupCandidateDetails struct {
-	BlobCount int64
+	FileCount int64
 	Bytes     int64
 }
 
@@ -85,41 +79,35 @@ type Snapshot struct {
 type Usage uint8
 
 const (
-	UsageGame Usage = 1 << iota
+	UsageGame Usage = iota + 1
 	UsageBIOS
 	UsageSaves
 	UsageMedia
 	UsageWorkflow
-	UsageRuntime
 )
 
-const durableUsage = UsageGame | UsageBIOS | UsageSaves | UsageMedia
+var (
+	errIntegerOverflow = errors.New("STORAGE_ANALYSIS_INTEGER_OVERFLOW")
+	ErrOwnerInvalid    = errors.New("STORAGE_ANALYSIS_OWNER_INVALID")
+)
 
-var errIntegerOverflow = errors.New("STORAGE_ANALYSIS_INTEGER_OVERFLOW")
-
-func classify(protected bool, flags Usage) CategoryCode {
-	if !protected {
-		return CategoryUnreferenced
+func classify(retained bool, usage Usage) (CategoryCode, error) {
+	if !retained {
+		return CategoryPendingDelete, nil
 	}
-	durable := flags & durableUsage
-	if durable != 0 && durable&(durable-1) != 0 {
-		return CategorySharedDurable
-	}
-	switch {
-	case durable&UsageGame != 0:
-		return CategoryGameContent
-	case durable&UsageBIOS != 0:
-		return CategoryBIOS
-	case durable&UsageSaves != 0:
-		return CategorySaves
-	case durable&UsageMedia != 0:
-		return CategoryMedia
-	case flags&UsageWorkflow != 0:
-		return CategoryWorkflow
-	case flags&UsageRuntime != 0:
-		return CategoryRuntimeSnapshot
+	switch usage {
+	case UsageGame:
+		return CategoryGameContent, nil
+	case UsageBIOS:
+		return CategoryBIOS, nil
+	case UsageSaves:
+		return CategorySaves, nil
+	case UsageMedia:
+		return CategoryMedia, nil
+	case UsageWorkflow:
+		return CategoryWorkflow, nil
 	default:
-		return CategoryOtherReferenced
+		return "", ErrOwnerInvalid
 	}
 }
 

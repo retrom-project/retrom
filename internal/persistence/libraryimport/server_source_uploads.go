@@ -18,7 +18,8 @@ func NewServerSourceUploads(database dbapi.DB) *ServerSourceUploads {
 
 func (repository *ServerSourceUploads) BlobSize(ctx context.Context, blobID string) (int64, bool, error) {
 	var size int64
-	err := dbapi.QueryRowContext(ctx, repository.database, `SELECT size_bytes FROM blobs WHERE id=?`, blobID).Scan(&size)
+	err := dbapi.QueryRowContext(ctx, repository.database, `SELECT size_bytes FROM stored_files WHERE id=?`, blobID).
+		Scan(&size)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, nil
 	}

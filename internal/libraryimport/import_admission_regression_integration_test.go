@@ -18,7 +18,7 @@ func admissionFixture(t *testing.T) (*Service, CreateRequest) {
 	t.Helper()
 	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
 	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	return service, CreateRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "ons/onscripter_yuri"),

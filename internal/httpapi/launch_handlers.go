@@ -171,11 +171,25 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 	)
 	if err != nil {
 		if errors.Is(err, launch.ErrCredential) {
-			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "审核预览会话不可用", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusUnauthorized,
+				"LAUNCH_CREDENTIAL_INVALID",
+				"审核预览会话不可用",
+				map[string]any{},
+			)
 			return
 		}
 		if errors.Is(err, launch.ErrReviewScreenshotInvalid) {
-			writeError(writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID", "运行截图无效或超过大小限制", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusBadRequest,
+				"REVIEW_SCREENSHOT_INVALID",
+				"运行截图无效或超过大小限制",
+				map[string]any{},
+			)
 			return
 		}
 		server.databaseError(writer, request, err)
@@ -247,7 +261,14 @@ func (server *Server) launchProgress(writer http.ResponseWriter, request *http.R
 		server.launchCapability(request), body)
 	if err != nil {
 		if errors.Is(err, launch.ErrCredential) {
-			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusUnauthorized,
+				"LAUNCH_CREDENTIAL_INVALID",
+				"启动会话不可用",
+				map[string]any{},
+			)
 			return
 		}
 		if errors.Is(err, launch.ErrBlocked) {
@@ -351,13 +372,27 @@ func writeSaveStateResult(
 			map[string]any{},
 		)
 	case errors.Is(err, saves.ErrSyncConflict):
-		writeError(writer, request, http.StatusConflict, "SAVE_SYNC_CONFLICT", "存档已被其他会话更新或删除，请重新从存档启动", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"SAVE_SYNC_CONFLICT",
+			"存档已被其他会话更新或删除，请重新从存档启动",
+			map[string]any{},
+		)
 	case errors.Is(err, saves.ErrSequenceReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 	case errors.Is(err, saves.ErrCheckpointUnavailable):
 		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_UNAVAILABLE", "当前状态不能创建检查点", map[string]any{})
 	case errors.Is(err, saves.ErrCheckpointInvalid):
-		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"RPG_CHECKPOINT_INVALID",
+			"检查点内容无效",
+			map[string]any{},
+		)
 	case err != nil:
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "存档请求无效", map[string]any{})
 	default:
@@ -404,7 +439,7 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	digest, err := server.saveService.StateDigest(
+	digest, err := server.saveService.StateFile(
 		request.Context(),
 		request.PathValue("launchId"),
 		server.launchCapability(request),
@@ -414,32 +449,46 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	if errors.Is(err, saves.ErrCheckpointIncompatible) {
-		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_INCOMPATIBLE", "存档与当前启动绑定不兼容", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"RPG_CHECKPOINT_INCOMPATIBLE",
+			"存档与当前启动绑定不兼容",
+			map[string]any{},
+		)
 		return
 	}
 	if errors.Is(err, saves.ErrCheckpointInvalid) {
-		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"RPG_CHECKPOINT_INVALID",
+			"检查点内容无效",
+			map[string]any{},
+		)
 		return
 	}
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "LAUNCH_CONTENT_NOT_FOUND", "启动内容不存在", map[string]any{})
 		return
 	}
-	server.serveBlob(writer, request, digest, "application/octet-stream", true)
+	server.serveBlob(writer, request, digest.BlobID, digest.Digest, "application/octet-stream", true)
 }
 
 func (server *Server) serveBlob(
 	writer http.ResponseWriter,
 	request *http.Request,
-	digest, mediaType string,
+	id, digest, mediaType string,
 	private bool,
 ) {
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenDigest(digest)
+	file, err := server.blobs.OpenID(id)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()

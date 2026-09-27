@@ -42,7 +42,7 @@ func (service *Service) publish(
 		); err != nil {
 			return fmt.Errorf("publish replacement content: %w", err)
 		}
-		if err := service.gc.StageInScope(ctx, scope.Retirements.GC, impact.CandidateBlobIDs); err != nil {
+		if err := service.deletion.StageInScope(ctx, scope.Retirements.DeletionQueue, impact.CandidateBlobIDs); err != nil {
 			return fmt.Errorf("stage replaced blob candidates: %w", err)
 		}
 		if err := scope.Jobs.Succeed(ctx, Outcome{
@@ -59,8 +59,8 @@ func (service *Service) publish(
 	if err != nil {
 		return fmt.Errorf("commit replacement publication: %w", err)
 	}
-	if service.payloadReleases != nil {
-		service.payloadReleases.Signal()
+	if service.cleanupJobs != nil {
+		service.cleanupJobs.Signal()
 	}
 	return nil
 }

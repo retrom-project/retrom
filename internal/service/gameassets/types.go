@@ -58,9 +58,9 @@ type DeleteResult struct {
 	Version int64
 }
 
-// BlobReader opens an immutable CAS object for media inspection.
+// BlobReader opens an immutable owned file for media inspection.
 type BlobReader interface {
-	OpenDigest(string) (*os.File, error)
+	OpenID(string) (*os.File, error)
 }
 
 type Service struct {

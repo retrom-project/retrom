@@ -16,7 +16,10 @@ func BindContentDuplicates(executor dbapi.Executor) *ContentDuplicates {
 	return &ContentDuplicates{executor: executor}
 }
 
-func (records *ContentDuplicates) Snapshot(ctx context.Context, itemID string) (application.ContentSnapshot, error) {
+func (records *ContentDuplicates) Snapshot(
+	ctx context.Context,
+	itemID string,
+) (application.ContentSnapshot, error) {
 	var result application.ContentSnapshot
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT snapshot.id,snapshot.content_kind FROM import_item_source_snapshots snapshot
@@ -50,7 +53,7 @@ func (records *ContentDuplicates) IdentityParts(
 ) ([]application.ContentIdentityPart, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT source.role,blob.sha256,count(*) FROM import_item_source_snapshot_files source
-JOIN blobs blob ON blob.id=source.blob_id WHERE source.source_snapshot_id=?
+JOIN stored_files blob ON blob.id=source.blob_id WHERE source.source_snapshot_id=?
 GROUP BY source.role,blob.sha256 ORDER BY source.role,blob.sha256`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query content identity parts: %w", err)
@@ -76,7 +79,8 @@ func (records *ContentDuplicates) OrderedDiscs(
 ) ([]application.ContentIdentityDisc, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.state,COALESCE(blob.sha256,'') FROM import_item_multidisc_entries entry
-LEFT JOIN blobs blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
+LEFT JOIN stored_files blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=?
+ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query ordered content identity: %w", err)
 	}

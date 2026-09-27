@@ -15,11 +15,11 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	tagpersistence "retrom/internal/persistence/tagging"
 	retromruntime "retrom/internal/runtime"
@@ -91,11 +91,11 @@ VALUES('01980000-0000-7000-8000-000000000800','source-profile','source-test','So
 	driftTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "映射后删除")
 	testassert.False(t, err != nil, err)
 	root := createOrganizedSource(t, dataDir, format)
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	service := New(
 		database.SQL,
 		blobs,
@@ -182,6 +182,7 @@ WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title=
 	}, func() bool { return !strings.Contains(reviewWarnings, `"code":"FIELD_TRUNCATED","field":"developer"`) }), "review metadata = title:%q description:%d developer:%d warnings:%s", reviewTitle, len([]rune(reviewDescription)), len([]rune(reviewDeveloper)), reviewWarnings)
 	assertNoSourceGames(ctx, t, database)
 	assertResumedSourceReview(ctx, t, database, service, created.ID, importWork, mappedTag.TagID, mappedDrafts)
+	assertPendingReviewSurvivesSourceDeletion(t, database.SQL, blobs)
 	_, err = importer.Approve(ctx, reviewItemID, reviewVersion)
 	testassert.False(t, err != nil, err)
 	var discardedItemID string
@@ -211,12 +212,12 @@ WHERE game.metadata_source_kind='IMPORT_RECEIVE'`, mappedTag.TagID, externalTag.
 func assertSourcePayloadReleased(
 	t *testing.T,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	importID, gameID string,
 ) {
 	t.Helper()
 	ctx := t.Context()
-	releases, err := payloadrelease.New(t.Context(), database, blobs, time.Now)
+	releases, err := cleanupjobs.New(t.Context(), database, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

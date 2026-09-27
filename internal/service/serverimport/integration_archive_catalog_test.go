@@ -16,8 +16,8 @@ import (
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	firmwaremanifest "retrom/internal/firmware/manifest"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
@@ -46,7 +46,7 @@ func archiveImportFixture(t *testing.T) (*Service, dbapi.DB, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithBlobStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithFileStore(blobs), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS", Path: root}}, time.Now)
 	t.Cleanup(service.Close)
 	return service, database.SQL, root

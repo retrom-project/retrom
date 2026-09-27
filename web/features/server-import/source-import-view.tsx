@@ -216,7 +216,7 @@ export function SourceImportDetailView(props: DetailViewProps) {
   return <div className="server-import-detail-page source-detail-page"><DetailHeader props={props} reviewURL={reviewURL} phase={phase} />
     {props.summary.counts.reviewPending ? <section className="source-review-callout panel"><div><span>下一步 · 人工审核</span><h2>内容已准备好，但尚未进入游戏库</h2><p>请逐条核对运行检查、标题、封面和视频。只有点击“通过并发布”的游戏才会出现在游戏库；符合条件的条目也可在审核队列中使用快速审批。</p></div><Link href={reviewURL} className="button">打开这批审核队列</Link></section> : null}
     <DetailSummary summary={props.summary} />
-    {props.summary.lastErrorCode ? <p className="server-import-error panel"><strong>{props.summary.lastErrorCode}</strong><span>外部 source 不属于备份；目录变化时请按结果提示重扫或重试。</span></p> : null}
+    {props.summary.lastErrorCode ? <p className="server-import-error panel"><strong>{props.summary.lastErrorCode}</strong><span>目录变化时请按结果提示重扫或重试。</span></p> : null}
     <DetailResults props={props} reviewURL={reviewURL} />
     <ConfirmDialog open={props.cancelOpen} title="取消这次准备任务？" description="已经生成的审核事项会保留，尚未处理的项目会在安全检查点停止。" confirmLabel="确认取消" tone="danger" busy={props.busy} onCancel={() => props.onCancelOpen(false)} onConfirm={props.onCancel} />
     {props.mappingOpen ? props.mappingDrawer : null}<Toast toast={props.error ? { message: props.error, tone: "bad" } : null} onDismiss={props.onDismissError} /></div>;

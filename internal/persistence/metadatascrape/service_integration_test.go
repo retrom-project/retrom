@@ -36,9 +36,9 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/libraryimport"
@@ -71,7 +71,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, mediaFixtureNow)
 	contents := []byte("deterministic metadata fixture")
@@ -130,7 +130,7 @@ WHERE id=?
 	})
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{
@@ -509,7 +509,7 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("arcade evidence dat")))
 	testassert.False(t, err != nil, err)
@@ -601,7 +601,7 @@ NULL,
 	archiveBytes := makeDeterministicZIP(t, archiveFiles)
 	archiveMetadata, err := blobs.Put(bytes.NewReader(archiveBytes))
 	testassert.False(t, err != nil, err)
-	entries, err := scanZIPForTest(blobs.Path(archiveMetadata.SHA256))
+	entries, err := scanZIPForTest(blobs.Path(archiveMetadata.ID))
 	testassert.False(t, err != nil, err)
 	for ordinal, entry := range entries {
 		if _, err := database.SQL.ExecContext(ctx, `
@@ -682,7 +682,7 @@ WHERE id=?
 	})
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{

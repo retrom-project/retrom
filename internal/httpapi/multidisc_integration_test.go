@@ -21,7 +21,7 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
@@ -78,7 +78,7 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	ctx := context.Background()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -89,7 +89,7 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 		t.Fatal(err)
 	}
 	installationID := uuid.NewString()
-	if _, err := recordstore.CreateReferences(ctx, server.database, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, server.database, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
@@ -146,7 +146,7 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(
+	blobID, err := filecatalog.EnsureRecord(
 		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
 	)
 	testassert.False(t, err != nil, err)
@@ -161,7 +161,7 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	if _, err := recordstore.CreateReferences(t.Context(), transaction, "variant_files", `
+	if _, err := recordstore.InsertRows(t.Context(), transaction, "variant_files", `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
 `, variantID, blobID); err != nil {

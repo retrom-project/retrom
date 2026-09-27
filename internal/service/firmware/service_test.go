@@ -24,7 +24,7 @@ func TestInstallRechecksSourceBeforePublishing(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			memory := installFixture()
 			test.change(memory)
-			_, err := New(memory, time.Now).WithPayloadRelease(memory).Install(t.Context(), "requirement", 1,
+			_, err := New(memory, time.Now).WithCleanup(memory).Install(t.Context(), "requirement", 1,
 				InstallRequest{UploadFileID: "file"})
 			if !errors.Is(err, ErrInvalid) || memory.created != nil || memory.consumption != nil || memory.retired || memory.signals != 0 {
 				t.Fatalf("changed source published: memory=%+v error=%v", memory, err)
@@ -37,7 +37,7 @@ func TestInstallRecordsWarningAndSignalsAfterCommit(t *testing.T) {
 	memory := installFixture()
 	expected := "expected"
 	memory.initial.SHA256, memory.current.SHA256 = &expected, &expected
-	result, err := New(memory, func() time.Time { return time.UnixMilli(1234) }).WithPayloadRelease(memory).
+	result, err := New(memory, func() time.Time { return time.UnixMilli(1234) }).WithCleanup(memory).
 		Install(t.Context(), "requirement", 1, InstallRequest{UploadFileID: "file"})
 	if err != nil || result.Status != "HASH_WARNING" || !result.Active || result.CreatedAtMS != 1234 {
 		t.Fatalf("installation=%+v error=%v", result, err)

@@ -191,8 +191,8 @@ func (service *Service) settleFailure(parent context.Context, claim Claim, snaps
 	if err != nil {
 		return errors.Join(cause, fmt.Errorf("settle replacement execution: %w", err))
 	}
-	if changed && !outcome.Retryable && service.payloadReleases != nil {
-		service.payloadReleases.Signal()
+	if changed && !outcome.Retryable && service.cleanupJobs != nil {
+		service.cleanupJobs.Signal()
 	}
 	return nil
 }

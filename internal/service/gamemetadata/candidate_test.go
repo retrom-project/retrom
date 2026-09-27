@@ -60,7 +60,7 @@ func (memory *candidateApplyMemory) UpdateGameMetadata(
 }
 
 func (memory *candidateApplyMemory) StageCandidates(
-	_ context.Context, ids []string,
+	_ context.Context, _ string, ids []string, _ int64,
 ) error {
 	memory.stagedIDs = append([]string(nil), ids...)
 	return memory.stageErr

@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/composition"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -31,7 +31,7 @@ func mediaFixtureNow() time.Time { return time.Date(2028, 4, 5, 6, 7, 8, 0, time
 
 type mediaImportFixture struct {
 	database *store.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	scraper  *metadataservice.Service
 	importID string
 }
@@ -61,7 +61,7 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
 	uploadID := uploadMediaContent(t, database, blobs, root)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
 	created, err := importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "HASHEOUS",
@@ -82,7 +82,7 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 	return mediaImportFixture{database, blobs, scraper, created.ImportJobID}
 }
 
-func uploadMediaContent(t *testing.T, database *store.DB, blobs *blobstore.Store, root string) string {
+func uploadMediaContent(t *testing.T, database *store.DB, blobs *filestore.Store, root string) string {
 	t.Helper()
 	contents := []byte("deterministic Retrom metadata media fixture")
 	service := uploads.New(uploadpersistence.New(database.SQL), blobs, root, mediaFixtureNow)

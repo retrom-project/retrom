@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 func RetireInScope(
@@ -30,6 +30,9 @@ func RetireInScope(
 		if err := scope.Write.Change(ctx, change); err != nil {
 			return RetirementImpact{}, fmt.Errorf("retire replaced content runtime: %w", err)
 		}
+	}
+	if err := scope.Write.RetireContent(ctx, gameID, now); err != nil {
+		return RetirementImpact{}, fmt.Errorf("retirement: %w", err)
 	}
 	impact := RetirementImpact{CandidateBlobIDs: blobs}
 	for _, kind := range []RetirementReferenceKind{
@@ -98,7 +101,7 @@ func releaseReplacementUpload(ctx context.Context, scope RetirementScope, jobID 
 	if err != nil {
 		return fmt.Errorf("read replacement upload consumption: %w", err)
 	}
-	if _, err := payloadrelease.NewScheduler(nil).Consumption(ctx, scope.Payload, id, now); err != nil {
+	if _, err := cleanupjobs.NewScheduler(nil).Consumption(ctx, scope.Payload, id, now); err != nil {
 		return fmt.Errorf("release replacement upload: %w", err)
 	}
 	return nil

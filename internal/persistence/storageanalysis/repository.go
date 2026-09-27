@@ -9,7 +9,6 @@ import (
 	"retrom/internal/service/storageanalysis"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/persistence/blobregistry"
 )
 
 type (
@@ -28,19 +27,8 @@ func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadMod
 		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: begin snapshot: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
-	edges, err := blobregistry.Load()
-	if err != nil {
-		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: load references: %w", err)
-	}
-	if err := validateReferenceCoverage(edges); err != nil {
-		return storageanalysis.ReadModel{}, err
-	}
 	source := storageanalysis.ReadModel{}
-	source.Protected, err = blobregistry.ProtectiveSet(ctx, transaction)
-	if err != nil {
-		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: protected references: %w", err)
-	}
-	source.Usage, err = loadUsage(ctx, transaction, edges)
+	source.Retained, source.Usage, err = loadOwnership(ctx, transaction)
 	if err != nil {
 		return storageanalysis.ReadModel{}, err
 	}
@@ -48,15 +36,11 @@ func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadMod
 	if err != nil {
 		return storageanalysis.ReadModel{}, err
 	}
-	source.Archives, err = loadArchiveMembers(ctx, transaction)
-	if err != nil {
-		return storageanalysis.ReadModel{}, err
-	}
 	source.Saves, err = loadSaveReferences(ctx, transaction)
 	if err != nil {
 		return storageanalysis.ReadModel{}, err
 	}
-	source.CleanupCandidates, err = referenceIDs(ctx, transaction, `SELECT DISTINCT blob_id FROM blob_gc_candidates`)
+	source.CleanupCandidates, err = referenceIDs(ctx, transaction, `SELECT DISTINCT blob_id FROM file_deletions`)
 	if err != nil {
 		return storageanalysis.ReadModel{}, err
 	}
@@ -67,7 +51,7 @@ func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadMod
 }
 
 func loadBlobs(ctx context.Context, transaction dbapi.Tx) (map[string]int64, error) {
-	rows, err := transaction.QueryContext(ctx, `SELECT id, size_bytes FROM blobs ORDER BY id`)
+	rows, err := transaction.QueryContext(ctx, `SELECT id, size_bytes FROM stored_files ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("storageanalysis/service: %w", err)
 	}
@@ -122,29 +106,6 @@ func referenceIDs(ctx context.Context, transaction dbapi.Tx, query string) ([]st
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("storageanalysis: iterate reference IDs: %w", err)
-	}
-	return result, nil
-}
-
-func loadArchiveMembers(ctx context.Context, transaction dbapi.Tx) ([]storageanalysis.ArchiveMember, error) {
-	rows, err := transaction.QueryContext(
-		ctx,
-		`SELECT archive_blob_id,materialized_blob_id FROM archive_entries WHERE materialized_blob_id IS NOT NULL`,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("storageanalysis: query archive members: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]storageanalysis.ArchiveMember, 0)
-	for rows.Next() {
-		var member storageanalysis.ArchiveMember
-		if err := rows.Scan(&member.ArchiveID, &member.MemberID); err != nil {
-			return nil, fmt.Errorf("storageanalysis: scan member: %w", err)
-		}
-		result = append(result, member)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("storageanalysis: iterate archive members: %w", err)
 	}
 	return result, nil
 }

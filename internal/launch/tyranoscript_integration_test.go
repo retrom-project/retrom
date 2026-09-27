@@ -25,9 +25,9 @@ import (
 
 	isolationpersistence "retrom/internal/persistence/isolation"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/isolation"
@@ -61,7 +61,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	assertPreviewCreationRollback(t, service, ReviewPreviewRequest{ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "isolated-rollback"})
@@ -231,7 +231,7 @@ func createTyranoScriptReviewItem(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	now func() time.Time,
 ) (string, *libraryimport.Service) {
@@ -263,7 +263,7 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, now).WithBlobStore(blobs)
+	importService := libraryimport.New(database, now).WithFileStore(blobs)
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "tyranoscript/tyranoscript",

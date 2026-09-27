@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
@@ -75,12 +77,18 @@ ORDER BY upload_file.relative_path,upload_file.id
 	for rows.Next() {
 		var file application.PreparedReusableUploadFile
 		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.BlobID); err != nil {
-			return application.ReconfigurationSource{}, false, fmt.Errorf("scan reconfiguration file: %w", err)
+			return application.ReconfigurationSource{}, false, fmt.Errorf(
+				"scan reconfiguration file: %w",
+				err,
+			)
 		}
 		source.Files = append(source.Files, file)
 	}
 	if err := rows.Err(); err != nil {
-		return application.ReconfigurationSource{}, false, fmt.Errorf("iterate reconfiguration files: %w", err)
+		return application.ReconfigurationSource{}, false, fmt.Errorf(
+			"iterate reconfiguration files: %w",
+			err,
+		)
 	}
 	return source, true, nil
 }
@@ -104,6 +112,13 @@ SELECT state,version FROM import_jobs WHERE id=?
 	if err != nil {
 		return fmt.Errorf("verify reconfiguration source: %w", err)
 	}
+	for _, metadata := range clone.Metadata {
+		if _, err := filecatalog.EnsureRecord(
+			ctx, transaction, metadata, "application/octet-stream", clone.NowMS,
+		); err != nil {
+			return fmt.Errorf("register replacement upload file: %w", err)
+		}
+	}
 	if err := InsertClonedUpload(ctx, transaction, clone.UploadID, clone.SourceType, clone.Files,
 		clone.ManifestDigest, clone.NowMS); err != nil {
 		return err
@@ -123,7 +138,8 @@ func InsertClonedUpload(
 	now int64,
 ) error {
 	if _, err := executor.ExecContext(ctx, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,
+version,
 expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 `, uploadID, sourceType, len(files), totalUploadBytes(files), manifestDigest,
@@ -131,11 +147,22 @@ VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 		return fmt.Errorf("insert cloned upload session: %w", err)
 	}
 	for _, file := range files {
+		// Fresh programmatic inputs become this upload's files; already owned source
+		// inputs remain with their source owner until review preparation copies them.
+		if _, err := executor.ExecContext(
+			ctx,
+			`UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=? AND owner_kind='STAGING'
+AND retired_at_ms IS NULL`,
+			uploadID,
+			file.BlobID,
+		); err != nil {
+			return fmt.Errorf("adopt received file: %w", err)
+		}
 		fileID, err := uuid.NewV7()
 		if err != nil {
 			return fmt.Errorf("allocate cloned upload file ID: %w", err)
 		}
-		if _, err := recordstore.CreateReferences(ctx, executor, "upload_files", `
+		if _, err := recordstore.InsertRows(ctx, executor, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
@@ -157,7 +184,7 @@ func totalUploadBytes(files []application.PreparedReusableUploadFile) int64 {
 	return total
 }
 
-func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID string) error {
+func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID string, now int64) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin remove cloned upload: %w", err)
@@ -172,7 +199,12 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	if consumptionCount != 0 {
 		return nil
 	}
-	if _, err := recordstore.DeleteReferences(
+	if err := fileownership.RetireAll(
+		ctx, transaction, fileownership.Owner{Kind: "UPLOAD", ID: uploadID}, now,
+	); err != nil {
+		return fmt.Errorf("retire unused replacement upload: %w", err)
+	}
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		transaction,
 		"import_files",
@@ -180,7 +212,7 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	); err != nil {
 		return fmt.Errorf("release normalized upload: %w", err)
 	}
-	if _, err := recordstore.DeleteReferences(
+	if _, err := recordstore.DeleteRows(
 		ctx,
 		transaction,
 		"upload_files",

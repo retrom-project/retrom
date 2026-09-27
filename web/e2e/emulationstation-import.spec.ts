@@ -46,9 +46,9 @@ type ImportItem = {
 };
 
 type StorageSnapshot = {
-  totals: { registeredBytes: string; protectedBytes: string; unreferencedBytes: string; blobCount: number };
-  categories: Array<{ code: string; bytes: string; blobCount: number }>;
-  details: { cleanupCandidates: { blobCount: number; bytes: string } };
+  totals: { registeredBytes: string; retainedBytes: string; pendingDeleteBytes: string; fileCount: number };
+  categories: Array<{ code: string; bytes: string; fileCount: number }>;
+  details: { cleanupCandidates: { fileCount: number; bytes: string } };
 };
 
 test.beforeEach(async ({ page }) => {
@@ -502,16 +502,16 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     const after = await readStorageSnapshot(page);
     return {
       collectedBytes: BigInt(storageBeforeDelete.totals.registeredBytes) - BigInt(after.totals.registeredBytes),
-      collectedCount: storageBeforeDelete.totals.blobCount - after.totals.blobCount,
-      releasedProtection: BigInt(storageBeforeDelete.totals.protectedBytes) - BigInt(after.totals.protectedBytes),
-      unreferenced: after.totals.unreferencedBytes,
+      collectedCount: storageBeforeDelete.totals.fileCount - after.totals.fileCount,
+      releasedProtection: BigInt(storageBeforeDelete.totals.retainedBytes) - BigInt(after.totals.retainedBytes),
+      unreferenced: after.totals.pendingDeleteBytes,
       candidates: after.details.cleanupCandidates,
     };
   }, { timeout: 60_000 }).toEqual({
     collectedBytes: releasedBytes,
     collectedCount: 3,
     releasedProtection: releasedBytes,
-    unreferenced: storageBeforeDelete.totals.unreferencedBytes,
+    unreferenced: storageBeforeDelete.totals.pendingDeleteBytes,
     candidates: storageBeforeDelete.details.cleanupCandidates,
   });
 

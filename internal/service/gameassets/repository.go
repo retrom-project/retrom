@@ -15,7 +15,7 @@ type Repository interface {
 type WriteScope interface {
 	GameVersion(context.Context, string) (int64, error)
 	AssetExists(context.Context, string, string) (bool, error)
-	RemoveSlot(context.Context, string, string, int64) ([]string, error)
+	RemoveSlot(context.Context, string, string, int64, int64) ([]string, error)
 	Create(context.Context, AssetRecord) error
 	ConsumeUpload(context.Context, ConsumptionRecord) error
 	UpdateGame(context.Context, string, int64, int64) (bool, error)
@@ -29,11 +29,11 @@ type UploadedFile struct {
 }
 
 type AssetRecord struct {
-	ID, GameID, BlobID, Kind string
-	Ordinal                  int64
-	WidthPX, HeightPX        *int64
-	MediaType                string
-	CreatedAtMS              int64
+	ID, GameID, BlobID, Kind, UploadID string
+	Ordinal                            int64
+	WidthPX, HeightPX                  *int64
+	MediaType                          string
+	CreatedAtMS                        int64
 }
 
 type ConsumptionRecord struct {

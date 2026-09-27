@@ -23,9 +23,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -173,10 +173,10 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	contents := []byte("duplicate-content-identity-fixture")
 	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 
@@ -281,7 +281,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	rom := []byte("raw-gba-member")
 	archive := makeZIP(t, map[string][]byte{"folder/Wrapped.gba": rom, "README.txt": []byte("readme")})
@@ -323,7 +323,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, database, jobID)
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := New(database.SQL, time.Now).WithFileStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		CreateRequest{
@@ -371,8 +371,8 @@ archive.sha256,
 s.source_archive_entry_ordinal
 FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
-JOIN blobs b ON b.id=s.blob_id
-JOIN blobs archive ON archive.id=s.source_archive_blob_id
+JOIN stored_files b ON b.id=s.blob_id
+JOIN stored_files archive ON archive.id=s.source_archive_blob_id
 WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &logicalName, &contentSHA, &archiveSHA, &archiveOrdinal); err != nil {
 		t.Fatal(err)
@@ -390,7 +390,7 @@ b.sha256,
 f.source_archive_blob_id
 FROM games g
 JOIN game_files f ON f.game_id=g.id
-JOIN blobs b ON b.id=f.blob_id
+JOIN stored_files b ON b.id=f.blob_id
 WHERE g.id=?
 `, approved.GameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||
 		publishedLogical != "Wrapped.gba" ||
@@ -414,6 +414,7 @@ WHERE id=?
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT version FROM import_jobs WHERE id=?`, created.ImportJobID).Scan(&sourceVersion); err != nil {
 		t.Fatal(err)
 	}
+	assertFailedReconfigurationRetiresClone(t, importer, database.SQL, created.ImportJobID, sourceVersion)
 	reconfigured, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "psp/ppsspp"),
 		MetadataProvider:         "NONE",
@@ -432,11 +433,11 @@ FROM import_jobs source
 JOIN import_jobs replacement ON replacement.id=?
 JOIN import_items replacement_item ON replacement_item.import_job_id=replacement.id
 JOIN import_item_source_files replacement_file ON replacement_file.import_item_id=replacement_item.id
-JOIN blobs replacement_blob ON replacement_blob.id=replacement_file.blob_id
+JOIN stored_files replacement_blob ON replacement_blob.id=replacement_file.blob_id
 JOIN import_job_file_resolutions resolution ON resolution.import_job_id=source.id
 AND resolution.replacement_import_job_id=replacement.id
 JOIN upload_files source_file ON source_file.id=resolution.upload_file_id
-JOIN blobs source_blob ON source_blob.id=source_file.final_blob_id
+JOIN stored_files source_blob ON source_blob.id=source_file.final_blob_id
 WHERE source.id=?
 `, reconfigured.ImportJobID, created.ImportJobID).Scan(
 		&sourceState,
@@ -465,4 +466,5 @@ WHERE source.id=?
 	}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("stale reconfiguration error = %v", err)
 	}
+	assertReconfigurationFilesIndependent(t, database.SQL, blobs, created.ImportJobID, reconfigured.ImportJobID)
 }

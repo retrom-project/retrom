@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -34,13 +34,13 @@ type uploadRetryFixture struct {
 	version int64
 }
 type retryUploadBlobs struct {
-	blobs *blobstore.Store
+	blobs *filestore.Store
 	calls atomic.Int64
 }
 
-func (source *retryUploadBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (source *retryUploadBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	if source.calls.Add(1) == 1 {
-		return blobstore.Metadata{}, errors.New("temporary upload CAS failure")
+		return filestore.Metadata{}, errors.New("temporary upload CAS failure")
 	}
 	return source.blobs.Put(reader)
 }
@@ -58,7 +58,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}

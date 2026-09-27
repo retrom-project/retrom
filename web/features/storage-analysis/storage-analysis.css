@@ -23,10 +23,7 @@
 .storage-tone-saves { background: #0f8b82; }
 .storage-tone-media { background: #45a36b; }
 .storage-tone-workflow { background: #d08b2d; }
-.storage-tone-runtime-snapshot { background: #c45f6d; }
-.storage-tone-shared-durable { background: #7551a6; }
-.storage-tone-other-referenced { background: #7b8495; }
-.storage-tone-unreferenced { background: #b9b4aa; }
+.storage-tone-pending-delete { background: #b9b4aa; }
 .storage-details { margin-bottom: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .storage-details article { min-width: 0; padding: 20px; }
 .storage-details article > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -49,10 +46,6 @@
 .storage-loading > * { min-height: 126px; border-radius: var(--radius-panel); background: linear-gradient(100deg, var(--surface) 20%, var(--surface-subtle) 40%, var(--surface) 60%); background-size: 300% 100%; animation: skeleton 1.5s infinite; }
 .storage-loading div { min-height: 440px; grid-column: span 3; }
 .storage-loading div:last-child { min-height: 150px; }
-
-@media (min-width: 2200px) {
-  .storage-category-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-}
 
 @media (max-width: 1180px) {
   .storage-category-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

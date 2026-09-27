@@ -54,7 +54,7 @@ func (service *Service) validateParentArchive(
 	jobID, workerID string,
 ) (validatedParentArchive, bool) {
 	entries, err := importing.ScanZIP(
-		ctx, service.blobs.Path(candidate.blobSHA), importing.DefaultArchiveLimits(),
+		ctx, service.blobs.Path(candidate.blobID), importing.DefaultArchiveLimits(),
 	)
 	if err != nil {
 		code := ParentErrorArchiveUnsafe

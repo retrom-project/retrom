@@ -7,12 +7,12 @@ import (
 )
 
 var (
-	ErrReviewCoverUploadInvalid  = errors.New("REVIEW_COVER_UPLOAD_INVALID")
-	ErrReviewCoverCASUnavailable = errors.New("REVIEW_COVER_CAS_UNAVAILABLE")
-	ErrReviewCoverImageInvalid   = errors.New("REVIEW_COVER_IMAGE_INVALID")
-	ErrReviewCoverVersion        = errors.New("REVIEW_COVER_VERSION_CONFLICT")
-	ErrReviewCoverConsumed       = errors.New("REVIEW_COVER_UPLOAD_CONSUMED")
-	ErrReviewCoverIntegrity      = errors.New("REVIEW_COVER_OWNERSHIP_INVALID")
+	ErrReviewCoverUploadInvalid      = errors.New("REVIEW_COVER_UPLOAD_INVALID")
+	ErrReviewCoverStorageUnavailable = errors.New("REVIEW_COVER_FILE_STORAGE_UNAVAILABLE")
+	ErrReviewCoverImageInvalid       = errors.New("REVIEW_COVER_IMAGE_INVALID")
+	ErrReviewCoverVersion            = errors.New("REVIEW_COVER_VERSION_CONFLICT")
+	ErrReviewCoverConsumed           = errors.New("REVIEW_COVER_UPLOAD_CONSUMED")
+	ErrReviewCoverIntegrity          = errors.New("REVIEW_COVER_OWNERSHIP_INVALID")
 )
 
 type ReviewCoverRequest struct {
@@ -51,7 +51,7 @@ type ReviewCoverExisting struct {
 	HasConsumption bool
 }
 type ReviewCoverBlobs interface {
-	OpenDigest(string) (io.ReadCloser, error)
+	OpenID(string) (io.ReadCloser, error)
 }
 type ReviewCoverRepository interface {
 	Source(context.Context, string) (ReviewCoverSource, bool, error)

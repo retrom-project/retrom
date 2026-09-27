@@ -73,16 +73,16 @@ func TestGameSaveRestoreUsesCurrentSelectedSlot(t *testing.T) {
 	if b.SaveStateID != a.SaveStateID {
 		t.Fatal("restore did not update selected slot")
 	}
-	digest, err := f.saves.StateDigest(f.ctx, session.LaunchID, session.Capability)
+	digest, err := f.saves.StateFile(f.ctx, session.LaunchID, session.Capability)
 	expected := sha256.Sum256([]byte("second"))
-	if err != nil || digest != hex.EncodeToString(expected[:]) {
-		t.Fatalf("restore did not use current slot: %s %v", digest, err)
+	if err != nil || digest.Digest != hex.EncodeToString(expected[:]) {
+		t.Fatalf("restore did not use current slot: %s %v", digest.Digest, err)
 	}
 	next := f.createLaunchFromSave(t, &a.SaveStateID)
-	digest, err = f.saves.StateDigest(f.ctx, next.LaunchID, next.Capability)
+	digest, err = f.saves.StateFile(f.ctx, next.LaunchID, next.Capability)
 	expected = sha256.Sum256([]byte("second"))
-	if err != nil || digest != hex.EncodeToString(expected[:]) {
-		t.Fatalf("next restore is stale: %s %v", digest, err)
+	if err != nil || digest.Digest != hex.EncodeToString(expected[:]) {
+		t.Fatalf("next restore is stale: %s %v", digest.Digest, err)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestGameSaveRejectsStaleWriterAndDeletedSlot(t *testing.T) {
 	stale := f.createLaunchFromSave(t, &a.SaveStateID)
 	active := f.createLaunchFromSave(t, &a.SaveStateID)
 	syncGameData(t, f, active, "newer")
-	if _, err := f.saves.StateDigest(f.ctx, stale.LaunchID, stale.Capability); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
+	if _, err := f.saves.StateFile(f.ctx, stale.LaunchID, stale.Capability); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
 		t.Fatalf("stale launch restored a changed save: %v", err)
 	}
 	_, _, err := f.saves.CreateManual(f.ctx, stale.LaunchID, stale.Capability, uuid.NewString(), manualRequest(t, "stale", []byte("older"), screenshotPNG(t)))

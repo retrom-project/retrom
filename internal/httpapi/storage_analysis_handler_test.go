@@ -19,10 +19,10 @@ import (
 func TestAdminStorageAnalysisContractAndAccess(t *testing.T) {
 	server := newTestServer(t)
 	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
 VALUES('storage-test','0000000000000000000000000000000000000000000000000000000000000001',42,
 '00000000000000000000000000000001','0000000000000000000000000000000000000001','00000001',
-'application/octet-stream',0)`); err != nil {
+'application/octet-stream',0,'GAME','storage-game')`); err != nil {
 		t.Fatal(err)
 	}
 	handler := server.Handler()
@@ -39,12 +39,12 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 	}
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return response.Header().Get("Cache-Control") != "private, no-store" },
-		func() bool { return body.Scope != "REGISTERED_CAS_PAYLOAD_V1" },
+		func() bool { return body.Scope != "OWNED_FILES_V1" },
 		func() bool { return body.Totals.RegisteredBytes != "42" },
-		func() bool { return body.Totals.ProtectedBytes != "0" },
-		func() bool { return body.Totals.UnreferencedBytes != "42" },
-		func() bool { return body.Totals.BlobCount != 1 },
-		func() bool { return len(body.Categories) != 9 },
+		func() bool { return body.Totals.RetainedBytes != "42" },
+		func() bool { return body.Totals.PendingDeleteBytes != "0" },
+		func() bool { return body.Totals.FileCount != 1 },
+		func() bool { return len(body.Categories) != 6 },
 		func() bool { return len(body.Excluded) != 7 },
 		func() bool { return strings.Contains(response.Body.String(), "storage-test") },
 		func() bool { return strings.Contains(response.Body.String(), "sha256") },
@@ -57,6 +57,7 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 	testassert.Falsef(t, unknownQuery.Code != http.StatusBadRequest,
 		"storage query = %d %s", unknownQuery.Code, unknownQuery.Body.String())
 
+	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET retired_at_ms=1 WHERE id='storage-test'`)
 	cleanupKey := uuid.NewString()
 	cleanupRequest := httptest.NewRequestWithContext(
 		context.Background(), http.MethodPost, "/api/v1/admin/storage-cleanups", nil,
@@ -74,7 +75,7 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 	}
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return cleanupResponse.Header().Get("Cache-Control") != "private, no-store" },
-		func() bool { return cleanupBody.ScheduledBlobCount != 1 },
+		func() bool { return cleanupBody.ScheduledFileCount != 1 },
 		func() bool { return cleanupBody.ScheduledBytes != "42" },
 		func() bool { return cleanupBody.AcceptedAtMS <= 0 },
 	), "storage cleanup response = headers:%v body:%s", cleanupResponse.Header(), cleanupResponse.Body.String())

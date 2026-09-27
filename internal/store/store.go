@@ -49,11 +49,6 @@ type migrationSource struct {
 	contents []byte
 }
 
-type MigrationLineage struct {
-	Version int64
-	Digest  string
-}
-
 type DB struct {
 	SQL      dbapi.DB
 	ReadOnly dbapi.DB
@@ -266,42 +261,6 @@ func migrationSources() ([]migrationSource, error) {
 		return nil, fmt.Errorf("%w: no migrations", errMigrationFilename)
 	}
 	return sources, nil
-}
-
-func CurrentMigrationLineage() (MigrationLineage, error) {
-	sources, err := migrationSources()
-	if err != nil {
-		return MigrationLineage{}, err
-	}
-	digest := sha256.New()
-	for _, source := range sources {
-		_, _ = digest.Write([]byte(source.name))
-		_, _ = digest.Write([]byte{'\x00'})
-		_, _ = digest.Write([]byte(source.checksum))
-		_, _ = digest.Write([]byte{'\n'})
-	}
-	return MigrationLineage{
-		Version: int64(len(sources)),
-		Digest:  hex.EncodeToString(digest.Sum(nil)),
-	}, nil
-}
-
-func ValidateCurrentMigrationLineage(ctx context.Context, database dbapi.DB) (MigrationLineage, error) {
-	lineage, err := CurrentMigrationLineage()
-	if err != nil {
-		return MigrationLineage{}, err
-	}
-	var count int64
-	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil {
-		return MigrationLineage{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
-	}
-	if count != lineage.Version {
-		return MigrationLineage{}, fmt.Errorf("%w: incomplete migration lineage", ErrSchemaInvalid)
-	}
-	if err := inspectMigrationHistory(ctx, database, 2); err != nil {
-		return MigrationLineage{}, err
-	}
-	return lineage, nil
 }
 
 func (database *DB) Close() error {

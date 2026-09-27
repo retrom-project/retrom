@@ -12,9 +12,9 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/testsupport"
 )
 
@@ -22,7 +22,7 @@ type deduplicateFixture struct {
 	ctx      context.Context
 	database dbapi.DB
 	service  *Service
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	platform string
 }
 
@@ -31,7 +31,7 @@ func newDeduplicateFixture(t *testing.T) deduplicateFixture {
 	ctx := t.Context()
 	database, blobs, _ := openImportGroupFixture(t, ctx)
 	return deduplicateFixture{
-		ctx, database.SQL, New(database.SQL, time.Now).WithBlobStore(blobs), blobs,
+		ctx, database.SQL, New(database.SQL, time.Now).WithFileStore(blobs), blobs,
 		testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 	}
 }
@@ -42,7 +42,7 @@ func (fixture deduplicateFixture) create(t *testing.T, name, contents string, co
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}

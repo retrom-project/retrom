@@ -294,7 +294,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.payloadReleases.Signal()
+	server.cleanupJobs.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(
 		writer,

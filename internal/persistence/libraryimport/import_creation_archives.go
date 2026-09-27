@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -18,7 +17,13 @@ func (records creationRecords) Artifact(
 	ctx context.Context,
 	change application.CreationArtifact,
 ) (string, error) {
-	id, err := blobcatalog.EnsureRecord(ctx, records.transaction, change.Metadata, change.MediaType, change.NowMS)
+	id, err := filecatalog.EnsureRecord(
+		ctx,
+		records.transaction,
+		change.Metadata,
+		change.MediaType,
+		change.NowMS,
+	)
 	if err != nil {
 		return "", fmt.Errorf("register creation artifact: %w", err)
 	}
@@ -31,27 +36,11 @@ func (records creationRecords) Archive(
 	now int64,
 ) (map[int]string, error) {
 	materialized := make(map[int]string, len(archive.Materialized))
-	ordinals := make([]int, 0, len(archive.Materialized))
-	for ordinal := range archive.Materialized {
-		ordinals = append(ordinals, ordinal)
-	}
-	sort.Ints(ordinals)
-	for _, ordinal := range ordinals {
-		id, err := records.Artifact(
-			ctx,
-			application.CreationArtifact{
-				Metadata:  archive.Materialized[ordinal],
-				MediaType: "application/octet-stream",
-				NowMS:     now,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		materialized[ordinal] = id
+	for ordinal, metadata := range archive.Materialized {
+		materialized[ordinal] = metadata.ID
 	}
 	for _, entry := range archive.Entries {
-		if err := records.archiveEntry(ctx, archive.BlobID, entry, materialized[entry.Ordinal], now); err != nil {
+		if err := records.archiveEntry(ctx, archive.BlobID, entry, now); err != nil {
 			return nil, err
 		}
 	}
@@ -62,14 +51,12 @@ func (records creationRecords) archiveEntry(
 	ctx context.Context,
 	id string,
 	entry importing.ArchiveEntry,
-	blobID string,
 	now int64,
 ) error {
 	var current importing.ArchiveEntry
-	var currentBlob *string
 	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,
- uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id
+ uncompressed_size_bytes,crc32,md5,sha1,sha256
 FROM archive_entries WHERE archive_blob_id=? AND ordinal=?`, id, entry.Ordinal).Scan(
 		&current.OriginalPath,
 		&current.NormalizedPath,
@@ -81,10 +68,9 @@ FROM archive_entries WHERE archive_blob_id=? AND ordinal=?`, id, entry.Ordinal).
 		&current.MD5,
 		&current.SHA1,
 		&current.SHA256,
-		&currentBlob,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return records.insertArchiveEntry(ctx, id, entry, blobID, now)
+		return records.insertArchiveEntry(ctx, id, entry, now)
 	}
 	if err != nil {
 		return fmt.Errorf("read existing creation archive entry: %w", err)
@@ -93,38 +79,16 @@ FROM archive_entries WHERE archive_blob_id=? AND ordinal=?`, id, entry.Ordinal).
 	if current != entry {
 		return application.ErrVersionConflict
 	}
-	if blobID == "" {
-		return nil
-	}
-	if currentBlob != nil {
-		if *currentBlob != blobID {
-			return application.ErrVersionConflict
-		}
-		return nil
-	}
-	result, err := recordstore.UpdateArchiveEntries(
-		ctx,
-		records.transaction,
-		recordstore.Update{
-			Set: `materialized_blob_id=?`,
-			Scope: recordstore.Scope{
-				Where: `archive_blob_id=? AND ordinal=? AND materialized_blob_id IS NULL`,
-				Args:  []any{id, entry.Ordinal},
-			},
-			Values: []any{blobID},
-		},
-	)
-	return creationMutation(result, err, "attach creation archive artifact", 1)
+	return nil
 }
 
 func (records creationRecords) insertArchiveEntry(
 	ctx context.Context,
 	id string,
 	entry importing.ArchiveEntry,
-	blobID string,
 	now int64,
 ) error {
-	result, err := recordstore.CreateReferences(
+	result, err := recordstore.InsertRows(
 		ctx,
 		records.transaction,
 		"archive_entries",
@@ -132,8 +96,8 @@ func (records creationRecords) insertArchiveEntry(
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,
  ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,
- materialized_blob_id,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+ created_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		id,
 		entry.Ordinal,
 		entry.OriginalPath,
@@ -146,8 +110,27 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		entry.MD5,
 		entry.SHA1,
 		entry.SHA256,
-		creationNullable(blobID),
 		now,
 	)
 	return creationMutation(result, err, "insert creation archive entry", 1)
+}
+
+// A copied archive carries its own immutable scan facts; no physical ownership edge remains.
+func (records creationRecords) copyArchiveFacts(ctx context.Context, from, to string) error {
+	_, err := records.transaction.ExecContext(
+		ctx,
+		`INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,
+ascii_casefold_path,archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,
+sha1,sha256,created_at_ms)
+SELECT ?,ordinal,original_relative_path,normalized_path,ascii_casefold_path,archive_format,
+compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms FROM archive_entries
+WHERE archive_blob_id=?
+ON CONFLICT(archive_blob_id,ordinal) DO NOTHING`,
+		to,
+		from,
+	)
+	if err != nil {
+		return fmt.Errorf("copy archive facts to owned file: %w", err)
+	}
+	return nil
 }

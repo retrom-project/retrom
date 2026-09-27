@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobgc"
-	application "retrom/internal/service/payloadrelease"
+	"retrom/internal/persistence/filedeletion"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type Repository struct{ database dbapi.DB }
@@ -28,7 +28,7 @@ func (repository *Repository) WithProviderExpiration(
 		application.ProviderExpirationScope{
 			Read:  records,
 			Write: records,
-			GC: blobgc.BindGC(
+			DeletionQueue: filedeletion.BindQueue(
 				tx,
 				application.WorkerScope{},
 			),

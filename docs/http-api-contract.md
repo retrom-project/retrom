@@ -44,7 +44,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/invitations`、`/admin/users/{userId}/password-reset-links` | `state=ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`、`cursor/limit`；默认 ACTIVE |
 | `/admin/bios` | `platformId`、`coreId`、`providerId`、`targetId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
-| `/admin/storage-analysis` | 无 query；只读已登记 CAS payload 容量快照；写操作使用独立 `/admin/storage-cleanups` 资源 |
+| `/admin/storage-analysis` | 无 query；只读已登记独立文件存储 payload 容量快照；写操作使用独立 `/admin/storage-cleanups` 资源 |
 
 `platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，不能先分页再在 Go 内存二次筛选。
 
@@ -56,7 +56,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 审核列表的 `updatedAtMs` 使用 ReviewDraft 的 `updated_at_ms`，与 `UPDATED_ASC/UPDATED_DESC` 及续页游标中的时间、Item ID 比较保持一致。
 
-`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 最多返回一个当前抓取批次；重新抓取会取消旧任务并原子替换旧批次及其候选；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"SOURCE",sourceRefId,sourceImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags}`；统一来源的 `sourceFlags={hidden,adult,kidGame}` 与解析格式无关，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,providerId,targetId,widthPx,heightPx,capturedAtMs,url}`；只有当前 ReviewDraft 选择的 Validation 仍匹配当前来源快照、目标平台、稳定 Provider/Target 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。草稿 PATCH、来源替换、DAT 或依赖处理必须在写事务中生成或复用完全匹配的 Validation 并原子切换当前选择；详情不返回历史 Validation，也不定义 `validationStale` 字段。Provider Bundle 的只向前升级不改变稳定 Target，也不会单独改变审核结论。当前 READY Validation 满足发布检查时 `canApprove=true`；除 RPG Maker 与 ScummVM 项目外的条目还可按既有 `REVIEW_SCREENSHOT_OVERRIDE` 规则使用当前运行截图人工放行，RPG Maker 截图不能覆盖缺失依赖，ScummVM 截图不能覆盖候选未选择或不受支持；输入变化时旧截图退出当前投影，不能继续解锁发布。`sourceFiles` 按 `import_files` 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据导入文件 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 GameFiles 文件集合完全相同的 Game，空集合返回 `[]`。
+`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 最多返回一个当前抓取批次；重新抓取会取消旧任务并原子替换旧批次及其候选；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"SOURCE",sourceRefId,sourceImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags}`；统一来源的 `sourceFlags={hidden,adult,kidGame}` 与解析格式无关，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,providerId,targetId,widthPx,heightPx,capturedAtMs,url}`；只有当前 ReviewDraft 选择的 Validation 仍匹配当前来源快照、目标平台、稳定 Provider/Target 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。草稿 PATCH、来源替换、DAT 或依赖处理必须在写事务中生成或复用完全匹配的 Validation 并原子切换当前选择；详情不返回历史 Validation，也不定义 `validationStale` 字段。Provider Bundle 的只向前升级不改变稳定 Target，也不会单独改变审核结论。当前 READY Validation 满足发布检查时 `canApprove=true`；除 RPG Maker 与 ScummVM 项目外的条目还可按既有 `REVIEW_SCREENSHOT_OVERRIDE` 规则使用当前运行截图人工放行，RPG Maker 截图不能覆盖缺失依赖，ScummVM 截图不能覆盖候选未选择或不受支持；输入变化时旧截图退出当前投影，不能继续解锁发布。`sourceFiles` 按审核项自己的来源快照投影 size/SHA-256/MD5/CRC32，原始 name 来自仅作来源记录的 `import_files`；普通文件读取 snapshot 的独立文件，归档成员使用冻结的 archive 来源标识，不能依赖已释放的上传载荷指针；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据审核项独立文件已复制的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 GameFiles 文件集合完全相同的 Game，空集合返回 `[]`。
 
 错误统一为：
 
@@ -128,7 +128,7 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 - 创建上传、上传终结、ImportJob、Launch、账号管理、可能投递兼容性任务的游戏移动预览、游戏永久删除、审核通过/Discard 等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `principal + operationId + key` 保存语义请求摘要和结果 24 小时；同一账号同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`，跨账号使用同 key 是独立命名空间。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header、密码或任意 capability；Launch 与一次性链接 replay 按服务端 key/公开 ID重新派生同一 secret 响应。
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复业务决定。
 
-语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的 CAS Blob 交给 GC。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
+语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的独立文件存储 Blob 交给 后台删除。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
 
 ## 4. 浏览器文件与目录上传
 
@@ -154,7 +154,7 @@ Idempotency-Key: <uuid>
 
 ### 4.2 分块、恢复与完成
 
-上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
+上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与独立文件存储组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
 
 终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
 
@@ -168,10 +168,10 @@ Complete 的输入、版本或当前状态冲突返回 `409 VERSION_CONFLICT`；
 | --- | --- |
 | `GET /api/v1/admin/uploads/{uploadId}` | 返回会话、文件、已接收 part bitmap 和过期时间，用于断点恢复。 |
 | `PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | body 是单个分块；必须携带精确 `Content-Range` 与 RFC 9530 `Content-Digest: sha-256=:base64:`。允许乱序；同 part/同 digest 幂等，内容不同冲突。正常只接受 CREATED/UPLOADING；若终结以 `UPLOAD_PART_MISSING|UPLOAD_PART_CORRUPT` 失败，FAILED session 只允许重传错误明细列出的 part，并回到 UPLOADING。 |
-| `POST /api/v1/admin/uploads/{uploadId}/complete` | 必须携带当前 `If-Match` 和 `Idempotency-Key`。短事务把 `finalizationNo` 加 1、冻结本次 part 输入，创建该编号唯一的 kind=`UPLOAD_FINALIZE`/scope=`UPLOAD_SESSION` Job，更新 session 当前 job 并置 session/未完成 file 为 `FINALIZING`，返回 `202 {"uploadId":"...","jobId":"...","finalizationNo":1,"state":"FINALIZING"}`。Worker 在事务外校验每个 byte 恰好出现一次，流式组装并从实际 bytes 计算最终 hash/CAS；全部成功才置 `COMPLETE`。同一次的可重试 I/O 故障使用该 Job retry；缺失/损坏 part 修复后必须以新 key 再次 complete，创建递增编号的新 Job 并保留旧 Job/事件。同一个已完成文件不重组装。 |
+| `POST /api/v1/admin/uploads/{uploadId}/complete` | 必须携带当前 `If-Match` 和 `Idempotency-Key`。短事务把 `finalizationNo` 加 1、冻结本次 part 输入，创建该编号唯一的 kind=`UPLOAD_FINALIZE`/scope=`UPLOAD_SESSION` Job，更新 session 当前 job 并置 session/未完成 file 为 `FINALIZING`，返回 `202 {"uploadId":"...","jobId":"...","finalizationNo":1,"state":"FINALIZING"}`。Worker 在事务外校验每个 byte 恰好出现一次，流式组装并从实际 bytes 计算最终 hash/独立文件存储；全部成功才置 `COMPLETE`。同一次的可重试 I/O 故障使用该 Job retry；缺失/损坏 part 修复后必须以新 key 再次 complete，创建递增编号的新 Job 并保留旧 Job/事件。同一个已完成文件不重组装。 |
 | `DELETE /api/v1/admin/uploads/{uploadId}` | 必须携带当前 `If-Match`。没有任何 consumption 且未运行终结时同步置 `CANCELLED` 并返回 204；FINALIZING 时只把 Job 转 `CANCEL_REQUESTED`、返回 `202 {"status":"CANCELLATION_REQUESTED","jobId":"..."}`，session 在 Worker 有界停止/清理前保持 FINALIZING 并带 `cancelRequested=true`。已被 Import/Game/BIOS/DAT/Asset 使用时返回冲突。 |
 
-Upload 状态仅为 `CREATED | UPLOADING | FINALIZING | COMPLETE | FAILED | CANCELLED | EXPIRED`。客户端声明的 size/digest 只用于传输校验，CAS hash 必须由服务端从实际 bytes 计算。只有 `COMPLETE` upload 才能创建 ImportJob 或被其他领域消费；前端必须通过 Job SSE/快照等待，不得在 202 后立即创建 Import。
+Upload 状态仅为 `CREATED | UPLOADING | FINALIZING | COMPLETE | FAILED | CANCELLED | EXPIRED`。客户端声明的 size/digest 只用于传输校验，独立文件存储 hash 必须由服务端从实际 bytes 计算。只有 `COMPLETE` upload 才能创建 ImportJob 或被其他领域消费；前端必须通过 Job SSE/快照等待，不得在 202 后立即创建 Import。
 
 上传 part 有 `Content-Length` 时先校验其与 `Content-Range`/8 MiB 上限一致；HTTP/2 未提供该 header 时仍允许流式接收，读到 range 声明长度或上限后的第一个多余 byte 立即以 `400 UPLOAD_RANGE_MISMATCH` / `413 UPLOAD_PART_TOO_LARGE` 终止并删除临时 part。不能因为 NG buffering 或客户端 header 缺失而无界读入内存。
 
@@ -195,7 +195,7 @@ POST /api/v1/admin/imports
 
 准入由 `service/libraryimport.ImportAdmissions` 统一编排，`persistence/libraryimport` 在同一短事务读取完整上传文件集合、目标版本/能力、活动标签与操作者，并在写入前校验上传及目标版本。任何写入或提交失败都不返回创建结果，也不通知 worker；只有成功提交才派发。无效或发生版本漂移的业务输入返回 `409 IMPORT_INPUT_INVALID`，存储故障返回 `500 INTERNAL_ERROR`，不得把数据库故障伪装为输入冲突。
 
-归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
+归档安全扫描、解压、实际 member hash、独立文件存储物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到独立文件存储；不得为“扫描 hash”和“物化独立文件存储”再次解压同一 member，也不得把被规范器排除的候选发布进独立文件存储。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
 
 请求 JSON、Upload 状态/用途、目标目录或 capability 在短准入阶段无效时仍在创建前返回 4xx。必须读取项目内容才能确定的错误（归档加密/越限/路径冲突、项目根缺失或歧义、RPG 世代不兼容、多盘播放列表缺失等）在 202 后把 ImportJob/Job 置 `FAILED`，并通过列表/详情的 `lastErrorCode/errorCode` 和事件返回稳定错误码；不得让原 POST 长时间占用连接。RPG Maker worker 从项目 bytes 唯一检测世代后，才把冻结的虚拟 core 绑定解析为 Provider Target；`bindingState=PENDING` 时详情的 `providerId/targetId/bundleSha256` 必须为 null，不能暴露尚未完成校验的内部候选。
 
@@ -218,7 +218,7 @@ Idempotency-Key: 0198...
 }
 ```
 
-source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 resolution 的 REJECTED ImportJobFile。服务端只克隆这些待处理文件的逻辑 UploadFile 行并复用相同 final Blob，创建新的 COMPLETE UploadSession 后按请求配置执行普通 Import 创建；不能复制 CAS bytes、消费原 UploadSession 或把旧 disposition 改成 SOURCE。replacement ImportJob 返回 `202` 与 `Location`，并以 `reconfiguredFromImportJobId` 回指 source；source 详情的对应 `fileOutcomes[].resolution` 返回 `action=RECONFIGURED/replacementImportJobId/resolvedAtMs`。replacement 创建、全部 resolution、source `resolvedRejectedFileCount/version/state` 与 lineage 必须在同一短事务提交；任何版本漂移或文件已被接管均返回 `409 IMPORT_RECONFIGURE_CONFLICT`，不得留下部分 resolution。重新配置仍执行完整 archive/platform 校验，不提供安全检查 override。
+source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 resolution 的 REJECTED ImportJobFile。服务端只克隆这些待处理文件的逻辑 UploadFile 行并复用相同 final Blob，创建新的 COMPLETE UploadSession 后按请求配置执行普通 Import 创建；不能复制独立文件存储 bytes、消费原 UploadSession 或把旧 disposition 改成 SOURCE。replacement ImportJob 返回 `202` 与 `Location`，并以 `reconfiguredFromImportJobId` 回指 source；source 详情的对应 `fileOutcomes[].resolution` 返回 `action=RECONFIGURED/replacementImportJobId/resolvedAtMs`。replacement 创建、全部 resolution、source `resolvedRejectedFileCount/version/state` 与 lineage 必须在同一短事务提交；任何版本漂移或文件已被接管均返回 `409 IMPORT_RECONFIGURE_CONFLICT`，不得留下部分 resolution。重新配置仍执行完整 archive/platform 校验，不提供安全检查 override。
 
 进度端点为 `GET /api/v1/admin/imports/{id}/events`，`Content-Type: text/event-stream`。它按全局 JobEvent ID 合并该 ImportJob 的 IMPORT_GROUP 事件，以及经 `ImportItem.import_job_id` 归属的全部 IMPORT_ITEM_PIPELINE/METADATA_SCRAPE/MEDIA_FETCH 事件；不把其他 Import 的事件混入。每个持久事件使用递增数据库 event ID、`event:` 类型和 JSON `data`；客户端重连携带 `Last-Event-ID`。首次连接没有该 header 时，服务端先发一个 `event: snapshot`，其 `id` 是事务内读取任务快照时看到的全局最大 JobEvent ID（空库为 `0`），`data` 是与 `GET ImportJob` 相同的当前摘要，随后只推送更大 ID 的归属事件，避免 snapshot/subscribe 竞态。`Last-Event-ID` 只接受 `0..当前全局最大 ID` 的十进制整数，其他值返回 `400 INVALID_EVENT_CURSOR`；它可以对应其他 scope，过滤仍按 `id > cursor` 执行。服务端每 15 秒发送无 `id` 的 comment heartbeat。snapshot、事件 batch 与 heartbeat 每次写入/flush 前都通过 `http.ResponseController` 把 write deadline 刷新为当前服务端时刻 + 30 秒；只有精确的 `errors.ErrUnsupported` 可按不支持 deadline 处理，其他 SetWriteDeadline、Write 或 Flush 错误都立即结束本连接且不取消底层 Job。
 
@@ -234,7 +234,7 @@ Job 详情与进度查询由 `internal/service/jobs` 提供，`internal/persiste
 
 `POST /api/v1/admin/review-bulk-approvals` 要求 ADMIN、同源/CSRF 与 Idempotency-Key，body 为 `{}`。操作对象是全局待审队列，与当前页面筛选无关。后端在写事务中限定最多 10,000 个待审 Item，记录创建时间、最大 Item ID、持久游标、状态与汇总计数；零项返回 `409 REVIEW_BULK_SCOPE_EMPTY`，超过上限返回 `422 REVIEW_BULK_SCOPE_TOO_LARGE`，已有 `QUEUED/RUNNING` 任务返回 `409 REVIEW_BULK_APPROVAL_ACTIVE`。成功返回 `202` 和任务摘要。
 
-`GET /api/v1/admin/review-bulk-approvals/active` 返回可空的全局活动任务；`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` 返回状态、游标与近似进度。Worker 按 ID 遍历创建时上界以内的当前待审 Item；任务创建后变更过的 Item 跳过，并在逐项发布事务中重新检查严格 READY、来源/目录/Provider Target/DAT/BIOS/DOS/dependency、标题、重复内容、活动补传和 hidden/adult 标记。合格项复用普通 Approve，发布、游标和计数原子提交；不合格项仍待审。重启后从持久游标继续，已发布项不会重复发布。进度按创建时待审数与实际扫描数展示，允许待审状态变化造成近似值。恢复备份时中断活动任务，不继续旧任务。
+`GET /api/v1/admin/review-bulk-approvals/active` 返回可空的全局活动任务；`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` 返回状态、游标与近似进度。Worker 按 ID 遍历创建时上界以内的当前待审 Item；任务创建后变更过的 Item 跳过，并在逐项发布事务中重新检查严格 READY、来源/目录/Provider Target/DAT/BIOS/DOS/dependency、标题、重复内容、活动补传和 hidden/adult 标记。合格项复用普通 Approve，发布、游标和计数原子提交；不合格项仍待审。重启后从持久游标继续，已发布项不会重复发布。进度按创建时待审数与实际扫描数展示，允许待审状态变化造成近似值。
 
 ### 5.1.1 快速去重
 
@@ -260,7 +260,7 @@ Content-Type: application/json
 }
 ```
 
-服务端验证 Review/Item 状态、版本、Arcade 平台、Validation 对 Item/有效快照/目录版本/Provider Target declaration/活动 DAT 的绑定、machine 是当前可修复 Parent、UploadSession/File 都 COMPLETE、文件为单个 `.zip`、不存在 whole-session consumption 且 CAS Blob 可读。成功返回 `202`、`Location: /api/v1/admin/jobs/{jobId}`、更新后的 Review ETag 和 `{attachmentId,state:"QUEUED",jobId}`。相同幂等键与完全相同请求返回同一结果；同键异 body 使用通用幂等冲突。每 Item 只有一个 active Attachment，服务端约束是最终防线。
+服务端验证 Review/Item 状态、版本、Arcade 平台、Validation 对 Item/有效快照/目录版本/Provider Target declaration/活动 DAT 的绑定、machine 是当前可修复 Parent、UploadSession/File 都 COMPLETE、文件为单个 `.zip`、不存在 whole-session consumption 且独立文件存储 Blob 可读。成功返回 `202`、`Location: /api/v1/admin/jobs/{jobId}`、更新后的 Review ETag 和 `{attachmentId,state:"QUEUED",jobId}`。相同幂等键与完全相同请求返回同一结果；同键异 body 使用通用幂等冲突。每 Item 只有一个 active Attachment，服务端约束是最终防线。
 
 进度只订阅 `GET /api/v1/admin/jobs/{jobId}/events`，事件序列可含 `QUEUED/STARTED/ARCHIVE_SCANNED/PARENT_MATCHED|PARENT_REJECTED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED|FAILED|CANCELLED`。SSE 断线自动按通用协议重连，不取消 Job；终态必须重新 GET Review，并以返回的 Review version、有效来源快照和 Validation 作为后续 Approve 输入。若页面遗漏这次终态刷新，Approve 的通用 stale 恢复仍按上一段的严格等价检查有界处理。`FAILED_RETRYABLE` 使用通用 Job retry 并复用同一 UploadFile。Discard 使用通用 Job cancel 语义收口 Attachment；离开审核页不触发 cancel。
 
@@ -296,7 +296,7 @@ Retrom 不调用需要 App Key 的 MetadataProxy，也不调用需要 User Key �
 
 每个 ContentHashEvidence 的实际网络 attempt 或 cache reuse 都通过 MetadataScrapeQueryAttempt 关联到 ProviderResponse，MISS/错误也保留。规范 request digest、HIT/MISS TTL 与显式重刮削 bypass cache 的唯一规则见导入专题；HTTP handler 不得自行拼另一套 cache key。每个 run 都有持久 Job，provider=NONE 以同一事务完成 no-op Job/Run，不制造一次假网络请求。
 
-后端 lookup 使用 15 秒总 deadline、4 MiB body 上限和导入专题的 run/candidate 数量门禁。媒体获取必须：只接受 HTTPS 和配置的 `hasheous.org` host/固定相对 image ID；每次 DNS 解析及 redirect 后拒绝 loopback、private、link-local、multicast、metadata 地址与非允许端口；最多 3 次 redirect；限制单项 10 MiB、30 秒、PNG/JPEG/WebP，校验魔数和解码像素不超过 40 MP，并执行每 run 100 MiB 实际响应总预算；拒绝 SVG/HTML。响应 `Content-Type` 必须声明为 PNG/JPEG/WebP 之一，实际类型以魔数与解码结果为准；仅受支持图片子类型之间的错标不拒绝，并按真实格式写入 CAS。文本始终按纯文本展示。常规测试使用本地 fake，不访问真实服务。
+后端 lookup 使用 15 秒总 deadline、4 MiB body 上限和导入专题的 run/candidate 数量门禁。媒体获取必须：只接受 HTTPS 和配置的 `hasheous.org` host/固定相对 image ID；每次 DNS 解析及 redirect 后拒绝 loopback、private、link-local、multicast、metadata 地址与非允许端口；最多 3 次 redirect；限制单项 10 MiB、30 秒、PNG/JPEG/WebP，校验魔数和解码像素不超过 40 MP，并执行每 run 100 MiB 实际响应总预算；拒绝 SVG/HTML。响应 `Content-Type` 必须声明为 PNG/JPEG/WebP 之一，实际类型以魔数与解码结果为准；仅受支持图片子类型之间的错标不拒绝，并按真实格式写入独立文件存储。文本始终按纯文本展示。常规测试使用本地 fake，不访问真实服务。
 
 ## 7. Launch 创建与凭据
 
@@ -334,7 +334,7 @@ Idempotency-Key: <uuid>
 
 并发相同 GameVariant/input digest 必须返回同一 Job。Player 使用通用 Job 快照/SSE 等待；Job SUCCEEDED 后以原 body 和新 Idempotency-Key 自动重调本端点。旧 key 永远幂等重放当时的 202，不能在后台偷换为 201；新请求看到 READY 后才签发下述 credential。Job FAILED/CANCELLED 的错误以稳定 `LAUNCH_` code 展示，不自动反复新建 Job。
 
-普通启动由 ProductCreator Service 统一编排：先读取一致的来源、目录/核心、Validation、BIOS 与存档快照，再于事务外检查 Provider、CAS 和签名。最终写事务重读实际启动输入、当前权限及相同幂等键，并把 Launch/内容/隔离凭据或待验证 Job 与原始 201/202 响应一起提交；数据库实现必须串行保护相同幂等身份。提交失败不得留下 Launch、Job 或响应 cookie；成功后才派发验证任务或设置 cookie。合法的 READY 校验并发结果允许有界重新准备，单纯元信息版本变化不能误作内容变化。领域阻断继续返回 422，存储、签名及上下文故障保留原因并按基础设施错误处理。
+普通启动由 ProductCreator Service 统一编排：先读取一致的来源、目录/核心、Validation、BIOS 与存档快照，再于事务外检查 Provider、独立文件存储和签名。最终写事务重读实际启动输入、当前权限及相同幂等键，并把 Launch/内容/隔离凭据或待验证 Job 与原始 201/202 响应一起提交；数据库实现必须串行保护相同幂等身份。提交失败不得留下 Launch、Job 或响应 cookie；成功后才派发验证任务或设置 cookie。合法的 READY 校验并发结果允许有界重新准备，单纯元信息版本变化不能误作内容变化。领域阻断继续返回 422，存储、签名及上下文故障保留原因并按基础设施错误处理。
 
 成功返回 `201`：
 
@@ -428,7 +428,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReview
 | Review 通过 / Discard | discard 与无重复的 approve body 可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因。重复内容确认的 approve body 为 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[uuid...]}`；`If-Match` + `Idempotency-Key` | approve 只接受当前匹配的 READY selected Validation，且 title trim 后为 1–200 Unicode code points、无控制字符；在同一写事务 claim 内容身份并重查同平台 current published contents。命中且未精确确认时返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 和当前 games；确认后原子创建发布实体、复制 ValidationFiles 与候选/人工上传封面并把确认写入事件，不得在事务内重扫/打包。discard 不删除证据。 |
 | Review 快速审批 | `POST /admin/review-bulk-approvals` + `{}` + Idempotency-Key；`GET /admin/review-bulk-approvals/active` 与 `GET /admin/review-bulk-approvals/{id}` | 全局待审队列的有界后台扫描；每项重新检查严格 READY 与全部发布条件，复用普通 approve 事务，并原子提交发布、游标和计数。截图 override、重复、hidden/adult 和活动补传仍待人工处理。 |
 | 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 在同一事务更新 Game 当前元信息、`title_initial`、`search_text` 与 version，并写 AuditEvent；不创建业务版本行。 |
-| 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；在同一事务替换对应 GameAsset 当前态并更新 Game version。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。旧 Asset URL 立即失效；失去最后引用的 Blob 转入等待回收，不承诺已登记 CAS 总量立即下降。 |
+| 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；在同一事务替换对应 GameAsset 当前态并更新 Game version。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。旧 Asset URL 立即失效；被替换的独立文件退休并转入后台删除，不承诺已登记独立文件存储总量立即下降。 |
 | 游戏内容替换 | `POST /admin/games/{gameId}/content-replacement`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game 当前文件、目录/version、默认 core、稳定 Provider/Target 与 DAT，创建 `GAME_CONTENT_REPLACE` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描、物化和验证；单 ROM role/hash 序列相同，或多盘盘序与全部 Disc hash 相同时，以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption。只有不同的新内容 READY 且快照仍一致时，才在一个事务中替换 GameFiles、当前默认 Core 的 GameVariant/VariantFiles，递增 Game version，清理旧 payload，结束受影响的活动运行，并写 AuditEvent。成功替换同时移除绑定旧内容的存档与冻结运行文件；任何步骤失败均回滚，保留当前内容、存档和原运行状态。BIOS 替换会撤销依赖旧 BIOS 的 Launch/Play，并保留存档。 |
 | 重新刮削 | `POST /admin/games/{gameId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS"}` + `If-Match` + `Idempotency-Key` | 对当时 Game current GameFiles 建 MetadataScrapeRun 和有界后台任务，显式 bypass cache，不改 current metadata；若任务执行前 content 已变化则以 retryable conflict 结束，不能对旧内容冒充最新 run。 |
 | 应用重新刮削候选 | `POST /admin/games/{gameId}/scrape-candidates/{candidateId}/apply`：`{"fields":["title",...],"selectedAssets":{"coverCandidateAssetId":null|string,"backgroundCandidateAssetId":null|string,"screenshotCandidateAssetIds":[]}}` + `If-Match` + `Idempotency-Key` | candidate/asset 必须属于直接引用 Game current GameFiles、并按 `(created_at_ms,id)` 确定的最新 COMPLETED HASHEOUS run，且每个选中 asset 为 READY；fields 只能是 metadata 白名单且不重复。复制未选字段/媒体，创建 RESCRAPE_APPLY Game 当前元信息字段 和完整 Asset 清单。 |
@@ -437,7 +437,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReview
 
 `GET /admin/games/{gameId}/scrape-candidates` 的每个候选除 metadata/evidence/hitCount 外还返回 `assets[]`，字段与审核候选媒体投影一致，预览 URL 仍使用受保护的 `/api/v1/admin/review-assets/{candidateAssetId}`。管理页不得只凭“证据命中”提供一键文字覆盖；应用候选时只更新明确选择的字段和媒体，未选择的当前封面、背景与截图保持不变。
 | 游戏移动预览 / 提交 | preview：`{"targetPlatformInstanceId":"..."}` + Game `If-Match` + `Idempotency-Key`；commit：`{"targetPlatformInstanceId":"...","impactDigest":"...","confirmBlocked":false}` + 同一 Game 当前 `If-Match` + 新 `Idempotency-Key` | 只允许同基础平台且目标不能等于当前目录。目标默认 Provider Target 对 GameFiles 缺少当前验证结果时，preview 创建或复用共享 `VARIANT_REVALIDATE` Job，返回 `202 {"status":"VALIDATION_PENDING","jobId":"...","retryAfterMs":1000}`，不返回 digest、不移动；Job 终态后客户端用新 key 重新 preview。已有 READY/BLOCKED/INCOMPATIBLE 当前结果时返回 `200` 影响与 digest，不写业务状态。commit 重算 digest/version/结果；有 blocker 仅在 `confirmBlocked=true` 时移动，否则 `422 MOVE_TARGET_CORE_BLOCKED`。移动只更新 Game 归属/version并写 AuditEvent，不删除 GameVariant 或存档。 |
-| 游戏永久删除 | `DELETE /admin/games/{gameId}`：`{"confirmTitle":"当前完整标题","impactDigest":"64位小写SHA-256"}` + Game `If-Match` + `Idempotency-Key` | 管理详情先返回 ROM/媒体/存档/活动运行/审核计数、已登记/独占/共享十进制 byte 字符串、来源类型和 digest。提交重算标题/version/digest；同一事务转 `DELETED+RELEASING`、撤销运行、创建唯一 PayloadRelease Job 和审计。首次返回 `202` 墓碑 DTO；同 key 重放同一响应；不同 key 再删返回现有墓碑与原 Job 的 `200`，不创建第二个 Job。 |
+| 游戏永久删除 | `DELETE /admin/games/{gameId}`：`{"confirmTitle":"当前完整标题","impactDigest":"64位小写SHA-256"}` + Game `If-Match` + `Idempotency-Key` | 管理详情先返回 ROM/媒体/存档/活动运行/审核计数、已登记/独占/共享十进制 byte 字符串、来源类型和 digest。提交重算标题/version/digest；同一事务转 `DELETED+RELEASING`、撤销运行、创建唯一 OwnerCleanup Job 和审计。首次返回 `202` 墓碑 DTO；同 key 重放同一响应；不同 key 再删返回现有墓碑与原 Job 的 `200`，不创建第二个 Job。 |
 | 游戏目录创建 | `{"platformId":"arcade","defaultCoreId":"fbneo","name":"...","description":"","sortOrder":0}` + `Idempotency-Key` | 创建 enabled/version=1 目录；服务端从 name 生成 slug，冲突时追加最小可用数字后缀，且软删除后永不复用。 |
 | 游戏目录普通修改 | `PATCH /admin/platform-instances/{id}` + `If-Match`；仅可含 name/description/sortOrder/enabled | 不允许 platformId/slug/defaultCoreId；`enabled=false` 允许非空目录，用于从用户侧首页、游戏库、详情、存档与启动入口隐藏该目录游戏，管理端记录仍保留。删除仍要求目录为空。 |
 | 游戏目录排序 | `PUT /admin/platform-instances/order`：`{"items":[{"id":"uuid","version":1},...]}` | `items` 必须恰好包含全部未删除目录且 ID 不重复；在同一短事务按数组顺序写 `sortOrder=100,200,...`、逐项校验 version 并递增 version/写审计。目录集合变化返回 `409 PLATFORM_INSTANCE_ORDER_STALE`，任一版本变化返回 `409 VERSION_CONFLICT`，不得部分排序。 |
@@ -457,7 +457,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 | 方法与路径 | 用途 |
 | --- | --- |
-| `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|CAS_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
+| `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|FILE_STORAGE_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
 | `GET /api/v1/auth/context`、`POST /api/v1/auth/initialize`、`POST /api/v1/auth/login|logout|change-password` | 实例/会话 bootstrap、安全初始化、登录退出和密码轮换；精确 schema、错误码与安全 header 以 OpenAPI 和第 2 节为准。旧 `/api/v1/session` 不存在。 |
 | `POST /api/v1/auth/account-links/inspect`、`POST /api/v1/auth/invitations/accept`、`POST /api/v1/auth/password-resets/complete` | fragment capability检查、邀请注册与密码重置。 |
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`featuredGame.description` 为当前 Game 的完整简介字符串，未填写时为空字符串；字符与行数截断属于 UI 展示，不改写原始内容。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
@@ -478,7 +478,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET|POST /api/v1/admin/invitations`、`GET|POST /api/v1/admin/users/{userId}/password-reset-links`、`DELETE /api/v1/admin/account-links/{accountLinkId}` | 一次性链接的非秘密列表、创建和撤销；完整 URL只在 create/replay响应出现。 |
 | `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | 列表只投影用户发起的浏览器上传/重新配置 ImportJob，排除通过统一 source Item 关联的逐游戏审核交接任务；顶层来源批次统一由 `/api/v1/admin/source-imports` 返回。创建与详情契约不变，详情包含原文件处置和可空 resolution；已知内部 ID 的详情仍可用于管理员诊断。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
-| `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新游戏目录配置创建 replacement ImportJob。 |
+| `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的独立文件存储 Blob，以新游戏目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
 | `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容替换等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含 Validation、scrape run/candidate/asset）和草稿。 |
@@ -500,7 +500,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
 | `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换原子切换当前安装，新 BIOS 对后续启动生效；依赖旧 BIOS 的 Launch/Play 被撤销，存档保留，旧 Installation 引用由后台释放，结构化审计保留；一期没有独立删除 Installation API。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
-| `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记 CAS payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
+| `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记独立文件存储 payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
 | `POST /api/v1/admin/storage-cleanups` | ADMIN-only 手动补排队与失败任务重试；无 query/body，要求 CSRF 与 UUID `Idempotency-Key`，202 返回本次已推进的 Blob 数、byte 与接受时刻；不返回 Blob/Job 标识。 |
 
 `GET /api/v1/games/{gameId}` 顶层返回 Game `version` 和全部当前可恢复存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 3 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentGameVariantId/providerId/targetId/bundleSha256/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以当前 GameVariant 是否 READY 且其稳定 Target 仍可部署计算；活动 Bundle 只向前升级时仍是同一 Target，普通启动直接使用新 Bundle。`POST /api/v1/launches` 无存档时收到显式或默认 core，执行同一 `EnsureVariant`，必要时先返回共享 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。 有 `saveStateId` 时，显式 `coreId` 优先，省略则使用存档来源 Launch 的 Core；选择其当前 READY Variant 并校验 Target `readFormats`，不会因目录默认核心改变而将备用核心的存档送入其他核心。
@@ -532,31 +532,28 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 ```json
 {
-  "scope": "REGISTERED_CAS_PAYLOAD_V1",
+  "scope": "OWNED_FILES_V1",
   "generatedAtMs": 1787448000000,
-  "totals": {"registeredBytes": "0", "protectedBytes": "0", "unreferencedBytes": "0", "blobCount": 0},
+  "totals": {"registeredBytes": "0", "retainedBytes": "0", "pendingDeleteBytes": "0", "fileCount": 0},
   "categories": [
-    {"code": "GAME_CONTENT", "bytes": "0", "blobCount": 0},
-    {"code": "BIOS", "bytes": "0", "blobCount": 0},
-    {"code": "SAVES", "bytes": "0", "blobCount": 0},
-    {"code": "MEDIA", "bytes": "0", "blobCount": 0},
-    {"code": "WORKFLOW", "bytes": "0", "blobCount": 0},
-    {"code": "RUNTIME_SNAPSHOT", "bytes": "0", "blobCount": 0},
-    {"code": "SHARED_DURABLE", "bytes": "0", "blobCount": 0},
-    {"code": "OTHER_REFERENCED", "bytes": "0", "blobCount": 0},
-    {"code": "UNREFERENCED", "bytes": "0", "blobCount": 0}
+    {"code": "GAME_CONTENT", "bytes": "0", "fileCount": 0},
+    {"code": "BIOS", "bytes": "0", "fileCount": 0},
+    {"code": "SAVES", "bytes": "0", "fileCount": 0},
+    {"code": "MEDIA", "bytes": "0", "fileCount": 0},
+    {"code": "WORKFLOW", "bytes": "0", "fileCount": 0},
+    {"code": "PENDING_DELETE", "bytes": "0", "fileCount": 0}
   ],
   "details": {
-    "saveStates": {"activeCount": 0, "deletedCount": 0, "stateReferenceBytes": "0", "screenshotReferenceBytes": "0"},
-    "cleanupCandidates": {"blobCount": 0, "bytes": "0"}
+    "saveStates": {"activeCount": 0, "deletedCount": 0, "stateBytes": "0", "screenshotBytes": "0"},
+    "cleanupCandidates": {"storedFileCount": 0, "bytes": "0"}
   },
   "excluded": ["DATABASE_FILES", "UPLOAD_PARTS", "JOB_SCRATCH", "DEPENDENCY_ROOT", "FILESYSTEM_OVERHEAD", "UNREGISTERED_ORPHANS", "VOLUME_FREE_SPACE"]
 }
 ```
 
-Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述九类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记-cas-容量分析)定义。GET 不设置下载 header，不提供 query、cursor 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。
+Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述六类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记文件容量分析)定义。GET 不设置下载 header，不提供 query、cursor 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。
 
-立即清理成功响应固定为 `{"scheduledBlobCount":0,"scheduledBytes":"0","acceptedAtMs":1787448000000}`。POST 先按同一 registry 补齐未引用候选，再把当前仍未引用候选推进为立即可执行；失败的 BLOB_GC Job 以新 execution 重排队。返回值是已接受调度量而非已物理删除量，worker 删除前仍复核引用，恢复引用的 Blob 会被保留。相同 principal/operation/key 重放原 202 响应；缺少/复用错误 key、USER/匿名、CSRF 失败和数据库失败使用通用稳定错误。统一验证为 `ACC-STOR-001`。
+立即清理成功响应固定为 `{"scheduledFileCount":0,"scheduledBytes":"0","acceptedAtMs":1787448000000}`。POST 先按同一 registry 补齐已退休候选，再把当前仍已退休候选推进为立即可执行；失败的 FILE_DELETE Job 以新 execution 重排队。返回值是已接受调度量而非已物理删除量，worker 删除前仍复核引用，恢复引用的 Blob 会被保留。相同 principal/operation/key 重放原 202 响应；缺少/复用错误 key、USER/匿名、CSRF 失败和数据库失败使用通用稳定错误。统一验证为 `ACC-STOR-001`。
 
 ## 10. 收藏与收藏夹 API
 
@@ -647,7 +644,7 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE`；客户端按该字段展示压缩包内部对比入口，不能由 sourceKind 推断。STATIC archive 和 DAT_MACHINE 均支持现有安装归档对比接口。源码固件包成员校验失败返回 422 `BIOS_INSTALLATION_INVALID`，details 带 missingEntries、mismatchedEntries、warnings，且不替换原安装。服务器 BIOS 导入条目增加 `INVALID_ARCHIVE`，表示包可读取但必要成员不满足，并计入失败数。
 
-所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。目录路径相对服务器 `/`，管理员可据此浏览完整可读文件系统；DTO 不包含 root digest、CAS path 或 source inode。
+所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。目录路径相对服务器 `/`，管理员可据此浏览完整可读文件系统；DTO 不包含 root digest、独立文件存储 path 或 source inode。
 
 | Route | 契约 |
 | --- | --- |
@@ -681,7 +678,7 @@ Summary 返回创建时冻结的 `format`；Item 返回通用 `sourceFlags{hidde
 
 Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 `reviewPending/published/reviewDiscarded`。任务 `COMPLETED` 只表示审核事项准备结束，不表示全部游戏已发布；后续逐项审核或严格 READY 快速审批的每个成功 Item 都原子推进三个计数和 aggregate version。快速审批使用独立 aggregate route，不在 Source route 内建立第二套发布动作。
 
-稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`SOURCE_MAPPING_INCOMPLETE`、`SOURCE_NO_COLLECTION_SELECTED`、`SOURCE_SOURCE_CHANGED`、`SOURCE_PLAN_EXPIRED`、`SOURCE_IMPORT_ACTIVE`、`SOURCE_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED` 与 `SERVER_IMPORT_SOURCE_NOT_RESTORED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。library validation 的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
+稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`SOURCE_MAPPING_INCOMPLETE`、`SOURCE_NO_COLLECTION_SELECTED`、`SOURCE_SOURCE_CHANGED`、`SOURCE_PLAN_EXPIRED`、`SOURCE_IMPORT_ACTIVE`、`SOURCE_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。library validation 的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
 
 `GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current Game 当前元信息字段 的 ordinal 0 VIDEO；普通列表/Home/Recent/Favorites/Saves DTO 均无该字段，唯一额外用户投影是第 12.2 节的沉浸游戏平台列表。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 Game 当前元信息字段 移除当前视频。current 切换后旧 Asset 行被删除，旧逻辑 URL 返回 404；同一 Asset ID 在存续期间仍沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range。非法/多 Range、不可见 Game 与未知/已退役 Asset 继续使用统一拒绝语义。
 
@@ -779,7 +776,7 @@ ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBy
 
 公共层以 256 KiB 块使用 OPFS，后端失败时依次回退有界 Cache Storage 块和内存/网络。缓存身份包含 storage origin 与内容身份，缓存不可用不妨碍普通内容读取。ONS 非视频文件在实际打开时才完整物化；KiriKiri XP3、mkxp WasmFS、PSP 和 Play 按需读取，不能在注册文件树时下载正文。ONS 视频直接把冻结 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。
 
-Butterscotch core 需要本地文件路径，因此公共 workspace helper 必须先把冻结索引的每个文件流式写入不可变 OPFS generation，再启动 worker；下载过程按总字节上报进度。完整 receipt 包含准确长度与本地 SHA-256，复用前逐块校验；只有长度相等不足以证明缓存完整。发布 generation 后由独立 lease 保护直到 native worker 停止，运行期存档写入 Session overlay；恢复 Launch 仍读取 `index.json` 和 grant，但完整、校验通过的文件不重复下载。该核心确实需要 OPFS，不能把必需 workspace 的创建失败当作普通可选缓存失败。完整 workspace generation 暂不自动 GC；raw block 与 workspace 副本可能同时占用磁盘。
+Butterscotch core 需要本地文件路径，因此公共 workspace helper 必须先把冻结索引的每个文件流式写入不可变 OPFS generation，再启动 worker；下载过程按总字节上报进度。完整 receipt 包含准确长度与本地 SHA-256，复用前逐块校验；只有长度相等不足以证明缓存完整。发布 generation 后由独立 lease 保护直到 native worker 停止，运行期存档写入 Session overlay；恢复 Launch 仍读取 `index.json` 和 grant，但完整、校验通过的文件不重复下载。该核心确实需要 OPFS，不能把必需 workspace 的创建失败当作普通可选缓存失败。完整 workspace generation 暂不自动 后台删除；raw block 与 workspace 副本可能同时占用磁盘。
 
 - `GET|HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 只允许命中已激活 Provider Bundle 的逐文件 allowlist，本地逐字节复核 size/hash 后返回不可变公共响应；未知 Provider、摘要、路径或 MIME 返回 404；
 - `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable, no-transform`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。 动态项目索引在同一只读快照中校验授权并读取冻结文件，Service 按唯一格式生成索引；只有确认使用静态索引的格式才允许读取其冻结索引文件。授权失效返回 `401 LAUNCH_CREDENTIAL_INVALID`，真实存储失败返回 `500 INTERNAL_ERROR`，不得把失败当作其他格式继续尝试。

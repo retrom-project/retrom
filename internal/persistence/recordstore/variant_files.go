@@ -10,7 +10,15 @@ import (
 func CreateVariantFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "variant_files", "game_variant_id,role,logical_name", ValidateVariantFiles)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"variant_files",
+		"game_variant_id,role,logical_name",
+		ValidateVariantFiles,
+	)
 }
 
 func ValidateVariantFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {
@@ -20,7 +28,7 @@ func ValidateVariantFiles(ctx context.Context, db dbapi.Executor, keys ...any) e
 func UpsertVariantFiles(
 	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
 ) (sql.Result, error) {
-	return upsertReferences(
+	return upsertRecords(
 		ctx,
 		db,
 		"variant_files",
@@ -34,6 +42,11 @@ func UpsertVariantFiles(
 
 const variant_filesOwnership = `
 SELECT CASE
+WHEN candidate.role<>'BIOS_BUNDLE' AND NOT EXISTS(SELECT 1 FROM stored_files file JOIN
+game_variants variant ON variant.game_id=file.owner_id
+ WHERE file.id=candidate.blob_id AND variant.id=candidate.game_variant_id AND file.owner_kind='GAME'
+AND file.retired_at_ms IS NULL)
+ THEN 'variant file has a different game owner'
 WHEN (NOT EXISTS(
   SELECT 1 FROM game_variants variant
   JOIN games game ON game.id=variant.game_id

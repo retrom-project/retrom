@@ -7,11 +7,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/persistence/blobrefs"
 	"retrom/internal/persistence/firmware/payloadbios"
 	"retrom/internal/persistence/launch/payloadlaunch"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
@@ -121,11 +120,8 @@ func TestRetirementRejectsZeroCompletionRows(t *testing.T) {
 			}
 			var hits atomic.Int64
 			service := faultRetirementService(t, db, now, prefix, fragment, nil, &hits)
-			err := service.ReconcileGC(t.Context())
+			err := service.ReconcileDeletion(t.Context())
 			expected := application.ErrRetirementSnapshotChanged
-			if bios {
-				expected = blobrefs.ErrCount
-			}
 			if !errors.Is(err, expected) || hits.Load() != 1 {
 				t.Fatalf("zero row count accepted: hits=%d err=%v", hits.Load(), err)
 			}

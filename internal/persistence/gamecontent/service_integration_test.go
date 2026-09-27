@@ -27,14 +27,14 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
@@ -55,12 +55,12 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
 	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
@@ -78,10 +78,10 @@ SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releases).WithDeletionStager(releases)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -240,12 +240,12 @@ func installSaturnBIOS(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 ) {
 	t.Helper()
 	metadata, err := blobs.Put(bytes.NewReader([]byte("replacement Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := filecatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -256,7 +256,7 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 		t.Fatal(err)
 	}
 	installationID, _ := uuid.NewV7()
-	if _, err := recordstore.CreateReferences(ctx, database, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
@@ -279,12 +279,12 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
-	createdImport, err := libraryimport.New(database.SQL, time.Now).
+	createdImport, err := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs).
 		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE"})
 	testassert.False(t, err != nil, err)
 	var itemID string
@@ -307,10 +307,10 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		t.Fatal(err)
 	}
 
-	releaseService, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
+	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releaseService).WithDeletionStager(releaseService)
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -435,12 +435,12 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")
 	createdImport, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: saturnID,
@@ -469,11 +469,11 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		"replacement/two.chd":    fakeReplacementCHD("two"),
 		"replacement/readme.txt": []byte("ignored"),
 	})
-	releaseService, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
+	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
-		WithPayloadRelease(releaseService).WithGCStager(releaseService).WithMultiDiscImportEnabled(true)
+	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).
+		WithCleanup(releaseService).WithDeletionStager(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
 	)
@@ -535,14 +535,14 @@ SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
 		currentContentID, "",
 	)
 
-	var sharedDiscBlobID, retiredDiscBlobID string
+	var unchangedDiscOldID, retiredDiscBlobID string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
  (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1),
  (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1 OFFSET 1)
-`, currentContentID, currentContentID).Scan(&sharedDiscBlobID, &retiredDiscBlobID); err != nil {
+`, currentContentID, currentContentID).Scan(&unchangedDiscOldID, &retiredDiscBlobID); err != nil {
 		t.Fatal(err)
 	}
 	partialChangeUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
@@ -561,7 +561,7 @@ SELECT
 		t.Fatal(err)
 	}
 	assertContentPayloadCount(t, ctx, database.SQL, latestContentID, 3)
-	assertBlobReferenceState(t, ctx, database.SQL, sharedDiscBlobID, true)
+	assertBlobReferenceState(t, ctx, database.SQL, unchangedDiscOldID, false)
 	assertBlobReferenceState(t, ctx, database.SQL, retiredDiscBlobID, false)
 }
 

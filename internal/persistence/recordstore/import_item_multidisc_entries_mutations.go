@@ -25,7 +25,7 @@ WITH previous(source_snapshot_id,ordinal,state) AS (VALUES(?,?,?))
 SELECT CASE
 -- import_item_multidisc_entries_immutable_update
 WHEN (NOT (
-  previous.state='PRESENT' AND candidate.state='PAYLOAD_RELEASED'
+  previous.state='PRESENT' AND candidate.state='RELEASED'
   AND candidate.upload_file_id IS NULL AND candidate.blob_id IS NULL AND
 candidate.payload_released_at_ms IS NOT NULL
   AND EXISTS(

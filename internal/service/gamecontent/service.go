@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/blobstore"
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/filestore"
+	"retrom/internal/service/cleanupjobs"
 )
 
 var (
@@ -24,9 +24,9 @@ type Scheduled struct {
 }
 type Service struct {
 	repository             Repository
-	blobs                  *blobstore.Store
-	payloadReleases        ReleaseSignal
-	gc                     payloadrelease.GCStager
+	blobs                  *filestore.Store
+	cleanupJobs            ReleaseSignal
+	deletion               cleanupjobs.DeletionStager
 	multiDiscImportEnabled bool
 	now                    func() time.Time
 }
@@ -35,13 +35,13 @@ func New(repository Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
 	service.blobs = blobs
 	return service
 }
 
-func (service *Service) WithPayloadRelease(signal ReleaseSignal) *Service {
-	service.payloadReleases = signal
+func (service *Service) WithCleanup(signal ReleaseSignal) *Service {
+	service.cleanupJobs = signal
 	return service
 }
 
@@ -120,7 +120,7 @@ func pointerText(value *string) string {
 	return *value
 }
 
-func (service *Service) WithGCStager(gc payloadrelease.GCStager) *Service {
-	service.gc = gc
+func (service *Service) WithDeletionStager(deletion cleanupjobs.DeletionStager) *Service {
+	service.deletion = deletion
 	return service
 }

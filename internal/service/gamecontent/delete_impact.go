@@ -15,9 +15,7 @@ import (
 type GameImpact struct {
 	ImpactDigest      string   `json:"impactDigest"`
 	RegisteredBytes   string   `json:"registeredBytes"`
-	ExclusiveBytes    string   `json:"exclusiveBytes"`
-	SharedBytes       string   `json:"sharedBytes"`
-	BlobCount         int64    `json:"blobCount"`
+	FileCount         int64    `json:"fileCount"`
 	SaveStateCount    int64    `json:"saveStateCount"`
 	AssetCount        int64    `json:"assetCount"`
 	ContentFileCount  int64    `json:"contentFileCount"`
@@ -27,9 +25,7 @@ type GameImpact struct {
 
 type impactCanonical struct {
 	RegisteredBytes   string   `json:"registeredBytes"`
-	ExclusiveBytes    string   `json:"exclusiveBytes"`
-	SharedBytes       string   `json:"sharedBytes"`
-	BlobCount         int64    `json:"blobCount"`
+	FileCount         int64    `json:"fileCount"`
 	SaveStateCount    int64    `json:"saveStateCount"`
 	AssetCount        int64    `json:"assetCount"`
 	ContentFileCount  int64    `json:"contentFileCount"`
@@ -37,11 +33,11 @@ type impactCanonical struct {
 	SourceKinds       []string `json:"sourceKinds"`
 }
 
-var ErrImpactInvalid = errors.New("PAYLOAD_RELEASE_IMPACT_INVALID")
+var ErrImpactInvalid = errors.New("OWNER_CLEANUP_IMPACT_INVALID")
 
 type ImpactBlob struct {
-	ID                                              string
-	SizeBytes, ProtectiveReferences, GameReferences int64
+	ID        string
+	SizeBytes int64
 }
 
 type ImpactCounts struct {
@@ -73,21 +69,20 @@ func (queries *ImpactQueries) Game(ctx context.Context, gameID string) (GameImpa
 	if source.GameID != gameID || !validImpactCounts(source.Counts) {
 		return GameImpact{}, ErrImpactInvalid
 	}
-	registered, exclusive, count, err := impactTotals(source.Blobs)
+	registered, count, err := impactTotals(source.Blobs)
 	if err != nil {
 		return GameImpact{}, err
 	}
 	result := GameImpact{
-		RegisteredBytes: strconv.FormatInt(registered, 10), ExclusiveBytes: strconv.FormatInt(exclusive, 10),
-		SharedBytes: strconv.FormatInt(registered-exclusive, 10), BlobCount: count,
+		RegisteredBytes: strconv.FormatInt(registered, 10), FileCount: count,
 		SaveStateCount: source.Counts.SaveStates, AssetCount: source.Counts.Assets,
 		ContentFileCount:  source.Counts.ContentFiles,
 		ActiveLaunchCount: source.Counts.ActiveLaunches,
 		SourceKinds:       NormalizeImpactSourceKinds(source.SourceKinds),
 	}
 	canonical := impactCanonical{
-		RegisteredBytes: result.RegisteredBytes, ExclusiveBytes: result.ExclusiveBytes, SharedBytes: result.SharedBytes,
-		BlobCount: result.BlobCount, SaveStateCount: result.SaveStateCount, AssetCount: result.AssetCount,
+		RegisteredBytes: result.RegisteredBytes,
+		FileCount:       result.FileCount, SaveStateCount: result.SaveStateCount, AssetCount: result.AssetCount,
 		ContentFileCount: result.ContentFileCount, ActiveLaunchCount: result.ActiveLaunchCount,
 		SourceKinds: result.SourceKinds,
 	}
@@ -100,29 +95,26 @@ func (queries *ImpactQueries) Game(ctx context.Context, gameID string) (GameImpa
 	return result, nil
 }
 
-func impactTotals(blobs []ImpactBlob) (int64, int64, int64, error) {
+func impactTotals(blobs []ImpactBlob) (int64, int64, error) {
 	seen := make(map[string]ImpactBlob, len(blobs))
-	var registered, exclusive int64
+	var registered int64
 	for _, blob := range blobs {
-		if blob.ID == "" || blob.SizeBytes < 0 || blob.ProtectiveReferences < 0 || blob.GameReferences < 0 {
-			return 0, 0, 0, ErrImpactInvalid
+		if blob.ID == "" || blob.SizeBytes < 0 {
+			return 0, 0, ErrImpactInvalid
 		}
 		if before, found := seen[blob.ID]; found {
 			if before != blob {
-				return 0, 0, 0, ErrImpactInvalid
+				return 0, 0, ErrImpactInvalid
 			}
 			continue
 		}
 		seen[blob.ID] = blob
 		if registered > math.MaxInt64-blob.SizeBytes {
-			return 0, 0, 0, ErrImpactInvalid
+			return 0, 0, ErrImpactInvalid
 		}
 		registered += blob.SizeBytes
-		if blob.ProtectiveReferences <= blob.GameReferences {
-			exclusive += blob.SizeBytes
-		}
 	}
-	return registered, exclusive, int64(len(seen)), nil
+	return registered, int64(len(seen)), nil
 }
 
 func validImpactCounts(counts ImpactCounts) bool {

@@ -9,7 +9,7 @@ import (
 	"retrom/internal/persistence/releaseeffects"
 	"retrom/internal/persistence/releaseops"
 	uploads "retrom/internal/persistence/uploads/payloadpurge"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func NewEffects(database dbapi.DB) *releaseeffects.Repository {

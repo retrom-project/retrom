@@ -13,8 +13,8 @@ import (
 
 	application "retrom/internal/service/launch"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 )
 
@@ -23,7 +23,7 @@ type Service struct {
 	database                 dbapi.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
-	blobs                    *blobstore.Store
+	blobs                    *filestore.Store
 	rpgRuntimeOriginTemplate string
 	now                      func() time.Time
 	runtimeCatalog           runtimecatalog.Catalog
@@ -56,7 +56,7 @@ func New(
 	return service
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
 	service.blobs = blobs
 	return service
 }

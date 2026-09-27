@@ -16,13 +16,13 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/composition/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -32,10 +32,10 @@ const adminID = "01980000-0000-7000-8000-000000009992"
 type fixture struct {
 	ctx      context.Context
 	db       dbapi.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	importer *libraryimport.Service
 	service  *importdiscard.Service
-	releases *payloadrelease.Service
+	releases *cleanupjobs.Service
 	now      func() time.Time
 }
 
@@ -57,7 +57,7 @@ func newFixture(t *testing.T) *fixture {
 	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,9 +65,9 @@ func newFixture(t *testing.T) *fixture {
 	f.exec(t, `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('discard-profile','Discard',0);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'discard-profile','discard-admin','Discard','ADMIN','ENABLED',0,0)`, adminID)
-	f.importer = libraryimport.New(f.db, now).WithBlobStore(blobs)
+	f.importer = libraryimport.New(f.db, now).WithFileStore(blobs)
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, now)
-	f.releases, err = payloadrelease.New(t.Context(), f.db, blobs, now)
+	f.releases, err = cleanupjobs.New(t.Context(), f.db, blobs, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func (f *fixture) file(t *testing.T, name string, payload byte) libraryimport.Se
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := blobcatalog.EnsureRecord(f.ctx, f.db, blob, "application/octet-stream", f.now().UnixMilli())
+	id, err := filecatalog.EnsureRecord(f.ctx, f.db, blob, "application/octet-stream", f.now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +132,9 @@ func (f *fixture) finish(t *testing.T, kind, id string) {
 			t.Fatal(err)
 		}
 		if status.State == "COMPLETED" {
+			if err := f.releases.ReconcileDeletion(f.ctx); err != nil {
+				t.Fatal(err)
+			}
 			return
 		}
 	}
@@ -162,8 +165,8 @@ func TestDiscardRejectedOnlyBatchReleasesUploadAndIsIdempotent(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_job_files WHERE import_job_id=? AND disposition='REJECTED' AND reason_code='UNSUPPORTED_CONTENT_FORMAT'`, result.Created.ImportJobID); n != 1 {
 		t.Fatal("rejection evidence was lost")
 	}
-	if n := f.count(t, `SELECT count(*) FROM blobs blob WHERE blob.id=? AND blob.ref_count=0
-AND NOT EXISTS(SELECT 1 FROM blob_gc_candidates candidate WHERE candidate.blob_id=blob.id)`, file.BlobID); n != 0 {
+	if n := f.count(t, `SELECT count(*) FROM stored_files blob WHERE blob.id=? AND blob.retired_at_ms IS NOT NULL
+AND NOT EXISTS(SELECT 1 FROM file_deletions candidate WHERE candidate.blob_id=blob.id)`, file.BlobID); n != 0 {
 		t.Fatal("released bytes are neither queued nor collected")
 	}
 	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); err != nil {
@@ -204,8 +207,8 @@ func TestDiscardPreservesPublishedGameAndOtherBatch(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_items WHERE import_job_id=? AND state='REVIEW_PENDING'`, other.Created.ImportJobID); n != 1 {
 		t.Fatal("unrelated batch changed")
 	}
-	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN blob_gc_candidates gc ON gc.blob_id=file.blob_id`); n != 0 {
-		t.Fatal("published content entered GC")
+	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN file_deletions deletion ON deletion.blob_id=file.blob_id`); n != 0 {
+		t.Fatal("published content entered DeletionQueue")
 	}
 }
 
@@ -235,7 +238,7 @@ func TestDiscardWaitsForExecutionStopAndResumesAfterRestart(t *testing.T) {
 	}
 }
 
-func TestDiscardKeepsSharedPendingContentProtected(t *testing.T) {
+func TestDiscardKeepsOtherReviewsIndependentCopy(t *testing.T) {
 	f := newFixture(t)
 	file := f.file(t, "shared.nes", 21)
 	first := f.create(t, file)
@@ -245,11 +248,11 @@ func TestDiscardKeepsSharedPendingContentProtected(t *testing.T) {
 	}
 	f.finish(t, "IMPORT", first.Created.ImportJobID)
 	if n := f.count(t, `SELECT count(*) FROM import_item_source_files WHERE import_item_id IN
- (SELECT id FROM import_items WHERE import_job_id=?) AND blob_id=?`, second.Created.ImportJobID, file.BlobID); n != 1 {
+ (SELECT id FROM import_items WHERE import_job_id=?) AND blob_id<>?`, second.Created.ImportJobID, file.BlobID); n != 1 {
 		t.Fatal("another review lost its content")
 	}
-	if n := f.count(t, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, file.BlobID); n != 0 {
-		t.Fatal("shared pending content entered GC")
+	if n := f.count(t, `SELECT count(*) FROM file_deletions WHERE blob_id IN(SELECT blob_id FROM import_item_source_files WHERE import_item_id IN(SELECT id FROM import_items WHERE import_job_id=?))`, second.Created.ImportJobID); n != 0 {
+		t.Fatal("shared pending content entered DeletionQueue")
 	}
 }
 

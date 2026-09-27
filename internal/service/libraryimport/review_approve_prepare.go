@@ -196,6 +196,7 @@ func (run *reviewApprovalRun) allocateIDs() error {
 			return fmt.Errorf("allocate approved asset identity: %w", err)
 		}
 		run.assets[index].ID, run.assets[index].GameID, run.assets[index].NowMS = id, run.gameID, run.now
+		run.assets[index].ItemID = run.request.ItemID
 	}
 	return nil
 }

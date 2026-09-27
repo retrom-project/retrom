@@ -9,9 +9,9 @@ import (
 	"slices"
 
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/service/cleanupjobs"
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/importprogress"
-	"retrom/internal/service/payloadrelease"
 )
 
 func (run *creationCommit) prepareHeader(ctx context.Context, scope ImportCreationScope) error {
@@ -59,7 +59,12 @@ func (run *creationCommit) prepareHeader(ctx context.Context, scope ImportCreati
 		"tags":                          run.tags,
 	}
 	if run.plan.ContentMode == contentcapability.ModeMultiDisc {
-		capability := contentcapability.Resolve(target.PlatformID, true, run.service.settings.MultiDiscEnabled, target.Policy)
+		capability := contentcapability.Resolve(
+			target.PlatformID,
+			true,
+			run.service.settings.MultiDiscEnabled,
+			target.Policy,
+		)
 		config["multiDisc"] = capability.MultiDisc
 	}
 	encoded, err := json.Marshal(config)
@@ -229,6 +234,6 @@ func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope Imp
 	if err := scope.Finish.ResolveFiles(ctx, change); err != nil {
 		return creationError("resolve reconfiguration", err)
 	}
-	_, err = payloadrelease.NewScheduler(nil).TerminalImport(ctx, scope.Payload, request.ImportID, run.header.NowMS)
+	_, err = cleanupjobs.NewScheduler(nil).TerminalImport(ctx, scope.Payload, request.ImportID, run.header.NowMS)
 	return creationError("resolve reconfiguration", err)
 }

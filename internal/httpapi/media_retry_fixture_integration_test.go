@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
@@ -56,7 +56,7 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	validationRetrySQL(t, database, `INSERT INTO content_hash_evidence
  (id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,created_at_ms)
  VALUES('media-evidence','media-run','RAW_FILE','12345678',0,0,?)`, now)
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -25,7 +25,7 @@ updated_at_ms=?,version=version+1
 			},
 			Values: []any{now, now},
 		}); err != nil {
-		return fmt.Errorf("payloadrelease/revoke review preview: %w", err)
+		return fmt.Errorf("cleanupjobs/revoke review preview: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(
 		ctx,
@@ -38,7 +38,7 @@ DELETE FROM review_draft_screenshot_assets WHERE rowid IN
 `,
 		itemID,
 	); err != nil {
-		return fmt.Errorf("payloadrelease/clear review screenshots: %w", err)
+		return fmt.Errorf("cleanupjobs/clear review screenshots: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "import_items",
 		recordstore.UpdateReviewItems, recordstore.Update{
@@ -54,7 +54,7 @@ review_updated_at_ms=CASE WHEN review_version>0 THEN ? ELSE NULL END
 			},
 			Values: []any{now},
 		}); err != nil {
-		return fmt.Errorf("payloadrelease/clear review draft: %w", err)
+		return fmt.Errorf("cleanupjobs/clear review draft: %w", err)
 	}
 	return nil
 }

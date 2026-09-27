@@ -27,7 +27,7 @@ type (
 	ServerMetadataWarning = libraryservice.ServerMetadataWarning
 )
 
-// CreateServerSource adopts already verified CAS blobs into the established
+// CreateServerSource receives already verified source files into the established
 // import/content-profile pipeline. It creates an internal COMPLETE upload
 // envelope so all archive, DAT, BIOS, multi-disc, and duplicate invariants stay
 // identical to browser imports.

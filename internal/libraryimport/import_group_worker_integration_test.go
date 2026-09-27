@@ -20,9 +20,9 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testsupport"
@@ -32,7 +32,7 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
 
@@ -105,7 +105,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, invalidONSArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	t.Cleanup(service.Close)
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
@@ -132,7 +132,7 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, time.Now).WithFileStore(blobs)
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
 	created, err := service.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
@@ -162,7 +162,7 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	original := New(database.SQL, time.Now).WithBlobStore(blobs)
+	original := New(database.SQL, time.Now).WithFileStore(blobs)
 	release := gateImportWorker(t, original)
 	created, err := original.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
@@ -174,7 +174,7 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE jobs SET leased_until_ms=1 WHERE id=?`, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	recovered := New(database.SQL, time.Now).WithBlobStore(blobs)
+	recovered := New(database.SQL, time.Now).WithFileStore(blobs)
 	t.Cleanup(recovered.Close)
 	recovered.RecoverImportGroupJobs(ctx)
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
@@ -220,7 +220,7 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			uploadID := completeProjectUpload(
 				t, ctx, database.SQL, blobs, dataDir, test.purpose, test.archive(t),
 			)
-			service := New(database.SQL, time.Now).WithBlobStore(blobs)
+			service := New(database.SQL, time.Now).WithFileStore(blobs)
 			t.Cleanup(service.Close)
 			created, err := service.QueueCreate(ctx, CreateRequest{
 				UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
@@ -261,7 +261,7 @@ func onsImportGroupRequest(t *testing.T, database dbapi.DB, uploadID string) Cre
 func openImportGroupFixture(
 	t *testing.T,
 	ctx context.Context,
-) (*store.DB, *blobstore.Store, string) {
+) (*store.DB, *filestore.Store, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -278,7 +278,7 @@ func openImportGroupFixture(
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func completeImportGroupUpload(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	archive []byte,
 ) string {
@@ -300,7 +300,7 @@ func completeProjectUpload(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir, purpose string,
 	archive []byte,
 ) string {

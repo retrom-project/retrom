@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/testassert"
 )
 
@@ -61,9 +61,9 @@ func TestDOSRankingFailsClosedForConditionalUnknownAndOversizedBatch(t *testing.
 func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	service := (&Service{}).WithBlobStore(blobs)
+	service := (&Service{}).WithFileStore(blobs)
 	files := map[string][]byte{
 		"PAL/PLAY.BAT": []byte("@echo\r\nJS3 PAL.JS3\r\nPAL\r\n"),
 		"PAL/JS3.EXE":  []byte("helper"),
@@ -74,7 +74,7 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 		metadata, putErr := blobs.Put(bytes.NewReader(contents))
 		testassert.False(t, putErr != nil, putErr)
 		directorySources = append(directorySources, importSourceFile{
-			ID: path, Path: path, BlobID: "blob-" + path, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: path, Path: path, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	_, directoryGroups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", directorySources)
@@ -95,7 +95,7 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 	archiveMetadata, err := blobs.Put(bytes.NewReader(archive.Bytes()))
 	testassert.False(t, err != nil, err)
 	archiveSource := importSourceFile{
-		ID: "archive", Path: "pal.zip", BlobID: "archive-blob", SHA256: archiveMetadata.SHA256,
+		ID: "archive", Path: "pal.zip", BlobID: archiveMetadata.ID, SHA256: archiveMetadata.SHA256,
 		Size: archiveMetadata.Size,
 	}
 	_, archiveGroups, _ := service.prepareDOSFiles(context.Background(), "FILES", []importSourceFile{archiveSource})

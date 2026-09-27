@@ -197,7 +197,7 @@ func TestQueuedCancellationKeepsReviewItemsAndSchedulesTerminalPayloads(t *testi
 	var state, payload string
 	var version, releases int
 	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state,payload_state,version,
-(SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE') FROM source_import_items WHERE id='item-2'`).Scan(&state, &payload, &version, &releases); err != nil {
+(SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP') FROM source_import_items WHERE id='item-2'`).Scan(&state, &payload, &version, &releases); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || payload != "RETAINED" || version != 1 || releases != 3 {

@@ -15,12 +15,17 @@ func (service *Service) InstallServerCandidate(
 	ctx context.Context,
 	request ServerInstallRequest,
 ) (ServerInstallResult, error) {
+	var err error
+	request, err = service.prepareServerFile(ctx, request)
+	if err != nil {
+		return ServerInstallResult{}, err
+	}
 	request.Details = maps.Clone(request.Details)
 	if request.Details == nil {
 		request.Details = map[string]any{}
 	}
 	var result ServerInstallResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		if err := scope.Server.LockExecution(ctx, ServerExecution{
 			ImportID: request.ServerImportID, JobID: request.JobID, WorkerID: request.WorkerID,
 			ExecutionNo: request.ExecutionNo, AtMS: service.now().UnixMilli(),
@@ -222,4 +227,23 @@ func recordServerOutcome(ctx context.Context, records ServerRecords, request Ser
 		return fmt.Errorf("persist BIOS result and event: %w", err)
 	}
 	return nil
+}
+
+func (service *Service) prepareServerFile(
+	ctx context.Context,
+	request ServerInstallRequest,
+) (ServerInstallRequest, error) {
+	if service.blobs == nil {
+		return ServerInstallRequest{}, ErrInvalid
+	}
+	// A candidate can match several requirements. Each installation receives its own file.
+	metadata, err := service.blobs.Copy(ctx, request.Metadata.ID)
+	if err != nil {
+		return ServerInstallRequest{}, fmt.Errorf("copy server BIOS candidate: %w", err)
+	}
+	if metadata.SHA256 != request.Metadata.SHA256 || metadata.Size != request.Metadata.Size {
+		return ServerInstallRequest{}, ErrInvalid
+	}
+	request.Metadata = metadata
+	return request, nil
 }

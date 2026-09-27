@@ -28,13 +28,13 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -59,7 +59,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, _ := blobstore.Open(dataDir)
+	blobs, _ := filestore.Open(dataDir)
 	contents := []byte("launchable-gba")
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
@@ -88,7 +88,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		testassert.Falsef(t, time.Now().After(deadline), "finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := libraryimport.New(database.SQL, time.Now)
+	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := importService.Create(
 		ctx,
@@ -109,7 +109,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firmwareMetadata, err := blobs.Put(bytes.NewReader([]byte("local-gba-bios")))
 	testassert.False(t, err != nil, err)
-	firmwareBlobID, err := blobcatalog.EnsureRecord(
+	firmwareBlobID, err := filecatalog.EnsureRecord(
 		ctx,
 		database.SQL,
 		firmwareMetadata,
@@ -130,7 +130,7 @@ AND enabled=1
 		t.Fatal(err)
 	}
 	installationID, _ := uuid.NewV7()
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,
 requirement_id,
 blob_id,
@@ -239,7 +239,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
 	saveID, _ := uuid.NewV7()
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "save_states", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "save_states", `
 INSERT INTO save_states(
 id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
 screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
@@ -431,7 +431,7 @@ AND role='CONTENT' LIMIT 1
 `, approved.GameID).Scan(&contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.CreateReferences(ctx, database.SQL, "variant_files", `
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "variant_files", `
 INSERT INTO variant_files(game_variant_id,
 role,
 logical_name,

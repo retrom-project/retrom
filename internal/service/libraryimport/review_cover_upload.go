@@ -73,14 +73,14 @@ func (service *ReviewCoverUploads) prepare(ctx context.Context, source ReviewCov
 	if err := ctx.Err(); err != nil {
 		return hasheous.AssetData{}, fmt.Errorf("prepare review cover: %w", err)
 	}
-	file, err := service.blobs.OpenDigest(source.Digest)
+	file, err := service.blobs.OpenID(source.BlobID)
 	if err != nil {
-		return hasheous.AssetData{}, fmt.Errorf("%w: open: %w", ErrReviewCoverCASUnavailable, err)
+		return hasheous.AssetData{}, fmt.Errorf("%w: open: %w", ErrReviewCoverStorageUnavailable, err)
 	}
 	contents, readErr := io.ReadAll(io.LimitReader(file, (10<<20)+1))
 	closeErr := file.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
-		return hasheous.AssetData{}, fmt.Errorf("%w: read: %w", ErrReviewCoverCASUnavailable, err)
+		return hasheous.AssetData{}, fmt.Errorf("%w: read: %w", ErrReviewCoverStorageUnavailable, err)
 	}
 	if err := ctx.Err(); err != nil {
 		return hasheous.AssetData{}, fmt.Errorf("prepare review cover: %w", err)

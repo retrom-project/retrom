@@ -7,8 +7,6 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-
-	"retrom/internal/persistence/blobregistry"
 )
 
 func TestGameSaveUpdatedPayloadReleasesOldBlobWhileLaunchExists(t *testing.T) {
@@ -27,12 +25,12 @@ func TestGameSaveUpdatedPayloadReleasesOldBlobWhileLaunchExists(t *testing.T) {
 
 func assertGameSaveProtection(t *testing.T, f *saveFixture, id string, expected bool) {
 	t.Helper()
-	protected, err := blobregistry.ProtectiveSet(t.Context(), f.database.SQL)
+	var retained bool
+	err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=? AND retired_at_ms IS NULL)`, id).Scan(&retained)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, found := protected[id]
-	if found != expected {
-		t.Fatalf("frozen input protected=%v, want %v", found, expected)
+	if retained != expected {
+		t.Fatalf("frozen input retained=%v, want %v", retained, expected)
 	}
 }

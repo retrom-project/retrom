@@ -11,9 +11,9 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	dbsqlite "retrom/internal/database/sqlite"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	repository "retrom/internal/persistence/sourceimport"
 	"retrom/internal/serversource"
@@ -39,9 +39,9 @@ CREATE TABLE source_import_collections(id TEXT,mapping_action TEXT,target_platfo
 CREATE TABLE source_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,source_facts_digest TEXT,ordinal INTEGER DEFAULT 0,blob_id TEXT);
 CREATE TABLE dat_machines(dat_version_id TEXT,machine_name TEXT,cloneof TEXT,romof TEXT);
 CREATE TABLE source_import_item_companions(item_id TEXT,candidate_item_id TEXT,blob_id TEXT,created_at_ms INTEGER,PRIMARY KEY(item_id,candidate_item_id));
-CREATE TABLE archive_entries(archive_blob_id TEXT,materialized_blob_id TEXT);
-CREATE TABLE blob_gc_candidates(blob_id TEXT);
-CREATE TABLE blobs(ref_count INTEGER NOT NULL DEFAULT 0,id TEXT PRIMARY KEY,sha256 TEXT UNIQUE,size_bytes INTEGER,md5 TEXT,sha1 TEXT,crc32 TEXT,media_type TEXT,created_at_ms INTEGER);
+CREATE TABLE archive_entries(archive_blob_id TEXT);
+CREATE TABLE file_deletions(blob_id TEXT);
+CREATE TABLE stored_files(owner_kind TEXT NOT NULL DEFAULT 'STAGING',owner_id TEXT NOT NULL DEFAULT '',retired_at_ms INTEGER,id TEXT PRIMARY KEY,sha256 TEXT,size_bytes INTEGER,md5 TEXT,sha1 TEXT,crc32 TEXT,media_type TEXT,created_at_ms INTEGER);
 INSERT INTO source_import_collections VALUES('collection','IMPORT','target','dat','arcade');
 INSERT INTO source_import_items(id,import_id,collection_id,discovery_state) VALUES('parent','import','collection','READY');
 INSERT INTO source_import_items(id,import_id,collection_id,discovery_state,execution_state) VALUES('primary','import','collection','READY','COPYING');
@@ -81,7 +81,7 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 			t.Fatal(err)
 		}
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := &Service{database: database, blobs: blobs, now: func() time.Time { return time.UnixMilli(10) }}
 	item := executionItem{

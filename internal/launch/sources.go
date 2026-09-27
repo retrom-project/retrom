@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	runtimebundle "retrom/internal/runtime/bundle"
 	runtimelaunch "retrom/internal/runtime/launch"
@@ -19,13 +19,13 @@ import (
 
 // Sources supplies host IO and credentials to the application. Configure it before serving requests.
 type Sources struct {
-	blobs          *blobstore.Store
+	blobs          *filestore.Store
 	credentials    *retromruntime.Credentials
 	builder        *runtimelaunch.Builder
 	originTemplate string
 }
 
-func NewSources(blobs *blobstore.Store, credentials *retromruntime.Credentials) *Sources {
+func NewSources(blobs *filestore.Store, credentials *retromruntime.Credentials) *Sources {
 	return &Sources{blobs: blobs, credentials: credentials}
 }
 

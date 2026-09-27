@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
 
@@ -51,25 +51,25 @@ func (service *ImportPreparation) materializeArchiveEntry(
 	ctx context.Context,
 	archivePath string,
 	expected importing.ArchiveEntry,
-) (blobstore.Metadata, error) {
+) (filestore.Metadata, error) {
 	if err := ctx.Err(); err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	var metadata blobstore.Metadata
+	var metadata filestore.Metadata
 	var putErr, closeErr error
 	switch expected.ArchiveFormat {
 	case "ZIP":
 		reader, err := zip.OpenReader(archivePath)
 		if err != nil {
-			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+			return filestore.Metadata{}, importing.ErrArchiveUnsafe
 		}
 		defer func() { cleanup.Error("close", reader.Close()) }()
 		if expected.Ordinal < 0 || expected.Ordinal >= len(reader.File) {
-			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+			return filestore.Metadata{}, importing.ErrArchiveUnsafe
 		}
 		entry, err := reader.File[expected.Ordinal].Open()
 		if err != nil {
-			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+			return filestore.Metadata{}, importing.ErrArchiveUnsafe
 		}
 		metadata, putErr = service.blobs.Put(io.LimitReader(entry, expected.Size+1))
 		closeErr = entry.Close()
@@ -84,13 +84,13 @@ func (service *ImportPreparation) materializeArchiveEntry(
 		metadata, putErr = service.blobs.Put(io.LimitReader(reader, expected.Size+1))
 		closeErr = errors.Join(reader.Close(), <-done)
 	default:
-		return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+		return filestore.Metadata{}, importing.ErrArchiveUnsafe
 	}
 	if putErr != nil || closeErr != nil || metadata.Size != expected.Size || metadata.CRC32 != expected.CRC32 ||
 		metadata.MD5 != expected.MD5 ||
 		metadata.SHA1 != expected.SHA1 ||
 		metadata.SHA256 != expected.SHA256 {
-		return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+		return filestore.Metadata{}, importing.ErrArchiveUnsafe
 	}
 	return metadata, nil
 }
@@ -332,7 +332,7 @@ func (service *ImportPreparation) inspectDOSBatch(digest string) []byte {
 	if service.blobs == nil || digest == "" {
 		return nil
 	}
-	file, err := service.blobs.OpenDigest(digest)
+	file, err := service.blobs.OpenID(digest)
 	if err != nil {
 		return nil
 	}
@@ -391,7 +391,7 @@ func dosDirectoryTitle(files []ImportFile) string {
 	return strings.TrimSuffix(filepath.Base(files[0].Path), filepath.Ext(files[0].Path))
 }
 
-func (service *ImportPreparation) bundleDOSDirectory(files []ImportFile) (blobstore.Metadata, error) {
+func (service *ImportPreparation) bundleDOSDirectory(files []ImportFile) (filestore.Metadata, error) {
 	reader, writer := io.Pipe()
 	done := make(chan error, 1)
 	go func() {
@@ -406,7 +406,7 @@ func (service *ImportPreparation) bundleDOSDirectory(files []ImportFile) (blobst
 				buildErr = err
 				break
 			}
-			source, err := service.blobs.OpenDigest(file.SHA256)
+			source, err := service.blobs.OpenID(file.BlobID)
 			if err != nil {
 				buildErr = err
 				break
@@ -428,10 +428,10 @@ func (service *ImportPreparation) bundleDOSDirectory(files []ImportFile) (blobst
 	metadata, err := service.blobs.Put(reader)
 	buildErr := <-done
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if buildErr != nil {
-		return blobstore.Metadata{}, buildErr
+		return filestore.Metadata{}, buildErr
 	}
 	return metadata, nil
 }
@@ -472,7 +472,7 @@ func (service *ImportPreparation) prepareDOSArchive(
 		return appendRejectedDOSFiles(dispositions, candidates, "AMBIGUOUS_DOS_BUNDLE"), nil, nil
 	}
 	file := candidates[0]
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DOSArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.BlobID), importing.DOSArchiveLimits())
 	if err != nil {
 		return append(dispositions, rejectedDisposition(file, ArchiveReason(err))), nil, nil
 	}
@@ -508,12 +508,12 @@ func (service *ImportPreparation) materializeDOSArchive(
 	ctx context.Context,
 	file ImportFile,
 	entries []importing.ArchiveEntry,
-) ([]PreparedSource, []PreparedDOSEntry, map[int]blobstore.Metadata, error) {
+) ([]PreparedSource, []PreparedDOSEntry, map[int]filestore.Metadata, error) {
 	programs := make([]PreparedDOSEntry, 0)
 	sources := make([]PreparedSource, 0, len(entries))
-	materialized := make(map[int]blobstore.Metadata, len(entries))
+	materialized := make(map[int]filestore.Metadata, len(entries))
 	for _, entry := range entries {
-		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.SHA256), entry)
+		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.BlobID), entry)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -523,7 +523,7 @@ func (service *ImportPreparation) materializeDOSArchive(
 			File: file, Role: "DOS_SOURCE", LogicalName: entry.NormalizedPath,
 			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
-		if program, ok := service.preparedDOSProgram(entry.NormalizedPath, metadata.SHA256, len(programs)); ok {
+		if program, ok := service.preparedDOSProgram(entry.NormalizedPath, metadata.ID, len(programs)); ok {
 			programs = append(programs, program)
 		}
 	}
@@ -578,7 +578,7 @@ func (service *ImportPreparation) collectDOSDirectoryFiles(
 	sources := make([]PreparedSource, 0, len(candidates))
 	for _, file := range candidates {
 		sources = append(sources, PreparedSource{File: file, Role: "DOS_SOURCE", LogicalName: file.Path})
-		if program, ok := service.preparedDOSProgram(file.Path, file.SHA256, len(programs)); ok {
+		if program, ok := service.preparedDOSProgram(file.Path, file.BlobID, len(programs)); ok {
 			programs = append(programs, program)
 		}
 	}

@@ -97,7 +97,7 @@ WHERE id='current-launch'`); err != nil {
 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatal(err)
 	}
-	if err := runMigration(t.Context(), db, sources[len(sources)-2], time.Now); err != nil {
+	if err := runMigration(t.Context(), db, sources[len(sources)-1], time.Now); err != nil {
 		t.Fatal(err)
 	}
 	var idle sql.NullInt64

@@ -3,7 +3,7 @@
 CREATE TABLE bios_installations (
   id TEXT PRIMARY KEY,
   requirement_id TEXT NOT NULL REFERENCES bios_requirements(id),
-  blob_id TEXT REFERENCES blobs(id),
+  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
   original_filename TEXT NOT NULL,
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -120,6 +120,7 @@ CREATE TABLE server_imports (
 );
 
 CREATE TABLE server_bios_import_candidates (
+ storage_file_id TEXT,
   id TEXT PRIMARY KEY,
   server_import_id TEXT NOT NULL,
   requirement_id TEXT NOT NULL,

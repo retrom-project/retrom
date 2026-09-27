@@ -8,8 +8,8 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/importdiscard"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func (writes writes) Complete(ctx context.Context, key importdiscard.Key, now int64) error {

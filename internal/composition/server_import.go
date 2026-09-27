@@ -6,7 +6,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	importpersistence "retrom/internal/persistence/serverimport"
 	"retrom/internal/runtime"
 	"retrom/internal/serversource"
@@ -16,7 +16,7 @@ import (
 
 func NewServerImports(
 	database dbapi.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	installer *firmware.Service,
 	credentials *runtime.Credentials,
 	configured []serversource.Root,

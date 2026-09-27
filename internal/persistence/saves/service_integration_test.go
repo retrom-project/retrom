@@ -29,15 +29,15 @@ import (
 	validationservice "retrom/internal/service/corevalidation"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/persistence/sessionstore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -48,7 +48,7 @@ import (
 type saveFixture struct {
 	ctx         context.Context
 	database    *store.DB
-	blobs       *blobstore.Store
+	blobs       *filestore.Store
 	saves       *saveservice.Service
 	gameID      string
 	now         *time.Time
@@ -79,11 +79,11 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, clock()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	content, err := blobs.Put(bytes.NewReader([]byte("save-fixture-gba")))
 	testassert.False(t, err != nil, err)
-	contentBlobID, err := blobcatalog.EnsureRecord(
+	contentBlobID, err := filecatalog.EnsureRecord(
 		ctx,
 		database.SQL,
 		content,
@@ -370,8 +370,8 @@ SELECT s.source_launch_session_id,
 state_blob.size_bytes,
 screenshot_blob.size_bytes
 FROM save_states s
-JOIN blobs state_blob ON state_blob.id=s.payload_blob_id
-JOIN blobs screenshot_blob ON screenshot_blob.id=s.screenshot_blob_id
+JOIN stored_files state_blob ON state_blob.id=s.payload_blob_id
+JOIN stored_files screenshot_blob ON screenshot_blob.id=s.screenshot_blob_id
 WHERE s.id=?
 `, result.SaveStateID).Scan(&sourceLaunchID, &stateSize, &screenshotSize); err != nil ||
 		sourceLaunchID != created.LaunchID ||
@@ -499,17 +499,17 @@ func TestProductCheckpointAllowsOptionalScreenshotAndRestoresExactBinding(t *tes
 	mustUpdateLaunch(t, fixture.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{original.LaunchID}}, Values: []any{now, now}})
 
 	restored := fixture.createLaunchFromSave(t, &result.SaveStateID)
-	digest, err := fixture.saves.StateDigest(fixture.ctx, restored.LaunchID, restored.Capability)
+	digest, err := fixture.saves.StateFile(fixture.ctx, restored.LaunchID, restored.Capability)
 	expectedDigest := sha256.Sum256(payload)
-	if err != nil || digest != hex.EncodeToString(expectedDigest[:]) {
-		t.Fatalf("restore digest=%s error=%v", digest, err)
+	if err != nil || digest.Digest != hex.EncodeToString(expectedDigest[:]) {
+		t.Fatalf("restore digest=%s error=%v", digest.Digest, err)
 	}
 	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
 UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
 `, result.SaveStateID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.saves.StateDigest(
+	if _, err := fixture.saves.StateFile(
 		fixture.ctx, restored.LaunchID, restored.Capability,
 	); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
 		t.Fatalf("binding drift error=%v", err)

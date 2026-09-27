@@ -7,11 +7,11 @@ import (
 	"image/jpeg"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 func TestInspectReviewScreenshotAcceptsRuntimeJPEG(t *testing.T) {
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

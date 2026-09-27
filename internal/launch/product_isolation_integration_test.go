@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	retromruntime "retrom/internal/runtime"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -61,7 +61,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	approveProductIsolationPreview(t, service, itemID, actorID)

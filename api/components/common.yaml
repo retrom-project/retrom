@@ -400,7 +400,6 @@ components:
         bios: {}
         biosSetCount: {}
         biosUrl: {}
-        blobCount: {}
         blocked: {}
         blockedCount: {}
         blockerCode: {}

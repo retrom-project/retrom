@@ -153,7 +153,7 @@ func seedCurrentRuntimeGraph(t *testing.T, database dbapi.DB) {
 ) VALUES
  ('current-variant-a','current-game-a','fceumm','current-provider','target-a','READY','READY','{}',1,1),
  ('current-variant-b','current-game-b','fceumm','current-provider','target-a','READY','READY','{}',1,1)`,
-		`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(
+		`INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(
  'current-save-payload','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',1,
  'dddddddddddddddddddddddddddddddd','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
  'ffffffff','application/octet-stream',1

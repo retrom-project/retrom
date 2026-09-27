@@ -5,7 +5,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/releaseops"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func Owner(ctx context.Context, executor dbapi.Executor, scope application.Scope) (application.Owner, error) {

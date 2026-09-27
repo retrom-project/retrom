@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/saves"
 )
@@ -29,7 +30,8 @@ func (store records) Saved(ctx context.Context, id string) (saves.StoredSave, bo
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT save.id,save.name,save.created_at_ms,save.version,
  save.active_duration_ms,save.payload_sha256,native.data_version,save.screenshot_blob_id,
  save.profile_id,save.game_id,save.checkpoint_format,save.deleted_at_ms
-FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id=?`, id).
+FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE
+save.id=?`, id).
 		Scan(&saved.Result.SaveStateID, &saved.Result.Name, &saved.Result.CreatedAtMS, &saved.Result.Version,
 			&saved.Result.ActiveDurationMS, &saved.Digest, &saved.DataVersion, &saved.ScreenshotID, &saved.ProfileID,
 			&saved.GameID, &saved.Format, &saved.DeletedAtMS)
@@ -55,6 +57,31 @@ SET save_state_id=?,expected_data_version=? WHERE launch_session_id=?`, saveID, 
 }
 
 func (store records) UpdateSave(ctx context.Context, update saves.SaveUpdate) error {
+	owner := fileownership.Owner{Kind: "SAVE_STATE", ID: update.SaveID}
+	if err := fileownership.Adopt(ctx, store.executor, update.PayloadID, owner); err != nil {
+		return fmt.Errorf("game save: %w", err)
+	}
+	if update.ScreenshotID != "" {
+		if err := fileownership.Adopt(ctx, store.executor, update.ScreenshotID, owner); err != nil {
+			return fmt.Errorf("game save: %w", err)
+		}
+	}
+	if _, err := store.executor.ExecContext(
+		ctx,
+		`UPDATE stored_files SET retired_at_ms=? WHERE owner_kind='SAVE_STATE' AND owner_id=?
+ AND id IN(SELECT payload_blob_id FROM save_states WHERE id=? UNION SELECT screenshot_blob_id
+FROM save_states WHERE id=?)
+ AND id<>? AND id<>COALESCE(?,'')`,
+		update.AtMS,
+		update.SaveID,
+		update.SaveID,
+		update.SaveID,
+		update.PayloadID,
+		update.ScreenshotID,
+	); err != nil {
+		return fmt.Errorf("retire replaced save files: %w", err)
+	}
+
 	if err := changed(recordstore.UpdateGameSaveVersions(ctx, store.executor, recordstore.Update{
 		Set: `last_synced_at_ms=?,last_writer_launch_session_id=?,data_version=data_version+1`,
 		Scope: recordstore.Scope{

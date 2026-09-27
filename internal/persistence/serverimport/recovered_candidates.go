@@ -11,9 +11,13 @@ import (
 	"retrom/internal/service/serverimport"
 )
 
-func (repository *Recovery) Candidates(ctx context.Context, importID string) ([]serverimport.CandidateEvidence, error) {
+func (repository *Recovery) Candidates(
+	ctx context.Context,
+	importID string,
+) ([]serverimport.CandidateEvidence, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT id,requirement_id,relative_path,basename,association_kind,size_bytes,md5,sha1,sha256,crc32,state,
+SELECT id,COALESCE(storage_file_id,''),requirement_id,relative_path,basename,association_kind,
+size_bytes,md5,sha1,sha256,crc32,state,
 exact_hash,expected_size_match,exact_basename,safe_archive,launchable,matched_count,aliased_count,
 mismatched_count,missing_count,extra_count,evaluation_details_json
 FROM server_bios_import_candidates WHERE server_import_id=?
@@ -29,10 +33,31 @@ ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807
 		var md5Value, sha1Value, sha256Value, crc32Value, details sql.NullString
 		var exactHash, expectedSize, exactName, safeArchive, launchable sql.NullInt64
 		var matched, aliased, mismatched, missing, extra sql.NullInt64
-		if err := rows.Scan(&candidate.ID, &candidate.RequirementID, &candidate.Facts.RelativePath, &candidate.Facts.Basename,
-			&candidate.Association, &candidate.Facts.SizeBytes, &md5Value, &sha1Value, &sha256Value, &crc32Value,
-			&candidate.State, &exactHash, &expectedSize, &exactName, &safeArchive, &launchable, &matched,
-			&aliased, &mismatched, &missing, &extra, &details); err != nil {
+		if err := rows.Scan(
+			&candidate.ID,
+			&candidate.StorageID,
+			&candidate.RequirementID,
+			&candidate.Facts.RelativePath,
+			&candidate.Facts.Basename,
+			&candidate.Association,
+			&candidate.Facts.SizeBytes,
+			&md5Value,
+			&sha1Value,
+			&sha256Value,
+			&crc32Value,
+			&candidate.State,
+			&exactHash,
+			&expectedSize,
+			&exactName,
+			&safeArchive,
+			&launchable,
+			&matched,
+			&aliased,
+			&mismatched,
+			&missing,
+			&extra,
+			&details,
+		); err != nil {
 			return nil, fmt.Errorf("scan persisted server import candidate: %w", err)
 		}
 		candidate.Facts.MD5, candidate.Facts.SHA1 = md5Value.String, sha1Value.String

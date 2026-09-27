@@ -41,42 +41,36 @@ func (records impactRecords) ReadImpact(ctx context.Context, gameID string) (app
 	}
 	result := application.ImpactSnapshot{GameID: gameID}
 	for _, id := range ids {
-		blob, err := records.blob(ctx, gameID, id)
+		blob, err := records.blob(ctx, id)
 		if err != nil {
 			return application.ImpactSnapshot{}, err
 		}
 		result.Blobs = append(result.Blobs, blob)
 	}
-	result.Blobs, err = expandImpactArchives(ctx, records.executor, result.Blobs)
-	if err != nil {
-		return application.ImpactSnapshot{}, err
-	}
 	result.Counts, err = records.counts(ctx, gameID)
 	if err != nil {
 		return application.ImpactSnapshot{}, err
 	}
-	result.SourceKinds, err = dbapi.QueryStrings(ctx, records.executor, `SELECT metadata_source_kind FROM games WHERE id=?
-UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`, gameID, gameID)
+	result.SourceKinds, err = dbapi.QueryStrings(
+		ctx,
+		records.executor,
+		`SELECT metadata_source_kind FROM games WHERE id=?
+UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`,
+		gameID,
+		gameID,
+	)
 	if err != nil {
 		return application.ImpactSnapshot{}, wrapErr(err)
 	}
 	return result, nil
 }
 
-func (records impactRecords) blob(ctx context.Context, gameID, id string) (application.ImpactBlob, error) {
+func (records impactRecords) blob(ctx context.Context, id string) (application.ImpactBlob, error) {
 	result := application.ImpactBlob{ID: id}
 	err := dbapi.QueryRowContext(
-		ctx, records.executor, `SELECT size_bytes FROM blobs WHERE id=?`, id).Scan(&result.SizeBytes)
+		ctx, records.executor, `SELECT size_bytes FROM stored_files WHERE id=?`, id).Scan(&result.SizeBytes)
 	if err != nil {
 		return application.ImpactBlob{}, fmt.Errorf("read impact blob size: %w", err)
-	}
-	result.ProtectiveReferences, err = globalReferenceCount(ctx, records.executor, id)
-	if err != nil {
-		return application.ImpactBlob{}, err
-	}
-	result.GameReferences, err = gameReferenceCount(ctx, records.executor, gameID, id)
-	if err != nil {
-		return application.ImpactBlob{}, err
 	}
 	return result, nil
 }

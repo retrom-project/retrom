@@ -10,7 +10,7 @@ import (
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/retirementops"
 	"retrom/internal/persistence/sessionstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type Records struct{ Executor dbapi.Executor }

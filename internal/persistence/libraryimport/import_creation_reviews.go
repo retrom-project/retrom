@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -20,7 +21,8 @@ INSERT INTO import_item_core_validations(id,import_item_id,target_platform_insta
  platform_instance_version,core_id,
 provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
  prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,
+?,?,?,?,?,?,?,?,
  ?,?)`,
 		change.ID,
 		change.ItemID,
@@ -46,7 +48,8 @@ status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?
 		result, err = records.transaction.ExecContext(
 			ctx,
 			`
-INSERT INTO import_item_dos_entries(import_item_id,normalized_path,original_relative_path,kind,rank,
+INSERT INTO import_item_dos_entries(import_item_id,normalized_path,original_relative_path,
+kind,rank,
  enabled,direct_launch_safe,created_at_ms)
 VALUES(?,?,?,?,?,1,?,?)`,
 			change.ItemID,
@@ -62,8 +65,20 @@ VALUES(?,?,?,?,?,1,?,?)`,
 		}
 	}
 	for _, file := range change.Files {
-		result, err = recordstore.CreateReferences(ctx, records.transaction, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
+		if file.Role != "BIOS_BUNDLE" {
+			if err := fileownership.Adopt(
+				ctx,
+				records.transaction,
+				file.BlobID,
+				fileownership.Owner{Kind: "IMPORT_ITEM", ID: change.ItemID},
+			); err != nil {
+				return fmt.Errorf("import creation reviews: %w", err)
+			}
+		}
+
+		result, err = recordstore.InsertRows(ctx, records.transaction, "import_item_validation_files", `
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,
+blob_id,
  sort_order,created_at_ms)
 VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, change.NowMS)
 		if err := creationMutation(result, err, "insert creation validation file", 1); err != nil {
@@ -95,25 +110,19 @@ func (records creationRecords) RPG(ctx context.Context, change application.Creat
 		profilemodel.Review,
 		profilemodel.RPGMakerProject,
 		&profilemodel.RPGReview{
-			Generation:     change.Generation,
-			EvidenceFamily: change.EvidenceFamily,
-
-			EvidenceGeneration: change.EvidenceGeneration,
-			EvidenceConfidence: change.EvidenceConfidence,
-
-			EngineVersion: change.EngineVersion,
-			EntryHTMLPath: change.EntryHTML,
-
-			FileCount:  change.FileCount,
-			TotalBytes: change.TotalBytes,
-
-			ProjectFingerprint: change.FilesDigest,
-			RequirementsSHA256: change.RequirementsDigest,
-
-			Analysis:   json.RawMessage(change.AnalysisJSON),
-			ProviderID: change.ProviderID,
-			TargetID:   change.TargetID,
-
+			Generation:               change.Generation,
+			EvidenceFamily:           change.EvidenceFamily,
+			EvidenceGeneration:       change.EvidenceGeneration,
+			EvidenceConfidence:       change.EvidenceConfidence,
+			EngineVersion:            change.EngineVersion,
+			EntryHTMLPath:            change.EntryHTML,
+			FileCount:                change.FileCount,
+			TotalBytes:               change.TotalBytes,
+			ProjectFingerprint:       change.FilesDigest,
+			RequirementsSHA256:       change.RequirementsDigest,
+			Analysis:                 json.RawMessage(change.AnalysisJSON),
+			ProviderID:               change.ProviderID,
+			TargetID:                 change.TargetID,
 			DependencySnapshotSHA256: change.DependencyDigest,
 		},
 	)
@@ -133,8 +142,8 @@ func (records creationRecords) Events(ctx context.Context, events []application.
 		result, err := records.transaction.ExecContext(
 			ctx,
 			`
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES(?,?,?,?,?,?)`,
-
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+VALUES(?,?,?,?,?,?)`,
 			event.JobID,
 			event.ScopeType,
 			event.ScopeID,

@@ -5,7 +5,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/releaseschedule"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 type scheduling struct{ releaseschedule.Records }

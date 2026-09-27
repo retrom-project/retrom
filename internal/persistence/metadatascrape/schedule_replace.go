@@ -28,6 +28,10 @@ func (writes scheduleWrites) replaceCurrent(ctx context.Context, plan applicatio
 	if err != nil {
 		return fmt.Errorf("cancel replaced scrape jobs: %w", err)
 	}
+	if _, err := writes.transaction.ExecContext(ctx, `UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?)
+WHERE owner_kind='SCRAPE_RUN' AND owner_id IN (`+current+`)`, plan.Now, plan.Subject.ID); err != nil {
+		return fmt.Errorf("retire replaced scrape files: %w", err)
+	}
 	if _, err := recordstore.DeleteScrapeCandidateAssets(
 		ctx,
 		writes.transaction,
@@ -38,7 +42,7 @@ func (writes scheduleWrites) replaceCurrent(ctx context.Context, plan applicatio
 	); err != nil {
 		return fmt.Errorf("release replaced scrape media: %w", err)
 	}
-	if _, err := recordstore.DeleteReferences(ctx, writes.transaction, "content_hash_evidence", recordstore.Scope{
+	if _, err := recordstore.DeleteRows(ctx, writes.transaction, "content_hash_evidence", recordstore.Scope{
 		Where: "scrape_run_id IN (" + current + ")", Args: []any{plan.Subject.ID},
 	}); err != nil {
 		return fmt.Errorf("release replaced scrape evidence: %w", err)

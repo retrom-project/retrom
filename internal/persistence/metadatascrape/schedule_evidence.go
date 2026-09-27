@@ -21,7 +21,7 @@ func (reads scheduleReads) Files(
 ) ([]metadatascrape.FileEvidence, error) {
 	table, column := evidenceSource(subject)
 	rows, err := reads.database.QueryContext(ctx, `SELECT s.logical_name,b.id,b.crc32,b.md5,b.sha1,b.sha256,
- s.source_archive_blob_id,s.source_archive_entry_ordinal FROM `+table+` s JOIN blobs b ON b.id=s.blob_id
+ s.source_archive_blob_id,s.source_archive_entry_ordinal FROM `+table+` s JOIN stored_files b ON b.id=s.blob_id
  WHERE s.`+column+`=? AND s.role='CONTENT' ORDER BY s.sort_order,s.logical_name`, subject.ID)
 	if err != nil {
 		return nil, fmt.Errorf("query scrape content evidence: %w", err)

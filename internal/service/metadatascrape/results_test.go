@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -79,12 +79,12 @@ type responseBlobs struct {
 	calls   int
 }
 
-func (blobs *responseBlobs) Put(io.Reader) (blobstore.Metadata, error) {
+func (blobs *responseBlobs) Put(io.Reader) (filestore.Metadata, error) {
 	if blobs.records.inTransaction {
 		blobs.t.Fatal("raw response file written inside SQL transaction")
 	}
 	blobs.calls++
-	return blobstore.Metadata{SHA256: "raw", Size: 3}, nil
+	return filestore.Metadata{SHA256: "raw", Size: 3}, nil
 }
 
 func TestRawResponseIsPreparedBeforeResultTransaction(t *testing.T) {

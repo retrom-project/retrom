@@ -44,8 +44,8 @@ func (server *Server) reviewCoverError(writer http.ResponseWriter, request *http
 	switch {
 	case errors.Is(err, application.ErrReviewCoverUploadInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity, "ASSET_UPLOAD_INVALID", "上传文件不可用", map[string]any{})
-	case errors.Is(err, application.ErrReviewCoverCASUnavailable):
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "媒体字节不可用", map[string]any{})
+	case errors.Is(err, application.ErrReviewCoverStorageUnavailable):
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "媒体字节不可用", map[string]any{})
 	case errors.Is(err, application.ErrReviewCoverImageInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity,
 			"ASSET_IMAGE_INVALID", "封面必须是受限 PNG、JPEG 或 WebP", map[string]any{})

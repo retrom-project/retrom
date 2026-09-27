@@ -59,7 +59,7 @@ WHERE id=? AND version=? AND platform_id=? AND default_core_id=? AND enabled=1 A
 			ctx,
 			`
 UPDATE import_files SET id=id WHERE id=? AND upload_session_id=? AND released_at_ms IS NULL
-AND relative_path=? AND blob_id=? AND EXISTS(SELECT 1 FROM blobs WHERE id=? AND sha256=? AND
+AND relative_path=? AND blob_id=? AND EXISTS(SELECT 1 FROM stored_files WHERE id=? AND sha256=? AND
  size_bytes=?)`,
 			file.ID,
 			upload.ID,

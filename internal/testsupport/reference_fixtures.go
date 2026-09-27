@@ -17,7 +17,7 @@ func ExecuteSeed(ctx context.Context, db dbapi.Executor, table, query string, ar
 	if table == "" {
 		result, err = db.ExecContext(ctx, query, args...)
 	} else {
-		result, err = recordstore.CreateReferences(ctx, db, table, query, args...)
+		result, err = recordstore.InsertRows(ctx, db, table, query, args...)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("seed fixture references: %w", err)

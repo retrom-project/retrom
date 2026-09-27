@@ -4,11 +4,17 @@ import (
 	"context"
 
 	dbapi "retrom/internal/database"
-	gamerefs "retrom/internal/persistence/gamecontent/references"
 )
 
 func gameImpactBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
-	ids, err := gamerefs.GameBlobIDs(ctx, transaction, gameID)
+	ids, err := dbapi.QueryStrings(
+		ctx,
+		transaction,
+		`SELECT id FROM stored_files WHERE (owner_kind='GAME' AND owner_id=?1)
+ OR (owner_kind='SAVE_STATE' AND owner_id IN(SELECT id FROM save_states WHERE game_id=?1))
+ OR (owner_kind='SCRAPE_RUN' AND owner_id IN(SELECT id FROM metadata_scrape_runs WHERE game_id=?1)) ORDER BY id`,
+		gameID,
+	)
 	if err != nil {
 		return nil, wrapErr(err)
 	}
