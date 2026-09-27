@@ -2707,7 +2707,7 @@ ACC-BBC-001；`RETROM_DOS_GAME` 指向操作者的 Doom II ZIP，`RETROM_DOS_ENT
 真实上传、导入、设置审核默认入口、预览并发布后，通过标准 Start 确认进入第一关；方向输入必须
 改变固定墙面区域，主动作必须使弹药数字变化。暂停并由 Player 保存原生 checkpoint，退出后在
 不同 Launch 恢复；原生传入字节摘要、弹药及视角必须匹配，恢复后转向和射击仍有效。
-记录 Host 虚拟 ZIP 的内容索引身份及整个 context 的 Range 请求；普通启动不能完整下载游戏，
+记录 Host 虚拟 ZIP 的内容索引身份及整个 context 的 Range 请求；普通启动的游戏响应必须为受限 206，不得退化为整包 200，
 重复 Launch 必须复用已有窗口，关闭后的公共资源计数归零。
 
 定向矩阵命令沿用上述 `--pfb` 入口，选择 `--case ACC-DOSBOX-001`。开发 Provider 应为

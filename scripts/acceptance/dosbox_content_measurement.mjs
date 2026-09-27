@@ -7,7 +7,7 @@ import {measureBrowserRSS} from "./content_io_browser_memory.mjs";
 
 export const dosObservation = "dos-doom2-newgame-view-right-primary-fire-v1";
 export async function measureDOS({browser, context, collector, client, base, gameId, content, directory, preparePage}) {
-  const launch = await launchCart(client, gameId); launch.returnTo = `/games/${gameId}`;
+  const launch = await launchCart(client, gameId, null, process.env.RETROM_DOS_ENTRY); launch.returnTo = `/games/${gameId}`;
   const opened = await openDOS(context, base, launch, preparePage);
   assert.equal(opened.contentDigest, content.contentDigest); assert.equal(opened.source.sizeBytes, content.sizeBytes);
   const initial = await bootDoom(opened), firstFrameMs = performance.now() - opened.startedAt;

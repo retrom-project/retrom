@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
+import {dosFailureMarker} from "./dosbox_script_markers.mjs";
 import {proofDigest} from "./content_io_case_proof.mjs";
 
 // Freeze the owner just before it fails the whole Player. This leaves the actual
 // Content Worker alive long enough to verify object-scoped revocation, then lets
 // the normal fatal-error/teardown path continue unchanged.
 export async function observeDOSFailure(context, page, source, inspect) {
-  const marker = 'if (this.state === "FAILED" || this.state === "EXITED") {';
-  const lines = source.split("\n"), locations = lines.flatMap((line, index) => line.trim() === marker ? [index] : []);
-  assert.equal(locations.length, 1, "DOS_FAILURE_BREAKPOINT_AMBIGUOUS");
+  const marker = dosFailureMarker(source);
   const connection = await context.newCDPSession(page), pending = new Set(), observations = [], errors = [];
   await connection.send("Debugger.enable");
-  const {breakpointId} = await connection.send("Debugger.setBreakpointByUrl", {urlRegex: "^blob:", lineNumber: locations[0],
+  const {breakpointId} = await connection.send("Debugger.setBreakpointByUrl", {urlRegex: "^blob:", lineNumber: marker.lineNumber, columnNumber: marker.columnNumber,
     condition: 'this?.envelope?.runtime?.targetId === "dosbox-pure"'});
   const paused = event => {
     const task = (async () => {
@@ -19,7 +18,7 @@ export async function observeDOSFailure(context, page, source, inspect) {
         const {scriptSource} = await connection.send("Debugger.getScriptSource", {scriptId: frame.location.scriptId});
         assert.equal(proofDigest(scriptSource), proofDigest(source));
         const value = await connection.send("Debugger.evaluateOnCallFrame", {callFrameId: frame.callFrameId,
-          expression: "({code, sessionId:this.contentOwner.session.sessionId})", returnByValue: true});
+          expression: `({code:${marker.variable}, sessionId:this.contentOwner.session.sessionId})`, returnByValue: true});
         assert.ok(!value.exceptionDetails);
         observations.push({...value.result.value, ...await inspect(value.result.value)});
         await connection.send("Debugger.removeBreakpoint", {breakpointId});
@@ -58,7 +57,7 @@ export async function inspectDOSRevocation(worker, ancillary) {
     const read = async (offset, length) => {
       try {await game.reader.readInto(offset, new Uint8Array(length)); return "SUCCESS";} catch (error) {return error.code;}
     };
-    const failures = await Promise.all([read(0, 1), read(0, 0), read(262144 + 17, 4096)]);
+    const failures = await Promise.all([read(0, 1), read(0, 0), read(524288 + 17, 4096)]);
     const byte = new Uint8Array(1); await other.reader.readInto(0, byte);
     return {failures, unrelatedRevoked: other.object.state.revoked, unrelatedByte: byte[0], sessionClosed: service.closed};
   })()`);

@@ -17,7 +17,7 @@ export async function holdDOSRange(opened) {
 }
 
 export async function concurrentDOS(opened, worker, oracle) {
-  const eviction = await evictDOSMemory(opened, worker), offset = 262144 + 17, length = 4096;
+  const eviction = await evictDOSMemory(opened, worker), offset = 17, length = 4096;
   const held = await holdDOSRange(opened), before = opened.network.requests.length;
   try {
     await opened.page.evaluate(({offset, length}) => {
@@ -28,6 +28,7 @@ export async function concurrentDOS(opened, worker, oracle) {
     await held.held;
     const reads = opened.frame.evaluate(async ({offset, length}) => {
       const values = await Promise.all([globalThis.__dosNativeRead(offset, length), globalThis.__dosNativeRead(offset + 3, length - 3)]);
+      if (values[0].bytes.buffer === values[1].bytes.buffer) throw Error("DOS_CONCURRENT_DESTINATIONS_SHARED");
       return values.map(value => ({...value, bytes: Array.from(value.bytes)}));
     }, {offset, length});
     await opened.page.waitForTimeout(50);
@@ -44,11 +45,16 @@ export async function concurrentDOS(opened, worker, oracle) {
 }
 
 export async function faultDOS(opened, worker, scenario, base) {
-  const eviction = await evictDOSMemory(opened, worker), before = opened.network.requests.length;
+  const eviction = await evictDOSMemory(opened, worker);
+  const primed = await opened.frame.evaluate(async () => {
+    const value = await globalThis.__dosNativeRead(0, 1); return {code: value.code, copied: value.copied};
+  });
+  assert.deepEqual(primed, {code: 0, copied: 1});
+  await opened.network.flush(); const before = opened.network.requests.length;
   const held = await holdDOSRange(opened);
   const pending = opened.frame.evaluate(async () => {
     try {
-      const value = await globalThis.__dosNativeRead(262144 + 17, 4096);
+      const value = await globalThis.__dosNativeRead(524288 + 17, 4096);
       return {code: value.code, copied: value.copied};
     } catch (error) {return {error: error.code ?? error.message};}
   }).then(value => ({value}), error => ({detached: error.message.split("\n")[0]}));
@@ -59,13 +65,17 @@ export async function faultDOS(opened, worker, scenario, base) {
     if (scenario === "read-exit") {
       await exitContentIOPlayer(opened.page, base, opened.launch); await held.continue(); injected = {kind: "EXIT_DURING_READ"};
     } else if (scenario === "worker-termination") {
-      await worker.terminate(); injected = {kind: "TERMINATE_CONTENT_WORKER"};
+      const terminated = await worker.terminate(); assert.equal(terminated.success, true);
+      injected = {kind: "TERMINATE_CONTENT_WORKER", success: terminated.success};
     } else {
       const actual = await route.fetch(); assert.equal(actual.status(), 206);
       const headers = {...actual.headers()}, bytes = await actual.body();
       if (scenario === "fault-range-200") {
-        delete headers["content-range"]; headers["content-length"] = String(bytes.length);
-        await route.fulfill({status: 200, headers, body: bytes}); injected = {status: 200, bytes: bytes.length};
+        const wholeHeaders = {...route.request().headers()}; delete wholeHeaders.range;
+        const whole = await route.fetch({headers: wholeHeaders}); assert.equal(whole.status(), 200);
+        const body = await whole.body(); assert.equal(body.length, opened.source.sizeBytes);
+        delete headers["content-range"]; headers["content-length"] = String(body.length);
+        await route.fulfill({status: 200, headers, body}); injected = {status: 200, bytes: body.length};
       } else if (scenario === "fault-identity-412") {
         delete headers["content-range"]; headers["content-length"] = "0";
         await route.fulfill({status: 412, headers, body: ""}); injected = {status: 412, bytes: 0};
@@ -79,7 +89,8 @@ export async function faultDOS(opened, worker, scenario, base) {
     assert.ok((settled.value.copied ?? 0) === 0, "DOS_NATIVE_PARTIAL_SUCCESS");
     assert.ok(performance.now() - started < 30000, "DOS_NATIVE_FAULT_HUNG");
     await held.close();
-    return {eviction, injected, settled, elapsedMs: performance.now() - started, requestRange,
+    if (scenario.startsWith("fault-")) assert.equal(opened.network.requests.length - before, 1, "DOS_FAULT_RETRIED_OR_FELL_BACK");
+    return {eviction, primed, injected, settled, elapsedMs: performance.now() - started, requestRange,
       bodyRequests: opened.network.requests.length - before};
   } finally {await held.close();}
 }

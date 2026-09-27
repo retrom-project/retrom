@@ -37,10 +37,10 @@ export async function approveCart(client, itemId) {
     headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, data: {}, expected: 201,
   });
 }
-export async function launchCart(client, gameId, saveStateId = null) {
+export async function launchCart(client, gameId, saveStateId = null, dosEntry = null) {
   return client.json("POST", "/api/v1/launches", {
     headers: client.writeHeaders(), expected: 201,
-    data: {gameId, coreId: null, saveStateId, dosEntry: null, returnTo: `/games/${gameId}`, clientCapabilities: capabilities},
+    data: {gameId, coreId: null, saveStateId, dosEntry, returnTo: `/games/${gameId}`, clientCapabilities: capabilities},
   });
 }
 export async function runtimeCanvas(page, core) {

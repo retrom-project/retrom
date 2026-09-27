@@ -42,7 +42,7 @@ try {
       report.launches.push(result);
     }
   } else {
-    const launch = await launchCart(client, input.gameId); launch.returnTo = `/games/${input.gameId}`;
+    const launch = await launchCart(client, input.gameId, null, env.RETROM_DOS_ENTRY); launch.returnTo = `/games/${input.gameId}`;
     active = await openDOS(context, base, launch, async page => {
       owner = await observeDOSContentOwner(context, page, provider.files.candidate.get("client.mjs").toString());
       worker = await observeDOSWorker(context, page, provider.files.candidate.get("assets/content-io/worker.mjs").toString(), true);

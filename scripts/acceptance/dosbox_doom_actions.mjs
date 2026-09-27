@@ -3,9 +3,10 @@ import sharp from "../../web/node_modules/sharp/dist/index.cjs";
 import {gamepad} from "./fantasy_product_client.mjs";
 import {proofDigest} from "./content_io_case_proof.mjs";
 
-// Observe fixed screen regions, not emulator input events or a changing full frame.
+// Observe the HUD and right-hand wall. The left doorway contains moving enemies;
+// it cannot serve as an exact saved-view comparison.
 export async function doomScene(opened) {
-  const png = await opened.canvas.screenshot();
+  const png = await opened.canvas.screenshot({animations: "disabled"});
   const {data, info} = await sharp(png).resize(320, 225, {kernel: "nearest"}).removeAlpha().raw().toBuffer({resolveWithObject: true});
   assert.equal(info.channels, 3);
   const region = (left, top, width, height) => {
@@ -18,7 +19,7 @@ export async function doomScene(opened) {
     return {sha256: proofDigest(bytes), redPixels};
   };
   return {ammo: region(12, 182, 34, 19), health: region(49, 182, 55, 20),
-    menu: region(96, 83, 125, 82), wall: region(65, 42, 70, 80)};
+    menu: region(96, 83, 125, 82), wall: region(210, 35, 60, 90)};
 }
 
 export async function bootDoom(opened) {
@@ -35,8 +36,11 @@ export async function bootDoom(opened) {
   await gamepad(opened.page, 9, 150);
   while (Date.now() < deadline) {
     scene = await doomScene(opened);
-    if (scene.ammo.redPixels > 60 && scene.health.redPixels > 100 && scene.menu.redPixels < 350) return {menu, scene};
-    await opened.page.waitForTimeout(200);
+    // Doom II's initial HUD is 50 rounds and 100% health. A title/demo or a
+    // difficulty overlay must not count as entering a fresh level.
+    if (scene.ammo.redPixels === 210 && scene.health.redPixels === 344 && scene.menu.redPixels < 350) return {menu, scene};
+    if (scene.menu.redPixels > 400) {await gamepad(opened.page, 9, 150); await opened.page.waitForTimeout(500);}
+    else await opened.page.waitForTimeout(200);
   }
   throw Error("DOS_DOOM_LEVEL_NOT_OBSERVED");
 }

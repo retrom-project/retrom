@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
+import {dosOwnerMarker} from "./dosbox_script_markers.mjs";
 import {proofDigest} from "./content_io_case_proof.mjs";
 
 // Capture the real adapter and native range facade using a verified-source CDP
 // breakpoint. No Provider bytes or method implementations are replaced.
 export async function observeDOSContentOwner(context, page, source) {
-  const lines = source.split("\n");
-  const locations = lines.flatMap((line, index) => line.trim() === "this.cleanupFlycast = disc.cleanup;" ? [index] : []);
-  assert.equal(locations.length, 1, "DOS_CONTENT_OWNER_BREAKPOINT_AMBIGUOUS");
+  const marker = dosOwnerMarker(source);
   const connection = await context.newCDPSession(page), observations = [], errors = [], pending = new Set();
   await connection.send("Debugger.enable");
-  const {breakpointId} = await connection.send("Debugger.setBreakpointByUrl", {urlRegex: "^blob:", lineNumber: locations[0],
-    condition: 'typeof disc === "object" && this?.envelope?.runtime?.targetId === "dosbox-pure"'});
+  const {breakpointId} = await connection.send("Debugger.setBreakpointByUrl", {urlRegex: "^blob:", lineNumber: marker.lineNumber, columnNumber: marker.columnNumber,
+    condition: `typeof ${marker.variable} === "object" && this?.envelope?.runtime?.targetId === "dosbox-pure"`});
   const paused = event => {
     const task = (async () => {
       try {
@@ -20,8 +19,8 @@ export async function observeDOSContentOwner(context, page, source) {
         assert.equal(proofDigest(scriptSource), proofDigest(source), "DOS_CONTENT_OWNER_SOURCE_CHANGED");
         const value = await connection.send("Debugger.evaluateOnCallFrame", {callFrameId: frame.callFrameId, returnByValue: true,
           expression: `(() => {
-            globalThis.__dosContentAcceptance = {player: this, range: disc.range, session: this.contentSession};
-            return {targetId: this.envelope.runtime.targetId, sizeBytes: disc.range.sizeBytes, filename: disc.range.filename};
+            globalThis.__dosContentAcceptance = {player: this, range: ${marker.variable}.range, session: this.contentSession};
+            return {targetId: this.envelope.runtime.targetId, sizeBytes: ${marker.variable}.range.sizeBytes, filename: ${marker.variable}.range.filename};
           })()`});
         assert.ok(!value.exceptionDetails); observations.push({...value.result.value, moduleSha256: proofDigest(scriptSource)});
         await connection.send("Debugger.removeBreakpoint", {breakpointId});

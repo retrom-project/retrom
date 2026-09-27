@@ -30,6 +30,7 @@ try {
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.setDefaultTimeout(15000); await installVirtualStandardGamepad(context); await observeDOSStates(context);
   const collector = await observeContentStoreEvents(context, {retain: true}), client = await fantasyClient(context, base);
+  report.dosEntry = env.RETROM_DOS_ENTRY;
   report.sources = [await computerSource(env.RETROM_DOS_GAME)];
   const review = await importComputer(client, "dos", "dosbox_pure", env.RETROM_DOS_GAME);
   report.import = {itemId: review.itemId, importJobId: review.importJobId};
@@ -46,7 +47,7 @@ try {
   await preview.flush(); report.cold = preview.rangeSummary(); assert.ok(report.cold.requests > 0);
   report.launches.push(await closeComputer(preview, base, collector)); await stage("preview");
   report.gameId = (await approveCart(client, review.itemId)).gameId;
-  const launch = await launchCart(client, report.gameId); launch.returnTo = `/games/${report.gameId}`;
+  const launch = await launchCart(client, report.gameId, null, report.dosEntry); launch.returnTo = `/games/${report.gameId}`;
   const opened = active = await openDOS(context, base, launch);
   assert.equal(opened.contentDigest, report.content.contentDigest);
   report.boot = await bootDoom(opened); report.input = await moveAndFireDoom(opened);
@@ -69,6 +70,7 @@ try {
   assert.deepEqual(report.restoredScene.ammo, report.savedScene.ammo, "DOS_RESTORED_AMMUNITION_MISMATCH");
   assert.deepEqual(report.restoredScene.wall, report.savedScene.wall, "DOS_RESTORED_VIEW_MISMATCH");
   await restored.page.getByRole("button", {name: "继续游戏", exact: true}).click();
+  await restored.canvas.click();
   report.restoredInput = await moveAndFireDoom(restored, 14);
   await restored.network.flush(); assert.equal(restored.network.requests.length, 0, "DOS_WARM_BODY_REQUESTS");
   report.launches.push(await closeComputer(restored, base, collector)); report.status = "PASS";

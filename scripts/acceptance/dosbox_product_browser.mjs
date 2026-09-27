@@ -19,14 +19,16 @@ export async function observeDOSStates(context) {
         const manager = globalThis.EJS_emulator.gameManager;
         if (!installed.has(manager)) {
           installed.add(manager);
-          const capture = manager.getState, restore = manager.loadExplicitStateAndWait;
+          // The Provider installs DOS state methods on the prototype inside its
+          // start callback. Resolve at invocation time rather than capturing the
+          // upstream methods before that callback has prepared the core.
           manager.getState = function(...parameters) {
-            const bytes = capture.apply(this, parameters);
+            const bytes = Object.getPrototypeOf(this).getState.apply(this, parameters);
             globalThis.__dosStateObservation.pending.push(Promise.resolve(bytes).then(value => record("captures", value)));
             return bytes;
           };
           manager.loadExplicitStateAndWait = async function(bytes, ...parameters) {
-            await restore.call(this, bytes, ...parameters); await record("restores", bytes);
+            await Object.getPrototypeOf(this).loadExplicitStateAndWait.call(this, bytes, ...parameters); await record("restores", bytes);
           };
         }
         return value.apply(this, args);
@@ -71,6 +73,8 @@ export async function openDOS(context, base, launch, preparePage = async () => {
     if (!frame) await page.waitForTimeout(100);
   }
   assert.ok(frame, "DOS_CORE_START_TIMEOUT");
+  // Native onGameStart precedes the Provider's checkpoint restore barrier.
+  await page.locator(".player-loading").waitFor({state: "hidden", timeout: 90000});
   const canvas = frame.locator("canvas").first(); await resumePreview(page); await canvas.click();
   await Promise.all(pending); assets.push(await executingContentWorker(context, page, workerAssetPath));
   assert.equal(config.resources.find(row => row.role === "game").contentDigest, tree.contentDigest);
