@@ -3,7 +3,6 @@ package launch
 import (
 	"context"
 	"fmt"
-	"io"
 )
 
 func (service *Service) ContentBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {
@@ -218,31 +217,11 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability 
 	return configuration, nil
 }
 
-func (service *Service) StoreReviewScreenshot(
-	ctx context.Context,
-	previewID, capability string,
-	reader io.Reader,
-) (ReviewScreenshot, error) {
-	result, err := service.dependencies.Screenshots.Store(
-		ctx, previewID, capability, reader,
-	)
-	if err != nil {
-		return ReviewScreenshot{}, fmt.Errorf("store review screenshot: %w", err)
+func (service *Service) FinishReviewPreview(ctx context.Context, id, capability string) error {
+	if err := service.dependencies.PreviewCloser.Finish(ctx, id, capability); err != nil {
+		return fmt.Errorf("finish review preview: %w", err)
 	}
-	return result, nil
-}
-
-func (service *Service) RecordPlay(
-	ctx context.Context,
-	launchID, capability, kind string,
-	event PlayEvent,
-) (PlayResult, error) {
-	controller := service.dependencies.Play
-	result, err := controller.RecordPlay(ctx, launchID, capability, kind, event)
-	if err != nil {
-		return PlayResult{}, fmt.Errorf("launch play: %w", err)
-	}
-	return result, nil
+	return nil
 }
 
 func (service *Service) RecordPlaySnapshot(

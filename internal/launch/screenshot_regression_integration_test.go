@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	reviewservice "retrom/internal/service/libraryimport"
+
 	"modernc.org/sqlite"
 
 	dbapi "retrom/internal/database"
@@ -108,7 +110,7 @@ func TestScreenshotRechecksDirectoryAfterImageRead(t *testing.T) {
 review_preview_sessions WHERE id=?)`, preview.PreviewID)
 	}}
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, reader)
-	if !errors.Is(err, ErrCredential) || result.ID != "" {
+	if !errors.Is(err, reviewservice.ErrPreviewCredential) || result.ID != "" {
 		t.Fatalf("disabled directory id=%q error=%v", result.ID, err)
 	}
 	shots, blobs := screenshotCounts(t, fixture.database)
@@ -133,7 +135,7 @@ func TestScreenshotCaptureTimestampCannotExceedAuthorizedLifetime(t *testing.T) 
 	}
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
 		preview.Capability, bytes.NewReader(contents))
-	if err != nil && !errors.Is(err, ErrCredential) {
+	if err != nil && !errors.Is(err, reviewservice.ErrPreviewCredential) {
 		t.Fatal(err)
 	}
 	if err == nil && (result.ID == "" || result.CapturedAtMS >= hardEnd) {

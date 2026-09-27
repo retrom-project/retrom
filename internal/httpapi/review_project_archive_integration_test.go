@@ -62,8 +62,8 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 				}
 			}
 			finished := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "POST", "finish",
-				strings.NewReader(`{"clientSequence":0,"clientObservedAtMs":1,"previousInterval":null}`), "application/json")
-			if finished.Code != http.StatusOK {
+				nil, "")
+			if finished.Code != http.StatusNoContent {
 				t.Fatalf("finish preview = %d %s", finished.Code, finished.Body.String())
 			}
 			if response := requestReviewArchiveHTTP(t, server, archiveURL, "HEAD", contentCookie, ""); response.Code != http.StatusUnauthorized {

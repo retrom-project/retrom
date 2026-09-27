@@ -133,7 +133,7 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := launchcomposition.New(server.database, launch.NewSources(server.blobs, server.credentials).WithRuntimeProvider(builder), "", clock)
+	launcher := launchcomposition.New(server.database, launch.NewSources(server.blobs, server.credentials).WithRuntimeProvider(builder), "", clock, server.variants.Dispatch)
 	servers := []*Server{
 		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},
 		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},

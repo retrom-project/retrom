@@ -176,8 +176,8 @@ func assertReviewCheckpointHTTPAuthorization(t *testing.T, server *Server, previ
 		}
 	}
 	finished := requestReviewCheckpointHTTP(t, server, preview.PreviewID, cookie, "POST", "finish",
-		strings.NewReader(`{"clientSequence":0,"clientObservedAtMs":1,"previousInterval":null}`), "application/json")
-	if finished.Code != http.StatusOK {
+		nil, "")
+	if finished.Code != http.StatusNoContent {
 		t.Fatalf("finish preview = %d %s", finished.Code, finished.Body.String())
 	}
 	response := requestReviewCheckpointHTTP(t, server, preview.PreviewID, cookie, "GET", "checkpoint-status", nil, "")

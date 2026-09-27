@@ -17,7 +17,6 @@ def validate_database(path: Path) -> Path:
 
 
 def clear_history(db, profile):
-    db.execute("DELETE FROM play_session_events WHERE play_session_id IN (SELECT id FROM play_sessions WHERE profile_id=?)", (profile,))
     db.execute("DELETE FROM play_sessions WHERE profile_id=?", (profile,))
     retire_save(db, "profile_id=?", (profile,))
     db.execute("DELETE FROM save_states WHERE profile_id=?", (profile,))

@@ -106,7 +106,7 @@ func seedExpiringFirmwarePlay(t *testing.T, db dbapi.DB, now int64) {
 		t.Fatal(err)
 	}
 	_, err = db.ExecContext(t.Context(), `INSERT INTO play_sessions(
-id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,state,created_at_ms,updated_at_ms)
+id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,state,created_at_ms,updated_at_ms)
 VALUES('expiry-play','firmware-launch','firmware-profile','firmware-game',?,?,'ACTIVE',?,?)`, now, now, now, now)
 	if err != nil {
 		t.Fatal(err)

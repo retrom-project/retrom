@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	persistence "retrom/internal/persistence/launch"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
 )
 
 func (service *Service) ensureVariant(
@@ -17,16 +18,16 @@ func (service *Service) ensureVariant(
 	if launchWhenReady {
 		return service.Create(ctx, profileID, request)
 	}
-	result, err := service.productCreator(persistence.NewProductCreation(service.database)).EnsureVariant(
-		ctx,
-		request.GameID,
-		requestedCore,
-		request.ClientCapabilities,
-	)
+	variants := gamevariant.New(variantrepository.New(service.database), service.sources(), service.now, nil)
+	result, err := variants.Ensure(ctx, request.GameID, requestedCore)
 	if err != nil {
-		return Created{}, fmt.Errorf("launch ensure variant: %w", err)
+		return Created{}, fmt.Errorf("ensure variant: %w", err)
 	}
-	return result, nil
+	status := "VALIDATION_PENDING"
+	if result.Ready {
+		status = "READY"
+	}
+	return Created{Status: status, JobID: result.JobID, RetryAfterMS: result.RetryAfterMS}, nil
 }
 
 func (service *Service) ResumeValidationJob(ctx context.Context, jobID string) {

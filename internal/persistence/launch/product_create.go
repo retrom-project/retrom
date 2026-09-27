@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
@@ -66,6 +69,6 @@ func (repository *ProductCreation) WithCreation(
 	return nil
 }
 
-func (records productCreationRecords) Validation() application.ProductValidationScope {
-	return productValidationRecords{ValidationJobs: NewValidationJobs(records.executor), executor: records.executor}
+func (records productCreationRecords) Validation() gamevariant.WriteScope {
+	return variantrepository.NewWriteScope(records.executor)
 }

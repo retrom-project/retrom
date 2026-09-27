@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	reviewservice "retrom/internal/service/libraryimport"
+
 	"modernc.org/sqlite"
 
 	"retrom/internal/cleanup"
@@ -97,7 +99,7 @@ func TestScreenshotLateWriteFailureRollsBackBlobAndPriorScreenshotDeletion(t *te
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
 		preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
 	var storage *sqlite.Error
-	if !errors.As(err, &storage) || result != (ReviewScreenshot{}) {
+	if !errors.As(err, &storage) || result != (reviewservice.ReviewScreenshot{}) {
 		t.Fatalf("failed replacement result=%+v error=%v", result, err)
 	}
 	after := screenshotRecords(t, fixture.database)
@@ -156,7 +158,7 @@ review_preview_sessions WHERE id=?)`, fixture.now.UnixMilli(), preview.PreviewID
 				before: func() { test.change(t, fixture, preview) },
 			}
 			result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, reader)
-			if !errors.Is(err, ErrCredential) || result != (ReviewScreenshot{}) {
+			if !errors.Is(err, reviewservice.ErrPreviewCredential) || result != (reviewservice.ReviewScreenshot{}) {
 				t.Fatalf("changed review evidence result=%+v error=%v", result, err)
 			}
 			afterShots, afterBlobs := screenshotCounts(t, fixture.database)
@@ -175,7 +177,7 @@ func TestScreenshotPreservesMidReadCancellationWithoutOwnership(t *testing.T) {
 	defer cancel()
 	reader := &screenshotHookReader{reader: bytes.NewReader(contents), before: cancel}
 	result, err := fixture.launcher.StoreReviewScreenshot(ctx, preview.PreviewID, preview.Capability, reader)
-	if !errors.Is(err, context.Canceled) || result != (ReviewScreenshot{}) {
+	if !errors.Is(err, context.Canceled) || result != (reviewservice.ReviewScreenshot{}) {
 		t.Fatalf("cancelled screenshot result=%+v error=%v", result, err)
 	}
 	afterShots, afterBlobs := screenshotCounts(t, fixture.database)

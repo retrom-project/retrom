@@ -96,13 +96,9 @@ func TestConfigActivationRejectsAlreadyFinishedSource(t *testing.T) {
 			if err := dbapi.QueryRowContext(t.Context(), fixture.database, query, created.LaunchID).Scan(&staleVersion); err != nil {
 				t.Fatal(err)
 			}
-			result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability,
-				"finish", PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
-			if err != nil || result.State != "FINISHED" {
-				t.Fatalf("fixture finish state=%s error=%v", result.State, err)
-			}
+			closeConfigSource(t, fixture, created, preview)
 			before := playRows(t, fixture.database)
-			err = persistence.NewConfig(fixture.database).WithActivation(
+			err := persistence.NewConfig(fixture.database).WithActivation(
 				t.Context(),
 				func(transaction application.ConfigActivation) error {
 					return transaction.Activate(t.Context(), application.ConfigActivationPlan{

@@ -41,8 +41,8 @@ async function rejectOversized(context, client, collector, review) {
     for (const frame of page.frames()) assert.equal(await frame.locator("canvas").count(), 0);
     await page.screenshot({path: join(directory, "oversized-rejected.png")});
     const finished = await client.raw("POST", `/runtime/launches/${preview.previewId}/finish`, {
-      headers: {Origin: base}, data: {clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null}});
-    assert.equal(finished.status(), 200);
+      headers: {Origin: base}});
+    assert.equal(finished.status(), 204);
     return {previewId: preview.previewId, errorCode: "FANTASY_RUNTIME_CONFIG_INVALID", gameBodyRequests: 0,
       workersCreated: workers.length, workersRemaining: page.workers().length, sessions, cleanup, canvasCount: 0, finished: true, runtime: config.runtime};
   } catch (error) {

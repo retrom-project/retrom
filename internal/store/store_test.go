@@ -38,14 +38,15 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 106, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 105, "fresh schema table count = %d", len(tables))
 	for _, retired := range []string{
 		"runtime_asset_pack_definitions", "runtime_asset_pack_installations", "runtime_asset_pack_files",
+		"play_session_events",
 		"game_variant_runtime_packs", "review_draft_runtime_pack_selections",
 		"rpgmaker_review_profiles", "rpgmaker_game_profiles", "rpgmaker_variant_profiles",
 	} {
 		if slices.Contains(tables, retired) {
-			t.Errorf("retired runtime pack table remains: %s", retired)
+			t.Errorf("retired table remains: %s", retired)
 		}
 	}
 	assertColumns(t, database.SQL, "metadata_media_runs", "scrape_run_id", "order_frozen_at_ms",
@@ -60,7 +61,10 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	assertColumns(t, database.SQL, "review_runtime_screenshots",
 		"import_item_id", "preview_session_id", "validation_id", "file_record", "captured_at_ms")
 	for _, removed := range []struct{ table, column string }{
-		{"review_preview_sessions", "capture_allowed"}, {"review_runtime_screenshots", "captured_after_ms"},
+		{"review_preview_sessions", "capture_allowed"},
+		{"review_runtime_screenshots", "captured_after_ms"},
+		{"play_sessions", "last_client_sequence"},
+		{"play_sessions", "last_heartbeat_at_ms"},
 	} {
 		var found int
 		if err := dbapi.QueryRowContext(t.Context(), database.SQL,
@@ -69,7 +73,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 			t.Fatal(err)
 		}
 		if found != 0 {
-			t.Fatalf("obsolete review screenshot policy remains: %s.%s", removed.table, removed.column)
+			t.Fatalf("obsolete column remains: %s.%s", removed.table, removed.column)
 		}
 	}
 	assertColumns(t, database.SQL, "launch_sessions", "game_id", "core_id", "provider_id",

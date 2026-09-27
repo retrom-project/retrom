@@ -698,9 +698,9 @@ VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zero
 			now+60_000, now, now+120_000, now, now)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
-last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,
+last_reported_at_ms,ended_at_ms,active_duration_ms,state,version,created_at_ms,
 updated_at_ms)
-VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
+VALUES(?,?,'local',?,?,?,?,60000,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-int64(index+1)*1_000, now, now, now, now)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -866,9 +866,9 @@ VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(3
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
-last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,
+last_reported_at_ms,ended_at_ms,active_duration_ms,state,version,created_at_ms,
 updated_at_ms)
-VALUES(?,?,'local',?,?,?,?,?,1,'FINISHED',1,?,?)
+VALUES(?,?,'local',?,?,?,?,?,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-20_000+int64(index)*10_000, now, now, duration,
 			now, now+int64(10-index))
 	}

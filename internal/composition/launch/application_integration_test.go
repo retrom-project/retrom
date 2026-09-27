@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	composition "retrom/internal/composition/launch"
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
@@ -65,8 +68,9 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 		}
 		return nil
 	}})
-	service := composition.New(fault, fixture.source, "http://localhost:3000", fixture.now)
-	t.Cleanup(service.Close)
+	variants := variantcomposition.New(fault, fixture.source, fixture.now)
+	service := composition.New(fault, fixture.source, "http://localhost:3000", fixture.now, variants.Dispatch)
+	t.Cleanup(variants.Close)
 	core := "nestopia"
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -84,8 +88,8 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 		t.Fatalf("dispatch preceded receipt: %d %v", receipts, err)
 	}
 	cancel()
-	service.Close()
-	if !errors.Is(<-ended, application.ErrValidationWorkerClosed) {
+	variants.Close()
+	if !errors.Is(<-ended, gamevariant.ErrValidationWorkerClosed) {
 		t.Fatal("background worker escaped process lifetime")
 	}
 	var state string

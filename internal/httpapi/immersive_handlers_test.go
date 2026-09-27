@@ -260,9 +260,9 @@ INSERT INTO launch_sessions(
 		startedAtMS+2000, startedAtMS, startedAtMS+500)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(
- id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,
- ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,100,1,'FINISHED',1,?,?)
+ id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,
+ ended_at_ms,active_duration_ms,state,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,100,'FINISHED',1,?,?)
 `, playID, launchID, profileID, seed.GameID, startedAtMS, startedAtMS+500,
 		startedAtMS+500, startedAtMS, startedAtMS+500)
 	mustCommitHTTPTest(t, transaction)

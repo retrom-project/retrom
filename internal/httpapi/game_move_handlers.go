@@ -77,7 +77,7 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 		return
 	}
 	if impact.VariantStatus == "NEEDS_VALIDATION" {
-		pending, ensureErr := server.launcher.EnsureVariantForMove(
+		pending, ensureErr := server.variants.Ensure(
 			request.Context(),
 			request.PathValue("gameId"),
 			impact.TargetCoreID,
@@ -93,11 +93,11 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 			)
 			return
 		}
-		if pending.Status == "VALIDATION_PENDING" {
+		if !pending.Ready {
 			writeJSON(
 				writer,
 				http.StatusAccepted,
-				map[string]any{"status": pending.Status, "jobId": pending.JobID, "retryAfterMs": pending.RetryAfterMS},
+				map[string]any{"status": "VALIDATION_PENDING", "jobId": pending.JobID, "retryAfterMs": pending.RetryAfterMS},
 			)
 			server.resumeMoveValidationAfterIdempotency(context.WithoutCancel(request.Context()), pending.JobID)
 			return
@@ -128,7 +128,7 @@ func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, 
 		state, err := composition.NewGameMove(server.database).QueuedJobState(ctx, jobID)
 		server.idempotency.Unlock()
 		if err == nil && state == "QUEUED" {
-			server.launcher.ResumeValidationJob(ctx, jobID)
+			server.variants.Resume(ctx, jobID)
 		}
 	}()
 }

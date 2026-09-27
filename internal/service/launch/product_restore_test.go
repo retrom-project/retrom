@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/multidisc"
 )
 
@@ -83,7 +85,7 @@ func TestProductDiscRestoreBounds(t *testing.T) {
 		{name: "single content with disc", kind: "SINGLE_FILE", hasSave: true, disc: productDiscValue(0), blocked: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := ProductSnapshot{Source: ProductSource{ContentKind: test.kind}}
+			snapshot := ProductSnapshot{Source: gamevariant.Source{ContentKind: test.kind}}
 			if test.hasSave {
 				snapshot.Save = &ProductSave{DiscIndex: test.disc}
 			}

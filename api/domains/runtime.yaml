@@ -123,28 +123,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/LaunchConfigResponse'
-  /runtime/launches/{launchId}/start:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeLaunchStart
-      requestBody:
-        $ref: '#/components/requestBodies/PlayEvent'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/launches/{launchId}/heartbeat:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeLaunchHeartbeat
-      requestBody:
-        $ref: '#/components/requestBodies/PlayEvent'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/launches/{launchId}/progress:
     parameters:
       - $ref: '#/components/parameters/LaunchID'
@@ -164,11 +142,12 @@ paths:
       - $ref: '#/components/parameters/LaunchID'
     post:
       security: []
-      operationId: postRuntimeLaunchFinish
-      requestBody:
-        $ref: '#/components/requestBodies/PlayEvent'
+      operationId: finishRuntimeReviewPreview
+      description: Idempotently close a review preview and revoke its content grants. Product launches cannot use this operation.
       responses:
-        '200':
+        '204':
+          description: Review preview closed
+        '401':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/launches/{launchId}/player-events:
     parameters:
@@ -564,38 +543,6 @@ components:
           $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
         availability:
           $ref: '#/components/schemas/CheckpointAvailability'
-    PlayEventRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - clientSequence
-        - clientObservedAtMs
-        - previousInterval
-      properties:
-        clientSequence:
-          type: integer
-          format: int64
-          minimum: 0
-        clientObservedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        previousInterval:
-          nullable: true
-          allOf:
-            - type: object
-              additionalProperties: false
-              required:
-                - running
-                - visible
-                - paused
-              properties:
-                running:
-                  type: boolean
-                visible:
-                  type: boolean
-                paused:
-                  type: boolean
     PlayProgressRequest:
       type: object
       additionalProperties: false
@@ -651,12 +598,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/PlayProgressRequest'
-    PlayEvent:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/PlayEventRequest'
     MultiDiscPlayerEvent:
       required: true
       content:

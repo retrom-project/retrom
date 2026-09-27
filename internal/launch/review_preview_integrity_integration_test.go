@@ -53,8 +53,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 	}); err == nil {
 		t.Fatal("restore snapshot accepted a payload replacement")
 	}
-	if _, err := fixture.launcher.RecordPlay(t.Context(), preview.PreviewID, preview.Capability, "finish",
-		PlayEvent{ClientSequence: 0, ClientObservedAtMS: fixture.now.UnixMilli()}); err != nil {
+	if err := fixture.launcher.FinishReviewPreview(t.Context(), preview.PreviewID, preview.Capability); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{

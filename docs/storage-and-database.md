@@ -28,7 +28,7 @@
 所有表示“某一时刻”的数据库字段统一使用 SQLite `INTEGER`，保存 UTC Unix epoch milliseconds：
 
 - 单位固定为毫秒，不允许同库混用秒、微秒或纳秒。
-- 字段名统一使用 `_at_ms` 后缀，例如 `created_at_ms`、`updated_at_ms`、`started_at_ms`、`last_heartbeat_at_ms`、`expires_at_ms`。
+- 字段名统一使用 `_at_ms` 后缀，例如 `created_at_ms`、`updated_at_ms`、`started_at_ms`、`last_reported_at_ms`、`expires_at_ms`。
 - Go 类型使用 `int64`，写入值来自 `time.Now().UTC().UnixMilli()`。
 - 浏览器值可直接与 `Date.now()` 对接；展示时才按用户时区格式化。会被 SSR 的 Client Component 固定以 UTC 生成 server/hydration snapshot，hydration 完成后再切换到浏览器解析出的 IANA 时区；不得让容器或 Node 的本地时区参与首轮客户端渲染，也不得通过统一部署时区代替逐用户展示。
 - JSON 审核快照、任务事件和 LaunchSession 配置中的时间点也使用带 `Ms` 后缀的整数，避免同一概念在不同层采用不同单位。
@@ -48,7 +48,7 @@ CREATE TABLE play_sessions (
     profile_id TEXT NOT NULL,
     game_id TEXT NOT NULL,
     started_at_ms INTEGER NOT NULL CHECK (started_at_ms >= 0),
-    last_heartbeat_at_ms INTEGER NOT NULL CHECK (last_heartbeat_at_ms >= started_at_ms),
+    last_reported_at_ms INTEGER NOT NULL CHECK (last_reported_at_ms >= started_at_ms),
     ended_at_ms INTEGER,
     active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (active_duration_ms >= 0),
     CHECK (ended_at_ms IS NULL OR ended_at_ms >= started_at_ms)
@@ -228,7 +228,6 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | --- | --- |
 | `save_states` | 带截图的手动状态存档 |
 | `play_sessions` | 有效游玩会话和 heartbeat |
-| `play_session_events` | 连续 client sequence、服务端计时判定与幂等证据 |
 | `launch_sessions` | 短期不可变启动配置、非秘密 launchId 与 capability hash |
 
 所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和应用写入校验 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。

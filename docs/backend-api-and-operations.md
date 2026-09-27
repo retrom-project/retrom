@@ -151,7 +151,9 @@ Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通�
 
 Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewSourceImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/sourceimport` 包只保留文件/独立文件存储适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
 
-Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
+Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 组装启动、配置、资源授权和试玩结束用例。`internal/service/gamevariant` 独立维护运行配置的校验任务、重试与启动恢复，由 `internal/composition/gamevariant` 组装 Repository 和 `ValidationSupervisor`；Launch 只在自己的创建事务中调用校验调度端口，使任务与幂等回执一起提交，提交后再唤醒 worker。移动目录也直接调用 GameVariant，不创建 Launch。Supervisor 调度前登记执行，关闭时取消并等待所有执行和清理结束。
+
+审核截图的图片读取、当前证据校验与记录替换归 `libraryimport`；HTTP 将试玩凭据交给审核应用服务，Launch 不持有截图存储用例。游玩统计只接收累计 `/progress`，不更新启动状态或资源授权。`/finish` 是无请求体的审核试玩结束命令，原子结束试玩并撤销其授权。根 Launch 包只保留文件、Provider、签名适配及公开类型，不读写数据库。
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。
 

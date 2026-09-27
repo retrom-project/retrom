@@ -542,9 +542,9 @@ WHERE g.id=?
 	seedProductSave(t, server, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,
-started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,
+started_at_ms,last_reported_at_ms,active_duration_ms,state,version,created_at_ms,
 updated_at_ms)
-VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,0,'ACTIVE',1,?,?)
+VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,'ACTIVE',1,?,?)
 `, "01980000-0000-7000-8000-000000000192", created.LaunchID, created.LaunchID, gameID,
 		time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)

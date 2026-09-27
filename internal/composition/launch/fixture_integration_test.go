@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+
 	"retrom/internal/cleanup"
 	composition "retrom/internal/composition/launch"
 	dbapi "retrom/internal/database"
@@ -83,8 +85,9 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 		t.Fatal(err)
 	}
 	source := launch.NewSources(blobs, credentials).WithRuntimeProvider(builder)
-	service := composition.New(database.SQL, source, "http://localhost:3000", now)
-	t.Cleanup(service.Close)
+	variants := variantcomposition.New(database.SQL, source, now)
+	service := composition.New(database.SQL, source, "http://localhost:3000", now, variants.Dispatch)
+	t.Cleanup(variants.Close)
 	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs)
 	itemID := uploadAssemblyROM(t, database.SQL, blobs, dir, importer, now)
 	return assemblyFixture{database.SQL, source, service, importer, itemID, now}

@@ -170,7 +170,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 	now := func() time.Time { return time.UnixMilli(*nowMS) }
 	server := &Server{
 		database: database, rpgIsolation: isolationService,
-		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now), now: now,
+		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now, nil), now: now,
 	}
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodHead,

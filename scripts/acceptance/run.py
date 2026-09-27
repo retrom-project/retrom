@@ -118,7 +118,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/format/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
-        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1",
+        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch ./internal/service/gamevariant ./internal/persistence/gamevariant ./internal/service/libraryimport ./internal/persistence/libraryimport -count=1",
     ),
     "ACC-SEC-003": (
         120,
@@ -386,7 +386,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
     ),
-    "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
+    "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch ./internal/service/gamevariant ./internal/persistence/gamevariant ./internal/service/libraryimport ./internal/persistence/libraryimport -count=1"),
     "ACC-RUN-014": (180, "scripts/acceptance/input-diagnostics.sh"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),
@@ -411,7 +411,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/service/saves ./internal/persistence/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1 && make web-test",
     ),
-    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestConfig|TestRecordPlay|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1 && go test ./internal/store -run '^TestPlayResilienceMigrationClearsActiveIdleRetirement$' -count=1 && cd web && ./node_modules/.bin/vitest run features/player/play-progress-clock.test.ts features/player/player-session.test.tsx features/player/upload-with-progress.test.ts"),
+    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestConfig|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch ./internal/service/gamevariant ./internal/persistence/gamevariant ./internal/service/libraryimport ./internal/persistence/libraryimport -count=1 && go test ./internal/store -run '^TestPlayResilienceMigrationClearsActiveIdleRetirement$' -count=1 && cd web && ./node_modules/.bin/vitest run features/player/play-progress-clock.test.ts features/player/player-session.test.tsx features/player/upload-with-progress.test.ts"),
     "ACC-MDISC-001": (
         600,
         "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && make web-test",

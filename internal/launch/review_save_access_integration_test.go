@@ -31,8 +31,7 @@ func TestAuthorizeSaveRejectsClosedReviewSessions(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
 	preview := fixture.preview(t, "close-access")
-	if _, err := fixture.launcher.RecordPlay(t.Context(), preview.PreviewID, preview.Capability, "finish",
-		PlayEvent{ClientSequence: 0, ClientObservedAtMS: fixture.now.UnixMilli()}); err != nil {
+	if err := fixture.launcher.FinishReviewPreview(t.Context(), preview.PreviewID, preview.Capability); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.launcher.AuthorizeSave(t.Context(), preview.PreviewID, preview.Capability); !errors.Is(err, ErrCredential) {

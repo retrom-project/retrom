@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	dbapi "retrom/internal/database"
 
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
@@ -116,6 +119,8 @@ type Server struct {
 	importer                *libraryimport.Service
 	importDiscards          *importdiscard.Service
 	launcher                *launchservice.Service
+	variants                *gamevariant.Service
+	reviewScreenshots       *libraryservice.ScreenshotSaver
 	launchSources           *launch.Sources
 	jobService              *jobs.Service
 	immersive               *immersive.Service
@@ -210,8 +215,9 @@ func New(
 	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
 	scraper.Start(context.Background())
 	launchSources := launch.NewSources(blobs, credentials).WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
-	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
-	launcher.ResumeQueuedValidationJobs()
+	variants := variantcomposition.New(database, launchSources, now)
+	variants.Recover()
+	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now, variants.Dispatch)
 	importer := libraryimport.New(database, now, scraper).
 		WithFileStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
@@ -252,6 +258,7 @@ func New(
 		uploads:             uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
 		importer:            importer,
 		launcher:            launcher,
+		variants:            variants,
 		launchSources:       launchSources,
 		jobService:          jobs.New(jobpersistence.New(database), now),
 		immersive:           immersive.New(immersivepersistence.New(database)),
@@ -283,6 +290,7 @@ func New(
 	}
 	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
 	server.reviewDetails = composition.NewLibraryReviewDetails(database)
+	server.reviewScreenshots = composition.NewLibraryReviewScreenshots(database, blobs, now)
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now, blobs)
@@ -310,7 +318,7 @@ func New(
 
 func (server *Server) Close() {
 	server.uploads.Close()
-	server.launcher.Close()
+	server.variants.Close()
 	server.importDiscards.Close()
 	server.importer.Close()
 	server.serverImports.Close()
@@ -529,8 +537,6 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("HEAD /runtime/content/bios/{contentIdentity}/bundle.zip", server.launchBIOSBundle)
 	mux.HandleFunc("GET /runtime/content/parent/{contentIdentity}/bundle.zip", server.launchParentBundle)
 	mux.HandleFunc("HEAD /runtime/content/parent/{contentIdentity}/bundle.zip", server.launchParentBundle)
-	mux.HandleFunc("POST /runtime/launches/{launchId}/start", server.launchStart)
-	mux.HandleFunc("POST /runtime/launches/{launchId}/heartbeat", server.launchHeartbeat)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/progress", server.launchProgress)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)

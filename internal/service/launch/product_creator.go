@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	gamevariant "retrom/internal/service/gamevariant"
 )
 
 type ProductCreator struct {
@@ -89,9 +91,9 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 	}
 	fresh := false
 	if snapshot.Source.VariantStatus == "READY" {
-		fresh, err = productBIOSFresh(snapshot)
+		fresh, err = gamevariant.BIOSFresh(snapshot.VariantSnapshot())
 		if err != nil {
-			return productPreparation{}, err
+			return productPreparation{}, fmt.Errorf("check launch BIOS freshness: %w", err)
 		}
 	}
 	preparation := productPreparation{snapshot: snapshot, validation: !fresh}
@@ -106,7 +108,7 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 	return preparation, nil
 }
 
-func (service *ProductCreator) validateProvider(source ProductSource, capabilities Capabilities) error {
+func (service *ProductCreator) validateProvider(source gamevariant.Source, capabilities Capabilities) error {
 	if service.provider == nil {
 		return ErrBlocked
 	}

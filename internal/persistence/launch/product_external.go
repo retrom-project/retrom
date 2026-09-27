@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -55,8 +58,12 @@ FROM launch_external_files WHERE launch_session_id=? ORDER BY virtual_path`, lau
 	return snapshot, true, nil
 }
 
-func (repository *ProductExternals) Bundles(ctx context.Context, variantID string) ([]application.ProductFile, error) {
-	return productCreationFiles(ctx, repository.executor, variantID, true)
+func (repository *ProductExternals) Bundles(ctx context.Context, variantID string) ([]gamevariant.File, error) {
+	files, err := variantrepository.Files(ctx, repository.executor, variantID, true)
+	if err != nil {
+		return nil, fmt.Errorf("read variant external files: %w", err)
+	}
+	return files, nil
 }
 
 func (repository *ProductExternals) Store(

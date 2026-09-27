@@ -10,17 +10,18 @@ import (
 	"sync"
 	"testing"
 
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"modernc.org/sqlite"
 
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
-	persistence "retrom/internal/persistence/launch"
-	application "retrom/internal/service/launch"
 )
 
-func productValidationInput(t *testing.T, fixture reviewCheckpointFixture, request CreateRequest) application.ValidationInputs {
+func productValidationInput(t *testing.T, fixture reviewCheckpointFixture, request CreateRequest) gamevariant.ValidationInputs {
 	t.Helper()
-	var input application.ValidationInputs
+	var input gamevariant.ValidationInputs
 	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT variant.id,variant.provider_id,variant.target_id,game.version,game.source_manifest_digest
 FROM game_variants variant JOIN games game ON game.id=variant.game_id WHERE game.id=?`, request.GameID).Scan(&input.GameVariantID, &input.ProviderID, &input.TargetID, &input.GameVersion, &input.SourceManifestDigest)
 	if err != nil {
@@ -79,7 +80,7 @@ func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	scheduler := application.NewValidationScheduler(persistence.NewValidationJobs(tx), application.ValidationEnvironment{Now: fixture.launcher.now})
+	scheduler := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(tx), gamevariant.ValidationEnvironment{Now: fixture.launcher.now})
 	result, err := scheduler.Queue(t.Context(), input)
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result.JobID != "" {
@@ -96,7 +97,7 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 	fixture, request := productCreationFixture(t)
 	input := productValidationInput(t, fixture, request)
 	type outcome struct {
-		result application.ValidationQueued
+		result gamevariant.ValidationQueued
 		err    error
 	}
 	outcomes := make(chan outcome, 2)
@@ -130,18 +131,18 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 	}
 }
 
-func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture, input application.ValidationInputs) (application.ValidationQueued, error) {
+func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture, input gamevariant.ValidationInputs) (gamevariant.ValidationQueued, error) {
 	tx, err := fixture.database.BeginTx(ctx, nil)
 	if err != nil {
-		return application.ValidationQueued{}, err
+		return gamevariant.ValidationQueued{}, err
 	}
 	defer dbapi.Rollback(tx)
-	result, err := application.NewValidationScheduler(persistence.NewValidationJobs(tx), application.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
+	result, err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(tx), gamevariant.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
 	if err != nil {
-		return application.ValidationQueued{}, err
+		return gamevariant.ValidationQueued{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return application.ValidationQueued{}, err
+		return gamevariant.ValidationQueued{}, err
 	}
 	return result, nil
 }

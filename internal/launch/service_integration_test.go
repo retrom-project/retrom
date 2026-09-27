@@ -16,11 +16,12 @@ import (
 	"testing"
 	"time"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/persistence/recordstore"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
-	application "retrom/internal/service/launch"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -253,79 +254,16 @@ VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'Locked mGBA save',0,1,?,?)
 `, saveID.String(), approved.GameID, firmwareFileRecord, firmwareMetadata.SHA256, firmwareMetadata.Size, firmwareFileRecord, createdLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	startEvent := PlayEvent{ClientSequence: 0, ClientObservedAtMS: 1_786_000_000_000}
-	started, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "start", startEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return started.State != "ACTIVE" },
-		func() bool { return started.ClientSequence != 0 }), "start play session = %#v, error=%v", started, err)
-	replayedStart, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "start", startEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return replayedStart.PlaySessionID != started.PlaySessionID }),
-		"replayed start = %#v, error=%v", replayedStart, err)
-	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability,
-		"start", PlayEvent{
-			ClientSequence:     0,
-			ClientObservedAtMS: startEvent.ClientObservedAtMS + 1,
-		}); !errors.Is(
-		err,
-		ErrBlocked,
-	) {
-		t.Fatalf("changed start replay error = %v", err)
+	var accepted int64
+	for _, elapsed := range []int64{30_000, 45_000, 20_000, 45_000} {
+		accepted = max(accepted, elapsed)
+		sample, err := service.RecordPlaySnapshot(ctx, createdLaunch.LaunchID, createdLaunch.Capability, PlaySnapshot{ActiveDurationMS: elapsed})
+		if err != nil || sample.ActiveDurationMS != accepted {
+			t.Fatalf("cumulative sample=%#v error=%v", sample, err)
+		}
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE play_sessions
-SET last_heartbeat_at_ms=?
-WHERE launch_session_id=?
-`, time.Now().Add(-time.Minute).UnixMilli(), createdLaunch.LaunchID); err != nil {
-		t.Fatal(err)
-	}
-	interval := &Interval{Running: true, Visible: true, Paused: false}
-	heartbeatEvent := PlayEvent{
-		ClientSequence:     1,
-		ClientObservedAtMS: startEvent.ClientObservedAtMS + 30_000,
-		PreviousInterval:   interval,
-	}
-	heartbeatResult, err := service.RecordPlay(
-		ctx,
-		createdLaunch.LaunchID,
-		createdLaunch.Capability,
-		"heartbeat",
-		heartbeatEvent,
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return heartbeatResult.AcceptedDuration != int64(45*time.Second/time.Millisecond) }), "bounded heartbeat = %#v, error=%v", heartbeatResult, err)
-	replayedHeartbeat, err := service.RecordPlay(
-		ctx,
-		createdLaunch.LaunchID,
-		createdLaunch.Capability,
-		"heartbeat",
-		heartbeatEvent,
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return replayedHeartbeat.AcceptedDuration != heartbeatResult.AcceptedDuration }), "replayed heartbeat = %#v, error=%v", replayedHeartbeat, err)
-	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability,
-		"heartbeat", PlayEvent{
-			ClientSequence:     3,
-			ClientObservedAtMS: startEvent.ClientObservedAtMS + 60_000, PreviousInterval: interval,
-		}); !errors.Is(
-		err,
-		ErrBlocked,
-	) {
-		t.Fatalf("heartbeat gap error = %v", err)
-	}
-	finishEvent := PlayEvent{
-		ClientSequence:     2,
-		ClientObservedAtMS: startEvent.ClientObservedAtMS + 60_000,
-		PreviousInterval:   &Interval{Running: false, Visible: true, Paused: false},
-	}
-	finished, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "finish", finishEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return finished.State != "FINISHED" },
-		func() bool { return finished.AcceptedDuration != 0 }), "finish = %#v, error=%v", finished, err)
-	if replayed, replayErr := service.RecordPlay(ctx, createdLaunch.LaunchID,
-		createdLaunch.Capability, "finish", finishEvent); replayErr != nil ||
-		replayed.State != "FINISHED" {
-		t.Fatalf("replayed finish = %#v, error=%v", replayed, replayErr)
+	if err := service.AuthorizeSave(ctx, createdLaunch.LaunchID, createdLaunch.Capability); err != nil {
+		t.Fatalf("statistics revoked save: %v", err)
 	}
 	quickLaunch, err := service.Create(
 		ctx,
@@ -397,7 +335,7 @@ WHERE j.id=?
 		t.Fatal(err)
 	}
 	var payload map[string]any
-	var snapshot application.ValidationSnapshot
+	var snapshot gamevariant.ValidationSnapshot
 	testassert.Falsef(t, testassert.Any(func() bool {
 		return json.Unmarshal([]byte(payloadJSON),
 			&payload) != nil

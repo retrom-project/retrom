@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 )
@@ -40,7 +42,7 @@ func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
 	}, nil
 }
 
-func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
+func productDiscs(files []gamevariant.File) ([]ProductDisc, []byte, error) {
 	discs := make([]ProductDisc, 0, multidisc.MaxDiscs)
 	canonical := make([]byte, 0, multidisc.MaxDiscs*13)
 	var total int64
@@ -75,7 +77,7 @@ func validProductMultiDiscEvidence(
 	snapshot *corevalidation.MultiDiscSnapshot,
 	discs []ProductDisc,
 	canonical []byte,
-	playlist ProductFile,
+	playlist gamevariant.File,
 ) bool {
 	hash := sha256.Sum256(canonical)
 	digest := hex.EncodeToString(hash[:])

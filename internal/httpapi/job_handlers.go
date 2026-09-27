@@ -107,7 +107,7 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	afterIdempotencyCommit(writer, func() {
 		switch result.Kind {
 		case "VARIANT_VALIDATE":
-			go server.launcher.ResumeValidationJob(ctx, result.JobID)
+			go server.variants.Resume(ctx, result.JobID)
 		case "UPLOAD_FINALIZE":
 			server.uploads.Resume(ctx, result.JobID)
 		case "MEDIA_FETCH":

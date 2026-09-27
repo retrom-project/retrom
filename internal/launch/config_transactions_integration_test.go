@@ -111,11 +111,7 @@ func TestConfigFinishDuringEnvelopeBuildPreventsIssuance(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			var afterFinish map[string]string
 			builder := configBuildHook{ConfigBuilder: fixture.launcher.runtimeBuilder, after: func() {
-				result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "finish",
-					PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
-				if err != nil || result.State != "FINISHED" {
-					t.Fatalf("concurrent finish: state=%s error=%v", result.State, err)
-				}
+				closeConfigSource(t, fixture, created, preview)
 				afterFinish = playRows(t, fixture.database)
 			}}
 			issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)

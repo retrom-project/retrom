@@ -361,12 +361,9 @@ async function createInspectionLaunch(client, review) {
 
 async function finishInspectionLaunch(client, launchId) {
   const response = await client.raw("POST", `/runtime/launches/${launchId}/finish`, {
-    headers: { Origin: baseUrl, "Content-Type": "application/json" },
-    data: { clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null },
+    headers: { Origin: baseUrl },
   });
-  exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_LAUNCH_FINISH_STATUS");
-  const result = await response.json();
-  exact(result.state, "FINISHED", "RPG_ACCEPTANCE_NESTED_LAUNCH_FINISH_STATE");
+  exact(response.status(), 204, "RPG_ACCEPTANCE_NESTED_LAUNCH_FINISH_STATUS");
 }
 
 async function inspectEasyRPGProjection(client, resource, sidecar) {

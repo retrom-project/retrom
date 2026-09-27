@@ -37,8 +37,8 @@ async function rejectOversized(context, client, review) {
     for (const frame of page.frames()) assert.equal(await frame.locator("canvas").count(), 0);
     await page.screenshot({path: join(directory, "oversized-rejected.png")});
     const finished = await client.raw("POST", `/runtime/launches/${preview.previewId}/finish`, {
-      headers: {Origin: base}, data: {clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null}});
-    assert.equal(finished.status(), 200);
+      headers: {Origin: base}});
+    assert.equal(finished.status(), 204);
     return {previewId: preview.previewId, errorCode: "PROVIDER_LAUNCH_REQUEST_INVALID", gameBodyRequests: 0,
       workersCreated: workers.length, canvasCount: 0, finished: true, runtime: config.runtime};
   } finally {network.close(); await page.close();}

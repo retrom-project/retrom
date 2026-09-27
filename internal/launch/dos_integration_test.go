@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	persistence "retrom/internal/persistence/launch"
-	application "retrom/internal/service/launch"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -239,14 +239,14 @@ WHERE variant.game_id=?
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	inputs := application.ValidationInputs{
+	inputs := gamevariant.ValidationInputs{
 		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
 		SourceManifestDigest: strings.Repeat("a", 64), ProviderID: providerID, TargetID: targetID,
 		ContentPolicy:         contentcapability.NewPolicy("SINGLE_FILE"),
 		ValidationInputDigest: strings.Repeat("0", 64), BIOSDependencyDigest: strings.Repeat("0", 64),
 	}
-	invalid, err := application.NewValidationScheduler(persistence.NewValidationJobs(transaction),
-		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	invalid, err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(transaction),
+		gamevariant.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	invalidJobID := invalid.JobID
 	if err != nil {
 		_ = transaction.Rollback()
@@ -265,8 +265,8 @@ WHERE variant.game_id=?
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(retryTx)
-	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
-		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	retried, err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(retryTx),
+		gamevariant.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	retriedJobID, queued := retried.JobID, retried.Queued
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }),

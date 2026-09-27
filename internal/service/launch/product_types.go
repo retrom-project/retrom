@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	contentcapability "retrom/internal/content/capability"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	corevalidation "retrom/internal/core/validation"
-	validation "retrom/internal/service/corevalidation"
 )
 
 var (
@@ -37,49 +37,22 @@ type ProductReceipt struct {
 	Replayed                 bool
 	CreatedAtMS, ExpiresAtMS int64
 }
-type ProductSource struct {
-	ActiveDATVersionID                                              *string
-	ValidationLogicalName                                           string
-	GameID, InstanceID, PlatformID, CoreID, BindingID               string
-	ProviderID, TargetID, BundleSHA256, DeliveryProfile             string
-	ContentKind, ContentLogicalName, SourceManifestDigest           string
-	VariantID, VariantStatus, DependencySnapshot, CompatibilityCode string
-	GameVersion                                                     int64
-	DATVersionID                                                    *string
-	ContentPolicy                                                   contentcapability.Policy
-	ReadFormats                                                     []string
-}
 type ProductSave struct {
 	ID, ProfileID, GameID, SourceCoreID, PayloadID, Format, Digest string
 	SizeBytes                                                      int64
 	DOSEntry                                                       *string
 	DiscIndex                                                      *int64
 }
-type ProductFile struct {
-	Role, FileRecord, LogicalName, Digest string
-	SortOrder                             int
-	SizeBytes                             int64
-}
-type ProductArcadeBIOS struct {
-	State          string
-	Dependency     corevalidation.BIOSDependency
-	OptionsJSON    *string
-	CatalogPresent bool
-}
-type ProductBIOSFacts struct {
-	Static []validation.BIOSRecord
-	Arcade []ProductArcadeBIOS
-}
 type (
 	ProductDOSEntry struct{ Found, Safe bool }
 	ProductSnapshot struct {
 		Found                   bool
-		Source                  ProductSource
+		Source                  gamevariant.Source
 		Save                    *ProductSave
 		SaveReadable            bool
-		GameFiles, VariantFiles []ProductFile
-		BIOS                    ProductBIOSFacts
-		ValidationBIOS          ProductBIOSFacts
+		GameFiles, VariantFiles []gamevariant.File
+		BIOS                    gamevariant.BIOSFacts
+		ValidationBIOS          gamevariant.BIOSFacts
 		DOS                     ProductDOSEntry
 	}
 )
@@ -101,7 +74,7 @@ type ProductContent struct {
 }
 type ProductCreatePlan struct {
 	Command                      ProductCreateCommand
-	Source                       ProductSource
+	Source                       gamevariant.Source
 	Content                      ProductContent
 	External                     []ProductExternalFile
 	ID                           string
@@ -121,21 +94,12 @@ type ProductBlobCheck struct {
 type ProductBlobVerifier interface {
 	Verify(context.Context, ProductBlobCheck) error
 }
-type ProductVariantWrite struct {
-	Source ProductSource
-	NowMS  int64
-}
-type ProductValidationScope interface {
-	ValidationJobRepository
-	CreateVariant(context.Context, ProductVariantWrite) error
-	MarkPending(context.Context, string, int64) error
-}
 type ProductCreationScope interface {
 	Replay(context.Context, ProductCreateCommand) (ProductReceipt, bool, error)
 	Snapshot(context.Context, ProductCreateCommand) (ProductSnapshot, error)
 	Create(context.Context, ProductCreatePlan) error
 	StoreReceipt(context.Context, ProductCreateCommand, ProductReceipt) error
-	Validation() ProductValidationScope
+	Validation() gamevariant.WriteScope
 }
 type ProductCreationRepository interface {
 	Replay(context.Context, ProductCreateCommand) (ProductReceipt, bool, error)
@@ -149,4 +113,11 @@ type ProductEnvironment struct {
 	SignIsolation  func(string) (IsolationTicket, error)
 	// ResumeValidation dispatches work after the creation transaction commits.
 	ResumeValidation func(context.Context, string)
+}
+
+func (snapshot ProductSnapshot) VariantSnapshot() gamevariant.Snapshot {
+	return gamevariant.Snapshot{
+		Found: snapshot.Found, Source: snapshot.Source, GameFiles: snapshot.GameFiles,
+		VariantFiles: snapshot.VariantFiles, BIOS: snapshot.BIOS, ValidationBIOS: snapshot.ValidationBIOS,
+	}
 }

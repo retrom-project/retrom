@@ -5,6 +5,8 @@ import (
 	"errors"
 	"slices"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	corevalidation "retrom/internal/core/validation"
 )
 
@@ -42,13 +44,13 @@ func BuildProductContent(snapshot ProductSnapshot) (ProductContent, error) {
 	}
 }
 
-func productFile(files []ProductFile, role, name string) (ProductFile, bool) {
+func productFile(files []gamevariant.File, role, name string) (gamevariant.File, bool) {
 	for _, file := range files {
 		if file.Role == role && (name == "" || file.LogicalName == name) {
 			return file, true
 		}
 	}
-	return ProductFile{}, false
+	return gamevariant.File{}, false
 }
 
 func productSingleContent(snapshot ProductSnapshot) (ProductContent, error) {

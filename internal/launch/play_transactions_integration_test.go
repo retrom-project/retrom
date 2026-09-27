@@ -33,7 +33,7 @@ func playRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := make(map[string]string)
 	for _, table := range []string{
-		"launch_sessions", "play_sessions", "play_session_events", "review_preview_sessions",
+		"launch_sessions", "play_sessions", "review_preview_sessions",
 		"launch_payload_retirements", "launch_game_save_bindings", "isolated_runtime_capabilities", "isolated_runtime_bootstrap_tickets", "save_states",
 	} {
 		result[table] = playTableRows(t, database, table)
@@ -80,7 +80,7 @@ func playTableRows(t *testing.T, database dbapi.DB, table string) string {
 
 func productPlayStart(t *testing.T, fixture reviewCheckpointFixture, created Created) {
 	t.Helper()
-	if _, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}); err != nil {
+	if _, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -96,114 +96,6 @@ func seedPlayCapability(t *testing.T, fixture reviewCheckpointFixture, id string
 	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO isolated_runtime_capabilities(credential_sha256,launch_id,preview_id,
  profile_id,expected_origin,issued_at_ms,expires_at_ms) VALUES(zeroblob(32),?,?,'local','http://play.localhost:3000',?,?)`,
 		launchID, previewID, fixture.now.UnixMilli(), fixture.now.UnixMilli()+1_000_000)
-}
-
-func TestPlayTransactionRollsBackEveryLifecycleWrite(t *testing.T) {
-	t.Parallel()
-	for _, kind := range []string{"start", "heartbeat", "finish", "loading-finish", "preview-finish"} {
-		t.Run(kind, func(t *testing.T) {
-			fixture, created := newPlaySourceFixture(t, kind == "preview-finish", kind != "loading-finish")
-			event := PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}
-			requestKind := kind
-			if kind == "heartbeat" || kind == "finish" {
-				productPlayStart(t, fixture, created)
-				event.ClientSequence = 1
-				event.PreviousInterval = &Interval{Running: true, Visible: true}
-			}
-			if kind == "loading-finish" {
-				requestKind = "finish"
-			}
-			if kind == "preview-finish" {
-				requestKind = "finish"
-			}
-			seedPlayCapability(t, fixture, created.LaunchID, kind == "preview-finish")
-			before := playRows(t, fixture.database)
-			cause := errors.New("late play callback failure")
-			repository := failPlayAfterWork{repository: persistence.NewPlay(fixture.database), failure: cause}
-			controller := application.NewPlayController(repository, fixture.launcher.now, retromruntime.MatchesCapability)
-			result, err := controller.RecordPlay(t.Context(), created.LaunchID, created.Capability, requestKind, event)
-			if !errors.Is(err, cause) || result.PlaySessionID != nil || result.State != "" {
-				t.Fatalf("late failure result=%#v error=%v", result, err)
-			}
-			if after := playRows(t, fixture.database); !reflect.DeepEqual(before, after) {
-				t.Fatal("late failure committed lifecycle/ownership/play changes")
-			}
-			if fixture.database.Stats().InUse != 0 {
-				t.Fatal("play transaction retained a connection")
-			}
-		})
-	}
-}
-
-func TestPlayProgressRollsBackWhenFinalSourceFenceIsStale(t *testing.T) {
-	t.Parallel()
-	for _, stale := range []string{"source-version", "play-version", "sequence", "hard-expiry"} {
-		t.Run(stale, func(t *testing.T) {
-			fixture, created := newProductPlayFixture(t, true)
-			productPlayStart(t, fixture, created)
-			before := playRows(t, fixture.database)
-			err := persistence.NewPlay(fixture.database).WithPlay(t.Context(), func(scope application.PlayScope) error {
-				source, found, err := scope.Read.Source(t.Context(), created.LaunchID)
-				if err != nil || !found {
-					t.Fatalf("source found=%t error=%v", found, err)
-				}
-				current, found, err := scope.Read.Current(t.Context(), created.LaunchID)
-				if err != nil || !found {
-					t.Fatalf("play found=%t error=%v", found, err)
-				}
-				now := fixture.now.UnixMilli()
-				switch stale {
-				case "source-version":
-					source.Version++
-				case "play-version":
-					current.Version++
-				case "sequence":
-					current.LastSequence++
-				case "hard-expiry":
-					now = source.Session.HardExpiresAtMS
-				}
-				return scope.Write.Progress(t.Context(), application.PlayProgress{
-					Source: source, Current: current, Kind: "heartbeat",
-					Event: application.PlayEvent{ClientSequence: 1, ClientObservedAtMS: now, PreviousInterval: &application.Interval{Running: true, Visible: true}},
-					NowMS: now, AcceptedDurationMS: 20,
-				})
-			})
-			if !errors.Is(err, application.ErrBlocked) {
-				t.Fatalf("stale fence error=%v", err)
-			}
-			if after := playRows(t, fixture.database); !reflect.DeepEqual(before, after) {
-				t.Fatal("stale progress partially committed")
-			}
-		})
-	}
-}
-
-func TestPlayFinishRevokesCapabilityAndPreservesLoadingIdempotency(t *testing.T) {
-	t.Parallel()
-	for _, previewMode := range []bool{false, true} {
-		t.Run(map[bool]string{false: "product", true: "preview"}[previewMode], func(t *testing.T) {
-			fixture, created := newPlaySourceFixture(t, previewMode, false)
-			seedPlayCapability(t, fixture, created.LaunchID, previewMode)
-			event := PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}
-			first, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "finish", event)
-			if err != nil || first.PlaySessionID != nil || first.State != "FINISHED" {
-				t.Fatalf("first finish=%#v error=%v", first, err)
-			}
-			before := playRows(t, fixture.database)
-			second, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "finish", event)
-			if err != nil || first != second || !reflect.DeepEqual(before, playRows(t, fixture.database)) {
-				t.Fatalf("repeat finish=%#v error=%v", second, err)
-			}
-			var revoked int64
-			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT revoked_at_ms FROM isolated_runtime_capabilities`).Scan(&revoked); err != nil || revoked != fixture.now.UnixMilli() {
-				t.Fatalf("revoked=%d error=%v", revoked, err)
-			}
-			var count int
-			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions`).Scan(&count); err != nil || count != 0 {
-				t.Fatalf("loading created play rows=%d error=%v", count, err)
-			}
-		})
-	}
 }
 
 func newPlaySourceFixture(t *testing.T, previewMode, activate bool) (reviewCheckpointFixture, Created) {
@@ -224,4 +116,63 @@ func newPlaySourceFixture(t *testing.T, previewMode, activate bool) (reviewCheck
 		}
 	}
 	return fixture, Created{LaunchID: preview.PreviewID, Capability: preview.Capability}
+}
+
+func closeConfigSource(t *testing.T, fixture reviewCheckpointFixture, created Created, preview bool) {
+	t.Helper()
+	if preview {
+		if err := fixture.launcher.FinishReviewPreview(t.Context(), created.LaunchID, created.Capability); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	// Administrative revocation may race with config issuance; telemetry cannot revoke a product launch.
+	mustRPGLaunchSQL(t, fixture.database, `UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,version=version+1 WHERE id=?`, fixture.now.UnixMilli(), created.LaunchID)
+}
+
+func TestPlaySnapshotTransactionRollsBack(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		fixture, created := newProductPlayFixture(t, true)
+		if existing {
+			productPlayStart(t, fixture, created)
+		}
+		before := playRows(t, fixture.database)
+		cause := errors.New("late snapshot failure")
+		c := application.NewPlayController(failPlayAfterWork{repository: persistence.NewPlay(fixture.database), failure: cause}, fixture.launcher.now, retromruntime.MatchesCapability)
+		result, err := c.RecordSnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{ActiveDurationMS: 1000})
+		if !errors.Is(err, cause) || result.PlaySessionID != "" || !reflect.DeepEqual(before, playRows(t, fixture.database)) {
+			t.Fatalf("snapshot partially committed: %#v %v", result, err)
+		}
+	}
+}
+
+func TestPreviewFinishRevokesCapabilityAndIsIdempotent(t *testing.T) {
+	for _, active := range []bool{false, true} {
+		fixture, created := newPlaySourceFixture(t, true, active)
+		seedPlayCapability(t, fixture, created.LaunchID, true)
+		if err := fixture.launcher.FinishReviewPreview(t.Context(), created.LaunchID, created.Capability); err != nil {
+			t.Fatal(err)
+		}
+		before := playRows(t, fixture.database)
+		if err := fixture.launcher.FinishReviewPreview(t.Context(), created.LaunchID, created.Capability); err != nil || !reflect.DeepEqual(before, playRows(t, fixture.database)) {
+			t.Fatalf("repeat close: %v", err)
+		}
+		var revoked int64
+		if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT revoked_at_ms FROM isolated_runtime_capabilities`).Scan(&revoked); err != nil || revoked != fixture.now.UnixMilli() {
+			t.Fatalf("revoked=%d error=%v", revoked, err)
+		}
+		var plays int
+		if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions`).Scan(&plays); err != nil || plays != 0 {
+			t.Fatalf("preview statistics=%d error=%v", plays, err)
+		}
+	}
+}
+
+func TestPreviewFinishRejectsProductLaunchWithoutMutation(t *testing.T) {
+	fixture, created := newProductPlayFixture(t, true)
+	before := playRows(t, fixture.database)
+	err := fixture.launcher.FinishReviewPreview(t.Context(), created.LaunchID, created.Capability)
+	if !errors.Is(err, ErrCredential) || !reflect.DeepEqual(before, playRows(t, fixture.database)) {
+		t.Fatalf("product closed: %v", err)
+	}
 }

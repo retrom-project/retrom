@@ -5,6 +5,8 @@ import (
 	"path"
 	"strings"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	corevalidation "retrom/internal/core/validation"
 )
 
@@ -35,7 +37,7 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 	return append(files, ProductBundleFiles(snapshot.VariantFiles)...), nil
 }
 
-func ProductBundleFiles(inputs []ProductFile) []ProductExternalFile {
+func ProductBundleFiles(inputs []gamevariant.File) []ProductExternalFile {
 	files := make([]ProductExternalFile, 0)
 	for _, file := range inputs {
 		if file.Role != "BIOS_BUNDLE" && file.Role != "PARENT" {

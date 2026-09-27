@@ -3,12 +3,12 @@ package launch
 import (
 	"context"
 
-	persistence "retrom/internal/persistence/launch"
-	application "retrom/internal/service/launch"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
 )
 
-func (service *Service) validationWorker() *application.ValidationWorker {
-	return application.NewValidationWorker(persistence.NewValidationWorker(service.database), application.ValidationWorkerEnvironment{Now: service.now})
+func (service *Service) validationWorker() *gamevariant.ValidationWorker {
+	return gamevariant.NewValidationWorker(variantrepository.NewValidationWorker(service.database), gamevariant.ValidationWorkerEnvironment{Now: service.now})
 }
 
 func (service *Service) resumeValidationJob(ctx context.Context, id string) {

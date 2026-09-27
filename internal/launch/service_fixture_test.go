@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	runtimecatalog "retrom/internal/runtime/catalog"
 	runtimelaunch "retrom/internal/runtime/launch"
-
-	application "retrom/internal/service/launch"
 
 	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
@@ -19,7 +19,7 @@ import (
 )
 
 type Service struct {
-	validationRuns           *application.ValidationSupervisor
+	validationRuns           *gamevariant.ValidationSupervisor
 	database                 dbapi.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
@@ -52,7 +52,7 @@ func New(
 		credentials:  credentials,
 		now:          now,
 	}
-	service.validationRuns = application.NewValidationSupervisor(testValidationRunner{service}, func(err error) { cleanup.Error("variant validation", err) })
+	service.validationRuns = gamevariant.NewValidationSupervisor(testValidationRunner{service}, func(err error) { cleanup.Error("variant validation", err) })
 	return service
 }
 

@@ -230,10 +230,6 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
   /runtime/launches/{launchId}/config:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1config
-  /runtime/launches/{launchId}/start:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1start
-  /runtime/launches/{launchId}/heartbeat:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1heartbeat
   /runtime/launches/{launchId}/progress:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1progress
   /runtime/launches/{launchId}/finish:
@@ -579,8 +575,6 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSRequirementSummary
     BIOSListResponseBody:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSListResponseBody
-    PlayEventRequest:
-      $ref: ./domains/runtime.yaml#/components/schemas/PlayEventRequest
     PlayProgressRequest:
       $ref: ./domains/runtime.yaml#/components/schemas/PlayProgressRequest
     MultiDiscPlayerEventRequest:
@@ -730,8 +724,6 @@ components:
       $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceCollectionMappings
     SourceImportStart:
       $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceImportStart
-    PlayEvent:
-      $ref: ./domains/runtime.yaml#/components/requestBodies/PlayEvent
     PlayProgress:
       $ref: ./domains/runtime.yaml#/components/requestBodies/PlayProgress
     MultiDiscPlayerEvent:

@@ -1,31 +1,28 @@
 package launch
 
 import (
+	"context"
 	"time"
 
 	dbapi "retrom/internal/database"
-
-	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	repository "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
 	application "retrom/internal/service/launch"
 )
 
-// New assembles the complete Launch application with one shared validation lifetime.
-func New(database dbapi.DB, source *launch.Sources, publicOrigin string, now func() time.Time) *application.Service {
-	worker := application.NewValidationWorker(
-		repository.NewValidationWorker(database),
-		application.ValidationWorkerEnvironment{Now: now},
-	)
-	supervisor := application.NewValidationSupervisor(worker, func(err error) { cleanup.Error("variant validation", err) })
+// New assembles runtime use cases; the process owns variant validation separately.
+func New(
+	database dbapi.DB, source *launch.Sources, publicOrigin string,
+	now func() time.Time, dispatch func(context.Context, string),
+) *application.Service {
 	product := application.NewProductCreator(
 		repository.NewProductCreation(database),
 		source,
 		source,
 		application.ProductEnvironment{
 			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
-			ResumeValidation: supervisor.Dispatch,
+			ResumeValidation: dispatch,
 		},
 	)
 	preview := application.NewPreviewCreator(
@@ -36,12 +33,17 @@ func New(database dbapi.DB, source *launch.Sources, publicOrigin string, now fun
 		},
 	)
 	return application.New(application.ServiceDependencies{
-		Product: product, Preview: preview, Validation: supervisor,
+		Product: product, Preview: preview,
 		Config: application.NewConfigIssuer(repository.NewConfig(database), source, application.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
 		}),
-		Play:    application.NewPlayController(repository.NewPlay(database), now, retromruntime.MatchesCapability),
-		Content: application.NewContentAccess(repository.NewContentQueries(database), now, retromruntime.MatchesCapability),
+		PreviewCloser: application.NewPreviewCloser(
+			repository.NewPreviewClose(database), now, retromruntime.MatchesCapability,
+		),
+		Play: application.NewPlayController(repository.NewPlay(database), now, retromruntime.MatchesCapability),
+		Content: application.NewContentAccess(
+			repository.NewContentQueries(database), now, retromruntime.MatchesCapability,
+		),
 		Sessions: application.NewSessionQueries(
 			repository.NewSessionQueries(database),
 			source,
@@ -50,12 +52,5 @@ func New(database dbapi.DB, source *launch.Sources, publicOrigin string, now fun
 		),
 		Projects: application.NewProjectQueries(repository.NewConfig(database), now, retromruntime.MatchesCapability),
 		Indexes:  application.NewProjectIndexes(repository.NewProjectIndexes(database), now, retromruntime.MatchesCapability),
-		Screenshots: application.NewScreenshotSaver(
-			repository.NewScreenshots(database),
-			source,
-			application.ScreenshotEnvironment{
-				Now: now, Matches: retromruntime.MatchesCapability,
-			},
-		),
 	})
 }

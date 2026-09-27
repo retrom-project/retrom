@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+
 	"retrom/internal/persistence/recordstore"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -398,9 +400,10 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launchcomposition.New(database.SQL,
-		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
-	t.Cleanup(launcher.Close)
+	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	t.Cleanup(variants.Close)
+	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,

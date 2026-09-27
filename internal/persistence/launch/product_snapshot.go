@@ -2,7 +2,9 @@ package launch
 
 import (
 	"context"
-	"reflect"
+	"fmt"
+
+	variantrepository "retrom/internal/persistence/gamevariant"
 
 	application "retrom/internal/service/launch"
 )
@@ -23,44 +25,22 @@ func (records productCreationRecords) Snapshot(
 	if command.Request.SaveStateID != nil && snapshot.Save == nil {
 		return snapshot, nil
 	}
-	snapshot.Source, snapshot.Found, err = productCreationSource(ctx, records.executor, command, snapshot.Save)
-	if err != nil || !snapshot.Found {
-		return snapshot, err
+	coreID := ""
+	if command.Request.CoreID != nil {
+		coreID = *command.Request.CoreID
+	} else if snapshot.Save != nil {
+		coreID = snapshot.Save.SourceCoreID
 	}
-	return records.completeSnapshot(ctx, command, snapshot)
-}
-
-func (records productCreationRecords) completeSnapshot(
-	ctx context.Context,
-	command application.ProductCreateCommand,
-	snapshot application.ProductSnapshot,
-) (application.ProductSnapshot, error) {
-	var err error
-	snapshot.GameFiles, err = productCreationFiles(ctx, records.executor, snapshot.Source.GameID, false)
+	configuration, err := variantrepository.ReadSnapshot(ctx, records.executor, command.Request.GameID, coreID)
 	if err != nil {
-		return application.ProductSnapshot{}, err
+		return snapshot, fmt.Errorf("read game configuration: %w", err)
 	}
-	snapshot.VariantFiles, err = productCreationFiles(ctx, records.executor, snapshot.Source.VariantID, true)
-	if err != nil {
-		return application.ProductSnapshot{}, err
+	if !configuration.Found {
+		return snapshot, nil
 	}
-	productSourceNames(&snapshot.Source, snapshot.GameFiles)
-	snapshot.BIOS, err = ProductBIOSFacts(ctx, records.executor, snapshot.Source, snapshot.Source.DATVersionID)
-	if err != nil {
-		return application.ProductSnapshot{}, err
-	}
-	snapshot.ValidationBIOS = snapshot.BIOS
-	if !reflect.DeepEqual(snapshot.Source.DATVersionID, snapshot.Source.ActiveDATVersionID) {
-		snapshot.ValidationBIOS, err = ProductBIOSFacts(
-			ctx,
-			records.executor,
-			snapshot.Source,
-			snapshot.Source.ActiveDATVersionID,
-		)
-		if err != nil {
-			return application.ProductSnapshot{}, err
-		}
-	}
+	snapshot.Found, snapshot.Source = configuration.Found, configuration.Source
+	snapshot.GameFiles, snapshot.VariantFiles = configuration.GameFiles, configuration.VariantFiles
+	snapshot.BIOS, snapshot.ValidationBIOS = configuration.BIOS, configuration.ValidationBIOS
 	entry := command.Request.DOSEntry
 	if snapshot.Save != nil && snapshot.Save.DOSEntry != nil {
 		entry = snapshot.Save.DOSEntry

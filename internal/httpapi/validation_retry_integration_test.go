@@ -15,6 +15,10 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
 	dbapi "retrom/internal/database"
@@ -23,10 +27,8 @@ import (
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	jobpersistence "retrom/internal/persistence/jobs"
-	launchpersistence "retrom/internal/persistence/launch"
 	dependencyservice "retrom/internal/service/dependencies"
 	"retrom/internal/service/jobs"
-	launchservice "retrom/internal/service/launch"
 	"retrom/internal/testsupport"
 )
 
@@ -54,15 +56,17 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 		dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
+	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now)
 	server := &Server{
+		variants: variants,
 		database: database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
 		importer: libraryimport.New(database.SQL, now), launcher: launchcomposition.New(database.SQL,
-			launch.NewSources(nil, nil), "", now),
+			launch.NewSources(nil, nil), "", now, variants.Dispatch),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	fixture := validationRetryFixture{server: server, now: now}
 	fixture.jobID = seedValidationRetry(t, fixture)
-	t.Cleanup(server.launcher.Close)
+	t.Cleanup(server.variants.Close)
 	return fixture
 }
 
@@ -83,12 +87,12 @@ source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 dependency_snapshot_json,version,created_at_ms,updated_at_ms)
  SELECT ?,?,'gambatte',provider_id,target_id,'BLOCKED','VALIDATION_PENDING','{}',1,?,? FROM
 runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, now, now)
-	provisional := launchservice.ValidationInputs{GameID: gameID, GameVariantID: variantID}
-	facts, err := launchpersistence.NewValidationWorker(database).Facts(t.Context(), provisional)
+	provisional := gamevariant.ValidationInputs{GameID: gameID, GameVariantID: variantID}
+	facts, err := variantrepository.NewValidationWorker(database).Facts(t.Context(), provisional)
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputs, err := launchservice.ProductValidationInputs(facts.Content, variantID)
+	inputs, err := gamevariant.Inputs(facts.Content, variantID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,8 +101,8 @@ runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, no
 		t.Fatal(err)
 	}
 	queued,
-		err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction),
-		launchservice.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
+		err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(transaction),
+		gamevariant.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)

@@ -118,9 +118,9 @@ payload 物理状态只有 `RETAINED/RELEASING/RELEASED`，没有 owner 失败�
 
 ## 6. Launch 与资源冻结
 
-`launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；这些行不持有 Blob 引用，Blob 被领域 owner 释放后可删除；Game 内容或 BIOS 变化会撤销受影响的 Launch。Provider Bundle 身份仍按创建时冻结。
+`launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc 的领域文件记录；这些授权投影不取得文件所有权，文件随所属领域目录释放；Game 内容或 BIOS 变化会撤销受影响的 Launch。Provider Bundle 身份仍按创建时冻结。
 
-Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner，不创建假 Game。启动、心跳和退出只推进会话授权状态，不写入已发布游戏的游玩统计。Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
+Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner，不创建假 Game。config 激活和幂等结束推进会话授权状态，不写入已发布游戏的游玩统计。Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
 
 ## 7. SaveState
 
@@ -132,7 +132,7 @@ Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保
 
 ## 8. Play 与隔离
 
-PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累计最大值；首次成功上报才创建记录，不要求 `play_session_events`。旧连续事件表供既有客户端使用。统计写入不改变 Launch 授权或内容回收时间。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
+PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累计最大值；首次成功上报才创建记录；`last_reported_at_ms` 保存最近一次成功上报时刻，不保存事件序号或逐次事件表。统计写入不改变 Launch 授权或内容回收时间。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
 
 
 ## 9. 领域文件与目录清理

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	reviewservice "retrom/internal/service/libraryimport"
+
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
@@ -17,7 +19,7 @@ import (
 
 func assertRepeatedPreviewKeepsScreenshot(
 	t *testing.T, database dbapi.DB, service *Service, importer *libraryimport.Service,
-	actorID string, screenshot ReviewScreenshot, image []byte,
+	actorID string, screenshot reviewservice.ReviewScreenshot, image []byte,
 ) {
 	t.Helper()
 	ctx := t.Context()
@@ -89,7 +91,7 @@ WHERE draft.id=?
 	}
 }
 
-func seedOlderReviewScreenshot(t *testing.T, database dbapi.DB, screenshot ReviewScreenshot) {
+func seedOlderReviewScreenshot(t *testing.T, database dbapi.DB, screenshot reviewservice.ReviewScreenshot) {
 	t.Helper()
 	ctx := t.Context()
 	validationID, screenshotID := uuid.NewString(), uuid.NewString()

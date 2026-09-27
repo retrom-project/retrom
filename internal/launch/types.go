@@ -24,9 +24,6 @@ type (
 )
 
 type (
-	Interval     = application.Interval
-	PlayEvent    = application.PlayEvent
-	PlayResult   = application.PlayResult
 	PlaySnapshot = application.PlaySnapshot
 )
 
@@ -36,15 +33,11 @@ type (
 	BundleFile                   = application.BundleFile
 )
 
-var (
-	ErrReviewPreviewUnavailable = application.ErrReviewPreviewUnavailable
-	ErrReviewScreenshotInvalid  = application.ErrReviewScreenshotInvalid
-)
+var ErrReviewPreviewUnavailable = application.ErrReviewPreviewUnavailable
 
 type (
 	ReviewPreviewRequest = application.ReviewPreviewRequest
 	ReviewPreviewCreated = application.ReviewPreviewCreated
-	ReviewScreenshot     = application.ReviewScreenshot
 )
 
 type ProjectIndexView = application.ProjectIndexView

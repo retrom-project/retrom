@@ -1971,42 +1971,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postRuntimeLaunchStart"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/heartbeat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postRuntimeLaunchHeartbeat"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/runtime/launches/{launchId}/progress": {
         parameters: {
             query?: never;
@@ -2037,7 +2001,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postRuntimeLaunchFinish"];
+        /** @description Idempotently close a review preview and revoke its content grants. Product launches cannot use this operation. */
+        post: operations["finishRuntimeReviewPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3789,17 +3754,6 @@ export interface components {
             items: components["schemas"]["BIOSRequirementSummary"][];
             nextCursor: string | null;
         };
-        PlayEventRequest: {
-            /** Format: int64 */
-            clientSequence: number;
-            /** Format: int64 */
-            clientObservedAtMs: number;
-            previousInterval: {
-                running: boolean;
-                visible: boolean;
-                paused: boolean;
-            } | null;
-        };
         PlayProgressRequest: {
             /** Format: int64 */
             activeDurationMs: number;
@@ -3960,7 +3914,6 @@ export interface components {
             expiresAtMs: number;
         };
         JSONObject: {
-            acceptedDurationMs?: unknown;
             action?: unknown;
             activatedAtMs?: unknown;
             active?: unknown;
@@ -4025,8 +3978,6 @@ export interface components {
             canRetry?: unknown;
             clientCapabilities?: unknown;
             clientFileId?: unknown;
-            clientObservedAtMs?: unknown;
-            clientSequence?: unknown;
             cloneof?: unknown;
             code?: unknown;
             column?: unknown;
@@ -4209,7 +4160,6 @@ export interface components {
             playUrl?: unknown;
             player?: unknown;
             players?: unknown;
-            previousInterval?: unknown;
             presentDiscCount?: unknown;
             protected?: unknown;
             provider?: unknown;
@@ -5253,11 +5203,6 @@ export interface components {
         SourceImportStart: {
             content: {
                 "application/json": components["schemas"]["SourceImportStartRequest"];
-            };
-        };
-        PlayEvent: {
-            content: {
-                "application/json": components["schemas"]["PlayEventRequest"];
             };
         };
         PlayProgress: {
@@ -7673,34 +7618,6 @@ export interface operations {
             200: components["responses"]["LaunchConfigResponse"];
         };
     };
-    postRuntimeLaunchStart: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PlayEvent"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postRuntimeLaunchHeartbeat: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PlayEvent"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
     postRuntimeLaunchProgress: {
         parameters: {
             query?: never;
@@ -7716,7 +7633,7 @@ export interface operations {
             401: components["responses"]["JSONResponse"];
         };
     };
-    postRuntimeLaunchFinish: {
+    finishRuntimeReviewPreview: {
         parameters: {
             query?: never;
             header?: never;
@@ -7725,9 +7642,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["PlayEvent"];
+        requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Review preview closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["JSONResponse"];
         };
     };
     postRuntimeMultiDiscPlayerEvent: {

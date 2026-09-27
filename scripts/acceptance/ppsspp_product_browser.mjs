@@ -159,7 +159,7 @@ export async function exitPSP(opened, launchId, evidence, returnUrl) {
   await revealPreviewToolbar(opened.page);
   await opened.page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
   const finished = opened.page.waitForResponse(response => response.request().method() === "POST" &&
-    new URL(response.url()).pathname === `/runtime/launches/${launchId}/finish`, {timeout: 30000});
+    new URL(response.url()).pathname === `/runtime/launches/${launchId}/progress`, {timeout: 30000});
   await opened.page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
   assert.equal((await finished).status(), 200);
   await opened.page.waitForURL(returnUrl);

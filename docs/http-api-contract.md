@@ -357,15 +357,8 @@ Idempotency-Key: <uuid>
 
 PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/launches/{launchId}/progress`，body 为 `{ "activeDurationMs": int64 }`。该数值是本次 Player 中可见、未暂停、正在运行时间的累计毫秒数，范围为 `0..2592000000`。服务端按 Launch 唯一 PlaySession 保存目前最大值；重复、乱序和丢失的样本不改变权限，也不要求先发送 start 或退出时发送 finish。首次成功上报创建 PlaySession；完全没有成功样本则不产生统计。上报失败不会阻断启动、运行、存档或退出。服务端仍验证限定 Path 的 launch cookie、PRODUCT ACTIVE 状态和 hard expiry。
 
-以下连续事件端点保留供旧客户端及审核 Preview 使用；新 PRODUCT Player 不调用它们。它们同样不能只凭公开的 launchId 更新游玩记录，也不能把 cookie Path 放宽到 `/`：
+审核 Preview 不计入游玩统计。`POST /runtime/launches/{launchId}/finish` 仅结束审核试玩，不接收请求体，成功返回 `204`。服务端校验对应 Preview 的 capability 和 hard expiry，在同一事务结束会话并撤销隔离授权；携带有效凭据的重复结束幂等。PRODUCT Launch 不接受此操作，旧 `start`、`heartbeat` 接口与事件序号协议已移除。
 
-- `POST /runtime/launches/{launchId}/start` body 为 `{ "clientSequence": 0, "clientObservedAtMs": int64 }`，只在真实 `EJS_onGameStart` 后调用；重复相同 body 返回原 PlaySession。
-- `POST /runtime/launches/{launchId}/heartbeat` body 为 `{ "clientSequence": n, "clientObservedAtMs": int64, "previousInterval": { "running": bool, "visible": bool, "paused": bool } }`，`n` 从 1 连续递增。
-- `POST /runtime/launches/{launchId}/finish`：已经 start 时使用下一个连续 sequence 和同样的 interval body，提交最后区间并撤销 launch；尚未 start 时只接受 `{ "clientSequence": 0, "clientObservedAtMs": int64, "previousInterval": null }`，不创建 PlaySession、直接撤销。两种重复请求都幂等。
-
-多盘 Player 另使用 `POST /runtime/launches/{launchId}/player-events` 上报封闭的低基数运行结果。它同样要求正确的 launch cookie 和 Origin，只接受 `eventType=START/DISK_COUNT_MISMATCH/SWITCH_SUCCESS/SWITCH_FAILURE/SAVE_RESTORE_SUCCESS/SAVE_RESTORE_FAILURE`、稳定 `resultCode`、锁定的 `discCount` 与可空 `observedDiscCount`；服务端必须重新读取 Launch 锁定的 platform/core/Provider Target/disc count 并拒绝盘数不一致的 body。成功返回 `204`，失败不改变 Launch、PlaySession、存档或换盘结果。body、日志与指标都不得包含标题、basename、路径、hash 或 capability；该 best-effort 观测请求失败不能阻断 Player 主链路。
-
-旧事件端点以接收时刻计算 interval，单次最多 45 秒；client time 只审计且必须是 `0..253402300799999` 的 JSON integer，绝不能参与授权、顺序或计时。重复序号返回原 accepted delta，跳号为 `409 PLAY_SEQUENCE_GAP`。这些事件也不再建立 idle 门槛。
 
 ## 8. 内容端点与缓存
 
@@ -465,7 +458,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot 内部文件记录。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/progress` | 第 7 节 PRODUCT 最佳努力累计游玩时长上报；使用限定 Path 的 launch cookie，失败不影响运行权限。 |
-| `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 旧连续事件契约与审核 Preview 的退出；新 PRODUCT Player 不调用。 |
+| `POST /runtime/launches/{launchId}/finish` | 仅审核 Preview：无请求体，幂等结束并撤销授权，成功返回 204。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
 | `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态保存；payload 必需，截图可选。 |
 | `POST /runtime/launches/{launchId}/review-screenshot` | 所有审核 Preview 按需保存当前 PNG/JPEG；来源、目标与当前校验必须一致，PRODUCT Launch 禁止。 |

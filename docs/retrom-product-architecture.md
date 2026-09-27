@@ -213,7 +213,7 @@ flowchart LR
     S --> J["SQLite 队列 + 进程内 Worker"]
     J --> A["Arcade DAT 解析器"]
     J --> H["Hasheous 哈希元信息查询"]
-    EP -->|受授权资源 / 检查点 / 心跳| N
+    EP -->|受授权资源 / 检查点 / 累计游玩进度| N
     RP -->|受授权项目内容 / 检查点 / gate| N
     EP -->|同源 WSS：输入 / hash / state| S
 ~~~

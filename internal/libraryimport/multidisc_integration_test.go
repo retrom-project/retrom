@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
@@ -288,9 +290,10 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launchcomposition.New(database.SQL,
-		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
-	t.Cleanup(launcher.Close)
+	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	t.Cleanup(variants.Close)
+	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{

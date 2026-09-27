@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	corevalidation "retrom/internal/core/validation"
 )
 
@@ -31,12 +33,12 @@ func TestProductContentSelectsDeclaredDeliveryFiles(t *testing.T) {
 		{"unsupported delivery", "UNKNOWN", "SINGLE_FILE", "CONTENT", "game.bin", "", false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := ProductSnapshot{Source: ProductSource{DeliveryProfile: test.delivery, ContentKind: test.kind}}
-			file := ProductFile{Role: test.role, FileRecord: "blob", LogicalName: test.file}
+			snapshot := ProductSnapshot{Source: gamevariant.Source{DeliveryProfile: test.delivery, ContentKind: test.kind}}
+			file := gamevariant.File{Role: test.role, FileRecord: "blob", LogicalName: test.file}
 			if test.variant {
-				snapshot.VariantFiles = []ProductFile{file}
+				snapshot.VariantFiles = []gamevariant.File{file}
 			} else {
-				snapshot.GameFiles = []ProductFile{file}
+				snapshot.GameFiles = []gamevariant.File{file}
 			}
 			content, err := BuildProductContent(snapshot)
 			if test.blocked {
@@ -99,7 +101,7 @@ func TestComputerProductsIncludeExternalBIOS(t *testing.T) {
 				t.Fatal(err)
 			}
 			content := ProductContent{Files: []ProductContentFile{{LogicalName: test.game}}}
-			snapshot := ProductSnapshot{Source: ProductSource{
+			snapshot := ProductSnapshot{Source: gamevariant.Source{
 				ProviderID: "retrom-runtime", TargetID: test.target, DeliveryProfile: "ROM_BLOB",
 				DependencySnapshot: string(snapshotJSON),
 			}}

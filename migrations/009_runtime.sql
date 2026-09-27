@@ -39,22 +39,6 @@ CREATE TABLE isolated_runtime_capabilities (
   CHECK((launch_id IS NULL) <> (preview_id IS NULL))
 );
 
-CREATE TABLE play_session_events (
-  play_session_id TEXT NOT NULL REFERENCES play_sessions(id),
-  client_sequence INTEGER NOT NULL CHECK(client_sequence >= 0),
-  event_kind TEXT NOT NULL CHECK(event_kind IN ('START','HEARTBEAT','FINISH')),
-  client_observed_at_ms INTEGER NOT NULL,
-  server_received_at_ms INTEGER NOT NULL,
-  running INTEGER NOT NULL CHECK(running IN (0,1)),
-  visible INTEGER NOT NULL CHECK(visible IN (0,1)),
-  paused INTEGER NOT NULL CHECK(paused IN (0,1)),
-  accepted_duration_ms INTEGER NOT NULL CHECK(accepted_duration_ms BETWEEN 0 AND 45000),
-  created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY(play_session_id, client_sequence),
-  CHECK((event_kind = 'START') = (client_sequence = 0)),
-  CHECK(event_kind != 'START' OR accepted_duration_ms = 0)
-);
-
 CREATE TABLE "launch_sessions" (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -136,10 +120,9 @@ CREATE TABLE "play_sessions" (
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   game_id TEXT NOT NULL REFERENCES games(id),
   started_at_ms INTEGER NOT NULL,
-  last_heartbeat_at_ms INTEGER NOT NULL,
+  last_reported_at_ms INTEGER NOT NULL,
   ended_at_ms INTEGER,
   active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_duration_ms >= 0),
-  last_client_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_client_sequence >= 0),
   state TEXT NOT NULL CHECK(state IN ('ACTIVE','FINISHED','ABANDONED')),
   version INTEGER NOT NULL DEFAULT 1,
   created_at_ms INTEGER NOT NULL,

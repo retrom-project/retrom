@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
-	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
 	launchservice "retrom/internal/service/launch"
 	"retrom/internal/service/saves"
@@ -156,54 +154,6 @@ func (server *Server) launchCapability(request *http.Request) string {
 	return cookie.Value
 }
 
-func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request *http.Request) {
-	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-	if err != nil || mediaType != "image/png" && mediaType != "image/jpeg" {
-		writeError(
-			writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID",
-			"运行截图必须是 PNG 或 JPEG", map[string]any{},
-		)
-		return
-	}
-	body := http.MaxBytesReader(writer, request.Body, mediaasset.MaxImageBytes+1)
-	result, err := server.launcher.StoreReviewScreenshot(
-		request.Context(), request.PathValue("launchId"), server.launchCapability(request), body,
-	)
-	if err != nil {
-		if errors.Is(err, launch.ErrCredential) {
-			writeError(
-				writer,
-				request,
-				http.StatusUnauthorized,
-				"LAUNCH_CREDENTIAL_INVALID",
-				"审核预览会话不可用",
-				map[string]any{},
-			)
-			return
-		}
-		if errors.Is(err, launch.ErrReviewScreenshotInvalid) {
-			writeError(
-				writer,
-				request,
-				http.StatusBadRequest,
-				"REVIEW_SCREENSHOT_INVALID",
-				"运行截图无效或超过大小限制",
-				map[string]any{},
-			)
-			return
-		}
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusCreated, map[string]any{
-		"screenshotId": result.ID, "importItemId": result.ImportItemID,
-		"validationId": result.ValidationID, "providerId": result.ProviderID,
-		"targetId": result.TargetID,
-		"widthPx":  result.WidthPX, "heightPx": result.HeightPX,
-		"capturedAtMs": result.CapturedAtMS, "url": "/api/v1/admin/review-assets/" + result.ID,
-	})
-}
-
 func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Request) {
 	capability := server.launchCapability(request)
 	configuration, err := server.launcher.Config(
@@ -243,14 +193,6 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	writeJSON(writer, http.StatusOK, configuration)
 }
 
-func (server *Server) launchStart(writer http.ResponseWriter, request *http.Request) {
-	server.recordPlay(writer, request, "start")
-}
-
-func (server *Server) launchHeartbeat(writer http.ResponseWriter, request *http.Request) {
-	server.recordPlay(writer, request, "heartbeat")
-}
-
 func (server *Server) launchProgress(writer http.ResponseWriter, request *http.Request) {
 	var body launch.PlaySnapshot
 	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
@@ -282,42 +224,22 @@ func (server *Server) launchProgress(writer http.ResponseWriter, request *http.R
 }
 
 func (server *Server) launchFinish(writer http.ResponseWriter, request *http.Request) {
-	server.recordPlay(writer, request, "finish")
-}
-
-func (server *Server) recordPlay(writer http.ResponseWriter, request *http.Request, kind string) {
-	var body launch.PlayEvent
-	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游玩事件无效", map[string]any{})
-		return
-	}
-	result, err := server.launcher.RecordPlay(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-		kind,
-		body,
-	)
+	id := request.PathValue("launchId")
+	err := server.launcher.FinishReviewPreview(request.Context(), id, server.launchCapability(request))
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "PLAY_SEQUENCE_GAP", "游玩事件序号或会话状态无效", map[string]any{})
+		if errors.Is(err, launch.ErrCredential) {
+			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "试玩会话不可用", map[string]any{})
+			return
+		}
+		server.databaseError(writer, request, err)
 		return
 	}
-	if kind == "finish" {
-		http.SetCookie(
-			writer,
-			&http.Cookie{
-				Name:     "retrom_launch_" + request.PathValue("launchId"),
-				Value:    "",
-				Path:     "/runtime/launches/" + request.PathValue("launchId") + "/",
-				MaxAge:   -1,
-				HttpOnly: true,
-				SameSite: http.SameSiteStrictMode,
-				Secure:   server.config.PublicOrigin.Scheme == "https",
-			},
-		)
-		server.setLaunchContentGrant(writer, request.PathValue("launchId"), "", -1)
-	}
-	writeJSON(writer, http.StatusOK, result)
+	http.SetCookie(writer, &http.Cookie{
+		Name: "retrom_launch_" + id, Value: "", Path: "/runtime/launches/" + id + "/", MaxAge: -1,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: server.config.PublicOrigin.Scheme == "https",
+	})
+	server.setLaunchContentGrant(writer, id, "", -1)
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 func validIdempotencyKey(value string) bool {

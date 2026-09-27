@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -62,10 +61,6 @@ func (source *Sources) AssetPaths(provider, target string) ([]string, bool) {
 
 func (source *Sources) Verify(ctx context.Context, check application.ProductBlobCheck) error {
 	return (productBlobVerifier{blobs: source.blobs}).Verify(ctx, check)
-}
-
-func (source *Sources) Read(ctx context.Context, itemID string, reader io.Reader) (application.ScreenshotImage, error) {
-	return (screenshotImages{blobs: source.blobs}).Read(ctx, itemID, reader)
 }
 
 func (source *Sources) SignCapability(id string) (string, []byte, error) {

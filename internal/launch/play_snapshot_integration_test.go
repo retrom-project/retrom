@@ -25,18 +25,17 @@ func TestPlaySnapshotsSurviveLostAndReorderedReportsWithoutChangingLaunch(t *tes
 			t.Fatalf("elapsed=%d result=%#v error=%v", elapsed, result, err)
 		}
 	}
-	var duration, events, due, hard int64
+	var duration, due, hard int64
 	var state string
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
 (SELECT active_duration_ms FROM play_sessions WHERE launch_session_id=launch.id),
-(SELECT count(*) FROM play_session_events event JOIN play_sessions play ON play.id=event.play_session_id WHERE play.launch_session_id=launch.id),
 (SELECT due_at_ms FROM launch_payload_retirements WHERE launch_session_id=launch.id),
 hard_expires_at_ms,state FROM launch_sessions launch WHERE id=?`, created.LaunchID).
-		Scan(&duration, &events, &due, &hard, &state); err != nil {
+		Scan(&duration, &due, &hard, &state); err != nil {
 		t.Fatal(err)
 	}
-	if duration != 45_000 || events != 0 || due != hard || state != "ACTIVE" {
-		t.Fatalf("duration=%d events=%d due=%d hard=%d state=%s", duration, events, due, hard, state)
+	if duration != 45_000 || due != hard || state != "ACTIVE" {
+		t.Fatalf("duration=%d due=%d hard=%d state=%s", duration, due, hard, state)
 	}
 	if _, err := fixture.launcher.Config(t.Context(), created.LaunchID, created.Capability); err != nil {
 		t.Fatalf("expired idle deadline blocked config: %v", err)
