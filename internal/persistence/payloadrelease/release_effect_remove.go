@@ -2,11 +2,11 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 
-	dbapi "retrom/internal/database"
+	gamerelease "retrom/internal/persistence/gamecontent/gamerelease"
+	itemrelease "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/releaseops"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -20,17 +20,17 @@ func (records effectRecords) Remove(ctx context.Context, change application.Effe
 	id, now := change.Before.Owner.Scope.ID, change.NowMS
 	switch change.Group {
 	case application.EffectGameRuntime:
-		return records.stopGameRuntime(ctx, id, now)
+		return (gamerelease.Records{Executor: records.executor}).StopRuntime(ctx, id, now)
 	case application.EffectGameEvidence:
-		return records.clearGameEvidence(ctx, id, now)
+		return (gamerelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now)
 	case application.EffectGameFiles:
-		return records.removeBatches(ctx, gameEffectDeleteStatements(), id)
+		return records.removeBatches(ctx, gamerelease.DeleteStatements(), id)
 	case application.EffectImportReview:
-		return records.clearImportReview(ctx, id, now)
+		return (itemrelease.Records{Executor: records.executor}).ClearReview(ctx, id, now)
 	case application.EffectImportEvidence:
-		return records.clearImportEvidence(ctx, id, now)
+		return (itemrelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now)
 	case application.EffectImportFiles:
-		return records.removeBatches(ctx, importEffectDeleteStatements(), id)
+		return records.removeBatches(ctx, itemrelease.DeleteStatements(), id)
 	case application.EffectSourceFiles, application.EffectSourceAssets:
 		return records.clearSource(ctx, change)
 	default:
@@ -56,71 +56,10 @@ func (records effectRecords) clearSource(ctx context.Context, change application
 payload_released_at_ms=?,updated_at_ms=?`
 		query.Scope.Where = "item_id=? AND (blob_id IS NOT NULL OR source_archive_blob_id IS NOT NULL)"
 	}
-	err = records.checkedUpdate(ctx, table, update, query)
+	err = (releaseops.Records{Executor: records.executor}).CheckedUpdate(ctx, table, update, query)
 	return err
 }
 
-func (records effectRecords) checkedUpdate(
-	ctx context.Context,
-	table string,
-	write effectRecordUpdate,
-	update recordstore.Update,
-) error {
-	count, err := records.readCount(ctx, "SELECT count(*) FROM "+table+" WHERE "+update.Scope.Where, update.Scope.Args...)
-	if err != nil {
-		return err
-	}
-	result, err := write(ctx, records.executor, update)
-	if err := effectCount(result, err, count); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (records effectRecords) execUpdate(
-	ctx context.Context,
-	table, where string,
-	countArgs []any,
-	query string,
-	args ...any,
-) error {
-	count, err := records.readCount(ctx, "SELECT count(*) FROM "+table+" WHERE "+where, countArgs...)
-	if err != nil {
-		return err
-	}
-	result, err := records.executor.ExecContext(ctx, query, args...)
-	if err := effectCount(result, err, count); err != nil {
-		return err
-	}
-	return nil
-}
-
-type effectDeletionBatch struct {
-	table, where string
-	remove       func(context.Context, dbapi.Executor, recordstore.Scope) (sql.Result, error)
-}
-
-func (records effectRecords) removeBatches(ctx context.Context, batches []effectDeletionBatch, id string) error {
-	for _, batch := range batches {
-		if err := records.removeBatch(ctx, batch, id); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (records effectRecords) removeBatch(ctx context.Context, batch effectDeletionBatch, id string) error {
-	for {
-		count, err := records.readCount(ctx, "SELECT count(*) FROM "+batch.table+" WHERE "+batch.where, id)
-		if err != nil {
-			return err
-		}
-		result, err := batch.remove(ctx, records.executor, recordstore.Scope{Where: batch.where, Args: []any{id}})
-		if err := effectCount(result, err, count); err != nil {
-			return fmt.Errorf("delete payload reference batch: %w", err)
-		}
-		if count < 200 {
-			return nil
-		}
-	}
+func (records effectRecords) removeBatches(ctx context.Context, batches []releaseops.DeletionBatch, id string) error {
+	return (releaseops.Records{Executor: records.executor}).RemoveBatches(ctx, batches, id)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"retrom/internal/persistence/releaseops"
 
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
@@ -57,15 +58,5 @@ AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')`, scope.Type, scope.ID).Sca
 }
 
 func effectCount(result sql.Result, err error, expected int64) error {
-	if err != nil {
-		return fmt.Errorf("write release reference: %w", err)
-	}
-	actual, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("count release reference changes: %w", err)
-	}
-	if actual != expected {
-		return application.ErrEffectConflict
-	}
-	return nil
+	return releaseops.Count(result, err, expected)
 }

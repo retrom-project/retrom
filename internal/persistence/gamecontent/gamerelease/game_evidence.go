@@ -1,14 +1,15 @@
-package payloadrelease
+package gamerelease
 
 import (
 	"context"
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/releaseops"
 )
 
-func (records effectRecords) clearGameEvidence(ctx context.Context, gameID string, now int64) error {
-	if err := records.checkedUpdate(
+func (records Records) ClearEvidence(ctx context.Context, gameID string, now int64) error {
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
 		"content_hash_evidence",
 		recordstore.UpdateContentHashEvidence,

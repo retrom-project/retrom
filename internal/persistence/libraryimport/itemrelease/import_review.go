@@ -1,15 +1,19 @@
-package payloadrelease
+package itemrelease
 
 import (
 	"context"
 	"fmt"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/releaseops"
 	"retrom/internal/persistence/sessionstore"
 )
 
-func (records effectRecords) clearImportReview(ctx context.Context, itemID string, now int64) error {
-	if err := records.checkedUpdate(ctx, "review_preview_sessions", sessionstore.ChangePreview, recordstore.Update{
+type Records struct{ Executor dbapi.Executor }
+
+func (records Records) ClearReview(ctx context.Context, itemID string, now int64) error {
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "review_preview_sessions", sessionstore.ChangePreview, recordstore.Update{
 		Set: `
 state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
 updated_at_ms=?,version=version+1
@@ -21,7 +25,7 @@ updated_at_ms=?,version=version+1
 	}); err != nil {
 		return fmt.Errorf("payloadrelease/revoke review preview: %w", err)
 	}
-	if err := records.execUpdate(
+	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(
 		ctx,
 		"review_draft_screenshot_assets",
 		`review_draft_id=?`,
@@ -33,7 +37,7 @@ DELETE FROM review_draft_screenshot_assets WHERE review_draft_id=?
 	); err != nil {
 		return fmt.Errorf("payloadrelease/clear review screenshots: %w", err)
 	}
-	if err := records.checkedUpdate(ctx, "import_items", recordstore.UpdateReviewItems, recordstore.Update{
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "import_items", recordstore.UpdateReviewItems, recordstore.Update{
 		Set: `
 cover_candidate_asset_id=NULL,background_candidate_asset_id=NULL,cover_uploaded_asset_id=NULL,
 review_version=CASE WHEN review_version>0 THEN review_version+1 ELSE 0 END,

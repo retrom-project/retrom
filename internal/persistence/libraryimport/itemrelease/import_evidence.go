@@ -1,14 +1,15 @@
-package payloadrelease
+package itemrelease
 
 import (
 	"context"
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/releaseops"
 )
 
-func (records effectRecords) clearImportEvidence(ctx context.Context, itemID string, now int64) error {
-	if err := records.checkedUpdate(
+func (records Records) ClearEvidence(ctx context.Context, itemID string, now int64) error {
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
 		"review_arcade_parent_attachments",
 		recordstore.UpdateReviewArcadeParentAttachments,
@@ -22,7 +23,7 @@ func (records effectRecords) clearImportEvidence(ctx context.Context, itemID str
 	); err != nil {
 		return fmt.Errorf("payloadrelease/release parent evidence: %w", err)
 	}
-	if err := records.checkedUpdate(
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
 		"import_item_multidisc_entries",
 		recordstore.UpdateImportItemMultidiscEntries,
@@ -41,7 +42,7 @@ blob_id IS NOT NULL AND source_snapshot_id IN (
 	); err != nil {
 		return fmt.Errorf("payloadrelease/release multidisc evidence: %w", err)
 	}
-	if err := records.checkedUpdate(
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(
 		ctx,
 		"content_hash_evidence",
 		recordstore.UpdateContentHashEvidence,

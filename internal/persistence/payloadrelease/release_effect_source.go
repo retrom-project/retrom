@@ -1,19 +1,15 @@
 package payloadrelease
 
 import (
-	"context"
-	"database/sql"
-
-	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/releaseops"
 	application "retrom/internal/service/payloadrelease"
 )
 
 type (
-	effectRecordUpdate func(context.Context, dbapi.Executor, recordstore.Update) (sql.Result, error)
 	effectSourceTables struct {
 		itemsTable, filesTable, assetsTable   string
-		updateItem, updateFiles, updateAssets effectRecordUpdate
+		updateItem, updateFiles, updateAssets releaseops.RecordUpdate
 	}
 )
 
