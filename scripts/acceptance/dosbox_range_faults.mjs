@@ -52,11 +52,18 @@ export async function faultDOS(opened, worker, scenario, base) {
   assert.deepEqual(primed, {code: 0, copied: 1});
   await opened.network.flush(); const before = opened.network.requests.length;
   const held = await holdDOSRange(opened);
+  let receive;
+  const retained = new Promise(resolve => {receive = resolve;});
+  await opened.page.exposeBinding("__dosRetainReadResult", (_source, value) => receive({value}));
   const pending = opened.frame.evaluate(async () => {
+    let result;
     try {
       const value = await globalThis.__dosNativeRead(524288 + 17, 4096);
-      return {code: value.code, copied: value.copied};
-    } catch (error) {return {error: error.code ?? error.message};}
+      result = {code: value.code, copied: value.copied};
+    } catch (error) {result = {error: error.code ?? error.message};}
+    // Retain the actual native result in Node before the exit unmounts its iframe.
+    result.clientResources = globalThis.parent.__dosContentAcceptance.resources();
+    void globalThis.__dosRetainReadResult(result); return result;
   }).then(value => ({value}), error => ({detached: error.message.split("\n")[0]}));
   try {
     const route = await held.held, requestRange = route.request().headers().range;
@@ -84,7 +91,10 @@ export async function faultDOS(opened, worker, scenario, base) {
         await route.fulfill({status: 206, headers, body: shortened}); injected = {status: 206, bytes: shortened.length, originalBytes: bytes.length};
       }
     }
-    const settled = await pending;
+    let timer;
+    const settled = scenario === "read-exit" ? await Promise.race([retained, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(Error("DOS_EXIT_NATIVE_RESULT_NOT_OBSERVED")), 5000);
+    })]).finally(() => clearTimeout(timer)) : await pending;
     assert.ok(settled.value && (settled.value.code === 29 || settled.value.error === "CONTENT_IO_ABORTED"), JSON.stringify(settled));
     assert.ok((settled.value.copied ?? 0) === 0, "DOS_NATIVE_PARTIAL_SUCCESS");
     assert.ok(performance.now() - started < 30000, "DOS_NATIVE_FAULT_HUNG");

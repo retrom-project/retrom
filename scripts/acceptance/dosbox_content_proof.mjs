@@ -5,6 +5,7 @@ import {contentCaseCommand} from "./content_io_case_command.mjs";
 import {proofDigest, readCaseProofInputs, proofArtifact, proofScenario, rawProofArtifact} from "./content_io_case_proof.mjs";
 import {validateContentResources, compareContentIOPerformance} from "./content_io_performance.mjs";
 import {verifyProductEvidence} from "./content_io_product_evidence.mjs";
+import {validateDOSForcedCleanup} from "./dosbox_failure_metrics.mjs";
 
 export async function completeDOSContentProof(directory, product) {
   const {caseId, runId} = product, {expected} = await readCaseProofInputs(directory, product.sources);
@@ -33,7 +34,9 @@ export async function completeDOSContentProof(directory, product) {
     assert.equal(row.runtime.bundleSha256, expected.bundleSha256); assert.equal(row.runtime.moduleSha256, expected.moduleSha256);
     assert.ok(row.assets.some(asset => asset.path.endsWith("/client.mjs") && asset.sha256 === expected.moduleSha256));
     assert.ok(row.assets.some(asset => asset.path.endsWith("/assets/content-io/worker.mjs") && asset.sha256 === expected.workerSha256));
-    validateContentResources(row.metrics.publicPeak, false); validateContentResources(row.metrics.closed, true);
+    validateContentResources(row.metrics.publicPeak, false);
+    if (row.cleanup) validateDOSForcedCleanup(row.cleanup);
+    else validateContentResources(row.metrics.closed, true);
   }
   const scenarios = [], performance = raw.performance.report;
   const add = async (id, names, observations) => scenarios.push(await proofScenario(directory, caseId, runId, id,

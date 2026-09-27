@@ -12,7 +12,10 @@ export async function observeDOSWorker(context, page, source, denyStorage = fals
   const {targetInfo: target} = await pageConnection.send("Target.getTargetInfo"); await pageConnection.detach();
   const connection = await context.browser().newBrowserCDPSession(), protocol = targetProtocol(connection);
   const pending = new Set(), errors = [], sessions = [], targets = new Set(), observations = [];
-  let contentSession, contentTarget;
+  const closedURLs = new Set();
+  const created = worker => worker.once("close", () => closedURLs.add(worker.url()));
+  page.on("worker", created);
+  let contentSession, contentTargetURL;
   const track = operation => {
     const task = operation().catch(error => errors.push(error.message)); pending.add(task);
     void task.finally(() => pending.delete(task));
@@ -26,7 +29,7 @@ export async function observeDOSWorker(context, page, source, denyStorage = fals
       try {
         const name = await protocol.send(sessionId, "Runtime.evaluate", {expression: "self.name", returnByValue: true});
         if (name.result.value !== "retrom-content-io-v1") return;
-        contentSession = sessionId; contentTarget = targetInfo.targetId;
+        contentSession = sessionId; contentTargetURL = targetInfo.url;
         if (denyStorage) {
           const injected = await protocol.send(sessionId, "Runtime.evaluate", {expression: `(() => {
             const denied = async () => {throw new DOMException("Owned acceptance storage denial", "NotAllowedError");};
@@ -65,10 +68,20 @@ export async function observeDOSWorker(context, page, source, denyStorage = fals
     const value = await protocol.send(contentSession, "Runtime.evaluate", {expression, returnByValue: true, awaitPromise: true});
     assert.ok(!value.exceptionDetails, JSON.stringify(value.exceptionDetails)); return value.result.value;
   }, async terminate() {
-    assert.ok(contentTarget); return connection.send("Target.closeTarget", {targetId: contentTarget});
+    const actual = page.workers().find(worker => worker.url() === contentTargetURL); assert.ok(actual);
+    let timer;
+    const closed = new Promise((resolve, reject) => {
+      actual.once("close", resolve); timer = setTimeout(() => reject(Error("DOS_WORKER_TERMINATION_NOT_OBSERVED")), 5000);
+    });
+    try {
+      await page.evaluate(() => globalThis.__dosContentAcceptance.player.contentOwner.session.worker.terminate());
+      await closed; return {success: true, observation: "ACTUAL_WORKER_CLOSE"};
+    } finally {clearTimeout(timer);}
   }, async finish() {
     await Promise.all(pending); connection.off("Target.attachedToTarget", attached); connection.off("Target.receivedMessageFromTarget", received);
     protocol.close(); for (const sessionId of sessions) await connection.send("Target.detachFromTarget", {sessionId}).catch(() => {});
-    await connection.detach(); assert.deepEqual(errors, []); assert.equal(observations.length, 1); return observations[0];
+    await connection.detach(); page.off("worker", created);
+    assert.deepEqual(errors, []); assert.equal(observations.length, 1);
+    return {...observations[0], workerClosed: closedURLs.has(contentTargetURL)};
   }};
 }

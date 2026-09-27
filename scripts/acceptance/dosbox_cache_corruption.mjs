@@ -15,6 +15,7 @@ import {pauseComputer, closeComputer} from "./computer_product_browser.mjs";
 import {evictDOSMemory} from "./dosbox_native_trace.mjs";
 import {corruptDOSBlock, publishDOSBacking, inspectDOSQuarantine} from "./dosbox_cache_faults.mjs";
 import {observeDOSFailure} from "./dosbox_failure_observation.mjs";
+import {collectDOSFailure} from "./dosbox_failure_metrics.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL, directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR);
 await mkdir(directory, {recursive: true});
@@ -62,7 +63,7 @@ try {
   assert.deepEqual(report.native, {code: 29, copied: 0});
   report.quarantine = await failure.finish(); failure = null;
   report.worker = await worker.finish(); worker = null;
-  report.launches.push(await closeComputer(replay, base, collector)); report.status = "PASS";
+  report.launches.push(await collectDOSFailure(replay, collector, report.worker)); report.status = "PASS";
 } catch (error) {
   report.errorCode = error.message; report.stack = error.stack; process.exitCode = 1;
   report.worker = worker?.snapshot(); report.failure = failure?.snapshot();

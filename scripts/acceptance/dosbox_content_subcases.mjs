@@ -11,12 +11,13 @@ import {openDOS} from "./dosbox_product_browser.mjs";
 import {observeDOSContentOwner, installDOSNativeReader} from "./dosbox_native_observation.mjs";
 import {observeDOSWorker} from "./dosbox_worker_observation.mjs";
 import {bootDoom, moveAndFireDoom} from "./dosbox_doom_actions.mjs";
-import {pauseComputer, closeComputer, collectComputerExit} from "./computer_product_browser.mjs";
+import {pauseComputer, closeComputer} from "./computer_product_browser.mjs";
 import {dosOracle, traceDOS} from "./dosbox_native_trace.mjs";
 import {concurrentDOS, faultDOS} from "./dosbox_range_faults.mjs";
 import {measureDOS} from "./dosbox_content_measurement.mjs";
 import {observeDOSFailure, openDOSAncillary, inspectDOSRevocation} from "./dosbox_failure_observation.mjs";
 import {denyContentWorkerStorage} from "./content_io_storage_denial.mjs";
+import {collectDOSFailure} from "./dosbox_failure_metrics.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL, scenario = process.argv[2];
 assert.ok(["trace", "cache-denied", "fault-range-200", "fault-identity-412", "fault-short-body", "read-exit", "worker-termination"].includes(scenario));
@@ -66,13 +67,16 @@ try {
       if (failure) {report.revocation = await failure.finish(); failure = null;}
     }
     report.worker = await worker.finish(); worker = null;
-    report.launches.push(await (scenario === "read-exit" ? collectComputerExit(active, collector) : closeComputer(active, base, collector)));
+    report.launches.push(await (scenario === "trace" ? closeComputer(active, base, collector) :
+      collectDOSFailure(active, collector, report.worker, report.fault.settled.value.clientResources)));
   }
   assert.equal((await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"})).developmentSha256, provider.developmentSha256);
   report.status = "PASS";
 } catch (error) {
   report.errorCode = error.message; report.stack = error.stack; process.exitCode = 1;
-  report.revocation = failure?.snapshot(); report.worker = worker?.snapshot(); report.owner = owner?.snapshot();
+  if (failure) report.revocation = failure.snapshot();
+  if (worker) report.worker = worker.snapshot();
+  if (owner) report.owner = owner.snapshot();
   if (active) {
     await active.page.screenshot({path: join(directory, "failure.png")}).catch(() => {});
     report.text = await active.page.locator("body").innerText().catch(() => "");

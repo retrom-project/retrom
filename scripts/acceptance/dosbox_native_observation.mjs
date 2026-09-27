@@ -19,7 +19,11 @@ export async function observeDOSContentOwner(context, page, source) {
         assert.equal(proofDigest(scriptSource), proofDigest(source), "DOS_CONTENT_OWNER_SOURCE_CHANGED");
         const value = await connection.send("Debugger.evaluateOnCallFrame", {callFrameId: frame.callFrameId, returnByValue: true,
           expression: `(() => {
-            globalThis.__dosContentAcceptance = {player: this, range: ${marker.variable}.range, session: this.contentSession};
+            globalThis.__dosContentAcceptance = {player: this, range: ${marker.variable}.range, session: this.contentSession,
+              resources: () => {
+                const client = this.contentOwner.session, {backend, ...counts} = client.stats;
+                return {...counts, jobs: client.jobs.jobs.size, syncChannels: client.syncChannels.size};
+              }};
             return {targetId: this.envelope.runtime.targetId, sizeBytes: ${marker.variable}.range.sizeBytes, filename: ${marker.variable}.range.filename};
           })()`});
         assert.ok(!value.exceptionDetails); observations.push({...value.result.value, moduleSha256: proofDigest(scriptSource)});
