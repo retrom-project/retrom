@@ -11,15 +11,18 @@ export async function executingContentWorker(context, page, assetPath) {
   let sessionId, timer, listener;
   try {
     const {targetInfos} = await connection.send("Target.getTargets");
-    const urls = new Set(page.workers().map(worker => worker.url()));
-    const targets = targetInfos.filter(row => row.type === "worker" && row.browserContextId === owner.browserContextId && urls.has(row.url));
+    const urls = page.workers().map(worker => worker.url());
+    // Content ownership is established before a native core starts pthreads.
+    // Inspect in creation order and stop once its actual name is verified; an
+    // unrelated native Worker may be blocked inside Atomics.wait indefinitely.
+    const targets = targetInfos.filter(row => row.type === "worker" && row.browserContextId === owner.browserContextId && urls.includes(row.url))
+      .sort((left, right) => urls.indexOf(left.url) - urls.indexOf(right.url));
     let target;
     for (const entry of targets) {
       const attached = await connection.send("Target.attachToTarget", {targetId: entry.targetId, flatten: false});
       const name = await protocol.send(attached.sessionId, "Runtime.evaluate", {expression: "self.name", returnByValue: true});
       if (name.result.value === "retrom-content-io-v1") {
-        assert.equal(target, undefined, "CONTENT_IO_EXECUTING_WORKER_AMBIGUOUS");
-        target = entry; sessionId = attached.sessionId;
+        target = entry; sessionId = attached.sessionId; break;
       } else await connection.send("Target.detachFromTarget", {sessionId: attached.sessionId});
     }
     assert.ok(target && typeof assetPath === "string" && assetPath.endsWith("/assets/content-io/worker.mjs"), "CONTENT_IO_EXECUTING_WORKER_MISSING");
