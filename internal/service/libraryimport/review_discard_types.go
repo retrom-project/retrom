@@ -78,7 +78,7 @@ type ReviewBatchDiscardRepository interface {
 	Release(context.Context, string, int64) error
 }
 type ReviewDiscardScope struct {
-	Payload payloadrelease.ReleaseScope
+	Payload payloadrelease.ItemSchedulingScope
 	Reader  ReviewDiscardReader
 	Tags    tagging.ReferenceReader
 	Writer  ReviewDiscardWriter

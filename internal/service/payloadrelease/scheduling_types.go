@@ -86,12 +86,24 @@ type OwnerRelease struct {
 	DeleteGame bool
 }
 
-// SchedulingScope belongs to the transaction that makes the owner terminal.
-// Scheduled identities become durable only when that complete transaction commits.
-type SchedulingScope interface {
-	Owner(context.Context, Scope) (Owner, error)
-	PendingChildren(context.Context, string) (int64, error)
-	Consumption(context.Context, string) (Consumption, error)
+// Scheduling capabilities belong to the transaction that changes the owner.
+// Domain bindings expose only the reads and writes required by their lifecycle.
+type JobWriter interface {
 	CreateJob(context.Context, ScheduledJob) error
+}
+
+type OwnerSchedulingScope interface {
+	JobWriter
+	Owner(context.Context, Scope) (Owner, error)
 	BeginRelease(context.Context, OwnerRelease) error
+}
+
+type ItemSchedulingScope interface {
+	OwnerSchedulingScope
+	PendingChildren(context.Context, string) (int64, error)
+}
+
+type ConsumptionSchedulingScope interface {
+	JobWriter
+	Consumption(context.Context, string) (Consumption, error)
 }

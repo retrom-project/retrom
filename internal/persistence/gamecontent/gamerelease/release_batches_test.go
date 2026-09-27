@@ -1,4 +1,4 @@
-package payloadrelease
+package gamerelease_test
 
 import (
 	"context"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"

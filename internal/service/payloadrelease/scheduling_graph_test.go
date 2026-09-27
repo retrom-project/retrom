@@ -23,13 +23,6 @@ func (memory *releaseGraphMemory) BeginRelease(ctx context.Context, change Owner
 	return nil
 }
 
-func (memory *releaseGraphMemory) BoundSources(_ context.Context, _ string, after Scope, _ int) ([]Scope, error) {
-	if after.ID != "" {
-		return nil, nil
-	}
-	return memory.links, memory.linkErr
-}
-
 func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch SourceBatch, after string, _ int) ([]string, error) {
 	if after != "" {
 		return nil, nil
@@ -57,7 +50,7 @@ func reviewReleaseMemory() *releaseGraphMemory {
 func TestReviewReleaseSchedulesOnlyItemAndAggregate(t *testing.T) {
 	t.Parallel()
 	memory := reviewReleaseMemory()
-	err := NewScheduler(scheduleIDs()).Review(t.Context(), ReleaseScope{Scheduling: memory, Links: memory}, ReviewRelease{
+	err := NewScheduler(scheduleIDs()).Review(t.Context(), memory, ReviewRelease{
 		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
 	})
 	if err != nil || len(memory.jobs) != 2 || len(memory.changes) != 2 {
@@ -73,7 +66,7 @@ func TestReviewReleaseDoesNotConsultSource(t *testing.T) {
 	memory := reviewReleaseMemory()
 	cause := errors.New("source links unavailable")
 	memory.linkErr = cause
-	err := NewScheduler(scheduleIDs()).Review(t.Context(), ReleaseScope{Scheduling: memory, Links: memory}, ReviewRelease{
+	err := NewScheduler(scheduleIDs()).Review(t.Context(), memory, ReviewRelease{
 		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
 	})
 	if err != nil || len(memory.jobs) != 2 {

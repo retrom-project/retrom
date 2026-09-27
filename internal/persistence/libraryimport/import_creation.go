@@ -7,8 +7,8 @@ import (
 
 	dbapi "retrom/internal/database"
 	biopersistence "retrom/internal/persistence/corevalidation"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 )

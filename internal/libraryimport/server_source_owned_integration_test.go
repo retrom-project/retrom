@@ -10,7 +10,7 @@ import (
 	payloadcomposition "retrom/internal/composition/payloadrelease"
 
 	dbapi "retrom/internal/database"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )

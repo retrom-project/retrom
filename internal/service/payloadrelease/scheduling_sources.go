@@ -3,11 +3,13 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
-	"math"
+
+	gamepolicy "retrom/internal/service/gamecontent/payloadpolicy"
+	sourcepolicy "retrom/internal/service/sourceimport/payloadpolicy"
 )
 
 func (service *Scheduler) TerminalSource(
-	ctx context.Context, scope SchedulingScope, ref Scope, now int64,
+	ctx context.Context, scope OwnerSchedulingScope, ref Scope, now int64,
 ) (string, error) {
 	if ref.Type != ScopeSourceImportItem {
 		return "", ErrScopeInvalid
@@ -16,7 +18,7 @@ func (service *Scheduler) TerminalSource(
 	if err != nil {
 		return "", err
 	}
-	if !releasableSource(owner) {
+	if !sourcepolicy.ReleaseReady(owner.State, owner.Retryable, owner.PublicID) {
 		return "", nil
 	}
 	if owner.PayloadState != "RETAINED" {
@@ -27,7 +29,7 @@ func (service *Scheduler) TerminalSource(
 }
 
 func (service *Scheduler) Consumption(
-	ctx context.Context, scope SchedulingScope, id string, now int64,
+	ctx context.Context, scope ConsumptionSchedulingScope, id string, now int64,
 ) (string, error) {
 	before, err := scope.Consumption(ctx, id)
 	if err != nil {
@@ -46,14 +48,13 @@ func (service *Scheduler) Consumption(
 }
 
 func (service *Scheduler) DeleteGame(
-	ctx context.Context, scope SchedulingScope, id string, version, now int64,
+	ctx context.Context, scope OwnerSchedulingScope, id string, version, now int64,
 ) (string, error) {
 	before, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeGame, ID: id})
 	if err != nil {
 		return "", err
 	}
-	if before.Version != version || version == math.MaxInt64 || before.State != "PUBLISHED" ||
-		before.PayloadState != "RETAINED" {
+	if !gamepolicy.CanDelete(before.State, before.PayloadState, before.Version, version) {
 		return "", ErrScopeInvalid
 	}
 	jobID, err := service.Queue(ctx, scope, ScheduleRequest{

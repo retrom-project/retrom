@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	release "retrom/internal/persistence/payloadrelease"
+	release "retrom/internal/persistence/sourceimport/sourcerelease"
 	application "retrom/internal/service/maintenance"
 	"retrom/internal/service/payloadrelease"
 )

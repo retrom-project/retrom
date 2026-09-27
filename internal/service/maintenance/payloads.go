@@ -24,7 +24,7 @@ type RestoredPayloadRecords interface {
 
 type RestoredPayloadScope struct {
 	Records    RestoredPayloadRecords
-	Scheduling release.SchedulingScope
+	Scheduling release.OwnerSchedulingScope
 }
 
 // ScheduleRestoredPayloads runs after source termination in the same restore transaction.

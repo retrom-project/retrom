@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 	payloadService "retrom/internal/service/payloadrelease"
 
 	dbapi "retrom/internal/database"

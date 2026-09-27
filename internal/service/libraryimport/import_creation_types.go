@@ -63,7 +63,7 @@ type ImportCreationScope struct {
 	Claims     ApprovalDecisionWriter
 	Tags       tagging.WriteScope
 	Metadata   metadatascrape.ScheduleScope
-	Payload    payloadrelease.SchedulingScope
+	Payload    payloadrelease.ItemSchedulingScope
 	Ownership  SourceOwnershipRecords
 	Results    CreationResultsReader
 }

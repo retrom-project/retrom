@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 
 	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -41,7 +41,7 @@ func (repository *ReviewDiscards) WithDiscard(
 func BindReviewDiscard(executor dbapi.Executor) application.ReviewDiscardScope {
 	records := reviewDiscardRecords{executor: executor}
 	return application.ReviewDiscardScope{
-		Payload: payloadpersistence.BindReleases(executor),
+		Payload: payloadpersistence.BindScheduling(executor),
 		Reader:  records, Writer: records, Tags: tagpersistence.BindExecutor(executor).Relations,
 	}
 }

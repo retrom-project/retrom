@@ -8,7 +8,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/auditevents"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/gamecontent/gamerelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	application "retrom/internal/service/gamecontent"

@@ -19,7 +19,7 @@ import (
 	"retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/libraryimport/payloadpreview"
 	"retrom/internal/persistence/metadatascrape/payloadprovider"
-	repository "retrom/internal/persistence/payloadrelease"
+
 	"retrom/internal/persistence/sourceimport/sourcerelease"
 	"retrom/internal/persistence/uploads/payloadpurge"
 	application "retrom/internal/service/payloadrelease"
@@ -79,7 +79,7 @@ func New(
 // policy together.  It is intentionally a composition concern: the SQL
 // transaction is never exposed to the application service.
 func (service *Service) StageCandidates(ctx context.Context, transaction dbapi.Tx, ids []string) error {
-	if err := service.StageInScope(ctx, repository.BindGC(transaction), ids); err != nil {
+	if err := service.StageInScope(ctx, blobgc.Bind(transaction), ids); err != nil {
 		return fmt.Errorf("stage payload release candidates: %w", err)
 	}
 	return nil
@@ -92,7 +92,7 @@ func (service *Service) ScheduleConsumption(
 	ctx context.Context, transaction dbapi.Tx, consumptionID string, now int64,
 ) (string, error) {
 	jobID, err := application.NewScheduler(nil).Consumption(
-		ctx, repository.BindScheduling(transaction), consumptionID, now,
+		ctx, payloadpurge.BindScheduling(transaction), consumptionID, now,
 	)
 	if err != nil {
 		return "", fmt.Errorf("schedule payload consumption release: %w", err)
@@ -106,7 +106,7 @@ func (service *Service) ScheduleGameDeletion(
 	ctx context.Context, transaction dbapi.Tx, gameID string, version, now int64,
 ) (string, error) {
 	jobID, err := application.NewScheduler(nil).DeleteGame(
-		ctx, repository.BindScheduling(transaction), gameID, version, now,
+		ctx, gamerelease.BindScheduling(transaction), gameID, version, now,
 	)
 	if err != nil {
 		return "", fmt.Errorf("schedule game payload release: %w", err)

@@ -1,10 +1,12 @@
 import importlib.util
 import sqlite3
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "ui_layout_state.py"
+sys.path.insert(0, str(SCRIPT.parent))
 SPEC = importlib.util.spec_from_file_location("ui_layout_state", SCRIPT)
 STATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(STATE)
@@ -32,14 +34,18 @@ class UILayoutStateTests(unittest.TestCase):
                     CREATE TABLE users(username TEXT,profile_id TEXT);
                     CREATE TABLE play_sessions(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id));
                     CREATE TABLE play_session_events(play_session_id TEXT REFERENCES play_sessions(id),client_sequence INTEGER);
-                    CREATE TABLE save_states(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id));
+                    CREATE TABLE blobs(id TEXT PRIMARY KEY,ref_count INTEGER NOT NULL CHECK(ref_count>=0));
+                    CREATE TABLE blob_gc_candidates(blob_id TEXT PRIMARY KEY REFERENCES blobs(id));
+                    CREATE TABLE save_states(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id),
+                        payload_blob_id TEXT REFERENCES blobs(id),screenshot_blob_id TEXT REFERENCES blobs(id));
                     CREATE TABLE launches(id TEXT PRIMARY KEY,save_state_id TEXT REFERENCES save_states(id));
                     CREATE TABLE games(id TEXT PRIMARY KEY,description TEXT);
                     INSERT INTO profiles VALUES('p','Test',0),('q','Other',0);
                     INSERT INTO users VALUES('test','p');
                     INSERT INTO play_sessions VALUES('play','p'),('other','q');
                     INSERT INTO play_session_events VALUES('play',1),('other',2);
-                    INSERT INTO save_states VALUES('save','p'),('other-save','q');
+                    INSERT INTO blobs VALUES('blob',4);
+                    INSERT INTO save_states VALUES('save','p','blob','blob'),('other-save','q','blob','blob');
                     INSERT INTO launches VALUES('restored','save');
                     INSERT INTO games VALUES('game','original');
                 """)
@@ -51,7 +57,8 @@ class UILayoutStateTests(unittest.TestCase):
                 self.assertEqual(db.execute("SELECT id FROM save_states WHERE profile_id='p'").fetchall(), [])
                 self.assertEqual(db.execute("SELECT id FROM save_states WHERE profile_id='q'").fetchall(), [("other-save",)])
                 db.execute("INSERT INTO play_sessions VALUES('layout','p')")
-                db.execute("INSERT INTO save_states VALUES('layout-save','p')")
+                db.execute("INSERT INTO save_states VALUES('layout-save','p','blob','blob')")
+                db.execute("UPDATE blobs SET ref_count=ref_count+2 WHERE id='blob'")
                 db.execute("UPDATE games SET description='layout'")
             STATE.restore(path)
             STATE.restore(path)
@@ -62,6 +69,7 @@ class UILayoutStateTests(unittest.TestCase):
                 self.assertEqual(db.execute("SELECT description FROM games").fetchone(), ("original",))
                 self.assertEqual(db.execute("SELECT save_state_id FROM launches").fetchone(), ("save",))
                 self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+                self.assertEqual(db.execute("SELECT ref_count FROM blobs").fetchall(), [(4,)])
 
 
 if __name__ == "__main__":

@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/persistence/blobgc"
+
 	"retrom/internal/cleanup"
 
 	dbapi "retrom/internal/database"
-	payloadrepo "retrom/internal/persistence/payloadrelease"
+	payloadrepo "retrom/internal/persistence/uploads/payloadpurge"
 	"retrom/internal/service/gamecontent"
 )
 
@@ -17,7 +19,7 @@ type retirementRecords struct{ executor dbapi.Executor }
 func BindRetirement(executor dbapi.Executor) gamecontent.RetirementScope {
 	records := retirementRecords{executor}
 	return gamecontent.RetirementScope{
-		Read: records, Write: records, GC: payloadrepo.BindGC(executor),
+		Read: records, Write: records, GC: blobgc.Bind(executor),
 		Payload: payloadrepo.BindScheduling(executor),
 	}
 }

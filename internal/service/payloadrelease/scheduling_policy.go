@@ -1,30 +1,5 @@
 package payloadrelease
 
-func TerminalImportItem(state string) bool {
-	switch state {
-	case "PUBLISHED", "DISCARDED", "FAILED_FINAL", "CANCELLED":
-		return true
-	default:
-		return false
-	}
-}
-
-func TerminalImportJob(state string) bool {
-	return state == "COMPLETED" || state == "CANCELLED" || state == "FAILED"
-}
-
-func TerminalSourceItem(state string, retryable bool) bool {
-	switch state {
-	case "PUBLISHED", "REVIEW_DISCARDED", "SKIPPED_EXISTING", "SKIPPED_MAPPING",
-		"BLOCKED_SOURCE", "BLOCKED_CONTENT", "CANCELLED":
-		return true
-	case "SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED":
-		return !retryable
-	default:
-		return false
-	}
-}
-
 func validScheduleScope(value ScopeType) bool {
 	switch value {
 	case ScopeImportItem, ScopeImportJob, ScopeSourceImportItem,
@@ -46,8 +21,4 @@ func validReason(value Reason) bool {
 	default:
 		return false
 	}
-}
-
-func releasableSource(owner Owner) bool {
-	return TerminalSourceItem(owner.State, owner.Retryable) || owner.State == "REVIEW_PENDING" && owner.PublicID != ""
 }

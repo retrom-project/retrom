@@ -9,8 +9,8 @@ import (
 
 	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
-	payload "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 	payloadService "retrom/internal/service/payloadrelease"
 	application "retrom/internal/service/sourceimport"
 )

@@ -38,6 +38,14 @@ SELECT '60000000-0000-7000-8000-000000000001',role,
 FROM game_files
 WHERE game_id=(SELECT id FROM acceptance_game);
 
+-- The source game already protects each archive; copying adds only direct edges.
+WITH edges(blob_id) AS (
+ SELECT blob_id FROM game_files WHERE game_id='60000000-0000-7000-8000-000000000001'
+ UNION ALL SELECT source_archive_blob_id FROM game_files WHERE game_id='60000000-0000-7000-8000-000000000001'
+)
+UPDATE blobs SET ref_count=ref_count+(SELECT count(*) FROM edges WHERE edges.blob_id=blobs.id)
+WHERE id IN (SELECT blob_id FROM edges);
+
 DROP TABLE acceptance_game;
 COMMIT;
 SQL

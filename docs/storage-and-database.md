@@ -325,7 +325,7 @@ data/
 
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；以事务维护的 `blobs.ref_count` 作为 GC 事实源。Launch 文件标识没有 Blob 外键，也不登记为 owner。
 - 每条持久 Blob 引用列登记在 Blob registry 中；它是 schema 覆盖门禁，不是运行时 owner 扫描器。领域写入通过 `recordstore/blobrefs` 读取精确修改范围的旧/新引用，同事务应用增减、归零排期和重新保护后的候选撤销，并检查计数溢出、负数及受影响行数。Game、ImportItem、SourceItem、Upload、BIOS 只解除自己的引用，GC 只读取计数和候选。
-- 释放调度在调用者的交接或终态事务中登记 Job、不可变输入、排队事件与 owner 的 `RELEASING`。Source 在完整交接后独立释放；ImportItem 在终态后独立释放；ImportJob 只检查子项已完成清理并释放批次消费，不递归执行子项清理。版本、状态、可重试标记、绑定与受影响行数不符时整体回滚。
+- 释放资格由 Game/Import/Source/Upload 各域的 `payloadpolicy` 定义；各域持久化只绑定自己的 owner 读写能力，通用 `releaseschedule` 只写 Job、不可变输入和事件，不再存在中央 owner Repository 分派。释放调度在调用者的交接或终态事务中登记 Job、不可变输入、排队事件与 owner 的 `RELEASING`。Source 在完整交接后独立释放；ImportItem 在终态后独立释放；ImportJob 只检查子项已完成清理并释放批次消费，不递归执行子项清理。版本、状态、可重试标记、绑定与受影响行数不符时整体回滚。
 - `PROTECTIVE` 边的 INSERT/UPDATE/DELETE 显式写入在同一事务增减 Blob 计数；被保护 archive 的已物化 member 也计入有效计数。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能只采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括已排队但尚未完成 GC 的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
 - 游戏删除影响由 `service/gamecontent.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 自身的 Blob 集合及删除后失去保护的归档成员、共享保护引用（包括独立 Source/ImportItem）和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
@@ -491,7 +491,7 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 停止外部 execution 前，恢复 Service 在同一事务完成已形成的普通待审核交接。统一来源关联必须指向唯一普通 Item，绑定不能属于其他来源。准备阶段复用冻结 metadata 与搜索字段，将来源置为 `REVIEW_PENDING` 并刷新聚合；已交接的人工草稿保持原样。分页、权限撤销、任务收口与恢复审计共用一次提交；任何失败整体回滚。恢复不打开外部来源、不重新创建 Game，不复用活动 worker 租约，也不保留格式专属预约规则。
 
-停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核 ImportItem 继续保留引用；完成交接的 Source 可独立释放；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反终态释放调度契约；处理任务时仍会按 owner 版本与关联关系重验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
+停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，通过来源域绑定与释放资格规则为最终失败等终态登记释放任务。待审核 ImportItem 继续保留引用；完成交接的 Source 可独立释放；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反终态释放调度契约；处理任务时仍会按 owner 版本与关联关系重验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
 
 ## 12. 审核运行预览的存储边界
 

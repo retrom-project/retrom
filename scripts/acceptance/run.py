@@ -333,7 +333,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/payloadrelease ./internal/persistence/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
+        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/payloadrelease ./internal/persistence/gamecontent/gamerelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (
@@ -458,7 +458,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     "ACC-STOR-001": (
         240,
-        "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/httpapi ./internal/service/payloadrelease ./internal/persistence/payloadrelease "
+        "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/httpapi ./internal/service/payloadrelease ./internal/persistence/gamecontent/gamerelease "
         "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestGCImmediate|TestReleaseCommitsBounded' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),

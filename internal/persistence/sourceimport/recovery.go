@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"

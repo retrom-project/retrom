@@ -8,6 +8,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from fixture_references import adjust_references
 
 
 GAME_COUNT = 52
@@ -102,6 +103,9 @@ INSERT INTO game_variants(
             base["dependency_snapshot_json"], base["default_dos_entry"], 1, now_ms, now_ms,
         ),
     )
+    adjust_references(database, database.execute(
+        "SELECT blob_id,source_archive_blob_id FROM game_files WHERE game_id=?", (game_id,),
+    ).fetchall())
     return game_id, variant_id
 
 

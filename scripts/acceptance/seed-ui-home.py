@@ -12,6 +12,7 @@ import sqlite3
 import sys
 import zlib
 from pathlib import Path
+from fixture_references import adjust_references
 from ui_layout_state import validate_database
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,8 +31,12 @@ def seed(database_path: Path, state: str) -> None:
     with sqlite3.connect(database_path) as database:
         database.row_factory = sqlite3.Row
         database.execute("PRAGMA foreign_keys=ON")
+        database.execute("BEGIN IMMEDIATE")
         profile = database.execute("SELECT profile_id FROM users WHERE username='test'").fetchone()[0]
         game = module.base_game(database)
+        adjust_references(database, database.execute(
+            "SELECT payload_blob_id,screenshot_blob_id FROM save_states WHERE id=?", (SAVE_ID,),
+        ).fetchall(), -1)
         database.execute("DELETE FROM save_states WHERE id=?", (SAVE_ID,))
         for index in (INDEX, INDEX + 1):
             database.execute("DELETE FROM play_sessions WHERE id=?", (module.identifier(5, index),))
@@ -71,6 +76,8 @@ def seed(database_path: Path, state: str) -> None:
             (SAVE_ID, profile, game["id"], checkpoint_format, blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
         )
 
+        adjust_references(database, [(blob_id, blob_id)])
+
 
 def seed_recent_poster(database, module, profile, game, timestamp):
     """A second public-fixture game keeps a measurable poster after hero deduplication."""
@@ -98,6 +105,9 @@ def seed_recent_poster(database, module, profile, game, timestamp):
         "FROM game_assets WHERE game_id=? AND kind='COVER' AND ordinal=0",
         (module.identifier(7, index), recent_id, game["id"]),
     )
+    adjust_references(database, database.execute(
+        "SELECT blob_id FROM game_assets WHERE id=?", (module.identifier(7, index),),
+    ).fetchall())
     module.seed_play(database, profile, recent_id, game, index, timestamp - 2000)
 
 

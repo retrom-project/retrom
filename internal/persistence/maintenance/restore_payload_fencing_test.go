@@ -6,19 +6,19 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
-	persistence "retrom/internal/persistence/payloadrelease"
+	persistence "retrom/internal/persistence/sourceimport/sourcerelease"
 	release "retrom/internal/service/payloadrelease"
 )
 
 type changedPayloadOwner struct {
-	release.SchedulingScope
+	release.OwnerSchedulingScope
 	transaction dbapi.Tx
 	mutation    string
 	changed     bool
 }
 
 func (records *changedPayloadOwner) Owner(ctx context.Context, ref release.Scope) (release.Owner, error) {
-	before, err := records.SchedulingScope.Owner(ctx, ref)
+	before, err := records.OwnerSchedulingScope.Owner(ctx, ref)
 	if err != nil || records.changed {
 		return before, err
 	}
@@ -52,7 +52,7 @@ SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='fai
 			}
 			defer dbapi.Rollback(tx)
 			scope := &changedPayloadOwner{
-				SchedulingScope: persistence.BindScheduling(tx), transaction: tx,
+				OwnerSchedulingScope: persistence.BindScheduling(tx), transaction: tx,
 				mutation: "UPDATE source_import_items SET " + change.mutation + " WHERE id='failed-source'",
 			}
 			id, err := release.NewScheduler(nil).TerminalSource(t.Context(), scope,

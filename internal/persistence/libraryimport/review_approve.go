@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 
 	dbapi "retrom/internal/database"
 	biopersistence "retrom/internal/persistence/corevalidation"
@@ -62,7 +62,7 @@ func (repository *ReviewApprovals) WithBulkApprovalStep(
 func BindReviewApproval(transaction dbapi.Tx) application.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return application.ReviewApprovalScope{
-		Payload: payloadpersistence.BindReleases(transaction),
+		Payload: payloadpersistence.BindScheduling(transaction),
 		Reader:  records, Media: records, Validation: BindReviewValidation(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
 		Tags: tagpersistence.Bind(transaction), Games: records, Variants: records, Decisions: records,

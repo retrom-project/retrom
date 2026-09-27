@@ -1,4 +1,4 @@
-package payloadrelease
+package gamerelease_test
 
 import (
 	"errors"
@@ -41,7 +41,7 @@ func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(tx)
-	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(), BindScheduling(tx), "effect-game", 1, 10); err != nil {
+	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(), gamerelease.BindScheduling(tx), "effect-game", 1, 10); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

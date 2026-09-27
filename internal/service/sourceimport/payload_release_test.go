@@ -19,10 +19,6 @@ func (memory *payloadLinksMemory) RetainedSources(context.Context, payload.Sourc
 	return nil, memory.cause
 }
 
-func (*payloadLinksMemory) BoundSources(context.Context, string, payload.Scope, int) ([]payload.Scope, error) {
-	return nil, nil
-}
-
 func emptyPayloadScope() payload.ReleaseScope {
 	return payload.ReleaseScope{Links: &payloadLinksMemory{}}
 }

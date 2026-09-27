@@ -107,7 +107,7 @@ func (jobs *failureJobs) Fail(_ context.Context, outcome Outcome) (bool, error) 
 }
 
 type failureRetirements struct {
-	payloadrelease.SchedulingScope
+	payloadrelease.ConsumptionSchedulingScope
 	releases int
 }
 

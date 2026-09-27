@@ -22,7 +22,7 @@ type ImportExecutionRepository interface {
 type ImportExecutionScope struct {
 	Records ImportExecutionRecords
 	Facts   ImportFactsReader
-	Payload payloadrelease.SchedulingScope
+	Payload payloadrelease.ItemSchedulingScope
 }
 type ImportExecutionRecords interface {
 	Current(context.Context, string) (ImportWorkerSnapshot, bool, error)

@@ -7,6 +7,7 @@ import importlib.util
 import sqlite3
 import sys
 from pathlib import Path
+from fixture_references import adjust_references
 from ui_layout_state import validate_database
 
 
@@ -19,14 +20,19 @@ def seed(path: Path) -> str:
     with sqlite3.connect(path) as db:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
+        db.execute("BEGIN IMMEDIATE")
         original = dict(db.execute("SELECT * FROM save_states WHERE id=?", (module.SAVE_ID,)).fetchone())
         for index in range(1, 4):
             row = {**original, "id": f"0198ff00-9001-7000-8000-{index:012d}", "name": f"详情布局存档 {index}",
                    "created_at_ms": original["created_at_ms"] - index * 60000}
             if index == 2:
                 row["screenshot_blob_id"] = None
+            adjust_references(db, db.execute(
+                "SELECT payload_blob_id,screenshot_blob_id FROM save_states WHERE id=?", (row["id"],),
+            ).fetchall(), -1)
             columns = list(row)
             db.execute(f"INSERT OR REPLACE INTO save_states({','.join(columns)}) VALUES({','.join('?' for _ in columns)})", list(row.values()))
+            adjust_references(db, [(row["payload_blob_id"], row["screenshot_blob_id"])])
         db.execute("UPDATE games SET description=? WHERE id=?", (("公开测试游戏的玩法说明。" * 30) + "\n\n最后一段：完整简介应随页面滚动。", original["game_id"]))
         return original["game_id"]
 

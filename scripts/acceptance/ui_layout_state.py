@@ -4,6 +4,7 @@ import sqlite3
 import sys
 import uuid
 from pathlib import Path
+from fixture_references import adjust_references
 
 
 def validate_database(path: Path) -> Path:
@@ -18,6 +19,9 @@ def validate_database(path: Path) -> Path:
 def clear_history(db, profile):
     db.execute("DELETE FROM play_session_events WHERE play_session_id IN (SELECT id FROM play_sessions WHERE profile_id=?)", (profile,))
     db.execute("DELETE FROM play_sessions WHERE profile_id=?", (profile,))
+    adjust_references(db, db.execute(
+        "SELECT payload_blob_id,screenshot_blob_id FROM save_states WHERE profile_id=?", (profile,),
+    ).fetchall(), -1)
     db.execute("DELETE FROM save_states WHERE profile_id=?", (profile,))
 
 

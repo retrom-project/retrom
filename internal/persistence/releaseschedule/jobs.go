@@ -1,15 +1,19 @@
-package payloadrelease
+package releaseschedule
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-func (records scheduling) CreateJob(ctx context.Context, job application.ScheduledJob) error {
-	result, err := records.executor.ExecContext(ctx, `
+// Records writes only immutable jobs and events inside a domain-owned transaction.
+type Records struct{ Executor dbapi.Executor }
+
+func (records Records) CreateJob(ctx context.Context, job application.ScheduledJob) error {
+	result, err := records.Executor.ExecContext(ctx, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'PAYLOAD_RELEASE',?,1,'{"inputExecutionNo":1}',0,'QUEUED',0,4,1,?,?,?)
@@ -17,13 +21,13 @@ VALUES(?,?,?,'PAYLOAD_RELEASE',?,1,'{"inputExecutionNo":1}',0,'QUEUED',0,4,1,?,?
 	if err := schedulingWrite(result, err); err != nil {
 		return fmt.Errorf("create payload release job: %w", err)
 	}
-	result, err = records.executor.ExecContext(ctx, `
+	result, err = records.Executor.ExecContext(ctx, `
 INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
 VALUES(?,1,?,?,?)`, job.ID, job.InputJSON, job.InputDigest, job.NowMS)
 	if err := schedulingWrite(result, err); err != nil {
 		return fmt.Errorf("create payload release input: %w", err)
 	}
-	result, err = records.executor.ExecContext(ctx, `
+	result, err = records.Executor.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 VALUES(?,?,?,'QUEUED','{"schemaVersion":1,"executionNo":1,"attempt":0}',?)
 `, job.ID, job.Scope.Type, job.Scope.ID, job.NowMS)

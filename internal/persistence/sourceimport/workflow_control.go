@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"

@@ -73,7 +73,7 @@ type ReviewApprovalRepository interface {
 }
 
 type ReviewApprovalScope struct {
-	Payload      payloadrelease.ReleaseScope
+	Payload      payloadrelease.ItemSchedulingScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
 	Validation   ReviewValidationReader

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/persistence/blobgc"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/gametitle"
-	"retrom/internal/persistence/payloadrelease"
+
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gamemetadata"
 	payloadservice "retrom/internal/service/payloadrelease"
@@ -242,7 +244,7 @@ func (scope candidateApplyScope) StageCandidates(ctx context.Context, ids []stri
 	if len(ids) == 0 || scope.gc == nil {
 		return nil
 	}
-	if err := scope.gc.StageInScope(ctx, payloadrelease.BindGC(scope.transaction), ids); err != nil {
+	if err := scope.gc.StageInScope(ctx, blobgc.Bind(scope.transaction), ids); err != nil {
 		return fmt.Errorf("stage candidate payloads: %w", err)
 	}
 	return nil

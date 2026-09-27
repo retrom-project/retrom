@@ -147,6 +147,22 @@ SET target_platform_instance_id=(SELECT v.target_platform_instance_id FROM impor
     review_version=1,review_created_at_ms=created_at_ms,review_updated_at_ms=updated_at_ms
 WHERE id LIKE '30000000-%';
 
+-- Explicit counts replace the removed database triggers, in this same fixture transaction.
+WITH edges(blob_id) AS (
+ SELECT final_blob_id FROM upload_files WHERE upload_session_id IN
+ ('10000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000002')
+ UNION ALL SELECT blob_id FROM import_files WHERE upload_session_id IN
+ ('10000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000002')
+ UNION ALL SELECT blob_id FROM import_item_source_files WHERE import_item_id LIKE '30000000-%'
+ UNION ALL SELECT blob_id FROM import_item_source_snapshot_files WHERE source_snapshot_id LIKE '35000000-%'
+)
+UPDATE blobs SET ref_count=ref_count+(SELECT count(*) FROM edges WHERE edges.blob_id=blobs.id)
+WHERE id IN (SELECT blob_id FROM edges);
+DELETE FROM blob_gc_candidates WHERE blob_id IN (SELECT id FROM blobs WHERE ref_count>0);
+INSERT INTO upload_consumptions(id,upload_session_id,consumer_type,consumer_id,created_at_ms)
+SELECT id,upload_session_id,'IMPORT_JOB',id,created_at_ms FROM import_jobs
+WHERE id IN ('20000000-0000-7000-8000-000000000001','20000000-0000-7000-8000-000000000002');
+
 DROP TABLE acceptance_base;
 COMMIT;
 SQL

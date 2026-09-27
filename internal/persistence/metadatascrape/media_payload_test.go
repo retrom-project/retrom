@@ -8,7 +8,7 @@ import (
 	"retrom/internal/composition/payloadrelease"
 	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
-	payloadrepository "retrom/internal/persistence/payloadrelease"
+	payloadrepository "retrom/internal/persistence/gamecontent/gamerelease"
 	"retrom/internal/service/metadatascrape"
 	payloadapplication "retrom/internal/service/payloadrelease"
 )

@@ -55,5 +55,5 @@ type RetirementScope struct {
 	Read    RetirementReader
 	Write   RetirementWriter
 	GC      payloadrelease.GCScope
-	Payload payloadrelease.SchedulingScope
+	Payload payloadrelease.ConsumptionSchedulingScope
 }

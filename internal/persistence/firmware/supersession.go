@@ -8,9 +8,9 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
+	payloadrelease "retrom/internal/persistence/uploads/payloadpurge"
 	"retrom/internal/service/firmware"
 )
 

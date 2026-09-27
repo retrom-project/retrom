@@ -25,7 +25,7 @@ type SupersessionWriter interface {
 type SupersessionScope struct {
 	Read    SupersessionReader
 	Write   SupersessionWriter
-	Payload payloadrelease.SchedulingScope
+	Payload payloadrelease.ConsumptionSchedulingScope
 }
 
 func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementID string, now int64) error {

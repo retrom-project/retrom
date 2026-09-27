@@ -15,7 +15,7 @@ type SourceReleaseReader interface {
 }
 
 type ReleaseScope struct {
-	Scheduling SchedulingScope
+	Scheduling OwnerSchedulingScope
 	Links      SourceReleaseReader
 }
 
@@ -25,14 +25,14 @@ type ReviewRelease struct {
 	NowMS            int64
 }
 
-func (service *Scheduler) Review(ctx context.Context, scope ReleaseScope, request ReviewRelease) error {
+func (service *Scheduler) Review(ctx context.Context, scope ItemSchedulingScope, request ReviewRelease) error {
 	if request.ItemID == "" || request.ImportID == "" || !validReason(request.Reason) || request.NowMS < 0 {
 		return ErrScopeInvalid
 	}
-	if _, err := service.TerminalItem(ctx, scope.Scheduling, request.ItemID, request.Reason, request.NowMS); err != nil {
+	if _, err := service.TerminalItem(ctx, scope, request.ItemID, request.Reason, request.NowMS); err != nil {
 		return err
 	}
-	if _, err := service.TerminalImport(ctx, scope.Scheduling, request.ImportID, request.NowMS); err != nil {
+	if _, err := service.TerminalImport(ctx, scope, request.ImportID, request.NowMS); err != nil {
 		return err
 	}
 	return nil

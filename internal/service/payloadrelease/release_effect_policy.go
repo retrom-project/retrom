@@ -1,5 +1,12 @@
 package payloadrelease
 
+import (
+	gamepolicy "retrom/internal/service/gamecontent/payloadpolicy"
+	importpolicy "retrom/internal/service/libraryimport/payloadpolicy"
+	sourcepolicy "retrom/internal/service/sourceimport/payloadpolicy"
+	uploadpolicy "retrom/internal/service/uploads/payloadpolicy"
+)
+
 func validateEffectRoot(unit Execution, facts EffectOwner) error {
 	owner := facts.Owner
 	if !facts.Found || owner.Scope != unit.Work.Scope {
@@ -27,13 +34,13 @@ func validateEffectRoot(unit Execution, facts EffectOwner) error {
 func terminalEffectOwner(owner Owner) bool {
 	switch owner.Scope.Type {
 	case ScopeGame:
-		return owner.State == "DELETED"
+		return gamepolicy.ReleaseReady(owner.State)
 	case ScopeImportItem:
-		return TerminalImportItem(owner.State)
+		return importpolicy.ItemTerminal(owner.State)
 	case ScopeImportJob:
-		return TerminalImportJob(owner.State)
+		return importpolicy.JobTerminal(owner.State)
 	case ScopeSourceImportItem:
-		return releasableSource(owner)
+		return sourcepolicy.ReleaseReady(owner.State, owner.Retryable, owner.PublicID)
 	case ScopeUploadConsumption, ScopeBlob:
 		return false
 	default:
@@ -42,10 +49,7 @@ func terminalEffectOwner(owner Owner) bool {
 }
 
 func eligibleEffectUpload(file EffectUpload) bool {
-	terminal := file.SessionState == "COMPLETE" || file.SessionState == "FAILED" ||
-		file.SessionState == "CANCELLED" || file.SessionState == "EXPIRED"
-	return file.ID != "" && file.BlobID != "" && file.State == "COMPLETE" && terminal &&
-		file.ActiveConsumptions == 0
+	return uploadpolicy.CanPurge(file.State, file.SessionState, file.ID, file.BlobID, file.ActiveConsumptions)
 }
 
 func effectReason(owner Owner) Reason {
