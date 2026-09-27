@@ -279,7 +279,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
-        "go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
+        "go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSSwitchRevokesOldLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
     ),
     "ACC-BIOS-003": (
         120,
