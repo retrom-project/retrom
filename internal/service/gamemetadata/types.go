@@ -95,14 +95,12 @@ type Service struct {
 	now        func() time.Time
 }
 
-func New(repository CandidateApplyRepository, now func() time.Time) *Service {
+func New(repository CandidateApplyRepository, files *filestore.Store, now func() time.Time) *Service {
+	if repository == nil || files == nil {
+		panic("gamemetadata: repository and files are required")
+	}
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{repository: repository, now: now}
-}
-
-func (service *Service) WithFileStore(files *filestore.Store) *Service {
-	service.files = files
-	return service
+	return &Service{repository: repository, files: files, now: now}
 }

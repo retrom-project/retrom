@@ -28,18 +28,22 @@ type Service struct {
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
-	return &Service{repository: repository, now: now}
+// Dependencies are fixed for the lifetime of the service. Cleanup only wakes
+// the durable cleanup queue and may be omitted.
+type Dependencies struct {
+	Repository Repository
+	Files      *filestore.Store
+	Cleanup    ReleaseSignal
 }
 
-func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
-	service.blobs = blobs
-	return service
-}
-
-func (service *Service) WithCleanup(releases ReleaseSignal) *Service {
-	service.releases = releases
-	return service
+func New(deps Dependencies, now func() time.Time) *Service {
+	if deps.Repository == nil || deps.Files == nil {
+		panic("firmware: repository and files are required")
+	}
+	if now == nil {
+		now = time.Now
+	}
+	return &Service{repository: deps.Repository, blobs: deps.Files, releases: deps.Cleanup, now: now}
 }
 
 type installSnapshot struct {
@@ -90,9 +94,6 @@ func (service *Service) prepareInstall(
 		return preparedInstall{}, fmt.Errorf("prepare BIOS installation: %w", err)
 	}
 	if prepared.snapshot.Requirement.FileKind == "ARCHIVE" {
-		if service.blobs == nil {
-			return preparedInstall{}, ErrInvalid
-		}
 		entries, err := importing.ScanZIP(
 			ctx,
 			service.blobs.Path(

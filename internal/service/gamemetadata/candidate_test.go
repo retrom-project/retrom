@@ -77,7 +77,7 @@ func candidateApplyService(t *testing.T, memory *candidateApplyMemory) *Service 
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(memory, func() time.Time { return time.UnixMilli(1234) }).WithFileStore(memory.files)
+	return New(memory, memory.files, func() time.Time { return time.UnixMilli(1234) })
 }
 
 func TestValidCandidateFieldsRejectsUnknownAndDuplicateFields(t *testing.T) {

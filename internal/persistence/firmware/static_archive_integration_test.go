@@ -77,7 +77,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 				t.Fatal(err)
 			}
 			fileID := completeFirmwareUpload(t, ctx, database.SQL, upload, "fixture.zip", archive.Bytes())
-			service := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs)
+			service := firmwareservice.New(firmwareservice.Dependencies{Repository: New(database.SQL), Files: blobs}, time.Now)
 			installed, err := service.Install(ctx, "fixture", 1, firmwareservice.InstallRequest{UploadFileID: fileID})
 			if test.status == "INVALID" {
 				var invalid *firmware.ArchiveContentError

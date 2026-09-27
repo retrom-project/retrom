@@ -118,7 +118,7 @@ WHERE f.id=?
 	}
 	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
-	service := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releases)
+	service := firmwareservice.New(firmwareservice.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releases}, time.Now)
 	result, err := service.Install(ctx, requirementID, version,
 		firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
@@ -477,7 +477,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	result, err := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs).Install(
+	result, err := firmwareservice.New(firmwareservice.Dependencies{Repository: New(database.SQL), Files: blobs}, time.Now).Install(
 		ctx, "requirement-test", 1, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)
@@ -489,7 +489,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 			return !strings.Contains(warnings[0],
 				"epr-19730.ic8")
 		}), "alias warnings = %#v", result.ValidationDetails["warnings"])
-	inspection, err := firmwareservice.New(New(database.SQL), time.Now).InspectArchive(ctx, "requirement-test")
+	inspection, err := firmwareservice.New(firmwareservice.Dependencies{Repository: New(database.SQL), Files: constructorFiles(t)}, time.Now).InspectArchive(ctx, "requirement-test")
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t,
 		testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" },

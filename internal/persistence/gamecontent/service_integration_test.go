@@ -81,7 +81,7 @@ SELECT id,version FROM games WHERE id=?
 	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releases)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releases}, gamecontent.Options{Now: time.Now})
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -315,7 +315,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releaseService)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releaseService}, gamecontent.Options{Now: time.Now})
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -492,8 +492,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithFileStore(blobs).
-		WithCleanup(releaseService).WithMultiDiscImportEnabled(true)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releaseService}, gamecontent.Options{Now: time.Now, MultiDiscEnabled: true})
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
 	)

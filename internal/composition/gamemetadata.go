@@ -18,5 +18,5 @@ import (
 func NewGameMetadata(
 	database dbapi.DB, files *filestore.Store, deletion payloadservice.DeletionStager, now func() time.Time,
 ) *application.Service {
-	return application.New(repository.New(database, deletion), now).WithFileStore(files)
+	return application.New(repository.New(database, deletion), files, now)
 }

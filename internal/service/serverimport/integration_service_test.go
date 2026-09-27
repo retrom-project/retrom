@@ -73,8 +73,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL),
-		time.Now).WithFileStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwareservice.Dependencies{Repository: firmwarepersistence.New(database.SQL), Files: blobs}, time.Now), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
 	created, err := service.Create(ctx, CreateRequest{
 		Kind:   "BIOS_DIRECTORY",

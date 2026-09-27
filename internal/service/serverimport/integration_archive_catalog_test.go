@@ -75,7 +75,7 @@ VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithFileStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwareservice.Dependencies{Repository: firmwarepersistence.New(database.SQL), Files: blobs}, time.Now), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS", Path: root}}, time.Now)
 	t.Cleanup(service.Close)
 	return service, database.SQL, root

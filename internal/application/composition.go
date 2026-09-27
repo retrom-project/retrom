@@ -97,8 +97,7 @@ func New(input Inputs) (*Services, error) {
 		importer.WithScummVMDetector(input.ScummVMDetector)
 	}
 
-	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithFileStore(blobs).
-		WithCleanup(payloadReleaseService)
+	firmwareService := firmwareservice.New(firmwareservice.Dependencies{Repository: firmwarepersistence.New(database), Files: blobs, Cleanup: payloadReleaseService}, now)
 	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
@@ -139,18 +138,16 @@ func New(input Inputs) (*Services, error) {
 		DiagnosticsService:  composition.NewDiagnostics(database),
 		PlatformDirectories: platforminstance.New(platformpersistence.New(database), now),
 		Metadata:            scraper,
-		GameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithFileStore(blobs).
-			WithCleanup(payloadReleaseService).
-			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		GameImpact:      gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
-		GameListService: composition.NewGameList(database),
-		HomeService:     composition.NewHome(database, tagService),
-		GameAssets:      composition.NewGameAssets(database, blobs, now, payloadReleaseService),
-		GameMetadata:    composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
-		SaveService:     saves.New(savepersistence.New(database), blobs, now),
-		RpgIsolation:    isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
-		FavoriteService: favorites.New(favoritepersistence.New(database), now),
-		TagService:      tagService,
+		GameContent:         gamecontent.New(gamecontent.Dependencies{Repository: gamecontentpersistence.New(database), Files: blobs, Cleanup: payloadReleaseService}, gamecontent.Options{Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled}),
+		GameImpact:          gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
+		GameListService:     composition.NewGameList(database),
+		HomeService:         composition.NewHome(database, tagService),
+		GameAssets:          composition.NewGameAssets(database, blobs, now, payloadReleaseService),
+		GameMetadata:        composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
+		SaveService:         saves.New(savepersistence.New(database), blobs, now),
+		RpgIsolation:        isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
+		FavoriteService:     favorites.New(favoritepersistence.New(database), now),
+		TagService:          tagService,
 
 		IdempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
 	}
