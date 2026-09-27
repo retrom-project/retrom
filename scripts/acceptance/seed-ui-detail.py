@@ -4,11 +4,41 @@
 Uses the public screenshot fixture as a layout-only payload; never launch it.
 """
 import importlib.util
+import hashlib
 import sqlite3
 import sys
+import zlib
 from pathlib import Path
 from fixture_references import adjust_references
 from ui_layout_state import validate_database
+
+
+def ensure_video(db, database_path, game_id, timestamp):
+    if db.execute("SELECT 1 FROM game_assets WHERE game_id=? AND kind='VIDEO'", (game_id,)).fetchone():
+        return
+    root = Path(__file__).resolve().parents[2]
+    contents = (root / "testdata/public-roms/gba-smoke/emulationstation-smoke-video.webm").read_bytes()
+    digest = hashlib.sha256(contents).hexdigest()
+    target = database_path.parent / "blobs/sha256" / digest[:2] / digest[2:4] / digest
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        if target.read_bytes() != contents:
+            raise ValueError("layout video CAS content differs from the public fixture")
+    else:
+        target.write_bytes(contents)
+    db.execute(
+        "INSERT OR IGNORE INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) "
+        "VALUES('0198ff00-9002-7000-8000-000000000001',?,?,?,?,?,'video/webm',?)",
+        (digest, len(contents), hashlib.md5(contents).hexdigest(), hashlib.sha1(contents).hexdigest(),
+         f"{zlib.crc32(contents):08x}", timestamp),
+    )
+    blob_id = db.execute("SELECT id FROM blobs WHERE sha256=?", (digest,)).fetchone()[0]
+    db.execute(
+        "INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,media_type,created_at_ms) "
+        "VALUES('0198ff00-9002-7000-8000-000000000002',?,?,'VIDEO',0,'video/webm',?)",
+        (game_id, blob_id, timestamp),
+    )
+    adjust_references(db, [(blob_id,)])
 
 
 def seed(path: Path) -> str:
@@ -22,6 +52,9 @@ def seed(path: Path) -> str:
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("BEGIN IMMEDIATE")
         original = dict(db.execute("SELECT * FROM save_states WHERE id=?", (module.SAVE_ID,)).fetchone())
+        # Another viewport's media lifecycle case intentionally removes the video.
+        # Layout acceptance owns this prerequisite instead of depending on test order.
+        ensure_video(db, path, original["game_id"], original["created_at_ms"])
         for index in range(1, 4):
             row = {**original, "id": f"0198ff00-9001-7000-8000-{index:012d}", "name": f"详情布局存档 {index}",
                    "created_at_ms": original["created_at_ms"] - index * 60000}
