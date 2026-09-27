@@ -2,11 +2,12 @@ package gamerelease
 
 import (
 	"context"
+
 	"retrom/internal/persistence/releaseops"
 )
 
 func (records Records) Remaining(ctx context.Context, id string) (int64, error) {
-	return (releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
+	return wrapPair((releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
 SELECT
  (SELECT count(*) FROM game_assets WHERE game_id=?)+
  (SELECT count(*) FROM game_files file
@@ -25,5 +26,5 @@ SELECT
  (SELECT count(*) FROM scrape_candidate_assets asset
   JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
   JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id WHERE run.game_id=?)
-`, id, id, id, id, id, id, id, id)
+`, id, id, id, id, id, id, id, id))
 }

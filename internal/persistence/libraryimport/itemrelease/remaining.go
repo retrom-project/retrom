@@ -2,11 +2,12 @@ package itemrelease
 
 import (
 	"context"
+
 	"retrom/internal/persistence/releaseops"
 )
 
 func (records Records) ItemRemaining(ctx context.Context, id string) (int64, error) {
-	return (releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
+	return wrapPair((releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
 SELECT
   (SELECT count(*) FROM import_item_source_files WHERE import_item_id=?)+
   (SELECT count(*) FROM import_item_source_snapshot_files file
@@ -30,13 +31,13 @@ SELECT
   (SELECT count(*) FROM source_import_item_assets asset
    JOIN source_import_items item ON item.id=asset.item_id
    WHERE item.library_import_item_id=? AND asset.blob_id IS NOT NULL)
-`, id, id, id, id, id, id, id, id, id)
+`, id, id, id, id, id, id, id, id, id))
 }
 
 func (records Records) JobRemaining(ctx context.Context, id string) (int64, error) {
-	return (releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
+	return wrapPair((releaseops.Records{Executor: records.Executor}).ReadCount(ctx, `
 SELECT (SELECT count(*) FROM import_items WHERE import_job_id=? AND payload_state<>'RELEASED')+
        (SELECT count(*) FROM upload_consumptions
         WHERE consumer_type='IMPORT_JOB' AND consumer_id=? AND released_at_ms IS NULL)
-`, id, id)
+`, id, id))
 }

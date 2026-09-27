@@ -40,7 +40,7 @@ type garbageRecords struct {
 
 func (records garbageRecords) Facts(ctx context.Context, id, digest string) (application.GarbageFacts, error) {
 	var facts application.GarbageFacts
-	blobs, err := gcRecords{executor: records.executor, worker: records.worker}.Selected(ctx, []string{id})
+	blobs, err := gcRecords(records).Selected(ctx, []string{id})
 	if err != nil {
 		return facts, fmt.Errorf("read garbage Blob: %w", err)
 	}
@@ -63,7 +63,7 @@ func (records garbageRecords) Facts(ctx context.Context, id, digest string) (app
 }
 
 func (records garbageRecords) Cancel(ctx context.Context, facts application.GarbageFacts) error {
-	if err := (gcRecords{executor: records.executor, worker: records.worker}).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
+	if err := gcRecords(records).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
 		return fmt.Errorf("fence protected garbage: %w", err)
 	}
 	return records.cancelCandidate(ctx, facts.Blob)
@@ -82,7 +82,7 @@ func (records garbageRecords) cancelCandidate(ctx context.Context, blob applicat
 }
 
 func (records garbageRecords) Remove(ctx context.Context, facts application.GarbageFacts) error {
-	if err := (gcRecords{executor: records.executor, worker: records.worker}).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
+	if err := gcRecords(records).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
 		return fmt.Errorf("fence garbage before deletion: %w", err)
 	}
 	result, err := records.executor.ExecContext(ctx, `DELETE FROM archive_entries WHERE archive_blob_id=?`, facts.Blob.ID)

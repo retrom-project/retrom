@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"retrom/internal/persistence/releaseops"
 
 	dbapi "retrom/internal/database"
@@ -58,5 +59,5 @@ AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')`, scope.Type, scope.ID).Sca
 }
 
 func effectCount(result sql.Result, err error, expected int64) error {
-	return releaseops.Count(result, err, expected)
+	return wrapErr(releaseops.Count(result, err, expected))
 }

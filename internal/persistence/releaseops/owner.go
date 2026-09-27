@@ -9,7 +9,9 @@ import (
 	application "retrom/internal/service/payloadrelease"
 )
 
-func ReadOwner(ctx context.Context, executor dbapi.Executor, scope application.Scope, query string) (application.Owner, error) {
+func ReadOwner(ctx context.Context, executor dbapi.Executor, scope application.Scope,
+	query string,
+) (application.Owner, error) {
 	owner := application.Owner{Scope: scope}
 	err := dbapi.QueryRowContext(ctx, executor, query, scope.ID).Scan(&owner.State, &owner.Version,
 		&owner.PayloadState, &owner.ReleaseJobID, &owner.PublicID, &owner.Retryable)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -41,6 +42,7 @@ FROM review_preview_sessions WHERE `+previewExpiryDue+` ORDER BY hard_expires_at
 	}
 	return facts, nil
 }
+
 func (records Records) ExpirePreview(ctx context.Context, change application.PreviewExpiry) error {
 	before := change.Before
 	result, err := sessionstore.ChangePreview(ctx, records.Executor, recordstore.Update{

@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+
 	dbapi "retrom/internal/database"
 	preview "retrom/internal/persistence/libraryimport/payloadpreview"
 	provider "retrom/internal/persistence/metadatascrape/payloadprovider"
@@ -34,15 +35,24 @@ type expirationRecords struct {
 	preview  preview.Records
 }
 
-func (records expirationRecords) Providers(ctx context.Context, now int64, limit int) ([]application.ProviderExpiration, error) {
-	return records.provider.Providers(ctx, now, limit)
+func (records expirationRecords) Providers(ctx context.Context, now int64,
+	limit int,
+) ([]application.ProviderExpiration, error) {
+	return wrapPair(records.provider.Providers(ctx, now, limit))
 }
-func (records expirationRecords) ReleaseProvider(ctx context.Context, before application.ProviderExpiration, now int64) error {
-	return records.provider.ReleaseProvider(ctx, before, now)
+
+func (records expirationRecords) ReleaseProvider(ctx context.Context,
+	before application.ProviderExpiration, now int64,
+) error {
+	return wrapErr(records.provider.ReleaseProvider(ctx, before, now))
 }
-func (records expirationRecords) Previews(ctx context.Context, now int64, limit int) ([]application.PreviewExpiration, error) {
-	return records.preview.Previews(ctx, now, limit)
+
+func (records expirationRecords) Previews(ctx context.Context, now int64,
+	limit int,
+) ([]application.PreviewExpiration, error) {
+	return wrapPair(records.preview.Previews(ctx, now, limit))
 }
+
 func (records expirationRecords) ExpirePreview(ctx context.Context, change application.PreviewExpiry) error {
-	return records.preview.ExpirePreview(ctx, change)
+	return wrapErr(records.preview.ExpirePreview(ctx, change))
 }

@@ -54,7 +54,7 @@ func (records impactRecords) ReadImpact(ctx context.Context, gameID string) (app
 	result.SourceKinds, err = dbapi.QueryStrings(ctx, records.executor, `SELECT metadata_source_kind FROM games WHERE id=?
 UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`, gameID, gameID)
 	if err != nil {
-		return application.ImpactSnapshot{}, err
+		return application.ImpactSnapshot{}, wrapErr(err)
 	}
 	return result, nil
 }

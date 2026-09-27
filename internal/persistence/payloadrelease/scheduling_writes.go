@@ -22,13 +22,14 @@ func (records scheduling) BeginRelease(ctx context.Context, change application.O
 	}
 	switch before.Scope.Type {
 	case application.ScopeGame:
-		return gamerelease.Begin(ctx, records.executor, update, change)
+		return wrapErr(gamerelease.Begin(ctx, records.executor, update, change))
 	case application.ScopeImportItem, application.ScopeImportJob:
-		return itemrelease.Begin(ctx, records.executor, update, change)
+		return wrapErr(itemrelease.Begin(ctx, records.executor, update, change))
 	case application.ScopeSourceImportItem:
-		return sourcerelease.Begin(ctx, records.executor, update, change)
+		return wrapErr(sourcerelease.Begin(ctx, records.executor, update, change))
+	case application.ScopeUploadConsumption, application.ScopeBlob:
+		return application.ErrScopeInvalid
 	default:
 		return application.ErrScopeInvalid
 	}
-
 }

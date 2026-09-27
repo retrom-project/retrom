@@ -7,7 +7,7 @@ import (
 )
 
 func ImportItemBlobIDs(ctx context.Context, transaction dbapi.Executor, itemID string) ([]string, error) {
-	return dbapi.QueryStrings(ctx, transaction, `
+	return wrapPair(dbapi.QueryStrings(ctx, transaction, `
 SELECT blob_id FROM import_item_source_files WHERE import_item_id=?
 UNION ALL SELECT source_archive_blob_id FROM import_item_source_files WHERE import_item_id=?
 UNION ALL SELECT file.blob_id FROM import_item_source_snapshot_files file
@@ -44,5 +44,5 @@ UNION ALL SELECT file.source_archive_blob_id FROM source_import_item_files file
 UNION ALL SELECT asset.blob_id FROM source_import_item_assets asset
  JOIN source_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
 `, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID,
-		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
+		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID))
 }

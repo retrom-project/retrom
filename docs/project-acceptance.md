@@ -891,7 +891,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 执行：`make acceptance-case CASE=ACC-ES-004`。
 - 流程：在扫描与执行阶段分别取消；注入 retryable failure、过期 lease、deadline/attempt 耗尽与进程重启；覆盖发布、丢弃、已存在、确定性阻断、取消、不可重试失败、待审和可重试状态的 PayloadRelease。发布一款 EmulationStation 游戏并建立一份共享 Blob 引用，完成一次实际 Launch/Player 链路后从管理员详情永久删除该 Game；运行即时排队的 GC，在最终删除前分别移除/新增共享引用。最后对含来源历史、待审 CAS 与 active 外部 source Job 的数据根执行离线 backup/restore。
 - 通过标准：cancel/retry/recovery 不删除已交接审核事项、不回滚已发布 Game、不重复 ImportItem/Game；共享 reader 不超过 2，任务按 lease/heartbeat/attempt/deadline 稳定收口。只有规定终态释放来源 payload，`REVIEW_PENDING`/retryable failure 保留；release 重启/重放幂等。Game 删除转墓碑、立即不可 Launch/读内容，异步释放 Game 内容/媒体/存档/运行与已终态 EmulationStation 来源链；共享 Blob 在最后 durable owner 消失前始终受保护，新引用撤销 GC candidate，最后无引用即排队删除 bytes/Blob 行。backup 不含外部 root/XML，restore 保留待审/已发布 CAS 与历史，并在 HTTP 前以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 收口所有外部 source Job。
-- 证据：worker/release/GC JobEvent、payload/ownership registry 分类、删除 impact/墓碑、删除前后 CAS/Blob/共享引用、fake clock、backup manifest 与 restore 前后 canonical 摘要。
+- 证据：worker/release/GC JobEvent、Blob 引用列登记与 `ref_count` 变化、删除 impact/墓碑、删除前后 CAS/Blob/共享引用、fake clock、backup manifest 与 restore 前后 canonical 摘要。
 
 ### ACC-ES-005：gamelist.xml 通用 Drawer、详情审核与多尺寸无障碍
 

@@ -157,7 +157,7 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一在 owner 计数归零后经异步 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 ownership registry。
+统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一在 owner 计数归零后经异步 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 Blob 引用计数与释放规则。
 
 ### 3.13 沉浸模式是独立电视交互面
 

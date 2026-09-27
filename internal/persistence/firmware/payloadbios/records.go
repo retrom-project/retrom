@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/retirementops"
@@ -27,10 +28,11 @@ FROM bios_installations retired WHERE is_active=0 AND blob_id IS NOT NULL ORDER 
 	}
 	facts.Found = true
 	if !facts.SharedActive {
-		facts.Files, err = retirementops.Files(records.Executor, ctx, `SELECT game_variant_id,logical_name,blob_id FROM variant_files
+		facts.Files, err = retirementops.Files(ctx, records.Executor,
+			`SELECT game_variant_id,logical_name,blob_id FROM variant_files
 WHERE role='BIOS_BUNDLE' AND blob_id=? ORDER BY game_variant_id,logical_name LIMIT ?`, facts.BlobID, limit)
 		if err != nil {
-			return application.BIOSRetirement{}, err
+			return application.BIOSRetirement{}, wrapErr(err)
 		}
 	}
 	return facts, nil
@@ -48,8 +50,8 @@ EXISTS(SELECT 1 FROM bios_installations active WHERE active.blob_id=? AND active
 }
 
 func (records Records) ReleaseBIOSFiles(ctx context.Context, before application.BIOSRetirement) error {
-	return retirementops.DeleteFiles(ctx, records.Executor, recordstore.DeleteVariantFiles,
-		`role='BIOS_BUNDLE' AND (game_variant_id,logical_name,blob_id)`, before.Files)
+	return wrapErr(retirementops.DeleteFiles(ctx, records.Executor, recordstore.DeleteVariantFiles,
+		`role='BIOS_BUNDLE' AND (game_variant_id,logical_name,blob_id)`, before.Files))
 }
 
 func (records Records) CompleteBIOS(ctx context.Context, before application.BIOSRetirement, now int64) error {

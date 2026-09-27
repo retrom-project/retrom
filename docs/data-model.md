@@ -127,7 +127,7 @@ PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累�
 
 ## 9. Blob ownership 与释放
 
-每个 CAS Blob 必须存在于 `internal/persistence/blobregistry/registry.json` 并由 payload release ownership registry 分类。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后立即建立可执行的 GC candidate。
+每条持久 Blob 引用列必须登记在 `internal/persistence/blobregistry/registry.json`，由数据库触发器维护 `blobs.ref_count`。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后立即建立可执行的 GC candidate。
 
 Game 内容替换会撤销旧 Launch 并移除旧 Game-owned 边；BIOS 替换会撤销使用旧 BIOS 的 Launch/Play，后台分批释放旧安装与过时 Variant BIOS 边；Game 删除移除内容、媒体和存档边。Launch 不持有 Blob。共享 Blob 始终由剩余 owner 保护。
 

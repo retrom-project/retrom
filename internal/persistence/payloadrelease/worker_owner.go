@@ -30,6 +30,8 @@ func (records workerRecords) failOwner(ctx context.Context, change application.W
 		result, err = itemrelease.Fail(ctx, records.executor, update, before.Scope.Type)
 	case application.ScopeSourceImportItem:
 		result, err = sourcerelease.Fail(ctx, records.executor, update)
+	case application.ScopeUploadConsumption, application.ScopeBlob:
+		return application.ErrScopeInvalid
 	default:
 		return application.ErrScopeInvalid
 	}

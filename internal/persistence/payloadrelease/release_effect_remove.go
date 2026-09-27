@@ -20,24 +20,24 @@ func (records effectRecords) Remove(ctx context.Context, change application.Effe
 	id, now := change.Before.Owner.Scope.ID, change.NowMS
 	switch change.Group {
 	case application.EffectGameRuntime:
-		return (gamerelease.Records{Executor: records.executor}).StopRuntime(ctx, id, now)
+		return wrapErr((gamerelease.Records{Executor: records.executor}).StopRuntime(ctx, id, now))
 	case application.EffectGameEvidence:
-		return (gamerelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now)
+		return wrapErr((gamerelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now))
 	case application.EffectGameFiles:
 		return records.removeBatches(ctx, gamerelease.DeleteStatements(), id)
 	case application.EffectImportReview:
-		return (itemrelease.Records{Executor: records.executor}).ClearReview(ctx, id, now)
+		return wrapErr((itemrelease.Records{Executor: records.executor}).ClearReview(ctx, id, now))
 	case application.EffectImportEvidence:
-		return (itemrelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now)
+		return wrapErr((itemrelease.Records{Executor: records.executor}).ClearEvidence(ctx, id, now))
 	case application.EffectImportFiles:
 		return records.removeBatches(ctx, itemrelease.DeleteStatements(), id)
 	case application.EffectSourceFiles, application.EffectSourceAssets:
-		return sourcerelease.Clear(ctx, records.executor, change)
+		return wrapErr(sourcerelease.Clear(ctx, records.executor, change))
 	default:
 		return application.ErrScopeInvalid
 	}
 }
 
 func (records effectRecords) removeBatches(ctx context.Context, batches []releaseops.DeletionBatch, id string) error {
-	return (releaseops.Records{Executor: records.executor}).RemoveBatches(ctx, batches, id)
+	return wrapErr((releaseops.Records{Executor: records.executor}).RemoveBatches(ctx, batches, id))
 }

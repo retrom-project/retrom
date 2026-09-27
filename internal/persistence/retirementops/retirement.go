@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
-	"strings"
 )
 
-func Files(executor dbapi.Executor,
-	ctx context.Context, query string, args ...any,
+func Files(ctx context.Context, executor dbapi.Executor, query string, args ...any,
 ) ([]application.RetirementFile, error) {
 	rows, err := executor.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -34,7 +34,7 @@ func Files(executor dbapi.Executor,
 	return files, nil
 }
 
-func Plays(executor dbapi.Executor, ctx context.Context, id string) ([]application.RetirementPlay, error) {
+func Plays(ctx context.Context, executor dbapi.Executor, id string) ([]application.RetirementPlay, error) {
 	var play application.RetirementPlay
 	err := dbapi.QueryRowContext(ctx, executor, `SELECT id,version FROM play_sessions
 WHERE launch_session_id=? AND state='ACTIVE'`, id).Scan(&play.ID, &play.Version)

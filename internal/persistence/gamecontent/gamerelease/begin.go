@@ -3,13 +3,16 @@ package gamerelease
 import (
 	"context"
 	"fmt"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/releaseops"
 	application "retrom/internal/service/payloadrelease"
 )
 
-func Begin(ctx context.Context, executor dbapi.Executor, update recordstore.Update, change application.OwnerRelease) error {
+func Begin(ctx context.Context, executor dbapi.Executor, update recordstore.Update,
+	change application.OwnerRelease,
+) error {
 	update.Scope.Where += " AND status=?"
 	update.Scope.Args = append(update.Scope.Args, change.Before.State)
 	if change.DeleteGame {

@@ -6,7 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	dbapi "retrom/internal/database"
+	gamerelease "retrom/internal/persistence/gamecontent/gamerelease"
+	itemrelease "retrom/internal/persistence/libraryimport/itemrelease"
+	sourcerelease "retrom/internal/persistence/sourceimport/sourcerelease"
+	uploads "retrom/internal/persistence/uploads/payloadpurge"
+
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -29,38 +33,13 @@ func (records effectRecords) Owner(ctx context.Context, scope application.Scope)
 }
 
 func (records effectRecords) ownerRelations(ctx context.Context, facts *application.EffectOwner) error {
-	var err error
-	scope := facts.Owner.Scope
-	switch scope.Type {
+	switch facts.Owner.Scope.Type {
 	case application.ScopeGame:
-		err = dbapi.QueryRowContext(ctx, records.executor, `SELECT
-metadata_source_kind,COALESCE(metadata_source_ref_id,''),content_source_kind,COALESCE(content_source_ref_id,'')
-FROM games WHERE id=?`, scope.ID).Scan(
-			&facts.MetadataSource.Kind,
-			&facts.MetadataSource.ID,
-			&facts.ContentSource.Kind,
-			&facts.ContentSource.ID,
-		)
+		return wrapErr(gamerelease.Relations(ctx, records.executor, facts))
 	case application.ScopeImportItem:
-		err = dbapi.QueryRowContext(
-			ctx, records.executor, `SELECT import_job_id FROM import_items WHERE id=?`, scope.ID).Scan(
-			&facts.ParentID,
-		)
+		return wrapErr(itemrelease.Relations(ctx, records.executor, facts))
 	case application.ScopeSourceImportItem:
-		spec, specErr := effectSourceSpec(scope.Type)
-		if specErr != nil {
-			return specErr
-		}
-		query := `SELECT import_id,COALESCE(existing_game_id,''),EXISTS(
-SELECT 1 FROM import_items item JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
-WHERE item.id=source.library_import_item_id AND item.state='DISCARDED' AND
-duplicate.existing_game_id=source.existing_game_id)
-FROM ` + spec.itemsTable + ` source WHERE source.id=?`
-		err = dbapi.QueryRowContext(ctx, records.executor, query, scope.ID).Scan(
-			&facts.ParentID,
-			&facts.ExistingGameID,
-			&facts.DuplicateMatch,
-		)
+		return wrapErr(sourcerelease.Relations(ctx, records.executor, facts))
 	case application.ScopeImportJob:
 		return nil
 	case application.ScopeUploadConsumption, application.ScopeBlob:
@@ -68,52 +47,12 @@ FROM ` + spec.itemsTable + ` source WHERE source.id=?`
 	default:
 		return application.ErrScopeInvalid
 	}
-	if err != nil {
-		return fmt.Errorf("read effect owner relations: %w", err)
-	}
-	return nil
 }
 
-func (records effectRecords) consumptionOwner(
-	ctx context.Context,
+func (records effectRecords) consumptionOwner(ctx context.Context,
 	scope application.Scope,
 ) (application.EffectOwner, error) {
-	var facts application.EffectOwner
-	facts.Owner.Scope = scope
-	facts.Consumption.ID = scope.ID
-	var released sql.NullInt64
-	err := dbapi.QueryRowContext(
-		ctx, records.executor, `SELECT version,released_at_ms,upload_session_id FROM upload_consumptions
-WHERE id=?`, scope.ID).Scan(
-
-		&facts.Consumption.Version,
-
-		&released,
-
-		&facts.Consumption.SessionID,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return facts, nil
-	}
-	if err != nil {
-		return application.EffectOwner{}, fmt.Errorf("read effect consumption: %w", err)
-	}
-	if err := dbapi.QueryRowContext(ctx, records.executor, `SELECT COALESCE(upload_file_id,''),consumer_type,consumer_id
-FROM upload_consumptions
-WHERE id=?`, scope.ID).Scan(
-
-		&facts.Consumption.FileID,
-
-		&facts.Consumption.ConsumerType,
-
-		&facts.Consumption.ConsumerID,
-	); err != nil {
-		return application.EffectOwner{}, fmt.Errorf("read effect consumption owner: %w", err)
-	}
-	facts.Found = true
-	facts.Consumption.Released = application.WorkTime{Set: released.Valid, Value: released.Int64}
-	facts.Owner.Version = facts.Consumption.Version
-	return facts, nil
+	return wrapPair(uploads.ConsumptionOwner(ctx, records.executor, scope))
 }
 
 func (records effectRecords) fenceOwner(ctx context.Context, before application.EffectOwner) error {
@@ -128,49 +67,15 @@ func (records effectRecords) fenceOwner(ctx context.Context, before application.
 }
 
 func (records effectRecords) Links(ctx context.Context, scope application.Scope) ([]application.Scope, error) {
-	if scope.Type == application.ScopeImportJob {
-		ids, err := collectIDs(
-			ctx,
-			records.executor,
-			`SELECT id FROM import_items WHERE import_job_id=? ORDER BY id`,
-			scope.ID,
-		)
-		if err != nil {
-			return nil, err
-		}
-		links := make([]application.Scope, 0, len(ids))
-		for _, id := range ids {
-			links = append(links, application.Scope{Type: application.ScopeImportItem, ID: id})
-		}
-		return links, nil
+	switch scope.Type {
+	case application.ScopeImportJob:
+		return wrapPair(itemrelease.JobLinks(ctx, records.executor, scope.ID))
+	case application.ScopeImportItem:
+		return wrapPair(sourcerelease.BoundSources(ctx, records.executor, scope.ID))
+	case application.ScopeSourceImportItem, application.ScopeUploadConsumption, application.ScopeGame,
+		application.ScopeBlob:
+		return nil, application.ErrScopeInvalid
+	default:
+		return nil, application.ErrScopeInvalid
 	}
-	if scope.Type == application.ScopeImportItem {
-		return records.boundSources(ctx, scope.ID)
-	}
-	return nil, application.ErrScopeInvalid
-}
-
-func (records effectRecords) boundSources(ctx context.Context, id string) ([]application.Scope, error) {
-	links := make([]application.Scope, 0)
-	for _, kind := range []application.ScopeType{
-		application.ScopeSourceImportItem,
-	} {
-		spec, err := effectSourceSpec(kind)
-		if err != nil {
-			return nil, err
-		}
-		ids, err := collectIDs(
-			ctx,
-			records.executor,
-			`SELECT id FROM `+spec.itemsTable+` WHERE library_import_item_id=? ORDER BY id`,
-			id,
-		)
-		if err != nil {
-			return nil, err
-		}
-		for _, id := range ids {
-			links = append(links, application.Scope{Type: kind, ID: id})
-		}
-	}
-	return links, nil
 }

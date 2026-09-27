@@ -11,19 +11,19 @@ import (
 func gameImpactBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
 	ids, err := gamerefs.GameBlobIDs(ctx, transaction, gameID)
 	if err != nil {
-		return nil, err
+		return nil, wrapErr(err)
 	}
 	importItems, err := dbapi.QueryStrings(ctx, transaction, `
 SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_REVIEW'
 UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_REVIEW'
 `, gameID, gameID)
 	if err != nil {
-		return nil, err
+		return nil, wrapErr(err)
 	}
 	for _, itemID := range uniqueImpactStrings(importItems) {
 		itemIDs, itemErr := importrefs.ImportItemBlobIDs(ctx, transaction, itemID)
 		if itemErr != nil {
-			return nil, itemErr
+			return nil, wrapErr(itemErr)
 		}
 		ids = append(ids, itemIDs...)
 	}
@@ -32,7 +32,7 @@ SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IM
 UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_RECEIVE'
 `, gameID, gameID)
 	if err != nil {
-		return nil, err
+		return nil, wrapErr(err)
 	}
 	for _, itemID := range uniqueImpactStrings(sourceIDs) {
 		values, itemErr := dbapi.QueryStrings(ctx, transaction, `
@@ -41,7 +41,7 @@ UNION ALL SELECT source_archive_blob_id FROM source_import_item_files WHERE item
 UNION ALL SELECT blob_id FROM source_import_item_assets WHERE item_id=?
 `, itemID, itemID, itemID)
 		if itemErr != nil {
-			return nil, itemErr
+			return nil, wrapErr(itemErr)
 		}
 		ids = append(ids, values...)
 	}

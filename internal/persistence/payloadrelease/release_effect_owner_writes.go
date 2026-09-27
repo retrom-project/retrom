@@ -5,7 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
+	gamerelease "retrom/internal/persistence/gamecontent/gamerelease"
+	itemrelease "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
+	sourcerelease "retrom/internal/persistence/sourceimport/sourcerelease"
+	uploads "retrom/internal/persistence/uploads/payloadpurge"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -31,47 +35,17 @@ payload_released_at_ms=?`
 	var err error
 	switch before.Scope.Type {
 	case application.ScopeGame:
-		update.Set += ",updated_at_ms=?"
-		update.Values = append(update.Values, change.NowMS)
-		update.Scope.Where += ` AND status=? AND metadata_source_kind=? AND COALESCE(metadata_source_ref_id,'')=?
-AND content_source_kind=? AND COALESCE(content_source_ref_id,'')=?`
-		update.Scope.Args = append(update.Scope.Args, before.State, change.Before.MetadataSource.Kind,
-			change.Before.MetadataSource.ID, change.Before.ContentSource.Kind, change.Before.ContentSource.ID)
-		result, err = recordstore.UpdateGames(ctx, records.executor, update)
-	case application.ScopeImportItem:
-		update.Scope.Where += " AND state=? AND import_job_id=?"
-		update.Scope.Args = append(update.Scope.Args, before.State, change.Before.ParentID)
-		result, err = recordstore.UpdateImportItems(ctx, records.executor, update)
-	case application.ScopeImportJob:
-		update.Scope.Where += " AND state=?"
-		update.Scope.Args = append(update.Scope.Args, before.State)
-		args := append(append([]any{}, update.Values...), update.Scope.Args...)
-		result, err = records.executor.ExecContext(
-			ctx,
-			"UPDATE import_jobs SET "+update.Set+" WHERE "+update.Scope.Where,
-			args...,
-		)
+		result, err = gamerelease.Change(ctx, records.executor, update, change)
+	case application.ScopeImportItem, application.ScopeImportJob:
+		result, err = itemrelease.Change(ctx, records.executor, update, change)
 	case application.ScopeSourceImportItem:
-		spec, specErr := effectSourceSpec(before.Scope.Type)
-		if specErr != nil {
-			return specErr
-		}
-		update.Scope.Where += ` AND execution_state=? AND retryable=?
-AND COALESCE(library_import_item_id,'')=? AND import_id=? AND COALESCE(existing_game_id,'')=?`
-		update.Scope.Args = append(
-			update.Scope.Args,
-			before.State,
-			before.Retryable,
-			before.PublicID,
-			change.Before.ParentID,
-			change.Before.ExistingGameID,
-		)
-		result, err = spec.updateItem(ctx, records.executor, update)
+		result, err = sourcerelease.Change(ctx, records.executor, update, change)
 	case application.ScopeUploadConsumption, application.ScopeBlob:
 		return application.ErrScopeInvalid
 	default:
 		return application.ErrScopeInvalid
 	}
+
 	if err := effectCount(result, err, 1); err != nil {
 		return fmt.Errorf("change released payload owner: %w", err)
 	}
@@ -86,23 +60,5 @@ func effectReleaseTime(change application.EffectOwnerChange) any {
 }
 
 func (records effectRecords) Consume(ctx context.Context, change application.EffectConsumptionChange) error {
-	before := change.Before
-	result, err := records.executor.ExecContext(
-		ctx,
-		`UPDATE upload_consumptions SET released_at_ms=?,release_reason=?,version=version+1
-WHERE id=? AND version=? AND released_at_ms IS NULL AND upload_session_id=? AND
-COALESCE(upload_file_id,'')=? AND consumer_type=? AND consumer_id=?`,
-		change.NowMS,
-		change.Reason,
-		before.ID,
-		before.Version,
-		before.SessionID,
-		before.FileID,
-		before.ConsumerType,
-		before.ConsumerID,
-	)
-	if err := effectCount(result, err, 1); err != nil {
-		return fmt.Errorf("write released consumption: %w", err)
-	}
-	return nil
+	return wrapErr(uploads.Consume(ctx, records.executor, change))
 }

@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+
 	dbapi "retrom/internal/database"
 	bios "retrom/internal/persistence/firmware/payloadbios"
 	launch "retrom/internal/persistence/launch/payloadlaunch"
@@ -35,8 +36,11 @@ type retirementRecords struct {
 }
 
 func (records retirementRecords) BIOS(ctx context.Context, limit int) (application.BIOSRetirement, error) {
-	return records.bios.BIOS(ctx, limit)
+	return wrapPair(records.bios.BIOS(ctx, limit))
 }
-func (records retirementRecords) Launch(ctx context.Context, now int64, limit int) (application.LaunchRetirement, error) {
-	return records.launch.Launch(ctx, now, limit)
+
+func (records retirementRecords) Launch(ctx context.Context, now int64,
+	limit int,
+) (application.LaunchRetirement, error) {
+	return wrapPair(records.launch.Launch(ctx, now, limit))
 }

@@ -4,13 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Records struct{ Executor dbapi.Executor }
-type RecordUpdate func(context.Context, dbapi.Executor, recordstore.Update) (sql.Result, error)
+type (
+	Records      struct{ Executor dbapi.Executor }
+	RecordUpdate func(context.Context, dbapi.Executor, recordstore.Update) (sql.Result, error)
+)
 
 func (records Records) CheckedUpdate(
 	ctx context.Context,
@@ -84,6 +87,7 @@ func (records Records) ReadCount(ctx context.Context, query string, args ...any)
 	}
 	return count, nil
 }
+
 func Count(result sql.Result, err error, expected int64) error {
 	if err != nil {
 		return fmt.Errorf("write release reference: %w", err)

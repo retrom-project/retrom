@@ -2,6 +2,7 @@ package sourcerelease
 
 import (
 	"context"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/releaseops"
@@ -22,5 +23,5 @@ func Clear(ctx context.Context, executor dbapi.Executor, change application.Effe
   payload_released_at_ms=?,updated_at_ms=?`
 		update.Scope.Where = "item_id=? AND (blob_id IS NOT NULL OR source_archive_blob_id IS NOT NULL)"
 	}
-	return (releaseops.Records{Executor: executor}).CheckedUpdate(ctx, table, write, update)
+	return wrapErr((releaseops.Records{Executor: executor}).CheckedUpdate(ctx, table, write, update))
 }
