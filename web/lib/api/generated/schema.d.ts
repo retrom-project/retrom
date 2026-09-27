@@ -16,7 +16,7 @@ export interface paths {
         };
         get: operations["getAdminImportBatchDiscard"];
         put?: never;
-        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and delayed GC use their existing workers. */
+        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and immediate GC use their existing workers. */
         post: operations["postAdminImportBatchDiscard"];
         delete?: never;
         options?: never;

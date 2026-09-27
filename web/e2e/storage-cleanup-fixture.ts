@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { expect, type APIRequestContext } from "@playwright/test";
 
 // Own marker bytes exercise upload/import/discard ownership; no game is launched.
@@ -12,6 +14,7 @@ export async function seedStorageCleanupCandidate(api: APIRequestContext, origin
   const { items } = await instances.json() as { items: Array<{ id: string; platformId: string }> };
   const target = items.find((item) => item.platformId === "gba");
   expect(target).toBeTruthy();
+  const before = await (await api.get("/api/v1/admin/storage-analysis")).json();
   const bytes = Buffer.from("Retrom storage cleanup UI fixture v1");
   const uploadResponse = await api.post("/api/v1/admin/uploads", {
     headers: headers(), data: { purpose: "GENERAL", sourceType: "FILES", files: [{ clientFileId: "marker", relativePath: "storage-cleanup.gba", sizeBytes: bytes.length }] },
@@ -34,8 +37,18 @@ export async function seedStorageCleanupCandidate(api: APIRequestContext, origin
   await expect.poll(async () => (await (await api.get(`/api/v1/admin/imports/${importJobId}`)).json()).state).toBe("REVIEW_PENDING");
   const discarded = await api.post(`/api/v1/admin/import-batches/IMPORT/${importJobId}/discard`, { headers: headers(), data: {} });
   expect(discarded.ok()).toBe(true);
+  // Immediate GC may finish before any page reads the pending candidate. Prove
+  // the normal release completed, then seed a stable failed job for UI retry.
+  await expect.poll(async () => {
+    const batch = await api.get(`/api/v1/admin/import-batches/IMPORT/${importJobId}/discard`);
+    return (await batch.json()).state;
+  }).toBe("COMPLETED");
   await expect.poll(async () => {
     const analysis = await api.get("/api/v1/admin/storage-analysis");
-    return (await analysis.json()).details.cleanupCandidates.blobCount;
-  }).toBeGreaterThan(0);
+    return (await analysis.json()).totals;
+  }).toEqual(before.totals);
+  expect(process.env.RETROM_E2E_DATABASE).toBeTruthy();
+  execFileSync("go", ["run", "scripts/acceptance/seed-failed-gc.go"], { cwd: path.resolve("..") });
+  const analysis = await api.get("/api/v1/admin/storage-analysis");
+  expect((await analysis.json()).details.cleanupCandidates.blobCount).toBe(1);
 }

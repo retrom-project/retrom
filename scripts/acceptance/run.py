@@ -459,7 +459,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-STOR-001": (
         240,
         "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/httpapi ./internal/service/payloadrelease ./internal/persistence/payloadrelease "
-        "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestImmediateGC|TestReleaseCommitsBounded' -count=1 && "
+        "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestGCImmediate|TestReleaseCommitsBounded' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),
     **{
