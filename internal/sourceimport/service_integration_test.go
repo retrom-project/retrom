@@ -17,10 +17,10 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	tagpersistence "retrom/internal/persistence/tagging"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
@@ -216,7 +216,7 @@ func assertSourcePayloadReleased(
 ) {
 	t.Helper()
 	ctx := t.Context()
-	releases, err := payloadrelease.New(database, blobs, time.Now)
+	releases, err := payloadrelease.New(t.Context(), database, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

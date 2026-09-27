@@ -32,9 +32,9 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/dependencies"
 	"retrom/internal/legacychecksum"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -114,7 +114,7 @@ WHERE f.id=?
 `, upload.Files[0].ID).Scan(&md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
+	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
 	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})

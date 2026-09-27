@@ -9,7 +9,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/payloadrelease"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/testassert"
 )
 

@@ -18,8 +18,8 @@ import (
 	"retrom/internal/serversource"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/legacychecksum"
-	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -49,7 +49,7 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
+	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)

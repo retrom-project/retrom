@@ -21,9 +21,9 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/testsupport"
 )
 
@@ -67,7 +67,7 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES(?,'discard-profile','discard-admin','Discard','ADMIN','ENABLED',0,0)`, adminID)
 	f.importer = libraryimport.New(f.db, now).WithBlobStore(blobs)
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, now)
-	f.releases, err = payloadrelease.New(f.db, blobs, now)
+	f.releases, err = payloadrelease.New(t.Context(), f.db, blobs, now)
 	if err != nil {
 		t.Fatal(err)
 	}

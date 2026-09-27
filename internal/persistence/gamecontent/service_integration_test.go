@@ -31,9 +31,9 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -76,7 +76,7 @@ SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
+	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
@@ -307,7 +307,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		t.Fatal(err)
 	}
 
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now)
+	releaseService, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
@@ -469,7 +469,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		"replacement/two.chd":    fakeReplacementCHD("two"),
 		"replacement/readme.txt": []byte("ignored"),
 	})
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now)
+	releaseService, err := payloadrelease.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).

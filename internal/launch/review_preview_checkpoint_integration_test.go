@@ -17,8 +17,8 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
 	"retrom/internal/testsupport"
@@ -56,7 +56,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(database.SQL, blobs, clock)
+	releaser, err := payloadrelease.New(t.Context(), database.SQL, blobs, clock)
 	if err != nil {
 		t.Fatal(err)
 	}

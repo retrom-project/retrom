@@ -17,8 +17,8 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/payloadrelease"
 	"retrom/internal/dependencies"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -78,7 +78,7 @@ func retirementFixture(t *testing.T) (dbapi.DB, *payloadrelease.Service, int64) 
 	bios := ensureFirmwareBlob(t, ctx, database.SQL, blobs, []byte("retirement BIOS"))
 	seedFirmwareReplacementLifecycle(t, ctx, database.SQL, blobs, identity, "retirement-installation", bios)
 	now := time.Now().Add(time.Second)
-	releases, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now })
+	releases, err := payloadrelease.New(t.Context(), database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	return database.SQL, releases, now.UnixMilli()
 }

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/composition/payloadrelease"
 	dbapi "retrom/internal/database"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/testsupport"
 )
@@ -43,7 +43,7 @@ func faultRetirementService(t *testing.T, db dbapi.DB, now int64, prefix, fragme
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := payloadrelease.New(fault, blobs, func() time.Time { return time.UnixMilli(now) })
+	service, err := payloadrelease.New(t.Context(), fault, blobs, func() time.Time { return time.UnixMilli(now) })
 	if err != nil {
 		t.Fatal(err)
 	}

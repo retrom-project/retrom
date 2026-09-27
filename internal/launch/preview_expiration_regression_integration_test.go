@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/composition/payloadrelease"
 	dbapi "retrom/internal/database"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/testsupport"
 )
 
@@ -59,7 +59,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(fault, blobs, func() time.Time { return *fixture.now })
+	releaser, err := payloadrelease.New(t.Context(), fault, blobs, func() time.Time { return *fixture.now })
 	if err != nil {
 		t.Fatal(err)
 	}

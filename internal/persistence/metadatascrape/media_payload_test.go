@@ -5,10 +5,12 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/composition/payloadrelease"
 	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
-	"retrom/internal/payloadrelease"
+	payloadrepository "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/metadatascrape"
+	payloadapplication "retrom/internal/service/payloadrelease"
 )
 
 func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
@@ -17,7 +19,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = payloadrelease.ScheduleGameDeletion(t.Context(), tx, "game", 1, fixture.now.UnixMilli())
+	_, err = payloadapplication.NewScheduler(nil).DeleteGame(t.Context(), payloadrepository.BindScheduling(tx), "game", 1, fixture.now.UnixMilli())
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -36,7 +38,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if snapshot.Job.State != "CANCELLED" || snapshot.Asset.Status != "CANCELLED" {
 		t.Fatalf("deleted media=%+v", snapshot)
 	}
-	release, err := payloadrelease.New(fixture.database, fixture.blobs, fixture.clock)
+	release, err := payloadrelease.New(t.Context(), fixture.database, fixture.blobs, fixture.clock)
 	if err != nil {
 		t.Fatal(err)
 	}
