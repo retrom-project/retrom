@@ -1,4 +1,4 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"

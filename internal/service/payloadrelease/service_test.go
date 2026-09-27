@@ -1,63 +1,13 @@
 package payloadrelease
 
 import (
-	"context"
 	"errors"
 	"testing"
 )
 
-type initializationFixture struct {
-	readErr, commitErr error
-	pages              int
-}
-
-func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run func(LifecycleReader) error) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := run(fixture); err != nil {
-		return err
-	}
-	return fixture.commitErr
-}
-
-func (*initializationFixture) BlobEdges(context.Context) ([]BlobEdge, error) {
-	edges := OwnershipRegistry()
-	result := make([]BlobEdge, 0, len(edges))
-	for _, edge := range edges {
-		result = append(result, BlobEdge{Table: edge.Table, Column: edge.Column})
-	}
-	return result, nil
-}
-
-func (fixture *initializationFixture) Owners(context.Context, Scope, int) ([]LifecycleOwner, error) {
-	fixture.pages++
-	return nil, fixture.readErr
-}
-
-func TestPayloadServiceInitializationPreservesSnapshotFailure(t *testing.T) {
-	t.Parallel()
-	for _, stage := range []string{"read", "commit"} {
-		t.Run(stage, func(t *testing.T) {
-			t.Parallel()
-			cause := errors.New("startup snapshot unavailable")
-			fixture := &initializationFixture{}
-			if stage == "read" {
-				fixture.readErr = cause
-			} else {
-				fixture.commitErr = cause
-			}
-			service, err := New(t.Context(), Dependencies{Lifecycle: fixture}, Options{})
-			if service != nil || !errors.Is(err, cause) || fixture.pages != 1 {
-				t.Fatalf("failed initialization exposed service: %t %v pages=%d", service != nil, err, fixture.pages)
-			}
-		})
-	}
-}
-
 func TestPayloadServiceCloseBeforeStartPreventsWork(t *testing.T) {
 	t.Parallel()
-	service, err := New(t.Context(), Dependencies{Lifecycle: &initializationFixture{}}, Options{})
+	service, err := New(t.Context(), Dependencies{}, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

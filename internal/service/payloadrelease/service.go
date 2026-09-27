@@ -7,7 +7,6 @@ import (
 )
 
 type Dependencies struct {
-	Lifecycle  LifecycleRepository
 	Worker     WorkerRepository
 	GC         GCRepository
 	Garbage    GarbageRepository
@@ -33,7 +32,7 @@ type Service struct {
 	retirements *Retirements
 }
 
-func New(ctx context.Context, dependencies Dependencies, options Options) (*Service, error) {
+func New(_ context.Context, dependencies Dependencies, options Options) (*Service, error) {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
@@ -43,9 +42,6 @@ func New(ctx context.Context, dependencies Dependencies, options Options) (*Serv
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize payload GC: %w", err)
-	}
-	if err := NewLifecycleVerifier(dependencies.Lifecycle).Validate(ctx); err != nil {
-		return nil, err
 	}
 	service.gc = gc
 	service.expirations = NewExpirations(dependencies.Expiration, gc, options.Now)

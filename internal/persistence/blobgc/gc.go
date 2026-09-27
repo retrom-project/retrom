@@ -1,4 +1,4 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"
@@ -9,9 +9,14 @@ import (
 	application "retrom/internal/service/payloadrelease"
 )
 
-type GC struct{ database dbapi.DB }
+type GC struct {
+	database   dbapi.DB
+	bindWorker func(dbapi.Executor) application.WorkerScope
+}
 
-func NewGC(database dbapi.DB) *GC { return &GC{database: database} }
+func NewGC(database dbapi.DB, bindWorker func(dbapi.Executor) application.WorkerScope) *GC {
+	return &GC{database: database, bindWorker: bindWorker}
+}
 
 func (repository *GC) WithGC(ctx context.Context, run func(application.GCScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
@@ -19,7 +24,7 @@ func (repository *GC) WithGC(ctx context.Context, run func(application.GCScope) 
 		return fmt.Errorf("begin GC transaction: %w", err)
 	}
 	defer dbapi.Rollback(tx)
-	if err := run(BindGC(tx)); err != nil {
+	if err := run(BindGC(tx, repository.bindWorker(tx))); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -28,10 +33,13 @@ func (repository *GC) WithGC(ctx context.Context, run func(application.GCScope) 
 	return nil
 }
 
-type gcRecords struct{ executor dbapi.Executor }
+type gcRecords struct {
+	executor dbapi.Executor
+	worker   application.WorkerScope
+}
 
-func BindGC(executor dbapi.Executor) application.GCScope {
-	records := gcRecords{executor: executor}
+func BindGC(executor dbapi.Executor, worker application.WorkerScope) application.GCScope {
+	records := gcRecords{executor: executor, worker: worker}
 	return application.GCScope{Read: records, Write: records}
 }
 

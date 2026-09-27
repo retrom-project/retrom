@@ -5,32 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/persistence/jobrecord"
 	application "retrom/internal/service/payloadrelease"
 )
 
-const workFence = ` WHERE id=? AND kind=? AND scope_type=? AND scope_id=? AND state=?
- AND COALESCE(worker_id,'')=? AND execution_no=? AND attempt_count=? AND max_attempts=? AND version=?
- AND available_at_ms=? AND COALESCE(execution_started_at_ms,-1)=? AND COALESCE(execution_deadline_at_ms,-1)=?
- AND COALESCE(leased_until_ms,-1)=? AND COALESCE(heartbeat_at_ms,-1)=?
- AND ((?=1 AND EXISTS(SELECT 1 FROM job_input_snapshots input WHERE input.job_id=jobs.id
- AND input.execution_no=jobs.execution_no AND input.input_json=? AND input.input_digest=?))
- OR (?=0 AND NOT EXISTS(SELECT 1 FROM job_input_snapshots input
- WHERE input.job_id=jobs.id AND input.execution_no=jobs.execution_no)))`
+const workFence = jobrecord.Fence
 
-func workArguments(work application.Work) []any {
-	return []any{
-		work.ID, work.Kind, work.Scope.Type, work.Scope.ID, work.State, work.WorkerID, work.ExecutionNo,
-		work.Attempt, work.MaxAttempts, work.Version, work.AvailableMS, timeFence(work.Started), timeFence(work.Deadline),
-		timeFence(work.Lease), timeFence(work.Heartbeat), work.InputFound, work.InputJSON, work.InputDigest, work.InputFound,
-	}
-}
-
-func timeFence(value application.WorkTime) int64 {
-	if !value.Set {
-		return -1
-	}
-	return value.Value
-}
+var workArguments = jobrecord.Arguments
 
 func timeArgument(value application.WorkTime) any {
 	if !value.Set {

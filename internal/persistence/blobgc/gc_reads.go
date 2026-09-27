@@ -1,4 +1,4 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/jobrecord"
 	application "retrom/internal/service/payloadrelease"
 )
 
 const gcSQL = `SELECT blob.id,blob.sha256,blob.size_bytes,candidate.blob_id IS NOT NULL,
  COALESCE(candidate.first_unreferenced_at_ms,0),COALESCE(candidate.scheduled_at_ms,0),
- COALESCE(candidate.attempt_count,0),blob.ref_count>0,` + workColumns + ` FROM blobs blob
+ COALESCE(candidate.attempt_count,0),blob.ref_count>0,` + jobrecord.Columns + ` FROM blobs blob
  LEFT JOIN blob_gc_candidates candidate ON candidate.blob_id=blob.id
  LEFT JOIN jobs job ON job.id=candidate.gc_job_id
  LEFT JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no `
@@ -41,7 +42,7 @@ func (records gcRecords) read(ctx context.Context, query string, args ...any) ([
 	facts := make([]application.GCBlob, 0)
 	for rows.Next() {
 		var blob application.GCBlob
-		work, _, err := readWork(gcScanner{row: rows, blob: &blob})
+		work, _, err := jobrecord.Read(gcScanner{row: rows, blob: &blob})
 		if err != nil {
 			return nil, fmt.Errorf("read GC facts: %w", err)
 		}
@@ -58,7 +59,7 @@ func (records gcRecords) read(ctx context.Context, query string, args ...any) ([
 }
 
 type gcScanner struct {
-	row  workScanner
+	row  jobrecord.Scanner
 	blob *application.GCBlob
 }
 

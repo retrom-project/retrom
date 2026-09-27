@@ -1,9 +1,10 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"
 	"fmt"
 
+	"retrom/internal/persistence/jobrecord"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -24,9 +25,9 @@ func (records gcRecords) Advance(ctx context.Context, change application.GCAdvan
 	if work.State == "RUNNING" {
 		return nil
 	}
-	args = append([]any{change.NowMS, change.NowMS}, workArguments(work)...)
+	args = append([]any{change.NowMS, change.NowMS}, jobrecord.Arguments(work)...)
 	result, err = records.executor.ExecContext(ctx,
-		`UPDATE jobs SET available_at_ms=?,version=version+1,updated_at_ms=?`+workFence, args...)
+		`UPDATE jobs SET available_at_ms=?,version=version+1,updated_at_ms=?`+jobrecord.Fence, args...)
 	if err := gcWrite(result, err); err != nil {
 		return fmt.Errorf("advance GC job: %w", err)
 	}
@@ -39,11 +40,11 @@ func (records gcRecords) retry(ctx context.Context, change application.GCAdvance
 	if err != nil {
 		return err
 	}
-	args := append([]any{retry.ExecutionNo, retry.PayloadJSON, change.NowMS, change.NowMS}, workArguments(work)...)
+	args := append([]any{retry.ExecutionNo, retry.PayloadJSON, change.NowMS, change.NowMS}, jobrecord.Arguments(work)...)
 	result, err := records.executor.ExecContext(ctx, `UPDATE jobs SET state='QUEUED',execution_no=?,payload_json=?,
  attempt_count=0,available_at_ms=?,finished_at_ms=NULL,execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,
  worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,error_code=NULL,error_retryable=NULL,
- version=version+1,updated_at_ms=?`+workFence, args...)
+ version=version+1,updated_at_ms=?`+jobrecord.Fence, args...)
 	if err := gcWrite(result, err); err != nil {
 		return fmt.Errorf("retry GC job: %w", err)
 	}
@@ -75,9 +76,9 @@ func (records gcRecords) Cancel(ctx context.Context, change application.GCCancel
 		return nil
 	}
 	work := change.Before.Candidate.Work
-	args := append([]any{change.NowMS, change.NowMS}, workArguments(work)...)
+	args := append([]any{change.NowMS, change.NowMS}, jobrecord.Arguments(work)...)
 	result, err = records.executor.ExecContext(ctx, `UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,
- error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=?`+workFence, args...)
+ error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=?`+jobrecord.Fence, args...)
 	if err := gcWrite(result, err); err != nil {
 		return fmt.Errorf("complete protected GC job: %w", err)
 	}

@@ -1,4 +1,4 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func gcCandidateArguments(blob application.GCBlob) []any {
 }
 
 func (records gcRecords) fenceJob(ctx context.Context, blob application.GCBlob) error {
-	if err := workerRecords(records).Fence(ctx, blob.Candidate.Work); err != nil {
+	if err := records.worker.Write.Fence(ctx, blob.Candidate.Work); err != nil {
 		return fmt.Errorf("fence GC job: %w", err)
 	}
 	return nil

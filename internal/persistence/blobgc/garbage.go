@@ -1,4 +1,4 @@
-package payloadrelease
+package blobgc
 
 import (
 	"context"
@@ -8,9 +8,14 @@ import (
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Garbage struct{ database dbapi.DB }
+type Garbage struct {
+	database   dbapi.DB
+	bindWorker func(dbapi.Executor) application.WorkerScope
+}
 
-func NewGarbage(database dbapi.DB) *Garbage { return &Garbage{database: database} }
+func NewGarbage(database dbapi.DB, bindWorker func(dbapi.Executor) application.WorkerScope) *Garbage {
+	return &Garbage{database: database, bindWorker: bindWorker}
+}
 
 func (repository *Garbage) WithGarbage(ctx context.Context, run func(application.GarbageScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
@@ -18,8 +23,8 @@ func (repository *Garbage) WithGarbage(ctx context.Context, run func(application
 		return fmt.Errorf("begin garbage transaction: %w", err)
 	}
 	defer dbapi.Rollback(tx)
-	records := garbageRecords{executor: tx}
-	if err := run(application.GarbageScope{Read: records, Write: records, Worker: BindWorker(tx)}); err != nil {
+	records := garbageRecords{executor: tx, worker: repository.bindWorker(tx)}
+	if err := run(application.GarbageScope{Read: records, Write: records, Worker: records.worker}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -28,11 +33,14 @@ func (repository *Garbage) WithGarbage(ctx context.Context, run func(application
 	return nil
 }
 
-type garbageRecords struct{ executor dbapi.Executor }
+type garbageRecords struct {
+	executor dbapi.Executor
+	worker   application.WorkerScope
+}
 
 func (records garbageRecords) Facts(ctx context.Context, id, digest string) (application.GarbageFacts, error) {
 	var facts application.GarbageFacts
-	blobs, err := gcRecords(records).Selected(ctx, []string{id})
+	blobs, err := gcRecords{executor: records.executor, worker: records.worker}.Selected(ctx, []string{id})
 	if err != nil {
 		return facts, fmt.Errorf("read garbage Blob: %w", err)
 	}
@@ -55,7 +63,7 @@ func (records garbageRecords) Facts(ctx context.Context, id, digest string) (app
 }
 
 func (records garbageRecords) Cancel(ctx context.Context, facts application.GarbageFacts) error {
-	if err := gcRecords(records).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
+	if err := (gcRecords{executor: records.executor, worker: records.worker}).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
 		return fmt.Errorf("fence protected garbage: %w", err)
 	}
 	return records.cancelCandidate(ctx, facts.Blob)
@@ -74,7 +82,7 @@ func (records garbageRecords) cancelCandidate(ctx context.Context, blob applicat
 }
 
 func (records garbageRecords) Remove(ctx context.Context, facts application.GarbageFacts) error {
-	if err := gcRecords(records).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
+	if err := (gcRecords{executor: records.executor, worker: records.worker}).Fence(ctx, []application.GCBlob{facts.Blob}); err != nil {
 		return fmt.Errorf("fence garbage before deletion: %w", err)
 	}
 	result, err := records.executor.ExecContext(ctx, `DELETE FROM archive_entries WHERE archive_blob_id=?`, facts.Blob.ID)

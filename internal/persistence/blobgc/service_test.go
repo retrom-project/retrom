@@ -1,4 +1,4 @@
-package blobgc
+package blobgc_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/composition/payloadrelease"
+	blobgcp "retrom/internal/persistence/blobgc"
 	"retrom/internal/service/blobgc"
 
 	"retrom/internal/blobstore"
@@ -87,7 +88,7 @@ expires_at_ms) VALUES('response',
 	}
 	release, err := payloadrelease.New(t.Context(), database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
-	service := blobgc.New(New(database.SQL), release)
+	service := blobgc.New(blobgcp.New(database.SQL), release)
 	first, err := service.RunOnce(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first.Deleted != 1 }), "first GC = %#v, error=%v", first, err)
 	if _, err := database.SQL.ExecContext(context.Background(), `

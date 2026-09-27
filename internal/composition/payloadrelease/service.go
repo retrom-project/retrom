@@ -10,6 +10,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadfiles"
+	"retrom/internal/persistence/blobgc"
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -30,8 +31,8 @@ func New(
 ) (*Service, error) {
 	files := payloadfiles.New(blobs)
 	service, err := application.New(ctx, application.Dependencies{
-		Lifecycle: repository.NewLifecycle(database), Worker: repository.NewWorker(database),
-		GC: repository.NewGC(database), Garbage: repository.NewGarbage(database),
+		Worker: repository.NewWorker(database),
+		GC:     blobgc.NewGC(database, repository.BindWorker), Garbage: blobgc.NewGarbage(database, repository.BindWorker),
 		Effects: repository.NewReleaseEffects(database), Expiration: repository.NewExpiration(database),
 		Retirement: repository.NewRetirement(database),
 		Files:      files, Waiter: files,
