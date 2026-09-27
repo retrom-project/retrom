@@ -11,6 +11,7 @@ import {performContentIOPlayerExit} from "./content_io_player_exit.mjs";
 import {computerSource, installComputerBios, importComputer} from "./computer_product_client.mjs";
 import {openComputer, pictureComputer, closeComputer, collectComputerExit, saveComputerDisk} from "./computer_product_browser.mjs";
 import {bootSafari, moveSafari, samDisk, samCommand, samProgramOutput, writeSamProgram} from "./samcoupe_product_browser.mjs";
+import {completeComputerContentProof} from "./computer_content_proof.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/samcoupe-product"); await mkdir(directory, {recursive: true});
@@ -80,3 +81,4 @@ try {
   await writeFile(join(directory, "samcoupe-product.json"), JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify({caseId: report.caseId, status: report.status, errorCode: report.errorCode}));
 }
+if (report.status === "PASS" && env.RETROM_CONTENT_IO_FULL_PROOF === "1") await completeComputerContentProof(directory, report, "samcoupe");

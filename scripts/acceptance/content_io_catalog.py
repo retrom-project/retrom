@@ -40,7 +40,8 @@ def validate_actions(actions: object, scenarios: list[str]) -> None:
     for action in actions:
         require(isinstance(action, dict) and set(action) == {"scenario", "operation", "waitFor", "maxWaitMs", "assertion", "failureCode"}, "ACTION_INVALID")
         require(all(isinstance(action[key], str) and action[key].strip() for key in ["scenario", "operation", "waitFor", "assertion", "failureCode"]), "ACTION_INVALID")
-        require(action["scenario"] in scenarios and type(action["maxWaitMs"]) is int and 0 < action["maxWaitMs"] <= 300000, "ACTION_INVALID")
+        budget = 900000 if action["scenario"] == "performance-five-cold-warm" else 300000
+        require(action["scenario"] in scenarios and type(action["maxWaitMs"]) is int and 0 < action["maxWaitMs"] <= budget, "ACTION_INVALID")
         require(bool(re.fullmatch(r"CONTENT_IO_[A-Z_]+", action["failureCode"])), "ACTION_INVALID")
         names.append(action["scenario"])
     require(len(set(names)) == len(names) and set(names) == set(scenarios), "ACTION_COVERAGE")

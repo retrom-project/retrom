@@ -2678,3 +2678,22 @@ Safari Sam 使用标准确认进入关卡，游戏自身的 SAM F2 切换方向�
 核心刷新后的磁盘 SHA-256 改变。即时存档按钮保持不可用；使用 Player 的“存档并退出”导出
 GAME_SAVE。新 Launch 启动前恢复整盘，在核心内 `LOAD CHR$ 82` 后 `RUN`，比较程序输出区域
 像素摘要与原来相同且非空。游戏与磁盘重复启动均验证缓存复用及关闭资源归零。
+
+BBC 与 SAM 的完整 Content I/O 验收在生命周期后继续执行缓存 API 拒绝、提交前进度、大小边界和
+五轮基线／候选冷热启动。大小边界通过测试路由将本次真实磁盘补零到声明最大值及最大值加一，
+同步更新资源摘要，验证实际 Player 的准入、完整物化、核心启动先后与超限拒绝；补零磁盘不作为
+可玩性证据。BBC 最大值 32 MiB，SAM 最大值 16 MiB；真实游戏与保存行为仍使用原始磁盘。
+边界探针退出方式为关闭所拥有的页面，普通 Player 退出和资源归零由独立生命周期场景验证。
+
+正常 PFB 的定向矩阵入口为
+`python3 -m scripts.acceptance.content_io_product_check --pfb --case ACC-BBC-001 --case ACC-SAMCOUPE-001 --inputs <private-input-json> --chrome <chrome-executable> --output <fresh-ignored-output>`。
+输入沿用 operator inputs schema，必须恰好覆盖所选 Case；源文件逐份记录 `id/role/sha256/sizeBytes/files`，
+身份与来源在运行前后保持不变。BBC 的四份来源使用 `operator:bbc-jsbeeb`，SAM 的两份磁盘和一份
+BIOS 使用 `operator:samcoupe`；磁盘 role 为 `game`，BIOS role 为 `external`。
+报告明确列出所选与未执行 Case。定向 PASS 不代表完整 Target 矩阵或发布门禁通过。
+
+性能对照只在测试浏览器内选择已安装正式 Provider 和 PFB 开发 Provider 的固定文件，逐文件校验
+摘要、长度和实际浏览器响应。原生核心资源必须相同，Module 必须不同；两组使用同一 Host、游戏、
+BIOS、浏览器和网络设置。每组先预热，再采集五个独立 context 的 cold/warm 新 Launch 对，保留全部
+20 份观测、内存不可用原因和公共关闭计数。BBC 性能批次硬超时 600 秒、SAM 900 秒，完整 Case
+仍为 1200 秒；这些是含真实机器开机及游戏操作的批次预算，性能通过阈值仍为基线中位数 × 1.15 + 100 ms。

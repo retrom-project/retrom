@@ -6,6 +6,7 @@ import {finalContentMetrics} from "./content_io_measurement.mjs";
 import {validateContentResources} from "./content_io_performance.mjs";
 import {exitContentIOPlayer} from "./content_io_player_exit.mjs";
 import {resumePreview, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {executingContentWorker} from "./content_io_worker_identity.mjs";
 
 export function computerResources(config) {
   return config.resources.flatMap(row => row.kind === "EXTERNAL_FILE_SET" ? row.files : row.kind === "ROM_BLOB" ? [row] : []);
@@ -15,18 +16,24 @@ export async function openComputer(context, base, launch, target, sources, prepa
   const id = launch.launchId ?? launch.previewId;
   const response = await context.request.get(`${base}/runtime/launches/${id}/config`);
   assert.equal(response.status(), 200);
-  const config = await response.json(); assert.equal(config.runtime.targetId, target);
+  let config = await response.json(); assert.equal(config.runtime.targetId, target);
   const resources = computerResources(config);
   const identity = rows => rows.map(({sha256, sizeBytes}) => `${sha256}:${sizeBytes}`).sort();
   assert.deepEqual(identity(resources), identity(sources), "COMPUTER_LAUNCH_SOURCE_MISMATCH");
   const network = observeContentIO(context, contentSourceMatcher(resources, base)); await network.ready;
   const page = await context.newPage(), errors = [], assets = [], pending = [];
+  let workerAssetPath;
   page.on("pageerror", error => errors.push(error.message.split("\n")[0].slice(0, 160)));
   const assetListener = response => {
     const path = new URL(response.url()).pathname;
+    if (path === `/runtime/launches/${id}/config`) {
+      pending.push(response.json().then(observed => {config = observed;}, () => {errors.push("COMPUTER_CONFIG_RESPONSE_UNAVAILABLE");}));
+      return;
+    }
     if (!path.startsWith("/runtime/providers/") || !/\.(?:mjs|wasm|js)$/u.test(path)) return;
+    if (path.endsWith("/assets/content-io/worker.mjs")) {workerAssetPath = path; return;}
     pending.push(response.body().then(bytes => {assets.push({path, sha256: proofDigest(bytes), sizeBytes: bytes.length});},
-      () => {errors.push("COMPUTER_ASSET_RESPONSE_UNAVAILABLE");}));
+      error => {errors.push(`COMPUTER_ASSET_RESPONSE_UNAVAILABLE:${path}:${error.message.split("\n")[0]}`);}));
   };
   context.on("response", assetListener);
   const startedAt = performance.now();
@@ -46,6 +53,9 @@ export async function openComputer(context, base, launch, target, sources, prepa
   // jsbeeb's visible monitor bezel covers the canvas; use a real pointer click on its centre.
   const box = await canvas.boundingBox(); assert.ok(box);
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await Promise.all(pending);
+  assets.push(await executingContentWorker(context, page, workerAssetPath));
+  assert.equal(config.runtime.targetId, target); assert.deepEqual(identity(computerResources(config)), identity(sources));
   return {page, frame, canvas, config, resources, network, launch: {...launch, launchId: id}, startedAt, errors, assets,
     async flush() {await network.flush(); await Promise.all(pending); assert.deepEqual(errors, []);},
     dispose() {network.close(); context.off("response", assetListener);}};
@@ -64,6 +74,7 @@ export async function pauseComputer(opened) {
 }
 
 export async function closeComputer(opened, base, collector, semantics = "INSTANT") {
+  await opened.flush();
   if (opened.config.session.purpose === "REVIEW_PREVIEW") {
     await revealPreviewToolbar(opened.page);
     const finished = opened.page.waitForResponse(response => response.request().method() === "POST" &&
