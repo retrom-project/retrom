@@ -63,11 +63,9 @@ try {
   report.sourceReceiptSha256 = sourceReceiptDigest(receipts); report.observationId = computerObservation(target);
   const networkSettingsSha256 = proofDigest(JSON.stringify({chromeArgs, viewport: [1280, 900], network: "unthrottled-loopback-proxy", provider: "verified-frozen-files"}));
   if (scenario === "performance") {
-    for (const variant of ["baseline", "candidate"]) {
-      const opened = await profile(variant);
-      report.warmup.push({variant, ...await measure(opened, variant), delivered: opened.delivered});
-      await opened.context.close();
-    }
+    // Each isolated pair already contains its cold observation and warm replay.
+    // Run exactly the twenty required samples; extra unmeasured full game boots
+    // consume the bounded native-computer case budget without adding coverage.
     for (let repetition = 0; repetition < 5; repetition++) for (const variant of ["baseline", "candidate"]) {
       const opened = await profile(variant), contextId = randomUUID();
       for (const cacheState of ["cold", "warm"]) {
