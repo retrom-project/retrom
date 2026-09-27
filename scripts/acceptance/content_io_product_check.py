@@ -33,7 +33,8 @@ def execute_case(case: dict, environment: dict, inputs: dict, output: Path, run_
     child_env = {**os.environ, **selected["environment"], "RETROM_ACCEPTANCE_BASE_URL": environment["pfb"]["hostOrigin"],
                  "RETROM_ACCEPTANCE_CASE_DIR": str(output), "RETROM_CHROME_EXECUTABLE": environment["tools"]["chrome"]["path"],
                  "RETROM_ACCEPTANCE_USERNAME": inputs["authentication"]["username"],
-                 "RETROM_ACCEPTANCE_PASSWORD": inputs["authentication"]["password"], "RETROM_CONTENT_IO_RUN_ID": run_id}
+                 "RETROM_ACCEPTANCE_PASSWORD": inputs["authentication"]["password"], "RETROM_CONTENT_IO_RUN_ID": run_id,
+                 "RETROM_CONTENT_IO_FULL_PROOF": "1"}
     child_env.pop("NODE_TEST_CONTEXT", None)
     record = {"caseId": case["caseId"], "command": command, "startedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "exitCode": None, "timedOut": False, "status": "FAIL"}
@@ -79,9 +80,21 @@ def expected_identity(case: dict, snapshot: dict, receipts: list[dict], environm
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--env", type=Path)
+    mode.add_argument("--pfb", action="store_true")
+    parser.add_argument("--case", action="append")
+    parser.add_argument("--inputs", type=Path)
+    parser.add_argument("--chrome", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.pfb:
+        if not args.case or not args.inputs or not args.chrome:
+            parser.error("--pfb requires --case, --inputs and --chrome")
+        from scripts.acceptance.content_io_pfb_product_check import run_pfb_product
+        return run_pfb_product(args)
+    if args.case or args.inputs or args.chrome:
+        parser.error("case selection is available only with --pfb")
     run_id = str(uuid.uuid4())
     output = args.output or ROOT / ".pfb/workspace/content-io/products" / run_id
     environment = validate_paths(args.env, output)
