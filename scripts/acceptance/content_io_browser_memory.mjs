@@ -76,22 +76,34 @@ export async function measureBrowserMemory(browser) {
     assert.ok(targets.length > 0, "CONTENT_IO_MEMORY_TARGET_MISSING");
     const memories = [];
     for (const target of targets) memories.push(...await wasmMemories(connection, protocol, target));
-    let processes = [], processMemoryBytes = null, processMemoryUnavailableReason = null;
-    try {
-      const {processInfo} = await connection.send("SystemInfo.getProcessInfo");
-      processes = await Promise.all(processInfo.map(async entry => {
-        assert.ok(Number.isSafeInteger(entry.id) && entry.id > 0);
-        const status = await readFile(`/proc/${entry.id}/status`, "utf8"), rss = /^VmRSS:\s+(\d+) kB$/mu.exec(status);
-        assert.ok(rss, "CONTENT_IO_PROCESS_RSS_UNAVAILABLE");
-        return {type: entry.type, pid: entry.id, rssBytes: Number(rss[1]) * 1024};
-      }));
-      processMemoryBytes = processes.reduce((sum, entry) => sum + entry.rssBytes, 0);
-      assert.ok(Number.isSafeInteger(processMemoryBytes) && processMemoryBytes > 0);
-    } catch {
-      processes = []; processMemoryBytes = null; processMemoryUnavailableReason = "Chrome process RSS is unavailable on this host or a process exited during measurement";
-    }
     // Shared Wasm memories may be wrappers over the same pthread backing. Keep their actual
     // observations separate; the case's known module topology must identify shared backing.
-    return {memories, processMemoryBytes, processMemoryUnavailableReason, processes};
+    return {memories, ...await readProcessRSS(connection)};
   } finally {protocol.close(); await connection.detach();}
+}
+
+async function readProcessRSS(connection) {
+  let processes = [], processMemoryBytes = null, processMemoryUnavailableReason = null;
+  try {
+    const {processInfo} = await connection.send("SystemInfo.getProcessInfo");
+    processes = await Promise.all(processInfo.map(async entry => {
+      assert.ok(Number.isSafeInteger(entry.id) && entry.id > 0);
+      const status = await readFile(`/proc/${entry.id}/status`, "utf8"), rss = /^VmRSS:\s+(\d+) kB$/mu.exec(status);
+      assert.ok(rss, "CONTENT_IO_PROCESS_RSS_UNAVAILABLE");
+      return {type: entry.type, pid: entry.id, rssBytes: Number(rss[1]) * 1024};
+    }));
+    processMemoryBytes = processes.reduce((sum, entry) => sum + entry.rssBytes, 0);
+    assert.ok(Number.isSafeInteger(processMemoryBytes) && processMemoryBytes > 0);
+  } catch {
+    processes = []; processMemoryBytes = null;
+    processMemoryUnavailableReason = "Chrome process RSS is unavailable on this host or a process exited during measurement";
+  }
+  return {processMemoryBytes, processMemoryUnavailableReason, processes};
+}
+
+// Threaded cores can expose their one shared heap through the main-thread Module.
+// Read process totals without evaluating code on pthreads blocked in Atomics.wait.
+export async function measureBrowserRSS(browser) {
+  const connection = await browser.newBrowserCDPSession();
+  try {return await readProcessRSS(connection);} finally {await connection.detach();}
 }
