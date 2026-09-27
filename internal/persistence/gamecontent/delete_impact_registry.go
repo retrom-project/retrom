@@ -1,4 +1,4 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
@@ -12,7 +12,7 @@ func globalReferenceCount(ctx context.Context, transaction dbapi.Executor, blobI
 	if err := dbapi.QueryRowContext(
 		ctx, transaction, `SELECT ref_count FROM blobs WHERE id=?`, blobID,
 	).Scan(&count); err != nil {
-		return 0, fmt.Errorf("payloadrelease/impact global refs: %w", err)
+		return 0, fmt.Errorf("gamecontent/delete impact global refs: %w", err)
 	}
 	return count, nil
 }

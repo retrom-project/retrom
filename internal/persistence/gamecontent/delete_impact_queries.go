@@ -1,11 +1,12 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	application "retrom/internal/service/gamecontent"
 )
 
 type ImpactQueries struct{ database dbapi.DB }
@@ -51,7 +52,7 @@ func (records impactRecords) ReadImpact(ctx context.Context, gameID string) (app
 	if err != nil {
 		return application.ImpactSnapshot{}, err
 	}
-	result.SourceKinds, err = collectIDs(ctx, records.executor, `SELECT metadata_source_kind FROM games WHERE id=?
+	result.SourceKinds, err = payloadpersistence.CollectScopeIDs(ctx, records.executor, `SELECT metadata_source_kind FROM games WHERE id=?
 UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`, gameID, gameID)
 	if err != nil {
 		return application.ImpactSnapshot{}, err

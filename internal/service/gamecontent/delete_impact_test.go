@@ -1,4 +1,4 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
@@ -47,7 +47,7 @@ func TestImpactQueriesClassifyUniqueBlobsAndFreezeTheDigest(t *testing.T) {
 	if err != nil || changed.ImpactDigest == result.ImpactDigest {
 		t.Fatal("changed active runtime did not invalidate deletion precondition")
 	}
-	if _, found := GameDeleteAuditImpact(result)["impactDigest"]; found {
+	if _, found := deleteGameAuditImpact(result)["impactDigest"]; found {
 		t.Fatal("ephemeral precondition digest entered durable payload audit")
 	}
 }

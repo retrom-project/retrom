@@ -362,7 +362,7 @@ func TestImmersiveQueriesFailClosedAndUnavailablePlatformsDoNotLeak(t *testing.T
 	testassert.Falsef(t, invalidCursor.Code != http.StatusBadRequest ||
 		!strings.Contains(invalidCursor.Body.String(), `"code":"INVALID_CURSOR"`),
 		"invalid cursor = %d %s", invalidCursor.Code, invalidCursor.Body.String())
-	impact, err := server.payloadReleases.GameDeleteImpact(context.Background(), seed.GameID)
+	impact, err := server.gameImpact.Game(context.Background(), seed.GameID)
 	testassert.False(t, err != nil, err)
 	deleteRequest := httptest.NewRequestWithContext(
 		context.Background(),

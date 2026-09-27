@@ -522,7 +522,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	handler.ServeHTTP(beforeDelete, beforeDeleteRequest)
 	testassert.Falsef(t, beforeDelete.Code != http.StatusOK,
 		"runtime content before delete = %d %s", beforeDelete.Code, beforeDelete.Body.String())
-	impact, err := server.payloadReleases.GameDeleteImpact(ctx, gameID)
+	impact, err := server.gameImpact.Game(ctx, gameID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -545,7 +545,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	if response := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, uuid.NewString()); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"GAME_DELETE_IMPACT_STALE"`) {
 		t.Fatalf("stale impact delete = %d %s", response.Code, response.Body.String())
 	}
-	impact, err = server.payloadReleases.GameDeleteImpact(ctx, gameID)
+	impact, err = server.gameImpact.Game(ctx, gameID)
 	if err != nil || impact.SharedBytes == "0" {
 		t.Fatalf("shared game impact = %#v, error=%v", impact, err)
 	}
@@ -657,7 +657,7 @@ WHERE g.id=?
 		Scan(&protectedBlob, &prematureCandidate); err != nil || protectedBlob != 1 || prematureCandidate != 0 {
 		t.Fatalf("shared blob after first delete = blob:%d candidate:%d error:%v", protectedBlob, prematureCandidate, err)
 	}
-	sharedImpact, err := server.payloadReleases.GameDeleteImpact(ctx, sharedGameID)
+	sharedImpact, err := server.gameImpact.Game(ctx, sharedGameID)
 	if err != nil {
 		t.Fatal(err)
 	}

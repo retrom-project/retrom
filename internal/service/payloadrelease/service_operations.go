@@ -17,7 +17,3 @@ func (service *Service) StageInScope(ctx context.Context, scope GCScope, ids []s
 func (service *Service) ScheduleImmediateGC(ctx context.Context, actor string) (ImmediateGCResult, error) {
 	return service.gc.Immediate(ctx, actor)
 }
-
-func (service *Service) GameDeleteImpact(ctx context.Context, id string) (GameImpact, error) {
-	return service.impact.Game(ctx, id)
-}

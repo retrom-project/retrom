@@ -1,4 +1,4 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
@@ -100,7 +100,7 @@ SELECT count(*) FROM (
 )
 `, gameID, blobID).Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("payloadrelease/impact scoped refs: %w", err)
+		return 0, fmt.Errorf("gamecontent/delete impact scoped refs: %w", err)
 	}
 	return count, nil
 }

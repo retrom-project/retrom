@@ -1,4 +1,4 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
@@ -35,18 +35,6 @@ type impactCanonical struct {
 	ContentFileCount  int64    `json:"contentFileCount"`
 	ActiveLaunchCount int64    `json:"activeLaunchCount"`
 	SourceKinds       []string `json:"sourceKinds"`
-}
-
-// GameDeleteAuditImpact intentionally omits ImpactDigest. The digest protects
-// the delete precondition, but is not payload lifecycle audit evidence.
-func GameDeleteAuditImpact(impact GameImpact) map[string]any {
-	return map[string]any{
-		"registeredBytes": impact.RegisteredBytes, "exclusiveBytes": impact.ExclusiveBytes,
-		"sharedBytes": impact.SharedBytes, "blobCount": impact.BlobCount,
-		"saveStateCount": impact.SaveStateCount, "assetCount": impact.AssetCount,
-		"contentFileCount": impact.ContentFileCount, "activeLaunchCount": impact.ActiveLaunchCount,
-		"sourceKinds": impact.SourceKinds,
-	}
 }
 
 var ErrImpactInvalid = errors.New("PAYLOAD_RELEASE_IMPACT_INVALID")

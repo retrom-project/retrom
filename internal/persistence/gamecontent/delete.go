@@ -72,24 +72,11 @@ WHERE principal_id=? AND operation_id=? AND key=?
 func (writes writes) DeleteGameImpact(
 	ctx context.Context, gameID string,
 ) (application.DeleteGameImpact, error) {
-	impact, err := payloadservice.NewImpactQueries(
-		payloadpersistence.BindImpact(writes.transaction),
-	).Game(ctx, gameID)
+	impact, err := application.NewImpactQueries(BindImpact(writes.transaction)).Game(ctx, gameID)
 	if err != nil {
 		return application.DeleteGameImpact{}, fmt.Errorf("read game deletion impact: %w", err)
 	}
-	return application.DeleteGameImpact{
-		ImpactDigest:      impact.ImpactDigest,
-		RegisteredBytes:   impact.RegisteredBytes,
-		ExclusiveBytes:    impact.ExclusiveBytes,
-		SharedBytes:       impact.SharedBytes,
-		BlobCount:         impact.BlobCount,
-		SaveStateCount:    impact.SaveStateCount,
-		AssetCount:        impact.AssetCount,
-		ContentFileCount:  impact.ContentFileCount,
-		ActiveLaunchCount: impact.ActiveLaunchCount,
-		SourceKinds:       impact.SourceKinds,
-	}, nil
+	return impact, nil
 }
 
 func (writes writes) ScheduleGameDeletion(

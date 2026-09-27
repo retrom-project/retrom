@@ -33,8 +33,8 @@ func New(
 		Lifecycle: repository.NewLifecycle(database), Worker: repository.NewWorker(database),
 		GC: repository.NewGC(database), Garbage: repository.NewGarbage(database),
 		Effects: repository.NewReleaseEffects(database), Expiration: repository.NewExpiration(database),
-		Retirement: repository.NewRetirement(database), Impact: repository.NewImpactQueries(database),
-		Files: files, Waiter: files,
+		Retirement: repository.NewRetirement(database),
+		Files:      files, Waiter: files,
 	}, application.Options{
 		Now:    now,
 		Report: func(err error) { cleanup.Error("payload worker", err) },
@@ -82,15 +82,4 @@ func (service *Service) ScheduleGameDeletion(
 		return "", fmt.Errorf("schedule game payload release: %w", err)
 	}
 	return jobID, nil
-}
-
-// GameDeleteImpactTx reads the deletion impact from a caller-owned transaction.
-func (service *Service) GameDeleteImpactTx(
-	ctx context.Context, transaction dbapi.Tx, gameID string,
-) (application.GameImpact, error) {
-	impact, err := application.NewImpactQueries(repository.BindImpact(transaction)).Game(ctx, gameID)
-	if err != nil {
-		return application.GameImpact{}, fmt.Errorf("read game payload impact: %w", err)
-	}
-	return impact, nil
 }

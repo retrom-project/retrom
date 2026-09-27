@@ -14,7 +14,6 @@ type Dependencies struct {
 	Effects    EffectRepository
 	Expiration ExpirationRepository
 	Retirement RetirementRepository
-	Impact     ImpactReader
 	Files      GarbageFiles
 	Waiter     EffectWaiter
 }
@@ -32,7 +31,6 @@ type Service struct {
 	effects     *ReleaseEffects
 	expirations *Expirations
 	retirements *Retirements
-	impact      *ImpactQueries
 }
 
 func New(ctx context.Context, dependencies Dependencies, options Options) (*Service, error) {
@@ -52,7 +50,6 @@ func New(ctx context.Context, dependencies Dependencies, options Options) (*Serv
 	service.gc = gc
 	service.expirations = NewExpirations(dependencies.Expiration, gc, options.Now)
 	service.retirements = NewRetirements(dependencies.Retirement, options.Now)
-	service.impact = NewImpactQueries(dependencies.Impact)
 	service.worker = NewWorker(dependencies.Worker, service, WorkerOptions{
 		Now: options.Now, NewID: options.NewID, Maintain: service.ReconcileGC, Report: options.Report,
 	})

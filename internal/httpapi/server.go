@@ -127,6 +127,7 @@ type Server struct {
 	mediaAccess             *mediaaccess.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
+	gameImpact              *gamecontent.ImpactQueries
 	gameListService         *gamelistservice.Service
 	homeService             *homeservice.Service
 	gameAssets              *gameassetsservice.Service
@@ -270,6 +271,7 @@ func New(
 		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
+		gameImpact:         gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
 		gameListService:    composition.NewGameList(database),
 		homeService:        composition.NewHome(database, tagService),
 		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),

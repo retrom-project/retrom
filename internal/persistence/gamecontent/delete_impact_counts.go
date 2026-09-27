@@ -1,11 +1,11 @@
-package payloadrelease
+package gamecontent
 
 import (
 	"context"
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/gamecontent"
 )
 
 func (records impactRecords) counts(ctx context.Context, gameID string) (application.ImpactCounts, error) {
@@ -22,7 +22,7 @@ SELECT
 		&result.ActiveLaunches,
 	)
 	if err != nil {
-		return application.ImpactCounts{}, fmt.Errorf("payloadrelease/impact counts: %w", err)
+		return application.ImpactCounts{}, fmt.Errorf("gamecontent/delete impact counts: %w", err)
 	}
 	return result, nil
 }
