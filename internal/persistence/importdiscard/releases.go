@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/importdiscard"
 )
 
@@ -43,7 +42,7 @@ func (writes writes) UnusedUploads(ctx context.Context, key importdiscard.Key) (
 	if err != nil {
 		return nil, err
 	}
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, writes.transaction, `
+	ids, err := dbapi.QueryStrings(ctx, writes.transaction, `
 SELECT owner.upload_session_id FROM server_import_upload_owners owner
 JOIN `+table[:len(table)-1]+`_items item ON item.id=owner.source_item_id
 WHERE owner.kind=? AND item.import_id=?

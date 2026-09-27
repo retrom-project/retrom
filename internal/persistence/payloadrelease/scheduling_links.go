@@ -27,7 +27,7 @@ func (reader sourceReleaseReader) RetainedSources(
 		application.ScopeUploadConsumption, application.ScopeGame, application.ScopeBlob:
 		return nil, application.ErrScopeInvalid
 	}
-	return CollectScopeIDs(ctx, reader.executor, `SELECT id FROM `+table+`
+	return dbapi.QueryStrings(ctx, reader.executor, `SELECT id FROM `+table+`
 WHERE import_id=? AND payload_state='RETAINED' AND id>? ORDER BY id LIMIT ?`, batch.ImportID, after, limit)
 }
 

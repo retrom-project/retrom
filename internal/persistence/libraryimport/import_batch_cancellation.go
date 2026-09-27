@@ -140,7 +140,7 @@ SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',json_object('schemaVersion',1,'
 }
 
 func scheduleCancelledImportPayloads(ctx context.Context, tx dbapi.Tx, importID string, now int64) error {
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND state='CANCELLED' AND payload_state='RETAINED'
 ORDER BY id`, importID)
 	if err != nil {

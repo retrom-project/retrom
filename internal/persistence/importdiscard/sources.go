@@ -32,7 +32,7 @@ import_id=? AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_D
 	}); err != nil {
 		return fmt.Errorf("importdiscard/discard source items: %w", err)
 	}
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, id)
 	if err != nil {
 		return fmt.Errorf("importdiscard/list source releases: %w", err)

@@ -62,7 +62,7 @@ cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALES
 updated_at_ms=?,version=version+1 WHERE id=? AND payload_state='RETAINED'`, now, now, now, importID); err != nil {
 		return fmt.Errorf("close discarded batch: %w", err)
 	}
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`, importID)
 	if err != nil {
 		return fmt.Errorf("list discarded children: %w", err)

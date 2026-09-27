@@ -1,4 +1,4 @@
-package payloadrelease
+package references
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 func GameBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
-	return collectIDs(ctx, transaction, `
+	return dbapi.QueryStrings(ctx, transaction, `
 SELECT blob_id FROM game_assets WHERE game_id=?
 UNION ALL SELECT file.blob_id FROM game_files file
  WHERE file.game_id=?

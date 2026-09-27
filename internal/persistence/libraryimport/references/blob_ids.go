@@ -1,4 +1,4 @@
-package payloadrelease
+package references
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 func ImportItemBlobIDs(ctx context.Context, transaction dbapi.Executor, itemID string) ([]string, error) {
-	return collectIDs(ctx, transaction, `
+	return dbapi.QueryStrings(ctx, transaction, `
 SELECT blob_id FROM import_item_source_files WHERE import_item_id=?
 UNION ALL SELECT source_archive_blob_id FROM import_item_source_files WHERE import_item_id=?
 UNION ALL SELECT file.blob_id FROM import_item_source_snapshot_files file

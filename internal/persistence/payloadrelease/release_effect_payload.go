@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	gamerefs "retrom/internal/persistence/gamecontent/references"
+	importrefs "retrom/internal/persistence/libraryimport/references"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -14,12 +16,12 @@ func (records effectRecords) Payload(ctx context.Context, scope application.Scop
 	var err error
 	switch scope.Type {
 	case application.ScopeGame:
-		payload.BlobIDs, err = GameBlobIDs(ctx, records.executor, scope.ID)
+		payload.BlobIDs, err = gamerefs.GameBlobIDs(ctx, records.executor, scope.ID)
 		if err == nil {
 			payload.Consumptions, err = records.gameConsumptions(ctx, scope.ID)
 		}
 	case application.ScopeImportItem:
-		payload.BlobIDs, err = ImportItemBlobIDs(ctx, records.executor, scope.ID)
+		payload.BlobIDs, err = importrefs.ImportItemBlobIDs(ctx, records.executor, scope.ID)
 		if err == nil {
 			payload.Consumptions, err = records.itemConsumptions(ctx, scope.ID)
 		}
