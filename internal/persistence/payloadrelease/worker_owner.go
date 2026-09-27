@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	gamerelease "retrom/internal/persistence/gamecontent/gamerelease"
+	itemrelease "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
+	sourcerelease "retrom/internal/persistence/sourceimport/sourcerelease"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -21,24 +24,16 @@ func (records workerRecords) failOwner(ctx context.Context, change application.W
 	var result sql.Result
 	var err error
 	switch before.Scope.Type {
-	case application.ScopeImportItem:
-		result, err = recordstore.UpdateImportItems(ctx, records.executor, update)
-	case application.ScopeImportJob:
-		args := append(append([]any{}, update.Values...), update.Scope.Args...)
-		result, err = records.executor.ExecContext(ctx,
-			"UPDATE import_jobs SET "+update.Set+" WHERE "+update.Scope.Where, args...)
-	case application.ScopeSourceImportItem:
-		result, err = recordstore.UpdateSourceImportItems(ctx, records.executor, update)
-
 	case application.ScopeGame:
-		update.Set += ",version=version+1,updated_at_ms=?"
-		update.Values = append(update.Values, change.NowMS)
-		result, err = recordstore.UpdateGames(ctx, records.executor, update)
-	case application.ScopeUploadConsumption, application.ScopeBlob:
-		return application.ErrScopeInvalid
+		result, err = gamerelease.Fail(ctx, records.executor, update, change)
+	case application.ScopeImportItem, application.ScopeImportJob:
+		result, err = itemrelease.Fail(ctx, records.executor, update, before.Scope.Type)
+	case application.ScopeSourceImportItem:
+		result, err = sourcerelease.Fail(ctx, records.executor, update)
 	default:
 		return application.ErrScopeInvalid
 	}
+
 	if err := workerWrite(result, err); err != nil {
 		return fmt.Errorf("save failed payload owner: %w", err)
 	}

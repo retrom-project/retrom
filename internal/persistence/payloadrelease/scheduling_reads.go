@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	gamerelease "retrom/internal/persistence/gamecontent/gamerelease"
+	itemrelease "retrom/internal/persistence/libraryimport/itemrelease"
+	sourcerelease "retrom/internal/persistence/sourceimport/sourcerelease"
 
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
@@ -18,49 +21,20 @@ func BindScheduling(executor dbapi.Executor) application.SchedulingScope {
 }
 
 func (records scheduling) Owner(ctx context.Context, scope application.Scope) (application.Owner, error) {
-	query, err := ownerQuery(scope.Type)
-	if err != nil {
-		return application.Owner{}, err
-	}
-	owner := application.Owner{Scope: scope}
-	err = dbapi.QueryRowContext(ctx, records.executor, query, scope.ID).Scan(&owner.State, &owner.Version,
-		&owner.PayloadState, &owner.ReleaseJobID, &owner.PublicID, &owner.Retryable)
-	if err != nil {
-		return application.Owner{}, fmt.Errorf("read payload scheduling owner: %w", err)
-	}
-	return owner, nil
-}
-
-func ownerQuery(scope application.ScopeType) (string, error) {
-	switch scope {
-	case application.ScopeImportItem:
-		return `SELECT state,version,payload_state,COALESCE(payload_release_job_id,''),'',0
-FROM import_items WHERE id=?`, nil
-	case application.ScopeImportJob:
-		return `SELECT state,version,payload_state,COALESCE(payload_release_job_id,''),'',0
-FROM import_jobs WHERE id=?`, nil
+	switch scope.Type {
 	case application.ScopeGame:
-		return `SELECT status,version,payload_state,COALESCE(payload_release_job_id,''),'',0
-FROM games WHERE id=?`, nil
+		return gamerelease.Owner(ctx, records.executor, scope)
+	case application.ScopeImportItem, application.ScopeImportJob:
+		return itemrelease.Owner(ctx, records.executor, scope)
 	case application.ScopeSourceImportItem:
-		return `SELECT execution_state,version,payload_state,COALESCE(payload_release_job_id,''),
-COALESCE(library_import_item_id,''),retryable FROM source_import_items WHERE id=?`, nil
-
-	case application.ScopeUploadConsumption, application.ScopeBlob:
-		return "", application.ErrScopeInvalid
+		return sourcerelease.Owner(ctx, records.executor, scope)
 	default:
-		return "", application.ErrScopeInvalid
+		return application.Owner{}, application.ErrScopeInvalid
 	}
 }
 
 func (records scheduling) PendingChildren(ctx context.Context, id string) (int64, error) {
-	var count int64
-	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT count(*) FROM import_items WHERE import_job_id=?
-AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, id).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("read pending payload owners: %w", err)
-	}
-	return count, nil
+	return itemrelease.PendingChildren(ctx, records.executor, id)
 }
 
 func (records scheduling) Consumption(ctx context.Context, id string) (application.Consumption, error) {
