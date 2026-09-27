@@ -10,7 +10,7 @@ import (
 func CreateReviewDraftTags(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "review_draft_id,tag_id", ValidateReviewDraftTags)
+	return create(ctx, db, query, args, "review_draft_tags", "review_draft_id,tag_id", ValidateReviewDraftTags)
 }
 
 func ValidateReviewDraftTags(ctx context.Context, db dbapi.Executor, keys ...any) error {

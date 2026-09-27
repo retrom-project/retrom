@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 )
 
@@ -23,12 +25,18 @@ func ReceiveFile(ctx context.Context, executor dbapi.Executor, fileID string) er
 }
 
 func receive(ctx context.Context, executor dbapi.Executor, predicate, id string) error {
-	_, err := executor.ExecContext(ctx, `
+	_, err := recordstore.CreateReferences(
+		ctx,
+		executor,
+		"import_files",
+		`
 INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
 SELECT upload.id,upload.upload_session_id,upload.relative_path,upload.final_blob_id,blob.size_bytes,upload.updated_at_ms
 FROM upload_files upload JOIN blobs blob ON blob.id=upload.final_blob_id
 WHERE `+predicate+` AND upload.state='COMPLETE'
-ON CONFLICT(id) DO NOTHING`, id)
+ON CONFLICT(id) DO NOTHING`,
+		id,
+	)
 	if err != nil {
 		return fmt.Errorf("receive import files: %w", err)
 	}

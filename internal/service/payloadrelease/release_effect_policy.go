@@ -11,11 +11,11 @@ func validateEffectRoot(unit Execution, facts EffectOwner) error {
 		}
 		return nil
 	}
-	if !terminalEffectOwner(owner) || owner.ReleaseJobID != unit.Work.ID || owner.PublicID != "" {
+	if !terminalEffectOwner(owner) || owner.ReleaseJobID != unit.Work.ID {
 		return effectFailure("PAYLOAD_RELEASE_SCOPE_NOT_TERMINAL", nil)
 	}
-	retryGame := owner.Scope.Type == ScopeGame && owner.PayloadState == "FAILED"
-	if owner.Version != unit.Input.Inputs.ScopeVersion && owner.PayloadState != "RELEASED" && !retryGame {
+	if owner.Version != unit.Input.Inputs.ScopeVersion && owner.PayloadState != "RELEASED" &&
+		(owner.Scope.Type != ScopeSourceImportItem || owner.Version <= unit.Input.Inputs.ScopeVersion) {
 		return effectFailure("PAYLOAD_RELEASE_SCOPE_VERSION_MISMATCH", nil)
 	}
 	if !releasingEffectOwner(owner) {
@@ -33,7 +33,7 @@ func terminalEffectOwner(owner Owner) bool {
 	case ScopeImportJob:
 		return TerminalImportJob(owner.State)
 	case ScopeSourceImportItem:
-		return TerminalSourceItem(owner.State, owner.Retryable)
+		return releasableSource(owner)
 	case ScopeUploadConsumption, ScopeBlob:
 		return false
 	default:
@@ -45,7 +45,7 @@ func eligibleEffectUpload(file EffectUpload) bool {
 	terminal := file.SessionState == "COMPLETE" || file.SessionState == "FAILED" ||
 		file.SessionState == "CANCELLED" || file.SessionState == "EXPIRED"
 	return file.ID != "" && file.BlobID != "" && file.State == "COMPLETE" && terminal &&
-		file.ActiveConsumptions == 0 && file.DomainReferences == 0
+		file.ActiveConsumptions == 0
 }
 
 func effectReason(owner Owner) Reason {
@@ -76,38 +76,11 @@ func effectReason(owner Owner) Reason {
 }
 
 func releasingEffectOwner(owner Owner) bool {
-	return owner.PayloadState == "RELEASING" || owner.PayloadState == "FAILED" || owner.PayloadState == "RELEASED"
+	return owner.PayloadState == "RELEASING" || owner.PayloadState == "RELEASED"
 }
 
 func validEffectChild(parent, child EffectOwner) bool {
 	return child.Found && child.ParentID == parent.Owner.Scope.ID && terminalEffectOwner(
 		child.Owner,
-	) && releasingEffectOwner(
-		child.Owner,
-	) && child.Owner.ReleaseJobID != ""
-}
-
-func gameEffectSources(owner EffectOwner) []Scope {
-	links := make([]Scope, 0, 2)
-	for _, source := range []EffectSource{owner.MetadataSource, owner.ContentSource} {
-		link, found := gameEffectSource(source)
-		if found && (len(links) == 0 || links[0] != link) {
-			links = append(links, link)
-		}
-	}
-	return links
-}
-
-func gameEffectSource(source EffectSource) (Scope, bool) {
-	var scope ScopeType
-	switch source.Kind {
-	case "IMPORT_REVIEW":
-		scope = ScopeImportItem
-	case "IMPORT_RECEIVE":
-		scope = ScopeSourceImportItem
-
-	default:
-		return Scope{}, false
-	}
-	return Scope{Type: scope, ID: source.ID}, source.ID != ""
+	) && child.Owner.PayloadState == "RELEASED" && child.Owner.ReleaseJobID != ""
 }

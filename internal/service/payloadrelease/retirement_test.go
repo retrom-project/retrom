@@ -16,8 +16,12 @@ type retirementMemory struct {
 	completed                                                RetirementCompletion
 }
 
-func (memory *retirementMemory) WithRetirement(_ context.Context, run func(RetirementScope) error) error {
-	return run(RetirementScope{Read: memory, BIOS: memory, Launch: memory})
+func (memory *retirementMemory) WithBIOSRetirement(_ context.Context, run func(BIOSRetirementScope) error) error {
+	return run(BIOSRetirementScope{Read: memory, BIOS: memory})
+}
+
+func (memory *retirementMemory) WithLaunchRetirement(_ context.Context, run func(LaunchRetirementScope) error) error {
+	return run(LaunchRetirementScope{Read: memory, Launch: memory})
 }
 
 func (memory *retirementMemory) BIOS(context.Context, int) (BIOSRetirement, error) {
@@ -61,7 +65,7 @@ func TestRetirementsPreserveSharedBIOSAndWaitForBatchDrain(t *testing.T) {
 		if !shared {
 			memory.bios.Files = make([]RetirementFile, 200)
 		}
-		service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
+		service := NewRetirements(memory, memory, func() time.Time { return time.UnixMilli(10) })
 		worked, err := service.BIOSBatch(t.Context())
 		if err != nil || !worked || memory.removedBIOS == shared || memory.releasedBIOS != shared {
 			t.Fatalf("wrong BIOS retirement policy shared=%v removed=%v complete=%v err=%v",
@@ -82,7 +86,7 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 			if state == "ACTIVE" {
 				memory.launch.HardMS = 10
 			}
-			service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
+			service := NewRetirements(memory, memory, func() time.Time { return time.UnixMilli(10) })
 			count, err := service.LaunchBatch(t.Context())
 			if err != nil || count != 1 || !memory.removedLaunch || !memory.releasedLaunch {
 				t.Fatalf("launch retirement state=%s count=%d err=%v", state, count, err)
@@ -102,7 +106,7 @@ func TestRetirementRejectsLiveLaunchAndVersionOverflow(t *testing.T) {
 			Found: true, ID: "launch", State: "ACTIVE", Version: version,
 			DueMS: 10, Idle: WorkTime{Set: true, Value: 11}, HardMS: 20,
 		}}
-		service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
+		service := NewRetirements(memory, memory, func() time.Time { return time.UnixMilli(10) })
 		count, err := service.LaunchBatch(t.Context())
 		if !errors.Is(err, ErrRetirementSnapshotChanged) || count != 0 || memory.removedLaunch || memory.releasedLaunch {
 			t.Fatalf("live or overflowing launch retired: count=%d err=%v", count, err)

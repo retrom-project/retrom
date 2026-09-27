@@ -66,7 +66,7 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	if err := ensureParent(path); err != nil {
 		return nil, err
 	}
-	database, err := sqlite.Open(path, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1})
+	database, err := sqlite.Open(path, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1, Now: now})
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}

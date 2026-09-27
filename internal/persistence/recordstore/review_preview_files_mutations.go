@@ -49,7 +49,7 @@ SELECT CASE
 -- review_preview_files_immutable_delete
 WHEN (NOT EXISTS(
   SELECT 1 FROM review_preview_sessions preview JOIN import_items item ON item.id=preview.import_item_id
-  WHERE preview.id=previous.preview_session_id AND item.payload_state IN ('RELEASING','FAILED')
+  WHERE preview.id=previous.preview_session_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

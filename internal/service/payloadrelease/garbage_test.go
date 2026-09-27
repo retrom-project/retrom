@@ -39,7 +39,16 @@ func (fixture *garbageFixture) Cancel(context.Context, GarbageFacts) error {
 	return nil
 }
 
-func (fixture *garbageFixture) Delete(context.Context, string) error { fixture.files++; return nil }
+func (fixture *garbageFixture) Retire(context.Context, string, string) error {
+	fixture.files++
+	return nil
+}
+
+func (fixture *garbageFixture) Restore(context.Context, string, string) error {
+	fixture.files--
+	return nil
+}
+func (*garbageFixture) DeleteRetired(context.Context, string, string) error { return nil }
 func (fixture *garbageFixture) CheckInScope(context.Context, WorkerScope, Work) error {
 	fixture.checks++
 	if fixture.checks == 2 {

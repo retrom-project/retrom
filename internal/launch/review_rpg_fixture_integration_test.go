@@ -13,6 +13,7 @@ import (
 	dbapi "retrom/internal/database"
 
 	reviewpersistence "retrom/internal/persistence/libraryimport"
+	"retrom/internal/persistence/recordstore"
 	retromruntime "retrom/internal/runtime"
 	runtimecatalog "retrom/internal/runtime/catalog"
 	reviewservice "retrom/internal/service/libraryimport"
@@ -84,7 +85,7 @@ VALUES('rpg-upload','PROJECT','COMPLETE','DIRECTORY',2,20,?,?,?,?)`,
 		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
 		{"rpg-upload-b", "Map0001.lmu", "rpg-project-b"},
 	} {
-		mustRPGLaunchSQL(t, database, `
+		mustRPGReferenceSQL(t, database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
  final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,'rpg-upload',?,10,10,?,'COMPLETE',?,?)`, file.id, file.path, file.blob, now+int64(index), now+int64(index))
@@ -112,7 +113,7 @@ VALUES('rpg-snapshot',?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, fixture.it
 		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
 		{"rpg-upload-b", "Map0001.lmu", "rpg-project-b"},
 	} {
-		mustRPGLaunchSQL(t, database, `
+		mustRPGReferenceSQL(t, database, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
  blob_id,sort_order,created_at_ms)
 VALUES('rpg-snapshot','PROJECT_FILE',?,?,?, ?,?)`, file.logical, file.upload, file.blob, index, now)
@@ -129,7 +130,7 @@ VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,
  'rpg-snapshot',?,'READY','READY','{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}',?)`, fixture.itemID,
 		target.ProviderID, target.TargetID,
 		strings.Repeat("d", 64), strings.Repeat("e", 64), now)
-	mustRPGLaunchSQL(t, database, `
+	mustRPGReferenceSQL(t, database, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
  sort_order,created_at_ms)
 VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexBlobID, now)
@@ -173,5 +174,12 @@ func bindRPGFixtureValidation(t *testing.T, database dbapi.DB) {
 	valid, err := reviewservice.NewReviewValidation(reader).Current(t.Context(), "rpg-core-validation")
 	if err != nil || !valid {
 		t.Fatalf("RPG fixture current validation: %v/%v", valid, err)
+	}
+}
+
+func mustRPGReferenceSQL(t *testing.T, database dbapi.DB, table, query string, arguments ...any) {
+	t.Helper()
+	if _, err := recordstore.CreateReferences(t.Context(), database, table, query, arguments...); err != nil {
+		t.Fatal(err)
 	}
 }

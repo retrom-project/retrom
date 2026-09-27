@@ -12,7 +12,6 @@ type SourceBatch struct {
 
 type SourceReleaseReader interface {
 	RetainedSources(context.Context, SourceBatch, string, int) ([]string, error)
-	BoundSources(context.Context, string, Scope, int) ([]Scope, error)
 }
 
 type ReleaseScope struct {
@@ -33,35 +32,10 @@ func (service *Scheduler) Review(ctx context.Context, scope ReleaseScope, reques
 	if _, err := service.TerminalItem(ctx, scope.Scheduling, request.ItemID, request.Reason, request.NowMS); err != nil {
 		return err
 	}
-	if err := service.boundSources(ctx, scope, request.ItemID, request.NowMS); err != nil {
-		return err
-	}
 	if _, err := service.TerminalImport(ctx, scope.Scheduling, request.ImportID, request.NowMS); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (service *Scheduler) boundSources(ctx context.Context, scope ReleaseScope, itemID string, now int64) error {
-	var cursor Scope
-	for {
-		sources, err := scope.Links.BoundSources(ctx, itemID, cursor, 200)
-		if err != nil {
-			return fmt.Errorf("read bound source release owners: %w", err)
-		}
-		if len(sources) == 0 {
-			return nil
-		}
-		for _, source := range sources {
-			if source.Type < cursor.Type || source.Type == cursor.Type && source.ID <= cursor.ID {
-				return ErrScopeInvalid
-			}
-			if _, err := service.TerminalSource(ctx, scope.Scheduling, source, now); err != nil {
-				return err
-			}
-			cursor = source
-		}
-	}
 }
 
 func (service *Scheduler) TerminalSources(ctx context.Context, scope ReleaseScope, batch SourceBatch, now int64) error {

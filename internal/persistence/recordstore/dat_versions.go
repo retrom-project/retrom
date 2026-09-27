@@ -10,7 +10,7 @@ import (
 func CreateDatVersions(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateDatVersions)
+	return create(ctx, db, query, args, "dat_versions", "id", ValidateDatVersions)
 }
 
 func ValidateDatVersions(ctx context.Context, db dbapi.Executor, keys ...any) error {

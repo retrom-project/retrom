@@ -10,7 +10,7 @@ import (
 func CreateSaveStates(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateSaveStates)
+	return create(ctx, db, query, args, "save_states", "id", ValidateSaveStates)
 }
 
 func ValidateSaveStates(ctx context.Context, db dbapi.Executor, keys ...any) error {

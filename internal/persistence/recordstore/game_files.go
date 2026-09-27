@@ -10,7 +10,7 @@ import (
 func CreateGameFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "game_id,role,logical_name", ValidateGameFiles)
+	return create(ctx, db, query, args, "game_files", "game_id,role,logical_name", ValidateGameFiles)
 }
 
 func ValidateGameFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {

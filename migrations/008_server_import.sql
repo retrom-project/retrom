@@ -172,10 +172,9 @@ CREATE TABLE "source_import_items" (
   error_code TEXT,
   retryable INTEGER NOT NULL DEFAULT 0 CHECK(retryable IN (0,1)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED')),
   payload_release_job_id TEXT REFERENCES jobs(id),
   payload_released_at_ms INTEGER,
-  payload_last_error_code TEXT,
   library_import_job_id TEXT REFERENCES import_jobs(id),
   library_import_item_id TEXT UNIQUE REFERENCES import_items(id),
   published_game_id TEXT REFERENCES games(id),
@@ -196,9 +195,18 @@ CREATE TABLE "source_import_items" (
   CHECK((execution_state='PUBLISHED')=(published_game_id IS NOT NULL)),
   CHECK((execution_state='SKIPPED_EXISTING')=(existing_game_id IS NOT NULL)),
   CHECK(
-    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
-    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   )
 );
+
+-- Copied Arcade dependency material belongs to the importing Source item until handoff.
+CREATE TABLE source_import_item_companions (
+ item_id TEXT NOT NULL REFERENCES source_import_items(id),
+ candidate_item_id TEXT NOT NULL REFERENCES source_import_items(id),
+ blob_id TEXT NOT NULL REFERENCES blobs(id),
+ created_at_ms INTEGER NOT NULL,
+ PRIMARY KEY (item_id,candidate_item_id)
+);
+CREATE INDEX source_import_item_companions_blob ON source_import_item_companions(blob_id);

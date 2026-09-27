@@ -71,7 +71,7 @@ UPDATE blobs SET sha256=?,size_bytes=?,md5=?,sha1=?,crc32=? WHERE id=?
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?)
 `, uploadID, len(png), metadata.SHA256, fixture.now+60_000, fixture.now, fixture.now)
-	mustExecHTTPTest(t, server.database, `
+	mustCreateHTTPReferences(t, server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 `, uploadFileID, uploadID, len(png), len(png), newBlobID, fixture.now, fixture.now)

@@ -30,9 +30,10 @@ FROM source_imports plan WHERE id=?`, importID).Scan(&eligible)
 	if !eligible {
 		return application.ErrVersionConflict
 	}
+	if err := clearPlanPayload(ctx, tx, importID); err != nil {
+		return err
+	}
 	for _, query := range []string{
-		`DELETE FROM source_import_item_assets WHERE item_id IN(SELECT id FROM source_import_items WHERE import_id=?)`,
-		`DELETE FROM source_import_item_files WHERE item_id IN(SELECT id FROM source_import_items WHERE import_id=?)`,
 		`DELETE FROM source_import_items WHERE import_id=?`,
 		`DELETE FROM source_import_collections WHERE import_id=?`,
 		`DELETE FROM source_import_metadata_files WHERE import_id=?`,

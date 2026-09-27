@@ -10,7 +10,15 @@ import (
 func CreateLaunchExternalFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "launch_session_id,virtual_path", ValidateLaunchExternalFiles)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"launch_external_files",
+		"launch_session_id,virtual_path",
+		ValidateLaunchExternalFiles,
+	)
 }
 
 func ValidateLaunchExternalFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {

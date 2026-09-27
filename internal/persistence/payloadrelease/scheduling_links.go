@@ -19,9 +19,3 @@ func (reader sourceReleaseReader) RetainedSources(ctx context.Context, batch app
 ) ([]string, error) {
 	return wrapPair(sourcerelease.RetainedSources(ctx, reader.executor, batch, after, limit))
 }
-
-func (reader sourceReleaseReader) BoundSources(ctx context.Context, id string, after application.Scope,
-	limit int,
-) ([]application.Scope, error) {
-	return wrapPair(sourcerelease.BoundSourcePage(ctx, reader.executor, id, after, limit))
-}

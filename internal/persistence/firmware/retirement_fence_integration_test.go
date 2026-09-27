@@ -7,7 +7,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	retirement "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/persistence/blobrefs"
+	"retrom/internal/persistence/firmware/payloadbios"
+	"retrom/internal/persistence/launch/payloadlaunch"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -17,9 +19,9 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 	db, releases, now := retirementFixture(t)
 	t.Cleanup(releases.Close)
 	seedRetiringInstallation(t, db, "returning-installation", 0, now)
-	repo := retirement.NewRetirement(db)
+	repo := payloadbios.New(db)
 	var before application.BIOSRetirement
-	err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	err := repo.WithBIOSRetirement(t.Context(), func(scope application.BIOSRetirementScope) error {
 		var err error
 		before, err = scope.Read.BIOS(t.Context(), 200)
 		return err
@@ -31,7 +33,7 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 WHERE id='returning-installation'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	err = repo.WithBIOSRetirement(t.Context(), func(scope application.BIOSRetirementScope) error {
 		if err := scope.BIOS.FenceBIOS(t.Context(), before); err != nil {
 			return err
 		}
@@ -51,9 +53,9 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 			db, releases, now := retirementFixture(t)
 			t.Cleanup(releases.Close)
 			seedExpiringFirmwarePlay(t, db, now)
-			repo := retirement.NewRetirement(db)
+			repo := payloadlaunch.New(db)
 			var before application.LaunchRetirement
-			err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			err := repo.WithLaunchRetirement(t.Context(), func(scope application.LaunchRetirementScope) error {
 				var err error
 				before, err = scope.Read.Launch(t.Context(), now, 200)
 				return err
@@ -75,7 +77,7 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			err = repo.WithLaunchRetirement(t.Context(), func(scope application.LaunchRetirementScope) error {
 				if err := scope.Launch.FenceLaunch(t.Context(), before); err != nil {
 					return err
 				}
@@ -120,7 +122,11 @@ func TestRetirementRejectsZeroCompletionRows(t *testing.T) {
 			var hits atomic.Int64
 			service := faultRetirementService(t, db, now, prefix, fragment, nil, &hits)
 			err := service.ReconcileGC(t.Context())
-			if !errors.Is(err, application.ErrRetirementSnapshotChanged) || hits.Load() != 1 {
+			expected := application.ErrRetirementSnapshotChanged
+			if bios {
+				expected = blobrefs.ErrCount
+			}
+			if !errors.Is(err, expected) || hits.Load() != 1 {
 				t.Fatalf("zero row count accepted: hits=%d err=%v", hits.Load(), err)
 			}
 			assertBIOSReferenceCounts(t, db, 1, 1)

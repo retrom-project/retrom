@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -130,7 +132,7 @@ FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
 VALUES(?,'PARENT','review-parent.zip',?,0,0)
 `, arcadeValidationID, parentBlobID); err != nil {
@@ -217,7 +219,7 @@ WHERE game_id=? RETURNING id
 `, datVersionID, arcadeOverrideSnapshot, approved.GameID).Scan(&arcadeOverrideVariantID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "variant_files", `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 `, arcadeOverrideVariantID, parentBlobID); err != nil {

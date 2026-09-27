@@ -10,7 +10,7 @@ import (
 func CreateLaunchSessions(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateLaunchSessions)
+	return create(ctx, db, query, args, "launch_sessions", "id", ValidateLaunchSessions)
 }
 
 func ValidateLaunchSessions(ctx context.Context, db dbapi.Executor, keys ...any) error {

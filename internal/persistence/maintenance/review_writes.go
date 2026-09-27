@@ -7,13 +7,14 @@ import (
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/maintenance"
 )
 
 func (records reviewRecords) Complete(ctx context.Context, change application.RestoredReviewChange) error {
 	before := change.Before
 	if err := records.fence(ctx, before); err != nil {
-		return err
+		return fmt.Errorf("restore review state: %w", err)
 	}
 	for _, state := range change.Preparation {
 		if err := records.prepare(ctx, before, state, change.NowMS); err != nil {
@@ -22,27 +23,42 @@ func (records reviewRecords) Complete(ctx context.Context, change application.Re
 		before.State, before.Version, before.Retryable = state, before.Version+1, false
 	}
 	if err := records.fence(ctx, before); err != nil {
-		return err
+		return fmt.Errorf("restore review state: %w", err)
 	}
-	result, err := records.update(ctx, before.Kind, recordstore.Update{
-		Set: `execution_state='REVIEW_PENDING',library_import_job_id=?,library_import_item_id=?,
+	result, err := records.update(
+		ctx,
+		before.Kind,
+		recordstore.Update{
+			Set: `execution_state='REVIEW_PENDING',library_import_job_id=?,library_import_item_id=?,
 warnings_json=?,error_code=NULL,error_details_json=NULL,retryable=0,completed_at_ms=?,
 version=version+1,updated_at_ms=?`,
-		Values: []any{before.ReservedJobID, before.ReservedItemID, change.WarningsJSON, change.NowMS, change.NowMS},
-		Scope: recordstore.Scope{
-			Where: `id=? AND import_id=? AND version=? AND execution_state='VALIDATING'
+
+			Values: []any{before.ReservedJobID, before.ReservedItemID, change.WarningsJSON, change.NowMS, change.NowMS},
+
+			Scope: recordstore.Scope{
+				Where: `id=? AND import_id=? AND version=? AND execution_state='VALIDATING'
 AND metadata_json=? AND warnings_json=? AND library_import_job_id IS ? AND library_import_item_id IS ?
 AND EXISTS(SELECT 1 FROM import_items WHERE id=? AND import_job_id=?
 AND state='REVIEW_PENDING' AND version=? AND review_version=?)`,
-			Args: []any{
-				before.ItemID, before.ImportID, before.Version, before.MetadataJSON, before.WarningsJSON,
-				nullableReviewID(before.LibraryJobID), nullableReviewID(before.LibraryItemID),
-				before.ReservedItemID, before.ReservedJobID, before.OrdinaryVersion, before.OrdinaryReviewVersion,
+				Args: []any{
+					before.ItemID, before.ImportID, before.Version, before.MetadataJSON, before.WarningsJSON,
+					nullableReviewID(before.LibraryJobID), nullableReviewID(before.LibraryItemID),
+					before.ReservedItemID, before.ReservedJobID, before.OrdinaryVersion, before.OrdinaryReviewVersion,
+				},
 			},
 		},
-	})
+	)
 	if err := requireRestoredReview(result, err); err != nil {
-		return err
+		return fmt.Errorf("restore review state: %w", err)
+	}
+	if err := sourceimport.TransferReviewMedia(
+		ctx,
+		records.executor,
+		before.ItemID,
+		before.ReservedItemID,
+		change.NowMS,
+	); err != nil {
+		return fmt.Errorf("restore review state: %w", err)
 	}
 	return records.progress(ctx, before, change.NowMS)
 }
@@ -54,7 +70,7 @@ func (records reviewRecords) Verify(ctx context.Context, before application.Rest
 func (records reviewRecords) fence(ctx context.Context, before application.RestoredReview) error {
 	current, err := records.current(ctx, before.Kind, before.ItemID)
 	if err != nil {
-		return err
+		return fmt.Errorf("restore review state: %w", err)
 	}
 	if current != before {
 		return application.ErrInvalidBundle

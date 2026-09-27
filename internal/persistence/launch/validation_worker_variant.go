@@ -18,22 +18,28 @@ func (records validationWorkerRecords) Apply(ctx context.Context, plan applicati
 	if err != nil {
 		return err
 	}
-	result, err := recordstore.UpdateGameVariants(ctx, records.executor, recordstore.Update{
-		Set: `provider_id=?,target_id=?,dat_version_id=?,emulator_game_id=?,status=?,compatibility_code=?,
+	result, err := recordstore.UpdateGameVariants(
+		ctx,
+		records.executor,
+		recordstore.Update{
+			Set: `provider_id=?,target_id=?,dat_version_id=?,emulator_game_id=?,status=?,compatibility_code=?,
  dependency_snapshot_json=?,default_dos_entry=?,version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{Where: `id=? AND game_id=?`, Args: []any{inputs.GameVariantID, inputs.GameID}},
-		Values: []any{
-			inputs.ProviderID,
-			inputs.TargetID,
-			inputs.DATVersionID,
-			emulatorID,
-			outcome.Status,
-			outcome.Code,
-			outcome.DependencyJSON,
-			dos,
-			plan.NowMS,
+
+			Scope: recordstore.Scope{Where: `id=? AND game_id=?`, Args: []any{inputs.GameVariantID, inputs.GameID}},
+
+			Values: []any{
+				inputs.ProviderID,
+				inputs.TargetID,
+				inputs.DATVersionID,
+				emulatorID,
+				outcome.Status,
+				outcome.Code,
+				outcome.DependencyJSON,
+				dos,
+				plan.NowMS,
+			},
 		},
-	})
+	)
 	if err := validationAffected(result, err); err != nil {
 		return err
 	}
@@ -80,9 +86,12 @@ func (records validationWorkerRecords) replaceValidationBIOSFiles(
 	variantID string,
 	biosSnapshot corevalidation.Snapshot,
 ) error {
-	if _, err := records.executor.ExecContext(ctx, `
-DELETE FROM variant_files WHERE game_variant_id=? AND role='BIOS_BUNDLE'
-`, variantID); err != nil {
+	if _, err := recordstore.DeleteReferences(
+		ctx,
+		records.executor,
+		"variant_files",
+		recordstore.Scope{Where: "game_variant_id=? AND role='BIOS_BUNDLE'", Args: []any{variantID}},
+	); err != nil {
 		return fmt.Errorf("delete current validation BIOS files: %w", err)
 	}
 	for sortOrder, dependency := range biosSnapshot.BIOS {

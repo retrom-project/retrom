@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布建库基线包含 `001_identity.sql` 至 `016_blob_reference_counts.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，只包含 Blob owner 计数 trigger，不包含 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
+当前未发布建库基线包含 `001_identity.sql` 至 `016_blob_reference_counts.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
@@ -324,18 +324,18 @@ data/
 游戏内容替换由 `service/gamecontent` 决定运行终止、旧存档清理与备用 Variant 阻断；Repository 读取当前事实，按原 ID、版本、状态及精确文件键执行写入。引用每批最多读取 200 条，不能用不确定或零受影响行数表示成功。替换与发布、GC 排期、上传消费释放及 Job 完成处于同一事务；GC 和释放排期复用 payloadrelease Service，Repository 不回调旧业务包。
 
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；以事务维护的 `blobs.ref_count` 作为 GC 事实源。Launch 文件标识没有 Blob 外键，也不登记为 owner。
-- 每条持久 Blob 引用列登记在 Blob registry 中，由数据库触发器更新 `ref_count`。Game、ImportItem、SourceImportItem、Upload、BIOS 等所属模块负责解除自身引用；PayloadRelease Job 按 scope 调度这些模块，Blob GC 只依据计数和候选状态回收。BIOS 等全局耐久引用不受 Game/Import 清理影响。
-- 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 在调用者的终态事务内登记 Job、不可变输入与排队事件；各 owner 的持久化模块执行 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。
-- `PROTECTIVE` 边的 INSERT/UPDATE/DELETE trigger 在同一事务增减 Blob 计数；被保护 archive 的已物化 member 也计入有效计数。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能只采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括已排队但尚未完成 GC 的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
+- 每条持久 Blob 引用列登记在 Blob registry 中；它是 schema 覆盖门禁，不是运行时 owner 扫描器。领域写入通过 `recordstore/blobrefs` 读取精确修改范围的旧/新引用，同事务应用增减、归零排期和重新保护后的候选撤销，并检查计数溢出、负数及受影响行数。Game、ImportItem、SourceItem、Upload、BIOS 只解除自己的引用，GC 只读取计数和候选。
+- 释放调度在调用者的交接或终态事务中登记 Job、不可变输入、排队事件与 owner 的 `RELEASING`。Source 在完整交接后独立释放；ImportItem 在终态后独立释放；ImportJob 只检查子项已完成清理并释放批次消费，不递归执行子项清理。版本、状态、可重试标记、绑定与受影响行数不符时整体回滚。
+- `PROTECTIVE` 边的 INSERT/UPDATE/DELETE 显式写入在同一事务增减 Blob 计数；被保护 archive 的已物化 member 也计入有效计数。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能只采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括已排队但尚未完成 GC 的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
-- 游戏删除影响由 `service/gamecontent.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 及来源的 Blob 集合、共享保护引用和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
+- 游戏删除影响由 `service/gamecontent.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 自身的 Blob 集合及删除后失去保护的归档成员、共享保护引用（包括独立 Source/ImportItem）和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
 - Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在统一 source_import_item_files/source_import_item_assets 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
-- Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
+- Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除只解除 Game/运行时 payload；Source/ImportItem 使用各自的清理任务。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
 - GC 候选选择、恢复引用和手动重试策略由应用 `GCScheduler` 统一编排；Repository 批量读取同一事务中的 Blob 引用计数、候选及任务输入事实，取得写入权限后重验快照。任务、不可变输入、事件和候选原子保存，任何写入、受影响行数或提交失败都不能返回成功；手动补排队与重试的审计也在同一事务，提交后才唤醒 worker。
-- 引用计数归零后立即登记可执行的 BLOB_GC Job。执行前在同一事务重查计数，有新 owner 就撤销候选；数据库提交后删除物理文件，失败由 Job 重试。ADMIN 容量页可补齐候选并重试失败任务，写入 `STORAGE_CLEANUP_REQUESTED` AuditEvent；手动入口仍使用同一 worker、计数复核和物理删除重试。
-- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次核对引用计数并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败保留底层原因，由同一 Job 输入幂等重试。每次重试重新检查摘要的当前登记归属；同摘要已被另一个 Blob 登记时，旧任务保留其文件。现存 Blob 只有仍由当前 Job 的候选授权才能删除，已取消候选只能在再次失去引用后重新排队；新的候选身份不依赖毫秒时钟唯一性。目录记录与候选删除的受影响行数必须确认，失败时保留原记录与物理文件。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
+- 引用计数归零后立即登记可执行的 BLOB_GC Job。执行器持有 SQLite 写事务和任务权限时重验计数、候选及摘要，把物理 inode 移到该 Job 专属的同目录退休链接，并移除目录记录；事务失败恢复原链接，提交后只删除退休链接。新发布的同摘要文件不受旧任务及其重试影响。Blob 登记先取得同一数据库写入权限，并确认准备好的 CAS 文件仍存在且大小匹配；准备与登记之间若遭回收则失败重试，不提交缺失文件。ADMIN 手动清理复用同一流程。
+- 无业务根的 Upload archive 不受自己的索引保活；归档从正计数变为零时，递减每条已物化成员边（自身边除外），成员最终归零也在本事务排期。删除归档先清索引，再删 Blob；每次重试检查当前候选授权，不能删除已重新保护或同摘要新发布的文件。UploadFile 处于终态、最后一个 whole/file consumption 已释放后即可转 `PURGED`，同时清空接收 Blob，保留路径、大小与结果；耐久消费者必须已经独立持有引用，清理器不查询各业务表猜测消费完成。
 - Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
-- Provider 与审核 Preview 过期策略由 `service/payloadrelease.Expirations` 统一编排。Repository 读取有界事实并按原状态、版本、期限及 Blob 身份更新；Provider 同时重验不存在运行中的刮削引用。缓存删除、引用释放及 GC 排期共用事务，更新行数无法确认或任一步失败时全部回滚。Preview 保留原结束时刻，已撤销会话保持 `REVOKED`，只清空临时 checkpoint/restore 引用并撤销能力，内容来源仍由审核 owner 保护。
+- Provider、Preview、BIOS 和 Launch 各自提供领域事务 Repository，由 composition 注入维护服务。每批有界读取并重验原状态、版本、期限和 Blob 身份，引用变更与 GC 排期原子提交。Provider 仍被 RUNNING ScrapeRun 使用时保留；Preview 保留原结束时刻，撤销/过期后清空 checkpoint/restore；BIOS 替换撤销旧 Launch；Launch 本身不拥有 Blob（包括恢复存档）。
 
 ### 7.1 已登记 CAS 容量分析
 
@@ -365,9 +365,9 @@ data/
 
 批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game 与其他批次的共享 owner 继续参与引用计数；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 立即进入 GC 队列；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
 
-`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，Repository 在短事务中保存任务、事件、审计及必要的 owner 失败状态。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括手动 GC 重试入口。
+`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，`persistence/payloadworker` 只保存任务、输入、租约、事件与审计，不导入业务 owner Repository。composition 按固定 scope 注入 Game/Import/Source/Upload 领域处理器，领域存储拥有自己的事务。失败状态只写 Job，owner 保持 `RELEASING`，API 联表投影错误。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括手动 GC 重试入口。
 
-每个释放事务在开始及提交前校验最初的 execution、worker、输入快照、租约和期限；结果收口也比较相同身份与当前版本。被替换或过期的 worker 不得释放引用、改写新执行或追加终态证据。任务、事件或审计写入失败，包括受影响记录数无法确认，必须回滚本次事务；已经释放的 owner 不因后续恢复错误退回未释放状态。
+每个释放事务在开始及提交前校验最初的 execution、worker、输入快照、租约和期限；结果收口也比较相同身份与当前版本。被替换或过期的 worker 不得释放引用、改写新执行或追加终态证据。任务、事件或审计写入失败，包括受影响记录数无法确认，必须回滚本次事务；已经释放的 owner 不因后续恢复错误退回未释放状态。 每次变更每类引用最多处理 200 行并实际提交，再开始下一批；中途失权只回滚当前批，已提交批保留，后续执行从剩余引用继续，不能在一个写事务里循环所有分页。
 
 worker 启动幂等，队列与恢复维护独立运行；关闭会取消并等待活动执行、监测和维护退出。调用方较短的 deadline 或进程关闭不改变原 execution 期限，清理使用独立有界上下文，在仍持有权限时保留可恢复任务。
 
@@ -491,7 +491,7 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 停止外部 execution 前，恢复 Service 在同一事务完成已形成的普通待审核交接。统一来源关联必须指向唯一普通 Item，绑定不能属于其他来源。准备阶段复用冻结 metadata 与搜索字段，将来源置为 `REVIEW_PENDING` 并刷新聚合；已交接的人工草稿保持原样。分页、权限撤销、任务收口与恢复审计共用一次提交；任何失败整体回滚。恢复不打开外部来源、不重新创建 Game，不复用活动 worker 租约，也不保留格式专属预约规则。
 
-停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核记录继续保留引用；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反终态释放调度契约；处理任务时仍会按 owner 版本与关联关系重验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
+停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核 ImportItem 继续保留引用；完成交接的 Source 可独立释放；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反终态释放调度契约；处理任务时仍会按 owner 版本与关联关系重验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
 
 ## 12. 审核运行预览的存储边界
 

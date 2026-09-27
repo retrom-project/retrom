@@ -50,7 +50,7 @@ SELECT CASE
 WHEN (NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot JOIN import_items item ON
 item.id=snapshot.import_item_id
-  WHERE snapshot.id=previous.source_snapshot_id AND item.payload_state IN ('RELEASING','FAILED')
+  WHERE snapshot.id=previous.source_snapshot_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

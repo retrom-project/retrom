@@ -10,7 +10,15 @@ import (
 func CreateMetadataProviderCache(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "provider,request_digest", ValidateMetadataProviderCache)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"metadata_provider_cache",
+		"provider,request_digest",
+		ValidateMetadataProviderCache,
+	)
 }
 
 func ValidateMetadataProviderCache(ctx context.Context, db dbapi.Executor, keys ...any) error {

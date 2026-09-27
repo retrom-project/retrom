@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite" // Register SQLite for sql.Open in this adapter.
 
@@ -16,17 +17,25 @@ import (
 type Options struct {
 	MaxOpenConns int
 	MaxIdleConns int
+	Now          func() time.Time
 }
 
 type (
-	handle      struct{ raw *sql.DB }
-	transaction struct{ raw *sql.Tx }
+	handle struct {
+		raw *sql.DB
+		now func() time.Time
+	}
+	transaction struct {
+		raw *sql.Tx
+		now func() time.Time
+	}
 )
 
 type immediateTransaction struct {
 	connection *sql.Conn
 	ctx        context.Context
 	done       bool
+	now        func() time.Time
 }
 
 var errUnsupportedIsolation = errors.New("unsupported transaction isolation")
@@ -43,15 +52,25 @@ func Open(dsn string, options Options) (database.DB, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	configure(raw, options)
-	return &handle{raw: raw}, nil
+	return &handle{raw: raw, now: clock(options)}, nil
 }
 
 // OpenConnector supports driver-boundary fault injection without exposing a SQL pool.
 func OpenConnector(connector driver.Connector, options Options) database.DB {
 	raw := sql.OpenDB(connector)
 	configure(raw, options)
-	return &handle{raw: raw}
+	return &handle{raw: raw, now: clock(options)}
 }
+
+func clock(options Options) func() time.Time {
+	if options.Now != nil {
+		return options.Now
+	}
+	return time.Now
+}
+
+func (tx *transaction) NowMS() int64          { return tx.now().UnixMilli() }
+func (tx *immediateTransaction) NowMS() int64 { return tx.now().UnixMilli() }
 
 func configure(raw *sql.DB, options Options) {
 	if options.MaxOpenConns > 0 {
@@ -109,7 +128,7 @@ func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (dat
 	if err != nil {
 		return nil, fmt.Errorf("begin sqlite transaction: %w", err)
 	}
-	return &transaction{raw: raw}, nil
+	return &transaction{raw: raw, now: db.now}, nil
 }
 
 func (db *handle) BeginImmediate(ctx context.Context) (database.Tx, error) {
@@ -120,7 +139,7 @@ func (db *handle) BeginImmediate(ctx context.Context) (database.Tx, error) {
 	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return nil, errors.Join(fmt.Errorf("begin immediate sqlite transaction: %w", err), connection.Close())
 	}
-	return &immediateTransaction{connection: connection, ctx: ctx}, nil
+	return &immediateTransaction{connection: connection, ctx: ctx, now: db.now}, nil
 }
 
 func (tx *transaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {

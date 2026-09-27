@@ -10,7 +10,15 @@ import (
 func CreateReviewArcadeParentAttachments(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewArcadeParentAttachments)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"review_arcade_parent_attachments",
+		"id",
+		ValidateReviewArcadeParentAttachments,
+	)
 }
 
 func ValidateReviewArcadeParentAttachments(ctx context.Context, db dbapi.Executor, keys ...any) error {

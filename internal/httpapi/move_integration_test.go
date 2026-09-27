@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -573,13 +575,13 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 			break
 		}
 		if time.Now().After(deadline) {
-			var jobState, jobError, payloadError sql.NullString
+			var jobState, jobError sql.NullString
 			_ = dbapi.QueryRowContext(ctx, server.database, `
-SELECT job.state,job.error_code,game.payload_last_error_code
+SELECT job.state,job.error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
-WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
-			t.Fatalf("game payload state = %s, job=%s/%s, payloadError=%s",
-				payloadState, jobState.String, jobError.String, payloadError.String)
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError)
+			t.Fatalf("game payload state = %s, job=%s/%s",
+				payloadState, jobState.String, jobError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -687,13 +689,13 @@ func waitForPayloadState(t *testing.T, database dbapi.DB, gameID, expected strin
 			return
 		}
 		if time.Now().After(deadline) {
-			var jobState, jobError, payloadError sql.NullString
+			var jobState, jobError sql.NullString
 			_ = dbapi.QueryRowContext(context.Background(), database, `
-SELECT job.state,job.error_code,game.payload_last_error_code
+SELECT job.state,job.error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
-WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
-			t.Fatalf("game %s payload state = %s, job=%s/%s, payloadError=%s",
-				gameID, state, jobState.String, jobError.String, payloadError.String)
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError)
+			t.Fatalf("game %s payload state = %s, job=%s/%s",
+				gameID, state, jobState.String, jobError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -735,10 +737,11 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	statements := []struct {
-		query string
-		args  []any
+		query      string
+		args       []any
+		references string
 	}{
-		{`PRAGMA defer_foreign_keys=ON`, nil},
+		{`PRAGMA defer_foreign_keys=ON`, nil, ""},
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
@@ -747,21 +750,21 @@ INSERT INTO games(
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
  'Move fixture','M','','','','',NULL,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,
  'PUBLISHED','move fixture',1,?,?)
-`, []any{gameID, strings.Repeat("1", 64), now, now}},
+`, []any{gameID, strings.Repeat("1", 64), now, now}, ""},
 		{`
 INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order)
 VALUES(?, 'CONTENT', 'move.gbc', ?, 0)
-`, []any{gameID, blobID}},
+`, []any{gameID, blobID}, "game_files"},
 		{`
 INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
  status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
 VALUES(?,?,'gambatte',?,?,NULL,7001,'READY','READY',?,1,?,?)
 `, []any{
 			variantID, gameID, target.ProviderID, target.TargetID, dependencySnapshot, now, now,
-		}},
+		}, ""},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+		if _, err := testsupport.ExecuteSeed(ctx, transaction, statement.references, statement.query, statement.args...); err != nil {
 			t.Fatalf("seed movable game: %v", err)
 		}
 	}
@@ -786,8 +789,9 @@ func cloneMovableGame(
 		t.Fatal(err)
 	}
 	statements := []struct {
-		query string
-		args  []any
+		query      string
+		args       []any
+		references string
 	}{
 		{`
 INSERT INTO games(
@@ -799,14 +803,14 @@ SELECT ?,platform_instance_id,title || ?,title_initial,description,developer,pub
  source_manifest_json,source_manifest_digest,status,search_text || ?,1,created_at_ms,updated_at_ms
 FROM games
 WHERE id=?
-`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}},
+`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}, ""},
 		{`
 INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order,
 source_archive_blob_id, source_archive_entry_ordinal)
 SELECT ?, role, logical_name, blob_id, sort_order, source_archive_blob_id, source_archive_entry_ordinal
 FROM game_files
 WHERE game_id=?
-`, []any{id(gameSuffix), sourceGameID}},
+`, []any{id(gameSuffix), sourceGameID}, "game_files"},
 		{`
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
@@ -815,10 +819,10 @@ SELECT ?,?,core_id,provider_id,target_id,dat_version_id,emulator_game_id + ?,sta
  compatibility_code,dependency_snapshot_json,default_dos_entry,1,created_at_ms,updated_at_ms
 FROM game_variants
 WHERE game_id=? AND core_id='gambatte'
-`, []any{id(variantSuffix), id(gameSuffix), mustSuffixInt(t, gameSuffix), sourceGameID}},
+`, []any{id(variantSuffix), id(gameSuffix), mustSuffixInt(t, gameSuffix), sourceGameID}, ""},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+		if _, err := testsupport.ExecuteSeed(ctx, transaction, statement.references, statement.query, statement.args...); err != nil {
 			t.Fatalf("clone movable game: %v", err)
 		}
 	}
@@ -853,15 +857,14 @@ LIMIT 1
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(context.Background(), `
+	if _, err := recordstore.CreateReferences(context.Background(), database, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,dos_entry_path,
  payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  source_launch_session_id,disc_index)
 VALUES(?,?,?,?,?,?,?,?,NULL,?,0,1,?,?,?,NULL)
-`, saveID, profileID, gameID, checkpointFormat, dosEntryPath,
-		payloadBlobID, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
+`, saveID, profileID, gameID, checkpointFormat, dosEntryPath, payloadBlobID, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
 }

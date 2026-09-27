@@ -81,7 +81,7 @@ ORDER BY launch.created_at_ms DESC LIMIT 1
 `, savedGameID).Scan(&launchID)
 	testassert.False(t, err != nil, err)
 	payloadDigest := sha256.Sum256(statePayload)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms,

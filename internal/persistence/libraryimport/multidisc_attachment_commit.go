@@ -75,14 +75,21 @@ func (scope multiDiscAttachmentCommitScope) CommitAccepted(
 	if write.Validation.Status == "READY" {
 		selectedValidation = write.ValidationID
 	}
-	result, err := recordstore.UpdateReviewItems(ctx, scope.transaction, recordstore.Update{
-		Set: `effective_source_snapshot_id=?,selected_validation_id=?,review_version=review_version+1,review_updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND effective_source_snapshot_id=?`,
-			Args:  []any{write.Input.ReviewDraftID, write.Input.BaseSourceSnapshotID},
+	result, err := recordstore.UpdateReviewItems(
+		ctx,
+		scope.transaction,
+		recordstore.Update{
+			Set: `effective_source_snapshot_id=?,selected_validation_id=?,
+review_version=review_version+1,review_updated_at_ms=?`,
+
+			Scope: recordstore.Scope{
+				Where: `id=? AND effective_source_snapshot_id=?`,
+				Args:  []any{write.Input.ReviewDraftID, write.Input.BaseSourceSnapshotID},
+			},
+
+			Values: []any{write.SourceSnapshotID, selectedValidation, write.NowMS},
 		},
-		Values: []any{write.SourceSnapshotID, selectedValidation, write.NowMS},
-	})
+	)
 	if err := requireMultiDiscChange(result, err, "advance review source"); err != nil {
 		return err
 	}
@@ -94,26 +101,46 @@ func (scope multiDiscAttachmentCommitScope) CommitAccepted(
 		"attachedFileCount": len(write.BaseFiles), "validationStatus": write.Validation.Status,
 		"durationMs": multiDiscAttachmentDurationMS(write.ExecutionStartedAtMS, write.NowMS),
 	})
-	result, err = recordstore.UpdateReviewMultidiscAttachments(ctx, scope.transaction, recordstore.Update{
-		Set: `state='ACCEPTED',result_source_snapshot_id=?,result_validation_id=?,diagnostics_json=?,
+	result, err = recordstore.UpdateReviewMultidiscAttachments(
+		ctx,
+		scope.transaction,
+		recordstore.Update{
+			Set: `state='ACCEPTED',result_source_snapshot_id=?,result_validation_id=?,diagnostics_json=?,
 error_code=NULL,finished_at_ms=?,version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Input.AttachmentID}},
-		Values: []any{write.SourceSnapshotID, write.ValidationID, string(diagnostics), write.NowMS, write.NowMS},
-	})
+
+			Scope: recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Input.AttachmentID}},
+
+			Values: []any{write.SourceSnapshotID, write.ValidationID, string(diagnostics), write.NowMS, write.NowMS},
+		},
+	)
 	if err := requireMultiDiscChange(result, err, "accept attachment"); err != nil {
 		return err
 	}
-	if _, err := recordstore.CreateUploadConsumptions(ctx, scope.transaction, `
+	if _, err := recordstore.CreateUploadConsumptions(
+		ctx,
+		scope.transaction,
+		`
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,NULL,'REVIEW_MULTI_DISC',?,?)
-`, write.ConsumptionID, write.Input.UploadSessionID, write.Input.AttachmentID, write.NowMS); err != nil {
+`,
+		write.ConsumptionID,
+		write.Input.UploadSessionID,
+		write.Input.AttachmentID,
+		write.NowMS,
+	); err != nil {
 		return fmt.Errorf("consume multi-disc upload: %w", err)
 	}
-	result, err = recordstore.UpdateImportItems(ctx, scope.transaction, recordstore.Update{
-		Set:    `version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND state='REVIEW_PENDING'`, Args: []any{write.Input.ImportItemID}},
-		Values: []any{write.NowMS},
-	})
+	result, err = recordstore.UpdateImportItems(
+		ctx,
+		scope.transaction,
+		recordstore.Update{
+			Set: `version=version+1,updated_at_ms=?`,
+
+			Scope: recordstore.Scope{Where: `id=? AND state='REVIEW_PENDING'`, Args: []any{write.Input.ImportItemID}},
+
+			Values: []any{write.NowMS},
+		},
+	)
 	if err := requireMultiDiscChange(result, err, "advance import item"); err != nil {
 		return err
 	}
@@ -215,23 +242,47 @@ VALUES(?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
 		return fmt.Errorf("insert multi-disc source snapshot: %w", err)
 	}
 	for _, file := range write.BaseFiles {
-		if _, err := scope.transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateReferences(
+			ctx,
+			scope.transaction,
+			"import_item_source_snapshot_files",
+			`
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,
 upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,?,?,?,?,NULL,NULL,?,?)
-`, write.SourceSnapshotID, file.Role, file.LogicalName, nullableStringValue(file.UploadFileID),
-			file.BlobID, file.SortOrder, write.NowMS); err != nil {
+`,
+			write.SourceSnapshotID,
+			file.Role,
+			file.LogicalName,
+			nullableStringValue(file.UploadFileID),
+			file.BlobID,
+			file.SortOrder,
+			write.NowMS,
+		); err != nil {
 			return fmt.Errorf("insert multi-disc source file: %w", err)
 		}
 	}
 	for _, entry := range write.ResultEntries {
-		if _, err := recordstore.CreateImportItemMultidiscEntries(ctx, scope.transaction, `
+		if _, err := recordstore.CreateImportItemMultidiscEntries(
+			ctx,
+			scope.transaction,
+			`
 INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,
 normalized_reference,canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms)
 VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
-`, write.SourceSnapshotID, entry.Ordinal, entry.SourceReference, entry.NormalizedReference,
-			entry.CanonicalName, nullableStringValue(entry.File.UploadFileID), nullableStringValue(entry.File.BlobID),
-			entry.File.LogicalName, write.NowMS); err != nil {
+`,
+			write.SourceSnapshotID,
+			entry.Ordinal,
+			entry.SourceReference,
+			entry.NormalizedReference,
+
+			entry.CanonicalName,
+			nullableStringValue(entry.File.UploadFileID),
+			nullableStringValue(entry.File.BlobID),
+
+			entry.File.LogicalName,
+			write.NowMS,
+		); err != nil {
 			return fmt.Errorf("insert multi-disc entry: %w", err)
 		}
 	}
@@ -275,7 +326,7 @@ VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: canonicalBlobID, SortOrder: 0,
 	})
 	for _, file := range validationFiles {
-		if _, err := scope.transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateReferences(ctx, scope.transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
 sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
 `, write.ValidationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, write.NowMS); err != nil {
@@ -324,20 +375,43 @@ func (scope multiDiscAttachmentCommitScope) recordAcceptedJobEvents(
 		"schemaVersion": 1, "state": "ACCEPTED", "validationStatus": write.Validation.Status,
 		"durationMs": multiDiscAttachmentDurationMS(write.ExecutionStartedAtMS, write.NowMS),
 	})
-	if _, err := scope.transaction.ExecContext(ctx, `
+	if _, err := scope.transaction.ExecContext(
+		ctx,
+		`
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES
 (?,'IMPORT_ITEM',?,'PLAYLIST_PARSED',?,?),
 (?,'IMPORT_ITEM',?,'DISC_SET_MATCHED',?,?),
 (?,'IMPORT_ITEM',?,'SOURCE_SNAPSHOT_CREATED',?,?),
 (?,'IMPORT_ITEM',?,'CORE_VALIDATION_COMPLETED',?,?),
 (?,'IMPORT_ITEM',?,'SUCCEEDED',?,?)
-`, write.JobID, write.Input.ImportItemID, string(parserData), write.NowMS,
-		write.JobID, write.Input.ImportItemID, string(parserData), write.NowMS,
-		write.JobID, write.Input.ImportItemID,
-		fmt.Sprintf(`{"sourceSnapshotId":%q}`, write.SourceSnapshotID), write.NowMS,
-		write.JobID, write.Input.ImportItemID,
-		fmt.Sprintf(`{"validationId":%q,"status":%q}`, write.ValidationID, write.Validation.Status), write.NowMS,
-		write.JobID, write.Input.ImportItemID, string(terminalData), write.NowMS); err != nil {
+`,
+		write.JobID,
+		write.Input.ImportItemID,
+		string(parserData),
+		write.NowMS,
+
+		write.JobID,
+		write.Input.ImportItemID,
+		string(parserData),
+		write.NowMS,
+
+		write.JobID,
+		write.Input.ImportItemID,
+
+		fmt.Sprintf(`{"sourceSnapshotId":%q}`, write.SourceSnapshotID),
+		write.NowMS,
+
+		write.JobID,
+		write.Input.ImportItemID,
+
+		fmt.Sprintf(`{"validationId":%q,"status":%q}`, write.ValidationID, write.Validation.Status),
+		write.NowMS,
+
+		write.JobID,
+		write.Input.ImportItemID,
+		string(terminalData),
+		write.NowMS,
+	); err != nil {
 		return fmt.Errorf("record multi-disc job events: %w", err)
 	}
 	return nil

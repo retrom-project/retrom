@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -87,12 +89,11 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 		t.Fatal(err)
 	}
 	installationID := uuid.NewString()
-	if _, err := server.database.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, server.database, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, installationID, requirementID, blobID, "saturn_bios.bin", metadata.Size, metadata.MD5, metadata.SHA1,
-		metadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID, requirementID, blobID, "saturn_bios.bin", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -160,7 +161,7 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	if _, err := transaction.ExecContext(t.Context(), `
+	if _, err := recordstore.CreateReferences(t.Context(), transaction, "variant_files", `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
 `, variantID, blobID); err != nil {

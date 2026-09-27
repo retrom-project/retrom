@@ -10,7 +10,7 @@ import (
 func CreateSourceImports(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateSourceImports)
+	return create(ctx, db, query, args, "source_imports", "id", ValidateSourceImports)
 }
 
 func ValidateSourceImports(ctx context.Context, db dbapi.Executor, keys ...any) error {

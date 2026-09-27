@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/blobstore"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
@@ -21,21 +23,31 @@ func (records fileRecords) Target(ctx context.Context, key service.FileKey) (ser
 	result := service.PartTarget{FileKey: key}
 	var code sql.NullString
 	err := dbapi.QueryRowContext(
-		ctx, records.executor,
+
+		ctx,
+		records.executor,
 
 		`
 SELECT file.declared_size_bytes,file.state,session.state,session.version,session.expires_at_ms,file.last_error_code
 FROM upload_files file JOIN upload_sessions session ON session.id=file.upload_session_id
 WHERE file.id=? AND session.id=?
 `,
+
 		key.FileID,
+
 		key.UploadID,
 	).Scan(
+
 		&result.DeclaredSize,
+
 		&result.FileState,
+
 		&result.SessionState,
+
 		&result.SessionVersion,
+
 		&result.ExpiresAtMS,
+
 		&code,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -49,15 +61,28 @@ WHERE file.id=? AND session.id=?
 }
 
 func (records fileRecords) AddReceived(ctx context.Context, input service.FileProgress) error {
-	return requireChange(records.executor.ExecContext(ctx, `
+	return requireChange(
+		records.executor.ExecContext(
+			ctx,
+			`
 UPDATE upload_files SET received_size_bytes=received_size_bytes+?,state='PARTIAL',updated_at_ms=? WHERE id=?
-`, input.Bytes, input.AtMS, input.FileID))
+`,
+			input.Bytes,
+			input.AtMS,
+			input.FileID,
+		),
+	)
 }
 
 func (records fileRecords) MarkFinalizing(ctx context.Context, id string, now int64) error {
-	if _, err := records.executor.ExecContext(ctx, `
+	if _, err := records.executor.ExecContext(
+		ctx,
+		`
 UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_id=? AND state!='COMPLETE'
-`, now, id); err != nil {
+`,
+		now,
+		id,
+	); err != nil {
 		return fmt.Errorf("uploads/mark files finalizing: %w", err)
 	}
 	return nil
@@ -65,24 +90,34 @@ UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_
 
 func (records fileRecords) Publish(ctx context.Context, input service.FilePublication) error {
 	err := requireChange(
-		records.executor.ExecContext(
+
+		recordstore.UpdateReferences(
 			ctx,
-			`
-UPDATE upload_files SET final_blob_id=?,state='COMPLETE',last_error_code=NULL,updated_at_ms=?
-WHERE id=? AND upload_session_id=? AND state='FINALIZING'
+			records.executor,
+			"upload_files",
+			recordstore.Update{
+				Set:    "final_blob_id=?,state='COMPLETE',last_error_code=NULL,updated_at_ms=?",
+				Values: []any{input.BlobID, input.AtMS},
+				Scope: recordstore.Scope{
+					Where: `id=? AND upload_session_id=? AND state='FINALIZING'
  AND EXISTS(SELECT 1 FROM upload_sessions session JOIN jobs job ON job.id=session.finalize_job_id
- WHERE session.id=upload_files.upload_session_id AND session.state='FINALIZING' AND session.finalization_no=?
+ WHERE session.id=upload_files.upload_session_id AND session.state='FINALIZING' AND
+session.finalization_no=?
  AND job.id=? AND job.execution_no=? AND job.state='RUNNING' AND job.worker_id=?
- AND job.attempt_count=? AND job.leased_until_ms>? AND job.execution_deadline_at_ms>?)
-`,
-			input.BlobID,
-			input.AtMS,
-			input.FileID,
-			input.Run.UploadID,
-			input.Run.FinalizationNo,
-			input.Run.JobID,
-			input.Run.ExecutionNo,
-			input.Run.WorkerID, input.Run.Attempt, input.AtMS, input.AtMS,
+ AND job.attempt_count=? AND job.leased_until_ms>? AND job.execution_deadline_at_ms>?)`,
+					Args: []any{
+						input.FileID,
+						input.Run.UploadID,
+						input.Run.FinalizationNo,
+						input.Run.JobID,
+						input.Run.ExecutionNo,
+						input.Run.WorkerID,
+						input.Run.Attempt,
+						input.AtMS,
+						input.AtMS,
+					},
+				},
+			},
 		),
 	)
 	if err != nil {

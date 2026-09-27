@@ -473,7 +473,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
 
-来源 Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用统一 SOURCE_IMPORT_ITEM scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。来源 已绑定的 `SKIPPED_EXISTING` 只有在普通 Item 已是 `DISCARDED` 且保存了对应既有 Game 的识别匹配证据时，才允许共用普通 Item 的释放流程；全部重复匹配与永久关联保留。
+来源 Item 完成普通审核交接，或进入发布、审核丢弃、跳过、阻断、取消、不可重试错误后，仅长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。每个 SourceItem 都使用自己的 SOURCE_IMPORT_ITEM release Job。交接事务先为 ImportItem 建立完整内容及 `import_item_assets` 的 COVER/VIDEO 引用，再登记 Source 释放；审核等待期间 Source payload 可以释放，普通 `REVIEW_PENDING` ImportItem 继续持有待审核数据。可重试且尚未交接的来源错误保留 Source payload。文件与来源 COVER/VIDEO 转为 `PAYLOAD_RELEASED` 后，来源管理页显示清理结论；审核页仍使用 ImportItem 所有的媒体 URL。`SKIPPED_EXISTING` 保留全部识别匹配与永久关联，Source 与普通终态 Item 各自释放。
 
 
 

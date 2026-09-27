@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
@@ -144,12 +146,11 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 		t.Fatal(err)
 	}
 	installationID := "01990000-0000-7000-8000-" + requirementID[len(requirementID)-12:]
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, installationID, requirementID, biosBlobID, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256,
-		requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID, requirementID, biosBlobID, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs).WithMultiDiscImportEnabled(true)

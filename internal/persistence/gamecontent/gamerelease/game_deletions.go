@@ -8,7 +8,8 @@ import (
 func DeleteStatements() []releaseops.DeletionBatch {
 	return []releaseops.DeletionBatch{
 		{Table: "save_states", Remove: recordstore.DeleteSaveStates, Where: `
-rowid IN (SELECT rowid FROM save_states WHERE game_id=? ORDER BY rowid LIMIT 200)`},
+rowid IN (SELECT rowid FROM save_states WHERE game_id=? AND NOT EXISTS(
+SELECT 1 FROM launch_sessions WHERE save_state_id=save_states.id) ORDER BY rowid LIMIT 200)`},
 		{Table: "launch_external_files", Remove: recordstore.DeleteLaunchExternalFiles, Where: `rowid IN (
  SELECT file.rowid FROM launch_external_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id

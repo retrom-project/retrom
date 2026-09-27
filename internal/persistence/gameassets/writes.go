@@ -70,9 +70,12 @@ SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER B
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
 	}
-	if _, err := scope.executor.ExecContext(ctx, `
-DELETE FROM game_assets WHERE game_id=? AND kind=? AND ordinal=?
-`, gameID, kind, ordinal); err != nil {
+	if _, err := recordstore.DeleteReferences(
+		ctx,
+		scope.executor,
+		"game_assets",
+		recordstore.Scope{Where: "game_id=? AND kind=? AND ordinal=?", Args: []any{gameID, kind, ordinal}},
+	); err != nil {
 		return nil, fmt.Errorf("delete replaced game asset: %w", err)
 	}
 	return blobIDs, nil

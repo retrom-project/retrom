@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/testassert"
 )
@@ -13,7 +15,7 @@ import (
 func seedBIOSResumeSave(t *testing.T, database dbapi.DB, gameID, launchID, blobID, digest string, size int64) string {
 	t.Helper()
 	id := newUUID()
-	_, err := database.ExecContext(t.Context(), `INSERT INTO save_states(
+	_, err := recordstore.CreateReferences(t.Context(), database, "save_states", `INSERT INTO save_states(
 id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
 source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,'BIOS resume',0,1,?,?)`, id, gameID, blobID, digest, size, launchID, time.Now().UnixMilli(), time.Now().UnixMilli())

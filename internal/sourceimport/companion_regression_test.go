@@ -103,3 +103,23 @@ func TestArcadeCompanionClosureHandlesCycleAndDeepRelations(t *testing.T) {
 		t.Fatalf("deep cyclic closure=%#v err=%v", result, err)
 	}
 }
+
+func TestCopiedCompanionHasIdempotentSourceOwnership(t *testing.T) {
+	t.Parallel()
+	service, unit, root, item := arcadeCompanionFixture(t)
+	for range 2 {
+		files, err := service.importExecutor(root).CompanionFiles(t.Context(), unit, item)
+		if err != nil || len(files) != 1 {
+			t.Fatalf("files=%v err=%v", files, err)
+		}
+		var count, refs int
+		if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT
+   (SELECT count(*) FROM source_import_item_companions WHERE item_id='primary'),
+   ref_count FROM blobs WHERE id=?`, files[0].BlobID).Scan(&count, &refs); err != nil {
+			t.Fatal(err)
+		}
+		if count != 1 || refs != 1 {
+			t.Fatalf("companion owner=%d refs=%d", count, refs)
+		}
+	}
+}

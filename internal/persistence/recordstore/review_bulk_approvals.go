@@ -10,7 +10,7 @@ import (
 func CreateReviewBulkApprovals(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewBulkApprovals)
+	return create(ctx, db, query, args, "review_bulk_approvals", "id", ValidateReviewBulkApprovals)
 }
 
 func ValidateReviewBulkApprovals(ctx context.Context, db dbapi.Executor, keys ...any) error {

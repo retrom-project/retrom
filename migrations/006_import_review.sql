@@ -40,10 +40,9 @@ CREATE TABLE import_items (
   search_text TEXT NOT NULL,
   failed_stage TEXT CHECK(failed_stage IS NULL OR failed_stage IN ('HASHING','IDENTIFYING','SCRAPING')),
   last_error_code TEXT,
-  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED')),
   payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
   payload_released_at_ms INTEGER,
-  payload_last_error_code TEXT,
   version INTEGER NOT NULL DEFAULT 1,
   target_platform_instance_id TEXT REFERENCES platform_instances(id),
   selected_validation_id TEXT REFERENCES import_item_core_validations(id),
@@ -66,12 +65,23 @@ CREATE TABLE import_items (
   CHECK((review_version=0 AND review_created_at_ms IS NULL AND review_updated_at_ms IS NULL)
     OR (review_version>0 AND review_created_at_ms IS NOT NULL AND review_updated_at_ms IS NOT NULL)),
   CHECK(
-    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
-    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   )
 );
+
+CREATE TABLE import_item_assets (
+  import_item_id TEXT NOT NULL REFERENCES import_items(id),
+  kind TEXT NOT NULL CHECK(kind IN ('COVER','VIDEO')),
+  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  media_type TEXT NOT NULL CHECK(length(media_type)>0),
+  width_px INTEGER CHECK(width_px>0),
+  height_px INTEGER CHECK(height_px>0),
+  created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(import_item_id,kind)
+);
+CREATE INDEX import_item_assets_blob ON import_item_assets(blob_id);
 
 CREATE TABLE "import_item_source_files" (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
@@ -335,7 +345,7 @@ CREATE TABLE scrape_candidate_hits (
 
 CREATE TABLE scrape_candidate_assets (
   id TEXT PRIMARY KEY,
-  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id) ON DELETE CASCADE,
+  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id),
   provider_response_id TEXT NOT NULL REFERENCES metadata_provider_responses(id),
   provider_asset_id TEXT NOT NULL,
   kind_hint TEXT NOT NULL CHECK(kind_hint IN ('COVER','BACKGROUND','SCREENSHOT','UNKNOWN')),
@@ -362,7 +372,7 @@ CREATE TABLE scrape_candidate_assets (
 
 CREATE TABLE content_hash_evidence (
   id TEXT PRIMARY KEY,
-  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id) ON DELETE CASCADE,
+  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id),
   profile TEXT NOT NULL CHECK(
     length(profile) BETWEEN 2 AND 64 AND profile=upper(profile)
     AND profile NOT GLOB '*[^A-Z0-9_]*'
@@ -432,10 +442,9 @@ CREATE TABLE "import_jobs" (
   ignored_file_count INTEGER NOT NULL DEFAULT 0,
   rejected_file_count INTEGER NOT NULL DEFAULT 0,
   last_error_code TEXT,
-  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED')),
   payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
   payload_released_at_ms INTEGER,
-  payload_last_error_code TEXT,
   cancel_requested_at_ms INTEGER,
   cancel_reason TEXT,
   version INTEGER NOT NULL DEFAULT 1,
@@ -448,10 +457,9 @@ CHECK(already_imported_file_count >= 0),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(total_item_count = queued_item_count + running_item_count + review_pending_item_count + published_item_count + discarded_item_count + failed_item_count + cancelled_item_count),
   CHECK(
-    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
-    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   )
 );
 

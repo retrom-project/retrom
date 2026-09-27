@@ -19,10 +19,6 @@ type ImportArtifactBlobs interface {
 	Put(io.Reader) (blobstore.Metadata, error)
 }
 
-type ImportArtifactWriter interface {
-	Register(context.Context, blobstore.Metadata, int64) (string, error)
-}
-
 type ImportArtifacts struct{ blobs ImportArtifactBlobs }
 
 func NewImportArtifacts(blobs ImportArtifactBlobs) *ImportArtifacts {

@@ -1,4 +1,4 @@
-package payloadrelease
+package payloadworker
 
 import (
 	"context"
@@ -32,7 +32,7 @@ type workerRecords struct{ executor dbapi.Executor }
 
 func BindWorker(executor dbapi.Executor) application.WorkerScope {
 	records := workerRecords{executor: executor}
-	return application.WorkerScope{Read: records, Write: records, Owners: BindScheduling(executor)}
+	return application.WorkerScope{Read: records, Write: records}
 }
 
 const workColumns = jobrecord.Columns
@@ -51,9 +51,15 @@ func (records workerRecords) Current(ctx context.Context, id string) (applicatio
 }
 
 func (records workerRecords) Interrupted(ctx context.Context, now int64, limit int) ([]application.Work, error) {
-	rows, err := records.executor.QueryContext(ctx, workSQL+` WHERE job.kind IN ('PAYLOAD_RELEASE','BLOB_GC')
+	rows, err := records.executor.QueryContext(
+		ctx,
+		workSQL+` WHERE job.kind IN ('PAYLOAD_RELEASE','BLOB_GC')
  AND job.state='RUNNING' AND (job.leased_until_ms IS NULL OR job.leased_until_ms<=?
- OR job.execution_deadline_at_ms IS NULL OR job.execution_deadline_at_ms<=?) ORDER BY job.id LIMIT ?`, now, now, limit)
+ OR job.execution_deadline_at_ms IS NULL OR job.execution_deadline_at_ms<=?) ORDER BY job.id LIMIT ?`,
+		now,
+		now,
+		limit,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("read interrupted release work: %w", err)
 	}

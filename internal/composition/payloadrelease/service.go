@@ -5,13 +5,23 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/persistence/payloadworker"
+
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadfiles"
 	"retrom/internal/persistence/blobgc"
+	"retrom/internal/persistence/firmware/payloadbios"
+	"retrom/internal/persistence/gamecontent/gamerelease"
+	"retrom/internal/persistence/launch/payloadlaunch"
+	"retrom/internal/persistence/libraryimport/itemrelease"
+	"retrom/internal/persistence/libraryimport/payloadpreview"
+	"retrom/internal/persistence/metadatascrape/payloadprovider"
 	repository "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/persistence/sourceimport/sourcerelease"
+	"retrom/internal/persistence/uploads/payloadpurge"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -30,16 +40,35 @@ func New(
 	now func() time.Time,
 ) (*Service, error) {
 	files := payloadfiles.New(blobs)
-	service, err := application.New(ctx, application.Dependencies{
-		Worker: repository.NewWorker(database),
-		GC:     blobgc.NewGC(database, repository.BindWorker), Garbage: blobgc.NewGarbage(database, repository.BindWorker),
-		Effects: repository.NewReleaseEffects(database), Expiration: repository.NewExpiration(database),
-		Retirement: repository.NewRetirement(database),
-		Files:      files, Waiter: files,
-	}, application.Options{
-		Now:    now,
-		Report: func(err error) { cleanup.Error("payload worker", err) },
-	})
+	service, err := application.New(
+		ctx,
+		application.Dependencies{
+			Worker: payloadworker.NewWorker(database),
+
+			GC:      blobgc.NewGC(database, payloadworker.BindWorker),
+			Garbage: blobgc.NewGarbage(database, payloadworker.BindWorker),
+
+			Effects: map[application.ScopeType]application.EffectRepository{
+				application.ScopeGame:              gamerelease.NewEffects(database),
+				application.ScopeImportItem:        itemrelease.NewEffects(database),
+				application.ScopeImportJob:         itemrelease.NewEffects(database),
+				application.ScopeSourceImportItem:  sourcerelease.NewEffects(database),
+				application.ScopeUploadConsumption: payloadpurge.NewEffects(database),
+			},
+			Providers: payloadprovider.New(database),
+			Previews:  payloadpreview.New(database),
+
+			BIOS:     payloadbios.New(database),
+			Launches: payloadlaunch.New(database),
+
+			Files:  files,
+			Waiter: files,
+		},
+		application.Options{
+			Now:    now,
+			Report: func(err error) { cleanup.Error("payload worker", err) },
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("initialize payload release service: %w", err)
 	}

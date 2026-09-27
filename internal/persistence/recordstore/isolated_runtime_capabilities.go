@@ -10,7 +10,15 @@ import (
 func CreateIsolatedRuntimeCapabilities(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "credential_sha256", ValidateIsolatedRuntimeCapabilities)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"isolated_runtime_capabilities",
+		"credential_sha256",
+		ValidateIsolatedRuntimeCapabilities,
+	)
 }
 
 func ValidateIsolatedRuntimeCapabilities(ctx context.Context, db dbapi.Executor, keys ...any) error {

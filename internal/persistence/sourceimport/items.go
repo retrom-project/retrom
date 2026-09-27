@@ -20,10 +20,14 @@ func (service *Queries) Items(
 	if limit < 1 || limit > 51 {
 		return nil, application.ErrInvalid
 	}
-	rows, err := service.database.QueryContext(ctx, `
+	rows, err := service.database.QueryContext(
+		ctx,
+		`
 SELECT item.id,item.title,item.collection_id,collection.name,
 collection.target_platform_instance_id,platform.name,
-item.metadata_relative_path,item.execution_state,item.payload_state,item.payload_release_job_id,item.content_kind,
+item.metadata_relative_path,item.execution_state,CASE WHEN item.payload_state='RELEASING' AND
+release_job.state='FAILED'
+THEN 'FAILED' ELSE item.payload_state END,item.payload_release_job_id,item.content_kind,
 item.warnings_json,item.source_flags_json,item.discovery_code,item.error_code,item.error_details_json,item.retryable,
 item.library_import_item_id,
 item.published_game_id,item.existing_game_id,item.existing_matches_json,item.updated_at_ms,
@@ -32,13 +36,14 @@ validation.dependency_snapshot_json,
 COALESCE(collection.tag_snapshot_json,'[]'),
 EXISTS(
  SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.blob_id IS NOT NULL
+ WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.state IN ('COPIED','PAYLOAD_RELEASED')
 ),
 EXISTS(
  SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.blob_id IS NOT NULL
+ WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.state IN ('COPIED','PAYLOAD_RELEASED')
 )
 FROM source_import_items item
+LEFT JOIN jobs release_job ON release_job.id=item.payload_release_job_id
 LEFT JOIN source_import_collections collection ON collection.id=item.collection_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
 LEFT JOIN import_items draft ON draft.id=item.library_import_item_id
@@ -63,12 +68,26 @@ AND (?='' OR item.collection_id=?)
 AND (?='' OR item.title>? OR (item.title=? AND item.id>?))
 ORDER BY item.title,item.id
 LIMIT ?`,
+
 		importID,
-		query, query,
-		outcome, outcome,
-		warning, warning,
-		collectionID, collectionID,
-		afterID, afterTitle, afterTitle, afterID,
+
+		query,
+		query,
+
+		outcome,
+		outcome,
+
+		warning,
+		warning,
+
+		collectionID,
+		collectionID,
+
+		afterID,
+		afterTitle,
+		afterTitle,
+		afterID,
+
 		limit,
 	)
 	if err != nil {

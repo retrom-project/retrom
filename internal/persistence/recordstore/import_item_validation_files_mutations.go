@@ -50,8 +50,7 @@ SELECT CASE
 WHEN (NOT EXISTS(
   SELECT 1 FROM import_item_core_validations validation JOIN import_items item ON
 item.id=validation.import_item_id
-  WHERE validation.id=previous.import_item_core_validation_id AND item.payload_state IN ('RELEASING',
-'FAILED')
+  WHERE validation.id=previous.import_item_core_validation_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

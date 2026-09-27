@@ -10,6 +10,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
+	"retrom/internal/persistence/recordstore"
 	repository "retrom/internal/persistence/sourceimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/sourceimport"
@@ -103,5 +104,18 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 	}
 	if title != "Original" || version != 1 || search != "original" {
 		t.Fatalf("failed handoff committed draft: %s version=%d search=%s", title, version, search)
+	}
+}
+
+func seedHandoffMedia(t *testing.T, service *Service) {
+	t.Helper()
+	db := service.database
+	mustExecSourceTest(t.Context(), t, db, `INSERT INTO blobs(id,sha256,md5,sha1,crc32,size_bytes,media_type,created_at_ms)
+ VALUES('handoff-media',?, ?, ?, ?,4,'image/png',1)`, strings.Repeat("1", 64), strings.Repeat("1", 32), strings.Repeat("1", 40), strings.Repeat("1", 8))
+	if _, err := recordstore.CreateReferences(t.Context(), db, "source_import_item_assets", `INSERT INTO source_import_item_assets
+ (item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,width_px,height_px,state,created_at_ms,updated_at_ms)
+ VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,?,'handoff-media','image/png',1,1,'COPIED',1,1),
+ ('item','VIDEO','EXPLICIT_GAME','video.mp4',4,?,'handoff-media','video/mp4',NULL,NULL,'COPIED',1,1)`, fixedHandoffDigest, fixedHandoffDigest); err != nil {
+		t.Fatal(err)
 	}
 }

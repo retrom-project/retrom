@@ -10,7 +10,7 @@ import (
 func CreateBiosRequirements(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateBiosRequirements)
+	return create(ctx, db, query, args, "bios_requirements", "id", ValidateBiosRequirements)
 }
 
 func ValidateBiosRequirements(ctx context.Context, db dbapi.Executor, keys ...any) error {

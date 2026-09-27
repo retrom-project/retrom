@@ -47,8 +47,10 @@ type RetirementCompletion struct {
 	DueMS, NowMS int64
 }
 
-type RetirementReader interface {
+type BIOSRetirementReader interface {
 	BIOS(context.Context, int) (BIOSRetirement, error)
+}
+type LaunchRetirementReader interface {
 	Launch(context.Context, int64, int) (LaunchRetirement, error)
 }
 
@@ -65,26 +67,36 @@ type LaunchRetirementWriter interface {
 	CompleteLaunch(context.Context, RetirementCompletion) error
 }
 
-type RetirementScope struct {
-	Read   RetirementReader
-	BIOS   BIOSRetirementWriter
+type BIOSRetirementScope struct {
+	Read BIOSRetirementReader
+	BIOS BIOSRetirementWriter
+}
+type LaunchRetirementScope struct {
+	Read   LaunchRetirementReader
 	Launch LaunchRetirementWriter
 }
-
-type RetirementRepository interface {
-	WithRetirement(context.Context, func(RetirementScope) error) error
+type BIOSRetirementRepository interface {
+	WithBIOSRetirement(context.Context, func(BIOSRetirementScope) error) error
+}
+type LaunchRetirementRepository interface {
+	WithLaunchRetirement(context.Context, func(LaunchRetirementScope) error) error
 }
 
 type Retirements struct {
-	repository RetirementRepository
-	now        func() time.Time
+	bios   BIOSRetirementRepository
+	launch LaunchRetirementRepository
+	now    func() time.Time
 }
 
-func NewRetirements(repository RetirementRepository, now func() time.Time) *Retirements {
+func NewRetirements(
+	bios BIOSRetirementRepository,
+	launch LaunchRetirementRepository,
+	now func() time.Time,
+) *Retirements {
 	if now == nil {
 		now = time.Now
 	}
-	return &Retirements{repository: repository, now: now}
+	return &Retirements{bios: bios, launch: launch, now: now}
 }
 
 func (service *Retirements) BIOS(ctx context.Context) error {
@@ -98,7 +110,7 @@ func (service *Retirements) BIOS(ctx context.Context) error {
 
 func (service *Retirements) BIOSBatch(ctx context.Context) (bool, error) {
 	worked := false
-	err := service.repository.WithRetirement(ctx, func(scope RetirementScope) error {
+	err := service.bios.WithBIOSRetirement(ctx, func(scope BIOSRetirementScope) error {
 		before, err := scope.Read.BIOS(ctx, retirementBatchSize)
 		if err != nil {
 			return fmt.Errorf("read retiring BIOS: %w", err)
@@ -143,7 +155,7 @@ func (service *Retirements) Launches(ctx context.Context) error {
 
 func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 	count := 0
-	err := service.repository.WithRetirement(ctx, func(scope RetirementScope) error {
+	err := service.launch.WithLaunchRetirement(ctx, func(scope LaunchRetirementScope) error {
 		now := service.now().UnixMilli()
 		before, err := scope.Read.Launch(ctx, now, retirementBatchSize)
 		if err != nil {

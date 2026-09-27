@@ -244,7 +244,7 @@ func assertGameHomeAndActivity(
 	mustExecHTTPTest(t, server.database, "UPDATE game_variants SET default_dos_entry=NULL WHERE game_id=?", gameID)
 	sessionSaveID := uuid.NewString()
 	payloadDigest := sha256.Sum256(screenshot)
-	mustExecHTTPTest(t, server.database, `
+	mustCreateHTTPReferences(t, server.database, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
@@ -458,7 +458,7 @@ SELECT
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?);
 `, videoUploadID, len(videoPayload), videoMetadata.SHA256, now+60_000, now, now)
-	mustExecHTTPTest(t, server.database, `
+	mustCreateHTTPReferences(t, server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 `, videoUploadFileID, videoUploadID, len(videoPayload), len(videoPayload), videoBlobID, now, now)
@@ -576,7 +576,7 @@ VALUES(?,'GAME',?,'METADATA_SCRAPE',?,1,'{}',0,'SUCCEEDED',1,2,?,?,?,?)
 `, jobID, gameID, strings.Repeat("7", 64), now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(context.Background(), `
+	if _, err := recordstore.CreateReferences(context.Background(), database, "metadata_provider_responses", `
 INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,
 raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES(?,'HASHEOUS',?,200,'HIT',NULL,'NONE',?,?)
@@ -597,7 +597,7 @@ VALUES(?,?,?,'doom-refreshed','{"title":"Doom refreshed","description":"Updated"
 `, candidateID, runID, responseID, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(context.Background(), `
+	if _, err := recordstore.CreateReferences(context.Background(), database, "scrape_candidate_assets", `
 INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,
 ordinal,source_path,status,blob_id,width_px,height_px,media_type,error_code,fetched_at_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?,?)
@@ -699,7 +699,7 @@ created_at_ms) VALUES(?,
 ?)
 `, coverBlobID, strings.Repeat("1", 64), strings.Repeat("2", 32), strings.Repeat("3", 40),
 		strings.Repeat("4", 8), now)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,
 game_id,
 blob_id,
@@ -723,7 +723,7 @@ created_at_ms) VALUES(?,
 	testassert.False(t, err != nil, err)
 	fixture.videoBlobID, err = blobcatalog.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
 	testassert.False(t, err != nil, err)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
 `, videoAssetID, gameID, fixture.videoBlobID, now)
@@ -780,7 +780,7 @@ VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(3
 `, sourceLaunchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
@@ -788,7 +788,7 @@ INSERT INTO save_states(
 `, saveStateID, gameID, fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 		fixture.screenshotBlobID, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
-		mustExecHTTPTest(t, transaction, `
+		mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
@@ -815,4 +815,11 @@ VALUES(?,?,'local',?,?,?,?,?,1,'FINISHED',1,?,?)
 			now, now+int64(10-index))
 	}
 	mustCommitHTTPTest(t, transaction)
+}
+
+func mustCreateHTTPReferences(t *testing.T, db dbapi.Executor, table, query string, args ...any) {
+	t.Helper()
+	if _, err := recordstore.CreateReferences(t.Context(), db, table, query, args...); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -188,14 +188,14 @@ func seedImmersiveAssets(
 	t.Helper()
 	if seed.CoverID != "" {
 		coverBlobID := seedImmersiveBlob(t, server, transaction, coverPayload, "image/png", now)
-		mustExecHTTPTest(t, transaction, `
+		mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'COVER',0,500,700,'image/png',?)
 `, seed.CoverID, seed.GameID, coverBlobID, now)
 	}
 	if seed.VideoID != "" {
 		videoBlobID := seedImmersiveBlob(t, server, transaction, videoPayload, "video/webm", now)
-		mustExecHTTPTest(t, transaction, `
+		mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
 `, seed.VideoID, seed.GameID, videoBlobID, now)

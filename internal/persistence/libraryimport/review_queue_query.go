@@ -49,9 +49,9 @@ COALESCE(d.cover_uploaded_asset_id,(SELECT asset.id
  LIMIT 1))
 ,source.id,source.import_id,source_collection.name,
 EXISTS(
- SELECT 1 FROM source_import_item_assets source_asset
- WHERE source_asset.item_id=source.id AND source_asset.kind='COVER'
- AND source_asset.state='COPIED' AND source_asset.blob_id IS NOT NULL
+ SELECT 1 FROM import_item_assets source_asset
+ WHERE source_asset.import_item_id=i.id AND source_asset.kind='COVER'
+ AND source_asset.blob_id IS NOT NULL
 )
 FROM import_items i
 JOIN import_items d ON d.id=i.id

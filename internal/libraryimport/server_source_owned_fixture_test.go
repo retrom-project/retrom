@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/recordstore"
+	sourcepersistence "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/libraryimport"
+	source "retrom/internal/service/sourceimport"
 )
 
 func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {
@@ -51,6 +54,24 @@ SELECT 'owner-collection','owner-plan','metadata.pegasus.txt',0,'Collection',1,'
 FROM platform_instances p JOIN runtime_target_bindings b ON b.core_id=p.default_core_id WHERE p.id=?`, fixture.platform)
 	fixture.execute(t, `INSERT INTO source_import_items(id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,created_at_ms,updated_at_ms)
 VALUES('unlinked-source','owner-plan','owner-collection','metadata.pegasus.txt',0,?,'Duplicate','READY','COPYING','SINGLE_FILE','{}','{}',?,1,1)`, digest, digest)
-	fixture.execute(t, `INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,blob_id,role,logical_name,state,created_at_ms,updated_at_ms)
-VALUES('unlinked-source',0,'FILE',?,?,?,?,'CONTENT',?,'COPIED',1,1)`, file.RelativePath, file.SizeBytes, digest, file.BlobID, file.RelativePath)
+	if _, err := recordstore.CreateReferences(t.Context(), fixture.database, "source_import_item_files", `INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,blob_id,role,logical_name,state,created_at_ms,updated_at_ms)
+VALUES('unlinked-source',0,'FILE',?,?,?,?,'CONTENT',?,'COPIED',1,1)`, file.RelativePath, file.SizeBytes, digest, file.BlobID, file.RelativePath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func finishOwnedReviewHandoff(t *testing.T, fixture deduplicateFixture, request application.OwnedServerSourceRequest) {
+	t.Helper()
+	fixture.execute(t, `UPDATE source_import_items SET execution_state='VALIDATING' WHERE id=?`, request.Intent.ItemID)
+	repository := sourcepersistence.NewReviewHandoff(fixture.database)
+	err := repository.WithReviewHandoff(t.Context(), func(scope source.ReviewHandoffScope) error {
+		before, err := scope.Records.CurrentReviewHandoff(t.Context(), request.Intent.ItemID)
+		if err != nil {
+			return err
+		}
+		return scope.Records.FinishReviewHandoff(t.Context(), source.ReviewHandoffChange{Before: before, NowMS: ownedSourceNow().UnixMilli(), Warnings: []map[string]any{}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -27,7 +27,7 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 	fileID := createReviewCoverUpload(t, server)
 	fault := &reviewCoverWriteFault{fileID: fileID, cause: errors.New("cover consumption write unavailable"), enabled: true}
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-		AfterExec: fault.afterExec, BeforeQuery: fault.beforeQuery,
+		AfterQuery: fault.afterQuery, BeforeQuery: fault.beforeQuery,
 	})
 	service := composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
 	request := application.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
@@ -114,17 +114,13 @@ type reviewCoverWriteFault struct {
 	inserted, failed int
 }
 
-func (fault *reviewCoverWriteFault) afterExec(
-	_ context.Context, query string, args []driver.NamedValue, result driver.Result,
-) (driver.Result, error) {
+func (fault *reviewCoverWriteFault) afterQuery(
+	_ context.Context, query string, args []driver.NamedValue, rows driver.Rows,
+) (driver.Rows, error) {
 	if strings.Contains(query, "INSERT INTO review_uploaded_assets") && len(args) > 2 && args[2].Value == fault.fileID {
-		count, err := result.RowsAffected()
-		if err != nil {
-			return nil, err
-		}
-		fault.inserted += int(count)
+		fault.inserted++
 	}
-	return result, nil
+	return rows, nil
 }
 
 func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string, args []driver.NamedValue) error {

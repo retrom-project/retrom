@@ -42,7 +42,7 @@ func TestBIOSRetirementDrainsMultipleBatchesWithoutTouchingLiveLaunch(t *testing
 	database, releases, now := retirementFixture(t)
 	seedRetiringInstallation(t, database, "old-install", 0, now)
 	for i := 0; i < 205; i++ {
-		_, err := database.ExecContext(t.Context(), `INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+		_, err := recordstore.CreateReferences(t.Context(), database, "variant_files", `INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 SELECT game_variant_id,role,?,blob_id,? FROM variant_files WHERE logical_name='gba_bios.bin'`, fmt.Sprintf("bios-%03d.bin", i), i+1)
 		testassert.False(t, err != nil, err)
 	}
@@ -57,7 +57,7 @@ SELECT game_variant_id,role,?,blob_id,? FROM variant_files WHERE logical_name='g
 
 func seedRetiringInstallation(t *testing.T, database dbapi.DB, id string, active int, now int64) {
 	t.Helper()
-	_, err := database.ExecContext(t.Context(), `INSERT INTO bios_installations(
+	_, err := recordstore.CreateReferences(t.Context(), database, "bios_installations", `INSERT INTO bios_installations(
 id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,validated_requirement_version,
 status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 SELECT ?,requirement.id,blob.id,'gba_bios.bin',blob.size_bytes,blob.md5,blob.sha1,blob.sha256,requirement.version,

@@ -47,7 +47,7 @@ const ImportItemSourceFilesDeleteRule = `
 WITH previous(import_item_id,role,logical_name) AS (VALUES(?,?,?))
 SELECT CASE
 -- import_item_source_files_immutable_delete
-WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state IN
-('RELEASING','FAILED'))) THEN 'immutable'
+WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state
+='RELEASING')) THEN 'immutable'
 ELSE '' END
 FROM previous`

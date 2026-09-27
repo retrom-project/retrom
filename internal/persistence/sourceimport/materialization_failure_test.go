@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobrefs"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testsupport"
 
@@ -50,7 +51,7 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 			id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
 			expected := cause
 			if mode == "zero" {
-				expected = application.ErrVersionConflict
+				expected = blobrefs.ErrCount
 			}
 			if !errors.Is(err, expected) || id != "" || writes != 1 {
 				t.Fatalf("mode=%s id=%s err=%v writes=%d", mode, id, err, writes)

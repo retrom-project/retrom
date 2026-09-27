@@ -10,7 +10,7 @@ import (
 func CreatePlatformInstances(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidatePlatformInstances)
+	return create(ctx, db, query, args, "platform_instances", "id", ValidatePlatformInstances)
 }
 
 func ValidatePlatformInstances(ctx context.Context, db dbapi.Executor, keys ...any) error {

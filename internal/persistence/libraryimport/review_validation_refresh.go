@@ -43,17 +43,28 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 		return records.rpgInputs(ctx, itemID, targetID, result)
 	}
 	result.CoreID = defaultCoreID
-	if err := dbapi.QueryRowContext(ctx, records.executor, `
+	if err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT binding.provider_id,binding.target_id,
-  (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
+  (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND
+is_active=1),
   `+contentquery.BindingPolicySQL+`
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
-	`, platformID, defaultCoreID).Scan(
-		&result.ProviderID, &result.RuntimeTargetID, &datVersionID,
+	`,
+		platformID,
+		defaultCoreID,
+	).Scan(
+
+		&result.ProviderID,
+		&result.RuntimeTargetID,
+		&datVersionID,
+
 		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
@@ -72,7 +83,10 @@ func (records *ReviewValidation) rpgInputs(
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
 	var datVersionID sql.NullString
-	if err := dbapi.QueryRowContext(ctx, records.executor, `
+	if err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT 'rpgmaker',target.provider_id,target.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=target.provider_id
  AND target_id=target.target_id AND is_active=1),
@@ -82,9 +96,19 @@ JOIN runtime_targets target ON target.provider_id=? AND target.target_id=?
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
 WHERE draft.id=? AND draft.target_platform_instance_id=?
-	`, profile.ProviderID, profile.TargetID, itemID, targetID).Scan(
-		&result.CoreID, &result.ProviderID, &result.RuntimeTargetID,
-		&datVersionID, contentquery.ScanPolicy(&result.ContentPolicy),
+	`,
+		profile.ProviderID,
+		profile.TargetID,
+		itemID,
+		targetID,
+	).Scan(
+
+		&result.CoreID,
+		&result.ProviderID,
+		&result.RuntimeTargetID,
+
+		&datVersionID,
+		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
@@ -176,7 +200,7 @@ INSERT INTO import_item_core_validations(
 func (records *ReviewValidation) CopyFiles(
 	ctx context.Context, value application.ReviewValidationRefreshFileCopy,
 ) error {
-	_, err := records.executor.ExecContext(ctx, `
+	_, err := recordstore.CreateReferences(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 )
@@ -202,7 +226,7 @@ WHERE import_item_core_validation_id=?
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
-		if _, err := records.executor.ExecContext(ctx, `
+		if _, err := recordstore.CreateReferences(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 ) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
@@ -266,7 +290,8 @@ func (records *ReviewValidation) UpdateRPGDependencyDigest(
 	ctx context.Context, draftID, digest string, nowMS int64,
 ) error {
 	if _, err := records.executor.ExecContext(ctx, `
-UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
+UPDATE import_items SET
+review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
  updated_at_ms=MAX(updated_at_ms,?)
 WHERE id=? AND review_profile_json IS NOT NULL
 `, digest, nowMS, draftID); err != nil {

@@ -47,3 +47,7 @@ func validReason(value Reason) bool {
 		return false
 	}
 }
+
+func releasableSource(owner Owner) bool {
+	return TerminalSourceItem(owner.State, owner.Retryable) || owner.State == "REVIEW_PENDING" && owner.PublicID != ""
+}

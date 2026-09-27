@@ -27,8 +27,10 @@ INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,
 		return err
 	}
 	for _, file := range change.Files {
-		result, err = records.transaction.ExecContext(
+		result, err = recordstore.CreateReferences(
 			ctx,
+			records.transaction,
+			"import_item_source_files",
 			`
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,
  source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms) VALUES(?,?,?,?,?,?,?,?,?)`,
@@ -51,20 +53,33 @@ INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_fil
 	}
 	for _, disc := range change.Discs {
 		result, err = recordstore.CreateImportItemMultidiscEntries(
+
 			ctx,
+
 			records.transaction,
+
 			`
 INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,normalized_reference,
  canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+
 			change.SnapshotID,
+
 			disc.Ordinal,
+
 			disc.SourceReference,
+
 			disc.NormalizedReference,
+
 			disc.CanonicalName,
+
 			disc.State,
+
 			creationNullable(disc.UploadFileID),
+
 			creationNullable(disc.BlobID),
+
 			creationNullable(disc.SourceLogicalName),
+
 			change.NowMS,
 		)
 		if err := creationMutation(result, err, "insert creation disc", 1); err != nil {
@@ -91,18 +106,13 @@ VALUES(?,?,?,?,?,'IDENTIFICATION',?)`,
 	if err := creationMutation(result, err, "insert creation snapshot", 1); err != nil {
 		return err
 	}
-	result, err = records.transaction.ExecContext(
-		ctx,
-		`
+	result, err = recordstore.CreateReferences(ctx, records.transaction, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
  blob_id,
  source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
 SELECT ?,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,
  sort_order,created_at_ms
-FROM import_item_source_files WHERE import_item_id=?`,
-		change.SnapshotID,
-		change.ItemID,
-	)
+FROM import_item_source_files WHERE import_item_id=?`, change.SnapshotID, change.ItemID)
 	return creationMutation(result, err, "copy creation snapshot files", int64(len(change.Files)))
 }
 

@@ -235,7 +235,7 @@ VALUES(?,'mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','A
 'retrom:test',?,1,1,?,?)
 `, requirementID, target.ProviderID, target.TargetID,
 		strings.Repeat("2", 64), datVersionID, now, now)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'stvbios.zip',1024,?,?,?,1,'MATCHED','{}',1,1,?,?)
@@ -356,7 +356,7 @@ VALUES(?,?,1,?,?,?,'application/zip',?)
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 `, uploadID, digest, timestamp+60_000, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
 `, uploadFileID, uploadID, blobID, timestamp, timestamp)
@@ -365,7 +365,7 @@ INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platfor
 provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
 VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
 `, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
+	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
 SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)

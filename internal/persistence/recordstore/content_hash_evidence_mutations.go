@@ -40,7 +40,7 @@ previous.sha1 AND candidate.sha256 IS previous.sha256
     LEFT JOIN import_items item ON item.id=run.import_item_id
     LEFT JOIN games game ON game.id=run.game_id
     WHERE run.id=previous.scrape_run_id
-      AND (item.payload_state IN ('RELEASING','FAILED') OR game.payload_state IN ('RELEASING','FAILED'))
+      AND (item.payload_state ='RELEASING' OR game.payload_state ='RELEASING')
   )
 )) THEN 'immutable'
 ELSE '' END

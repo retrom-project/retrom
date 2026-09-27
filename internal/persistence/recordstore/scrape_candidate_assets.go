@@ -10,7 +10,7 @@ import (
 func CreateScrapeCandidateAssets(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateScrapeCandidateAssets)
+	return create(ctx, db, query, args, "scrape_candidate_assets", "id", ValidateScrapeCandidateAssets)
 }
 
 func ValidateScrapeCandidateAssets(ctx context.Context, db dbapi.Executor, keys ...any) error {

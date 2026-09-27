@@ -21,17 +21,23 @@ var (
 type validator func(context.Context, dbapi.Executor, ...any) error
 
 func create(
-	ctx context.Context, db dbapi.Executor, query string, args []any, columns string, check validator,
+	ctx context.Context, db dbapi.Executor, query string, args []any, table, columns string, check validator,
 ) (sql.Result, error) {
 	return Atomic(ctx, db, func(tx dbapi.Executor) (sql.Result, error) {
-		keys, err := insertedKeys(ctx, tx, query, args, columns)
+		keys, err := insertedKeys(ctx, tx, query, args, "rowid,"+columns)
 		if err != nil {
 			return nil, err
 		}
 		for _, key := range keys {
-			if err := check(ctx, tx, key...); err != nil {
+			if check == nil {
+				continue
+			}
+			if err := check(ctx, tx, key[1:]...); err != nil {
 				return nil, err
 			}
+		}
+		if err := insertedReferences(ctx, tx, table, keys); err != nil {
+			return nil, err
 		}
 		return driver.RowsAffected(len(keys)), nil
 	})
@@ -64,6 +70,13 @@ func insertedKeys(ctx context.Context, tx dbapi.Executor, query string, args []a
 	}
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("close inserted keys: %w", err)
+	}
+	var affected int64
+	if err := dbapi.QueryRowContext(ctx, tx, `SELECT changes()`).Scan(&affected); err != nil {
+		return nil, fmt.Errorf("read inserted row count: %w", err)
+	}
+	if affected != int64(len(keys)) {
+		return nil, fmt.Errorf("%w: inserted %d records but received %d keys", ErrInvariant, affected, len(keys))
 	}
 	return keys, nil
 }

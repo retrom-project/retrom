@@ -70,7 +70,7 @@ SELECT source_ref_id,source_kind FROM (
 	if err != nil {
 		return application.ApprovalOrigin{}, false, fmt.Errorf("read approval source: %w", err)
 	}
-	assets, err := records.originAssets(ctx, origin)
+	assets, err := records.originAssets(ctx, itemID)
 	if err != nil {
 		return application.ApprovalOrigin{}, false, err
 	}
@@ -79,13 +79,13 @@ SELECT source_ref_id,source_kind FROM (
 }
 
 func (records reviewApprovalRecords) originAssets(
-	ctx context.Context, origin application.ApprovalOrigin,
+	ctx context.Context, itemID string,
 ) ([]application.ApprovalExternalAsset, error) {
-	table := "source_import_item_assets"
+	table := "import_item_assets"
 	rows, err := records.transaction.QueryContext(ctx, `
 SELECT kind,blob_id,media_type,width_px,height_px FROM `+table+`
-WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL
-ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, origin.RefID)
+WHERE import_item_id=?
+ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("read approval source assets: %w", err)
 	}

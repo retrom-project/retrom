@@ -148,10 +148,9 @@ CREATE TABLE "games" (
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
   content_profile_json TEXT CHECK(CASE WHEN content_profile_json IS NULL THEN 1 WHEN json_valid(content_profile_json) THEN COALESCE(json_type(content_profile_json,'$.kind')='text' AND json_type(content_profile_json,'$.data')='object',0) ELSE 0 END),
   status TEXT NOT NULL CHECK(status IN ('PUBLISHED','DELETED')),
-  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED')),
   payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
   payload_released_at_ms INTEGER,
-  payload_last_error_code TEXT,
   search_text TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -159,12 +158,11 @@ CREATE TABLE "games" (
   deleted_at_ms INTEGER,
   CHECK((status='DELETED')=(deleted_at_ms IS NOT NULL)),
   CHECK(status<>'PUBLISHED' OR payload_state='RETAINED'),
-  CHECK(status<>'DELETED' OR payload_state IN ('RELEASING','RELEASED','FAILED')),
+  CHECK(status<>'DELETED' OR payload_state IN ('RELEASING','RELEASED')),
   CHECK(
-    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
-    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   ),
   CHECK((metadata_source_kind='ADMIN_EDIT')=(metadata_source_ref_id IS NULL))
 );

@@ -14,6 +14,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 )
@@ -65,7 +66,7 @@ created_at_ms) VALUES(?,
 	orphan := register("orphan", "orphan")
 	rescued := register("rescued", "rescued")
 	protected := register("protected", "protected")
-	if _, err := database.SQL.ExecContext(context.Background(), `
+	if _, err := recordstore.CreateReferences(context.Background(), database.SQL, "metadata_provider_responses", `
 INSERT INTO metadata_provider_responses(id,
 provider,
 request_digest,
@@ -91,7 +92,7 @@ expires_at_ms) VALUES('response',
 	service := blobgc.New(blobgcp.New(database.SQL), release)
 	first, err := service.RunOnce(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first.Deleted != 1 }), "first GC = %#v, error=%v", first, err)
-	if _, err := database.SQL.ExecContext(context.Background(), `
+	if _, err := recordstore.CreateReferences(context.Background(), database.SQL, "metadata_provider_responses", `
 INSERT INTO metadata_provider_responses(id,
 provider,
 request_digest,

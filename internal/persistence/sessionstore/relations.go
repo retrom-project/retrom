@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/blobrefs"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -16,7 +17,9 @@ func createLaunchRelations(ctx context.Context, tx dbapi.Executor, id string) er
 SELECT id,`+retirementDeadline+` FROM launch_sessions WHERE id=?`, id); err != nil {
 		return fmt.Errorf("schedule launch retirement: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO launch_game_save_bindings(
+	if _, err := tx.ExecContext(
+		ctx,
+		`INSERT INTO launch_game_save_bindings(
 launch_session_id,save_state_id,expected_data_version,initial_active_duration_ms)
 SELECT launch.id,save.id,COALESCE(native.data_version,0),COALESCE(save.active_duration_ms,0)
 FROM launch_sessions launch
@@ -25,7 +28,9 @@ LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.profile_id=l
 AND save.game_id=launch.game_id AND save.deleted_at_ms IS NULL
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 WHERE launch.id=? AND launch.game_id IS NOT NULL
-AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE'`, id); err != nil {
+AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE'`,
+		id,
+	); err != nil {
 		return fmt.Errorf("bind launch save version: %w", err)
 	}
 	return nil
@@ -65,6 +70,13 @@ AND launch.state IN ('FINISHED','EXPIRED','REVOKED'))
 }
 
 func createSaveVersion(ctx context.Context, tx dbapi.Executor, id string) error {
+	refs, err := blobrefs.Capture(ctx, tx, "save_states", "id=?", id)
+	if err != nil {
+		return fmt.Errorf("read save references: %w", err)
+	}
+	if err := blobrefs.Commit(ctx, tx, blobrefs.Snapshot{}, refs); err != nil {
+		return fmt.Errorf("protect save references: %w", err)
+	}
 	if err := recordstore.ValidateSaveStates(ctx, tx, id); err != nil {
 		return fmt.Errorf("validate session record: %w", err)
 	}

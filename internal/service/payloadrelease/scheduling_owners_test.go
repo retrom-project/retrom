@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestTerminalSourceEligibilityAndSharedRelease(t *testing.T) {
+func TestTerminalSourceEligibility(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []ScopeType{ScopeSourceImportItem, ScopeSourceImportItem} {
 		for _, state := range []string{"REVIEW_PENDING", "COMMIT_FAILED", "REVIEW_DISCARDED"} {
@@ -37,30 +37,23 @@ func boolName(value bool) string {
 	return "false"
 }
 
-func TestBoundSourceSharesOrdinaryReleaseWithoutNewJob(t *testing.T) {
-	t.Parallel()
-	for _, state := range []string{"RELEASING", "RELEASED", "FAILED"} {
-		t.Run(state, func(t *testing.T) {
-			t.Parallel()
-			ref := Scope{Type: ScopeSourceImportItem, ID: "source"}
-			ordinary := Scope{Type: ScopeImportItem, ID: "ordinary"}
-			owner := Owner{Scope: ref, Version: 9, State: "PUBLISHED", PayloadState: "RETAINED", PublicID: ordinary.ID}
-			records := &scheduleMemory{owners: map[Scope]Owner{
-				ref: owner, ordinary: {Scope: ordinary, Version: 5, State: "PUBLISHED", PayloadState: state, ReleaseJobID: "shared"},
-			}}
-			id, err := NewScheduler(scheduleIDs()).TerminalSource(t.Context(), records, ref, 10)
-			if err != nil || id != "shared" || len(records.jobs) != 0 || len(records.changes) != 1 ||
-				records.changes[0] != (OwnerRelease{Before: owner, JobID: "shared", NowMS: 10}) {
-				t.Fatalf("source duplicated release: %q/%v records=%+v", id, err, records)
-			}
-		})
+func TestBoundSourceQueuesIndependentJobAtHandoff(t *testing.T) {
+	ref := Scope{Type: ScopeSourceImportItem, ID: "source"}
+	owner := Owner{Scope: ref, Version: 9, State: "REVIEW_PENDING", PayloadState: "RETAINED", PublicID: "ordinary"}
+	records := &scheduleMemory{owners: map[Scope]Owner{ref: owner}}
+	id, err := NewScheduler(scheduleIDs()).TerminalSource(t.Context(), records, ref, 10)
+	if err != nil || id == "" || len(records.jobs) != 1 || len(records.changes) != 1 || len(records.reads) != 1 || records.reads[0] != ref {
+		t.Fatalf("handoff release consulted another owner: %q/%v records=%+v", id, err, records)
+	}
+	if records.jobs[0].Scope != ref || records.changes[0] != (OwnerRelease{Before: owner, JobID: id, NowMS: 10}) {
+		t.Fatal("lost independent release identity")
 	}
 }
 
 func TestSchedulerReplaysOwnerReleaseAndRejectsVersionOverflow(t *testing.T) {
 	t.Parallel()
 	ref := Scope{Type: ScopeImportItem, ID: "item"}
-	for _, state := range []string{"RELEASING", "RELEASED", "FAILED", "RETAINED"} {
+	for _, state := range []string{"RELEASING", "RELEASED", "RETAINED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
 			owner := Owner{Scope: ref, State: "PUBLISHED", Version: math.MaxInt64, PayloadState: state, ReleaseJobID: "existing"}

@@ -16,6 +16,7 @@ import (
 var errReferenceCoverage = errors.New("STORAGE_ANALYSIS_REFERENCE_COVERAGE_MISMATCH")
 
 var referenceUsage = map[string]storageanalysis.Usage{
+	"source_import_item_companions.blob_id":                    storageanalysis.UsageWorkflow,
 	"import_files.blob_id":                                     storageanalysis.UsageWorkflow,
 	"bios_installations.blob_id":                               storageanalysis.UsageBIOS,
 	"content_hash_evidence.archive_blob_id":                    storageanalysis.UsageWorkflow,
@@ -34,6 +35,7 @@ var referenceUsage = map[string]storageanalysis.Usage{
 	"source_import_item_assets.blob_id":                        storageanalysis.UsageWorkflow,
 	"source_import_item_files.blob_id":                         storageanalysis.UsageWorkflow,
 	"source_import_item_files.source_archive_blob_id":          storageanalysis.UsageWorkflow,
+	"import_item_assets.blob_id":                               storageanalysis.UsageWorkflow,
 	"review_uploaded_assets.blob_id":                           storageanalysis.UsageWorkflow,
 	"review_preview_sessions.content_blob_id":                  storageanalysis.UsageWorkflow,
 	"review_preview_sessions.checkpoint_payload_blob_id":       storageanalysis.UsageWorkflow,

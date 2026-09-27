@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -74,13 +76,11 @@ VALUES(?,?,?,'SOURCE_V1',?)
 	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
 	screenshotBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
 	stateDigest := sha256.Sum256(statePayload)
-	if _, err := database.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database, "save_states", `
 INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
 VALUES(?,?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
-`, saveID, profileID, gameID, checkpointFormat,
-		stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload),
-		screenshotBlobID, now, now, launchID); err != nil {
+`, saveID, profileID, gameID, checkpointFormat, stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload), screenshotBlobID, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
 	return saveID, launchID, []string{stateBlobID, screenshotBlobID}

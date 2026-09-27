@@ -10,7 +10,15 @@ import (
 func CreateImportItemMultidiscEntries(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "source_snapshot_id,ordinal", ValidateImportItemMultidiscEntries)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"import_item_multidisc_entries",
+		"source_snapshot_id,ordinal",
+		ValidateImportItemMultidiscEntries,
+	)
 }
 
 func ValidateImportItemMultidiscEntries(ctx context.Context, db dbapi.Executor, keys ...any) error {

@@ -97,13 +97,12 @@ JOIN source_import_collections collection ON collection.id=relation.collection_i
 `, plan.ActorID, plan.NowMS, plan.Before.ID); err != nil {
 		return fmt.Errorf("touch deleted Source tag relations: %w", err)
 	}
+	if err := clearPlanPayload(ctx, records.executor, plan.Before.ID); err != nil {
+		return err
+	}
 	for _, statement := range []string{
 		`DELETE FROM source_collection_tags
 WHERE collection_id IN (SELECT id FROM source_import_collections WHERE import_id=?)`,
-
-		`DELETE FROM source_import_item_assets WHERE item_id IN (SELECT id FROM source_import_items WHERE import_id=?)`,
-
-		`DELETE FROM source_import_item_files WHERE item_id IN (SELECT id FROM source_import_items WHERE import_id=?)`,
 
 		`DELETE FROM source_import_items WHERE import_id=?`,
 

@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 	application "retrom/internal/service/launch"
@@ -128,7 +130,7 @@ AND enabled=1
 		t.Fatal(err)
 	}
 	installationID, _ := uuid.NewV7()
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,
 requirement_id,
 blob_id,
@@ -158,19 +160,7 @@ updated_at_ms) VALUES(?,
 1,
 ?,
 ?)
-`,
-		installationID.String(),
-		requirementID,
-		firmwareBlobID,
-		"gba_bios.bin",
-		firmwareMetadata.Size,
-		firmwareMetadata.MD5,
-		firmwareMetadata.SHA1,
-		firmwareMetadata.SHA256,
-		requirementVersion,
-		time.Now().UnixMilli(),
-		time.Now().UnixMilli(),
-	); err != nil {
+`, installationID.String(), requirementID, firmwareBlobID, "gba_bios.bin", firmwareMetadata.Size, firmwareMetadata.MD5, firmwareMetadata.SHA1, firmwareMetadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
@@ -249,22 +239,12 @@ SELECT state,error_code FROM jobs WHERE id=?
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
 	saveID, _ := uuid.NewV7()
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "save_states", `
 INSERT INTO save_states(
 id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
 screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'Locked mGBA save',0,1,?,?)
-`,
-		saveID.String(),
-		approved.GameID,
-		firmwareBlobID,
-		firmwareMetadata.SHA256,
-		firmwareMetadata.Size,
-		firmwareBlobID,
-		createdLaunch.LaunchID,
-		time.Now().UnixMilli(),
-		time.Now().UnixMilli(),
-	); err != nil {
+`, saveID.String(), approved.GameID, firmwareBlobID, firmwareMetadata.SHA256, firmwareMetadata.Size, firmwareBlobID, createdLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	startEvent := PlayEvent{ClientSequence: 0, ClientObservedAtMS: 1_786_000_000_000}
@@ -451,7 +431,7 @@ AND role='CONTENT' LIMIT 1
 `, approved.GameID).Scan(&contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "variant_files", `
 INSERT INTO variant_files(game_variant_id,
 role,
 logical_name,

@@ -5,45 +5,12 @@ import (
 
 	dbapi "retrom/internal/database"
 	gamerefs "retrom/internal/persistence/gamecontent/references"
-	importrefs "retrom/internal/persistence/libraryimport/references"
 )
 
 func gameImpactBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
 	ids, err := gamerefs.GameBlobIDs(ctx, transaction, gameID)
 	if err != nil {
 		return nil, wrapErr(err)
-	}
-	importItems, err := dbapi.QueryStrings(ctx, transaction, `
-SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_REVIEW'
-UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_REVIEW'
-`, gameID, gameID)
-	if err != nil {
-		return nil, wrapErr(err)
-	}
-	for _, itemID := range uniqueImpactStrings(importItems) {
-		itemIDs, itemErr := importrefs.ImportItemBlobIDs(ctx, transaction, itemID)
-		if itemErr != nil {
-			return nil, wrapErr(itemErr)
-		}
-		ids = append(ids, itemIDs...)
-	}
-	sourceIDs, err := dbapi.QueryStrings(ctx, transaction, `
-SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_RECEIVE'
-UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_RECEIVE'
-`, gameID, gameID)
-	if err != nil {
-		return nil, wrapErr(err)
-	}
-	for _, itemID := range uniqueImpactStrings(sourceIDs) {
-		values, itemErr := dbapi.QueryStrings(ctx, transaction, `
-SELECT blob_id FROM source_import_item_files WHERE item_id=?
-UNION ALL SELECT source_archive_blob_id FROM source_import_item_files WHERE item_id=?
-UNION ALL SELECT blob_id FROM source_import_item_assets WHERE item_id=?
-`, itemID, itemID, itemID)
-		if itemErr != nil {
-			return nil, wrapErr(itemErr)
-		}
-		ids = append(ids, values...)
 	}
 	return uniqueImpactStrings(ids), nil
 }

@@ -46,7 +46,7 @@ const ReviewUploadedAssetsDeleteRule = `
 WITH previous(id,import_item_id) AS (VALUES(?,?))
 SELECT CASE
 -- review_uploaded_assets_immutable_delete
-WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state IN
-('RELEASING','FAILED'))) THEN 'immutable'
+WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state
+='RELEASING')) THEN 'immutable'
 ELSE '' END
 FROM previous`

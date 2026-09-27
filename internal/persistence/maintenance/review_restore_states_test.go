@@ -61,8 +61,8 @@ library_import_job_id='handoff-job',library_import_item_id='handoff-item' WHERE 
 (SELECT review_version-1 FROM import_items WHERE id='handoff-item'),
 (SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id IN ('handoff-item','handoff-job',?))
 FROM import_items WHERE id='handoff-item'`, id).Scan(&title, &events, &payloads)
-			if err != nil || title != "Original" || events != 0 || payloads != 0 {
-				t.Fatalf("restore overwrote user decision: title=%q events=%d payloads=%d err=%v", title, events, payloads, err)
+			if err != nil || title != "Original" || events != 0 || payloads != 1 {
+				t.Fatalf("restore changed manual metadata or failed to schedule Source-only release: title=%q events=%d payloads=%d err=%v", title, events, payloads, err)
 			}
 		})
 	}

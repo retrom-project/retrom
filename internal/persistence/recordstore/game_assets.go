@@ -10,7 +10,7 @@ import (
 func CreateGameAssets(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateGameAssets)
+	return create(ctx, db, query, args, "game_assets", "id", ValidateGameAssets)
 }
 
 func ValidateGameAssets(ctx context.Context, db dbapi.Executor, keys ...any) error {

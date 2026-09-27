@@ -185,7 +185,7 @@ i.dat_version_id,
 i.metadata_provider,
 i.config_snapshot_json,
 i.state,
-i.payload_state,
+CASE WHEN i.payload_state='RELEASING' AND release_job.state='FAILED' THEN 'FAILED' ELSE i.payload_state END,
 i.payload_release_job_id,
 i.total_item_count,
 i.queued_item_count,
@@ -207,6 +207,7 @@ i.version,
 i.created_at_ms,
 i.updated_at_ms
 FROM import_jobs i
+LEFT JOIN jobs release_job ON release_job.id=i.payload_release_job_id
 JOIN platform_instances p ON p.id=i.target_platform_instance_id
 WHERE i.id=?
 `

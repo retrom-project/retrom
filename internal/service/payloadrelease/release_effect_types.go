@@ -9,7 +9,7 @@ var ErrEffectConflict = effectFailure("PAYLOAD_RELEASE_SCOPE_VERSION_MISMATCH", 
 
 type EffectOwner struct {
 	Owner                         Owner
-	Found, DuplicateMatch         bool
+	Found                         bool
 	ParentID, ExistingGameID      string
 	MetadataSource, ContentSource EffectSource
 	Consumption                   EffectConsumption
@@ -26,13 +26,12 @@ type EffectConsumption struct {
 }
 
 type EffectPayload struct {
-	BlobIDs      []string
 	Consumptions []EffectConsumption
 }
 
 type EffectUpload struct {
-	ID, SessionID, BlobID, State, SessionState           string
-	SessionVersion, ActiveConsumptions, DomainReferences int64
+	ID, SessionID, BlobID, State, SessionState string
+	SessionVersion, ActiveConsumptions         int64
 }
 
 type EffectOwnerChange struct {
@@ -91,7 +90,6 @@ type EffectScope struct {
 	Write   EffectWriter
 	Uploads EffectUploads
 	Worker  WorkerScope
-	GC      GCScope
 }
 
 type EffectRepository interface {
@@ -106,7 +104,6 @@ type EffectWaiter interface {
 type ReleaseEffects struct {
 	repository EffectRepository
 	authority  EffectAuthority
-	gc         GCStager
 	waiter     EffectWaiter
 	now        func() time.Time
 }
@@ -114,9 +111,8 @@ type ReleaseEffects struct {
 func NewReleaseEffects(
 	repository EffectRepository,
 	authority EffectAuthority,
-	gc GCStager,
 	waiter EffectWaiter,
 	now func() time.Time,
 ) *ReleaseEffects {
-	return &ReleaseEffects{repository: repository, authority: authority, gc: gc, waiter: waiter, now: now}
+	return &ReleaseEffects{repository: repository, authority: authority, waiter: waiter, now: now}
 }

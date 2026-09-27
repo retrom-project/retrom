@@ -16,37 +16,14 @@ func (service *Scheduler) TerminalSource(
 	if err != nil {
 		return "", err
 	}
-	if !TerminalSourceItem(owner.State, owner.Retryable) {
+	if !releasableSource(owner) {
 		return "", nil
 	}
 	if owner.PayloadState != "RETAINED" {
 		return existingOwnerRelease(owner)
 	}
-	if owner.PublicID != "" {
-		return service.linkSource(ctx, scope, owner, now)
-	}
 	reason := ReasonSourceTerminal
 	return service.scheduleOwner(ctx, scope, owner, reason, now)
-}
-
-func (service *Scheduler) linkSource(
-	ctx context.Context, scope SchedulingScope, owner Owner, now int64,
-) (string, error) {
-	if owner.Version == math.MaxInt64 {
-		return "", ErrScopeInvalid
-	}
-	ordinary, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportItem, ID: owner.PublicID})
-	if err != nil {
-		return "", err
-	}
-	jobID, err := existingOwnerRelease(ordinary)
-	if err != nil {
-		return "", err
-	}
-	if err := scope.BeginRelease(ctx, OwnerRelease{Before: owner, JobID: jobID, NowMS: now}); err != nil {
-		return "", fmt.Errorf("link source to ordinary payload release: %w", err)
-	}
-	return jobID, nil
 }
 
 func (service *Scheduler) Consumption(

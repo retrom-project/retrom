@@ -174,29 +174,31 @@ func seedFirmwareReplacementLifecycle(
 		t.Fatal(err)
 	}
 	statements := []struct {
-		query string
-		args  []any
+		query      string
+		args       []any
+		references string
 	}{
 		{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,created_at_ms,updated_at_ms)
-VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',0,1,?,?)`, []any{now, now}},
+VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',0,1,?,?)`, []any{now, now}, ""},
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
 metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
 source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 VALUES('firmware-game','firmware-platform','Firmware','F','','','','','ADMIN_EDIT','SINGLE_FILE',
-'ADMIN_REPLACE','firmware-source','{}',?,'PUBLISHED','firmware',1,?,?)`, []any{strings.Repeat("1", 64), now, now}},
+'ADMIN_REPLACE','firmware-source','{}',?,'PUBLISHED','firmware',1,?,?)`, []any{strings.Repeat("1", 64), now, now}, ""},
 		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order)
-VALUES('firmware-game','CONTENT','firmware.gba',?,0)`, []any{contentBlobID}},
+VALUES('firmware-game','CONTENT','firmware.gba',?,0)`, []any{contentBlobID}, "game_files"},
 		{
 			`INSERT INTO game_variants(
 id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
 compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
 VALUES('firmware-variant','firmware-game','mgba',?,?,NULL,800001,'READY','READY',?,1,?,?)`,
 			[]any{runtimeIdentity.ProviderID, runtimeIdentity.TargetID, snapshot, now, now},
+			"",
 		},
 		{`INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-VALUES('firmware-variant','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosBlobID}},
-		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}},
+VALUES('firmware-variant','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosBlobID}, "variant_files"},
+		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}, ""},
 		{`INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
 bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
@@ -205,11 +207,11 @@ VALUES('firmware-launch','firmware-profile','firmware-game','mgba',?,?,?,
 'SINGLE_FILE',?,'READY','/',?,'ACTIVE',?,?,?,?,?,?)`, []any{
 			runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, snapshot, make([]byte, 32),
 			now + 60_000, now + 60_000, now, now + 120_000, now, now,
-		}},
+		}, ""},
 		{`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}},
+VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}, ""},
 		{`INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
-VALUES('firmware-launch','/bios/gba_bios.bin','gba_bios.bin',?,?,'BIOS_BUNDLE')`, []any{biosBlobID, now}},
+VALUES('firmware-launch','/bios/gba_bios.bin','gba_bios.bin',?,?,'BIOS_BUNDLE')`, []any{biosBlobID, now}, ""},
 		{
 			`INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
@@ -217,10 +219,13 @@ VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?
 			[]any{
 				stateBlobID, stateDigest, len(statePayload), screenshotBlobID, now, now,
 			},
+			"save_states",
 		},
 	}
 	for _, statement := range statements {
-		execute := transaction.ExecContext
+		execute := func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+			return testsupport.ExecuteSeed(ctx, transaction, statement.references, query, args...)
+		}
 		if strings.HasPrefix(statement.query, "INSERT INTO launch_sessions(") {
 			execute = func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				return sessionstore.CreateLaunch(ctx, transaction, query, args...)

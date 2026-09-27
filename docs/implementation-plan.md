@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-下面 001–016 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移保留表、声明式约束、索引与 Blob 引用计数 trigger；其他跨表校验、状态转换及关联写入进入应用存储层，不创建 view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
+下面 001–016 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移保留表、声明式约束和索引；引用计数、跨表校验、状态转换及关联写入进入应用存储层，不创建 trigger/view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -177,7 +177,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：在 001–016 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob 引用列登记、`ref_count` 触发器门禁和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
+范围：在 001–016 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob 引用列登记、显式 `ref_count` 事务门禁和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和即时 GC均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 

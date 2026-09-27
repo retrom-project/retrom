@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
 
@@ -187,7 +189,7 @@ VALUES(?,'COMPLETE','DIRECTORY',1,?, ?,1,?,?,?)
 `, uploadID, metadata.Size, strings.Repeat("a", 64), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := server.database.ExecContext(context.Background(), `
+		if _, err := recordstore.CreateReferences(context.Background(), server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)

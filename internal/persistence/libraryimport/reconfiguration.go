@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
@@ -29,13 +31,22 @@ func (repository *Reconfigurations) Source(
 	var source application.ReconfigurationSource
 	var state string
 	var version int64
-	err := dbapi.QueryRowContext(ctx, repository.database, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		repository.database,
+		`
 SELECT upload.source_type,import_job.state,import_job.version
 FROM import_jobs import_job
 JOIN upload_sessions upload ON upload.id=import_job.upload_session_id
 WHERE import_job.id=?
   AND NOT EXISTS(SELECT 1 FROM (`+storequery.DiscardedImportJobs+`) discarded WHERE discarded.import_id=import_job.id)
-`, sourceImportJobID).Scan(&source.SourceType, &state, &version)
+`,
+		sourceImportJobID,
+	).Scan(
+		&source.SourceType,
+		&state,
+		&version,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return application.ReconfigurationSource{}, false, nil
@@ -124,7 +135,7 @@ VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 		if err != nil {
 			return fmt.Errorf("allocate cloned upload file ID: %w", err)
 		}
-		if _, err := executor.ExecContext(ctx, `
+		if _, err := recordstore.CreateReferences(ctx, executor, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
@@ -161,7 +172,20 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	if consumptionCount != 0 {
 		return nil
 	}
-	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_files WHERE upload_session_id=?`, uploadID); err != nil {
+	if _, err := recordstore.DeleteReferences(
+		ctx,
+		transaction,
+		"import_files",
+		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+	); err != nil {
+		return fmt.Errorf("release normalized upload: %w", err)
+	}
+	if _, err := recordstore.DeleteReferences(
+		ctx,
+		transaction,
+		"upload_files",
+		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+	); err != nil {
 		return fmt.Errorf("delete cloned upload files: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_sessions WHERE id=?`, uploadID); err != nil {

@@ -42,7 +42,7 @@ CREATE TABLE upload_files (
 -- Normalized, format-independent import input. Transport state stays in upload_files.
 -- The shared ID lets attachments and archive provenance refer to the same received file.
 CREATE TABLE import_files (
-  id TEXT PRIMARY KEY REFERENCES upload_files(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY REFERENCES upload_files(id),
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   relative_path TEXT NOT NULL,
   blob_id TEXT REFERENCES blobs(id),

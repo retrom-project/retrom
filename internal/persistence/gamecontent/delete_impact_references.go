@@ -10,17 +10,6 @@ import (
 func gameReferenceCount(ctx context.Context, transaction dbapi.Executor, gameID, blobID string) (int64, error) {
 	var count int64
 	err := dbapi.QueryRowContext(ctx, transaction, `
-WITH game_import_items(id) AS (
- SELECT metadata_source_ref_id FROM games
- WHERE id=?1 AND metadata_source_kind='IMPORT_REVIEW'
- UNION SELECT content_source_ref_id FROM games
- WHERE id=?1 AND content_source_kind='IMPORT_REVIEW'
-), game_source_items(id) AS (
- SELECT metadata_source_ref_id FROM games
- WHERE id=?1 AND metadata_source_kind='IMPORT_RECEIVE'
- UNION SELECT content_source_ref_id FROM games
- WHERE id=?1 AND content_source_kind='IMPORT_RECEIVE'
-)
 SELECT count(*) FROM (
  SELECT asset.id FROM game_assets asset WHERE asset.game_id=?1 AND asset.blob_id=?2
  UNION ALL SELECT file.rowid FROM game_files file
@@ -44,59 +33,6 @@ SELECT count(*) FROM (
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
  WHERE run.game_id=?1 AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM import_item_source_files file
- WHERE file.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM import_item_source_files file
- WHERE file.import_item_id IN (SELECT id FROM game_import_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT file.rowid FROM import_item_source_snapshot_files file
- JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
- WHERE snapshot.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM import_item_source_snapshot_files file
- JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
- WHERE snapshot.import_item_id IN (SELECT id FROM game_import_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT entry.rowid FROM import_item_multidisc_entries entry
- JOIN import_item_source_snapshots snapshot ON snapshot.id=entry.source_snapshot_id
- WHERE snapshot.import_item_id IN (SELECT id FROM game_import_items) AND entry.blob_id=?2
- UNION ALL SELECT file.rowid FROM import_item_validation_files file
- JOIN import_item_core_validations validation ON validation.id=file.import_item_core_validation_id
- WHERE validation.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT asset.id FROM review_uploaded_assets asset
- WHERE asset.import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT attachment.id FROM review_arcade_parent_attachments attachment
- WHERE attachment.import_item_id IN (SELECT id FROM game_import_items) AND attachment.accepted_blob_id=?2
- UNION ALL SELECT preview.id FROM review_preview_sessions preview
- WHERE preview.import_item_id IN (SELECT id FROM game_import_items)
- AND ?2 IN (preview.content_blob_id,preview.checkpoint_payload_blob_id,preview.restore_payload_blob_id)
- UNION ALL SELECT file.rowid FROM review_preview_files file
- JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
- WHERE preview.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT screenshot.id FROM review_runtime_screenshots screenshot
- WHERE screenshot.import_item_id IN (SELECT id FROM game_import_items) AND screenshot.blob_id=?2
- UNION ALL SELECT evidence.id FROM content_hash_evidence evidence
- JOIN metadata_scrape_runs run ON run.id=evidence.scrape_run_id
- WHERE run.import_item_id IN (SELECT id FROM game_import_items) AND evidence.blob_id=?2
- UNION ALL SELECT evidence.id FROM content_hash_evidence evidence
- JOIN metadata_scrape_runs run ON run.id=evidence.scrape_run_id
- WHERE run.import_item_id IN (SELECT id FROM game_import_items) AND evidence.archive_blob_id=?2
- UNION ALL SELECT asset.id FROM scrape_candidate_assets asset
- JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
- JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
- WHERE run.import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM source_import_item_files file
- JOIN source_import_items item ON item.id=file.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM source_import_item_files file
- JOIN source_import_items item ON item.id=file.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM source_import_item_assets asset
- JOIN source_import_items item ON item.id=asset.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM source_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_source_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM source_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_source_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM source_import_item_assets asset
- WHERE asset.item_id IN (SELECT id FROM game_source_items) AND asset.blob_id=?2
 )
 `, gameID, blobID).Scan(&count)
 	if err != nil {

@@ -12,7 +12,7 @@ var (
 	triggerDDL       = regexp.MustCompile(`(?is)\b(?:create|alter|drop)\s+trigger\b`)
 )
 
-func TestMigrationsOnlyDefineBlobReferenceTriggers(t *testing.T) {
+func TestMigrationsDoNotDefineViewsOrTriggers(t *testing.T) {
 	t.Parallel()
 	paths, err := filepath.Glob("*.sql")
 	if err != nil {
@@ -26,10 +26,8 @@ func TestMigrationsOnlyDefineBlobReferenceTriggers(t *testing.T) {
 		if match := forbiddenViewDDL.Find(contents); match != nil {
 			t.Errorf("%s contains forbidden view DDL: %q", path, match)
 		}
-		if path != "016_blob_reference_counts.sql" {
-			if match := triggerDDL.Find(contents); match != nil {
-				t.Errorf("%s contains unexpected trigger DDL: %q", path, match)
-			}
+		if match := triggerDDL.Find(contents); match != nil {
+			t.Errorf("%s contains forbidden trigger DDL: %q", path, match)
 		}
 	}
 }

@@ -18,6 +18,12 @@ func Clear(ctx context.Context, executor dbapi.Executor, change application.Effe
 	}
 	table, write := "source_import_item_assets", recordstore.UpdateSourceImportItemAssets
 	if change.Group == application.EffectSourceFiles {
+		if _, err := recordstore.DeleteReferences(ctx, executor, "source_import_item_companions", recordstore.Scope{
+			Where: `rowid IN(SELECT rowid FROM source_import_item_companions WHERE item_id=? ORDER BY rowid LIMIT 200)`,
+			Args:  []any{change.Before.Owner.Scope.ID},
+		}); err != nil {
+			return wrapErr(err)
+		}
 		table, write = "source_import_item_files", recordstore.UpdateSourceImportItemFiles
 		update.Set = `state='PAYLOAD_RELEASED',blob_id=NULL,source_archive_blob_id=NULL,source_archive_entry_ordinal=NULL,
   payload_released_at_ms=?,updated_at_ms=?`

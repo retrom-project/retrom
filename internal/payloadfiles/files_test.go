@@ -13,7 +13,7 @@ import (
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 
-func TestDeleteRemovesBlobAndTreatsMissingAsSuccess(t *testing.T) {
+func TestRetirementCanRollbackAndDeleteOnlyItsOwnFile(t *testing.T) {
 	store, err := blobstore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -27,24 +27,36 @@ func TestDeleteRemovesBlobAndTreatsMissingAsSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := New(store)
-	if err := files.Delete(t.Context(), digest); err != nil {
+	if err := files.Retire(t.Context(), digest, "job"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("blob still exists: %v", err)
 	}
-	if err := files.Delete(t.Context(), digest); err != nil {
+	if err := files.Restore(t.Context(), digest, "job"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := files.Retire(t.Context(), digest, "job"); err != nil {
+		t.Fatal(err)
+	}
+	if err := files.DeleteRetired(t.Context(), digest, "job"); err != nil {
+		t.Fatal(err)
+	}
+	if err := files.DeleteRetired(t.Context(), digest, "job"); err != nil {
 		t.Fatalf("missing blob should be successful: %v", err)
 	}
 }
 
 func TestDeleteRejectsNilStoreAndCanceledContext(t *testing.T) {
-	if err := New(nil).Delete(t.Context(), strings.Repeat("a", 64)); !errors.Is(err, payloadservice.ErrInputInvalid) {
+	if err := New(nil).Retire(t.Context(), strings.Repeat("a", 64), "job"); !errors.Is(err, payloadservice.ErrInputInvalid) {
 		t.Fatalf("nil store error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := New(nil).Delete(ctx, strings.Repeat("a", 64)); !errors.Is(err, context.Canceled) {
+	if err := New(nil).Retire(ctx, strings.Repeat("a", 64), "job"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled delete error = %v", err)
 	}
 }

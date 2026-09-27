@@ -7,14 +7,16 @@ import (
 )
 
 type Dependencies struct {
-	Worker     WorkerRepository
-	GC         GCRepository
-	Garbage    GarbageRepository
-	Effects    EffectRepository
-	Expiration ExpirationRepository
-	Retirement RetirementRepository
-	Files      GarbageFiles
-	Waiter     EffectWaiter
+	Worker    WorkerRepository
+	GC        GCRepository
+	Garbage   GarbageRepository
+	Effects   map[ScopeType]EffectRepository
+	Providers ProviderExpirationRepository
+	Previews  PreviewExpirationRepository
+	BIOS      BIOSRetirementRepository
+	Launches  LaunchRetirementRepository
+	Files     GarbageFiles
+	Waiter    EffectWaiter
 }
 
 type Options struct {
@@ -27,7 +29,7 @@ type Service struct {
 	worker      *Worker
 	gc          *GCScheduler
 	garbage     *GarbageCollector
-	effects     *ReleaseEffects
+	effects     map[ScopeType]*ReleaseEffects
 	expirations *Expirations
 	retirements *Retirements
 }
@@ -44,13 +46,16 @@ func New(_ context.Context, dependencies Dependencies, options Options) (*Servic
 		return nil, fmt.Errorf("initialize payload GC: %w", err)
 	}
 	service.gc = gc
-	service.expirations = NewExpirations(dependencies.Expiration, gc, options.Now)
-	service.retirements = NewRetirements(dependencies.Retirement, options.Now)
+	service.expirations = NewExpirations(dependencies.Providers, dependencies.Previews, gc, options.Now)
+	service.retirements = NewRetirements(dependencies.BIOS, dependencies.Launches, options.Now)
 	service.worker = NewWorker(dependencies.Worker, service, WorkerOptions{
 		Now: options.Now, NewID: options.NewID, Maintain: service.ReconcileGC, Report: options.Report,
 	})
 	service.garbage = NewGarbageCollector(dependencies.Garbage, service.worker, dependencies.Files)
-	service.effects = NewReleaseEffects(dependencies.Effects, service.worker, gc, dependencies.Waiter, options.Now)
+	service.effects = make(map[ScopeType]*ReleaseEffects, len(dependencies.Effects))
+	for kind, repository := range dependencies.Effects {
+		service.effects[kind] = NewReleaseEffects(repository, service.worker, dependencies.Waiter, options.Now)
+	}
 	return service, nil
 }
 
@@ -62,7 +67,11 @@ func (service *Service) Execute(ctx context.Context, unit Execution) error {
 	case "BLOB_GC":
 		return service.garbage.Execute(ctx, unit)
 	case "PAYLOAD_RELEASE":
-		return service.effects.Execute(ctx, unit)
+		handler, ok := service.effects[unit.Work.Scope.Type]
+		if !ok {
+			return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", ErrScopeInvalid)
+		}
+		return handler.Execute(ctx, unit)
 	default:
 		return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", ErrInputInvalid)
 	}

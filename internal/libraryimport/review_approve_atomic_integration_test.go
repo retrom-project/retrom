@@ -74,8 +74,7 @@ func verifyApprovalLateFailure(t *testing.T, stage string) {
 		t.Fatal(err)
 	}
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE source_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
-	fixture.execute(t, `UPDATE source_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
+	finishOwnedReviewHandoff(t, fixture, request)
 	ctx := prepareApprovalSelections(t, fixture, itemID)
 	before := approvalDatabaseRows(t, fixture.database)
 	fault := &approvalTransactionFault{stage: stage, cause: errors.New("late approval store failure")}

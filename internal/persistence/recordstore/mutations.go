@@ -36,7 +36,9 @@ func updateRecords(
 			return nil, err
 		}
 		args := append(append([]any{}, change.Values...), change.Scope.Args...)
-		result, err := tx.ExecContext(ctx, "UPDATE "+table+" SET "+change.Set+" WHERE "+change.Scope.Where, args...)
+		result, err := referenceMutation(ctx, tx, table, change.Scope, false, func() (sql.Result, error) {
+			return tx.ExecContext(ctx, "UPDATE "+table+" SET "+change.Set+" WHERE "+change.Scope.Where, args...)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("update %s: %w", table, err)
 		}
@@ -61,7 +63,9 @@ func deleteRecords(
 		if err := checkPreviousRecords(ctx, tx, previous, rule); err != nil {
 			return nil, err
 		}
-		result, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE "+scope.Where, scope.Args...)
+		result, err := referenceMutation(ctx, tx, table, scope, true, func() (sql.Result, error) {
+			return tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE "+scope.Where, scope.Args...)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("delete %s: %w", table, err)
 		}

@@ -24,8 +24,8 @@ type ScreenshotSource struct {
 }
 
 type ScreenshotImage struct {
-	SHA256, MD5, SHA1, CRC32, MediaType string
-	SizeBytes, WidthPX, HeightPX        int64
+	SHA256, MD5, SHA1, CRC32, MediaType, StoragePath string
+	SizeBytes, WidthPX, HeightPX                     int64
 }
 
 type ScreenshotWrite struct {

@@ -47,6 +47,10 @@ func (records impactRecords) ReadImpact(ctx context.Context, gameID string) (app
 		}
 		result.Blobs = append(result.Blobs, blob)
 	}
+	result.Blobs, err = expandImpactArchives(ctx, records.executor, result.Blobs)
+	if err != nil {
+		return application.ImpactSnapshot{}, err
+	}
 	result.Counts, err = records.counts(ctx, gameID)
 	if err != nil {
 		return application.ImpactSnapshot{}, err

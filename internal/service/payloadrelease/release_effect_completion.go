@@ -5,30 +5,20 @@ import (
 	"fmt"
 )
 
-func (run *effectRun) retry(ctx context.Context, before EffectOwner) (EffectOwner, error) {
-	if before.Owner.PayloadState != "FAILED" {
-		return before, nil
-	}
-	after := before.Owner
-	after.PayloadState = "RELEASING"
-	if after.Scope.Type == ScopeGame {
-		after.Version++
-	}
-	change := EffectOwnerChange{Before: before, After: after, NowMS: run.nowMS}
-	if err := run.scope.Write.ChangeOwner(ctx, change); err != nil {
-		return EffectOwner{}, fmt.Errorf("retry payload owner: %w", err)
-	}
-	before.Owner = after
-	return before, nil
-}
-
 func (run *effectRun) finish(ctx context.Context, before EffectOwner) error {
 	remains, err := run.scope.Read.Remaining(ctx, before.Owner.Scope)
 	if err != nil {
 		return fmt.Errorf("read remaining payload references: %w", err)
 	}
 	if remains != 0 {
-		return effectFailure("PAYLOAD_RELEASE_REFERENCE_REMAINS", nil)
+		if remains >= run.initialReferences {
+			return effectFailure("PAYLOAD_RELEASE_REFERENCE_REMAINS", nil)
+		}
+		run.more = true
+		return nil
+	}
+	if run.more {
+		return nil
 	}
 	after := before.Owner
 	after.PayloadState = "RELEASED"

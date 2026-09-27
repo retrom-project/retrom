@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 )
 
@@ -37,7 +38,9 @@ type EffectAuthority interface {
 }
 
 type GarbageFiles interface {
-	Delete(context.Context, string) error
+	Retire(context.Context, string, string) error
+	Restore(context.Context, string, string) error
+	DeleteRetired(context.Context, string, string) error
 }
 
 type GarbageCollector struct {
@@ -56,7 +59,7 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit Execution) er
 	if !validGarbageInput(unit) {
 		return effectFailure("BLOB_GC_INPUT_INVALID", nil)
 	}
-	remove := false
+	retired := false
 	err := service.repository.WithGarbage(ctx, func(scope GarbageScope) error {
 		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
 			return fmt.Errorf("check garbage execution: %w", err)
@@ -65,9 +68,15 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit Execution) er
 		if err != nil {
 			return fmt.Errorf("read garbage ownership: %w", err)
 		}
-		remove, err = service.removeCatalog(ctx, scope.Write, unit, facts)
+		remove, err := service.removeCatalog(ctx, scope.Write, unit, facts)
 		if err != nil {
 			return err
+		}
+		if remove && facts.Found {
+			retired = true
+			if err := service.files.Retire(ctx, unit.Input.Inputs.SHA256, unit.Work.ID); err != nil {
+				return effectFailure("BLOB_GC_PHYSICAL_RETIRE_FAILED", err)
+			}
 		}
 		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
 			return fmt.Errorf("confirm garbage execution before commit: %w", err)
@@ -75,13 +84,20 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit Execution) er
 		return nil
 	})
 	if err != nil {
+		if retired {
+			err = errors.Join(
+				err,
+				service.files.Restore(context.WithoutCancel(ctx), unit.Input.Inputs.SHA256, unit.Work.ID),
+			)
+		}
 		return fmt.Errorf("commit garbage catalog removal: %w", err)
 	}
-	if remove {
-		if err := service.files.Delete(ctx, unit.Input.Inputs.SHA256); err != nil {
-			return effectFailure("BLOB_GC_PHYSICAL_DELETE_FAILED", err)
-		}
+	// Only this execution's retired inode is unlinked. A new publication at the
+	// canonical digest path is independent, including retries after a crash.
+	if err := service.files.DeleteRetired(ctx, unit.Input.Inputs.SHA256, unit.Work.ID); err != nil {
+		return effectFailure("BLOB_GC_PHYSICAL_DELETE_FAILED", err)
 	}
+
 	return nil
 }
 

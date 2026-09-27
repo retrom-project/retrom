@@ -10,7 +10,15 @@ import (
 func CreateReviewPreviewFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "preview_session_id,role,logical_name", ValidateReviewPreviewFiles)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"review_preview_files",
+		"preview_session_id,role,logical_name",
+		ValidateReviewPreviewFiles,
+	)
 }
 
 func ValidateReviewPreviewFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {

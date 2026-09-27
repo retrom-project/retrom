@@ -42,7 +42,6 @@ type (
 		Input Input
 	}
 	WorkChange struct {
-		OwnerFailure                    *Owner
 		Before, After                   Work
 		NowMS                           int64
 		EventType, EventJSON, ErrorCode string
@@ -50,10 +49,6 @@ type (
 		AuditID, AuditAction, AuditJSON string
 	}
 )
-
-type FailureOwnerReader interface {
-	Owner(context.Context, Scope) (Owner, error)
-}
 
 type WorkerReader interface {
 	Next(context.Context, int64) (Work, bool, error)
@@ -66,9 +61,8 @@ type WorkerWriter interface {
 }
 type (
 	WorkerScope struct {
-		Read   WorkerReader
-		Write  WorkerWriter
-		Owners FailureOwnerReader
+		Read  WorkerReader
+		Write WorkerWriter
 	}
 	WorkerRepository interface {
 		WithWorker(context.Context, func(WorkerScope) error) error

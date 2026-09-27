@@ -10,7 +10,7 @@ import (
 func CreateUploadConsumptions(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateUploadConsumptions)
+	return create(ctx, db, query, args, "upload_consumptions", "id", ValidateUploadConsumptions)
 }
 
 func ValidateUploadConsumptions(ctx context.Context, db dbapi.Executor, keys ...any) error {

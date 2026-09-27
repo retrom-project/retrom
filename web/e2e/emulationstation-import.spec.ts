@@ -46,7 +46,7 @@ type ImportItem = {
 };
 
 type StorageSnapshot = {
-  totals: { unreferencedBytes: string };
+  totals: { registeredBytes: string; protectedBytes: string; unreferencedBytes: string; blobCount: number };
   categories: Array<{ code: string; bytes: string; blobCount: number }>;
   details: { cleanupCandidates: { blobCount: number; bytes: string } };
 };
@@ -157,12 +157,6 @@ async function readStorageSnapshot(page: Page) {
   const response = await page.request.get("/api/v1/admin/storage-analysis");
   expect(response.ok(), await response.text()).toBe(true);
   return await response.json() as StorageSnapshot;
-}
-
-function unreferencedCategory(snapshot: StorageSnapshot) {
-  const category = snapshot.categories.find((entry) => entry.code === "UNREFERENCED");
-  expect(category).toBeTruthy();
-  return category!;
 }
 
 async function scanPublicSource(page: Page) {
@@ -344,6 +338,11 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     items: Array<{ itemId: string }>;
   };
   expect(reviewList.items).toHaveLength(1);
+  // The Source can release its own bytes while this item is still awaiting review.
+  await expect.poll(
+    async () => (await readItems(page, plan.id))[0]?.payloadState,
+    { timeout: 30_000 },
+  ).toBe("RELEASED");
   const reviewDetailAPI = await page.request.get(
     `/api/v1/admin/reviews/${reviewList.items[0].itemId}`,
   );
@@ -499,27 +498,21 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   const releasedBytes = BigInt(
     romFixture.size + coverFixture.size + videoFixture.size,
   );
-  const beforeUnreferenced = unreferencedCategory(storageBeforeDelete);
   await expect.poll(async () => {
     const after = await readStorageSnapshot(page);
-    const afterUnreferenced = unreferencedCategory(after);
     return {
-      totalBytes: BigInt(after.totals.unreferencedBytes)
-        - BigInt(storageBeforeDelete.totals.unreferencedBytes),
-      categoryBytes: BigInt(afterUnreferenced.bytes)
-        - BigInt(beforeUnreferenced.bytes),
-      categoryCount: afterUnreferenced.blobCount - beforeUnreferenced.blobCount,
-      candidateBytes: BigInt(after.details.cleanupCandidates.bytes)
-        - BigInt(storageBeforeDelete.details.cleanupCandidates.bytes),
-      candidateCount: after.details.cleanupCandidates.blobCount
-        - storageBeforeDelete.details.cleanupCandidates.blobCount,
+      collectedBytes: BigInt(storageBeforeDelete.totals.registeredBytes) - BigInt(after.totals.registeredBytes),
+      collectedCount: storageBeforeDelete.totals.blobCount - after.totals.blobCount,
+      releasedProtection: BigInt(storageBeforeDelete.totals.protectedBytes) - BigInt(after.totals.protectedBytes),
+      unreferenced: after.totals.unreferencedBytes,
+      candidates: after.details.cleanupCandidates,
     };
   }, { timeout: 60_000 }).toEqual({
-    totalBytes: releasedBytes,
-    categoryBytes: releasedBytes,
-    categoryCount: 3,
-    candidateBytes: releasedBytes,
-    candidateCount: 3,
+    collectedBytes: releasedBytes,
+    collectedCount: 3,
+    releasedProtection: releasedBytes,
+    unreferenced: storageBeforeDelete.totals.unreferencedBytes,
+    candidates: storageBeforeDelete.details.cleanupCandidates,
   });
 
   expect((await page.request.get(`/api/v1/games/${gameId}`)).ok()).toBe(false);

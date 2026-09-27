@@ -40,26 +40,23 @@ func (*effectGraphMemory) Consume(context.Context, EffectConsumptionChange) erro
 	return errors.New("unexpected consumption")
 }
 
-func TestReleaseEffectBoundDuplicateRequiresPermanentProof(t *testing.T) {
-	for _, kind := range []ScopeType{ScopeSourceImportItem, ScopeSourceImportItem} {
+func TestReleaseEffectNeverReleasesAnotherOwnersPayload(t *testing.T) {
+	for _, kind := range []ScopeType{ScopeGame, ScopeImportItem, ScopeSourceImportItem} {
 		t.Run(string(kind), func(t *testing.T) {
-			public := EffectOwner{Found: true, Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "ordinary"}, State: "DISCARDED", PayloadState: "RELEASING", ReleaseJobID: "ordinary-release", Version: 2}}
-			source := EffectOwner{Found: true, ParentID: "plan", ExistingGameID: "game", Owner: Owner{Scope: Scope{Type: kind, ID: "source"}, State: "SKIPPED_EXISTING", PayloadState: "RETAINED", PublicID: "ordinary", Version: 4}}
-			memory := &effectGraphMemory{owners: map[Scope]EffectOwner{source.Owner.Scope: source}}
+			root := EffectOwner{Found: true, Owner: Owner{Scope: Scope{Type: kind, ID: "root"}, State: "PUBLISHED", PayloadState: "RELEASING", ReleaseJobID: "root-release", Version: 2}}
+			source := EffectOwner{Found: true, Owner: Owner{Scope: Scope{Type: ScopeSourceImportItem, ID: "source"}, State: "REVIEW_PENDING", PayloadState: "RETAINED", PublicID: "root", Version: 4}}
+			root.MetadataSource = EffectSource{Kind: "IMPORT_RECEIVE", ID: "source"}
+			root.ContentSource = root.MetadataSource
+			root.Owner.PublicID = "unrelated-import-item"
+			memory := &effectGraphMemory{owners: map[Scope]EffectOwner{root.Owner.Scope: root, source.Owner.Scope: source}, links: map[Scope][]Scope{root.Owner.Scope: {source.Owner.Scope}}}
 			run := effectRun{scope: EffectScope{Read: memory, Write: memory}, visited: make(map[Scope]bool), nowMS: 10}
-			if err := run.boundSource(t.Context(), public, source.Owner.Scope); WorkErrorCode(err) != "PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL" || memory.writes != 0 {
-				t.Fatalf("missing proof error=%v writes=%d", err, memory.writes)
-			}
-			source.DuplicateMatch = true
-			memory.owners[source.Owner.Scope] = source
-			if err := run.boundSource(t.Context(), public, source.Owner.Scope); err != nil {
+			if err := run.release(t.Context(), root); err != nil {
 				t.Fatal(err)
 			}
-			after := memory.owners[source.Owner.Scope].Owner
-			if after.PayloadState != "RELEASED" || after.Version != 6 || after.ReleaseJobID != "ordinary-release" || memory.writes != 2 {
-				t.Fatalf("bound result=%#v writes=%d", after, memory.writes)
+			if memory.owners[source.Owner.Scope] != source || memory.owners[root.Owner.Scope].Owner.PayloadState != "RELEASED" || memory.writes != 1 {
+				t.Fatalf("release crossed owner boundary: %#v", memory)
 			}
-			if err := run.boundSource(t.Context(), public, source.Owner.Scope); err != nil || memory.writes != 2 {
+			if err := run.release(t.Context(), memory.owners[root.Owner.Scope]); err != nil || memory.writes != 1 {
 				t.Fatalf("replay=%v writes=%d", err, memory.writes)
 			}
 		})
@@ -68,8 +65,8 @@ func TestReleaseEffectBoundDuplicateRequiresPermanentProof(t *testing.T) {
 
 func TestReleaseEffectAggregateRejectsProtectedChildren(t *testing.T) {
 	parent := EffectOwner{Found: true, Owner: Owner{Scope: Scope{Type: ScopeImportJob, ID: "parent"}, State: "COMPLETED", PayloadState: "RELEASING", ReleaseJobID: "parent-release", Version: 5}}
-	child := EffectOwner{Found: true, ParentID: "parent", Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "child"}, State: "PUBLISHED", PayloadState: "RELEASING", ReleaseJobID: "child-release", Version: 3}}
-	for _, field := range []string{"parent", "active", "retained", "release-job"} {
+	child := EffectOwner{Found: true, ParentID: "parent", Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "child"}, State: "PUBLISHED", PayloadState: "RELEASED", ReleaseJobID: "child-release", Version: 3}}
+	for _, field := range []string{"parent", "active", "retained", "releasing", "release-job"} {
 		t.Run(field, func(t *testing.T) {
 			changed := child
 			switch field {
@@ -77,6 +74,8 @@ func TestReleaseEffectAggregateRejectsProtectedChildren(t *testing.T) {
 				changed.ParentID = "other"
 			case "active":
 				changed.Owner.State = "REVIEW_PENDING"
+			case "releasing":
+				changed.Owner.PayloadState = "RELEASING"
 			case "retained":
 				changed.Owner.PayloadState = "RETAINED"
 			case "release-job":
@@ -88,17 +87,5 @@ func TestReleaseEffectAggregateRejectsProtectedChildren(t *testing.T) {
 				t.Fatalf("child=%s error=%v writes=%d", field, err, memory.writes)
 			}
 		})
-	}
-}
-
-func TestReleaseEffectSourceMappingDeduplicatesOnlyIdenticalOwners(t *testing.T) {
-	source := EffectSource{Kind: "IMPORT_RECEIVE", ID: "source"}
-	links := gameEffectSources(EffectOwner{MetadataSource: source, ContentSource: source})
-	if len(links) != 1 || links[0] != (Scope{Type: ScopeSourceImportItem, ID: "source"}) {
-		t.Fatalf("deduplicated=%#v", links)
-	}
-	links = gameEffectSources(EffectOwner{MetadataSource: source, ContentSource: EffectSource{Kind: "IMPORT_REVIEW", ID: "source"}})
-	if len(links) != 2 || links[1].Type != ScopeImportItem {
-		t.Fatalf("different owners merged=%#v", links)
 	}
 }

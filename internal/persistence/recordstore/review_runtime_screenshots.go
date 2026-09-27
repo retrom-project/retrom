@@ -10,11 +10,26 @@ import (
 func CreateReviewRuntimeScreenshots(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewRuntimeScreenshots)
+	return create(ctx, db, query, args, "review_runtime_screenshots", "id", ValidateReviewRuntimeScreenshots)
 }
 
 func ValidateReviewRuntimeScreenshots(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, review_runtime_screenshotsOwnership, keys)
+}
+
+func UpsertReviewRuntimeScreenshots(
+	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
+) (sql.Result, error) {
+	return upsertReferences(
+		ctx,
+		db,
+		"review_runtime_screenshots",
+		scope,
+		query,
+		args,
+		"id",
+		ValidateReviewRuntimeScreenshots,
+	)
 }
 
 const review_runtime_screenshotsOwnership = `

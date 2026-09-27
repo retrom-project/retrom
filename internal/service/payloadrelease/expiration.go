@@ -30,24 +30,33 @@ type PreviewExpiry struct {
 	NowMS  int64
 }
 
-type ExpirationReader interface {
+type ProviderExpirationReader interface {
 	Providers(context.Context, int64, int) ([]ProviderExpiration, error)
+}
+type ProviderExpirationWriter interface {
+	ReleaseProvider(context.Context, ProviderExpiration, int64) error
+}
+type PreviewExpirationReader interface {
 	Previews(context.Context, int64, int) ([]PreviewExpiration, error)
 }
-
-type ExpirationWriter interface {
-	ReleaseProvider(context.Context, ProviderExpiration, int64) error
+type PreviewExpirationWriter interface {
 	ExpirePreview(context.Context, PreviewExpiry) error
 }
-
-type ExpirationScope struct {
-	Read  ExpirationReader
-	Write ExpirationWriter
+type ProviderExpirationScope struct {
+	Read  ProviderExpirationReader
+	Write ProviderExpirationWriter
 	GC    GCScope
 }
-
-type ExpirationRepository interface {
-	WithExpiration(context.Context, func(ExpirationScope) error) error
+type PreviewExpirationScope struct {
+	Read  PreviewExpirationReader
+	Write PreviewExpirationWriter
+	GC    GCScope
+}
+type ProviderExpirationRepository interface {
+	WithProviderExpiration(context.Context, func(ProviderExpirationScope) error) error
+}
+type PreviewExpirationRepository interface {
+	WithPreviewExpiration(context.Context, func(PreviewExpirationScope) error) error
 }
 
 type GCStager interface {
@@ -55,16 +64,22 @@ type GCStager interface {
 }
 
 type Expirations struct {
-	repository ExpirationRepository
-	gc         GCStager
-	now        func() time.Time
+	providers ProviderExpirationRepository
+	previews  PreviewExpirationRepository
+	gc        GCStager
+	now       func() time.Time
 }
 
-func NewExpirations(repository ExpirationRepository, gc GCStager, now func() time.Time) *Expirations {
+func NewExpirations(
+	providers ProviderExpirationRepository,
+	previews PreviewExpirationRepository,
+	gc GCStager,
+	now func() time.Time,
+) *Expirations {
 	if now == nil {
 		now = time.Now
 	}
-	return &Expirations{repository: repository, gc: gc, now: now}
+	return &Expirations{providers: providers, previews: previews, gc: gc, now: now}
 }
 
 func (service *Expirations) Providers(ctx context.Context) error {
@@ -87,7 +102,7 @@ func (service *Expirations) Previews(ctx context.Context) error {
 
 func (service *Expirations) ProviderBatch(ctx context.Context) (int, error) {
 	count := 0
-	err := service.repository.WithExpiration(ctx, func(scope ExpirationScope) error {
+	err := service.providers.WithProviderExpiration(ctx, func(scope ProviderExpirationScope) error {
 		now := service.now().UnixMilli()
 		responses, err := scope.Read.Providers(ctx, now, expirationBatchSize)
 		if err != nil {
@@ -118,7 +133,7 @@ func (service *Expirations) ProviderBatch(ctx context.Context) (int, error) {
 
 func (service *Expirations) PreviewBatch(ctx context.Context) (int, error) {
 	count := 0
-	err := service.repository.WithExpiration(ctx, func(scope ExpirationScope) error {
+	err := service.previews.WithPreviewExpiration(ctx, func(scope PreviewExpirationScope) error {
 		now := service.now().UnixMilli()
 		previews, err := scope.Read.Previews(ctx, now, expirationBatchSize)
 		if err != nil {

@@ -21,6 +21,8 @@ func (records Records) CheckedUpdate(
 	write RecordUpdate,
 	update recordstore.Update,
 ) error {
+	update.Scope.Where = "rowid IN (SELECT rowid FROM " + table + " WHERE " +
+		update.Scope.Where + " ORDER BY rowid LIMIT 200)"
 	count, err := records.ReadCount(ctx, "SELECT count(*) FROM "+table+" WHERE "+update.Scope.Where, update.Scope.Args...)
 	if err != nil {
 		return err
@@ -55,29 +57,24 @@ type DeletionBatch struct {
 	Remove       func(context.Context, dbapi.Executor, recordstore.Scope) (sql.Result, error)
 }
 
+// RemoveBatches changes at most one bounded page. The caller commits before continuing.
 func (records Records) RemoveBatches(ctx context.Context, batches []DeletionBatch, id string) error {
 	for _, batch := range batches {
-		if err := records.removeBatch(ctx, batch, id); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (records Records) removeBatch(ctx context.Context, batch DeletionBatch, id string) error {
-	for {
+		batch.Where = "rowid IN (SELECT rowid FROM " + batch.Table + " WHERE " + batch.Where + " ORDER BY rowid LIMIT 200)"
 		count, err := records.ReadCount(ctx, "SELECT count(*) FROM "+batch.Table+" WHERE "+batch.Where, id)
 		if err != nil {
 			return err
+		}
+		if count == 0 {
+			continue
 		}
 		result, err := batch.Remove(ctx, records.Executor, recordstore.Scope{Where: batch.Where, Args: []any{id}})
 		if err := Count(result, err, count); err != nil {
 			return fmt.Errorf("delete payload reference batch: %w", err)
 		}
-		if count < 200 {
-			return nil
-		}
+		return nil
 	}
+	return nil
 }
 
 func (records Records) ReadCount(ctx context.Context, query string, args ...any) (int64, error) {

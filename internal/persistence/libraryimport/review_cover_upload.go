@@ -54,7 +54,14 @@ FROM import_files f
 JOIN blobs b ON b.id=f.blob_id
 JOIN upload_sessions upload ON upload.id=f.upload_session_id
 WHERE f.id=? AND f.released_at_ms IS NULL
-`, fileID).Scan(&source.FileID, &source.UploadID, &source.BlobID, &source.Digest, &source.Purpose, &source.SizeBytes)
+`, fileID).Scan(
+		&source.FileID,
+		&source.UploadID,
+		&source.BlobID,
+		&source.Digest,
+		&source.Purpose,
+		&source.SizeBytes,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewCoverSource{}, false, nil
 	}
@@ -88,14 +95,29 @@ func (records reviewCoverRecords) ExistingByUpload(
 ) (application.ReviewCoverExisting, bool, error) {
 	var existing application.ReviewCoverExisting
 	asset := &existing.Record
-	err := dbapi.QueryRowContext(ctx, records.executor, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT a.id,a.import_item_id,a.upload_file_id,a.blob_id,a.media_type,a.width_px,a.height_px,a.created_at_ms,
 EXISTS(SELECT 1 FROM upload_consumptions c JOIN import_files f ON f.id=a.upload_file_id
  WHERE c.consumer_type='REVIEW_ASSET' AND c.consumer_id=a.id AND c.upload_file_id=a.upload_file_id
  AND c.upload_session_id=f.upload_session_id AND c.released_at_ms IS NULL)
 FROM review_uploaded_assets a WHERE a.upload_file_id=?
-`, fileID).Scan(&asset.ID, &asset.ItemID, &asset.UploadFileID, &asset.BlobID, &asset.MediaType,
-		&asset.Width, &asset.Height, &asset.CreatedAtMS, &existing.HasConsumption)
+`,
+		fileID,
+	).Scan(
+		&asset.ID,
+		&asset.ItemID,
+		&asset.UploadFileID,
+		&asset.BlobID,
+		&asset.MediaType,
+
+		&asset.Width,
+		&asset.Height,
+		&asset.CreatedAtMS,
+		&existing.HasConsumption,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewCoverExisting{}, false, nil
 	}
@@ -106,12 +128,24 @@ FROM review_uploaded_assets a WHERE a.upload_file_id=?
 }
 
 func (records reviewCoverRecords) InsertAsset(ctx context.Context, asset application.ReviewCoverRecord) error {
-	_, err := records.executor.ExecContext(ctx, `
+	_, err := recordstore.CreateReferences(
+		ctx,
+		records.executor,
+		"review_uploaded_assets",
+		`
 INSERT INTO review_uploaded_assets(
 id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms
 ) VALUES(?,?,?,?,'COVER',?,?,?,?)
-`, asset.ID, asset.ItemID, asset.UploadFileID, asset.BlobID,
-		asset.Width, asset.Height, asset.MediaType, asset.CreatedAtMS)
+`,
+		asset.ID,
+		asset.ItemID,
+		asset.UploadFileID,
+		asset.BlobID,
+		asset.Width,
+		asset.Height,
+		asset.MediaType,
+		asset.CreatedAtMS,
+	)
 	if err != nil {
 		return fmt.Errorf("insert review uploaded asset: %w", err)
 	}
@@ -119,10 +153,19 @@ id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,crea
 }
 
 func (records reviewCoverRecords) Consume(ctx context.Context, consumption application.ReviewCoverConsumption) error {
-	_, err := recordstore.CreateUploadConsumptions(ctx, records.executor, `
+	_, err := recordstore.CreateUploadConsumptions(
+		ctx,
+		records.executor,
+		`
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,?,'REVIEW_ASSET',?,?)
-`, consumption.ID, consumption.UploadID, consumption.FileID, consumption.AssetID, consumption.CreatedAtMS)
+`,
+		consumption.ID,
+		consumption.UploadID,
+		consumption.FileID,
+		consumption.AssetID,
+		consumption.CreatedAtMS,
+	)
 	if err != nil {
 		return fmt.Errorf("insert review cover consumption: %w", err)
 	}

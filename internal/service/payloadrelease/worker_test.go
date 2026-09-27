@@ -15,7 +15,7 @@ type workerRepositoryFixture struct {
 
 func (r *workerRepositoryFixture) WithWorker(_ context.Context, run func(WorkerScope) error) error {
 	before, changes := r.work, len(r.changes)
-	err := run(WorkerScope{Read: r, Write: r, Owners: r})
+	err := run(WorkerScope{Read: r, Write: r})
 	if err == nil {
 		err = r.commitErr
 	}

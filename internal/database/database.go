@@ -41,6 +41,8 @@ type Stats struct {
 
 type Tx interface {
 	Executor
+	// NowMS uses the database's injected clock for transactional bookkeeping.
+	NowMS() int64
 	PrepareContext(context.Context, string) (Stmt, error)
 	Commit() error
 	Rollback() error

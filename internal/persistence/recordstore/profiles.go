@@ -10,7 +10,7 @@ import (
 func CreateProfiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateProfiles)
+	return create(ctx, db, query, args, "profiles", "id", ValidateProfiles)
 }
 
 func ValidateProfiles(ctx context.Context, db dbapi.Executor, keys ...any) error {

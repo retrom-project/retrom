@@ -54,21 +54,21 @@ func reviewReleaseMemory() *releaseGraphMemory {
 	}}, links: []Scope{source}}
 }
 
-func TestReviewReleaseSchedulesSharedSourceBeforeAggregate(t *testing.T) {
+func TestReviewReleaseSchedulesOnlyItemAndAggregate(t *testing.T) {
 	t.Parallel()
 	memory := reviewReleaseMemory()
 	err := NewScheduler(scheduleIDs()).Review(t.Context(), ReleaseScope{Scheduling: memory, Links: memory}, ReviewRelease{
 		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
 	})
-	if err != nil || len(memory.jobs) != 2 || len(memory.changes) != 3 {
+	if err != nil || len(memory.jobs) != 2 || len(memory.changes) != 2 {
 		t.Fatalf("review release: %v %+v", err, memory)
 	}
-	if memory.changes[0].JobID != memory.changes[1].JobID || memory.changes[2].Before.Scope.Type != ScopeImportJob {
-		t.Fatalf("shared source or aggregate order lost: %+v", memory.changes)
+	if memory.changes[0].JobID == memory.changes[1].JobID || memory.changes[1].Before.Scope.Type != ScopeImportJob {
+		t.Fatalf("independent item and aggregate jobs lost: %+v", memory.changes)
 	}
 }
 
-func TestReviewReleasePreservesSourceReadCauseAndStopsAggregate(t *testing.T) {
+func TestReviewReleaseDoesNotConsultSource(t *testing.T) {
 	t.Parallel()
 	memory := reviewReleaseMemory()
 	cause := errors.New("source links unavailable")
@@ -76,7 +76,7 @@ func TestReviewReleasePreservesSourceReadCauseAndStopsAggregate(t *testing.T) {
 	err := NewScheduler(scheduleIDs()).Review(t.Context(), ReleaseScope{Scheduling: memory, Links: memory}, ReviewRelease{
 		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
 	})
-	if !errors.Is(err, cause) || len(memory.jobs) != 1 {
-		t.Fatalf("source failure continued or lost cause: %v %+v", err, memory.jobs)
+	if err != nil || len(memory.jobs) != 2 {
+		t.Fatalf("unrelated source read blocked review release: %v %+v", err, memory.jobs)
 	}
 }

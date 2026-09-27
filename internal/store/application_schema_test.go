@@ -25,7 +25,7 @@ func TestApplicationQueriesDoNotRequireDatabaseViews(t *testing.T) {
 	}
 }
 
-func TestApplicationSchemaOnlyHasReferenceCountTriggers(t *testing.T) {
+func TestApplicationSchemaHasNoTriggers(t *testing.T) {
 	t.Parallel()
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	if err != nil {
@@ -37,12 +37,7 @@ func TestApplicationSchemaOnlyHasReferenceCountTriggers(t *testing.T) {
 		}
 	})
 	names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name")
-	if len(names) == 0 {
-		t.Fatal("blob reference count triggers are missing")
-	}
-	for _, name := range names {
-		if len(name) < len("count_") || name[:len("count_")] != "count_" {
-			t.Errorf("unexpected database trigger: %s", name)
-		}
+	if len(names) != 0 {
+		t.Fatalf("unexpected database triggers: %v", names)
 	}
 }

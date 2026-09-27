@@ -1,4 +1,4 @@
-package payloadrelease
+package payloadworker
 
 import (
 	"context"
@@ -42,9 +42,22 @@ func (records workerRecords) Change(ctx context.Context, change application.Work
 	if after.WorkerID != "" {
 		worker = after.WorkerID
 	}
-	values := append(make([]any, 0, 32),
-		after.Attempt, worker, timeArgument(after.Started), timeArgument(after.Deadline), timeArgument(after.Lease),
-		timeArgument(after.Heartbeat), after.Version, after.AvailableMS, finished, errorCode, retryable, change.NowMS,
+	values := append(
+		make([]any, 0, 32),
+
+		after.Attempt,
+		worker,
+		timeArgument(after.Started),
+		timeArgument(after.Deadline),
+		timeArgument(after.Lease),
+
+		timeArgument(after.Heartbeat),
+		after.Version,
+		after.AvailableMS,
+		finished,
+		errorCode,
+		retryable,
+		change.NowMS,
 	)
 	values = append(values, workArguments(change.Before)...)
 	result, err := records.executor.ExecContext(ctx, `UPDATE jobs SET state=`+state+`,attempt_count=?,worker_id=?,
@@ -52,11 +65,6 @@ func (records workerRecords) Change(ctx context.Context, change application.Work
  finished_at_ms=?,error_code=?,error_retryable=?,updated_at_ms=?`+workFence, values...)
 	if err := workerWrite(result, err); err != nil {
 		return fmt.Errorf("write release worker transition: %w", err)
-	}
-	if change.OwnerFailure != nil {
-		if err := records.failOwner(ctx, change); err != nil {
-			return err
-		}
 	}
 	return records.evidence(ctx, change)
 }

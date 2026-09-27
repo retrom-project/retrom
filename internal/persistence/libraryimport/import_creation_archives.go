@@ -124,8 +124,10 @@ func (records creationRecords) insertArchiveEntry(
 	blobID string,
 	now int64,
 ) error {
-	result, err := records.transaction.ExecContext(
+	result, err := recordstore.CreateReferences(
 		ctx,
+		records.transaction,
+		"archive_entries",
 		`
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,
  ascii_casefold_path,

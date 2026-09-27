@@ -33,21 +33,30 @@ func (writes writes) Publish(ctx context.Context, value gamecontent.Publication)
 
 func (writes writes) game(ctx context.Context, value gamecontent.Publication) error {
 	snapshot, prepared := value.Snapshot, value.Prepared
-	if err := requireChanged(recordstore.UpdateGames(ctx, writes.transaction, recordstore.Update{
-		Set: `content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
+	if err := requireChanged(
+		recordstore.UpdateGames(
+			ctx,
+			writes.transaction,
+			recordstore.Update{
+				Set: `content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
  source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?`,
-		Values: []any{prepared.ContentKind, value.JobID, string(prepared.Manifest), prepared.ManifestDigest, value.Now},
-		Scope: recordstore.Scope{
-			Where: `id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'`,
-			Args:  []any{snapshot.GameID, snapshot.GameVersion, snapshot.BaseManifestDigest},
-		},
-	})); err != nil {
+
+				Values: []any{prepared.ContentKind, value.JobID, string(prepared.Manifest), prepared.ManifestDigest, value.Now},
+
+				Scope: recordstore.Scope{
+					Where: `id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'`,
+					Args:  []any{snapshot.GameID, snapshot.GameVersion, snapshot.BaseManifestDigest},
+				},
+			},
+		),
+	); err != nil {
 		return err
 	}
-	if _, err := writes.transaction.ExecContext(
+	if _, err := recordstore.DeleteReferences(
 		ctx,
-		`DELETE FROM game_files WHERE game_id=?`,
-		snapshot.GameID,
+		writes.transaction,
+		"game_files",
+		recordstore.Scope{Where: "game_id=?", Args: []any{snapshot.GameID}},
 	); err != nil {
 		return fmt.Errorf("remove old game files: %w", err)
 	}
@@ -72,10 +81,11 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 
 func (writes writes) variant(ctx context.Context, value gamecontent.Publication) error {
 	snapshot := value.Snapshot
-	if _, err := writes.transaction.ExecContext(
+	if _, err := recordstore.DeleteReferences(
 		ctx,
-		`DELETE FROM variant_files WHERE game_variant_id=?`,
-		snapshot.VariantID,
+		writes.transaction,
+		"variant_files",
+		recordstore.Scope{Where: "game_variant_id=?", Args: []any{snapshot.VariantID}},
 	); err != nil {
 		return fmt.Errorf("remove old variant files: %w", err)
 	}
@@ -86,20 +96,28 @@ func (writes writes) variant(ctx context.Context, value gamecontent.Publication)
 	); err != nil {
 		return fmt.Errorf("remove old variant dependencies: %w", err)
 	}
-	return requireChanged(recordstore.UpdateGameVariants(ctx, writes.transaction, recordstore.Update{
-		Set: `provider_id=?,target_id=?,dat_version_id=?,status='READY',compatibility_code='READY',
+	return requireChanged(
+		recordstore.UpdateGameVariants(
+			ctx,
+			writes.transaction,
+			recordstore.Update{
+				Set: `provider_id=?,target_id=?,dat_version_id=?,status='READY',compatibility_code='READY',
  dependency_snapshot_json=?,version=version+1,updated_at_ms=?`,
-		Values: []any{
-			snapshot.ProviderID,
-			snapshot.TargetID,
-			snapshot.DATVersionID,
-			string(
-				value.DependencySnapshotJSON,
-			),
-			value.Now,
-		},
-		Scope: recordstore.Scope{Where: `id=? AND game_id=?`, Args: []any{snapshot.VariantID, snapshot.GameID}},
-	}))
+
+				Values: []any{
+					snapshot.ProviderID,
+					snapshot.TargetID,
+					snapshot.DATVersionID,
+					string(
+						value.DependencySnapshotJSON,
+					),
+					value.Now,
+				},
+
+				Scope: recordstore.Scope{Where: `id=? AND game_id=?`, Args: []any{snapshot.VariantID, snapshot.GameID}},
+			},
+		),
+	)
 }
 
 func (writes writes) playlist(ctx context.Context, value gamecontent.Publication) error {

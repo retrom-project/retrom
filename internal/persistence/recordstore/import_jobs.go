@@ -10,7 +10,7 @@ import (
 func CreateImportJobs(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateImportJobs)
+	return create(ctx, db, query, args, "import_jobs", "id", ValidateImportJobs)
 }
 
 func ValidateImportJobs(ctx context.Context, db dbapi.Executor, keys ...any) error {

@@ -115,7 +115,7 @@ WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &act
 		Job:       "FAILED",
 		Review:    "REVIEW_PENDING",
 		Item:      "COMMIT_FAILED",
-		Payload:   "RETAINED",
+		Payload:   "RELEASING",
 		Pending:   1,
 		Failed:    1,
 		Retryable: true,

@@ -10,11 +10,26 @@ import (
 func CreateVariantFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "game_variant_id,role,logical_name", ValidateVariantFiles)
+	return create(ctx, db, query, args, "variant_files", "game_variant_id,role,logical_name", ValidateVariantFiles)
 }
 
 func ValidateVariantFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, variant_filesOwnership, keys)
+}
+
+func UpsertVariantFiles(
+	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
+) (sql.Result, error) {
+	return upsertReferences(
+		ctx,
+		db,
+		"variant_files",
+		scope,
+		query,
+		args,
+		"game_variant_id,role,logical_name",
+		ValidateVariantFiles,
+	)
 }
 
 const variant_filesOwnership = `

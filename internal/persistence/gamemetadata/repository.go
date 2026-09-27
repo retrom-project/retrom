@@ -125,8 +125,11 @@ SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? ORDER BY ordinal,id
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
 	}
-	if _, err := scope.transaction.ExecContext(
-		ctx, `DELETE FROM game_assets WHERE game_id=? AND kind=?`, gameID, kind,
+	if _, err := recordstore.DeleteReferences(
+		ctx,
+		scope.transaction,
+		"game_assets",
+		recordstore.Scope{Where: "game_id=? AND kind=?", Args: []any{gameID, kind}},
 	); err != nil {
 		return nil, fmt.Errorf("delete replaced game assets: %w", err)
 	}

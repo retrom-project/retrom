@@ -8,6 +8,8 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/gamecontent/gamerelease"
+	"retrom/internal/persistence/releaseeffects"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
 
@@ -57,7 +59,7 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer dbapi.Rollback(tx)
-			scope := BindEffects(tx)
+			scope := gamerelease.BindEffects(tx)
 			before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
 			if err != nil {
 				t.Fatal(err)
@@ -78,7 +80,9 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 
 func TestEffectCommitFailurePreservesCauseAndRollsBackOwner(t *testing.T) {
 	db := effectRepositoryDatabase(t)
-	err := NewReleaseEffects(db).WithEffects(t.Context(), func(scope application.EffectScope) error {
+	var executor dbapi.Executor
+	repository := releaseeffects.New(db, func(tx dbapi.Executor) application.EffectScope { executor = tx; return gamerelease.BindEffects(tx) })
+	err := repository.WithEffects(t.Context(), func(scope application.EffectScope) error {
 		before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
 		if err != nil {
 			return err
@@ -89,14 +93,10 @@ func TestEffectCommitFailurePreservesCauseAndRollsBackOwner(t *testing.T) {
 		if err := scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10}); err != nil {
 			return err
 		}
-		records, ok := scope.Read.(effectRecords)
-		if !ok {
-			t.Fatal("real effect records required")
-		}
-		if _, err := records.executor.ExecContext(t.Context(), `PRAGMA defer_foreign_keys=ON`); err != nil {
+		if _, err := executor.ExecContext(t.Context(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 			return err
 		}
-		_, err = records.executor.ExecContext(t.Context(), `INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+		_, err = executor.ExecContext(t.Context(), `INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES('deferred-effect','effect-game','missing-deferred-blob','COVER',0,1,1,'image/png',10)`)
 		return err
 	})

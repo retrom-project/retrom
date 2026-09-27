@@ -1,17 +1,17 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 Blob 引用计数 trigger 的事实源是 `migrations/001_identity.sql` 至 `migrations/016_blob_reference_counts.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 和索引的事实源是 `migrations/001_identity.sql` 至 `migrations/016_blob_reference_counts.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 001–016 组成新的未发布建库基线，创建表、声明式约束、索引与 Blob 引用计数 trigger，不创建 view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
+- 001–016 组成新的未发布建库基线，创建表、声明式约束和索引，不创建 trigger、view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
 
 ### 应用写入与数据库职责
 
-数据库保留 PK、UNIQUE、CHECK、FK、必要的关系级联和查询索引。Blob 引用计数由数据库 trigger 与 owner 写入同事务维护；其他跨表归属、快照冻结、版本推进、终态不可恢复、最后一个管理员、标签数量与批次丢弃围栏使用显式 SQL 校验。新增或修改这类写入必须经过对应的 `recordstore` 方法；只读查询或不涉及这些不变量的写入仍可直接使用参数化 SQL。
+数据库保留 PK、UNIQUE、CHECK、FK、必要的关系级联和查询索引。Blob 引用计数由应用层显式 SQL 与 owner 写入同事务维护；其他跨表归属、快照冻结、版本推进、终态不可恢复、最后一个管理员、标签数量与批次丢弃围栏使用显式 SQL 校验。新增或修改这类写入必须经过对应的 `recordstore` 方法；只读查询或不涉及这些不变量的写入仍可直接使用参数化 SQL。
 
 `recordstore.Update` 分离 SET 值和 WHERE 参数，在同一连接读取所选记录的旧值，再更新并校验新旧值；删除先校验所有目标记录，再执行删除。调用方不得把未经校验的客户端文本拼入 SET/WHERE。写入与校验共享保存点，任何错误会撤销该次操作，调用方继续外层事务也不能提交非法记录。乐观条件未命中仍返回零行。冻结字段校验以值是否发生改变为准，对原值赋值不产生新状态；不可变证据整行更新、凭据重复消费/撤销等一次性操作仍按各自契约拒绝。
 
@@ -106,6 +106,16 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 批量处置中的真实待审核 Item 通过正常 Discard 事务生成审核决定。未产生审核的失败来源也可进入 `REVIEW_DISCARDED`，由批次处置作为证据，保留原错误码和详情，不生成审核历史。PUBLISHED/SKIPPED_EXISTING 不进入该转换；普通导入被取消的执行项与拒绝文件保留原终态及失败证据。引用释放仍以现有 payload state 和 release job 为唯一事实源。
 
+### 文件与媒体的交接所有权
+
+SourceItem 复制文件、来源归档和 COVER/VIDEO 后先持有自己的引用；Arcade 伴随文件在 `source_import_item_companions` 中按 `(item_id,candidate_item_id)` 唯一保留，直到交接或终态清理。它不依赖伴随来源项是否同时执行。
+
+普通 ImportItem 持有完整来源快照及校验文件。来源媒体归 `import_item_assets`，主键为 `(import_item_id,kind)`，`kind` 只允许 `COVER/VIDEO`，保存 Blob、media type、可空宽高和创建时刻。Source 进入 `REVIEW_PENDING` 的交接事务同时复制媒体引用、完成 metadata/warning 与永久关联、更新聚合并登记独立 Source release Job；任一步失败全部回滚。仅转移引用，不复制 CAS 字节。
+
+审核与发布读取 ImportItem 的文件和媒体，不读取 Source payload。Source 可在审核期间达到 `RELEASED`；来源摘要、绑定与结果仍保留。发布事务为 Game 建立所选内容与媒体引用，ImportItem 再独立释放自己的引用。三者的 `payload_release_job_id` 不共用，删除 Game 不回溯清理 Source 或 ImportItem。
+
+payload 物理状态只有 `RETAINED/RELEASING/RELEASED`，没有 owner 失败列；任务失败与原因只保存在 Job。API 的 `FAILED` 是 `RELEASING` owner 与关联失败 Job 的读投影，已释放 owner 不会因后续任务错误退回失败。
+
 ## 6. Launch 与资源冻结
 
 `launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；这些行不持有 Blob 引用，Blob 被领域 owner 释放后可删除；Game 内容或 BIOS 变化会撤销受影响的 Launch。Provider Bundle 身份仍按创建时冻结。
@@ -127,7 +137,7 @@ PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累�
 
 ## 9. Blob ownership 与释放
 
-每条持久 Blob 引用列必须登记在 `internal/persistence/blobregistry/registry.json`，由数据库触发器维护 `blobs.ref_count`。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后立即建立可执行的 GC candidate。
+每条持久 Blob 引用列必须登记在 `internal/persistence/blobregistry/registry.json`，由 `recordstore` 与 `blobrefs` 在写入事务中显式维护 `blobs.ref_count`。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后立即建立可执行的 GC candidate。
 
 Game 内容替换会撤销旧 Launch 并移除旧 Game-owned 边；BIOS 替换会撤销使用旧 BIOS 的 Launch/Play，后台分批释放旧安装与过时 Variant BIOS 边；Game 删除移除内容、媒体和存档边。Launch 不持有 Blob。共享 Blob 始终由剩余 owner 保护。
 

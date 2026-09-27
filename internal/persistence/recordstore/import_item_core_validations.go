@@ -10,7 +10,7 @@ import (
 func CreateImportItemCoreValidations(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateImportItemCoreValidations)
+	return create(ctx, db, query, args, "import_item_core_validations", "id", ValidateImportItemCoreValidations)
 }
 
 func ValidateImportItemCoreValidations(ctx context.Context, db dbapi.Executor, keys ...any) error {

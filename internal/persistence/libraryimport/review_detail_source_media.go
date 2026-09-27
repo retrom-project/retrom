@@ -21,25 +21,25 @@ COALESCE(json_extract(source.source_flags_json,'$.hidden'),0),
 COALESCE(json_extract(source.source_flags_json,'$.adult'),0),
 COALESCE(json_extract(source.source_flags_json,'$.kidGame'),0),
 EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT 1 FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
 AND asset.blob_id IS NOT NULL
 ),
 (
- SELECT asset.width_px FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.width_px FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
 ),
 (
- SELECT asset.height_px FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.height_px FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
 ),
 EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='VIDEO' AND asset.state='COPIED'
+ SELECT 1 FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='VIDEO'
  AND asset.blob_id IS NOT NULL
 )
 FROM source_import_items source

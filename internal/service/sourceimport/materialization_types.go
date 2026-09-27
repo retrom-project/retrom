@@ -17,8 +17,8 @@ type (
 		Width, Height          *int64
 	}
 	VerifiedBlob struct {
-		SHA256, MD5, SHA1, CRC32 string
-		Size                     int64
+		SHA256, MD5, SHA1, CRC32, StoragePath string
+		Size                                  int64
 	}
 	MaterialSnapshot struct {
 		Before                     OwnedItem

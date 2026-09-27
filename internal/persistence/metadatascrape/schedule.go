@@ -47,10 +47,23 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 	if err := writes.replaceCurrent(ctx, plan); err != nil {
 		return err
 	}
-	_, err := writes.transaction.ExecContext(ctx, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
+	_, err := writes.transaction.ExecContext(
+		ctx,
+		`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
  payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
- VALUES(?,?,?,'METADATA_SCRAPE',?,1,?,1,?,0,4,?,?,?,?)`, plan.JobID, plan.Subject.Kind, plan.Subject.ID, plan.Dedupe,
-		plan.PayloadJSON, plan.JobState, plan.Now, plan.FinishedAt, plan.Now, plan.Now)
+ VALUES(?,?,?,'METADATA_SCRAPE',?,1,?,1,?,0,4,?,?,?,?)`,
+		plan.JobID,
+		plan.Subject.Kind,
+		plan.Subject.ID,
+		plan.Dedupe,
+
+		plan.PayloadJSON,
+		plan.JobState,
+		plan.Now,
+		plan.FinishedAt,
+		plan.Now,
+		plan.Now,
+	)
 	if err != nil {
 		return fmt.Errorf("insert scrape job: %w", err)
 	}
@@ -61,18 +74,29 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 		itemID = &plan.Subject.ID
 	}
 	_, err = writes.transaction.ExecContext(
+
 		ctx,
+
 		`INSERT INTO metadata_scrape_runs
  (id,import_item_id,game_id,job_id,provider,provider_config_version,state,created_at_ms,updated_at_ms,completed_at_ms)
  VALUES(?,?,?,?,?,1,?,?,?,?)`,
+
 		plan.RunID,
+
 		itemID,
+
 		gameID,
+
 		plan.JobID,
+
 		plan.Provider,
+
 		plan.RunState,
+
 		plan.Now,
+
 		plan.Now,
+
 		plan.FinishedAt,
 	)
 	if err != nil {
@@ -97,12 +121,27 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 
 func (writes scheduleWrites) Evidence(ctx context.Context, evidence []metadatascrape.HashEvidence) error {
 	for _, item := range evidence {
-		_, err := writes.transaction.ExecContext(ctx, `INSERT INTO content_hash_evidence
+		_, err := recordstore.CreateReferences(
+			ctx,
+			writes.transaction,
+			"content_hash_evidence",
+			`INSERT INTO content_hash_evidence
  (id,scrape_run_id,profile,blob_id,archive_blob_id,archive_entry_ordinal,
  crc32,md5,sha1,sha256,query_order,created_at_ms)
- VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, item.ID, item.RunID, item.Profile, item.BlobID,
-			item.ArchiveBlobID, item.ArchiveOrdinal,
-			item.CRC32, item.MD5, item.SHA1, item.SHA256, item.Order, item.Now)
+ VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+			item.ID,
+			item.RunID,
+			item.Profile,
+			item.BlobID,
+			item.ArchiveBlobID,
+			item.ArchiveOrdinal,
+			item.CRC32,
+			item.MD5,
+			item.SHA1,
+			item.SHA256,
+			item.Order,
+			item.Now,
+		)
 		if err != nil {
 			return fmt.Errorf("insert content hash evidence: %w", err)
 		}

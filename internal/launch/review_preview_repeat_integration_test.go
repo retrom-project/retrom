@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"retrom/internal/persistence/recordstore"
+
 	"github.com/google/uuid"
 
 	dbapi "retrom/internal/database"
@@ -102,7 +104,7 @@ FROM import_item_core_validations WHERE id=?
 `, validationID, screenshot.ValidationID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database, "review_runtime_screenshots", `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
 validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms)
 SELECT ?,import_item_id,preview_session_id,source_snapshot_id,?,provider_id,target_id,blob_id,

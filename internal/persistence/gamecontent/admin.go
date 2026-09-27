@@ -22,7 +22,10 @@ func (records records) AdminGame(ctx context.Context, gameID string) (applicatio
 	var result application.AdminGameDetail
 	var payloadReleaseJobID, payloadLastErrorCode sql.NullString
 	var players, releaseYear, deletedAtMS sql.NullInt64
-	err := dbapi.QueryRowContext(ctx, records.executor, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT g.title,
 g.description,
 g.developer,
@@ -31,9 +34,9 @@ g.genre,
 g.players,
 g.release_year,
 g.status,
-g.payload_state,
+CASE WHEN g.payload_state='RELEASING' AND release_job.state='FAILED' THEN 'FAILED' ELSE g.payload_state END,
 g.payload_release_job_id,
-g.payload_last_error_code,
+CASE WHEN g.payload_state='RELEASING' THEN release_job.error_code END,
 pi.id,
 pi.name,
 pi.platform_id,
@@ -43,27 +46,49 @@ g.created_at_ms,
 g.updated_at_ms,
 g.deleted_at_ms
 FROM games g
+LEFT JOIN jobs release_job ON release_job.id=g.payload_release_job_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE g.id=?
-`, gameID).Scan(
+`,
+		gameID,
+	).Scan(
+
 		&result.Title,
+
 		&result.Description,
+
 		&result.Developer,
+
 		&result.Publisher,
+
 		&result.Genre,
+
 		&players,
+
 		&releaseYear,
+
 		&result.Status,
+
 		&result.PayloadState,
+
 		&payloadReleaseJobID,
+
 		&payloadLastErrorCode,
+
 		&result.InstanceID,
+
 		&result.InstanceName,
+
 		&result.PlatformID,
+
 		&result.ContentKind,
+
 		&result.Version,
+
 		&result.CreatedAtMS,
+
 		&result.UpdatedAtMS,
+
 		&deletedAtMS,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -203,6 +228,7 @@ g.genre,
 g.players,
 g.release_year
 FROM games g
+LEFT JOIN jobs release_job ON release_job.id=g.payload_release_job_id
 WHERE g.id=?
 `, gameID).Scan(
 		&state.Status,
@@ -275,7 +301,9 @@ func recordAdminGameAudit(ctx context.Context, transaction dbapi.Tx, update appl
 	if err != nil {
 		return fmt.Errorf("create admin game audit identity: %w", err)
 	}
-	_, err = transaction.ExecContext(ctx, `
+	_, err = transaction.ExecContext(
+		ctx,
+		`
 INSERT INTO audit_events(id,
 actor_kind,
 actor_user_id,
@@ -299,9 +327,19 @@ created_at_ms) VALUES(?,
 '{}',
 ?,
 ?)
-`, id.String(), update.Actor.Kind, update.Actor.UserID, update.Actor.Label, update.GameID,
+`,
+		id.String(),
+		update.Actor.Kind,
+		update.Actor.UserID,
+		update.Actor.Label,
+		update.GameID,
+
 		fmt.Sprintf(`{"version":%d}`, update.ExpectedVersion),
-		fmt.Sprintf(`{"version":%d}`, update.ExpectedVersion+1), nullableRequestID(update.Actor.RequestID), update.NowMS)
+
+		fmt.Sprintf(`{"version":%d}`, update.ExpectedVersion+1),
+		nullableRequestID(update.Actor.RequestID),
+		update.NowMS,
+	)
 	if err != nil {
 		return fmt.Errorf("insert admin game audit event: %w", err)
 	}

@@ -296,7 +296,7 @@ VALUES(?,?,?,?,?,?,'video/mp4',?)
 `, pegasusVideoBlobID, videoMetadata.SHA256, videoMetadata.Size, videoMetadata.MD5,
 		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
 	)
-	mustExecHTTPTest(t, server.database, `
+	mustCreateHTTPReferences(t, server.database, "source_import_item_assets", `
 INSERT INTO source_import_item_assets(
  item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,
  width_px,height_px,state,created_at_ms,updated_at_ms
@@ -305,6 +305,15 @@ INSERT INTO source_import_item_assets(
 `, pegasusItemID, coverMetadata.Size, strings.Repeat("5", 64), coverBlobID, timestamp, timestamp,
 		pegasusItemID, videoMetadata.Size, strings.Repeat("6", 64), pegasusVideoBlobID, timestamp, timestamp,
 	)
+	mustCreateHTTPReferences(t, server.database, "import_item_assets", `
+INSERT INTO import_item_assets(import_item_id,kind,blob_id,media_type,width_px,height_px,created_at_ms)
+SELECT ?,kind,blob_id,media_type,width_px,height_px,? FROM source_import_item_assets WHERE item_id=?`, itemID, timestamp, pegasusItemID)
+	if _, err := recordstore.UpdateReferences(t.Context(), server.database, "source_import_item_assets", recordstore.Update{
+		Set: "blob_id=NULL,state='PAYLOAD_RELEASED',payload_released_at_ms=?", Values: []any{timestamp},
+		Scope: recordstore.Scope{Where: "item_id=?", Args: []any{pegasusItemID}},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	mustExecHTTPTest(t, server.database, `
 UPDATE source_import_items
 SET execution_state='VALIDATING',completed_at_ms=NULL
@@ -448,19 +457,19 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) 
 (?,?,?,?,?,?,'image/png',?)
 `, sourceBlobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), timestamp,
 		coverBlobID, coverMetadata.SHA256, coverMetadata.Size, coverMetadata.MD5, coverMetadata.SHA1, coverMetadata.CRC32, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
 (?,?,'manual-cover.png',?,?,?,'COMPLETE',?,?)
 	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp,
 		coverUploadFileID, uploadID, coverMetadata.Size, coverMetadata.Size, coverBlobID, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
+	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
 VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba','ZIP','DEFLATE',4096,?,?,?,?,?,?)
 	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), sourceBlobID, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "import_item_source_files", `
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 	`, itemID, uploadFileID, sourceBlobID, timestamp)
@@ -469,7 +478,7 @@ INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,
 source_manifest_digest,created_by,created_at_ms)
 VALUES(?,?,?,?,'IDENTIFICATION',?)
 	`, sourceSnapshotID, itemID, manifest, digest, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
 blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
@@ -578,7 +587,7 @@ completed_at_ms) VALUES(?,
 ?,
 ?)
 `, scrapeRunID, itemID, scrapeJobID, timestamp, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "metadata_provider_responses", `
 INSERT INTO metadata_provider_responses(id,
 provider,
 request_digest,
@@ -610,7 +619,7 @@ created_at_ms) VALUES(?,
 '{}',
 ?)
 `, candidateID, scrapeRunID, providerResponseID, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "scrape_candidate_assets", `
 INSERT INTO scrape_candidate_assets(id,
 scrape_candidate_id,
 provider_response_id,
@@ -635,7 +644,7 @@ updated_at_ms) VALUES(?,
 ?,
 ?)
 `, candidateAssetID, candidateID, providerResponseID, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "scrape_candidate_assets", `
 INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,ordinal,
 source_path,status,blob_id,width_px,height_px,media_type,fetched_at_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,800,'image/png',?,1,?,?)

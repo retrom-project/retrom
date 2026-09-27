@@ -62,8 +62,13 @@ func (service *Scheduler) prepare(request ScheduleRequest) (ScheduledJob, error)
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00PAYLOAD_RELEASE\x00" +
 		string(request.Scope.Type) + "\x00" + request.Scope.ID))
 	return ScheduledJob{
-		ID: jobID, Scope: request.Scope, NowMS: request.NowMS,
-		DedupeKey: hex.EncodeToString(dedupe[:]), InputJSON: string(encoded), InputDigest: hex.EncodeToString(inputDigest[:]),
+		ID:    jobID,
+		Scope: request.Scope,
+		NowMS: request.NowMS,
+
+		DedupeKey:   hex.EncodeToString(dedupe[:]),
+		InputJSON:   string(encoded),
+		InputDigest: hex.EncodeToString(inputDigest[:]),
 	}, nil
 }
 
@@ -147,8 +152,7 @@ func readSchedulingOwner(ctx context.Context, scope SchedulingScope, ref Scope) 
 }
 
 func existingOwnerRelease(owner Owner) (string, error) {
-	if owner.ReleaseJobID != "" && (owner.PayloadState == "RELEASING" || owner.PayloadState == "RELEASED" ||
-		owner.PayloadState == "FAILED") {
+	if owner.ReleaseJobID != "" && (owner.PayloadState == "RELEASING" || owner.PayloadState == "RELEASED") {
 		return owner.ReleaseJobID, nil
 	}
 	return "", ErrScopeInvalid

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
@@ -77,5 +79,23 @@ func (records companionRecords) Register(
 	if !valid {
 		return "", application.ErrVersionConflict
 	}
-	return registerVerifiedMaterial(ctx, records.tx, change.Blob, "application/zip", change.NowMS)
+	id, err := registerVerifiedMaterial(ctx, records.tx, change.Blob, "application/zip", change.NowMS)
+	if err != nil {
+		return "", err
+	}
+	owner, candidate := change.Before.Item.ID, change.Candidate.ItemID
+	if _, err := recordstore.CreateReferences(ctx, records.tx, "source_import_item_companions", `
+ INSERT INTO source_import_item_companions(item_id,candidate_item_id,blob_id,created_at_ms)
+ VALUES(?,?,?,?) ON CONFLICT(item_id,candidate_item_id) DO NOTHING`, owner, candidate, id, change.NowMS); err != nil {
+		return "", fmt.Errorf("protect Source companion: %w", err)
+	}
+	var current string
+	if err := dbapi.QueryRowContext(ctx, records.tx, `SELECT blob_id FROM source_import_item_companions
+ WHERE item_id=? AND candidate_item_id=?`, owner, candidate).Scan(&current); err != nil {
+		return "", fmt.Errorf("verify Source companion: %w", err)
+	}
+	if current != id {
+		return "", application.ErrVersionConflict
+	}
+	return id, nil
 }

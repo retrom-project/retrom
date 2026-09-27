@@ -10,7 +10,15 @@ import (
 func CreateServerBiosImportItems(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "server_import_id,requirement_id", ValidateServerBiosImportItems)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"server_bios_import_items",
+		"server_import_id,requirement_id",
+		ValidateServerBiosImportItems,
+	)
 }
 
 func ValidateServerBiosImportItems(ctx context.Context, db dbapi.Executor, keys ...any) error {

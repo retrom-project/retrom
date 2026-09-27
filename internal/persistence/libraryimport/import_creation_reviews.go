@@ -62,19 +62,10 @@ VALUES(?,?,?,?,?,1,?,?)`,
 		}
 	}
 	for _, file := range change.Files {
-		result, err = records.transaction.ExecContext(
-			ctx,
-			`
+		result, err = recordstore.CreateReferences(ctx, records.transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
  sort_order,created_at_ms)
-VALUES(?,?,?,?,?,?)`,
-			change.ID,
-			file.Role,
-			file.LogicalName,
-			file.BlobID,
-			file.SortOrder,
-			change.NowMS,
-		)
+VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, change.NowMS)
 		if err := creationMutation(result, err, "insert creation validation file", 1); err != nil {
 			return err
 		}
@@ -100,15 +91,32 @@ review_created_at_ms=?,review_updated_at_ms=?`,
 }
 
 func (records creationRecords) RPG(ctx context.Context, change application.CreationRPGProfile) error {
-	profile, err := profilemodel.Encode(profilemodel.Review, profilemodel.RPGMakerProject, &profilemodel.RPGReview{
-		Generation: change.Generation, EvidenceFamily: change.EvidenceFamily,
-		EvidenceGeneration: change.EvidenceGeneration, EvidenceConfidence: change.EvidenceConfidence,
-		EngineVersion: change.EngineVersion, EntryHTMLPath: change.EntryHTML,
-		FileCount: change.FileCount, TotalBytes: change.TotalBytes,
-		ProjectFingerprint: change.FilesDigest, RequirementsSHA256: change.RequirementsDigest,
-		Analysis: json.RawMessage(change.AnalysisJSON), ProviderID: change.ProviderID, TargetID: change.TargetID,
-		DependencySnapshotSHA256: change.DependencyDigest,
-	})
+	profile, err := profilemodel.Encode(
+		profilemodel.Review,
+		profilemodel.RPGMakerProject,
+		&profilemodel.RPGReview{
+			Generation:     change.Generation,
+			EvidenceFamily: change.EvidenceFamily,
+
+			EvidenceGeneration: change.EvidenceGeneration,
+			EvidenceConfidence: change.EvidenceConfidence,
+
+			EngineVersion: change.EngineVersion,
+			EntryHTMLPath: change.EntryHTML,
+
+			FileCount:  change.FileCount,
+			TotalBytes: change.TotalBytes,
+
+			ProjectFingerprint: change.FilesDigest,
+			RequirementsSHA256: change.RequirementsDigest,
+
+			Analysis:   json.RawMessage(change.AnalysisJSON),
+			ProviderID: change.ProviderID,
+			TargetID:   change.TargetID,
+
+			DependencySnapshotSHA256: change.DependencyDigest,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("encode creation RPG profile: %w", err)
 	}
@@ -122,9 +130,18 @@ WHERE id=? AND review_profile_json IS NULL AND EXISTS(
 
 func (records creationRecords) Events(ctx context.Context, events []application.CreationEvent) error {
 	for _, event := range events {
-		result, err := records.transaction.ExecContext(ctx, `
+		result, err := records.transaction.ExecContext(
+			ctx,
+			`
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES(?,?,?,?,?,?)`,
-			event.JobID, event.ScopeType, event.ScopeID, event.Kind, event.DataJSON, event.NowMS)
+
+			event.JobID,
+			event.ScopeType,
+			event.ScopeID,
+			event.Kind,
+			event.DataJSON,
+			event.NowMS,
+		)
 		if err := creationMutation(result, err, "insert creation event", 1); err != nil {
 			return err
 		}

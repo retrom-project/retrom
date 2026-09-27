@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/composition"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/testsupport"
@@ -83,11 +85,11 @@ INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifes
 VALUES(?,'COMPLETE','FILES',1,?,?,9999999999999,0,0)`, uploadID, blob.Size, blob.SHA256); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(t.Context(), `
+	if _, err := recordstore.CreateReferences(t.Context(), server.database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'review-cover.png',?,?,?,'COMPLETE',0,0)`, fileID, uploadID, blob.Size, blob.Size, blobID); err != nil {
 		t.Fatal(err)
 	}
-	mustExecHTTPTest(t, server.database, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE id=?`, fileID)
+	mustCreateHTTPReferences(t, server.database, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE id=?`, fileID)
 	return fileID
 }

@@ -33,19 +33,17 @@ func TestReleaseEffectPolicyRejectsActiveOrChangedOwners(t *testing.T) {
 	}
 }
 
-func TestReleaseEffectUploadEligibilityRequiresEveryReferenceGone(t *testing.T) {
+func TestReleaseEffectUploadEligibilityRequiresCompletedConsumptions(t *testing.T) {
 	candidate := EffectUpload{ID: "file", SessionID: "upload", BlobID: "blob", State: "COMPLETE", SessionState: "COMPLETE"}
 	if !eligibleEffectUpload(candidate) {
 		t.Fatal("unreferenced completed file rejected")
 	}
-	for _, field := range []string{"consumption", "reference", "session", "file", "blob"} {
+	for _, field := range []string{"consumption", "session", "file", "blob"} {
 		t.Run(field, func(t *testing.T) {
 			blocked := candidate
 			switch field {
 			case "consumption":
 				blocked.ActiveConsumptions = 1
-			case "reference":
-				blocked.DomainReferences = 1
 			case "session":
 				blocked.SessionState = "FINALIZING"
 			case "file":

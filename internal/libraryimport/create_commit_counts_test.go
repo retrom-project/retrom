@@ -71,6 +71,20 @@ func assertCreationCountFault(t *testing.T, table, mode string) {
 	}
 	preceding, writes := 0, 0
 	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+		AfterQuery: func(_ context.Context, query string, _ []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
+			if !strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO "+table+"(") {
+				return rows, nil
+			}
+			values := make([]driver.Value, len(rows.Columns()))
+			if err := rows.Next(values); err != nil {
+				return nil, err
+			}
+			writes++
+			if mode == "cause" {
+				return nil, cause
+			}
+			return creationEmptyRows{Rows: rows}, nil
+		},
 		AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
 			if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO import_items(") {
 				count, err := result.RowsAffected()

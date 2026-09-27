@@ -17,14 +17,27 @@ func registerVerifiedMaterial(
 	mediaType string,
 	now int64,
 ) (string, error) {
-	metadata := blobstore.Metadata{SHA256: blob.SHA256, MD5: blob.MD5, SHA1: blob.SHA1, CRC32: blob.CRC32, Size: blob.Size}
+	metadata := blobstore.Metadata{
+		Path:   blob.StoragePath,
+		SHA256: blob.SHA256,
+		MD5:    blob.MD5,
+		SHA1:   blob.SHA1,
+		CRC32:  blob.CRC32,
+		Size:   blob.Size,
+	}
 	blobID, err := blobcatalog.EnsureRecord(ctx, db, metadata, mediaType, now)
 	if err != nil {
 		return "", fmt.Errorf("register Source material blob: %w", err)
 	}
-	var actual application.VerifiedBlob
+	actual := application.VerifiedBlob{StoragePath: blob.StoragePath}
 	if err := dbapi.QueryRowContext(ctx, db, `SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, blobID).Scan(
-		&actual.SHA256, &actual.MD5, &actual.SHA1, &actual.CRC32, &actual.Size); err != nil {
+
+		&actual.SHA256,
+		&actual.MD5,
+		&actual.SHA1,
+		&actual.CRC32,
+		&actual.Size,
+	); err != nil {
 		return "", fmt.Errorf("verify Source catalog facts: %w", err)
 	}
 	if actual != blob {

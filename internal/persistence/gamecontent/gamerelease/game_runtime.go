@@ -27,9 +27,10 @@ state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,versio
 		return fmt.Errorf("payloadrelease/revoke launches: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(ctx, "play_sessions",
-		"game_id=? AND state='ACTIVE'", []any{gameID}, `
+		"rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)",
+		[]any{gameID}, `
 UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE game_id=? AND state='ACTIVE'
+WHERE rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)
 `, now, now, gameID); err != nil {
 		return fmt.Errorf("payloadrelease/end play sessions: %w", err)
 	}

@@ -10,7 +10,7 @@ import (
 func CreateReviewMultidiscAttachments(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewMultidiscAttachments)
+	return create(ctx, db, query, args, "review_multidisc_attachments", "id", ValidateReviewMultidiscAttachments)
 }
 
 func ValidateReviewMultidiscAttachments(ctx context.Context, db dbapi.Executor, keys ...any) error {

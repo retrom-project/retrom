@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	application "retrom/internal/service/metadatascrape"
 )
 
@@ -25,6 +27,21 @@ func (writes scheduleWrites) replaceCurrent(ctx context.Context, plan applicatio
 		plan.Now, plan.Now, plan.Now, plan.Subject.ID, plan.Subject.ID)
 	if err != nil {
 		return fmt.Errorf("cancel replaced scrape jobs: %w", err)
+	}
+	if _, err := recordstore.DeleteScrapeCandidateAssets(
+		ctx,
+		writes.transaction,
+		recordstore.Scope{
+			Where: "scrape_candidate_id IN (SELECT id FROM scrape_candidates WHERE scrape_run_id IN (" + current + "))",
+			Args:  []any{plan.Subject.ID},
+		},
+	); err != nil {
+		return fmt.Errorf("release replaced scrape media: %w", err)
+	}
+	if _, err := recordstore.DeleteReferences(ctx, writes.transaction, "content_hash_evidence", recordstore.Scope{
+		Where: "scrape_run_id IN (" + current + ")", Args: []any{plan.Subject.ID},
+	}); err != nil {
+		return fmt.Errorf("release replaced scrape evidence: %w", err)
 	}
 	_, err = writes.transaction.ExecContext(ctx, "DELETE FROM metadata_scrape_runs WHERE "+predicate, plan.Subject.ID)
 	if err != nil {

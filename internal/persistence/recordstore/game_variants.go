@@ -10,7 +10,7 @@ import (
 func CreateGameVariants(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateGameVariants)
+	return create(ctx, db, query, args, "game_variants", "id", ValidateGameVariants)
 }
 
 func ValidateGameVariants(ctx context.Context, db dbapi.Executor, keys ...any) error {

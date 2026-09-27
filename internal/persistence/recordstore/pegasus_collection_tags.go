@@ -10,7 +10,15 @@ import (
 func CreateSourceCollectionTags(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "collection_id,tag_id", ValidateSourceCollectionTags)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"source_collection_tags",
+		"collection_id,tag_id",
+		ValidateSourceCollectionTags,
+	)
 }
 
 func ValidateSourceCollectionTags(ctx context.Context, db dbapi.Executor, keys ...any) error {

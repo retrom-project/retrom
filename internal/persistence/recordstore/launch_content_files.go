@@ -10,7 +10,15 @@ import (
 func CreateLaunchContentFiles(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "launch_session_id,logical_name", ValidateLaunchContentFiles)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"launch_content_files",
+		"launch_session_id,logical_name",
+		ValidateLaunchContentFiles,
+	)
 }
 
 func ValidateLaunchContentFiles(ctx context.Context, db dbapi.Executor, keys ...any) error {

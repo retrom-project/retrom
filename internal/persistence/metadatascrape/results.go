@@ -39,8 +39,10 @@ func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.
 		ctx, records.transaction,
 
 		`SELECT EXISTS(SELECT 1 FROM metadata_scrape_runs r
- JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND j.execution_no=?
- AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND j.execution_deadline_at_ms>?
+ JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND
+j.execution_no=?
+ AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND
+j.execution_deadline_at_ms>?
  AND (r.game_id IS NULL OR g.status='PUBLISHED'))`,
 		claim.RunID,
 		claim.JobID,
@@ -87,8 +89,10 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 	if value.HTTPStatus != 0 {
 		status = &value.HTTPStatus
 	}
-	_, err := records.transaction.ExecContext(
+	_, err := recordstore.CreateReferences(
 		ctx,
+		records.transaction,
+		"metadata_provider_responses",
 		`INSERT INTO metadata_provider_responses
  (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
  VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)`,

@@ -23,15 +23,11 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 	cause := errors.New("review cover consumption failed")
 	inserted, failed := 0, 0
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-		AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+		AfterQuery: func(_ context.Context, query string, _ []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
 			if strings.Contains(query, "INSERT INTO review_uploaded_assets") {
-				count, err := result.RowsAffected()
-				if err != nil {
-					return nil, err
-				}
-				inserted += int(count)
+				inserted++
 			}
-			return result, nil
+			return rows, nil
 		},
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO upload_consumptions") && strings.Contains(query, "'REVIEW_ASSET'") {

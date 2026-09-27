@@ -42,8 +42,16 @@ func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (appl
 		return application.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
 	}
 	return application.ScreenshotImage{
-		SHA256: metadata.SHA256, MD5: metadata.MD5, SHA1: metadata.SHA1, CRC32: metadata.CRC32,
-		SizeBytes: metadata.Size, MediaType: image.MediaType, WidthPX: image.WidthPX, HeightPX: image.HeightPX,
+		StoragePath: metadata.Path,
+		SHA256:      metadata.SHA256,
+		MD5:         metadata.MD5,
+		SHA1:        metadata.SHA1,
+		CRC32:       metadata.CRC32,
+
+		SizeBytes: metadata.Size,
+		MediaType: image.MediaType,
+		WidthPX:   image.WidthPX,
+		HeightPX:  image.HeightPX,
 	}, nil
 }
 

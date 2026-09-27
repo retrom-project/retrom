@@ -751,7 +751,7 @@ Y 默认收藏写入仍使用既有 `PUT /api/v1/favorites/{gameId}`，不会自
 
 `GET /api/v1/admin/games/{gameId}` 的 `deleteImpact` 和 DELETE response 以 OpenAPI 为准。删除前 impact digest 绑定全部计数、去重 Blob 数、registered/exclusive/shared bytes 与排序后的 sourceKinds；任一新存档、媒体、内容引用或活动运行使旧 digest 返回 `409 GAME_DELETE_IMPACT_STALE`。标题不匹配为 `422 GAME_DELETE_CONFIRMATION_MISMATCH`，Game ETag 不匹配为 `409 VERSION_CONFLICT`，非管理员为 403，未知或对非管理员不可见统一为 404。
 
-ImportJob/ImportItem、Pegasus/EmulationStation Item 和管理员 Game 详情均投影 `payloadState/payloadReleaseJobId`，FAILED 另给稳定 `payloadLastErrorCode`；重试使用已有 `POST /api/v1/admin/jobs/{jobId}/retry`，不会重新执行第二次删除。RELEASED 后仍返回来源类型、文件名、总大小、manifest/hash 摘要、状态、warning/error 和审核文字，但不返回 review asset、preview、runtime screenshot、来源媒体或内容下载 URL。前端显示“源文件已清理”。
+ImportJob/ImportItem、Pegasus/EmulationStation Item 和管理员 Game 详情均投影 `payloadState/payloadReleaseJobId`，FAILED 及稳定 `payloadLastErrorCode` 由仍在 RELEASING 的 owner 与失败 Job 联表投影，owner 不保存失败状态或错误副本；重试使用已有 `POST /api/v1/admin/jobs/{jobId}/retry`，不会重新执行第二次删除。RELEASED 后仍返回来源类型、文件名、总大小、manifest/hash 摘要、状态、warning/error 和审核文字，但不返回 review asset、preview、runtime screenshot、来源媒体或内容下载 URL。前端显示“源文件已清理”。Source 的 RELEASED 只描述 Source 所有权；已交接且仍待审的 ImportItem 继续提供自己持有的封面、视频和预览。
 
 Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game media/content、Save 下载及已签发但尚未使用的 capability 都使用 404，不泄露墓碑存在性。管理员墓碑读取不复用公共内容端点。写入新 Metadata/GameFiles、Asset、Save、Launch均由数据库/领域双重阻断。
 

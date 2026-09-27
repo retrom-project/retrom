@@ -10,7 +10,7 @@ import (
 func CreateServerImports(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateServerImports)
+	return create(ctx, db, query, args, "server_imports", "id", ValidateServerImports)
 }
 
 func ValidateServerImports(ctx context.Context, db dbapi.Executor, keys ...any) error {

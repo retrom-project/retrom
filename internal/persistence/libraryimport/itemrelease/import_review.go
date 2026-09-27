@@ -30,10 +30,11 @@ updated_at_ms=?,version=version+1
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(
 		ctx,
 		"review_draft_screenshot_assets",
-		`review_draft_id=?`,
+		`rowid IN (SELECT rowid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY rowid LIMIT 200)`,
 		[]any{itemID},
 		`
-DELETE FROM review_draft_screenshot_assets WHERE review_draft_id=?
+DELETE FROM review_draft_screenshot_assets WHERE rowid IN
+ (SELECT rowid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY rowid LIMIT 200)
 `,
 		itemID,
 	); err != nil {
@@ -47,8 +48,9 @@ review_version=CASE WHEN review_version>0 THEN review_version+1 ELSE 0 END,
 review_updated_at_ms=CASE WHEN review_version>0 THEN ? ELSE NULL END
 `,
 			Scope: recordstore.Scope{
-				Where: `id=?`,
-				Args:  []any{itemID},
+				Where: `id=? AND (cover_candidate_asset_id IS NOT NULL OR background_candidate_asset_id IS NOT NULL
+ OR cover_uploaded_asset_id IS NOT NULL)`,
+				Args: []any{itemID},
 			},
 			Values: []any{now},
 		}); err != nil {

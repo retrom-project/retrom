@@ -369,12 +369,11 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	const biosInstallationID = "01990000-0000-7000-8000-000000000010"
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, biosInstallationID, requirementID, sourceBlobID, "gba_bios.bin", sourceSize, md5Value, sha1Value,
-		sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, biosInstallationID, requirementID, sourceBlobID, "gba_bios.bin", sourceSize, md5Value, sha1Value, sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"},"tagIds":[]}`), &metadataPatch); err != nil {
@@ -396,7 +395,7 @@ WHERE d.id=?
 	biosSnapshot, err := corevalidation.ParseSnapshot(biosSnapshotJSON)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return biosValidationID == refreshedValidationID }, func() bool { return validationBIOSBlobID != sourceBlobID }, func() bool { return len(biosSnapshot.BIOS) != 1 }, func() bool { return biosSnapshot.BIOS[0].InstallationID == nil }, func() bool { return *biosSnapshot.BIOS[0].InstallationID != biosInstallationID }), "refreshed BIOS validation = %s snapshot=%s blob=%s error=%v", biosValidationID, biosSnapshotJSON, validationBIOSBlobID, err)
 	manualCoverID := "01990000-0000-7000-8000-000000000001"
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := recordstore.CreateReferences(ctx, database.SQL, "review_uploaded_assets", `
 INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 `, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
