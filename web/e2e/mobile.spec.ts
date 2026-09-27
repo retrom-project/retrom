@@ -143,7 +143,7 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
   }
 });
 
-test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }) => {
+test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/account"];
@@ -209,7 +209,7 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
   await expect(page.getByRole("link", { name: /最近游玩/ })).toBeVisible();
   await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
   await expectMinimumTargets(page, ".phone-profile-links > a, .phone-profile-links > button");
-  await expectMobileLocalDraftNotice(page);
+  await expectMobileLocalDraftNotice(page, testInfo);
 
   await page.evaluate(axe.source);
   const serious = await page.evaluate(async () => {

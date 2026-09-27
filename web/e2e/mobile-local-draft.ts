@@ -1,6 +1,7 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
+import { evidencePath } from "./acceptance-support";
 
-export async function expectMobileLocalDraftNotice(page: Page) {
+export async function expectMobileLocalDraftNotice(page: Page, testInfo: TestInfo) {
   const response = await page.request.get("/api/v1/auth/context");
   expect(response.ok()).toBe(true);
   const { user } = await response.json() as { user: { userId: string } };
@@ -35,6 +36,21 @@ export async function expectMobileLocalDraftNotice(page: Page) {
     expect(banner!.y + banner!.height).toBeLessThanOrEqual(nav!.y - 8);
     const action = await notice.getByRole("button", { name: "处理本地草稿" }).boundingBox();
     expect(action!.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({ path: evidencePath(testInfo, `local-draft-${viewport.width}.png`) });
+  }
+  const desktop = await page.context().browser()!.newContext({
+    storageState: await page.context().storageState({ indexedDB: true }),
+    viewport: { width: 2560, height: 1440 }, deviceScaleFactor: 1.5,
+  });
+  try {
+    const desktopPage = await desktop.newPage();
+    await desktopPage.goto(new URL("/", page.url()).href);
+    const desktopNotice = desktopPage.getByRole("complementary", { name: "未提交的本地游戏存档" });
+    await expect(desktopNotice).toBeVisible();
+    await expect(desktopNotice).toHaveCSS("bottom", "16px");
+    await desktopPage.screenshot({ path: evidencePath(testInfo, "local-draft-4k-150.png") });
+  } finally {
+    await desktop.close();
   }
   await notice.getByRole("button", { name: "处理本地草稿" }).click();
   const dialog = page.getByRole("alertdialog", { name: "处理未提交的游戏存档" });
