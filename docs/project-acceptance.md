@@ -2555,9 +2555,15 @@ preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来�
 校验，缺证明会失败。若任务明确缩减验证范围，交付记录必须分别列出实际版本和来源对应的
 已验证项、历史证据及未运行项；不得把范围缩减改写为完整矩阵或 `CANDIDATE_VERIFIED` 通过。
 
-`tests/fixtures/content-io/product-cases.json` 固定 21 个受影响 Target 的输入角色、来源回执、
+`tests/fixtures/content-io/target-declarations.json` 由当前 PFB Runtime 的
+`node scripts/content-io/target-catalog.mjs --output <Retrom>/tests/fixtures/content-io/target-declarations.json`
+生成；产品执行前用 `--check` 拒绝声明漂移。当前清单含 103 个 Target，其中 31 个使用共享 Content I/O。
+`tests/fixtures/content-io/product-cases.json` 为这些受管 Target 登记输入角色、来源回执、
 原产品入口、存档语义和必需场景。每个场景都有操作、可观察等待条件、最大等待预算、断言和
-失败码。清单只保存逻辑输入名；操作者路径和实际游戏留在本地验收目录。
+失败码。Flycast 的普通及 Arcade Target 均使用 RANGE；Daphne 的 NO_SAVE 场景检查输入和退出，不要求不支持的存档操作。
+BBC、SAM Coupé 与 DOSBox 暂无完整 Content I/O 专用产品驱动，`existingAcceptanceEntry: null` 明确记录缺口；执行器输出
+`CONTENT_IO_PRODUCT_DRIVER_MISSING` / BLOCKED，不能跳过或算作 PASS。既有 DOS 功能仍有 ACC-RUN-005 的独立验收。
+清单只保存逻辑输入名；操作者路径和实际游戏留在本地验收目录。
 `scripts/acceptance/content_io_catalog.py` 校验完整 Target/Provider/模式集合、动作覆盖和场景集合，
 包括 Range 故障、原生桥、工作目录、已退役 RTP 产品边界与五轮 cold/warm 性能比较；删除这些场景不能使检查通过。
 

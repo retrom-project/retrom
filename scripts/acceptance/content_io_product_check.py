@@ -20,6 +20,10 @@ from scripts.pfb.spec import load_spec
 
 def execute_case(case: dict, environment: dict, inputs: dict, output: Path, run_id: str, receipts: list[dict], identity: dict) -> dict:
     output.mkdir()
+    if case["existingAcceptanceEntry"] is None:
+        record = {"caseId": case["caseId"], "status": "BLOCKED", "errorCode": "CONTENT_IO_PRODUCT_DRIVER_MISSING"}
+        (output / "command.json").write_text(json.dumps(record, indent=2) + "\n")
+        return record
     selected = inputs["cases"][case["caseId"]]
     (output / "input-receipts.json").write_text(json.dumps(receipts, indent=2) + "\n")
     (output / "expected-identity.json").write_text(json.dumps(identity, indent=2) + "\n")
@@ -85,6 +89,9 @@ def main() -> int:
         raise ValueError("CONTENT_IO_PRODUCT_PFB_MISMATCH")
     if not environment["tools"]["chrome"] or not app_container_running(compose_project(spec["id"])) or app_container_health(compose_project(spec["id"])) != "healthy":
         raise ValueError("CONTENT_IO_PRODUCT_BLOCKED_ENV")
+    subprocess.run([environment["tools"]["node"]["path"], "scripts/content-io/target-catalog.mjs", "--check",
+                    str(ROOT / "tests/fixtures/content-io/target-declarations.json")],
+                   cwd=environment["repositories"]["runtime"]["root"], check=True, timeout=30)
     cases = load_catalog()
     input_path = ROOT / ".pfb/workspace/content-io/operator-inputs.json"
     inputs = read_operator_inputs(input_path, spec["id"], cases)

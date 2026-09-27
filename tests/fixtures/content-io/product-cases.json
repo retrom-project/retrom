@@ -1706,8 +1706,15 @@
         "exit",
         "performance-five-cold-warm",
         "cache-denied",
-        "size-boundaries",
-        "eager-progress"
+        "cache-corruption",
+        "concurrent-read",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "read-exit",
+        "trace-10000",
+        "worker-termination"
       ],
       "existingAcceptanceEntry": {
         "path": "scripts/acceptance/flycast_storage_product.mjs",
@@ -1772,20 +1779,76 @@
           "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
         },
         {
-          "scenario": "size-boundaries",
-          "operation": "Provide each input role at its declared maximum and maximum plus one",
-          "waitFor": "The exact maximum passes admission and the oversized input fails before core start",
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
           "maxWaitMs": 120000,
-          "assertion": "Existing role limits remain unchanged; a recorded full-size browser materialization validates supported storage capacity",
-          "failureCode": "CONTENT_IO_SIZE_BOUNDARIES_FAILED"
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
         },
         {
-          "scenario": "eager-progress",
-          "operation": "Delay the final sink commit while observing Player preparation progress",
-          "waitFor": "Input preparation commits before the core starts",
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
           "maxWaitMs": 120000,
-          "assertion": "Loading remains visible below 100 percent until required bytes are verified and committed",
-          "failureCode": "CONTENT_IO_EAGER_PROGRESS_FAILED"
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
         }
       ],
       "expectedObservations": {
@@ -1795,7 +1858,7 @@
         "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
       },
       "networkPolicy": {
-        "mode": "EAGER",
+        "mode": "RANGE",
         "observeEntireBrowserContext": true,
         "recordSessionFetchPolicy": true,
         "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
@@ -3418,6 +3481,1674 @@
       },
       "networkPolicy": {
         "mode": "PROJECT",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-APPLE2-001",
+      "providerId": "retrom-runtime",
+      "targetId": "apple2-apple2js",
+      "inputRoles": [
+        "game",
+        "external"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:apple2-apple2js"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-denied",
+        "cold",
+        "eager-progress",
+        "exit",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "save-restore-input",
+        "size-boundaries",
+        "warm-new-launch"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/apple2_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 600
+      },
+      "actions": [
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "eager-progress",
+          "operation": "Delay the final sink commit while observing Player preparation progress",
+          "waitFor": "Input preparation commits before the core starts",
+          "maxWaitMs": 120000,
+          "assertion": "Loading remains visible below 100 percent until required bytes are verified and committed",
+          "failureCode": "CONTENT_IO_EAGER_PROGRESS_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "size-boundaries",
+          "operation": "Provide each input role at its declared maximum and maximum plus one",
+          "waitFor": "The exact maximum passes admission and the oversized input fails before core start",
+          "maxWaitMs": 120000,
+          "assertion": "Existing role limits remain unchanged; a recorded full-size browser materialization validates supported storage capacity",
+          "failureCode": "CONTENT_IO_SIZE_BOUNDARIES_FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "EAGER",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-BBC-001",
+      "providerId": "retrom-runtime",
+      "targetId": "bbc-jsbeeb",
+      "inputRoles": [
+        "game",
+        "external"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:bbc-jsbeeb"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-denied",
+        "cold",
+        "eager-progress",
+        "exit",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "save-restore-input",
+        "size-boundaries",
+        "warm-new-launch"
+      ],
+      "existingAcceptanceEntry": null,
+      "actions": [
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "eager-progress",
+          "operation": "Delay the final sink commit while observing Player preparation progress",
+          "waitFor": "Input preparation commits before the core starts",
+          "maxWaitMs": 120000,
+          "assertion": "Loading remains visible below 100 percent until required bytes are verified and committed",
+          "failureCode": "CONTENT_IO_EAGER_PROGRESS_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "size-boundaries",
+          "operation": "Provide each input role at its declared maximum and maximum plus one",
+          "waitFor": "The exact maximum passes admission and the oversized input fails before core start",
+          "maxWaitMs": 120000,
+          "assertion": "Existing role limits remain unchanged; a recorded full-size browser materialization validates supported storage capacity",
+          "failureCode": "CONTENT_IO_SIZE_BOUNDARIES_FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "EAGER",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-SAMCOUPE-001",
+      "providerId": "retrom-runtime",
+      "targetId": "samcoupe",
+      "inputRoles": [
+        "game",
+        "external"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:samcoupe"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "GAME_SAVE",
+      "requiredScenarios": [
+        "cache-denied",
+        "cold",
+        "eager-progress",
+        "exit",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "save-restore-input",
+        "size-boundaries",
+        "warm-new-launch"
+      ],
+      "existingAcceptanceEntry": null,
+      "actions": [
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "eager-progress",
+          "operation": "Delay the final sink commit while observing Player preparation progress",
+          "waitFor": "Input preparation commits before the core starts",
+          "maxWaitMs": 120000,
+          "assertion": "Loading remains visible below 100 percent until required bytes are verified and committed",
+          "failureCode": "CONTENT_IO_EAGER_PROGRESS_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "size-boundaries",
+          "operation": "Provide each input role at its declared maximum and maximum plus one",
+          "waitFor": "The exact maximum passes admission and the oversized input fails before core start",
+          "maxWaitMs": 120000,
+          "assertion": "Existing role limits remain unchanged; a recorded full-size browser materialization validates supported storage capacity",
+          "failureCode": "CONTENT_IO_SIZE_BOUNDARIES_FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "GAME_SAVE",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "EAGER",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-DOSBOX-001",
+      "providerId": "emulatorjs",
+      "targetId": "dosbox-pure",
+      "inputRoles": [
+        "game"
+      ],
+      "sourceIdentity": {
+        "kind": "INDEX_ENTRY",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:dosbox-pure"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "save-restore-input",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": null,
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-DAPHNE-001",
+      "providerId": "emulatorjs",
+      "targetId": "daphne",
+      "inputRoles": [
+        "game"
+      ],
+      "sourceIdentity": {
+        "kind": "INDEX_ENTRY",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:daphne"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "NO_SAVE",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "input-no-save",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/daphne_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 600
+      },
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "input-no-save",
+          "operation": "Play with direction and confirm controls, then open the player menu",
+          "waitFor": "Observable game state changes and the no-save menu",
+          "maxWaitMs": 120000,
+          "assertion": "The Target handles input and exposes no unsupported checkpoint operation",
+          "failureCode": "CONTENT_IO_NO_SAVE_INVALID"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "NO_SAVE",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-SEGACD-001",
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-cd",
+      "inputRoles": [
+        "game",
+        "bios"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:genesis-plus-gx-cd"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "save-restore-input",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/platform_expansion_product.mjs",
+        "arguments": [
+          "segacd"
+        ],
+        "timeoutSeconds": 600
+      },
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-CD32-001",
+      "providerId": "emulatorjs",
+      "targetId": "puae",
+      "inputRoles": [
+        "game",
+        "bios"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:puae"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-denied",
+        "cold",
+        "eager-progress",
+        "exit",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "save-restore-input",
+        "size-boundaries",
+        "warm-new-launch"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/platform_expansion_product.mjs",
+        "arguments": [
+          "amigacd32"
+        ],
+        "timeoutSeconds": 600
+      },
+      "actions": [
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "eager-progress",
+          "operation": "Delay the final sink commit while observing Player preparation progress",
+          "waitFor": "Input preparation commits before the core starts",
+          "maxWaitMs": 120000,
+          "assertion": "Loading remains visible below 100 percent until required bytes are verified and committed",
+          "failureCode": "CONTENT_IO_EAGER_PROGRESS_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "size-boundaries",
+          "operation": "Provide each input role at its declared maximum and maximum plus one",
+          "waitFor": "The exact maximum passes admission and the oversized input fails before core start",
+          "maxWaitMs": 120000,
+          "assertion": "Existing role limits remain unchanged; a recorded full-size browser materialization validates supported storage capacity",
+          "failureCode": "CONTENT_IO_SIZE_BOUNDARIES_FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "EAGER",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-NAOMI-001",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi",
+      "inputRoles": [
+        "game",
+        "bios"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:flycast-naomi"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "save-restore-input",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/flycast_arcade_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 900
+      },
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-NAOMI2-001",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi2",
+      "inputRoles": [
+        "game",
+        "bios"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:flycast-naomi2"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "save-restore-input",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/flycast_arcade_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 900
+      },
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
+        "observeEntireBrowserContext": true,
+        "recordSessionFetchPolicy": true,
+        "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"
+      },
+      "performance": {
+        "repetitions": 5,
+        "states": [
+          "cold",
+          "warm"
+        ],
+        "inputReadyRatio": 1.15,
+        "firstFrameRatio": 1.15,
+        "slackMs": 100
+      }
+    },
+    {
+      "caseId": "ACC-ATOMISWAVE-001",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-atomiswave",
+      "inputRoles": [
+        "game",
+        "bios"
+      ],
+      "sourceIdentity": {
+        "kind": "FILE_SHA256",
+        "receiptRequired": true
+      },
+      "fixtureRef": [
+        "operator:flycast-atomiswave"
+      ],
+      "fixtureAvailability": "OPERATOR_REQUIRED",
+      "checkpointSemantics": "INSTANT",
+      "requiredScenarios": [
+        "cache-corruption",
+        "cache-denied",
+        "cold",
+        "concurrent-read",
+        "exit",
+        "fault-identity-412",
+        "fault-range-200",
+        "fault-short-body",
+        "metadata-no-body",
+        "performance-five-cold-warm",
+        "preview-publish",
+        "read-exit",
+        "save-restore-input",
+        "trace-10000",
+        "warm-new-launch",
+        "worker-termination"
+      ],
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/flycast_arcade_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 900
+      },
+      "actions": [
+        {
+          "scenario": "cache-corruption",
+          "operation": "Corrupt one persisted block before replaying the game in a new Launch",
+          "waitFor": "Local integrity validation detects the changed bytes",
+          "maxWaitMs": 120000,
+          "assertion": "An unpublished block is refetched; a published generation is quarantined and its object revoked without rewriting leased files",
+          "failureCode": "CONTENT_IO_CACHE_CORRUPTION_FAILED"
+        },
+        {
+          "scenario": "cache-denied",
+          "operation": "Deny optional OPFS and Cache API access before the Content Session starts",
+          "waitFor": "The same game reaches its input-ready scene using memory fallback",
+          "maxWaitMs": 120000,
+          "assertion": "Optional storage failures do not prevent valid network reads; no cache reuse is falsely claimed",
+          "failureCode": "CONTENT_IO_CACHE_DENIED_FAILED"
+        },
+        {
+          "scenario": "cold",
+          "operation": "Start Product Launch in a fresh browser context",
+          "waitFor": "Case-specific first nonempty game frame is observed",
+          "maxWaitMs": 120000,
+          "assertion": "Actual Provider/Core/Worker identities match the frozen candidate; all content traffic follows the Session policy",
+          "failureCode": "CONTENT_IO_COLD_FAILED"
+        },
+        {
+          "scenario": "concurrent-read",
+          "operation": "Issue overlapping reads through the real native bridge while the game is active",
+          "waitFor": "All callers settle with their expected byte slices",
+          "maxWaitMs": 30000,
+          "assertion": "Overlapping windows share transport; destinations are independent; cancelling one caller preserves others",
+          "failureCode": "CONTENT_IO_CONCURRENT_READ_FAILED"
+        },
+        {
+          "scenario": "exit",
+          "operation": "Exit the Player and wait for finish and resource teardown",
+          "waitFor": "Launch finish is acknowledged and the Player is detached",
+          "maxWaitMs": 30000,
+          "assertion": "Pending operations settle and owned Workers, ports and leases are released",
+          "failureCode": "CONTENT_IO_EXIT_FAILED"
+        },
+        {
+          "scenario": "fault-identity-412",
+          "operation": "Return HTTP 412 to a bound content read",
+          "waitFor": "All readers for the object are revoked",
+          "maxWaitMs": 30000,
+          "assertion": "Cached, zero-byte and subsequent reads fail with the same identity error; unrelated objects survive",
+          "failureCode": "CONTENT_IO_FAULT_IDENTITY_____FAILED"
+        },
+        {
+          "scenario": "fault-range-200",
+          "operation": "Replace one required Range response with a full 200 response",
+          "waitFor": "The core receives the Content I/O failure",
+          "maxWaitMs": 30000,
+          "assertion": "No whole-body fallback, retry loop or partial success reaches the native reader",
+          "failureCode": "CONTENT_IO_FAULT_RANGE_____FAILED"
+        },
+        {
+          "scenario": "fault-short-body",
+          "operation": "Truncate one successful content response before its declared last byte",
+          "waitFor": "The pending operation rejects",
+          "maxWaitMs": 30000,
+          "assertion": "No short body is committed to persistent cache or reported as a complete native read",
+          "failureCode": "CONTENT_IO_FAULT_SHORT_BODY_FAILED"
+        },
+        {
+          "scenario": "metadata-no-body",
+          "operation": "Enumerate and stat the mounted content tree without opening file bodies",
+          "waitFor": "The core receives names and declared sizes",
+          "maxWaitMs": 30000,
+          "assertion": "Enumeration and stat produce zero content body requests",
+          "failureCode": "CONTENT_IO_METADATA_NO_BODY_FAILED"
+        },
+        {
+          "scenario": "performance-five-cold-warm",
+          "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
+          "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
+          "maxWaitMs": 300000,
+          "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
+          "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
+        },
+        {
+          "scenario": "preview-publish",
+          "operation": "Upload, import, open Review Preview, then approve",
+          "waitFor": "Expected Target renders the case-specific scene and preview checks pass",
+          "maxWaitMs": 120000,
+          "assertion": "Review, published Game and preview Launch retain the same input identity",
+          "failureCode": "CONTENT_IO_PREVIEW_FAILED"
+        },
+        {
+          "scenario": "read-exit",
+          "operation": "Hold an in-flight content response and exit the Player during the native read",
+          "waitFor": "The read fails and Launch finish completes",
+          "maxWaitMs": 30000,
+          "assertion": "The pending native operation wakes with one stable error; no late response can revive it",
+          "failureCode": "CONTENT_IO_READ_EXIT_FAILED"
+        },
+        {
+          "scenario": "save-restore-input",
+          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
+          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "maxWaitMs": 120000,
+          "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
+          "failureCode": "CONTENT_IO_RESTORE_FAILED"
+        },
+        {
+          "scenario": "trace-10000",
+          "operation": "Replay the fixed seeded 10000-operation read trace through the actual core bridge",
+          "waitFor": "All operations settle and bridge resources drain",
+          "maxWaitMs": 120000,
+          "assertion": "Each returned slice matches the fixture oracle; network and retained buffers remain within Session policy and budgets",
+          "failureCode": "CONTENT_IO_TRACE_______FAILED"
+        },
+        {
+          "scenario": "warm-new-launch",
+          "operation": "Replay previously cached actions in the same origin and browser context using a different Launch",
+          "waitFor": "The same game scene and input response appear",
+          "maxWaitMs": 120000,
+          "assertion": "Previously cached content has zero body network requests; newly requested windows remain explicit",
+          "failureCode": "CONTENT_IO_WARM_FAILED"
+        },
+        {
+          "scenario": "worker-termination",
+          "operation": "Terminate the Content Worker during a pending native read",
+          "waitFor": "The bridge deadline or lifecycle signal settles the operation",
+          "maxWaitMs": 30000,
+          "assertion": "The core does not hang and owned ports, waits and leases are released",
+          "failureCode": "CONTENT_IO_WORKER_TERMINATION_FAILED"
+        }
+      ],
+      "expectedObservations": {
+        "firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE",
+        "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE",
+        "checkpointSemantics": "INSTANT",
+        "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"
+      },
+      "networkPolicy": {
+        "mode": "RANGE",
         "observeEntireBrowserContext": true,
         "recordSessionFetchPolicy": true,
         "cacheReuse": "NEW_LAUNCH_SAME_ORIGIN_PROFILE"

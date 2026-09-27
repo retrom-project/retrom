@@ -1,0 +1,829 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "providerId": "emulatorjs",
+      "targetId": "81",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "a5200",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "ardens",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "atari800",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "atari800-xegs",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "azahar",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "beetle-vb",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "bsnes",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "cap32",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "crocods",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "daphne",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "NO_SAVE"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "desmume",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "desmume2015",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "dosbox-pure",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "fbalpha2012-cps1",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "fbalpha2012-cps2",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "fbneo",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "fceumm",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "flycast",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "flycast-atomiswave",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi2",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "freechaf",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "freeintv",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "fuse",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "gam4980",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "gambatte",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "gearboy",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "gearcoleco",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-cd",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-wide",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "handy",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "hatarib",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "lutro",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mame2003",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mame2003-plus",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-ngp",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-pce",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-pcfx",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-psx-hw",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-wswan",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "melonds",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mgba",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "mupen64plus-next",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "neocd",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "nestopia",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "o2em",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "opera",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "parallel-n64",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "pcsx-rearmed",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "picodrive",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "potator",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "ppsspp",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "prboom",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "prosystem",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "puae",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "quasi88",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "same-cdi",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "sameduck",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "smsplus",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "snes9x",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "stella2014",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "supermodel",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "theodore",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "uzem",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vecx",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-x128",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-x64",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-x64sc",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-xpet",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-xplus4",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "vice-xvic",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "virtualjaguar",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "emulatorjs",
+      "targetId": "yabause",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "apple2-apple2js",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "bbc-jsbeeb",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "butterscotch-gamemaker",
+      "mode": "EAGER",
+      "delivery": "WORKSPACE_FILE",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "fake08",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "flash-ruffle",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "gbe-pokemini",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "j2me",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "kirikiri2-kag",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "msx-webmsx",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "np2kai-pc98",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "nxengine",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "onscripter-yuri",
+      "mode": "ON_OPEN",
+      "delivery": "BYTES",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "openbor",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "play-ps2",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "ppsspp",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "px68k",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-2000",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-2003",
+      "mode": "UPSTREAM_LOADER",
+      "delivery": null,
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-mv",
+      "mode": "BROWSER_NATIVE",
+      "delivery": null,
+      "gameKind": "NATIVE_WEB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-mz",
+      "mode": "BROWSER_NATIVE",
+      "delivery": null,
+      "gameKind": "NATIVE_WEB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-vx",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-vx-ace",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-xp",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "SEEKABLE_BLOB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "samcoupe",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "scummvm",
+      "mode": "RANGE",
+      "delivery": "READER",
+      "gameKind": "FILE_TREE",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "tic80",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "tyranoscript",
+      "mode": "BROWSER_NATIVE",
+      "delivery": null,
+      "gameKind": "ISOLATED_WEB",
+      "checkpointSemantics": "INSTANT"
+    },
+    {
+      "providerId": "retrom-runtime",
+      "targetId": "wasm4",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "WASM4_CART",
+      "checkpointSemantics": "INSTANT"
+    }
+  ]
+}
