@@ -56,7 +56,6 @@ CREATE TABLE "launch_sessions" (
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256) = 32),
   state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
   bootstrap_expires_at_ms INTEGER NOT NULL,
-  idle_expires_at_ms INTEGER,
   activated_at_ms INTEGER,
   finished_at_ms INTEGER,
   hard_expires_at_ms INTEGER NOT NULL,

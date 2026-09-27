@@ -1,10 +1,10 @@
 # Retrom 数据模型
 
-字段、CHECK、FK 和索引的事实源是 `migrations/001_identity.sql` 至 `migrations/015_play_resilience.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 和索引的事实源是 `migrations/001_identity.sql` 至 `migrations/014_metadata_media_queue.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 001–015 组成新的未发布建库基线，创建表、声明式约束和索引，不创建 trigger、view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
+- 001–014 组成新的未发布建库基线，创建表、声明式约束和索引，不创建 trigger、view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。

@@ -85,7 +85,7 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 			t.Parallel()
 			memory := &retirementMemory{launch: jobs.LaunchRetirement{
 				Found: true, ID: "launch", State: state, Version: 1,
-				DueMS: 10, BootstrapMS: 10, Idle: jobs.WorkTime{Set: true, Value: 10}, HardMS: 20,
+				DueMS: 10, BootstrapMS: 10, HardMS: 20,
 				Finished: jobs.WorkTime{Set: true, Value: 10},
 			}}
 			if state == "ACTIVE" {
@@ -109,7 +109,7 @@ func TestRetirementRejectsLiveLaunchAndVersionOverflow(t *testing.T) {
 	for _, version := range []int64{1, math.MaxInt64} {
 		memory := &retirementMemory{launch: jobs.LaunchRetirement{
 			Found: true, ID: "launch", State: "ACTIVE", Version: version,
-			DueMS: 10, Idle: jobs.WorkTime{Set: true, Value: 11}, HardMS: 20,
+			DueMS: 10, HardMS: 20,
 		}}
 		service := launch.New(memory, func() time.Time { return time.UnixMilli(10) })
 		count, err := service.LaunchBatch(t.Context())

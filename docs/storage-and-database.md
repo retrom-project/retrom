@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布建库基线包含 `001_identity.sql` 至 `015_play_resilience.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
+当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
@@ -227,7 +227,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | 表 | 用途 |
 | --- | --- |
 | `save_states` | 带截图的手动状态存档 |
-| `play_sessions` | 有效游玩会话和 heartbeat |
+| `play_sessions` | 有效游玩会话和累计 progress 统计 |
 | `launch_sessions` | 短期不可变启动配置、非秘密 launchId 与 capability hash |
 
 所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和应用写入校验 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。

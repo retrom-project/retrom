@@ -98,7 +98,7 @@ SET released_at_ms=2 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatal(err)
 	}
 	result, err := sessionstore.ChangeLaunch(t.Context(), tx, recordstore.Update{
-		Set: `idle_expires_at_ms=15`,
+		Set: `updated_at_ms=3`,
 		Scope: recordstore.Scope{
 			Where: `id='current-launch' AND version=100`,
 		},
@@ -110,7 +110,7 @@ SET released_at_ms=2 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatalf("stale update count = %d, error = %v", count, err)
 	}
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, recordstore.Update{
-		Set: `idle_expires_at_ms=15,state='ACTIVE',activated_at_ms=3,updated_at_ms=3`,
+		Set: `state='ACTIVE',activated_at_ms=3,updated_at_ms=3`,
 		Scope: recordstore.Scope{
 			Where: `id='current-launch'`,
 		},

@@ -63,6 +63,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, removed := range []struct{ table, column string }{
 		{"review_preview_sessions", "capture_allowed"},
 		{"review_runtime_screenshots", "captured_after_ms"},
+		{"launch_sessions", "idle_expires_at_ms"},
 		{"play_sessions", "last_client_sequence"},
 		{"play_sessions", "last_heartbeat_at_ms"},
 	} {
@@ -250,7 +251,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 15, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 14, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

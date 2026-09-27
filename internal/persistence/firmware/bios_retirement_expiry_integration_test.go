@@ -26,17 +26,17 @@ import (
 func TestBIOSLaunchRetirementDeadlines(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name, state           string
-		idle, hard, bootstrap int64
-		expire                bool
+		name, state     string
+		hard, bootstrap int64
+		expire          bool
 	}{
-		{"live", "ACTIVE", 1000, 2000, 1000, false},
-		{"idle expired", "ACTIVE", 0, 2000, 1000, false},
-		{"hard expired", "ACTIVE", 1000, 0, 0, true},
-		{"unused bootstrap expired", "CREATED", 1000, 2000, 0, true},
-		{"bootstrap still usable", "CREATED", 1000, 2000, 1000, false},
-		{"finished", "FINISHED", 1000, 2000, 1000, true},
-		{"revoked", "REVOKED", 1000, 2000, 1000, true},
+		{"live", "ACTIVE", 2000, 1000, false},
+		{"active past bootstrap", "ACTIVE", 2000, 0, false},
+		{"hard expired", "ACTIVE", 0, 0, true},
+		{"unused bootstrap expired", "CREATED", 2000, 0, true},
+		{"bootstrap still usable", "CREATED", 2000, 1000, false},
+		{"finished", "FINISHED", 2000, 1000, true},
+		{"revoked", "REVOKED", 2000, 1000, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			database, releases, now := retirementFixture(t)
@@ -45,7 +45,7 @@ func TestBIOSLaunchRetirementDeadlines(t *testing.T) {
 				finish = now
 			}
 			_, err := updateFirmwareLaunch(t, database, recordstore.Update{Set: `state=?,finished_at_ms=?,
-idle_expires_at_ms=?,hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{tc.state, finish, now + tc.idle, now + tc.hard, now + tc.bootstrap, now}})
+hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{tc.state, finish, now + tc.hard, now + tc.bootstrap, now}})
 			testassert.False(t, err != nil, err)
 			testassert.False(t, releases.ReconcileDeletion(t.Context()) != nil, "reconcile")
 			testassert.False(t, releases.ReconcileDeletion(t.Context()) != nil, "reconcile twice")

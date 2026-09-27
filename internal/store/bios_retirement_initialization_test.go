@@ -32,7 +32,7 @@ func TestFreshBIOSRetirementTracksLaunchesAndIndexesPendingWork(t *testing.T) {
 	testassert.True(t, due == 10 && !released.Valid, "creation lost pending bootstrap")
 	_, err = sessionstore.ChangeLaunch(t.Context(), current.SQL, recordstore.Update{
 		Set: `
-state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=version+1
+state='ACTIVE',activated_at_ms=2,updated_at_ms=2,version=version+1
 `,
 		Scope: recordstore.Scope{
 			Where: `id='current-launch'`,

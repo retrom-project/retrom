@@ -353,7 +353,7 @@ Idempotency-Key: <uuid>
 
 已有验证结果的预检阻断返回 `422 LAUNCH_BLOCKED`，`details.blockers` 和 `details.warnings` 使用稳定 code/level/message/details，不创建 credential。常用 code 统一加 `LAUNCH_` 前缀，例如 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`LAUNCH_SAVE_INCOMPATIBLE`、`LAUNCH_DOS_ENTRY_MISSING`、`LAUNCH_DOS_ENTRY_UNSAFE`、`LAUNCH_CORE_VALIDATION_UNAVAILABLE`、`LAUNCH_CORE_VALIDATION_TIMEOUT`、`LAUNCH_THREADS_UNAVAILABLE`；全屏拒绝是浏览器侧 Warning，不是假装后端错误。
 
-凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。PRODUCT 的内容读取与存档权限持续到创建后 24 小时 hard expiry，或明确撤销、游戏删除；游玩统计请求失败或缺失不缩短权限。升级时清除旧 ACTIVE Launch 的 idle 截止时间，并把未释放内容的回收时间移到 hard expiry。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
+凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。PRODUCT 的内容读取与存档权限持续到创建后 24 小时 hard expiry，或明确撤销、游戏删除；游玩统计请求失败或缺失不缩短权限。ACTIVE Launch 的文件引用按 hard expiry 排期回收；明确撤销时立即到期。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
 
 PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/launches/{launchId}/progress`，body 为 `{ "activeDurationMs": int64 }`。该数值是本次 Player 中可见、未暂停、正在运行时间的累计毫秒数，范围为 `0..2592000000`。服务端按 Launch 唯一 PlaySession 保存目前最大值；重复、乱序和丢失的样本不改变权限，也不要求先发送 start 或退出时发送 finish。首次成功上报创建 PlaySession；完全没有成功样本则不产生统计。上报失败不会阻断启动、运行、存档或退出。服务端仍验证限定 Path 的 launch cookie、PRODUCT ACTIVE 状态和 hard expiry。
 

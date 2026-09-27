@@ -207,12 +207,12 @@ VALUES('firmware-variant','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosFileReco
 		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}, ""},
 		{`INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
-bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
+bootstrap_expires_at_ms,activated_at_ms,
 hard_expires_at_ms,created_at_ms,updated_at_ms)
 VALUES('firmware-launch','firmware-profile','firmware-game','mgba',?,?,?,
-'SINGLE_FILE',?,'READY','/',?,'ACTIVE',?,?,?,?,?,?)`, []any{
+'SINGLE_FILE',?,'READY','/',?,'ACTIVE',?,?,?,?,?)`, []any{
 			runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, snapshot, make([]byte, 32),
-			now + 60_000, now + 60_000, now, now + 120_000, now, now,
+			now + 60_000, now, now + 120_000, now, now,
 		}, ""},
 		{`INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
 VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentFileRecord, now}, ""},

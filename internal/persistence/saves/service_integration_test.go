@@ -249,16 +249,16 @@ INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,save_state_id,
  return_to,credential_sha256,state,bootstrap_expires_at_ms,
- idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+ activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
 SELECT ?, 'local',game.id,variant.core_id,variant.provider_id,variant.target_id,
  provider.bundle_sha256,game.content_kind,variant.dependency_snapshot_json,
- variant.compatibility_code,?,?,?,'ACTIVE',?,?,?, ?,?,?
+ variant.compatibility_code,?,?,?,'ACTIVE',?,?,?,?,?
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
 WHERE game.id=?
 	`, launchUUID.String(), saveStateID, "/games/"+fixture.gameID, capabilityHash[:],
-		now+300_000, now+120_000, now, now+28_800_000, now, now, fixture.gameID)
+		now+300_000, now, now+28_800_000, now, now, fixture.gameID)
 	if err != nil {
 		t.Fatal(err)
 	}

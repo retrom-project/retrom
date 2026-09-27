@@ -37,24 +37,23 @@ func TestProjectIndexesPreservesAuthorityAndPreviewIsolation(t *testing.T) {
 	}
 }
 
-func TestProjectIndexesIgnoreExpiredIdleLease(t *testing.T) {
-	memory := indexMemoryFixture()
-	deadline := int64(999)
-	memory.snapshot.Source.IdleEnd = &deadline
-	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{}, "valid")
-	if err != nil || len(result.Contents) == 0 {
-		t.Fatalf("expired idle lease blocked content: %v", err)
-	}
-}
-
-func TestProjectIndexesPreviewUsesHardExpiryWithoutProductIdleBudget(t *testing.T) {
+func TestProjectIndexesUseHardExpiryForActiveSessions(t *testing.T) {
 	t.Parallel()
-	memory := indexMemoryFixture()
-	memory.snapshot.Source.Purpose = "REVIEW_PREVIEW"
-	expired := int64(500)
-	memory.snapshot.Source.IdleEnd = &expired
-	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{}, "valid")
-	if err != nil || len(result.Contents) == 0 {
-		t.Fatalf("preview inherited product idle budget: %v", err)
+	for _, purpose := range []string{"PRODUCT", "REVIEW_PREVIEW"} {
+		t.Run(purpose, func(t *testing.T) {
+			memory := indexMemoryFixture()
+			memory.snapshot.Source.Purpose = purpose
+			memory.snapshot.Source.BootstrapEnd = 500
+			for _, now := range []int64{1000, 1999, 2000} {
+				result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(now) }).Index(t.Context(), ProjectIndexReference{}, "valid")
+				if now < memory.snapshot.Source.HardEnd {
+					if err != nil || len(result.Contents) == 0 {
+						t.Fatalf("active content unavailable at %d: %v", now, err)
+					}
+				} else if !errors.Is(err, ErrCredential) || len(result.Contents) != 0 || result.SHA256 != "" {
+					t.Fatalf("expired content authorized at %d: %v", now, err)
+				}
+			}
+		})
 	}
 }

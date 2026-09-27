@@ -29,7 +29,6 @@ type ConfigSource struct {
 	ContentKind, DependencyJSON, Compatibility                        string
 	SaveID, DOSEntry                                                  *string
 	BootstrapEnd, HardEnd, InitialDisc                                int64
-	IdleEnd                                                           *int64
 }
 
 type ConfigFile struct {

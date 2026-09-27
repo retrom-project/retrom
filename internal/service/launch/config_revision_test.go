@@ -16,8 +16,8 @@ func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {
 		{"created unchanged", "CREATED", "CREATED", 2, 2, true, 1},
 		{"created changed", "CREATED", "CREATED", 2, 3, false, 0},
 		{"concurrent activation", "CREATED", "ACTIVE", 2, 3, true, 0},
-		{"concurrent start", "CREATED", "ACTIVE", 2, 4, true, 0},
-		{"concurrent heartbeat", "CREATED", "ACTIVE", 2, 5, true, 0},
+		{"activation with later revision", "CREATED", "ACTIVE", 2, 4, true, 0},
+		{"activation with multiple revisions", "CREATED", "ACTIVE", 2, 5, true, 0},
 		{"active without activation revision", "CREATED", "ACTIVE", 2, 2, false, 0},
 		{"activation revision regressed", "CREATED", "ACTIVE", 2, 1, false, 0},
 		{"active unchanged", "ACTIVE", "ACTIVE", 2, 2, true, 0},
@@ -37,7 +37,7 @@ func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {
 			configuration, err := issuer.Issue(t.Context(), SessionRef{ID: "launch"}, "valid")
 			if item.allowed {
 				if err != nil {
-					t.Fatalf("legitimate activation/play revision rejected: %v", err)
+					t.Fatalf("legitimate activation revision rejected: %v", err)
 				}
 				if _, err := configuration.MarshalJSON(); err != nil {
 					t.Fatal(err)

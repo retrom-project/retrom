@@ -123,11 +123,11 @@ WHERE launch_session_id='firmware-launch' AND kind='BIOS_BUNDLE'`).Scan(&fileRec
 	_, err := db.ExecContext(t.Context(), `INSERT INTO launch_sessions(
 id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
 dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
-bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
 SELECT 'unrelated-launch',profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
 replace(dependency_snapshot_json,'retirement-installation','other-installation'),
 compatibility_code,return_to,credential_sha256,state,
-bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms
+bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms
 FROM launch_sessions WHERE id='firmware-launch'`)
 	if err != nil {
 		t.Fatal(err)

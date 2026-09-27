@@ -25,7 +25,7 @@ type LaunchRetirement struct {
 	Found                               bool
 	ID, State                           string
 	Version, DueMS, BootstrapMS, HardMS int64
-	Idle, Finished                      WorkTime
+	Finished                            WorkTime
 	Content, External                   []RetirementFile
 	Plays                               []RetirementPlay
 }

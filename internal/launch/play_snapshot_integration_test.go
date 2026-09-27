@@ -4,6 +4,7 @@ package launch
 
 import (
 	"testing"
+	"time"
 
 	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
@@ -13,10 +14,7 @@ import (
 
 func TestPlaySnapshotsSurviveLostAndReorderedReportsWithoutChangingLaunch(t *testing.T) {
 	fixture, created := newProductPlayFixture(t, true)
-	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE launch_sessions SET idle_expires_at_ms=? WHERE id=?`,
-		fixture.now.UnixMilli()-1, created.LaunchID); err != nil {
-		t.Fatal(err)
-	}
+	*fixture.now = fixture.now.Add(time.Hour)
 	controller := application.NewPlayController(persistence.NewPlay(fixture.database), fixture.launcher.now, retromruntime.MatchesCapability)
 	for _, elapsed := range []int64{30_000, 10_000, 45_000, 45_000} {
 		result, err := controller.RecordSnapshot(t.Context(), created.LaunchID, created.Capability,
@@ -38,10 +36,10 @@ hard_expires_at_ms,state FROM launch_sessions launch WHERE id=?`, created.Launch
 		t.Fatalf("duration=%d due=%d hard=%d state=%s", duration, due, hard, state)
 	}
 	if _, err := fixture.launcher.Config(t.Context(), created.LaunchID, created.Capability); err != nil {
-		t.Fatalf("expired idle deadline blocked config: %v", err)
+		t.Fatalf("missing progress blocked config: %v", err)
 	}
 	if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
-		t.Fatalf("expired idle deadline blocked save: %v", err)
+		t.Fatalf("missing progress blocked save: %v", err)
 	}
 	var logicalName string
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT logical_name FROM launch_content_files
@@ -49,6 +47,6 @@ WHERE launch_session_id=? LIMIT 1`, created.LaunchID).Scan(&logicalName); err !=
 		t.Fatal(err)
 	}
 	if _, err := fixture.launcher.ContentAuthorized(t.Context(), created.LaunchID, logicalName, false); err != nil {
-		t.Fatalf("expired idle deadline blocked content: %v", err)
+		t.Fatalf("missing progress blocked content: %v", err)
 	}
 }

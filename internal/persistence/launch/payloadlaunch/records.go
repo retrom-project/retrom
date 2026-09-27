@@ -19,14 +19,14 @@ func (records Records) Launch(
 	ctx context.Context, now int64, limit int,
 ) (application.LaunchRetirement, error) {
 	var facts application.LaunchRetirement
-	var idle, finished sql.NullInt64
+	var finished sql.NullInt64
 	err := dbapi.QueryRowContext(ctx, records.Executor, `SELECT launch.id,launch.state,launch.version,retirement.due_at_ms,
-launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,launch.finished_at_ms
+launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.finished_at_ms
 FROM launch_payload_retirements retirement JOIN launch_sessions launch ON
 launch.id=retirement.launch_session_id
 WHERE retirement.released_at_ms IS NULL AND retirement.due_at_ms<=?
 ORDER BY retirement.due_at_ms,retirement.launch_session_id LIMIT 1`, now).
-		Scan(&facts.ID, &facts.State, &facts.Version, &facts.DueMS, &facts.BootstrapMS, &facts.HardMS, &idle, &finished)
+		Scan(&facts.ID, &facts.State, &facts.Version, &facts.DueMS, &facts.BootstrapMS, &facts.HardMS, &finished)
 	if errors.Is(err, sql.ErrNoRows) {
 		return facts, nil
 	}
@@ -34,7 +34,6 @@ ORDER BY retirement.due_at_ms,retirement.launch_session_id LIMIT 1`, now).
 		return facts, fmt.Errorf("read launch retirement: %w", err)
 	}
 	facts.Found = true
-	facts.Idle = application.WorkTime{Set: idle.Valid, Value: idle.Int64}
 	facts.Finished = application.WorkTime{Set: finished.Valid, Value: finished.Int64}
 	facts.Content, err = retirementops.Files(ctx, records.Executor,
 		`SELECT launch_session_id,logical_name,file_record FROM launch_content_files
@@ -56,15 +55,14 @@ WHERE launch_session_id=? ORDER BY virtual_path LIMIT ?`, facts.ID, limit)
 }
 
 func (records Records) FenceLaunch(ctx context.Context, before application.LaunchRetirement) error {
-	idle, finished := retirementops.Time(before.Idle), retirementops.Time(before.Finished)
+	finished := retirementops.Time(before.Finished)
 	result, err := records.Executor.ExecContext(ctx, `UPDATE launch_sessions SET version=version
 WHERE id=? AND state=? AND version=? AND bootstrap_expires_at_ms=? AND hard_expires_at_ms=?
-AND (idle_expires_at_ms=? OR (idle_expires_at_ms IS NULL AND ? IS NULL))
 AND (finished_at_ms=? OR (finished_at_ms IS NULL AND ? IS NULL))
 AND EXISTS(SELECT 1 FROM launch_payload_retirements WHERE launch_session_id=?
 AND due_at_ms=? AND released_at_ms IS NULL)`,
 		before.ID, before.State, before.Version, before.BootstrapMS, before.HardMS,
-		idle, idle, finished, finished, before.ID, before.DueMS)
+		finished, finished, before.ID, before.DueMS)
 	if err := retirementops.Write(result, err, 1); err != nil {
 		return fmt.Errorf("fence launch retirement: %w", err)
 	}

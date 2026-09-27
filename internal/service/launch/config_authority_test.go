@@ -23,19 +23,19 @@ func assertConfigRejected(t *testing.T, configuration Config, err error, cause e
 func TestConfigFinalAuthorityRejectsChangedSession(t *testing.T) {
 	t.Parallel()
 	cases := map[string]func(*ConfigSource){
-		"finished":   func(source *ConfigSource) { source.State = "FINISHED" },
-		"revoked":    func(source *ConfigSource) { source.State = "REVOKED" },
-		"expired":    func(source *ConfigSource) { source.State = "EXPIRED" },
-		"unknown":    func(source *ConfigSource) { source.State = "UNKNOWN" },
-		"bootstrap":  func(source *ConfigSource) { source.BootstrapEnd = 1000 },
-		"hard":       func(source *ConfigSource) { source.HardEnd = 1000 },
-		"idle":       func(source *ConfigSource) { source.State = "ACTIVE"; value := int64(1000); source.IdleEnd = &value },
-		"version":    func(source *ConfigSource) { source.Version++ },
-		"overflow":   func(source *ConfigSource) { source.Version = math.MaxInt64 },
-		"credential": func(source *ConfigSource) { source.CredentialHash = []byte("changed") },
-		"target":     func(source *ConfigSource) { source.TargetID = "other" },
-		"bundle":     func(source *ConfigSource) { source.BundleDigest = "other" },
-		"purpose":    func(source *ConfigSource) { source.Purpose = "REVIEW_PREVIEW" },
+		"finished":                    func(source *ConfigSource) { source.State = "FINISHED" },
+		"revoked":                     func(source *ConfigSource) { source.State = "REVOKED" },
+		"expired":                     func(source *ConfigSource) { source.State = "EXPIRED" },
+		"unknown":                     func(source *ConfigSource) { source.State = "UNKNOWN" },
+		"bootstrap":                   func(source *ConfigSource) { source.BootstrapEnd = 1000 },
+		"hard":                        func(source *ConfigSource) { source.HardEnd = 1000 },
+		"activation without revision": func(source *ConfigSource) { source.State = "ACTIVE" },
+		"version":                     func(source *ConfigSource) { source.Version++ },
+		"overflow":                    func(source *ConfigSource) { source.Version = math.MaxInt64 },
+		"credential":                  func(source *ConfigSource) { source.CredentialHash = []byte("changed") },
+		"target":                      func(source *ConfigSource) { source.TargetID = "other" },
+		"bundle":                      func(source *ConfigSource) { source.BundleDigest = "other" },
+		"purpose":                     func(source *ConfigSource) { source.Purpose = "REVIEW_PREVIEW" },
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestConfigUsesFinalClockAndPreservesCommitCause(t *testing.T) {
 	assertConfigRejected(t, configuration, err, context.Canceled)
 }
 
-func TestConfigAcceptsConcurrentActivationAndActiveHeartbeat(t *testing.T) {
+func TestConfigAcceptsConcurrentActivationAndActiveRevision(t *testing.T) {
 	t.Parallel()
 	for _, active := range []bool{false, true} {
 		issuer, repository, builder := configTestFixture()
@@ -78,10 +78,6 @@ func TestConfigAcceptsConcurrentActivationAndActiveHeartbeat(t *testing.T) {
 		builder.afterBuild = func() {
 			repository.current.Source.State = "ACTIVE"
 			repository.current.Source.Version++
-			if active {
-				deadline := int64(1800)
-				repository.current.Source.IdleEnd = &deadline
-			}
 		}
 		configuration, err := issuer.Issue(t.Context(), SessionRef{ID: "launch"}, "valid")
 		if err != nil || repository.activations != 0 {

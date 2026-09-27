@@ -363,8 +363,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→015，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
-- 通过标准：全新库到 015 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
+- 流程：使用全新数据根执行当前 001→014，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
+- 通过标准：全新库到 014 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
 ### ACC-CAS-001：游戏目录与独立文件
@@ -404,7 +404,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-002`。
 - 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/GameVariant 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 后重试原 capability。
-- 通过标准：既有 capability 生成、cookie、TTL、范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/heartbeat/save 全部失败且不新增私有数据。
+- 通过标准：既有 capability 生成、cookie、TTL、范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/progress/save 全部失败且不新增私有数据。
 - 证据：cookie/数据库摘要（capability 只记录不可逆 hash）、请求矩阵、缓存/Range 响应头、新 context trace 和脱敏扫描。
 
 ### ACC-SEC-003：认证写请求的同源与 CSRF 边界
@@ -509,9 +509,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-ISO-003`。
-- 流程：两个并发 Chrome context 让目标用户保持页面与 Player 活跃，管理员分别停用、重新启用和软删除；在每个边界继续请求 context、heartbeat 和显式状态保存。使用同一 Chrome profile 令 A 留下 EJS IDBFS bytes，再以 B 普通启动同一游戏。
+- 流程：两个并发 Chrome context 让目标用户保持页面与 Player 活跃，管理员分别停用、重新启用和软删除；在每个边界继续请求 context、progress 和显式状态保存。使用同一 Chrome profile 令 A 留下 EJS IDBFS bytes，再以 B 普通启动同一游戏。
 - 通过标准：停用/删除立即阻止新认证请求并撤销未结束 Launch，Player 写入不新增数据；重新启用仅恢复原 Profile 私有数据并需重新登录，删除不可恢复。B 在 start 前清空整个 `/data/saves`，失败则阻断，绝不运行 A 的 bytes。
-- 证据：并发浏览器 trace、heartbeat/save 响应、IDBFS 操作序列和数据行前后摘要。
+- 证据：并发浏览器 trace、progress/save 响应、IDBFS 操作序列和数据行前后摘要。
 
 ## 8. 游戏目录
 
@@ -709,7 +709,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-002`。
 - 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。为 MelonDS 安装 `bios7.bin/bios9.bin/firmware.bin` 后创建 Launch 和存档，切换其中一个 active installation，再检查旧运行终止/载荷释放并创建使用新依赖的 Launch。最后以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
-- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后依赖旧 BIOS 的 Launch、内容 URL 和 Play 立即失效，存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、独立安装文件、失败回滚、服务重启、正常退出、bootstrap/hard 到期与旧 idle 失效、超过一批的待释放引用，以及旧安装文件退休后的即时后台删除。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
+- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后依赖旧 BIOS 的 Launch、内容 URL 和 Play 立即失效，存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、独立安装文件、失败回滚、服务重启、正常退出、bootstrap/hard 到期与 ACTIVE 超过 bootstrap 仍有效、超过一批的待释放引用，以及旧安装文件退休后的即时后台删除。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
 - 证据：预检/digest、两份 Launch config、BIOS bundle/external file 清单、跨 Launch 负向响应和 BIOS 页面截图。
 
 ### ACC-BIOS-003：服务器 root、目录浏览与授权边界
@@ -1090,9 +1090,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAY-001`。
-- 流程：后端集成测试使用过期旧 idle 的 ACTIVE Launch，模拟统计请求丢失、重复和乱序，验证 config、内容读取、存档授权与累计时长；migration 测试验证旧 idle 和回收期限修正。前端单元测试模拟统计请求失败，并验证运行、隐藏、暂停、退出时的时长与导航。真实 Player 启动链路另由 `ACC-RUN-002` 的 Chrome 用例覆盖。
-- 通过标准：加载和运行都不因 idle 或统计失败而撤销，首次成功快照创建 PlaySession，重复或更小快照不回退时长；隐藏/暂停不增加客户端快照。统计请求不阻断启动、存档或退出；持久 launch credential 在服务重新加载后继续有效。没有 cookie 返回 401，hard expiry 和明确撤销仍阻断私有操作；数据库全为整数毫秒，首页/详情汇总一致。
-- 证据：后端集成与 migration 测试、客户端时钟和会话单元测试的结果；服务运行中断期间的真实浏览器帧连续性需另行验证。
+- 流程：后端集成测试使用 ACTIVE Launch，以 fake clock 推进一小时且不发送统计，随后模拟统计请求重复和乱序，验证 config、内容读取、存档授权与累计时长；会话存储测试验证创建时按 bootstrap/hard 较早期限、激活后按 hard 期限排期回收。前端单元测试模拟统计请求失败，并验证运行、隐藏、暂停、退出时的时长与导航。真实 Player 启动链路另由 `ACC-RUN-002` 的 Chrome 用例覆盖。
+- 通过标准：加载和运行都不因统计缺失或失败而撤销，首次成功快照创建 PlaySession，重复或更小快照不回退时长；隐藏/暂停不增加客户端快照。统计请求不阻断启动、存档或退出；持久 launch credential 在服务重新加载后继续有效。没有 cookie 返回 401，hard expiry 和明确撤销仍阻断私有操作；数据库全为整数毫秒，首页/详情汇总一致。
+- 证据：后端集成与会话存储测试、客户端时钟和会话单元测试的结果；服务运行中断期间的真实浏览器帧连续性需另行验证。
 
 ## 14. 核心产品链路覆盖
 
