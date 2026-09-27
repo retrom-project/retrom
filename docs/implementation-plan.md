@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-下面 001–015 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移保留表、声明式约束和索引；所有权交接、跨表校验、状态转换及关联写入进入应用存储层，不创建 trigger/view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
+下面 001–015 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移保留表、声明式约束和索引；目录发布、跨表校验、状态转换及关联写入进入应用存储层，不创建 trigger/view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -176,7 +176,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：在 001–015 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立独立文件 ID、唯一 owner、事务交接与退休决定，以及各领域 payload state；随后实现持久 OwnerCleanup/Provider TTL/FILE_DELETE dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、游戏文件隔离、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
+范围：在 001–015 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立领域目录、业务记录内的文件信息、可恢复的目录发布，以及各领域 payload state；随后实现持久 OwnerCleanup/Provider TTL/PATH_DELETE dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、游戏文件隔离、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、同内容独立文件、进程中断、provider TTL、Game 删除和即时文件删除均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 

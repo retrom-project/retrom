@@ -26,12 +26,9 @@ func (repository *Repository) WithProviderExpiration(
 	records := Records{Executor: tx}
 	if err := run(
 		application.ProviderExpirationScope{
-			Read:  records,
-			Write: records,
-			DeletionQueue: filedeletion.BindQueue(
-				tx,
-				application.WorkerScope{},
-			),
+			Read:          records,
+			Write:         records,
+			DeletionQueue: filedeletion.Bind(tx),
 		},
 	); err != nil {
 		return err

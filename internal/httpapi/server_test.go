@@ -34,7 +34,9 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 
 	live := httptest.NewRecorder()
 	handler.ServeHTTP(live, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health/live", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return live.Code != http.StatusOK }, func() bool { return live.Header().Get("X-Request-ID") == "" }), "live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
+	testassert.Falsef(t, testassert.Any(func() bool { return live.Code != http.StatusOK },
+		func() bool { return live.Header().Get("X-Request-ID") == "" }),
+		"live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
 
 	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Retained","description":"","sortOrder":900}`
 	unauthenticated := httptest.NewRequestWithContext(context.Background(),
@@ -47,10 +49,14 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	unauthenticated.Header.Set("Origin", "http://localhost:3000")
 	denied := httptest.NewRecorder()
 	handler.ServeHTTP(denied, unauthenticated)
-	testassert.Falsef(t, testassert.Any(func() bool { return denied.Code != http.StatusUnauthorized }, func() bool { return !strings.Contains(denied.Body.String(), "AUTHENTICATION_REQUIRED") }), "anonymous write = %d %s", denied.Code, denied.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return denied.Code != http.StatusUnauthorized },
+			func() bool { return !strings.Contains(denied.Body.String(), "AUTHENTICATION_REQUIRED") }),
+		"anonymous write = %d %s", denied.Code, denied.Body.String())
 
 	auth := accountHTTPLogin(t, handler)
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(requestBody))
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+		"/api/v1/admin/platform-instances", strings.NewReader(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
 	request.Header.Set("Origin", "http://localhost:3000")
@@ -58,7 +64,8 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	request.AddCookie(auth.cookie)
 	created := httptest.NewRecorder()
 	handler.ServeHTTP(created, request)
-	testassert.Falsef(t, created.Code != http.StatusCreated, "authenticated write status = %d %s", created.Code, created.Body.String())
+	testassert.Falsef(t, created.Code != http.StatusCreated, "authenticated write status = %d %s",
+		created.Code, created.Body.String())
 }
 
 func TestPlayProgressRouteRequiresLaunchCredential(t *testing.T) {
@@ -85,14 +92,22 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 	unavailableRequest.AddCookie(cookie)
 	unavailable := httptest.NewRecorder()
 	server.Handler().ServeHTTP(unavailable, unavailableRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return unavailable.Code != http.StatusInternalServerError }, func() bool { return unavailable.Header().Values("Set-Cookie") != nil }), "temporary auth failure = %d cookies=%v body=%s", unavailable.Code, unavailable.Header().Values("Set-Cookie"), unavailable.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return unavailable.Code != http.StatusInternalServerError },
+			func() bool { return unavailable.Header().Values("Set-Cookie") != nil }),
+		"temporary auth failure = %d cookies=%v body=%s", unavailable.Code,
+		unavailable.Header().Values("Set-Cookie"), unavailable.Body.String())
 
 	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
 	revokedRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games", nil)
 	revokedRequest.AddCookie(cookie)
 	revoked := httptest.NewRecorder()
 	server.Handler().ServeHTTP(revoked, revokedRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return revoked.Code != http.StatusUnauthorized }, func() bool { return len(revoked.Header().Values("Set-Cookie")) == 0 }), "revoked auth = %d cookies=%v body=%s", revoked.Code, revoked.Header().Values("Set-Cookie"), revoked.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return revoked.Code != http.StatusUnauthorized },
+			func() bool { return len(revoked.Header().Values("Set-Cookie")) == 0 }),
+		"revoked auth = %d cookies=%v body=%s", revoked.Code, revoked.Header().Values("Set-Cookie"),
+		revoked.Body.String())
 }
 
 func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
@@ -105,7 +120,8 @@ func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`,
 			"LAN "+name,
 		)
-		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(body))
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+			"/api/v1/admin/platform-instances", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", uuid.NewString())
 		request.Header.Set("X-Retrom-Csrf", auth.csrf)
@@ -115,7 +131,8 @@ func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 		}
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
-		testassert.Falsef(t, recorder.Header().Get("Access-Control-Allow-Origin") != "", "CORS header unexpectedly present: %q", recorder.Header().Get("Access-Control-Allow-Origin"))
+		testassert.Falsef(t, recorder.Header().Get("Access-Control-Allow-Origin") != "",
+			"CORS header unexpectedly present: %q", recorder.Header().Get("Access-Control-Allow-Origin"))
 		return recorder
 	}
 	if response := send("no-origin", nil); response.Code != http.StatusForbidden {
@@ -125,12 +142,14 @@ func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 		"Origin":         "https://external.example",
 		"Sec-Fetch-Site": "cross-site",
 	})
-	testassert.Falsef(t, crossOrigin.Code != http.StatusForbidden, "cross-origin write = %d %s", crossOrigin.Code, crossOrigin.Body.String())
+	testassert.Falsef(t, crossOrigin.Code != http.StatusForbidden, "cross-origin write = %d %s",
+		crossOrigin.Code, crossOrigin.Body.String())
 	sameOrigin := send("same-origin", map[string]string{
 		"Origin":         "http://localhost:3000",
 		"Sec-Fetch-Site": "same-origin",
 	})
-	testassert.Falsef(t, sameOrigin.Code != http.StatusCreated, "same-origin write = %d %s", sameOrigin.Code, sameOrigin.Body.String())
+	testassert.Falsef(t, sameOrigin.Code != http.StatusCreated, "same-origin write = %d %s",
+		sameOrigin.Code, sameOrigin.Body.String())
 }
 
 func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
@@ -159,7 +178,15 @@ func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
 	firstA := send(userA)
 	firstB := send(userB)
 	replayA := send(userA)
-	testassert.Falsef(t, testassert.Any(func() bool { return firstA.Code != http.StatusCreated }, func() bool { return firstB.Code != http.StatusCreated }, func() bool { return replayA.Code != http.StatusCreated }, func() bool { return !strings.Contains(firstA.Body.String(), userA) }, func() bool { return !strings.Contains(firstB.Body.String(), userB) }, func() bool { return replayA.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return calls != 2 }), "principal idempotency responses: A=%d %s B=%d %s replay=%d %s calls=%d", firstA.Code, firstA.Body.String(), firstB.Code, firstB.Body.String(), replayA.Code, replayA.Body.String(), calls)
+	testassert.Falsef(t, testassert.Any(func() bool { return firstA.Code != http.StatusCreated },
+		func() bool { return firstB.Code != http.StatusCreated },
+		func() bool { return replayA.Code != http.StatusCreated },
+		func() bool { return !strings.Contains(firstA.Body.String(), userA) },
+		func() bool { return !strings.Contains(firstB.Body.String(), userB) },
+		func() bool { return replayA.Header().Get("X-Retrom-Idempotent-Replay") != "true" },
+		func() bool { return calls != 2 }),
+		"principal idempotency responses: A=%d %s B=%d %s replay=%d %s calls=%d", firstA.Code,
+		firstA.Body.String(), firstB.Code, firstB.Body.String(), replayA.Code, replayA.Body.String(), calls)
 	var records int
 	if err := dbapi.QueryRowContext(context.Background(), server.database,
 		`SELECT count(*) FROM idempotency_records WHERE operation_id='postPrincipalScopeFixture' AND key=?`,
@@ -174,7 +201,8 @@ func TestRuntimeAllowlistRejectsUnknownPath(t *testing.T) {
 	server := newTestServer(t)
 	recorder := httptest.NewRecorder()
 	server.Handler().
-		ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/emulatorjs/4.2.3/not-in-manifest.js", nil))
+		ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/runtime/emulatorjs/4.2.3/not-in-manifest.js", nil))
 	testassert.Falsef(t, recorder.Code != http.StatusNotFound, "unknown runtime path status = %d", recorder.Code)
 }
 
@@ -198,7 +226,6 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	const (
 		datVersionID   = "01980000-0000-7000-8000-000000000202"
 		requirementID  = "01980000-0000-7000-8000-000000000203"
-		blobID         = "01980000-0000-7000-8000-000000000204"
 		installationID = "01980000-0000-7000-8000-000000000205"
 	)
 	const now = int64(1_786_269_147_906)
@@ -208,10 +235,8 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	requireHTTPTestRuntimeTarget(t, transaction, "mame2003_plus")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
 	testassert.False(t, err != nil, err)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES(?,?,1024,?,?,?,'application/zip',?)
-`, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now)
+	fileRecord := testsupport.FileMetadata("bios-archive").Record
+
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
@@ -221,7 +246,8 @@ VALUES(?,'mame2003_plus',?,?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?
 `, datVersionID, target.ProviderID, target.TargetID,
 		strings.Repeat("f", 64), now, now, now, now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
+INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,
+classification)
 VALUES(?,'stvbios','ST-V BIOS','','SEGA',1,'EXPLICIT_BIOS')
 `, datVersionID)
 	mustExecHTTPTest(t, transaction, `
@@ -230,27 +256,30 @@ VALUES(?,'stvbios',0,'epr19730.ic8',524288,'d0e0889d',?,'GOOD',NULL)
 `, datVersionID, strings.Repeat("1", 40))
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
-requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
+requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,
+updated_at_ms)
 VALUES(?,'mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
 'retrom:test',?,1,1,?,?)
 `, requirementID, target.ProviderID, target.TargetID,
 		strings.Repeat("2", 64), datVersionID, now, now)
 	mustCreateHTTPReferences(t, transaction, "bios_installations", `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,'stvbios.zip',1024,?,?,?,1,'MATCHED','{}',1,1,?,?)
-`, installationID, requirementID, blobID, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), now, now)
+`, installationID, requirementID, fileRecord, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), now, now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+INSERT INTO archive_entries(archive_file_record,ordinal,original_relative_path,normalized_path,
+ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
 VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,'d0e0889d',?,?,?,?)
-`, blobID, strings.Repeat("3", 32), strings.Repeat("1", 40), strings.Repeat("4", 64), now)
+`, fileRecord, strings.Repeat("3", 32), strings.Repeat("1", 40), strings.Repeat("4", 64), now)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 
 	list := httptest.NewRecorder()
-	server.Handler().ServeHTTP(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG", nil))
+	server.Handler().ServeHTTP(list, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return list.Code != http.StatusOK }, func() bool { return !strings.Contains(list.Body.String(), `"sourceKind":"DAT_MACHINE"`) }), "BIOS list = %d %s", list.Code, list.Body.String())
 	entries := httptest.NewRecorder()
 	server.Handler().ServeHTTP(entries, httptest.NewRequestWithContext(context.Background(),
@@ -276,10 +305,14 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	fixed := time.Date(2026, time.August, 6, 12, 0, 0, 0, time.UTC)
 	server.now = func() time.Time { return fixed }
 	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/diagnostics", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusOK }, func() bool { return recorder.Header().Get("Content-Type") != "application/json; charset=utf-8" }, func() bool { return recorder.Header().Get("Cache-Control") != "private, no-store" }, func() bool {
-		return recorder.Header().Get("Content-Disposition") != `attachment; filename="retrom-diagnostics.json"`
-	}, func() bool { return recorder.Header().Get("X-Content-Type-Options") != "nosniff" }), "diagnostics response = %d headers=%v body=%s", recorder.Code, recorder.Header(), recorder.Body.String())
+	server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/diagnostics", nil))
+	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusOK },
+		func() bool { return recorder.Header().Get("Content-Type") != "application/json; charset=utf-8" }, func() bool { return recorder.Header().Get("Cache-Control") != "private, no-store" }, func() bool {
+			return recorder.Header().Get("Content-Disposition") != `attachment; filename="retrom-diagnostics.json"`
+		}, func() bool { return recorder.Header().Get("X-Content-Type-Options") != "nosniff" }),
+		"diagnostics response = %d headers=%v body=%s", recorder.Code, recorder.Header(),
+		recorder.Body.String())
 	var response struct {
 		SchemaVersion         int64 `json:"schemaVersion"`
 		GeneratedAtMS         int64 `json:"generatedAtMs"`
@@ -322,14 +355,21 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 15 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 },
+		func() bool { return response.GeneratedAtMS != fixed.UnixMilli() },
+		func() bool { return response.DatabaseSchemaVersion != 15 },
+		func() bool { return len(response.RuntimeProviders) != 2 },
+		func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" },
+		func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }),
+		"diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "fceumm")
@@ -340,7 +380,6 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 		importID     = "01980000-0000-7000-8000-000000000140"
 		uploadID     = "01980000-0000-7000-8000-000000000141"
 		uploadFileID = "01980000-0000-7000-8000-000000000142"
-		blobID       = "01980000-0000-7000-8000-000000000143"
 	)
 	digest := strings.Repeat("f", 64)
 	timestamp := now.UnixMilli()
@@ -348,25 +387,29 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
+	fileRecord := testsupport.FileMetadata("import-archive").Record
+
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES(?,?,1,?,?,?,'application/zip',?)
-`, blobID, digest, strings.Repeat("a", 32), strings.Repeat("b", 40), strings.Repeat("c", 8), timestamp)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 `, uploadID, digest, timestamp+60_000, timestamp, timestamp)
 	mustCreateHTTPReferences(t, transaction, "upload_files", `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
-`, uploadFileID, uploadID, blobID, timestamp, timestamp)
+`, uploadFileID, uploadID, fileRecord, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
+platform_id,default_core_id,
+provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,
+total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',
+?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
 `, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
-	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
-SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
+	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms)
+SELECT id,upload_session_id,relative_path,final_file_record,received_size_bytes,created_at_ms FROM
+upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
 VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
@@ -376,13 +419,17 @@ VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
 		extraImportID := fmt.Sprintf("01980000-0000-7000-8001-%012d", 200+index)
 		extraTimestamp := timestamp - int64(index+1)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,0,?,1,?,?,?)
 `, extraUploadID, digest, timestamp+60_000, extraTimestamp, extraTimestamp)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
+platform_id,default_core_id,
+provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,
+created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',
+?,?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
 `, extraImportID, extraUploadID, target.ProviderID, target.TargetID,
 			digest, extraTimestamp, extraTimestamp)
 	}
@@ -413,7 +460,8 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		"import overview = %d %s, parsed=%#v error=%v",
 		summaryResponse.Code, summaryResponse.Body.String(), overview, decodeErr)
 	list := httptest.NewRecorder()
-	server.imports(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
+	server.imports(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/imports?limit=20", nil))
 	testassert.Falsef(t, anyTrue(list.Code != http.StatusOK,
 		!strings.Contains(list.Body.String(), `"rejectedFileCount":1`),
 		!strings.Contains(list.Body.String(), `"contentMode":"STANDARD"`)),
@@ -445,10 +493,13 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		len(secondPage.Items) != 1, secondPage.NextCursor != nil),
 		"second import page = %d %#v, error=%v", second.Code, secondPage, decodeErr)
 	overLimit := httptest.NewRecorder()
-	server.imports(overLimit, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports?limit=21", nil))
-	testassert.Falsef(t, overLimit.Code != http.StatusBadRequest, "over-limit import page = %d %s", overLimit.Code, overLimit.Body.String())
+	server.imports(overLimit, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/imports?limit=21", nil))
+	testassert.Falsef(t, overLimit.Code != http.StatusBadRequest,
+		"over-limit import page = %d %s", overLimit.Code, overLimit.Body.String())
 	detail := httptest.NewRecorder()
-	detailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports/"+importID, nil)
+	detailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/imports/"+importID, nil)
 	detailRequest.SetPathValue("importJobId", importID)
 	server.importDetail(detail, detailRequest)
 	testassert.Falsef(t, anyTrue(detail.Code != http.StatusOK,
@@ -463,7 +514,8 @@ func TestImportOverviewCountsSourceOnceAndHidesItsInternalJob(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
@@ -487,9 +539,11 @@ VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 `, uploadID, digest, timestamp+60_000, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,
+config_snapshot_digest,
 state,total_item_count,review_pending_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,
+'NONE','{}',?,
 'REVIEW_PENDING',1,1,1,?,?)
 `, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
@@ -524,7 +578,8 @@ INSERT INTO source_import_items(
 	`, pegasusItemID, pegasusID, strings.Repeat("d", 64), digest,
 		importID, itemID, timestamp, timestamp, timestamp)
 	recorder := httptest.NewRecorder()
-	server.importSummary(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports/summary", nil))
+	server.importSummary(recorder, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/imports/summary", nil))
 	var summary struct {
 		Running         int64 `json:"running"`
 		ReviewPending   int64 `json:"reviewPending"`
@@ -543,7 +598,8 @@ INSERT INTO source_import_items(
 		summary.SourceFailed != 0, summary.ProcessingItems != 0, summary.IssueItems != 0),
 		"import summary = %d %s, parsed=%#v error=%v", recorder.Code, recorder.Body.String(), summary, decodeErr)
 	list := httptest.NewRecorder()
-	server.imports(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
+	server.imports(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/imports?limit=20", nil))
 	var page struct {
 		Items []importListItem `json:"items"`
 	}

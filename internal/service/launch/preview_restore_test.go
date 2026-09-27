@@ -17,11 +17,12 @@ func TestPreviewCreatorFreezesActiveRestoreWithoutClosingOriginal(t *testing.T) 
 		t.Fatalf("active source restore: id=%q error=%v", result.PreviewID, err)
 	}
 	plan := repository.writes[0]
-	if plan.RestoreBlobID == nil || *plan.RestoreBlobID != "saved-B" || plan.RestoreFormat == nil || *plan.RestoreFormat != "checkpoint-v1" {
+	if plan.RestoreFileRecord == nil || *plan.RestoreFileRecord != "saved-B" ||
+		plan.RestoreFormat == nil || *plan.RestoreFormat != "checkpoint-v1" {
 		t.Fatal("checkpoint was not frozen")
 	}
-	repository.restore.BlobID = "saved-C"
-	if *plan.RestoreBlobID != "saved-B" {
+	repository.restore.FileRecord = "saved-C"
+	if *plan.RestoreFileRecord != "saved-B" {
 		t.Fatal("later source save changed the prepared restore")
 	}
 }
@@ -40,16 +41,16 @@ func TestPreviewCreatorRejectsIncompatibleRestore(t *testing.T) {
 		{"created", func(r *PreviewRestore) { r.State = "CREATED" }},
 		{"revoked", func(r *PreviewRestore) { r.State = "REVOKED" }},
 		{"hard boundary", func(r *PreviewRestore) { r.HardExpiresAtMS = 1000 }},
-		{"blob", func(r *PreviewRestore) { r.ContentBlobID = "other" }},
+		{"blob", func(r *PreviewRestore) { r.ContentFileRecord = "other" }},
 		{"name", func(r *PreviewRestore) { r.ContentName = "other" }},
 		{"format", func(r *PreviewRestore) { r.ContentFormat = "other" }},
 		{"dependencies", func(r *PreviewRestore) { r.DependencySnapshot = "other" }},
-		{"empty payload", func(r *PreviewRestore) { r.BlobID = "" }},
+		{"empty payload", func(r *PreviewRestore) { r.FileRecord = "" }},
 		{"empty bytes", func(r *PreviewRestore) { r.SizeBytes = 0 }},
 		{"over limit", func(r *PreviewRestore) { r.SizeBytes = 101 }},
 		{"unsupported", func(r *PreviewRestore) { r.ReadFormats = []string{"another"} }},
 		{"extra file", func(r *PreviewRestore) {
-			r.Files = []PreviewFile{{Role: "PARENT", BlobID: "other", LogicalName: "parent.zip"}}
+			r.Files = []PreviewFile{{Role: "PARENT", FileRecord: "other", LogicalName: "parent.zip"}}
 		}},
 	}
 	for _, test := range cases {
@@ -70,14 +71,17 @@ func TestPreviewCreatorRejectsIncompatibleRestore(t *testing.T) {
 func TestPreviewRestoreFilesCompareEveryFrozenDimension(t *testing.T) {
 	t.Parallel()
 	path := "/bios.bin"
-	file := PreviewFile{Role: "EXTERNAL_FILE", LogicalName: "bios.bin", BlobID: "blob", VirtualPath: &path, SortOrder: 1}
+	file := PreviewFile{
+		Role: "EXTERNAL_FILE", LogicalName: "bios.bin", FileRecord: "blob",
+		VirtualPath: &path, SortOrder: 1,
+	}
 	cases := []struct {
 		name   string
 		change func(*PreviewFile)
 	}{
 		{"role", func(f *PreviewFile) { f.Role = "PARENT" }},
 		{"name", func(f *PreviewFile) { f.LogicalName = "different.bin" }},
-		{"blob", func(f *PreviewFile) { f.BlobID = "changed" }},
+		{"blob", func(f *PreviewFile) { f.FileRecord = "changed" }},
 		{"path", func(f *PreviewFile) { p := "/new.bin"; f.VirtualPath = &p }},
 		{"order", func(f *PreviewFile) { f.SortOrder = 2 }},
 	}
@@ -90,10 +94,10 @@ func TestPreviewRestoreFilesCompareEveryFrozenDimension(t *testing.T) {
 			}
 		})
 	}
-	if !samePreviewFiles([]PreviewFile{file, {BlobID: "other"}}, []PreviewFile{{BlobID: "other"}, file}) {
+	if !samePreviewFiles([]PreviewFile{file, {FileRecord: "other"}}, []PreviewFile{{FileRecord: "other"}, file}) {
 		t.Fatal("read order changed file identity")
 	}
-	if samePreviewFiles([]PreviewFile{file, file}, []PreviewFile{file, {BlobID: "other"}}) {
+	if samePreviewFiles([]PreviewFile{file, file}, []PreviewFile{file, {FileRecord: "other"}}) {
 		t.Fatal("duplicate erased a missing file")
 	}
 }

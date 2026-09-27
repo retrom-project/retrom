@@ -43,7 +43,7 @@ func TestMetadataStartupDispatchesDurableJobAndCloseJoinsWork(t *testing.T) {
 	if state != "FAILED" || run != "FAILED" {
 		t.Fatalf("Close returned before atomic settlement: %s/%s", state, run)
 	}
-	if service.Dispatch(t.Context(), "run") {
+	if service.Dispatch(t.Context(), "018fbe68-0000-7000-8000-000000000001") {
 		t.Fatal("closed dispatcher accepted work")
 	}
 }

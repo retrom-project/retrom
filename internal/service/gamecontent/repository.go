@@ -122,7 +122,6 @@ type ContentWriter interface {
 	Publish(context.Context, Publication) error
 }
 type RetirementImpact struct {
-	SaveStateCount   int64
-	CandidateBlobIDs []string
+	SaveStateCount int64
 }
 type ReleaseSignal interface{ Signal() }

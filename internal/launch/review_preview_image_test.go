@@ -22,7 +22,8 @@ func TestInspectReviewScreenshotAcceptsRuntimeJPEG(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := (screenshotImages{blobs: blobs}).Read(t.Context(), bytes.NewReader(payload.Bytes()))
+	result, err := (screenshotImages{blobs: blobs}).Read(t.Context(),
+		"018fbe68-0000-7000-8000-000000000001", bytes.NewReader(payload.Bytes()))
 	if err != nil {
 		t.Fatal(err)
 	}

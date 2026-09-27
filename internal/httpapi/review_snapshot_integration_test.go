@@ -16,11 +16,12 @@ import (
 	"sync"
 	"testing"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/authn"
 	"retrom/internal/composition"
 	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
-	"retrom/internal/persistence/filecatalog"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -50,9 +51,11 @@ SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=
 			var mutationErr error
 			barrier.Do(func() {
 				title := "Later title"
-				_, mutationErr = server.importer.PatchDraft(authn.WithPrincipal(ctx, authn.Principal{UserID: "01980000-0000-7000-8000-000000009999"}), itemID, beforeVersion, libraryimport.DraftPatch{
-					Metadata: &libraryimport.MetadataPatch{Title: &title}, TagIDs: []string{tag.TagID},
-				})
+				_, mutationErr = server.importer.PatchDraft(authn.WithPrincipal(ctx,
+					authn.Principal{UserID: "01980000-0000-7000-8000-000000009999"}), itemID, beforeVersion,
+					libraryimport.DraftPatch{
+						Metadata: &libraryimport.MetadataPatch{Title: &title}, TagIDs: []string{tag.TagID},
+					})
 				changed = mutationErr == nil
 			})
 			return mutationErr
@@ -97,13 +100,16 @@ func createReviewSnapshotItem(t *testing.T, server *Server) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := filecatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", 0)
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
 	result, err := server.importer.CreateServerSource(t.Context(),
 		testsupport.MustPlatformInstanceID(t, server.database, "gba/mgba"), "STANDARD",
-		[]libraryimport.ServerSourceFile{{RelativePath: "Snapshot.gba", BlobID: blobID, SizeBytes: metadata.Size}}, nil, "")
+		[]libraryimport.ServerSourceFile{{
+			RelativePath: "Snapshot.gba", FileRecord: fileRecord,
+			SizeBytes: metadata.Size,
+		}}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +172,8 @@ func TestReviewDetailPreservesLateSQLFailureAndClearsProjection(t *testing.T) {
 	request.SetPathValue("importItemId", itemID)
 	response := httptest.NewRecorder()
 	server.review(response, request)
-	if response.Code != http.StatusInternalServerError || strings.Contains(response.Body.String(), "Snapshot") || response.Header().Get("ETag") != "" {
+	if response.Code != http.StatusInternalServerError || strings.Contains(response.Body.String(),
+		"Snapshot") || response.Header().Get("ETag") != "" {
 		t.Fatalf("partial detail escaped: %d %s", response.Code, response.Body.String())
 	}
 }
@@ -194,7 +201,8 @@ func TestReviewDetailRetainsPublishedDuplicateProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(detail.DuplicateGames) != 1 || detail.DuplicateGames[0].GameID != published.GameID || len(detail.ContentIdentityDigest) != 64 {
+	if len(detail.DuplicateGames) != 1 || detail.DuplicateGames[0].GameID != published.GameID ||
+		len(detail.ContentIdentityDigest) != 64 {
 		t.Fatalf("published duplicate projection=%+v digest=%q", detail.DuplicateGames, detail.ContentIdentityDigest)
 	}
 }

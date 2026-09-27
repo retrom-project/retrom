@@ -34,7 +34,10 @@ func TestReleaseEffectPolicyRejectsActiveOrChangedOwners(t *testing.T) {
 }
 
 func TestReleaseEffectUploadEligibilityRequiresCompletedConsumptions(t *testing.T) {
-	candidate := EffectUpload{ID: "file", SessionID: "upload", BlobID: "blob", State: "COMPLETE", SessionState: "COMPLETE"}
+	candidate := EffectUpload{
+		ID: "file", SessionID: "upload", FileRecord: "blob",
+		State: "COMPLETE", SessionState: "COMPLETE",
+	}
 	if !eligibleEffectUpload(candidate) {
 		t.Fatal("unreferenced completed file rejected")
 	}
@@ -49,7 +52,7 @@ func TestReleaseEffectUploadEligibilityRequiresCompletedConsumptions(t *testing.
 			case "file":
 				blocked.State = "UPLOADING"
 			case "blob":
-				blocked.BlobID = ""
+				blocked.FileRecord = ""
 			}
 			if eligibleEffectUpload(blocked) {
 				t.Fatalf("protected %s file eligible", field)

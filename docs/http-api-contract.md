@@ -44,11 +44,10 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/invitations`、`/admin/users/{userId}/password-reset-links` | `state=ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`、`cursor/limit`；默认 ACTIVE |
 | `/admin/bios` | `platformId`、`coreId`、`providerId`、`targetId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
-| `/admin/storage-analysis` | 无 query；只读已登记独立文件存储 payload 容量快照；写操作使用独立 `/admin/storage-cleanups` 资源 |
 
 `platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，不能先分页再在 Go 内存二次筛选。
 
-`GET /api/v1/admin/imports` 的 cursor 绑定筛选及 `UPDATED_DESC|CREATED_DESC` 排序，每页最多 20 条。每个列表项返回冻结配置中的 `contentMode`，缺省历史配置投影为 `STANDARD`；同时返回 `failedItemCount`、`rejectedFileCount`、`unresolvedRejectedFileCount`、`alreadyImportedItemCount` 与 `alreadyImportedFileCount`。前三项分别表示 Item 失败、分组前未被接受的 UploadFile 总证据和其中尚未通过重新配置任务接管的数量，后两项表示识别阶段因已有未删除游戏使用完全相同内容而跳过的 Item/不同 UploadFile。任务页当前异常总数必须为 `failedItemCount + unresolvedRejectedFileCount`，已导入跳过不计异常并单独解释。Import 详情把参与跳过的 `fileOutcomes[].disposition/reasonCode` 投影为 `ALREADY_IMPORTED`，同时返回 `alreadyImportedMatches[{importItemId,contentIdentityDigest,existingGame{id,title,platformInstanceId,platformInstanceName}}]`；对 MULTI 任务还返回 `itemSummaries[{itemId,state,contentKind,playlist,discCount,presentDiscCount,missingDiscCount,ignoredFileCount,ignoredFiles}]`。其中 `ignoredFiles` 只含同目录未引用文件按相对路径排序后的前 20 个 basename，计数不截断；这些详情不得暴露 Blob ID 或宿主路径。数据库原始 ImportJobFile 仍保留 `SOURCE`。零 Item 且存在未解决拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车，或全部拒绝文件已成功转入 replacement ImportJob 时直接为 `COMPLETED`。所有识别出的 Item 都因已导入而跳过且没有拒绝文件时也直接 `COMPLETED`。
+`GET /api/v1/admin/imports` 的 cursor 绑定筛选及 `UPDATED_DESC|CREATED_DESC` 排序，每页最多 20 条。每个列表项返回冻结配置中的 `contentMode`，缺省历史配置投影为 `STANDARD`；同时返回 `failedItemCount`、`rejectedFileCount`、`unresolvedRejectedFileCount`、`alreadyImportedItemCount` 与 `alreadyImportedFileCount`。前三项分别表示 Item 失败、分组前未被接受的 UploadFile 总证据和其中尚未通过重新配置任务接管的数量，后两项表示识别阶段因已有未删除游戏使用完全相同内容而跳过的 Item/不同 UploadFile。任务页当前异常总数必须为 `failedItemCount + unresolvedRejectedFileCount`，已导入跳过不计异常并单独解释。Import 详情把参与跳过的 `fileOutcomes[].disposition/reasonCode` 投影为 `ALREADY_IMPORTED`，同时返回 `alreadyImportedMatches[{importItemId,contentIdentityDigest,existingGame{id,title,platformInstanceId,platformInstanceName}}]`；对 MULTI 任务还返回 `itemSummaries[{itemId,state,contentKind,playlist,discCount,presentDiscCount,missingDiscCount,ignoredFileCount,ignoredFiles}]`。其中 `ignoredFiles` 只含同目录未引用文件按相对路径排序后的前 20 个 basename，计数不截断；这些详情不得暴露 内部文件记录 或宿主路径。数据库原始 ImportJobFile 仍保留 `SOURCE`。零 Item 且存在未解决拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车，或全部拒绝文件已成功转入 replacement ImportJob 时直接为 `COMPLETED`。所有识别出的 Item 都因已导入而跳过且没有拒绝文件时也直接 `COMPLETED`。
 
 `GET|POST /api/v1/admin/import-batches/{kind}/{importId}/discard` 管理一个批次的丢弃处置，kind 为 `IMPORT|SOURCE`。GET 返回 `{kind,importId,state,errorCode}`；state 为 `AVAILABLE|UNAVAILABLE|REQUESTED|COMPLETED|FAILED`，未开始执行的来源计划或已无未处置内容的批次为 UNAVAILABLE。POST 只接受 `{}`，要求 ADMIN、同源 CSRF 和 UUID Idempotency-Key；按通用幂等规则返回 202 原始结果，后续进度通过 GET 读取。不同 key 重复请求同一批次也不会重复处置；FAILED 时新请求继续未完成工作。不存在批次 404，不能处置的状态 409；失败码包括 `IMPORT_BATCH_DISCARD_FAILED`和 `IMPORT_BATCH_DISCARD_RELEASE_FAILED`。响应不暴露 Blob、上传凭据或服务器路径。
 
@@ -56,7 +55,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 审核列表的 `updatedAtMs` 使用 ReviewDraft 的 `updated_at_ms`，与 `UPDATED_ASC/UPDATED_DESC` 及续页游标中的时间、Item ID 比较保持一致。
 
-`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 最多返回一个当前抓取批次；重新抓取会取消旧任务并原子替换旧批次及其候选；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"SOURCE",sourceRefId,sourceImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags}`；统一来源的 `sourceFlags={hidden,adult,kidGame}` 与解析格式无关，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,providerId,targetId,widthPx,heightPx,capturedAtMs,url}`；只有当前 ReviewDraft 选择的 Validation 仍匹配当前来源快照、目标平台、稳定 Provider/Target 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。草稿 PATCH、来源替换、DAT 或依赖处理必须在写事务中生成或复用完全匹配的 Validation 并原子切换当前选择；详情不返回历史 Validation，也不定义 `validationStale` 字段。Provider Bundle 的只向前升级不改变稳定 Target，也不会单独改变审核结论。当前 READY Validation 满足发布检查时 `canApprove=true`；除 RPG Maker 与 ScummVM 项目外的条目还可按既有 `REVIEW_SCREENSHOT_OVERRIDE` 规则使用当前运行截图人工放行，RPG Maker 截图不能覆盖缺失依赖，ScummVM 截图不能覆盖候选未选择或不受支持；输入变化时旧截图退出当前投影，不能继续解锁发布。`sourceFiles` 按审核项自己的来源快照投影 size/SHA-256/MD5/CRC32，原始 name 来自仅作来源记录的 `import_files`；普通文件读取 snapshot 的独立文件，归档成员使用冻结的 archive 来源标识，不能依赖已释放的上传载荷指针；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据审核项独立文件已复制的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 GameFiles 文件集合完全相同的 Game，空集合返回 `[]`。
+`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 最多返回一个当前抓取批次；重新抓取会取消旧任务并原子替换旧批次及其候选；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"SOURCE",sourceRefId,sourceImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags}`；统一来源的 `sourceFlags={hidden,adult,kidGame}` 与解析格式无关，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,providerId,targetId,widthPx,heightPx,capturedAtMs,url}`；只有当前 ReviewDraft 选择的 Validation 仍匹配当前来源快照、目标平台、稳定 Provider/Target 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。草稿 PATCH、来源替换、DAT 或依赖处理必须在写事务中生成或复用完全匹配的 Validation 并原子切换当前选择；详情不返回历史 Validation，也不定义 `validationStale` 字段。Provider Bundle 的只向前升级不改变稳定 Target，也不会单独改变审核结论。当前 READY Validation 满足发布检查时 `canApprove=true`；除 RPG Maker 与 ScummVM 项目外的条目还可按既有 `REVIEW_SCREENSHOT_OVERRIDE` 规则使用当前运行截图人工放行，RPG Maker 截图不能覆盖缺失依赖，ScummVM 截图不能覆盖候选未选择或不受支持；输入变化时旧截图退出当前投影，不能继续解锁发布。`sourceFiles` 按审核项自己的来源快照投影 size/SHA-256/MD5/CRC32，原始 name 来自仅作来源记录的 `import_files`；普通文件读取 snapshot 的独立文件，归档成员使用冻结的 archive 来源标识，不能依赖已释放的上传载荷指针；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据审核项独立文件已复制的 `archive_entries` 返回成员列表，不能因 `source_archive_file_record` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 GameFiles 文件集合完全相同的 Game，空集合返回 `[]`。
 
 错误统一为：
 
@@ -282,7 +281,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-replacement` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC|RPG_MAKER_PROJECT|ONS_PROJECT|KIRIKIRI_PROJECT|BUTTERSCOTCH_PROJECT|TYRANOSCRIPT_PROJECT|SCUMMVM_PROJECT|NXENGINE_PROJECT`，缺省为 STANDARD；唯一的导入期目标规范化是上一节定义的 `STANDARD + rpgmaker -> RPG_MAKER_PROJECT`，它不适用于内容替换或其他平台。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-replacement` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC|RPG_MAKER_PROJECT|ONS_PROJECT|KIRIKIRI_PROJECT|BUTTERSCOTCH_PROJECT|TYRANOSCRIPT_PROJECT|SCUMMVM_PROJECT|NXENGINE_PROJECT`，缺省为 STANDARD；唯一的导入期目标规范化是上一节定义的 `STANDARD + rpgmaker -> RPG_MAKER_PROJECT`，它不适用于内容替换或其他平台。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 内部文件记录、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -374,8 +373,8 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 | --- | --- |
 | `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` | Provider Bundle 的唯一静态入口。`providerId + bundleSha256` 必须命中已激活且通过完整性验证的 Bundle，`runtimePath` 必须命中该 Bundle 的 closed file allowlist；响应按声明 MIME 返回 `public, max-age=31536000, immutable, no-transform` 与强 ETag；代理不得改变 representation、字节长度或强 ETag。HTML 仅允许 `retrom-runtime/assets/jsbeeb/site/index.html`，且 MIME 必须为 `text/html; charset=utf-8`；其他 Provider、摘要、路径、查询或本机字节漂移均 fail closed。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
-| `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
-| `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、来源媒体或审核运行截图；服务器来源 `assetId` 为统一 Source Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；终态工作流异步释放媒体。 |
+| `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 内部文件记录。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
+| `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、来源媒体或审核运行截图；服务器来源 `assetId` 为统一 Source Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 内部文件记录 暴露给浏览器；终态工作流异步释放媒体。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch cookie；只返回严格 `LaunchEnvelopeV1`。Host 只校验 envelope 并按 `runtime.moduleUrl` 动态加载 Provider Module V1，不按 Target、引擎或内容类型分支；`private, no-store`、`Vary: Cookie`。PRODUCT 与 REVIEW_PREVIEW 使用同一 envelope 形状。 |
 | `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Provider Target declaration、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable, no-transform`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
 | `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable, no-transform`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
@@ -386,9 +385,9 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回严格的 Launch Envelope V1。字段级唯一事实源是 `api/runtime-provider/v1/launch-envelope.schema.json`，可执行的完整正反例位于同目录 `fixtures/valid` 与 `fixtures/invalid`；本文不维护会漂移的缩写 JSON 副本。
 
-`runtime` 身份必须逐字段匹配已激活 Bundle 与 Target declaration；`moduleUrl` 必须位于同一 `providerId/bundleSha256` 静态根且响应字节命中 `moduleSha256`。`session`、`runtime`、`resources[]`、`restore` 由共享 JSON Schema 与语义校验器闭合验证；`targetOptions` 先通过共享 JSON-safe/深度/大小边界，再由已激活 Target 的内联 `targetOptionsSchema` 精确校验，Provider Module mount 前以自身同一声明复核。Provider 私有的核心选择、引擎设置、启动动作、文件映射和兼容补丁只能位于该 Provider 的 `targetOptions` 或 Bundle 内部；Host、页面和数据库不得维护 `optionsKind`、第二份字段映射或按 `targetId` 补默认值。所有 URL 必须是契约允许的站内路径，响应不得含 capability、Blob ID、宿主路径或客户端可改写 URL。
+`runtime` 身份必须逐字段匹配已激活 Bundle 与 Target declaration；`moduleUrl` 必须位于同一 `providerId/bundleSha256` 静态根且响应字节命中 `moduleSha256`。`session`、`runtime`、`resources[]`、`restore` 由共享 JSON Schema 与语义校验器闭合验证；`targetOptions` 先通过共享 JSON-safe/深度/大小边界，再由已激活 Target 的内联 `targetOptionsSchema` 精确校验，Provider Module mount 前以自身同一声明复核。Provider 私有的核心选择、引擎设置、启动动作、文件映射和兼容补丁只能位于该 Provider 的 `targetOptions` 或 Bundle 内部；Host、页面和数据库不得维护 `optionsKind`、第二份字段映射或按 `targetId` 补默认值。所有 URL 必须是契约允许的站内路径，响应不得含 capability、内部文件记录、宿主路径或客户端可改写 URL。
 
-二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS `FILE_TREE` 的 `index.json` 只在同一 Launch grant 和 content identity 下返回一个 `game.zip` 条目及虚拟 ZIP 的准确字节数；条目 URL 与索引同源且同 identity。DOS 的 `game.zip` 是从锁定基础 Blob 与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。浏览器通过 Content I/O 的强 ETag Range Reader 按需读取此 URL。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
+二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS `FILE_TREE` 的 `index.json` 只在同一 Launch grant 和 content identity 下返回一个 `game.zip` 条目及虚拟 ZIP 的准确字节数；条目 URL 与索引同源且同 identity。DOS 的 `game.zip` 是从锁定基础 Blob 与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。浏览器通过 Content I/O 的强 ETag Range Reader 按需读取此 URL。受限 URL 不包含 内部文件记录或摘要，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
 
 运行内容的 `private immutable` 响应只允许同一浏览器缓存复用，不进入共享缓存；不同 Launch 锁定相同输入时
 生成相同 URL，因此可以直接命中已有私有缓存。任何真正到达服务器的请求仍逐次验证 content grant、Launch/
@@ -462,8 +461,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/auth/account-links/inspect`、`POST /api/v1/auth/invitations/accept`、`POST /api/v1/auth/password-resets/complete` | fragment capability检查、邀请注册与密码重置。 |
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`featuredGame.description` 为当前 Game 的完整简介字符串，未填写时为空字符串；字符与行数截断属于 UI 展示，不改写原始内容。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
-| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 Game 当前元信息字段 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
+| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 Game 当前元信息字段 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 内部文件记录。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot 内部文件记录。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/progress` | 第 7 节 PRODUCT 最佳努力累计游玩时长上报；使用限定 Path 的 launch cookie，失败不影响运行权限。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 旧连续事件契约与审核 Preview 的退出；新 PRODUCT Player 不调用。 |
@@ -500,8 +499,6 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
 | `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换原子切换当前安装，新 BIOS 对后续启动生效；依赖旧 BIOS 的 Launch/Play 被撤销，存档保留，旧 Installation 引用由后台释放，结构化审计保留；一期没有独立删除 Installation API。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
-| `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记独立文件存储 payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
-| `POST /api/v1/admin/storage-cleanups` | ADMIN-only 手动补排队与失败任务重试；无 query/body，要求 CSRF 与 UUID `Idempotency-Key`，202 返回本次已推进的 Blob 数、byte 与接受时刻；不返回 Blob/Job 标识。 |
 
 `GET /api/v1/games/{gameId}` 顶层返回 Game `version` 和全部当前可恢复存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 3 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentGameVariantId/providerId/targetId/bundleSha256/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以当前 GameVariant 是否 READY 且其稳定 Target 仍可部署计算；活动 Bundle 只向前升级时仍是同一 Target，普通启动直接使用新 Bundle。`POST /api/v1/launches` 无存档时收到显式或默认 core，执行同一 `EnsureVariant`，必要时先返回共享 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。 有 `saveStateId` 时，显式 `coreId` 优先，省略则使用存档来源 Launch 的 Core；选择其当前 READY Variant 并校验 Target `readFormats`，不会因目录默认核心改变而将备用核心的存档送入其他核心。
 
@@ -527,33 +524,6 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 ```
 
 响应固定为 `application/json; charset=utf-8`、`Cache-Control: private, no-store`、`Content-Disposition: attachment; filename="retrom-diagnostics.json"` 与 `X-Content-Type-Options: nosniff`。不得增加自由文本日志、资源 ID、游戏/文件名、Blob/DAT/core hash、上传/provider 原文、环境变量值、cookie/capability/key、内部地址或宿主路径；需要新增诊断字段时先升级 schemaVersion、OpenAPI 和 `ACC-OPS-001`，不能把任意 map 当作后门。
-
-容量分析成功响应是同一只读事务生成的封闭对象：
-
-```json
-{
-  "scope": "OWNED_FILES_V1",
-  "generatedAtMs": 1787448000000,
-  "totals": {"registeredBytes": "0", "retainedBytes": "0", "pendingDeleteBytes": "0", "fileCount": 0},
-  "categories": [
-    {"code": "GAME_CONTENT", "bytes": "0", "fileCount": 0},
-    {"code": "BIOS", "bytes": "0", "fileCount": 0},
-    {"code": "SAVES", "bytes": "0", "fileCount": 0},
-    {"code": "MEDIA", "bytes": "0", "fileCount": 0},
-    {"code": "WORKFLOW", "bytes": "0", "fileCount": 0},
-    {"code": "PENDING_DELETE", "bytes": "0", "fileCount": 0}
-  ],
-  "details": {
-    "saveStates": {"activeCount": 0, "deletedCount": 0, "stateBytes": "0", "screenshotBytes": "0"},
-    "cleanupCandidates": {"storedFileCount": 0, "bytes": "0"}
-  },
-  "excluded": ["DATABASE_FILES", "UPLOAD_PARTS", "JOB_SCRATCH", "DEPENDENCY_ROOT", "FILESYSTEM_OVERHEAD", "UNREGISTERED_ORPHANS", "VOLUME_FREE_SPACE"]
-}
-```
-
-Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述六类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记文件容量分析)定义。GET 不设置下载 header，不提供 query、cursor 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。
-
-立即清理成功响应固定为 `{"scheduledFileCount":0,"scheduledBytes":"0","acceptedAtMs":1787448000000}`。POST 先按同一 registry 补齐已退休候选，再把当前仍已退休候选推进为立即可执行；失败的 FILE_DELETE Job 以新 execution 重排队。返回值是已接受调度量而非已物理删除量，worker 删除前仍复核引用，恢复引用的 Blob 会被保留。相同 principal/operation/key 重放原 202 响应；缺少/复用错误 key、USER/匿名、CSRF 失败和数据库失败使用通用稳定错误。统一验证为 `ACC-STOR-001`。
 
 ## 10. 收藏与收藏夹 API
 
@@ -662,7 +632,7 @@ BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE
 
 ## 12. 统一来源导入与详情 VIDEO API
 
-Source route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/CSRF、UUID Idempotency-Key 与 `If-Match`。DTO 只返回 root ID/label、规范相对路径、稳定 code 和审计投影，不返回宿主路径、source facts/inode、Blob ID/hash 或原始 metadata/command。
+Source route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/CSRF、UUID Idempotency-Key 与 `If-Match`。DTO 只返回 root ID/label、规范相对路径、稳定 code 和审计投影，不返回宿主路径、source facts/inode、内部文件记录或摘要 或原始 metadata/command。
 
 | Route | 契约 |
 | --- | --- |
@@ -686,7 +656,7 @@ Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 
 
 沉浸模式使用独立、只读的电视交互投影，不复用普通游戏库的搜索、筛选或管理 DTO。四个端点均要求有效
 Profile 会话，只返回当前用户可见且已发布、可运行的游戏；Favorite/Folder、SaveState 与 PlaySession
-投影必须使用 Principal 的 `profile_id`。查询不得暴露内部 Blob ID、宿主路径、内容逻辑名或 Launch
+投影必须使用 Principal 的 `profile_id`。查询不得暴露内部文件记录、宿主路径、内容逻辑名或 Launch
 capability；运行时内容身份只由 Launch config 的受权 URL 返回。
 
 `GET /api/v1/immersive/destinations` 在一个只读事务中返回 `generatedAtMs/items`。`items` 固定先按

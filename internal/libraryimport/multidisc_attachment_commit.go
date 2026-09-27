@@ -11,7 +11,7 @@ import (
 func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) application.MultiDiscAttachmentFile {
 	return application.MultiDiscAttachmentFile{
 		Role: file.role, LogicalName: file.logicalName, UploadFileID: file.uploadFileID,
-		BlobID: file.blobID, BlobSHA: file.blobSHA, BlobSize: file.blobSize, SortOrder: file.sortOrder,
+		FileRecord: file.fileRecord, BlobSHA: file.blobSHA, BlobSize: file.blobSize, SortOrder: file.sortOrder,
 	}
 }
 
@@ -30,6 +30,9 @@ func (service *Service) commitAcceptedMultiDiscAttachment(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
+	if err := service.prepareMultiDiscDirectory(ctx, candidate); err != nil {
+		return err
+	}
 	baseFiles := make([]application.MultiDiscAttachmentFile, 0, len(candidate.baseFiles))
 	for _, file := range candidate.baseFiles {
 		baseFiles = append(baseFiles, applicationMultiDiscAttachmentFile(file))

@@ -45,7 +45,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 		t.Fatal(err)
 	}
 	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
-		Set: `restore_payload_blob_id='rpg-project-a'`,
+		Set: `restore_payload_file_record='` + rpgFileRecord("rpg-project-a") + `'`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,
 			Args:  []any{restore.PreviewID},
@@ -58,7 +58,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 		t.Fatal(err)
 	}
 	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
-		Set: `checkpoint_payload_blob_id='rpg-project-a'`,
+		Set: `checkpoint_payload_file_record='` + rpgFileRecord("rpg-project-a") + `'`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,
 			Args:  []any{preview.PreviewID},

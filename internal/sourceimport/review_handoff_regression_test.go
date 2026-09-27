@@ -1,6 +1,7 @@
 package sourceimport
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"errors"
@@ -27,32 +28,38 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
  WHERE p.platform_id='gba' AND p.enabled=1 ORDER BY p.sort_order,p.id LIMIT 1`).Scan(&instance, &provider, &target); err != nil {
 		t.Fatal(err)
 	}
-	mustExecSourceTest(t.Context(), t, db, `INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
- VALUES('handoff-upload','COMPLETE','FILES',1,0,?,10000,1,1)`, fixedHandoffDigest)
+	mustExecSourceTest(t.Context(), t, db, `INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,
+created_at_ms,updated_at_ms)
+ VALUES('018fbe68-0000-7000-8000-000000000013','COMPLETE','FILES',1,0,?,10000,1,1)`, fixedHandoffDigest)
 	mustExecSourceTest(t.Context(), t, db, `INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
- platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+ platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,
+config_snapshot_digest,
  state,total_item_count,review_pending_item_count,created_at_ms,updated_at_ms)
- VALUES('handoff-job','handoff-upload',?,1,'gba','mgba',?,?,'NONE','{}',?,'REVIEW_PENDING',1,1,1,1)`, instance, provider, target, fixedHandoffDigest)
-	mustExecSourceTest(t.Context(), t, db, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
- VALUES('handoff-item','handoff-job',?,'REVIEW_PENDING','{}',?,'original',1,1)`, fixedHandoffDigest, fixedHandoffDigest)
-	mustExecSourceTest(t.Context(), t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Original"}',review_version=1,review_created_at_ms=1,review_updated_at_ms=1 WHERE id='handoff-item'`, instance)
+ VALUES('handoff-job','018fbe68-0000-7000-8000-000000000013',?,1,'gba','mgba',?,?,'NONE','{}',?,
+'REVIEW_PENDING',1,1,1,1)`, instance, provider, target, fixedHandoffDigest)
+	mustExecSourceTest(t.Context(), t, db, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
+search_text,created_at_ms,updated_at_ms)
+ VALUES('018fbe68-0000-7000-8000-000000000011','handoff-job',?,'REVIEW_PENDING','{}',?,'original',1,1)`, fixedHandoffDigest, fixedHandoffDigest)
+	mustExecSourceTest(t.Context(), t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Original"}',
+review_version=1,review_created_at_ms=1,review_updated_at_ms=1 WHERE id='018fbe68-0000-7000-8000-000000000011'`, instance)
 	mustExecSourceTest(t.Context(), t, db, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,worker_id='source-import-worker',
  leased_until_ms=100,execution_deadline_at_ms=1000 WHERE id='work';
  UPDATE source_imports SET state='RUNNING',import_job_id='work',completed_at_ms=NULL;
  UPDATE source_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
- library_import_item_id='handoff-item',metadata_json='{"Title":"Changed"}',completed_at_ms=NULL;`)
+ library_import_item_id='018fbe68-0000-7000-8000-000000000011',metadata_json='{"Title":"Changed"}',
+completed_at_ms=NULL;`)
 	service.importer = libraryimport.New(db, service.now)
-	return service, work{JobID: "work", ImportID: "import", WorkerID: "source-import-worker", ExecutionNo: 1, Attempt: 1}, executionItem{ID: "item", MetadataJSON: `{"Title":"Changed"}`}
+	return service, work{JobID: "work", ImportID: "import", WorkerID: "source-import-worker", ExecutionNo: 1, Attempt: 1}, executionItem{ID: "018fbe68-0000-7000-8000-000000000010", MetadataJSON: `{"Title":"Changed"}`}
 }
 
 const fixedHandoffDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 func completeHandoff(ctx context.Context, service *Service, unit work, item executionItem) error {
 	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
-		libraryservice.NewMetadataSeeder(nil, service.now), service.now)
+		libraryservice.NewMetadataSeeder(nil, service.now), service.blobs, service.now)
 	return handoff.Complete(ctx, application.ReviewHandoffRequest{
 		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
-		LibraryJobID: "handoff-job", LibraryItemID: "handoff-item",
+		LibraryJobID: "handoff-job", LibraryItemID: "018fbe68-0000-7000-8000-000000000011",
 		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
 	})
 }
@@ -86,7 +93,7 @@ func TestReviewHandoffRejectsPreviousExecution(t *testing.T) {
 	}
 	assertHandoffDraftUntouched(t, service)
 	var state string
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" {
@@ -98,8 +105,9 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 	t.Helper()
 	var title, search string
 	var version int64
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN import_items i ON i.id=d.id
- WHERE i.id='handoff-item'`).Scan(&title, &version, &search); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN
+import_items i ON i.id=d.id
+ WHERE i.id='018fbe68-0000-7000-8000-000000000011'`).Scan(&title, &version, &search); err != nil {
 		t.Fatal(err)
 	}
 	if title != "Original" || version != 1 || search != "original" {
@@ -110,13 +118,22 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 func seedHandoffMedia(t *testing.T, service *Service) {
 	t.Helper()
 	db := service.database
-	mustExecSourceTest(t.Context(), t, db, `INSERT INTO stored_files(id,sha256,md5,sha1,crc32,size_bytes,media_type,created_at_ms)
- VALUES('handoff-media',?, ?, ?, ?,4,'image/png',1)`, strings.Repeat("1", 64), strings.Repeat("1", 32), strings.Repeat("1", 40), strings.Repeat("1", 8))
-	mustExecSourceTest(t.Context(), t, db, `UPDATE stored_files SET owner_kind='SOURCE_IMPORT_ITEM',owner_id='item' WHERE id='handoff-media'`)
+	metadata, err := service.blobs.Put(bytes.NewBufferString("data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err = service.blobs.CopyTo(t.Context(), metadata.Record,
+		"staging/sources/018fbe68-0000-7000-8000-000000000010/media", "source")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := recordstore.InsertRows(t.Context(), db, "source_import_item_assets", `INSERT INTO source_import_item_assets
- (item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,width_px,height_px,state,created_at_ms,updated_at_ms)
- VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,?,'handoff-media','image/png',1,1,'COPIED',1,1),
- ('item','VIDEO','EXPLICIT_GAME','video.mp4',4,?,'handoff-media','video/mp4',NULL,NULL,'COPIED',1,1)`, fixedHandoffDigest, fixedHandoffDigest); err != nil {
+ (item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,file_record,media_type,
+width_px,height_px,state,created_at_ms,updated_at_ms)
+ VALUES('018fbe68-0000-7000-8000-000000000010','COVER','EXPLICIT_GAME','cover.png',4,?,?,'image/png',1,1,
+'COPIED',1,1),
+ ('018fbe68-0000-7000-8000-000000000010','VIDEO','EXPLICIT_GAME','video.mp4',4,?,?,'video/mp4',NULL,NULL,
+'COPIED',1,1)`, fixedHandoffDigest, metadata.Record, fixedHandoffDigest, metadata.Record); err != nil {
 		t.Fatal(err)
 	}
 }

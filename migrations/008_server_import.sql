@@ -79,8 +79,8 @@ CREATE TABLE source_import_item_files (
   relative_path TEXT NOT NULL CHECK(length(CAST(relative_path AS BLOB)) BETWEEN 1 AND 4096),
   size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes>=0),
   source_facts_digest TEXT CHECK(source_facts_digest IS NULL OR (length(source_facts_digest)=64 AND source_facts_digest=lower(source_facts_digest))),
-  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
-  source_archive_blob_id TEXT,
+  file_record TEXT,
+  source_archive_file_record TEXT,
   source_archive_entry_ordinal INTEGER,
   role TEXT CHECK(role IS NULL OR role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
   logical_name TEXT,
@@ -90,8 +90,8 @@ CREATE TABLE source_import_item_files (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   PRIMARY KEY(item_id,ordinal),
   UNIQUE(item_id,relative_path),
-  CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL)),
-  CHECK(state='RELEASED' AND blob_id IS NULL AND source_archive_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+  CHECK((source_archive_file_record IS NULL)=(source_archive_entry_ordinal IS NULL)),
+  CHECK(state='RELEASED' AND file_record IS NULL AND source_archive_file_record IS NULL AND payload_released_at_ms IS NOT NULL OR
         state<>'RELEASED' AND payload_released_at_ms IS NULL)
 );
 
@@ -102,7 +102,7 @@ CREATE TABLE source_import_item_assets (
   relative_path TEXT NOT NULL CHECK(length(CAST(relative_path AS BLOB)) BETWEEN 1 AND 4096),
   size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes>=0),
   source_facts_digest TEXT CHECK(source_facts_digest IS NULL OR (length(source_facts_digest)=64 AND source_facts_digest=lower(source_facts_digest))),
-  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  file_record TEXT,
   media_type TEXT,
   width_px INTEGER,
   height_px INTEGER,
@@ -114,7 +114,7 @@ CREATE TABLE source_import_item_assets (
   PRIMARY KEY(item_id,kind),
   CHECK(kind<>'COVER' OR media_type IS NULL OR (media_type IN ('image/png','image/jpeg','image/webp') AND width_px>0 AND height_px>0)),
   CHECK(kind<>'VIDEO' OR media_type IS NULL OR (media_type IN ('video/mp4','video/webm') AND width_px IS NULL AND height_px IS NULL)),
-  CHECK(state='RELEASED' AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+  CHECK(state='RELEASED' AND file_record IS NULL AND payload_released_at_ms IS NOT NULL OR
         state<>'RELEASED' AND payload_released_at_ms IS NULL)
 );
 
@@ -205,8 +205,8 @@ CREATE TABLE "source_import_items" (
 CREATE TABLE source_import_item_companions (
  item_id TEXT NOT NULL REFERENCES source_import_items(id),
  candidate_item_id TEXT NOT NULL REFERENCES source_import_items(id),
- blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
+ file_record TEXT NOT NULL,
  created_at_ms INTEGER NOT NULL,
  PRIMARY KEY (item_id,candidate_item_id)
 );
-CREATE INDEX source_import_item_companions_blob ON source_import_item_companions(blob_id);
+CREATE INDEX source_import_item_companions_blob ON source_import_item_companions(file_record);

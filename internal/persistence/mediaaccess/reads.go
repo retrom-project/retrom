@@ -14,9 +14,10 @@ import (
 func (reader reader) Game(ctx context.Context, id string) (service.GameAsset, bool, error) {
 	var asset service.GameAsset
 	err := dbapi.QueryRowContext(ctx, reader.executor, `
-SELECT blob.id,blob.sha256,asset.media_type,game.status
-FROM game_assets asset JOIN stored_files blob ON blob.id=asset.blob_id JOIN games game ON game.id=asset.game_id
-WHERE asset.id=?`, id).Scan(&asset.BlobID, &asset.Digest, &asset.MediaType, &asset.GameState)
+SELECT blob.value,json_extract(blob.value, '$.sha256'),asset.media_type,game.status
+FROM game_assets asset JOIN json_each(json_array(asset.file_record)) blob ON blob.value IS NOT NULL JOIN
+games game ON game.id=asset.game_id
+WHERE asset.id=?`, id).Scan(&asset.FileRecord, &asset.Digest, &asset.MediaType, &asset.GameState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return asset, false, nil
 	}
@@ -29,9 +30,11 @@ WHERE asset.id=?`, id).Scan(&asset.BlobID, &asset.Digest, &asset.MediaType, &ass
 func (reader reader) Save(ctx context.Context, id string) (service.SaveScreenshot, bool, error) {
 	var screenshot service.SaveScreenshot
 	err := dbapi.QueryRowContext(ctx, reader.executor, `
-SELECT blob.id,blob.sha256,blob.media_type,save.profile_id,save.deleted_at_ms IS NOT NULL,game.status
-FROM save_states save JOIN stored_files blob ON blob.id=save.screenshot_blob_id JOIN games game ON game.id=save.game_id
-WHERE save.id=?`, id).Scan(&screenshot.BlobID, &screenshot.Digest, &screenshot.MediaType,
+SELECT blob.value,json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.media_type'),
+save.profile_id,save.deleted_at_ms IS NOT NULL,game.status
+FROM save_states save JOIN json_each(json_array(save.screenshot_file_record)) blob ON blob.value IS NOT
+NULL JOIN games game ON game.id=save.game_id
+WHERE save.id=?`, id).Scan(&screenshot.FileRecord, &screenshot.Digest, &screenshot.MediaType,
 		&screenshot.ProfileID, &screenshot.Deleted, &screenshot.GameState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return screenshot, false, nil
@@ -63,7 +66,7 @@ func readReviewAssets(rows *sql.Rows) ([]service.ReviewAsset, error) {
 	assets := []service.ReviewAsset{}
 	for rows.Next() {
 		var asset service.ReviewAsset
-		if err := rows.Scan(&asset.BlobID, &asset.Digest, &asset.MediaType, &asset.Kind, &asset.State,
+		if err := rows.Scan(&asset.FileRecord, &asset.Digest, &asset.MediaType, &asset.Kind, &asset.State,
 			&asset.ItemState, &asset.GameState, &asset.TerminalReview); err != nil {
 			return nil, fmt.Errorf("scan review asset: %w", err)
 		}

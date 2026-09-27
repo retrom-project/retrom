@@ -44,7 +44,7 @@ func ResolveProductBIOS(
 				return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", corevalidation.ErrInvalidSnapshot
 			}
 		}
-		if dependency.BlobID == nil || dependency.InstallationStatus == nil || !corevalidation.BIOSInstallationUsable(
+		if dependency.FileRecord == nil || dependency.InstallationStatus == nil || !corevalidation.BIOSInstallationUsable(
 			*dependency.InstallationStatus,
 		) {
 			status, code = "BLOCKED", "LAUNCH_BIOS_MISSING"
@@ -93,13 +93,13 @@ func productArcadeBIOSFresh(current corevalidation.Snapshot, files []ProductFile
 	wanted := make([]identity, 0)
 	locked := make([]identity, 0)
 	for _, dependency := range current.BIOS {
-		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
-			wanted = append(wanted, identity{dependency.LogicalName, *dependency.BlobID})
+		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.FileRecord != nil {
+			wanted = append(wanted, identity{dependency.LogicalName, *dependency.FileRecord})
 		}
 	}
 	for _, file := range files {
 		if file.Role == "BIOS_BUNDLE" {
-			locked = append(locked, identity{file.LogicalName, file.BlobID})
+			locked = append(locked, identity{file.LogicalName, file.FileRecord})
 		}
 	}
 	return slices.Equal(wanted, locked)
@@ -130,7 +130,7 @@ func approvedProductBIOS(snapshot ProductSnapshot) (ProductSnapshot, *corevalida
 	}
 	snapshot.VariantFiles = append([]ProductFile(nil), snapshot.VariantFiles...)
 	for index, dependency := range current.BIOS {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
 		snapshot.VariantFiles = refreshProductBIOSFile(snapshot.VariantFiles, dependency, index)
@@ -142,8 +142,8 @@ func approvedProductBIOS(snapshot ProductSnapshot) (ProductSnapshot, *corevalida
 func refreshProductBIOSFile(files []ProductFile, dependency corevalidation.BIOSDependency, index int) []ProductFile {
 	for position, file := range files {
 		if file.Role == "BIOS_BUNDLE" && file.LogicalName == dependency.LogicalName {
-			if file.BlobID != *dependency.BlobID {
-				files[position].BlobID = *dependency.BlobID
+			if file.FileRecord != *dependency.FileRecord {
+				files[position].FileRecord = *dependency.FileRecord
 				files[position].SortOrder = index
 			}
 			return files
@@ -151,7 +151,10 @@ func refreshProductBIOSFile(files []ProductFile, dependency corevalidation.BIOSD
 	}
 	return append(
 		files,
-		ProductFile{Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName, BlobID: *dependency.BlobID, SortOrder: index},
+		ProductFile{
+			Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName,
+			FileRecord: *dependency.FileRecord, SortOrder: index,
+		},
 	)
 }
 

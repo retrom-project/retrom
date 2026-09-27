@@ -42,7 +42,7 @@ const workSQL = `SELECT ` + workColumns + `
 
 func (records workerRecords) Next(ctx context.Context, now int64) (application.Work, bool, error) {
 	return readWork(dbapi.QueryRowContext(ctx, records.executor, workSQL+`
- WHERE job.kind IN ('OWNER_CLEANUP','FILE_DELETE') AND job.state='QUEUED' AND job.available_at_ms<=?
+ WHERE job.kind IN ('OWNER_CLEANUP','PATH_DELETE') AND job.state='QUEUED' AND job.available_at_ms<=?
  ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1`, now))
 }
 
@@ -53,7 +53,7 @@ func (records workerRecords) Current(ctx context.Context, id string) (applicatio
 func (records workerRecords) Interrupted(ctx context.Context, now int64, limit int) ([]application.Work, error) {
 	rows, err := records.executor.QueryContext(
 		ctx,
-		workSQL+` WHERE job.kind IN ('OWNER_CLEANUP','FILE_DELETE')
+		workSQL+` WHERE job.kind IN ('OWNER_CLEANUP','PATH_DELETE')
  AND job.state='RUNNING' AND (job.leased_until_ms IS NULL OR job.leased_until_ms<=?
  OR job.execution_deadline_at_ms IS NULL OR job.execution_deadline_at_ms<=?) ORDER BY job.id LIMIT ?`,
 		now,

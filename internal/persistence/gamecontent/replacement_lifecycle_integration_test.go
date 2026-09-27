@@ -13,7 +13,6 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
@@ -29,12 +28,12 @@ func seedReplacementSave(
 ) (string, string, []string) {
 	t.Helper()
 	var variantID, providerID, targetID, coreID, compatibilityCode, contentKind string
-	var bundleSHA256, checkpointFormat, dependencySnapshot, logicalName, contentBlobID string
+	var bundleSHA256, checkpointFormat, dependencySnapshot, logicalName, contentFileRecord string
 	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT variant.id,variant.provider_id,variant.target_id,variant.core_id,
        variant.compatibility_code,game.content_kind,
        provider.bundle_sha256,json_extract(target.checkpoint_json,'$.writeFormat'),
-       variant.dependency_snapshot_json,file.logical_name,file.blob_id
+       variant.dependency_snapshot_json,file.logical_name,file.file_record
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
@@ -44,7 +43,7 @@ WHERE game.id=?
 ORDER BY file.sort_order,file.logical_name LIMIT 1
 `, gameID).Scan(
 		&variantID, &providerID, &targetID, &coreID, &compatibilityCode, &contentKind,
-		&bundleSHA256, &checkpointFormat, &dependencySnapshot, &logicalName, &contentBlobID,
+		&bundleSHA256, &checkpointFormat, &dependencySnapshot, &logicalName, &contentFileRecord,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -67,26 +66,34 @@ VALUES(?,?,?,?,?,?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
+INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
 VALUES(?,?,?,'SOURCE_V1',?)
-`, launchID, logicalName, contentBlobID, now); err != nil {
+`, launchID, logicalName, contentFileRecord, now); err != nil {
 		t.Fatal(err)
 	}
 	statePayload := []byte("state-" + saveID)
-	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
-	screenshotBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
+	stateFileRecord := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
+	screenshotFileRecord := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
+	stateCopy, err := blobs.CopyTo(ctx, stateFileRecord, "saves/"+saveID+"/"+saveID, "payload")
+	if err != nil {
+		t.Fatal(err)
+	}
+	imageCopy, err := blobs.CopyTo(ctx, screenshotFileRecord, "saves/"+saveID+"/"+saveID, "screenshot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateFileRecord, screenshotFileRecord = stateCopy.Record, imageCopy.Record
 	stateDigest := sha256.Sum256(statePayload)
 	if _, err := recordstore.InsertRows(ctx, database, "save_states", `
-INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
-payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
+INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,
+payload_size_bytes,screenshot_file_record,name,active_duration_ms,created_at_ms,updated_at_ms,
+source_launch_session_id)
 VALUES(?,?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
-`, saveID, profileID, gameID, checkpointFormat, stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload), screenshotBlobID, now, now, launchID); err != nil {
+`, saveID, profileID, gameID, checkpointFormat, stateFileRecord, fmt.Sprintf("%x", stateDigest), len(statePayload), screenshotFileRecord, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `UPDATE stored_files SET owner_kind='SAVE_STATE',owner_id=? WHERE id IN (?,?)`, saveID, stateBlobID, screenshotBlobID); err != nil {
-		t.Fatal(err)
-	}
-	return saveID, launchID, []string{stateBlobID, screenshotBlobID}
+
+	return saveID, launchID, []string{stateFileRecord, screenshotFileRecord}
 }
 
 func ensureReplacementBlob(
@@ -101,13 +108,11 @@ func ensureReplacementBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := filecatalog.EnsureRecord(
-		ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli(),
-	)
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return blobID
+	return fileRecord
 }
 
 func assertReplacementFailure(
@@ -165,13 +170,14 @@ SELECT
 	if saves != 0 || launchState != "REVOKED" || launchFiles != 0 {
 		t.Fatalf("retired lifecycle = saves %d, launch %s, launch files %d", saves, launchState, launchFiles)
 	}
-	for _, blobID := range savePayloads {
+	for _, fileRecord := range savePayloads {
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM file_deletions WHERE blob_id=?`, blobID,
+			`SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
+'$.inputs.relativePath') || '/%'`, fileRecord,
 		).Scan(&candidates); err != nil || candidates != 1 {
-			t.Fatalf("save payload %s DeletionQueue candidates = %d, error=%v", blobID, candidates, err)
+			t.Fatalf("save payload %s DeletionQueue candidates = %d, error=%v", fileRecord, candidates, err)
 		}
 	}
 }
@@ -197,19 +203,19 @@ func assertBlobReferenceState(
 	t *testing.T,
 	ctx context.Context,
 	database dbapi.DB,
-	blobID string,
+	fileRecord string,
 	wantedCurrent bool,
 ) {
 	t.Helper()
 	var currentReferences int
 	if err := dbapi.QueryRowContext(ctx, database, `
-SELECT count(*) FROM game_files WHERE blob_id=?
-`, blobID).Scan(&currentReferences); err != nil {
+SELECT count(*) FROM game_files WHERE file_record=?
+`, fileRecord).Scan(&currentReferences); err != nil {
 		t.Fatal(err)
 	}
 	if (currentReferences > 0) != wantedCurrent {
 		t.Fatalf("blob %s current reference count = %d, wanted current=%t",
-			blobID, currentReferences, wantedCurrent)
+			fileRecord, currentReferences, wantedCurrent)
 	}
 }
 

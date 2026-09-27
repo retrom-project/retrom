@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filedeletion"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/cleanupjobs"
 )
@@ -16,12 +18,7 @@ func Change(ctx context.Context, executor dbapi.Executor, update recordstore.Upd
 ) (sql.Result, error) {
 	before := change.Before.Owner
 	if change.Released && before.Scope.Type == application.ScopeImportItem {
-		if err := fileownership.RetireAll(
-			ctx,
-			executor,
-			fileownership.Owner{Kind: "IMPORT_ITEM", ID: before.Scope.ID},
-			change.NowMS,
-		); err != nil {
+		if err := filedeletion.QueuePath(ctx, executor, filestore.ItemDirectory(before.Scope.ID), change.NowMS); err != nil {
 			return nil, fmt.Errorf("change: %w", err)
 		}
 	}

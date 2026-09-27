@@ -8,15 +8,15 @@ import (
 var ErrExpirationSnapshotChanged = errors.New("PAYLOAD_EXPIRATION_SNAPSHOT_CHANGED")
 
 type ProviderExpiration struct {
-	ID, BlobID, State     string
+	ID, FileRecord, State string
 	ExpiresMS, CacheCount int64
 	Running               bool
 }
 
 type PreviewExpiration struct {
-	ID, State, CheckpointBlobID, RestoreBlobID string
-	Version, BootstrapExpiresMS, HardExpiresMS int64
-	FinishedMS                                 *int64
+	ID, State, CheckpointFileRecord, RestoreFileRecord string
+	Version, BootstrapExpiresMS, HardExpiresMS         int64
+	FinishedMS                                         *int64
 }
 
 type PreviewExpiry struct {

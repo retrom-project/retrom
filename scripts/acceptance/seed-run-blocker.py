@@ -28,11 +28,11 @@ SELECT '60000000-0000-7000-8000-000000000001',
 FROM acceptance_game;
 
 INSERT INTO game_files(
- game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+ game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
 SELECT '60000000-0000-7000-8000-000000000001',role,
        CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
-       blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+       file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files
 WHERE game_id=(SELECT id FROM acceptance_game);
 

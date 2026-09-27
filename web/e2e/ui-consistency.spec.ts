@@ -145,7 +145,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   await page.setViewportSize({ width: testInfo.project.name === "chrome-4k-150" ? 2560 : 1440, height: 1440 });
   await expectHomeStates(page, testInfo);
   const userRoutes = ["/", "/library", `/games/${gameId}`, "/saves", "/favorites", "/recent", "/account"];
-  const adminRoutes = ["/admin/imports", "/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios", "/admin/storage"];
+  const adminRoutes = ["/admin/imports", "/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios"];
   await page.goto("/admin/imports/server");
   const sourceLink = page.locator('a[href^="/admin/imports/server/source/"]').first();
   if (await sourceLink.count()) { adminRoutes.push((await sourceLink.getAttribute("href"))!); }

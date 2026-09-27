@@ -118,17 +118,17 @@ func (records arcadeParentAttachmentAdmissionRecords) Upload(
 	var result application.ArcadeParentAttachmentUpload
 	var wholeSessionConsumed int64
 	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT session.id,session.state,'COMPLETE',file.relative_path,file.blob_id,
-  blob.sha256,blob.size_bytes,
+SELECT session.id,session.state,'COMPLETE',file.relative_path,file.file_record,
+  json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes'),
   EXISTS(SELECT 1 FROM upload_consumptions consumption
     WHERE consumption.upload_session_id=session.id AND consumption.upload_file_id IS NULL)
 FROM import_files file
 JOIN upload_sessions session ON session.id=file.upload_session_id
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.id=?
 `, uploadFileID).Scan(
 		&result.UploadSessionID, &result.SessionState, &result.FileState, &result.RelativePath,
-		&result.BlobID, &result.BlobSHA, &result.BlobSize, &wholeSessionConsumed,
+		&result.FileRecord, &result.BlobSHA, &result.BlobSize, &wholeSessionConsumed,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ArcadeParentAttachmentUpload{}, false, nil

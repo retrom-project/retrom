@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
+
 	"retrom/internal/mediaasset"
 )
 
@@ -24,13 +27,13 @@ func (service *Service) Prepare(ctx context.Context, uploadFileID, kind string) 
 	if service.blobs == nil {
 		return PreparedAsset{}, &ValidationError{Code: "FILE_STORAGE_UNAVAILABLE", Message: "媒体字节不可用"}
 	}
-	file, err := service.blobs.OpenID(upload.BlobID)
+	file, err := service.blobs.OpenRecord(upload.FileRecord)
 	if err != nil {
 		return PreparedAsset{}, &ValidationError{Code: "FILE_STORAGE_UNAVAILABLE", Message: "媒体字节不可用", Cause: err}
 	}
 	defer func() { _ = file.Close() }()
 	prepared := PreparedAsset{
-		UploadID: upload.UploadID, BlobID: upload.BlobID, Digest: upload.Digest, SizeBytes: upload.SizeBytes,
+		UploadID: upload.UploadID, FileRecord: upload.FileRecord, Digest: upload.Digest, SizeBytes: upload.SizeBytes,
 	}
 	if kind == "VIDEO" {
 		prepared.MediaType, err = mediaasset.InspectVideo(file, upload.SizeBytes)
@@ -55,7 +58,7 @@ func (service *Service) Prepare(ctx context.Context, uploadFileID, kind string) 
 // Create replaces one game asset slot and consumes its upload atomically.
 func (service *Service) Create(ctx context.Context, request CreateRequest) (CreateResult, error) {
 	if request.GameID == "" || request.UploadFileID == "" || !ValidUpload(request.Kind, request.Ordinal) ||
-		request.ExpectedVersion < 1 || request.Asset.UploadID == "" || request.Asset.BlobID == "" {
+		request.ExpectedVersion < 1 || request.Asset.UploadID == "" || request.Asset.FileRecord == "" {
 		return CreateResult{}, ErrInvalid
 	}
 	assetID, err := service.newID()
@@ -66,6 +69,21 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 	if err != nil {
 		return CreateResult{}, err
 	}
+	directory := filestore.GameDirectory(request.GameID) + "/media/" + assetID
+	file, err := service.blobs.CopyTo(ctx, request.Asset.FileRecord, directory, "asset")
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("create: %w", err)
+	}
+	request.Asset.FileRecord, err = filestore.FileRecord(file, request.Asset.MediaType)
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("create: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard unpublished media", service.blobs.RemovePath(context.WithoutCancel(ctx), directory))
+		}
+	}()
 	result := CreateResult{
 		AssetID: assetID, GameID: request.GameID, Kind: request.Kind, Ordinal: request.Ordinal,
 		WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
@@ -77,6 +95,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("create game asset: %w", err)
 	}
+	committed = true
 	return result, nil
 }
 
@@ -98,7 +117,7 @@ func (service *Service) createInScope(
 		return fmt.Errorf("remove replaced game asset: %w", err)
 	}
 	if err := scope.Create(ctx, AssetRecord{
-		ID: assetID, GameID: request.GameID, BlobID: request.Asset.BlobID, Kind: request.Kind,
+		ID: assetID, GameID: request.GameID, FileRecord: request.Asset.FileRecord, Kind: request.Kind,
 		UploadID: request.Asset.UploadID,
 		Ordinal:  request.Ordinal, WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		MediaType: request.Asset.MediaType, CreatedAtMS: request.NowMS,

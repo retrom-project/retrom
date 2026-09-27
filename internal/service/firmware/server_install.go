@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"maps"
 
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
+
 	"retrom/internal/firmware"
 
 	"github.com/google/uuid"
@@ -20,6 +23,13 @@ func (service *Service) InstallServerCandidate(
 	if err != nil {
 		return ServerInstallResult{}, err
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard server BIOS candidate",
+				service.blobs.RemovePath(context.WithoutCancel(ctx), "bios/"+request.InstallationID))
+		}
+	}()
 	request.Details = maps.Clone(request.Details)
 	if request.Details == nil {
 		request.Details = map[string]any{}
@@ -73,6 +83,7 @@ func (service *Service) InstallServerCandidate(
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("install server BIOS: %w", err)
 	}
+	committed = result.NewInstallationID == request.InstallationID
 	service.signalRelease()
 	return result, nil
 }
@@ -109,7 +120,7 @@ func evaluateExistingInstallation(ctx context.Context, records ArchiveReader, re
 		SHA1:      active.SHA1,
 		SHA256:    active.SHA256,
 	}
-	better, complete, err := candidateStrictlyBetter(ctx, records, request, active.BlobID, facts)
+	better, complete, err := candidateStrictlyBetter(ctx, records, request, active.FileRecord, facts)
 	if err != nil {
 		return ServerInstallResult{}, false, err
 	}
@@ -124,7 +135,7 @@ func evaluateExistingInstallation(ctx context.Context, records ArchiveReader, re
 }
 
 func candidateStrictlyBetter(ctx context.Context, records ArchiveReader, request ServerInstallRequest,
-	activeBlobID string, facts firmware.FileFacts,
+	activeFileRecord string, facts firmware.FileFacts,
 ) (bool, bool, error) {
 	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {
 		if request.StaticExpectation == nil || request.StaticEvaluation == nil {
@@ -136,7 +147,7 @@ func candidateStrictlyBetter(ctx context.Context, records ArchiveReader, request
 	if request.DATEvaluation == nil || len(request.DATExpectedEntries) == 0 {
 		return false, false, nil
 	}
-	entries, err := records.Entries(ctx, activeBlobID)
+	entries, err := records.Entries(ctx, activeFileRecord)
 	if err != nil {
 		return false, false, fmt.Errorf("read current BIOS evidence: %w", err)
 	}
@@ -153,12 +164,12 @@ func candidateStrictlyBetter(ctx context.Context, records ArchiveReader, request
 func persistServerInstallation(ctx context.Context, scope WriteScope, request ServerInstallRequest,
 	version, now int64, result ServerInstallResult,
 ) (ServerInstallResult, error) {
-	blobID, err := scope.Blobs.Ensure(ctx, request.Metadata, now)
+	fileRecord, err := filestore.FileRecord(request.Metadata, "application/octet-stream")
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("register server BIOS blob: %w", err)
 	}
 	if request.SourceKind == "DAT_MACHINE" || request.ArchiveMembersJSON != nil {
-		if err := scope.Archives.Put(ctx, blobID, request.ArchiveEntries, now); err != nil {
+		if err := scope.Archives.Put(ctx, fileRecord, request.ArchiveEntries, now); err != nil {
 			return ServerInstallResult{}, fmt.Errorf("persist server BIOS archive: %w", err)
 		}
 	}
@@ -171,19 +182,17 @@ func persistServerInstallation(ctx context.Context, scope WriteScope, request Se
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("encode server BIOS evidence: %w", err)
 	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return ServerInstallResult{}, fmt.Errorf("generate server BIOS ID: %w", err)
-	}
 	if err := scope.Installations.Create(ctx, InstallationWrite{
-		ID: id.String(), RequirementID: request.RequirementID, BlobID: blobID, Filename: request.OriginalFilename,
-		MD5: request.Metadata.MD5, SHA1: request.Metadata.SHA1, SHA256: request.Metadata.SHA256, Size: request.Metadata.Size,
+		ID: request.InstallationID, RequirementID: request.RequirementID, FileRecord: fileRecord,
+		Filename: request.OriginalFilename,
+		MD5:      request.Metadata.MD5, SHA1: request.Metadata.SHA1, SHA256: request.Metadata.SHA256,
+		Size:               request.Metadata.Size,
 		RequirementVersion: version, Status: request.Status, DetailsJSON: encoded, AtMS: now, SourceKind: "SERVER_DIRECTORY",
 		CandidateID: &request.CandidateID,
 	}); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("persist server BIOS: %w", err)
 	}
-	result.NewInstallationID = id.String()
+	result.NewInstallationID = request.InstallationID
 	switch request.Status {
 	case "MATCHED":
 		result.Outcome = "IMPORTED_MATCHED"
@@ -237,7 +246,12 @@ func (service *Service) prepareServerFile(
 		return ServerInstallRequest{}, ErrInvalid
 	}
 	// A candidate can match several requirements. Each installation receives its own file.
-	metadata, err := service.blobs.Copy(ctx, request.Metadata.ID)
+	id, err := uuid.NewV7()
+	if err != nil {
+		return ServerInstallRequest{}, fmt.Errorf("prepare server file: %w", err)
+	}
+	request.InstallationID = id.String()
+	metadata, err := service.blobs.CopyTo(ctx, request.Metadata.Record, "bios/"+request.InstallationID, "payload")
 	if err != nil {
 		return ServerInstallRequest{}, fmt.Errorf("copy server BIOS candidate: %w", err)
 	}

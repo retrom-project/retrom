@@ -88,7 +88,7 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 ### 归一化接收文件与当前结果
 
-`import_files` 是所有传输来源共用的接收表。每行包含 `id/upload_session_id/relative_path/blob_id/size_bytes/created_at_ms/released_at_ms`，没有格式或来源类型字段；ID 与 transport UploadFile 对应，路径在会话内唯一。接收与 Blob 绑定原子提交；幂等重放不能改变路径、大小或内容。校验和审核只读取已接收行，释放时同时清空 Blob 与记录释放时间，文件 owner 决定寿命，历史接收行不保留第二份所有权。
+`import_files` 是所有传输来源共用的接收表。每行包含 `id/upload_session_id/relative_path/file_record/size_bytes/created_at_ms/released_at_ms`，没有格式或来源类型字段；ID 与 transport UploadFile 对应，路径在会话内唯一。接收与上传文件记录原子提交；幂等重放不能改变路径、大小或内容。准备阶段复制成 Item 独占文件后，校验和审核读取 Item 自己的文件记录。输入释放时清空接收行的文件记录并记录释放时间；同一 UploadSession 的全部输入释放后才删除上传目录。
 
 不创建 `review_events`。审核版本仅用于并发控制；批准/丢弃保留当前 Item 状态和发布 Game，API 不返回 reviewEventId。`metadata_scrape_runs` 分别以 `import_item_id/game_id` 建唯一约束；重新抓取替换旧 run，级联删除其候选、evidence、query attempts 与 media budget，并取消旧活动 Job。当前 GameAsset 独立保留；共享 provider cache 由 TTL 管理。
 
@@ -112,7 +112,7 @@ SourceItem 复制文件、来源归档和 COVER/VIDEO 后先持有自己的引�
 
 普通 ImportItem 持有完整来源快照及校验文件。来源媒体归 `import_item_assets`，主键为 `(import_item_id,kind)`，`kind` 只允许 `COVER/VIDEO`，保存 Blob、media type、可空宽高和创建时刻。Source 进入 `REVIEW_PENDING` 的交接事务同时复制媒体引用、完成 metadata/warning 与永久关联、更新聚合并登记独立 Source release Job；任一步失败全部回滚。仅转移引用，不复制独立文件存储字节。
 
-审核与发布读取 ImportItem 的文件和媒体，不读取 Source payload。Source 可在审核期间达到 `RELEASED`；来源摘要、绑定与结果仍保留。发布事务把选定内容与媒体的唯一 owner 从 ImportItem 转为 Game；ImportItem 终态只退休仍属于自身的文件，并清理审核读取关系。三者的 `payload_release_job_id` 不共用，删除 Game 不回溯清理 Source 或 ImportItem。
+审核与发布读取 ImportItem 的文件和媒体，不读取 Source payload。Source 可在审核期间达到 `RELEASED`；来源摘要、绑定与结果仍保留。发布冻结目标 Game UUID 后移动 Item 的 payload 目录；ImportItem 终态清理剩余 staging 目录和审核读取关系。三者的 `payload_release_job_id` 不共用，删除 Game 不回溯清理 Source 或 ImportItem。
 
 payload 物理状态只有 `RETAINED/RELEASING/RELEASED`，没有 owner 失败列；任务失败与原因只保存在 Job。API 的 `FAILED` 是 `RELEASING` owner 与关联失败 Job 的读投影，已释放 owner 不会因后续任务错误退回失败。
 
@@ -135,17 +135,17 @@ Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保
 PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累计最大值；首次成功上报才创建记录，不要求 `play_session_events`。旧连续事件表供既有客户端使用。统计写入不改变 Launch 授权或内容回收时间。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
 
 
-## 9. 独立文件所有权与删除
+## 9. 领域文件与目录清理
 
-`stored_files` 保存 UUIDv7 文件身份、size、四种 hash、media_type、创建时刻、`owner_kind/owner_id` 和可空 `retired_at_ms`。SHA256 不唯一；文件身份与内容摘要完全分离。数据库字段中的 `blob_id` 均指向独立文件 ID，不表达内容寻址或共享。文件登记时为 STAGING，领域在同一事务接收。
+Game、ImportItem、SaveState、BIOSInstallation、上传和抓取记录直接保存文件值：相对路径、size、四种 hash 与 MIME。`file_record` 及其用途前缀字段保存该 JSON 值；不存在全局文件登记、引用计数、owner 转移或逐文件删除表。摘要用于完整性和内容识别，不决定物理路径。不同游戏的同内容文件分别存储。
 
-owner 包括 GAME、IMPORT_ITEM、SOURCE_IMPORT_ITEM、UPLOAD、SAVE_STATE、SCRAPE_RUN、PROVIDER_RESPONSE 和 BIOS_INSTALLATION。同一文件只有一个 owner，不维护计数或 registry。`fileownership.Transfer` 按旧 owner 比较并交接，重复交给相同新 owner 幂等；退休文件不得恢复。不同 owner 需要相同 bytes 时必须独立复制。单个 owner 内的多条读取关系不改变寿命。
+Game 独占 `files/<UUID 后两位>/<Game UUID>/` 下的内容和媒体。ImportItem 独占 `staging/items/<Item UUID>/` 的 payload 和 scratch；发布移动整个 payload，审核临时材料随 Item 终态清理。存档、BIOS、抓取响应等仍由各自业务对象持有独立目录；Game 和 Launch 只能读取被授权的 BIOS 安装。
 
-Game 独占 ROM、媒体与非 BIOS 产物；ImportItem 独占待审内容和媒体，发布将选定文件交给 Game。来源/审核终态清理只退休仍属于自己的文件，来源历史不再保护已交接文件。SaveState 独占状态与截图。BIOSInstallation 独占安装文件，Game/Launch 读取所选安装；不同安装也不能复用物理文件。
+`import_items` 的 `publication_game_id`、`publication_json` 和可选 `publication_bulk_id` 保存一次发布决定。审批先冻结当前输入和目标 Game UUID，转为 `PUBLISHING`；目录 rename 后再提交 Game/Variant 和 `PUBLISHED`。`PUBLISHING` 必须存在完整决定，其他状态没有未完成决定。启动和后台恢复继续同一决定，重复批准返回同一个 Game UUID。
 
-`archive_entries` 只保存归档扫描事实，没有 materialized file 指针。来源归档 ID/ordinal 是溯源字段，不形成让原始归档永久存在的复合 FK。解包结果独立归属 Item/Game。
+`archive_entries` 保存归档扫描事实；文件复制时复制所需事实，目录退休时删除对应事实。已发布文件的读取不依赖原上传归档仍然存在。
 
-`file_deletions` 保存 file ID、退休时刻与 deletion_job_id；只对已退休文件建立 FILE_DELETE Job。文件 ID 永不重用，删除失败持续重试同一 ID，没有重新保护或 inode 恢复分支。`OWNER_CLEANUP` 是通用有界执行器，领域 payloadpolicy 提供清理组和完成条件。具体写入、到期和物理删除契约见存储专题。
+业务删除或替换在自己的事务中提交目录清理意图，复用 jobs 的 `PATH_DELETE`，按目录去重。物理删除在事务外执行，失败可以重试。路径只允许不可复用的领域目录或内容/媒体代次，绝不枚举跨领域引用决定文件寿命。`OWNER_CLEANUP` 只负责有界清除业务读取关系并排队目录删除。布局和崩溃恢复见 [存储与数据库](./storage-and-database.md)。
 
 ### BIOS 与 Launch 延迟清理
 

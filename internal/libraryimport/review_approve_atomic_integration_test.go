@@ -6,9 +6,12 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"retrom/internal/filestore"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
@@ -22,7 +25,8 @@ type approvalTransactionFault struct {
 }
 
 func (fault *approvalTransactionFault) beforeExec(_ context.Context, query string, _ []driver.NamedValue) error {
-	matched := fault.stage == "parent aggregate" && strings.Contains(query, "UPDATE import_jobs SET review_pending_item_count=")
+	matched := fault.stage == "parent aggregate" && strings.Contains(query,
+		"UPDATE import_jobs SET review_pending_item_count=")
 	matched = matched || (fault.stage == "owner aggregate" && strings.HasPrefix(query, "UPDATE source_imports SET"))
 	matched = matched || (fault.stage == "payload event" && strings.Contains(query, "INSERT INTO job_events"))
 	if matched {
@@ -32,7 +36,9 @@ func (fault *approvalTransactionFault) beforeExec(_ context.Context, query strin
 	return nil
 }
 
-func (fault *approvalTransactionFault) afterExec(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+func (fault *approvalTransactionFault) afterExec(_ context.Context, query string,
+	_ []driver.NamedValue, result driver.Result,
+) (driver.Result, error) {
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return nil, err
@@ -91,10 +97,24 @@ func verifyApprovalLateFailure(t *testing.T, stage string) {
 	if (stage == "owner aggregate" || stage == "payload event") && fault.sources != 1 {
 		t.Fatalf("fault preceded real source write: %+v", fault)
 	}
+	var state, gameID string
+	var games int
+	if err := dbapi.QueryRowContext(ctx, fixture.database, `SELECT state,publication_game_id,(SELECT count(*) FROM games) FROM import_items WHERE id=?`, itemID).Scan(&state, &gameID, &games); err != nil {
+		t.Fatal(err)
+	}
+	if state != "PUBLISHING" || gameID == "" || games != 0 {
+		t.Fatalf("lost recoverable publication: %s %s games=%d", state, gameID, games)
+	}
+	if _, err := os.Stat(fixture.service.blobs.Path(mustPublishedApprovalFile(t, fixture.database,
+		itemID, gameID))); err != nil {
+		t.Fatal(err)
+	}
+	before["content_identity_claims"] = approvalTableRows(t, fixture.database, "content_identity_claims")
+	before["import_items"] = approvalTableRows(t, fixture.database, "import_items")
 	assertApprovalRowsUnchanged(t, fixture.database, before)
 	fixture.service.database = fixture.database
 	approved, err := fixture.service.Approve(ctx, itemID, 1)
-	if err != nil || approved.GameID == "" || approved.Status != "PUBLISHED" {
+	if err != nil || approved.GameID != gameID || approved.Status != "PUBLISHED" {
 		t.Fatalf("retry=%+v err=%v", approved, err)
 	}
 	assertApprovalSourcePublishedOnce(t, fixture, itemID, request.Intent.ItemID, approved.GameID)
@@ -104,7 +124,8 @@ func verifyApprovalLateFailure(t *testing.T, stage string) {
 func assertApprovalSourcePublishedOnce(t *testing.T, fixture deduplicateFixture, itemID, sourceID, gameID string) {
 	t.Helper()
 	owner := captureDiscardOwner(t, fixture, sourceID)
-	if owner.State != "PUBLISHED" || owner.Pending != 0 || owner.Published != 1 || owner.PayloadState != "RELEASING" || owner.PayloadJob == nil {
+	if owner.State != "PUBLISHED" || owner.Pending != 0 || owner.Published != 1 ||
+		owner.PayloadState != "RELEASING" || owner.PayloadJob == nil {
 		t.Fatalf("owner=%+v", owner)
 	}
 	var actualGame, sourceKind string
@@ -129,7 +150,7 @@ func approvalDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 		"games", "game_assets", "game_files", "game_variants", "variant_files", "variant_dependencies",
 		"dos_entries", "game_tags", "tags", "content_identity_claims", "review_uploaded_assets", "review_draft_tags",
 		"import_items", "import_jobs", "source_import_items", "source_imports", "jobs", "job_events", "job_input_snapshots",
-		"review_bulk_approvals", "file_deletions", "upload_files", "upload_sessions",
+		"review_bulk_approvals", "upload_files", "upload_sessions",
 	} {
 		result[table] = approvalTableRows(t, database, table)
 	}
@@ -179,4 +200,18 @@ func assertApprovalRowsUnchanged(t *testing.T, database dbapi.DB, before map[str
 		}
 		t.FailNow()
 	}
+}
+
+func mustPublishedApprovalFile(t *testing.T, db dbapi.DB, itemID, gameID string) string {
+	t.Helper()
+	var source string
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT file_record FROM import_item_source_snapshot_files WHERE source_snapshot_id=(SELECT
+effective_source_snapshot_id FROM import_items WHERE id=?) LIMIT 1`, itemID).Scan(&source); err != nil {
+		t.Fatal(err)
+	}
+	result, err := filestore.PublishedRecord(source, itemID, gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
 }

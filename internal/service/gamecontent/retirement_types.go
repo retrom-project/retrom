@@ -38,11 +38,10 @@ type RetirementChange struct {
 	FinishedAt            *int64
 }
 type RetirementReference struct {
-	OwnerID, Key, Qualifier string
-	BlobID, ExtraBlobID     string
+	OwnerID, Key, Qualifier     string
+	FileRecord, ExtraFileRecord string
 }
 type RetirementReader interface {
-	Blobs(context.Context, string) ([]string, error)
 	Owners(context.Context, string) ([]RetirementOwner, error)
 	References(context.Context, string, RetirementReferenceKind, int) ([]RetirementReference, error)
 	Consumption(context.Context, string) (string, error)
@@ -53,8 +52,7 @@ type RetirementWriter interface {
 	Remove(context.Context, string, RetirementReferenceKind, []RetirementReference) error
 }
 type RetirementScope struct {
-	Read          RetirementReader
-	Write         RetirementWriter
-	DeletionQueue cleanupjobs.DeletionScope
-	Payload       cleanupjobs.ConsumptionSchedulingScope
+	Read    RetirementReader
+	Write   RetirementWriter
+	Payload cleanupjobs.ConsumptionSchedulingScope
 }

@@ -5,39 +5,24 @@ import (
 	"fmt"
 
 	"retrom/internal/filestore"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )
 
 func (records screenshotRecords) Replace(ctx context.Context, plan application.ScreenshotWrite) error {
 	image, source, now := plan.Image, plan.Source, plan.AtMS
-	blobID, err := filecatalog.EnsureRecord(
-		ctx,
-		records.executor,
-		filestore.Metadata{
-			ID: image.BlobID, Path: image.StoragePath,
-			SHA256: image.SHA256,
-			MD5:    image.MD5,
-			SHA1:   image.SHA1,
-			CRC32:  image.CRC32,
-			Size:   image.SizeBytes,
-		},
-		image.MediaType,
-		now,
-	)
+	fileRecord, err := filestore.FileRecord(filestore.Metadata{
+		Record: image.FileRecord, Path: image.StoragePath,
+		SHA256: image.SHA256,
+		MD5:    image.MD5,
+		SHA1:   image.SHA1,
+		CRC32:  image.CRC32,
+		Size:   image.SizeBytes,
+	}, image.MediaType)
 	if err != nil {
 		return fmt.Errorf("register screenshot blob: %w", err)
 	}
-	if err := fileownership.Adopt(
-		ctx,
-		records.executor,
-		blobID,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: source.ItemID},
-	); err != nil {
-		return fmt.Errorf("screenshot write: %w", err)
-	}
+
 	// Retain only the current trial result for the item, including across validations.
 	if _, err := recordstore.DeleteRows(
 		ctx,
@@ -53,19 +38,15 @@ func (records screenshotRecords) Replace(ctx context.Context, plan application.S
 	_, err = recordstore.UpsertReviewRuntimeScreenshots(
 		ctx,
 		records.executor,
-		recordstore.Scope{
-			Where: "import_item_id=? AND validation_id=?",
-			Args:  []any{source.ItemID, source.ValidationID},
-		},
 		`
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,
+validation_id,provider_id,target_id,file_record,media_type,width_px,height_px,
 captured_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(import_item_id,validation_id) DO UPDATE SET
 id=excluded.id,preview_session_id=excluded.preview_session_id,source_snapshot_id=excluded.source_snapshot_id,
 provider_id=excluded.provider_id,target_id=excluded.target_id,
-blob_id=excluded.blob_id,media_type=excluded.media_type,
+file_record=excluded.file_record,media_type=excluded.media_type,
 width_px=excluded.width_px,height_px=excluded.height_px,
 captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms`,
 		plan.ID,
@@ -75,7 +56,7 @@ captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms`,
 		source.ValidationID,
 		source.ProviderID,
 		source.TargetID,
-		blobID,
+		fileRecord,
 		image.MediaType,
 		image.WidthPX,
 		image.HeightPX,

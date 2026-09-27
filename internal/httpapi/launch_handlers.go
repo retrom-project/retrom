@@ -474,7 +474,7 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusNotFound, "LAUNCH_CONTENT_NOT_FOUND", "启动内容不存在", map[string]any{})
 		return
 	}
-	server.serveBlob(writer, request, digest.BlobID, digest.Digest, "application/octet-stream", true)
+	server.serveBlob(writer, request, digest.FileRecord, digest.Digest, "application/octet-stream", true)
 }
 
 func (server *Server) serveBlob(
@@ -486,7 +486,7 @@ func (server *Server) serveBlob(
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenID(id)
+	file, err := server.blobs.OpenRecord(id)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "内容不可用", map[string]any{})
 		return

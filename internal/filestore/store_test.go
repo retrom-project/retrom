@@ -25,11 +25,16 @@ func TestPutKeepsConcurrentIdenticalFilesIndependent(t *testing.T) {
 		}()
 	}
 	wait.Wait()
-	testassert.Falsef(t, testassert.Any(func() bool { return errorsFound[0] != nil }, func() bool { return errorsFound[1] != nil }), "Put() errors = %v, %v", errorsFound[0], errorsFound[1])
-	testassert.False(t, testassert.Any(func() bool { return results[0].SHA256 != results[1].SHA256 }, func() bool { return results[0].Path == results[1].Path }), "equal content must have independent file paths")
+	testassert.Falsef(t, testassert.Any(func() bool { return errorsFound[0] != nil },
+		func() bool { return errorsFound[1] != nil }), "Put() errors = %v, %v", errorsFound[0], errorsFound[1])
+	testassert.False(t,
+		testassert.Any(func() bool { return results[0].SHA256 != results[1].SHA256 },
+			func() bool { return results[0].Path == results[1].Path }),
+		"equal content must have independent file paths")
 
 	contents, err := os.ReadFile(results[0].Path)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Equal(contents, payload) }), "published content mismatch: %v", err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !bytes.Equal(contents, payload) }), "published content mismatch: %v", err)
 	first, err := os.Stat(results[0].Path)
 	testassert.Falsef(t, err != nil, "stat first: %v", err)
 	second, err := os.Stat(results[1].Path)
@@ -48,7 +53,7 @@ func TestCandidatePublishesOnlyWhenCommitted(t *testing.T) {
 	candidate, err := store.Stage(bytes.NewReader(payload))
 	testassert.Falsef(t, err != nil, "Stage() error = %v", err)
 	metadata := candidate.Metadata()
-	_, statErr := os.Stat(store.Path(metadata.ID))
+	_, statErr := os.Stat(store.Path(metadata.Record))
 	testassert.Truef(t, os.IsNotExist(statErr), "staged candidate was published before commit: %v", statErr)
 	published, err := candidate.Commit()
 	testassert.Falsef(t, err != nil, "Commit() error = %v", err)
@@ -63,6 +68,6 @@ func TestCandidatePublishesOnlyWhenCommitted(t *testing.T) {
 	testassert.Falsef(t, err != nil, "Stage() for discard error = %v", err)
 	discardedMetadata := discarded.Metadata()
 	testassert.Falsef(t, discarded.Discard() != nil, "Discard() error")
-	_, statErr = os.Stat(store.Path(discardedMetadata.ID))
+	_, statErr = os.Stat(store.Path(discardedMetadata.Record))
 	testassert.Truef(t, os.IsNotExist(statErr), "discarded candidate reached CAS: %v", statErr)
 }

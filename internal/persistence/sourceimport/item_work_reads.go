@@ -16,7 +16,8 @@ func (records itemWorkRecords) Current(ctx context.Context, id string) (applicat
 	var result application.OwnedItem
 	var jobID string
 	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT item.id,item.import_id,item.execution_state,item.version,
-COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,''),COALESCE(plan.import_job_id,'')
+COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,''),
+COALESCE(plan.import_job_id,'')
 FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id=?`, id).Scan(
 		&result.Item.ID, &result.Item.ImportID, &result.Item.State, &result.Item.Version,
 		&result.Item.LibraryImportJobID, &result.Item.LibraryImportItemID, &jobID)
@@ -37,7 +38,8 @@ func (records itemWorkRecords) Next(ctx context.Context, importID string) (appli
 	var item application.ExecutionItem
 	var tags string
 	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT item.id,item.import_id,item.execution_state,item.version,
-collection.target_platform_instance_id,collection.target_platform_id,COALESCE(collection.target_dat_version_id,''),
+collection.target_platform_instance_id,collection.target_platform_id,
+COALESCE(collection.target_dat_version_id,''),
 item.metadata_json,collection.tag_snapshot_json,COALESCE(item.library_import_job_id,''),
 COALESCE(item.library_import_item_id,'')
 FROM source_import_items item JOIN source_import_collections collection ON collection.id=item.collection_id
@@ -78,7 +80,7 @@ ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importI
 func (records itemWorkRecords) files(ctx context.Context, itemID string) ([]application.ExecutionFile, error) {
 	rows, err := records.tx.QueryContext(
 		ctx,
-		`SELECT ordinal,relative_path,size_bytes,source_facts_digest,COALESCE(blob_id,'')
+		`SELECT ordinal,relative_path,size_bytes,source_facts_digest,COALESCE(file_record,'')
 FROM source_import_item_files WHERE item_id=? ORDER BY ordinal`,
 		itemID,
 	)
@@ -89,7 +91,7 @@ FROM source_import_item_files WHERE item_id=? ORDER BY ordinal`,
 	result := []application.ExecutionFile{}
 	for rows.Next() {
 		var file application.ExecutionFile
-		if err := rows.Scan(&file.Ordinal, &file.Path, &file.Size, &file.Facts, &file.BlobID); err != nil {
+		if err := rows.Scan(&file.Ordinal, &file.Path, &file.Size, &file.Facts, &file.FileRecord); err != nil {
 			return nil, fmt.Errorf("read Source work file: %w", err)
 		}
 		result = append(result, file)

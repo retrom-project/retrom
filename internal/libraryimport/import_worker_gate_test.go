@@ -30,7 +30,7 @@ func gateImportWorker(t *testing.T, service *Service) func() {
 	release := make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	bundle := composition.NewWorker(service.database, service.now, service.creationDependencies(), nil)
+	bundle := composition.NewWorker(service.database, service.now, service.creationDependencies(), nil, nil)
 	bundle.Worker = application.NewImportWorker(
 		application.ImportWorkerDependencies{
 			Queue:       importQueueGate{ImportExecutionQueue: bundle.Executions, release: release},

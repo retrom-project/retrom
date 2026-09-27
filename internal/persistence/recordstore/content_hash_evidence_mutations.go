@@ -28,7 +28,7 @@ SELECT CASE
 -- content_hash_evidence_immutable_update
 WHEN (NOT (
   previous.payload_released_at_ms IS NULL AND candidate.payload_released_at_ms IS NOT NULL
-  AND candidate.blob_id IS NULL AND candidate.archive_blob_id IS NULL AND
+  AND candidate.file_record IS NULL AND candidate.archive_file_record IS NULL AND
 candidate.archive_entry_ordinal IS NULL
   AND candidate.id=previous.id AND candidate.scrape_run_id=previous.scrape_run_id AND
 candidate.profile=previous.profile

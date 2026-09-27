@@ -205,9 +205,9 @@ func (records *ReviewValidation) CopyFiles(
 ) error {
 	_, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 )
-SELECT ?,role,logical_name,blob_id,sort_order,?
+SELECT ?,role,logical_name,file_record,sort_order,?
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
 `, value.ValidationID, value.CreatedAtMS, value.SourceValidationID, boolNumber(value.ReplaceBIOSBundle))
@@ -226,14 +226,14 @@ WHERE import_item_core_validation_id=?
 		return fmt.Errorf("query review validation file order: %w", err)
 	}
 	for _, dependency := range value.Dependencies {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
 		if _, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 ) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
-`, value.ValidationID, dependency.LogicalName, *dependency.BlobID, sortOrder, value.CreatedAtMS); err != nil {
+`, value.ValidationID, dependency.LogicalName, *dependency.FileRecord, sortOrder, value.CreatedAtMS); err != nil {
 			return fmt.Errorf("insert review validation BIOS file: %w", err)
 		}
 		sortOrder++

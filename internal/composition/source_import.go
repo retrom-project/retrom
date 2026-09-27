@@ -24,7 +24,7 @@ func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer applica
 	source := sourceimport.NewSources(blobs, credentials, roots)
 	tags := tagging.New(tagrepository.New(database), now)
 	items := application.NewItemWork(repository.NewItemWork(database), now)
-	material := application.NewMaterialization(repository.NewMaterialization(database), now)
+	material := application.NewMaterialization(repository.NewMaterialization(database), blobs, now)
 	metadata := library.NewMetadataSeeder(nil, now)
 	settlement := application.NewWorkerSettlement(repository.NewWorkerSettlement(database), metadata, now)
 	lifecycle := application.NewPlanLifecycle(repository.NewPlanLifecycle(database), now)
@@ -35,8 +35,8 @@ func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer applica
 		Import: application.ImportExecutorDependencies{
 			Items: items, Materials: material,
 			Reviews: application.NewReviewPreparation(importer, items,
-				application.NewReviewHandoff(repository.NewReviewHandoff(database), metadata, now)),
-			Companions: application.NewCompanions(repository.NewCompanions(database), now), Settlement: settlement,
+				application.NewReviewHandoff(repository.NewReviewHandoff(database), metadata, blobs, now)),
+			Companions: application.NewCompanions(repository.NewCompanions(database), blobs, now), Settlement: settlement,
 			Completion:  application.NewCompletion(repository.NewCompletion(database), now),
 			Diagnostics: pegasusDiagnostics{source},
 		},

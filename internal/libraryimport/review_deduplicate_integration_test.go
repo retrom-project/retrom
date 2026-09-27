@@ -12,7 +12,6 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/filestore"
 	"retrom/internal/testsupport"
@@ -42,13 +41,16 @@ func (fixture deduplicateFixture) create(t *testing.T, name, contents string, co
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := filecatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
 	files := make([]ServerSourceFile, count)
 	for index := range files {
-		files[index] = ServerSourceFile{RelativePath: fmt.Sprintf("%03d/%s.gba", index, name), BlobID: blobID, SizeBytes: metadata.Size}
+		files[index] = ServerSourceFile{
+			RelativePath: fmt.Sprintf("%03d/%s.gba", index, name),
+			FileRecord:   fileRecord, SizeBytes: metadata.Size,
+		}
 	}
 	result, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", files, nil, "")
 	if err != nil {
@@ -117,7 +119,8 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 func assertDeduplicateItemState(t *testing.T, fixture deduplicateFixture, itemID, expected string) {
 	t.Helper()
 	var actual string
-	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
 		t.Fatal(err)
 	}
 	if actual != expected {
@@ -145,7 +148,8 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 	}
 	var count int
-	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -177,7 +181,8 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'{}',1,'QUEUED',0,2,1,1,1)`, itemID)
 	fixture.execute(t, `INSERT INTO review_arcade_parent_attachments(id,import_item_id,review_draft_id,
  base_source_snapshot_id,dependency_machine,expected_logical_name,required_by_machine,depth,
- provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
+ provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,
+updated_at_ms)
  SELECT 'deduplicate-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
  'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','QUEUED','{}','deduplicate-attachment-job',1,1
  FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, itemID)
@@ -188,7 +193,8 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	assertDeduplicateItemState(t, fixture, itemID, "REVIEW_PENDING")
 	assertDeduplicateItemState(t, fixture, otherPlatform.Items[0].ItemID, "REVIEW_PENDING")
 	var state string
-	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" {

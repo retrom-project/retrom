@@ -9,7 +9,7 @@ import (
 func TestSQLInfrastructureLivesInPersistence(t *testing.T) {
 	t.Parallel()
 	root := sourceRoot(t)
-	for _, name := range []string{"recordstore", "sessionstore", "storequery", "filecatalog", "fileownership"} {
+	for _, name := range []string{"recordstore", "sessionstore", "storequery"} {
 		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
 			t.Errorf("SQL infrastructure %s must live under persistence", name)
 		}

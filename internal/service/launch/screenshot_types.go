@@ -24,7 +24,7 @@ type ScreenshotSource struct {
 }
 
 type ScreenshotImage struct {
-	BlobID                                           string
+	FileRecord                                       string
 	SHA256, MD5, SHA1, CRC32, MediaType, StoragePath string
 	SizeBytes, WidthPX, HeightPX                     int64
 }
@@ -37,7 +37,7 @@ type ScreenshotWrite struct {
 }
 
 type ScreenshotImages interface {
-	Read(context.Context, io.Reader) (ScreenshotImage, error)
+	Read(context.Context, string, io.Reader) (ScreenshotImage, error)
 }
 
 type ScreenshotScope interface {

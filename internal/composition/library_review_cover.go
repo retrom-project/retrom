@@ -1,6 +1,7 @@
 package composition
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -20,10 +21,18 @@ func NewLibraryReviewCoverUploads(
 
 type reviewCoverBlobs struct{ store *filestore.Store }
 
-func (blobs reviewCoverBlobs) OpenID(digest string) (io.ReadCloser, error) {
-	file, err := blobs.store.OpenID(digest)
+func (blobs reviewCoverBlobs) OpenRecord(digest string) (io.ReadCloser, error) {
+	file, err := blobs.store.OpenRecord(digest)
 	if err != nil {
 		return nil, fmt.Errorf("open review cover blob: %w", err)
+	}
+	return file, nil
+}
+
+func (blobs reviewCoverBlobs) CopyTo(ctx context.Context, value, directory, name string) (filestore.Metadata, error) {
+	file, err := blobs.store.CopyTo(ctx, value, directory, name)
+	if err != nil {
+		return filestore.Metadata{}, fmt.Errorf("prepare review cover: %w", err)
 	}
 	return file, nil
 }

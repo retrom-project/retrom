@@ -20,7 +20,7 @@ func (failingScreenshotRepository) WithScreenshot(context.Context, func(Screensh
 
 type unreadScreenshotImages struct{}
 
-func (unreadScreenshotImages) Read(context.Context, io.Reader) (ScreenshotImage, error) {
+func (unreadScreenshotImages) Read(context.Context, string, io.Reader) (ScreenshotImage, error) {
 	panic("image must not be read after authorization failure")
 }
 

@@ -15,7 +15,7 @@ import (
 
 // ImportArtifactBlobs stores immutable bytes during preparation, before a writer is acquired.
 type ImportArtifactBlobs interface {
-	OpenID(string) (io.ReadCloser, error)
+	OpenRecord(string) (io.ReadCloser, error)
 	Put(io.Reader) (filestore.Metadata, error)
 }
 
@@ -90,16 +90,16 @@ func (service *ImportArtifacts) rpgSources(
 				if err := ctx.Err(); err != nil {
 					return nil, fmt.Errorf("open RPG source: %w", err)
 				}
-				id := source.File.BlobID
+				id := source.File.FileRecord
 				if source.ArchiveOrdinal != nil {
 					for _, archive := range archives {
-						if archive.BlobID == source.ArchiveBlobID {
-							id = archive.Materialized[*source.ArchiveOrdinal].ID
+						if archive.FileRecord == source.ArchiveFileRecord {
+							id = archive.Materialized[*source.ArchiveOrdinal].Record
 							break
 						}
 					}
 				}
-				file, err := service.blobs.OpenID(id)
+				file, err := service.blobs.OpenRecord(id)
 				if err != nil {
 					return nil, fmt.Errorf("read RPG source: %w", err)
 				}
@@ -118,7 +118,7 @@ func preparedSourceIdentity(source PreparedSource, archives []PreparedArchive) (
 		return source.File.SHA256, source.File.Size, nil
 	}
 	for _, archive := range archives {
-		if archive.BlobID != source.ArchiveBlobID {
+		if archive.FileRecord != source.ArchiveFileRecord {
 			continue
 		}
 		metadata, present := archive.Materialized[*source.ArchiveOrdinal]

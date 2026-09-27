@@ -31,7 +31,7 @@ type ArcadeParentAttachmentValidation struct {
 
 type ArcadeParentAttachmentUpload struct {
 	UploadSessionID, SessionState, FileState string
-	RelativePath, BlobID, BlobSHA            string
+	RelativePath, FileRecord, BlobSHA        string
 	BlobSize                                 int64
 	WholeSessionConsumed                     bool
 }
@@ -100,7 +100,7 @@ type ArcadeParentAttachmentCandidate struct {
 	AttachmentID, ItemID, DraftID, BaseSnapshotID    string
 	Machine, RequiredBy, ProviderID, TargetID, DATID string
 	UploadFileID, UploadSessionID, OriginalName      string
-	BlobID, BlobSHA                                  string
+	FileRecord, BlobSHA                              string
 	BlobSize                                         int64
 	ContentPolicyDigest                              string
 	Depth                                            int
@@ -114,10 +114,10 @@ type ArcadeParentAttachmentWorkerClaim struct {
 }
 
 type ArcadeParentSourceSnapshotFile struct {
-	Role, LogicalName, UploadFileID, BlobID, BlobSHA string
-	BlobSize                                         int64
-	SourceArchiveBlobID, SourceArchiveSHA            string
-	SourceArchiveEntryOrdinal                        *int
+	Role, LogicalName, UploadFileID, FileRecord, BlobSHA string
+	BlobSize                                             int64
+	SourceArchiveFileRecord, SourceArchiveSHA            string
+	SourceArchiveEntryOrdinal                            *int
 }
 
 type ArcadeParentAttachmentWorkerRepository interface {

@@ -17,17 +17,18 @@ import (
 func TestFinalizationCloseCancelsReadingAndJoinsCleanup(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, read := make(chan struct{}), make(chan error, 1)
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
-		close(entered)
-		for {
-			_, err := reader.Read(make([]byte, 0))
-			if err != nil {
-				read <- err
-				return filestore.Metadata{}, err
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(reader io.Reader) (filestore.Metadata, error) {
+			close(entered)
+			for {
+				_, err := reader.Read(make([]byte, 0))
+				if err != nil {
+					read <- err
+					return filestore.Metadata{}, err
+				}
+				time.Sleep(time.Millisecond)
 			}
-			time.Sleep(time.Millisecond)
-		}
-	}}, fixture.root, finalizationNow)
+		}}, fixture.root, finalizationNow)
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
 	select {
 	case <-entered:
@@ -47,16 +48,17 @@ func TestFinalizationCloseCancelsReadingAndJoinsCleanup(t *testing.T) {
 func TestFinalizationPersistentCancelStopsSingleFileRead(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered := make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
-		close(entered)
-		for {
-			_, err := reader.Read(make([]byte, 0))
-			if err != nil {
-				return filestore.Metadata{}, err
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(reader io.Reader) (filestore.Metadata, error) {
+			close(entered)
+			for {
+				_, err := reader.Read(make([]byte, 0))
+				if err != nil {
+					return filestore.Metadata{}, err
+				}
+				time.Sleep(time.Millisecond)
 			}
-			time.Sleep(time.Millisecond)
-		}
-	}}, fixture.root, finalizationNow)
+		}}, fixture.root, finalizationNow)
 	session := fixture.upload(t, []byte("bytes"))
 	job := fixture.complete(t, session)
 	select {
@@ -68,7 +70,8 @@ func TestFinalizationPersistentCancelStopsSingleFileRead(t *testing.T) {
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	_, pending, err := jobservice.New(jobpersistence.New(fixture.database), finalizationNow).Cancel(t.Context(), job, version, "stop read")
+	_, pending, err := jobservice.New(jobpersistence.New(fixture.database),
+		finalizationNow).Cancel(t.Context(), job, version, "stop read")
 	if err != nil || !pending {
 		t.Fatalf("cancel: %v %v", pending, err)
 	}

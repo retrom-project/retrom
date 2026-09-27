@@ -46,7 +46,7 @@ func terminalEffectOwner(owner Owner) bool {
 		return importpolicy.JobTerminal(owner.State)
 	case ScopeSourceImportItem:
 		return sourcepolicy.ReleaseReady(owner.State, owner.Retryable, owner.PublicID)
-	case ScopeUploadConsumption, ScopeFile:
+	case ScopeUploadConsumption, ScopePath:
 		return false
 	default:
 		return false
@@ -54,7 +54,7 @@ func terminalEffectOwner(owner Owner) bool {
 }
 
 func eligibleEffectUpload(file EffectUpload) bool {
-	return uploadpolicy.CanPurge(file.State, file.SessionState, file.ID, file.BlobID, file.ActiveConsumptions)
+	return uploadpolicy.CanPurge(file.State, file.SessionState, file.ID, file.FileRecord, file.ActiveConsumptions)
 }
 
 func effectReason(owner Owner) Reason {
@@ -77,7 +77,7 @@ func effectReason(owner Owner) Reason {
 		default:
 			return ReasonImportFailed
 		}
-	case ScopeUploadConsumption, ScopeFile:
+	case ScopeUploadConsumption, ScopePath:
 		return ReasonUploadConsumed
 	default:
 		return ReasonUploadConsumed
@@ -104,7 +104,7 @@ func ownerCleanupPlan(scope ScopeType) (cleanup.Plan, error) {
 		return importpolicy.JobCleanup(), nil
 	case ScopeSourceImportItem:
 		return sourcepolicy.Cleanup(), nil
-	case ScopeUploadConsumption, ScopeFile:
+	case ScopeUploadConsumption, ScopePath:
 		return cleanup.Plan{}, ErrScopeInvalid
 	default:
 		return cleanup.Plan{}, ErrScopeInvalid

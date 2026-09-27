@@ -1,8 +1,8 @@
 package sourceimport
 
 import (
+	"bytes"
 	"errors"
-	"strings"
 	"testing"
 
 	dbapi "retrom/internal/database"
@@ -16,13 +16,22 @@ func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsse
 		t.Context(),
 		t,
 		service.database,
-		`UPDATE source_import_items SET execution_state='COPYING',library_import_job_id=NULL,library_import_item_id=NULL;
+		`UPDATE source_import_items SET execution_state='COPYING',library_import_job_id=NULL,
+library_import_item_id=NULL;
 DELETE FROM source_import_item_files;
-INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,state,created_at_ms,updated_at_ms)
-VALUES('item',0,'FILE','game.gba',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED',1,1);
-INSERT INTO source_import_item_assets(item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,state,media_type,width_px,height_px,created_at_ms,updated_at_ms)
-VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED','image/png',1,1,1,1);`,
+INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,
+source_facts_digest,state,created_at_ms,updated_at_ms)
+VALUES('018fbe68-0000-7000-8000-000000000010',0,'FILE','game.gba',4,
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED',1,1);
+INSERT INTO source_import_item_assets(item_id,kind,resolution_method,relative_path,size_bytes,
+source_facts_digest,state,media_type,width_px,height_px,created_at_ms,updated_at_ms)
+VALUES('018fbe68-0000-7000-8000-000000000010','COVER','EXPLICIT_GAME','cover.png',4,
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED','image/png',1,1,1,1);`,
 	)
+	metadata, err := service.blobs.Put(bytes.NewBufferString("data"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	one := int64(1)
 	return service, unit, executionFile{
 			Ordinal: 0,
@@ -37,13 +46,7 @@ VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaa
 			MediaType: "image/png",
 			Width:     &one,
 			Height:    &one,
-		}, filestore.Metadata{
-			SHA256: strings.Repeat("b", 64),
-			MD5:    strings.Repeat("b", 32),
-			SHA1:   strings.Repeat("b", 40),
-			CRC32:  "bbbbbbbb",
-			Size:   4,
-		}
+		}, metadata
 }
 
 func TestMaterializationRejectsReplacedOwner(t *testing.T) {
@@ -54,17 +57,19 @@ func TestMaterializationRejectsReplacedOwner(t *testing.T) {
 			mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='new-worker' WHERE id='work'`)
 			switch kind {
 			case "file":
-				_, _ = service.recordCopiedFile(t.Context(), unit, "item", file, metadata)
+				_, _ = service.recordCopiedFile(t.Context(), unit, "018fbe68-0000-7000-8000-000000000010", file, metadata)
 			case "asset":
-				_, _ = service.recordCopiedAsset(t.Context(), unit, "item", asset, metadata)
+				_, _ = service.recordCopiedAsset(t.Context(), unit, "018fbe68-0000-7000-8000-000000000010", asset, metadata)
 			case "phase":
 				_ = service.updateExecutionPhase(t.Context(), unit, "VALIDATING")
 			case "warning":
-				_ = service.closeAssetWarning(t.Context(), unit, "item", asset, "PEGASUS_IMAGE_INVALID")
+				_ = service.closeAssetWarning(t.Context(), unit, "018fbe68-0000-7000-8000-000000000010",
+					asset, "PEGASUS_IMAGE_INVALID")
 			}
 			var changed int
-			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM stored_files WHERE sha256=?) +
-(SELECT count(*) FROM source_import_item_assets WHERE item_id='item' AND state<>'DISCOVERED')+
+			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM source_import_item_files WHERE json_extract(file_record,'$.sha256')=?) +
+(SELECT count(*) FROM source_import_item_assets WHERE item_id='018fbe68-0000-7000-8000-000000000010' AND
+state<>'DISCOVERED')+
 (SELECT count(*) FROM source_imports WHERE phase='VALIDATING')`, metadata.SHA256).Scan(&changed)
 			if err != nil {
 				t.Fatal(err)
@@ -80,7 +85,7 @@ func TestMaterializationRejectsMissingFileBeforeCatalogRegistration(t *testing.T
 	t.Parallel()
 	service, unit, file, _, metadata := materialFixture(t)
 	file.Ordinal = 63
-	id, err := service.recordCopiedFile(t.Context(), unit, "item", file, metadata)
+	id, err := service.recordCopiedFile(t.Context(), unit, "018fbe68-0000-7000-8000-000000000010", file, metadata)
 	if !errors.Is(err, ErrVersionConflict) || id != "" {
 		t.Fatalf("missing source accepted blob=%q err=%v", id, err)
 	}
@@ -90,10 +95,12 @@ func TestMaterializationWarningIsIdempotent(t *testing.T) {
 	t.Parallel()
 	service, unit, _, asset, _ := materialFixture(t)
 	for range 2 {
-		_ = service.closeAssetWarning(t.Context(), unit, "item", asset, "PEGASUS_IMAGE_INVALID")
+		_ = service.closeAssetWarning(t.Context(), unit, "018fbe68-0000-7000-8000-000000000010",
+			asset, "PEGASUS_IMAGE_INVALID")
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_array_length(warnings_json) FROM source_import_items WHERE id='item'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_array_length(warnings_json) FROM source_import_items WHERE
+id='018fbe68-0000-7000-8000-000000000010'`).Scan(
 
 		&count,
 	); err != nil {

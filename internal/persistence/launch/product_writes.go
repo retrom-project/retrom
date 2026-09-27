@@ -69,10 +69,10 @@ VALUES(?,?,?,?,?,NULL)`,
 			ctx,
 			records.executor,
 			`INSERT INTO launch_content_files(
-launch_session_id,logical_name,blob_id,format_version,created_at_ms) VALUES(?,?,?,?,?)`,
+launch_session_id,logical_name,file_record,format_version,created_at_ms) VALUES(?,?,?,?,?)`,
 			plan.ID,
 			file.LogicalName,
-			file.BlobID,
+			file.FileRecord,
 			file.Format,
 			plan.NowMS,
 		); err != nil {
@@ -84,11 +84,11 @@ launch_session_id,logical_name,blob_id,format_version,created_at_ms) VALUES(?,?,
 			ctx,
 			records.executor,
 			`INSERT INTO launch_external_files(
-launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind) VALUES(?,?,?,?,?,?)`,
+launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind) VALUES(?,?,?,?,?,?)`,
 			plan.ID,
 			file.VirtualPath,
 			file.LogicalName,
-			file.BlobID,
+			file.FileRecord,
 			plan.NowMS,
 			file.Kind,
 		); err != nil {
@@ -116,7 +116,7 @@ func (records productCreationRecords) refreshApprovedBIOS(
 		return fmt.Errorf("refresh approved product BIOS snapshot: %w", err)
 	}
 	for index, dependency := range plan.OverrideBIOS.BIOS {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
 		if _, err := recordstore.UpsertVariantFiles(
@@ -125,22 +125,17 @@ func (records productCreationRecords) refreshApprovedBIOS(
 
 			records.executor,
 
-			recordstore.Scope{
-				Where: "game_variant_id=? AND role='BIOS_BUNDLE' AND logical_name=?",
-				Args:  []any{plan.Source.VariantID, dependency.LogicalName},
-			},
-
 			`INSERT INTO variant_files(
- game_variant_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE',?,?,?)
+ game_variant_id,role,logical_name,file_record,sort_order) VALUES(?,'BIOS_BUNDLE',?,?,?)
 ON CONFLICT(game_variant_id,role,logical_name) DO UPDATE SET
-blob_id=excluded.blob_id,sort_order=excluded.sort_order
-WHERE variant_files.blob_id<>excluded.blob_id`,
+file_record=excluded.file_record,sort_order=excluded.sort_order
+WHERE variant_files.file_record<>excluded.file_record`,
 
 			plan.Source.VariantID,
 
 			dependency.LogicalName,
 
-			*dependency.BlobID,
+			*dependency.FileRecord,
 
 			index,
 		); err != nil {

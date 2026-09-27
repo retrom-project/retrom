@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/core/rpgmaker/detector"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	"retrom/internal/service/gamecontent"
@@ -76,28 +76,15 @@ NOT NULL`,
 		return err
 	}
 	for index, file := range value.Prepared.RPGMaker.VariantFiles {
-		id, err := filecatalog.EnsureRecord(
-			ctx,
-			writes.transaction,
-			file.Metadata,
-			"application/octet-stream",
-			value.Now,
-		)
+		id, err := filestore.FileRecord(file.Metadata, "application/octet-stream")
 		if err != nil {
 			return fmt.Errorf("register replacement RPG file: %w", err)
 		}
-		if err := fileownership.Adopt(
-			ctx,
-			writes.transaction,
-			id,
-			fileownership.Owner{Kind: "GAME", ID: snapshot.GameID},
-		); err != nil {
-			return fmt.Errorf("rpgmaker: %w", err)
-		}
+
 		_, err = recordstore.CreateVariantFiles(
 			ctx,
 			writes.transaction,
-			`INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+			`INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
   VALUES(?,?,?,?,?)`,
 			snapshot.VariantID,
 			file.Role,

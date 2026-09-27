@@ -1,10 +1,13 @@
 package gameassets
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"time"
+
+	"retrom/internal/filestore"
 
 	"github.com/google/uuid"
 )
@@ -27,10 +30,10 @@ func (err *ValidationError) Error() string { return err.Code }
 func (err *ValidationError) Unwrap() error { return err.Cause }
 
 type PreparedAsset struct {
-	UploadID, BlobID, MediaType string
-	Digest                      string
-	SizeBytes                   int64
-	WidthPX, HeightPX           *int64
+	UploadID, FileRecord, MediaType string
+	Digest                          string
+	SizeBytes                       int64
+	WidthPX, HeightPX               *int64
 }
 
 type CreateRequest struct {
@@ -60,7 +63,9 @@ type DeleteResult struct {
 
 // BlobReader opens an immutable owned file for media inspection.
 type BlobReader interface {
-	OpenID(string) (*os.File, error)
+	OpenRecord(string) (*os.File, error)
+	CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
+	RemovePath(context.Context, string) error
 }
 
 type Service struct {

@@ -2,6 +2,7 @@ package uploads
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -52,9 +53,10 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 
 func (fixture *finalizationFixture) upload(t *testing.T, data []byte) uploadservice.Session {
 	t.Helper()
-	session, err := fixture.service.Create(t.Context(), uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{
-		{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: int64(len(data))},
-	}})
+	session, err := fixture.service.Create(t.Context(),
+		uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{
+			{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: int64(len(data))},
+		}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,9 +93,14 @@ func (fixture *finalizationFixture) complete(t *testing.T, session uploadservice
 }
 
 type finalizationBlobs struct {
-	put func(io.Reader) (filestore.Metadata, error)
+	store *filestore.Store
+	put   func(io.Reader) (filestore.Metadata, error)
 }
 
 func (blobs finalizationBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	return blobs.put(reader)
+}
+
+func (blobs finalizationBlobs) CopyTo(ctx context.Context, value, directory, name string) (filestore.Metadata, error) {
+	return blobs.store.CopyTo(ctx, value, directory, name)
 }

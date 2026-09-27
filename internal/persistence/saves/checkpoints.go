@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	"retrom/internal/service/saves"
@@ -26,20 +25,11 @@ func (store records) Duration(ctx context.Context, id string) (saves.Duration, e
 
 func (store writes) CreateSave(ctx context.Context, creation saves.SaveCreation) error {
 	result := creation.Result
-	owner := fileownership.Owner{Kind: "SAVE_STATE", ID: result.SaveStateID}
-	if err := fileownership.Adopt(ctx, store.transaction, creation.PayloadID, owner); err != nil {
-		return fmt.Errorf("checkpoints: %w", err)
-	}
-	if creation.ScreenshotID != nil {
-		if err := fileownership.Adopt(ctx, store.transaction, *creation.ScreenshotID, owner); err != nil {
-			return fmt.Errorf("checkpoints: %w", err)
-		}
-	}
 
 	if _, err := sessionstore.CreateSave(ctx, store.transaction, `
-INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,dos_entry_path,payload_blob_id,
+INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,dos_entry_path,payload_file_record,
 payload_sha256,
- payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,
+ payload_size_bytes,screenshot_file_record,name,active_duration_ms,version,created_at_ms,
 updated_at_ms,
  source_launch_session_id,disc_index) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)`,
 		result.SaveStateID, creation.ProfileID, creation.GameID, result.CheckpointFormat,
@@ -61,17 +51,9 @@ func (store writes) ReplacePreview(ctx context.Context, update saves.PreviewWrit
 	).Scan(&itemID); err != nil {
 		return fmt.Errorf("read preview file owner: %w", err)
 	}
-	if err := fileownership.Adopt(
-		ctx,
-		store.transaction,
-		update.PayloadID,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: itemID},
-	); err != nil {
-		return fmt.Errorf("checkpoints: %w", err)
-	}
 
 	return changed(sessionstore.ChangePreview(ctx, store.transaction, recordstore.Update{
-		Set: `checkpoint_payload_blob_id=?,checkpoint_format=?,checkpoint_created_at_ms=?,
+		Set: `checkpoint_payload_file_record=?,checkpoint_format=?,checkpoint_created_at_ms=?,
 updated_at_ms=?,version=version+1`,
 		Scope:  recordstore.Scope{Where: `id=?`, Args: []any{update.PreviewID}},
 		Values: []any{update.PayloadID, update.Format, update.AtMS, update.AtMS},

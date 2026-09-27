@@ -10,7 +10,7 @@ import (
 
 // Copy creates independent bytes and identity for a new owner.
 func (store *Store) Copy(ctx context.Context, id string) (Metadata, error) {
-	file, err := store.OpenID(id)
+	file, err := store.OpenRecord(id)
 	if err != nil {
 		return Metadata{}, err
 	}

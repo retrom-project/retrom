@@ -58,10 +58,10 @@ func TestBIOSRetirementRollsBackUnconfirmedInstallationRelease(t *testing.T) {
 	seedRetiringInstallation(t, db, "expiry-installation", 0, now)
 	cause := errors.New("BIOS retirement count failure")
 	var hits atomic.Int64
-	service := faultRetirementService(t, db, now, "UPDATE bios_installations SET", "blob_id=NULL", cause, &hits)
+	service := faultRetirementService(t, db, now, "UPDATE bios_installations SET", "file_record=NULL", cause, &hits)
 	err := service.ReconcileDeletion(t.Context())
 	var retained, variants int
-	readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT blob_id IS NOT NULL,
+	readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT file_record IS NOT NULL,
 (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant')
 FROM bios_installations WHERE id='expiry-installation'`).Scan(&retained, &variants)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || retained != 1 || variants != 1 {
@@ -122,9 +122,11 @@ func assertFirmwareRetirementUnchanged(t *testing.T, db dbapi.DB) {
 (SELECT state FROM play_sessions WHERE id='expiry-play'),
 (SELECT count(*) FROM launch_content_files WHERE launch_session_id='firmware-launch'),
 (SELECT count(*) FROM launch_external_files WHERE launch_session_id='firmware-launch'),
-(SELECT count(*) FROM launch_payload_retirements WHERE launch_session_id='firmware-launch' AND released_at_ms IS NOT NULL),
+(SELECT count(*) FROM launch_payload_retirements WHERE launch_session_id='firmware-launch' AND
+released_at_ms IS NOT NULL),
 (SELECT count(*) FROM save_states WHERE id='firmware-save')`).Scan(&launch, &play, &content, &external, &released, &saves)
-	if err != nil || launch != "ACTIVE" || play != "ACTIVE" || content != 1 || external != 1 || released != 0 || saves != 1 {
+	if err != nil || launch != "ACTIVE" || play != "ACTIVE" || content != 1 || external != 1 ||
+		released != 0 || saves != 1 {
 		t.Fatalf("retirement changed inputs: launch=%s play=%s content=%d external=%d released=%d saves=%d err=%v",
 			launch, play, content, external, released, saves, err)
 	}

@@ -54,7 +54,8 @@ func (records reviewHandoffRecords) CurrentReviewHandoff(
  SELECT item.id,item.import_id,import.import_job_id,COALESCE(item.library_import_job_id,''),
  COALESCE(item.library_import_item_id,''),job.execution_no,job.attempt_count,COALESCE(job.worker_id,''),
  item.execution_state,import.state,job.state,item.version,import.version,
- COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),item.metadata_json,item.warnings_json
+ COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),item.metadata_json,
+item.warnings_json
  FROM source_import_items item JOIN source_imports import ON import.id=item.import_id
  JOIN jobs job ON job.id=import.import_job_id AND job.scope_type='SOURCE_IMPORT'
  AND job.scope_id=import.id AND job.kind='IMPORT_RECEIVE'
@@ -95,6 +96,10 @@ func (records reviewHandoffRecords) CurrentReviewHandoff(
 	if err := decodeArray(warnings, &result.Warnings); err != nil {
 		return application.ReviewHandoffSnapshot{}, fmt.Errorf("decode Source review warnings: %w", err)
 	}
+	result.Media, err = readReviewMedia(ctx, records.executor, id)
+	if err != nil {
+		return application.ReviewHandoffSnapshot{}, err
+	}
 	return result, nil
 }
 
@@ -130,7 +135,7 @@ job.leased_until_ms>?
 		return err
 	}
 	if err := TransferReviewMedia(
-		ctx, records.executor, identity.ItemID, identity.LibraryItemID, change.NowMS,
+		ctx, records.executor, identity.LibraryItemID, change.Media, change.NowMS,
 	); err != nil {
 		return err
 	}

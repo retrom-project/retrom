@@ -6,12 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
-	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/persistence/importfiles"
 	service "retrom/internal/service/uploads"
 )
@@ -83,23 +81,14 @@ state!='COMPLETE'
 }
 
 func (records fileRecords) Publish(ctx context.Context, input service.FilePublication) error {
-	if err := fileownership.Adopt(
-		ctx,
-		records.executor,
-		input.BlobID,
-		fileownership.Owner{Kind: "UPLOAD", ID: input.Run.UploadID},
-	); err != nil {
-		return fmt.Errorf("files: %w", err)
-	}
-
 	err := requireChange(
 		recordstore.UpdateRows(
 			ctx,
 			records.executor,
 			"upload_files",
 			recordstore.Update{
-				Set:    "final_blob_id=?,state='COMPLETE',last_error_code=NULL,updated_at_ms=?",
-				Values: []any{input.BlobID, input.AtMS},
+				Set:    "final_file_record=?,state='COMPLETE',last_error_code=NULL,updated_at_ms=?",
+				Values: []any{input.FileRecord, input.AtMS},
 				Scope: recordstore.Scope{
 					Where: `id=? AND upload_session_id=? AND state='FINALIZING'
  AND EXISTS(SELECT 1 FROM upload_sessions session JOIN jobs job ON job.id=session.finalize_job_id
@@ -143,11 +132,11 @@ state!='COMPLETE'
 }
 
 func (records blobRecords) Ensure(
-	ctx context.Context,
+	_ context.Context,
 	metadata filestore.Metadata,
-	now int64,
+	_ int64,
 ) (string, error) {
-	id, err := filecatalog.EnsureRecord(ctx, records.executor, metadata, "application/octet-stream", now)
+	id, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		return "", fmt.Errorf("uploads/register blob: %w", err)
 	}

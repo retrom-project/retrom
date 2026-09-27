@@ -15,13 +15,17 @@ func productCreationFiles(
 	owner string,
 	variant bool,
 ) ([]application.ProductFile, error) {
-	query := `SELECT file.role,file.blob_id,file.logical_name,blob.sha256,blob.size_bytes,file.sort_order
-FROM game_files file JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_id=?
+	query := `SELECT file.role,file.file_record,file.logical_name,json_extract(blob.value, '$.sha256'),
+json_extract(blob.value, '$.size_bytes'),file.sort_order
+FROM game_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL WHERE
+file.game_id=?
 ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 WHEN 'DOS_SOURCE' THEN 2 ELSE 3 END,
 file.sort_order,file.logical_name`
 	if variant {
-		query = `SELECT file.role,file.blob_id,file.logical_name,blob.sha256,blob.size_bytes,file.sort_order
-FROM variant_files file JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_variant_id=?
+		query = `SELECT file.role,file.file_record,file.logical_name,json_extract(blob.value, '$.sha256'),
+json_extract(blob.value, '$.size_bytes'),file.sort_order
+FROM variant_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+WHERE file.game_variant_id=?
 ORDER BY file.role,file.sort_order,file.logical_name`
 	}
 	rows, err := executor.QueryContext(ctx, query, owner)
@@ -34,7 +38,7 @@ ORDER BY file.role,file.sort_order,file.logical_name`
 		var file application.ProductFile
 		if err := rows.Scan(
 			&file.Role,
-			&file.BlobID,
+			&file.FileRecord,
 			&file.LogicalName,
 			&file.Digest,
 			&file.SizeBytes,

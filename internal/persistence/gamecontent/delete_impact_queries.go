@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/gamecontent"
 )
@@ -35,7 +37,7 @@ func (repository *ImpactQueries) ReadImpact(ctx context.Context, gameID string) 
 }
 
 func (records impactRecords) ReadImpact(ctx context.Context, gameID string) (application.ImpactSnapshot, error) {
-	ids, err := gameImpactBlobIDs(ctx, records.executor, gameID)
+	ids, err := gameImpactFileRecords(ctx, records.executor, gameID)
 	if err != nil {
 		return application.ImpactSnapshot{}, err
 	}
@@ -65,12 +67,13 @@ UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`,
 	return result, nil
 }
 
-func (records impactRecords) blob(ctx context.Context, id string) (application.ImpactBlob, error) {
+func (records impactRecords) blob(_ context.Context, id string) (application.ImpactBlob, error) {
 	result := application.ImpactBlob{ID: id}
-	err := dbapi.QueryRowContext(
-		ctx, records.executor, `SELECT size_bytes FROM stored_files WHERE id=?`, id).Scan(&result.SizeBytes)
+	record, err := filestore.ParseRecord(id)
 	if err != nil {
-		return application.ImpactBlob{}, fmt.Errorf("read impact blob size: %w", err)
+		return application.ImpactBlob{}, fmt.Errorf("blob: %w", err)
 	}
+	result.ID = record.Path
+	result.SizeBytes = record.Size
 	return result, nil
 }

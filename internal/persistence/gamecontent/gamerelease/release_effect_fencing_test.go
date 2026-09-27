@@ -18,7 +18,8 @@ import (
 
 func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	db, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "effect.db"), func() time.Time { return time.UnixMilli(10) })
+	db, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "effect.db"),
+		func() time.Time { return time.UnixMilli(10) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,9 +29,11 @@ func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 		}
 	})
 	_, err = db.SQL.ExecContext(t.Context(), `INSERT INTO games(id,platform_instance_id,title,title_initial,
- description,developer,publisher,genre,metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
+ description,developer,publisher,genre,metadata_source_kind,content_kind,content_source_kind,
+content_source_ref_id,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
- VALUES('effect-game',(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
+ VALUES('018fbe68-0000-7000-8000-000000000001',(SELECT id FROM platform_instances WHERE
+catalog_template_key='gba/mgba'),
  'Effect','E','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','effect-source','{}',?,
  'PUBLISHED','effect',1,1,1)`, strings.Repeat("e", 64))
 	if err != nil {
@@ -41,7 +44,8 @@ func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(tx)
-	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(), gamerelease.BindScheduling(tx), "effect-game", 1, 10); err != nil {
+	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(),
+		gamerelease.BindScheduling(tx), "018fbe68-0000-7000-8000-000000000001", 1, 10); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -51,7 +55,10 @@ func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 }
 
 func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
-	for _, mutation := range []string{"version=version+1", "content_source_ref_id='replacement'", "metadata_source_kind='IMPORT_REVIEW',metadata_source_ref_id='replacement'"} {
+	for _, mutation := range []string{
+		"version=version+1", "content_source_ref_id='replacement'",
+		"metadata_source_kind='IMPORT_REVIEW',metadata_source_ref_id='replacement'",
+	} {
 		t.Run(mutation, func(t *testing.T) {
 			db := effectRepositoryDatabase(t)
 			tx, err := db.BeginTx(t.Context(), nil)
@@ -60,17 +67,24 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 			}
 			defer dbapi.Rollback(tx)
 			scope := gamerelease.BindEffects(tx)
-			before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
+			before, err := scope.Read.Owner(t.Context(), application.Scope{
+				Type: application.ScopeGame,
+				ID:   "018fbe68-0000-7000-8000-000000000001",
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := tx.ExecContext(t.Context(), "UPDATE games SET "+mutation+" WHERE id='effect-game'"); err != nil {
+			if _, err := tx.ExecContext(t.Context(),
+				"UPDATE games SET "+mutation+" WHERE id='018fbe68-0000-7000-8000-000000000001'"); err != nil {
 				t.Fatal(err)
 			}
 			after := before.Owner
 			after.PayloadState = "RELEASED"
 			after.Version++
-			err = scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10})
+			err = scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{
+				Before: before,
+				After:  after, Released: true, NowMS: 10,
+			})
 			if !errors.Is(err, application.ErrEffectConflict) {
 				t.Fatalf("late drift error=%v", err)
 			}
@@ -81,23 +95,30 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 func TestEffectCommitFailurePreservesCauseAndRollsBackOwner(t *testing.T) {
 	db := effectRepositoryDatabase(t)
 	var executor dbapi.Executor
-	repository := releaseeffects.New(db, func(tx dbapi.Executor) application.EffectScope { executor = tx; return gamerelease.BindEffects(tx) })
+	repository := releaseeffects.New(db,
+		func(tx dbapi.Executor) application.EffectScope { executor = tx; return gamerelease.BindEffects(tx) })
 	err := repository.WithEffects(t.Context(), func(scope application.EffectScope) error {
-		before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
+		before, err := scope.Read.Owner(t.Context(), application.Scope{
+			Type: application.ScopeGame,
+			ID:   "018fbe68-0000-7000-8000-000000000001",
+		})
 		if err != nil {
 			return err
 		}
 		after := before.Owner
 		after.PayloadState = "RELEASED"
 		after.Version++
-		if err := scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10}); err != nil {
+		if err := scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{
+			Before: before,
+			After:  after, Released: true, NowMS: 10,
+		}); err != nil {
 			return err
 		}
 		if _, err := executor.ExecContext(t.Context(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 			return err
 		}
-		_, err = executor.ExecContext(t.Context(), `INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
-VALUES('deferred-effect','effect-game','missing-deferred-blob','COVER',0,1,1,'image/png',10)`)
+		_, err = executor.ExecContext(t.Context(), `INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+VALUES('deferred-effect','missing-game','missing-deferred-file','COVER',0,1,1,'image/png',10)`)
 		return err
 	})
 	var cause *sqlite.Error
@@ -106,7 +127,8 @@ VALUES('deferred-effect','effect-game','missing-deferred-blob','COVER',0,1,1,'im
 	}
 	var state string
 	var assets int
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT payload_state,(SELECT count(*) FROM game_assets WHERE id='deferred-effect') FROM games WHERE id='effect-game'`).Scan(&state, &assets); err != nil || state != "RELEASING" || assets != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT payload_state,(SELECT count(*) FROM game_assets WHERE id='deferred-effect') FROM games WHERE
+id='018fbe68-0000-7000-8000-000000000001'`).Scan(&state, &assets); err != nil || state != "RELEASING" || assets != 0 {
 		t.Fatalf("partial commit state=%s assets=%d error=%v", state, assets, err)
 	}
 }

@@ -170,9 +170,10 @@ func (repository *MultiDiscAttachmentWorker) BaseFiles(
 	ctx context.Context, snapshotID string,
 ) (application.MultiDiscAttachmentBaseFiles, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.upload_file_id,file.blob_id,blob.sha256,blob.size_bytes,file.sort_order
+SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
+'$.sha256'),json_extract(blob.value, '$.size_bytes'),file.sort_order
 FROM import_item_source_snapshot_files file
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.source_snapshot_id=? AND file.role IN ('PLAYLIST_SOURCE','DISC')
 ORDER BY file.role,file.sort_order
 `, snapshotID)
@@ -185,7 +186,7 @@ ORDER BY file.role,file.sort_order
 		var file application.MultiDiscAttachmentFile
 		var uploadFileID sql.NullString
 		if err := rows.Scan(
-			&file.Role, &file.LogicalName, &uploadFileID, &file.BlobID,
+			&file.Role, &file.LogicalName, &uploadFileID, &file.FileRecord,
 			&file.BlobSHA, &file.BlobSize, &file.SortOrder,
 		); err != nil {
 			return application.MultiDiscAttachmentBaseFiles{}, fmt.Errorf("scan multi-disc base file: %w", err)
@@ -222,9 +223,10 @@ FROM upload_sessions WHERE id=?
 	}
 	result.Consumed = consumed != 0
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.relative_path,file.id,file.blob_id,blob.sha256,blob.size_bytes
+SELECT file.relative_path,file.id,file.file_record,json_extract(blob.value, '$.sha256'),
+json_extract(blob.value, '$.size_bytes')
 FROM import_files file
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.upload_session_id=? AND file.released_at_ms IS NULL
 ORDER BY file.relative_path,file.id
 `, sessionID)
@@ -236,7 +238,8 @@ ORDER BY file.relative_path,file.id
 	for rows.Next() {
 		var file application.MultiDiscAttachmentFile
 		file.Role = "DISC"
-		if err := rows.Scan(&file.LogicalName, &file.UploadFileID, &file.BlobID, &file.BlobSHA, &file.BlobSize); err != nil {
+		if err := rows.Scan(&file.LogicalName, &file.UploadFileID, &file.FileRecord, &file.BlobSHA,
+			&file.BlobSize); err != nil {
 			return application.MultiDiscAttachmentUploadFiles{}, fmt.Errorf("scan multi-disc upload file: %w", err)
 		}
 		result.Files = append(result.Files, file)

@@ -19,13 +19,16 @@ func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	now := time.UnixMilli(10)
 	service := &Service{database: database, now: func() time.Time { return now }}
 	summary, err := service.Get(context.Background(), "import")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !summary.Retryable }), "current summary = %#v, error=%v", summary, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !summary.Retryable }), "current summary = %#v, error=%v", summary, err)
 	queued, err := service.Retry(context.Background(), "import", summary.Version, "user")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return queued.State != "QUEUED" }), "queued summary = %#v, error=%v", queued, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return queued.State != "QUEUED" }), "queued summary = %#v, error=%v", queued, err)
 	var state string
 	var code, details sql.NullString
 	if err := dbapi.QueryRowContext(context.Background(), database,
-		`SELECT execution_state,error_code,error_details_json FROM source_import_items WHERE id='item'`,
+		`SELECT execution_state,error_code,error_details_json FROM source_import_items WHERE
+id='018fbe68-0000-7000-8000-000000000010'`,
 	).Scan(&state, &code, &details); err != nil || state != "PENDING" || code.Valid || details.Valid {
 		t.Fatalf("retried item = state:%q code:%#v details:%#v error:%v", state, code, details, err)
 	}
@@ -62,14 +65,15 @@ INSERT INTO source_imports(
  mapping_version,version,created_by_user_id,last_error_code,retryable,created_at_ms,updated_at_ms,
  expires_at_ms,completed_at_ms
 ) VALUES(
- 'import','games','Games','Roms','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,0,
+ 'import','games','Games','Roms','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+'PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,0,
  0,0,0,0,1,0,0,0,0,1,4,'user',NULL,1,1,2,9999999999999,2
 );
 
  INSERT INTO source_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
  discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,
  error_code,error_details_json,retryable,completed_at_ms,version,created_at_ms,updated_at_ms)
- VALUES('item','import','metadata.pegasus.txt',0,
+ VALUES('018fbe68-0000-7000-8000-000000000010','import','metadata.pegasus.txt',0,
  'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','Retry game',
  'READY','COMMIT_FAILED','{}','{}',
  'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',

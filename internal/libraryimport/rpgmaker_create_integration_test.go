@@ -41,7 +41,8 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
@@ -96,7 +97,8 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	}
 	var state, code, title, metadataProvider string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title'),job.metadata_provider
+SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title'),
+job.metadata_provider
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
@@ -125,16 +127,16 @@ WHERE item.import_job_id=?
 		generation != "RPGMV" {
 		t.Fatalf("virtual binding = %s/%s/%s/%s", defaultCoreID, providerID, targetID, generation)
 	}
-	var role, nestedSHA, nestedBlobID string
+	var role, nestedSHA, nestedFileRecord string
 	var nestedOrdinal int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT file.role,blob.sha256,file.blob_id,file.source_archive_entry_ordinal
+SELECT file.role,json_extract(blob.value, '$.sha256'),file.file_record,file.source_archive_entry_ordinal
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=draft.effective_source_snapshot_id
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
-`, created.ImportJobID).Scan(&role, &nestedSHA, &nestedBlobID, &nestedOrdinal); err != nil {
+`, created.ImportJobID).Scan(&role, &nestedSHA, &nestedFileRecord, &nestedOrdinal); err != nil {
 		t.Fatal(err)
 	}
 	nestedBody := []byte("7z\xbc\xaf\x27\x1c encrypted MTool sidecar")
@@ -142,7 +144,7 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 	var recursivelyIndexed int
 	if err := dbapi.QueryRowContext(
 		ctx, database.SQL,
-		"SELECT COUNT(*) FROM archive_entries WHERE archive_blob_id=?", nestedBlobID,
+		"SELECT COUNT(*) FROM archive_entries WHERE archive_file_record=?", nestedFileRecord,
 	).Scan(&recursivelyIndexed); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +205,7 @@ WHERE draft.id=?
 	if validationCount != 1 {
 		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
 	}
-	approved, err := New(database.SQL, time.Now).Approve(ctx, itemID, draftVersion)
+	approved, err := New(database.SQL, time.Now).WithFileStore(blobs).Approve(ctx, itemID, draftVersion)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("READY RPG review must approve without a runtime proof session: %+v %v", approved, err)
 	}

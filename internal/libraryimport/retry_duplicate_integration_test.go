@@ -41,7 +41,8 @@ func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
@@ -67,9 +68,11 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,10000,1000,1000)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,
+config_snapshot_digest,
 state,total_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,
+'NONE','{}',?,
 'PARTIAL_FAILURE',1,1,1,1000,1000)
 `, retryImportID, retryUploadID, target.ProviderID, target.TargetID, digest); err != nil {
 		t.Fatal(err)
@@ -83,7 +86,9 @@ VALUES(?,?,?,'FAILED_RETRYABLE','{}',?,'retry.gba','SCRAPING','PROVIDER_TIMEOUT'
 	}
 	service := New(database.SQL, func() time.Time { return time.UnixMilli(2_000) })
 	retried, err := service.RetryItem(ctx, retryItemID, 1)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return retried.State != "QUEUED" }, func() bool { return retried.Version != 2 }), "retry = %#v, error=%v", retried, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return retried.State != "QUEUED" },
+		func() bool { return retried.Version != 2 }), "retry = %#v, error=%v", retried, err)
 	var retryJobState, retryItemState string
 	var retryQueued, retryFailed, retryJobVersion, retryEventCount int64
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
@@ -102,13 +107,22 @@ WHERE job.id=? AND item.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return retryJobState != "RUNNING" }, func() bool { return retryQueued != 1 }, func() bool { return retryFailed != 0 }, func() bool { return retryJobVersion != 2 }, func() bool { return retryItemState != "QUEUED" }, func() bool { return retryEventCount != 1 }), "retry aggregate = job:%s queued:%d failed:%d version:%d item:%s events:%d", retryJobState, retryQueued, retryFailed, retryJobVersion, retryItemState, retryEventCount)
+	testassert.Falsef(t, testassert.Any(func() bool { return retryJobState != "RUNNING" },
+		func() bool { return retryQueued != 1 }, func() bool { return retryFailed != 0 },
+		func() bool { return retryJobVersion != 2 },
+		func() bool { return retryItemState != "QUEUED" },
+		func() bool { return retryEventCount != 1 }),
+		"retry aggregate = job:%s queued:%d failed:%d version:%d item:%s events:%d", retryJobState,
+		retryQueued, retryFailed, retryJobVersion, retryItemState, retryEventCount)
 
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
-state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,
+config_snapshot_digest,
+state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,
+created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,
+'NONE','{}',?,
 'PARTIAL_FAILURE',4,1,1,2,1,1000,1000)
 `, cancelImportID, cancelUploadID, target.ProviderID, target.TargetID, digest); err != nil {
 		t.Fatal(err)
@@ -135,12 +149,16 @@ VALUES(?,?,?,?,'{}',?,'cancel.gba',?,?,1,1000,1000)
 		}
 	}
 	cancelled, pending, err := service.Cancel(ctx, cancelImportID, 1, "operator cancelled")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return cancelled.State != "CANCELLED" }, func() bool { return cancelled.Version != 2 }), "cancel = %#v pending=%t error=%v", cancelled, pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return pending }, func() bool { return cancelled.State != "CANCELLED" },
+		func() bool { return cancelled.Version != 2 }), "cancel = %#v pending=%t error=%v", cancelled,
+		pending, err)
 	var cancelState string
 	var cancelQueued, cancelReviewPending, cancelFailed, cancelCount, cancelCompletedAt int64
 	var cancelledItems, failedFinalItems int64
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT state,queued_item_count,review_pending_item_count,failed_item_count,cancelled_item_count,completed_at_ms,
+SELECT state,queued_item_count,review_pending_item_count,failed_item_count,cancelled_item_count,
+completed_at_ms,
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='CANCELLED'),
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_FINAL')
 FROM import_jobs WHERE id=?
@@ -156,7 +174,12 @@ FROM import_jobs WHERE id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return cancelState != "CANCELLED" }, func() bool { return cancelQueued != 0 }, func() bool { return cancelReviewPending != 0 }, func() bool { return cancelFailed != 1 }, func() bool { return cancelCount != 3 }, func() bool { return cancelCompletedAt != 2_000 }, func() bool { return cancelledItems != 3 }, func() bool { return failedFinalItems != 1 }), "cancel aggregate = job:%s queued:%d pending:%d failed:%d cancelled:%d completed:%d items:%d/%d", cancelState, cancelQueued, cancelReviewPending, cancelFailed, cancelCount, cancelCompletedAt, cancelledItems, failedFinalItems)
+	testassert.Falsef(t, testassert.Any(func() bool { return cancelState != "CANCELLED" },
+		func() bool { return cancelQueued != 0 }, func() bool { return cancelReviewPending != 0 },
+		func() bool { return cancelFailed != 1 }, func() bool { return cancelCount != 3 },
+		func() bool { return cancelCompletedAt != 2_000 }, func() bool { return cancelledItems != 3 },
+		func() bool { return failedFinalItems != 1 }),
+		"cancel aggregate = job:%s queued:%d pending:%d failed:%d cancelled:%d completed:%d items:%d/%d", cancelState, cancelQueued, cancelReviewPending, cancelFailed, cancelCount, cancelCompletedAt, cancelledItems, failedFinalItems)
 }
 
 func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t *testing.T) {
@@ -170,7 +193,8 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
@@ -221,16 +245,27 @@ SELECT id FROM import_items WHERE import_job_id=?
 
 	firstImport, firstItemID := createImport("first-name.gba")
 	secondImport, secondItemID := createImport("renamed-copy.gba")
-	testassert.Falsef(t, testassert.Any(func() bool { return firstImport.State != "REVIEW_PENDING" }, func() bool { return secondImport.State != "REVIEW_PENDING" }), "pre-publish import states = %s/%s", firstImport.State, secondImport.State)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return firstImport.State != "REVIEW_PENDING" },
+			func() bool { return secondImport.State != "REVIEW_PENDING" }),
+		"pre-publish import states = %s/%s", firstImport.State, secondImport.State)
 	firstGame, err := importer.Approve(ctx, firstItemID, 1)
 	testassert.False(t, err != nil, err)
 	duplicates, identityDigest, err := importer.DuplicateGames(ctx, secondItemID)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(duplicates) != 1 }, func() bool { return duplicates[0].GameID != firstGame.GameID }, func() bool { return len(identityDigest) != 64 }), "review duplicates = %#v digest=%s error=%v", duplicates, identityDigest, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(duplicates) != 1 },
+		func() bool { return duplicates[0].GameID != firstGame.GameID },
+		func() bool { return len(identityDigest) != 64 }),
+		"review duplicates = %#v digest=%s error=%v", duplicates, identityDigest, err)
 	if _, err := importer.Approve(ctx, secondItemID, 1); err == nil {
 		t.Fatal("duplicate review published without confirmation")
 	} else {
 		var conflict *DuplicateConflict
-		testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &conflict) }, func() bool { return !errors.Is(err, ErrDuplicateContent) }, func() bool { return len(conflict.Games) != 1 }, func() bool { return conflict.Games[0].GameID != firstGame.GameID }), "duplicate approval error = %#v", err)
+		testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &conflict) },
+			func() bool { return !errors.Is(err, ErrDuplicateContent) },
+			func() bool { return len(conflict.Games) != 1 },
+			func() bool { return conflict.Games[0].GameID != firstGame.GameID }),
+			"duplicate approval error = %#v", err)
 	}
 	secondGame, err := importer.ApproveWithDecision(ctx, secondItemID, 1, ApprovalDecision{
 		DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{firstGame.GameID},
@@ -255,7 +290,8 @@ FROM import_jobs WHERE id=?
 	}
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,
-(SELECT count(*) FROM import_items candidate WHERE candidate.id=import_items.id AND candidate.review_version>0),
+(SELECT count(*) FROM import_items candidate WHERE candidate.id=import_items.id AND
+candidate.review_version>0),
 (SELECT count(*) FROM import_item_duplicate_matches WHERE import_item_id=import_items.id)
 FROM import_items WHERE id=?
 `, thirdItemID).Scan(&itemState, &draftCount, &matchCount); err != nil {
@@ -264,7 +300,12 @@ FROM import_items WHERE id=?
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "COMPLETED" }, func() bool { return itemState != "DISCARDED" }, func() bool { return alreadyItems != 1 }, func() bool { return alreadyFiles != 1 }, func() bool { return discarded != 1 }, func() bool { return pending != 0 }, func() bool { return draftCount != 0 }, func() bool { return matchCount != 2 }, func() bool { return gameCount != 2 }), "identification projection = job:%s item:%s already:%d/%d discarded:%d pending:%d drafts:%d matches:%d games:%d", jobState, itemState, alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount)
+	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "COMPLETED" },
+		func() bool { return itemState != "DISCARDED" }, func() bool { return alreadyItems != 1 },
+		func() bool { return alreadyFiles != 1 }, func() bool { return discarded != 1 },
+		func() bool { return pending != 0 }, func() bool { return draftCount != 0 },
+		func() bool { return matchCount != 2 }, func() bool { return gameCount != 2 }),
+		"identification projection = job:%s item:%s already:%d/%d discarded:%d pending:%d drafts:%d matches:%d games:%d", jobState, itemState, alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount)
 }
 
 func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
@@ -278,7 +319,8 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
@@ -314,7 +356,9 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		contents := files[path]
 		digest := sha256.Sum256(contents)
 		header := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
-		if err := uploadService.PutPart(ctx, upload.ID, fileByPath[path].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), header, bytes.NewReader(contents)); err != nil {
+		if err := uploadService.PutPart(ctx, upload.ID, fileByPath[path].ID, 0,
+			fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), header,
+			bytes.NewReader(contents)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -332,7 +376,9 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 			MetadataProvider:         "NONE",
 		},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.State != "PARTIAL_FAILURE" }, func() bool { return created.ItemCount != 1 }), "archive import = %#v, error=%v", created, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return created.State != "PARTIAL_FAILURE" },
+		func() bool { return created.ItemCount != 1 }), "archive import = %#v, error=%v", created, err)
 	var source, ignored, rejected, itemCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
@@ -366,36 +412,40 @@ WHERE import_job_id=?)
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
 s.logical_name,
-b.sha256,
-archive.sha256,
+json_extract(b.value, '$.sha256'),
+json_extract(archive.value, '$.sha256'),
 s.source_archive_entry_ordinal
 FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
-JOIN stored_files b ON b.id=s.blob_id
-JOIN stored_files archive ON archive.id=s.source_archive_blob_id
+JOIN json_each(json_array(s.file_record)) b ON b.value IS NOT NULL
+JOIN json_each(json_array(s.source_archive_file_record)) archive ON archive.value IS NOT NULL
 WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &logicalName, &contentSHA, &archiveSHA, &archiveOrdinal); err != nil {
 		t.Fatal(err)
 	}
 	romDigest := sha256.Sum256(rom)
 	archiveDigest := sha256.Sum256(archive)
-	testassert.Falsef(t, testassert.Any(func() bool { return logicalName != "Wrapped.gba" }, func() bool { return contentSHA != fmt.Sprintf("%x", romDigest) }, func() bool { return archiveSHA != fmt.Sprintf("%x", archiveDigest) }, func() bool { return archiveOrdinal < 0 }), "archive source = %s %s %s %d", logicalName, contentSHA, archiveSHA, archiveOrdinal)
+	testassert.Falsef(t, testassert.Any(func() bool { return logicalName != "Wrapped.gba" },
+		func() bool { return contentSHA != fmt.Sprintf("%x", romDigest) },
+		func() bool { return archiveSHA != fmt.Sprintf("%x", archiveDigest) },
+		func() bool { return archiveOrdinal < 0 }), "archive source = %s %s %s %d", logicalName,
+		contentSHA, archiveSHA, archiveOrdinal)
 	approved, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
 	var publishedLogical, publishedSHA string
 	var sourceArchive string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT f.logical_name,
-b.sha256,
-f.source_archive_blob_id
+json_extract(b.value, '$.sha256'),
+COALESCE(f.source_archive_file_record,'')
 FROM games g
 JOIN game_files f ON f.game_id=g.id
-JOIN stored_files b ON b.id=f.blob_id
+JOIN json_each(json_array(f.file_record)) b ON b.value IS NOT NULL
 WHERE g.id=?
 `, approved.GameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||
 		publishedLogical != "Wrapped.gba" ||
 		publishedSHA != fmt.Sprintf("%x", romDigest) ||
-		sourceArchive == "" {
+		sourceArchive != "" {
 		t.Fatalf("published archive member = %s/%s/%s, error=%v", publishedLogical, publishedSHA, sourceArchive, err)
 	}
 	var finalState string
@@ -419,7 +469,10 @@ WHERE id=?
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "psp/ppsspp"),
 		MetadataProvider:         "NONE",
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return reconfigured.State != "REVIEW_PENDING" }, func() bool { return reconfigured.ItemCount != 1 }), "reconfigured import = %#v, error=%v", reconfigured, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return reconfigured.State != "REVIEW_PENDING" },
+		func() bool { return reconfigured.ItemCount != 1 }), "reconfigured import = %#v, error=%v",
+		reconfigured, err)
 	var sourceState, replacementSource, replacementLogicalName, sourceBlobSHA, replacementBlobSHA string
 	var resolvedRejected int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -427,17 +480,18 @@ SELECT source.state,
 source.resolved_rejected_file_count,
 replacement.reconfigured_from_import_job_id,
 replacement_file.logical_name,
-source_blob.sha256,
-replacement_blob.sha256
+json_extract(source_blob.value, '$.sha256'),
+json_extract(replacement_blob.value, '$.sha256')
 FROM import_jobs source
 JOIN import_jobs replacement ON replacement.id=?
 JOIN import_items replacement_item ON replacement_item.import_job_id=replacement.id
 JOIN import_item_source_files replacement_file ON replacement_file.import_item_id=replacement_item.id
-JOIN stored_files replacement_blob ON replacement_blob.id=replacement_file.blob_id
+JOIN json_each(json_array(replacement_file.file_record)) replacement_blob ON replacement_blob.value IS
+NOT NULL
 JOIN import_job_file_resolutions resolution ON resolution.import_job_id=source.id
 AND resolution.replacement_import_job_id=replacement.id
 JOIN upload_files source_file ON source_file.id=resolution.upload_file_id
-JOIN stored_files source_blob ON source_blob.id=source_file.final_blob_id
+JOIN json_each(json_array(source_file.final_file_record)) source_blob ON source_blob.value IS NOT NULL
 WHERE source.id=?
 `, reconfigured.ImportJobID, created.ImportJobID).Scan(
 		&sourceState,

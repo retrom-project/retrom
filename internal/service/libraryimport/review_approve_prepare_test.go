@@ -32,8 +32,14 @@ func (stub *approvalScopeStub) WithApproval(_ context.Context, work func(ReviewA
 }
 
 func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
-	valid := ReviewApprovalHead{State: "REVIEW_PENDING", DraftVersion: 1, ValidationStatus: "READY", ValidationID: "validation", SourceSnapshotID: "snapshot"}
-	for _, name := range []string{"missing", "wrong state", "version", "source busy", "bulk status", "bulk validation", "bulk snapshot"} {
+	valid := ReviewApprovalHead{
+		State: "REVIEW_PENDING", DraftVersion: 1,
+		ValidationStatus: "READY", ValidationID: "validation", SourceSnapshotID: "snapshot",
+	}
+	for _, name := range []string{
+		"missing", "wrong state", "version", "source busy",
+		"bulk status", "bulk validation", "bulk snapshot",
+	} {
 		t.Run(name, func(t *testing.T) {
 			head, found := valid, true
 			request := ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1}
@@ -47,7 +53,10 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 			case "source busy":
 				head.SourceBusy = true
 			default:
-				request.Bulk = &BulkPublicationIntent{BulkID: "bulk", JobID: "job", WorkerID: "worker", ValidationID: "validation", SourceSnapshotID: "snapshot"}
+				request.Bulk = &BulkPublicationIntent{
+					BulkID: "bulk", JobID: "job", WorkerID: "worker",
+					ValidationID: "validation", SourceSnapshotID: "snapshot",
+				}
 				switch name {
 				case "bulk status":
 					head.ValidationStatus = "BLOCKED"
@@ -58,9 +67,9 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 				}
 			}
 			repo := &approvalScopeStub{scope: ReviewApprovalScope{Reader: approvalHeadStub{head: head, found: found}}}
-			result, err := NewReviewApprovals(repo, nil, nil).Approve(t.Context(), request)
-			if !errors.Is(err, ErrInvalid) || result != (ReviewApproved{}) || repo.calls != 1 {
-				t.Fatalf("result=%+v err=%v calls=%d", result, err, repo.calls)
+			err := testApprovalLoad(t.Context(), repo, request)
+			if !errors.Is(err, ErrInvalid) || repo.calls != 1 {
+				t.Fatalf("err=%v calls=%d", err, repo.calls)
 			}
 		})
 	}
@@ -69,9 +78,9 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 func TestReviewApprovalPreservesReadAndContextErrors(t *testing.T) {
 	for _, cause := range []error{errors.New("repository unavailable"), context.Canceled} {
 		repo := &approvalScopeStub{scope: ReviewApprovalScope{Reader: approvalHeadStub{cause: cause}}}
-		result, err := NewReviewApprovals(repo, nil, nil).Approve(t.Context(), ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1})
-		if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (ReviewApproved{}) {
-			t.Fatalf("result=%+v err=%v", result, err)
+		err := testApprovalLoad(t.Context(), repo, ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1})
+		if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) {
+			t.Fatalf("err=%v", err)
 		}
 	}
 }
@@ -80,7 +89,7 @@ func TestReviewApprovalAllocatesEveryIdentityBeforePublication(t *testing.T) {
 	cause := errors.New("entropy unavailable")
 	for failAt := 1; failAt <= 4; failAt++ {
 		calls := 0
-		service := NewReviewApprovals(nil, nil, nil)
+		service := NewReviewApprovals(nil, nil, nil, nil)
 		service.newID = func() (string, error) {
 			calls++
 			if calls == failAt {
@@ -107,11 +116,16 @@ func TestReviewApprovalProjectsSharedProgressWithoutMutatingSnapshot(t *testing.
 		{"queued", "RUNNING", importprogress.Counts{ReviewPending: 1, Queued: 1}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			run := reviewApprovalRun{now: 123, head: ReviewApprovalHead{ParentVersion: 7, Progress: importprogress.Snapshot{State: "REVIEW_PENDING", Counts: test.counts}}}
+			run := reviewApprovalRun{now: 123, head: ReviewApprovalHead{
+				ParentVersion: 7,
+				Progress:      importprogress.Snapshot{State: "REVIEW_PENDING", Counts: test.counts},
+			}}
 			if err := run.projectAggregate(); err != nil {
 				t.Fatal(err)
 			}
-			if run.publication.Projection.State != test.want || run.head.Progress.Counts != test.counts || run.publication.ExpectedParentVersion != 7 || run.publication.ExpectedPending != test.counts.ReviewPending {
+			if run.publication.Projection.State != test.want ||
+				run.head.Progress.Counts != test.counts || run.publication.ExpectedParentVersion != 7 ||
+				run.publication.ExpectedPending != test.counts.ReviewPending {
 				t.Fatalf("projection=%+v head=%+v", run.publication, run.head.Progress)
 			}
 		})
@@ -129,4 +143,17 @@ func TestReviewApprovalRejectsInvalidParentBeforePublication(t *testing.T) {
 			t.Fatalf("head=%+v err=%v", head, err)
 		}
 	}
+}
+
+func testApprovalLoad(ctx context.Context, repo *approvalScopeStub,
+	request ReviewApprovalRequest,
+) error {
+	err := repo.WithApproval(ctx, func(scope ReviewApprovalScope) error {
+		return (&reviewApprovalRun{ctx: ctx, scope: scope, request: request}).load()
+	})
+	return err
+}
+
+func (stub *approvalScopeStub) PendingPublications(context.Context) ([]ReviewApprovalRequest, error) {
+	return nil, nil
 }

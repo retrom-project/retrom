@@ -90,7 +90,7 @@ func (builder *rpgContentPlanBuilder) add(
 	}
 	builder.seen[logicalName] = struct{}{}
 	builder.locked = append(builder.locked, PreviewFile{
-		BlobID: file.BlobID, LogicalName: logicalName,
+		FileRecord: file.FileRecord, LogicalName: logicalName,
 	})
 	return nil
 }

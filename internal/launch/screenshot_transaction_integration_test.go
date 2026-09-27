@@ -20,13 +20,13 @@ import (
 )
 
 type screenshotStored struct {
-	ID, PreviewID, ValidationID, BlobID       string
+	ID, PreviewID, ValidationID, FileRecord   string
 	Width, Height, Captured, Created, Updated int64
 }
 
 func screenshotRecords(t *testing.T, database dbapi.DB) []screenshotStored {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `SELECT id,preview_session_id,validation_id,blob_id,
+	rows, err := database.QueryContext(t.Context(), `SELECT id,preview_session_id,validation_id,file_record,
 width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms FROM review_runtime_screenshots ORDER BY id`)
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms FROM review_runtim
 	var records []screenshotStored
 	for rows.Next() {
 		var record screenshotStored
-		if err := rows.Scan(&record.ID, &record.PreviewID, &record.ValidationID, &record.BlobID,
+		if err := rows.Scan(&record.ID, &record.PreviewID, &record.ValidationID, &record.FileRecord,
 			&record.Width, &record.Height, &record.Captured, &record.Created, &record.Updated); err != nil {
 			t.Fatal(err)
 		}
@@ -58,14 +58,16 @@ func screenshotPNG(t *testing.T, size int) []byte {
 
 func TestScreenshotReplacementPreservesCreationAndRetiresPriorValidation(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
-	first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
+	first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(contents))
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := screenshotRecords(t, fixture.database)
 	seedOlderReviewScreenshot(t, fixture.database, first)
 	*fixture.now = fixture.now.Add(time.Second)
-	second, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
+	second, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,15 +76,17 @@ func TestScreenshotReplacementPreservesCreationAndRetiresPriorValidation(t *test
 		t.Fatalf("first=%+v second=%+v rows=%+v", first, second, after)
 	}
 	stored := after[0]
-	if stored.ID != second.ID || stored.BlobID == before[0].BlobID || stored.Width != 3 || stored.Height != 3 ||
-		stored.Created != before[0].Created || stored.Updated != fixture.now.UnixMilli() || stored.Captured != second.CapturedAtMS {
+	if stored.ID != second.ID || stored.FileRecord == before[0].FileRecord || stored.Width != 3 || stored.Height != 3 ||
+		stored.Created != before[0].Created || stored.Updated != fixture.now.UnixMilli() ||
+		stored.Captured != second.CapturedAtMS {
 		t.Fatalf("replacement before=%+v after=%+v", before, after)
 	}
 }
 
 func TestScreenshotLateWriteFailureRollsBackBlobAndPriorScreenshotDeletion(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
-	first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
+	first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(contents))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +94,8 @@ func TestScreenshotLateWriteFailureRollsBackBlobAndPriorScreenshotDeletion(t *te
 	before := screenshotRecords(t, fixture.database)
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE review_runtime_screenshots ADD COLUMN reject_new_width INTEGER NOT NULL DEFAULT 0 CHECK(width_px=2)`)
-	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
+	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result != (ReviewScreenshot{}) {
 		t.Fatalf("failed replacement result=%+v error=%v", result, err)
@@ -98,7 +103,8 @@ func TestScreenshotLateWriteFailureRollsBackBlobAndPriorScreenshotDeletion(t *te
 	after := screenshotRecords(t, fixture.database)
 	afterShots, afterBlobs := screenshotCounts(t, fixture.database)
 	if !reflect.DeepEqual(before, after) || afterShots != beforeShots || afterBlobs != beforeBlobs {
-		t.Fatalf("rollback before=%+v after=%+v counts=%d/%d want=%d/%d", before, after, afterShots, afterBlobs, beforeShots, beforeBlobs)
+		t.Fatalf("rollback before=%+v after=%+v counts=%d/%d want=%d/%d", before, after, afterShots,
+			afterBlobs, beforeShots, beforeBlobs)
 	}
 }
 
@@ -117,7 +123,8 @@ func TestScreenshotRechecksCurrentReviewEvidenceAfterImageRead(t *testing.T) {
 			screenshotReleasePayload(t, fixture)
 		}},
 		{"directory deleted", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
-			mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET deleted_at_ms=? WHERE id=(SELECT target_platform_instance_id FROM review_preview_sessions WHERE id=?)`, fixture.now.UnixMilli(), preview.PreviewID)
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET deleted_at_ms=? WHERE id=(SELECT target_platform_instance_id FROM
+review_preview_sessions WHERE id=?)`, fixture.now.UnixMilli(), preview.PreviewID)
 		}},
 		{"finished", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
 			mustRPGLaunchSQL(t, fixture.database, `UPDATE review_preview_sessions SET state='FINISHED',finished_at_ms=? WHERE id=?`, fixture.now.UnixMilli(), preview.PreviewID)
@@ -136,20 +143,25 @@ func TestScreenshotRechecksCurrentReviewEvidenceAfterImageRead(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			fixture, preview, contents := screenshotFixture(t)
-			first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
+			first, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+				preview.Capability, bytes.NewReader(contents))
 			if err != nil {
 				t.Fatal(err)
 			}
 			seedOlderReviewScreenshot(t, fixture.database, first)
 			before := screenshotRecords(t, fixture.database)
 			beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
-			reader := &screenshotHookReader{reader: bytes.NewReader(screenshotPNG(t, 3)), before: func() { test.change(t, fixture, preview) }}
+			reader := &screenshotHookReader{
+				reader: bytes.NewReader(screenshotPNG(t, 3)),
+				before: func() { test.change(t, fixture, preview) },
+			}
 			result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, reader)
 			if !errors.Is(err, ErrCredential) || result != (ReviewScreenshot{}) {
 				t.Fatalf("changed review evidence result=%+v error=%v", result, err)
 			}
 			afterShots, afterBlobs := screenshotCounts(t, fixture.database)
-			if !reflect.DeepEqual(before, screenshotRecords(t, fixture.database)) || afterShots != beforeShots || afterBlobs != beforeBlobs {
+			if !reflect.DeepEqual(before, screenshotRecords(t, fixture.database)) ||
+				afterShots != beforeShots || afterBlobs != beforeBlobs {
 				t.Fatal("changed review evidence retained new screenshot ownership")
 			}
 		})

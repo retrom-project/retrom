@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filedeletion"
+
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
@@ -59,7 +60,7 @@ WHERE import_job.id=?
 		return application.ReconfigurationSource{}, false, nil
 	}
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.blob_id
+SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.file_record
 FROM import_job_files import_file
 JOIN import_files upload_file ON upload_file.id=import_file.upload_file_id
 LEFT JOIN import_job_file_resolutions resolution
@@ -76,7 +77,7 @@ ORDER BY upload_file.relative_path,upload_file.id
 	defer func() { cleanup.Error("close reconfiguration files", rows.Close()) }()
 	for rows.Next() {
 		var file application.PreparedReusableUploadFile
-		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.BlobID); err != nil {
+		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.FileRecord); err != nil {
 			return application.ReconfigurationSource{}, false, fmt.Errorf(
 				"scan reconfiguration file: %w",
 				err,
@@ -113,9 +114,7 @@ SELECT state,version FROM import_jobs WHERE id=?
 		return fmt.Errorf("verify reconfiguration source: %w", err)
 	}
 	for _, metadata := range clone.Metadata {
-		if _, err := filecatalog.EnsureRecord(
-			ctx, transaction, metadata, "application/octet-stream", clone.NowMS,
-		); err != nil {
+		if _, err := filestore.FileRecord(metadata, "application/octet-stream"); err != nil {
 			return fmt.Errorf("register replacement upload file: %w", err)
 		}
 	}
@@ -149,24 +148,16 @@ VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 	for _, file := range files {
 		// Fresh programmatic inputs become this upload's files; already owned source
 		// inputs remain with their source owner until review preparation copies them.
-		if _, err := executor.ExecContext(
-			ctx,
-			`UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=? AND owner_kind='STAGING'
-AND retired_at_ms IS NULL`,
-			uploadID,
-			file.BlobID,
-		); err != nil {
-			return fmt.Errorf("adopt received file: %w", err)
-		}
+
 		fileID, err := uuid.NewV7()
 		if err != nil {
 			return fmt.Errorf("allocate cloned upload file ID: %w", err)
 		}
 		if _, err := recordstore.InsertRows(ctx, executor, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
-final_blob_id,state,created_at_ms,updated_at_ms)
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
-`, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.BlobID, now, now); err != nil {
+`, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.FileRecord, now, now); err != nil {
 			return fmt.Errorf("insert cloned upload file: %w", err)
 		}
 	}
@@ -199,9 +190,7 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	if consumptionCount != 0 {
 		return nil
 	}
-	if err := fileownership.RetireAll(
-		ctx, transaction, fileownership.Owner{Kind: "UPLOAD", ID: uploadID}, now,
-	); err != nil {
+	if err := filedeletion.QueuePath(ctx, transaction, "staging/uploads/"+uploadID, now); err != nil {
 		return fmt.Errorf("retire unused replacement upload: %w", err)
 	}
 	if _, err := recordstore.DeleteRows(

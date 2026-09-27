@@ -62,8 +62,8 @@ func (repository *ReviewApprovals) WithBulkApprovalStep(
 func BindReviewApproval(transaction dbapi.Tx) application.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return application.ReviewApprovalScope{
-		Payload: payloadpersistence.BindScheduling(transaction),
-		Reader:  records, Media: records, Validation: BindReviewValidation(transaction),
+		Publications: records, Payload: payloadpersistence.BindScheduling(transaction),
+		Reader: records, Media: records, Validation: BindReviewValidation(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
 		Tags: tagpersistence.Bind(transaction), Games: records, Variants: records, Decisions: records,
 		Bulk: records,

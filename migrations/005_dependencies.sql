@@ -3,7 +3,7 @@
 CREATE TABLE bios_installations (
   id TEXT PRIMARY KEY,
   requirement_id TEXT NOT NULL REFERENCES bios_requirements(id),
-  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  file_record TEXT,
   original_filename TEXT NOT NULL,
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -19,8 +19,8 @@ CREATE TABLE bios_installations (
 CHECK(source_kind IN ('BROWSER_UPLOAD','SERVER_DIRECTORY')), server_import_candidate_id TEXT REFERENCES server_bios_import_candidates(id),
   payload_released_at_ms INTEGER CHECK(payload_released_at_ms IS NULL OR payload_released_at_ms>=created_at_ms),
   CHECK(NOT (status = 'INVALID' AND is_active = 1)),
-  CHECK(is_active=0 OR blob_id IS NOT NULL),
-  CHECK((blob_id IS NULL)=(payload_released_at_ms IS NOT NULL))
+  CHECK(is_active=0 OR file_record IS NOT NULL),
+  CHECK((file_record IS NULL)=(payload_released_at_ms IS NOT NULL))
 );
 
 CREATE TABLE dat_machines (

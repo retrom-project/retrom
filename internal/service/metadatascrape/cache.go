@@ -95,7 +95,7 @@ func (service *LookupService) readCachedResponse(digest string) []byte {
 	if digest == "" {
 		return nil
 	}
-	file, err := service.blobs.OpenID(digest)
+	file, err := service.blobs.OpenRecord(digest)
 	if err != nil {
 		return nil
 	}

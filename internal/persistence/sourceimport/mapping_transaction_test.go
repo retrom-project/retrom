@@ -34,17 +34,24 @@ VALUES(?,'mapping-profile','mapping-admin','Mapping Admin','ADMIN','ENABLED',1,1
 	}
 	plan := creationPlan(0)
 	plan.ActorID = mappingActor
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error { _, err := writer.Insert(t.Context(), plan); return err }); err != nil {
+	if err := NewCreation(db).WithCreate(t.Context(),
+		func(writer application.CreationWriter) error {
+			_, err := writer.Insert(t.Context(),
+				plan)
+			return err
+		}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE source_imports SET state='AWAITING_MAPPING',phase=NULL,collection_count=1 WHERE id='import-0'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,game_count,created_at_ms,updated_at_ms)
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,
+game_count,created_at_ms,updated_at_ms)
 VALUES(?,'import-0','metadata.pegasus.txt',0,'Collection',0,1,1)`, mappingCollection); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(t.Context(), `INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,
+updated_at_ms)
 VALUES(?,'Tag','tag','tag','ACTIVE',?,?,1,1)`, mappingTag, mappingActor, mappingActor); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +65,10 @@ VALUES(?,?,?,1)`, mappingCollection, mappingTag, mappingActor); err != nil {
 func mappingRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, table := range []string{"source_imports", "source_import_collections", "source_collection_tags", "tags", "audit_events"} {
+	for _, table := range []string{
+		"source_imports", "source_import_collections",
+		"source_collection_tags", "tags", "audit_events",
+	} {
 		result[table] = workflowTable(t, db, table)
 	}
 	return result
@@ -83,8 +93,14 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := mappingRows(t, db)
 	cause := errors.New("late mapping failure")
-	service := application.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
-	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
+	service := application.NewMappings(failingMappingCommit{
+		repository: NewMappings(db),
+		cause:      cause,
+	}, tagging.New(tagrepository.New(db), time.Now),
+		func() time.Time { return time.UnixMilli(10) })
+	value, err := service.Update(t.Context(), "import-0", 1,
+		[]application.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}},
+		mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
 	}
@@ -103,11 +119,16 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		refs, err := tags.ReplaceSourceCollectionTags(t.Context(), scope.Tags, mappingCollection, []string{}, mappingActor, 10)
+		refs, err := tags.ReplaceSourceCollectionTags(t.Context(), scope.Tags, mappingCollection,
+			[]string{}, mappingActor, 10)
 		if err != nil {
 			return err
 		}
-		if err := scope.Write.Put(t.Context(), application.CollectionMapping{ImportID: "import-0", Mapping: application.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, Tags: refs, NowMS: 10}); err != nil {
+		if err := scope.Write.Put(t.Context(), application.CollectionMapping{
+			ImportID: "import-0",
+			Mapping:  application.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, Tags: refs,
+			NowMS: 10,
+		}); err != nil {
 			return err
 		}
 		before.Version++
@@ -125,8 +146,13 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	instance := seedMappingTarget(t, db)
-	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
-	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}}, mappingActor)
+	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db),
+		time.Now), func() time.Time { return time.UnixMilli(10) })
+	value, err := service.Update(t.Context(), "import-0", 1,
+		[]application.Mapping{{
+			CollectionID: mappingCollection, Action: "IMPORT",
+			PlatformInstanceID: instance, TagIDs: []string{mappingTag},
+		}}, mappingActor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,11 +160,14 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 		t.Fatalf("import mapping: %#v", value)
 	}
 	assertStoredMappingTarget(t, db, instance)
-	value, err = service.Update(t.Context(), "import-0", 2, []application.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
+	value, err = service.Update(t.Context(), "import-0", 2,
+		[]application.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}},
+		mappingActor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.Version != 3 || value.MappingVersion != 3 || value.Counts.MappedCollections != 0 || value.Counts.SkippedCollections != 1 {
+	if value.Version != 3 || value.MappingVersion != 3 || value.Counts.MappedCollections != 0 ||
+		value.Counts.SkippedCollections != 1 {
 		t.Fatalf("skip mapping: %#v", value)
 	}
 	var cleared bool
@@ -179,7 +208,8 @@ func assertStoredMappingTarget(t *testing.T, db dbapi.DB, instance string) {
 	var exact bool
 	var tagID string
 	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT collection.target_platform_instance_id=instance.id
-AND collection.target_platform_instance_version=instance.version AND collection.target_platform_id=instance.platform_id
+AND collection.target_platform_instance_version=instance.version AND
+collection.target_platform_id=instance.platform_id
 AND collection.target_default_core_id=instance.default_core_id
 AND EXISTS(SELECT 1 FROM runtime_target_bindings binding WHERE binding.core_id=instance.default_core_id
 AND binding.provider_id=collection.target_provider_id AND binding.target_id=collection.target_id),
@@ -201,8 +231,13 @@ func TestMappingsRejectDisabledTargetWithoutClearingTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := mappingRows(t, db)
-	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
-	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
+	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db),
+		time.Now), func() time.Time { return time.UnixMilli(10) })
+	value, err := service.Update(t.Context(), "import-0", 1,
+		[]application.Mapping{{
+			CollectionID: mappingCollection, Action: "IMPORT",
+			PlatformInstanceID: instance, TagIDs: []string{},
+		}}, mappingActor)
 	if !errors.Is(err, application.ErrInvalid) || value.ID != "" {
 		t.Fatalf("disabled mapping: %#v %v", value, err)
 	}

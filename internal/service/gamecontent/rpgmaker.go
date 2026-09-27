@@ -52,7 +52,7 @@ func (index rpgReplacementIndex) Open(logicalPath string) (io.ReadCloser, error)
 	if !exists {
 		return nil, os.ErrNotExist
 	}
-	reader, err := index.blobs.OpenID(digest)
+	reader, err := index.blobs.OpenRecord(digest)
 	if err != nil {
 		return nil, fmt.Errorf("open RPG replacement file: %w", err)
 	}
@@ -133,7 +133,7 @@ func (service *Service) detectRPGMakerReplacement(
 		detectionIndex.sourceFiles = append(detectionIndex.sourceFiles, detector.File{
 			Path: projectFile.Path, Size: projectFile.SizeBytes,
 		})
-		detectionIndex.fileIDs[projectFile.Path] = source.BlobID
+		detectionIndex.fileIDs[projectFile.Path] = source.FileRecord
 	}
 	profile, err := detector.Detect(detector.VirtualCoreID, detectionIndex)
 	if err != nil {
@@ -154,13 +154,13 @@ func buildRPGMakerReplacementFiles(
 	for index, projectFile := range projectFiles {
 		source := files[projectFile.SourceIndex]
 		replacement.Files = append(replacement.Files, ReplacementFile{
-			Role: "PROJECT_FILE", LogicalName: projectFile.Path, BlobID: source.BlobID,
+			Role: "PROJECT_FILE", LogicalName: projectFile.Path, FileRecord: source.FileRecord,
 			SHA256: source.SHA256, SizeBytes: source.SizeBytes, SortOrder: index,
 		})
-		digest := source.BlobID
+		digest := source.FileRecord
 		materializerSources = append(materializerSources, materializer.SourceFile{
 			Path: projectFile.Path, Size: source.SizeBytes,
-			Open: func() (io.ReadCloser, error) { return blobs.OpenID(digest) },
+			Open: func() (io.ReadCloser, error) { return blobs.OpenRecord(digest) },
 		})
 		manifestFiles = append(manifestFiles, contentmanifest.File{
 			Role: "PROJECT_FILE", LogicalName: projectFile.Path,

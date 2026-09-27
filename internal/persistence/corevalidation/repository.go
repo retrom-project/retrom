@@ -58,7 +58,7 @@ func (repository *Repository) BIOS(ctx context.Context, providerID, targetID str
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT q.id,q.version,q.catalog_digest,q.logical_name,q.requirement_mode,q.condition_code,
        q.delivery_kind,q.emulator_path,q.activation_options_json,
-       i.id,i.version,i.blob_id,i.status
+       i.id,i.version,i.file_record,i.status
 FROM bios_requirements q
 LEFT JOIN bios_installations i ON i.requirement_id=q.id AND i.is_active=1
 WHERE q.provider_id=? AND q.target_id=? AND q.source_kind='STATIC' AND q.enabled=1
@@ -86,13 +86,13 @@ ORDER BY q.logical_name,q.id
 func scanBIOSDependency(rows dbapi.Scanner) (service.BIOSRecord, error) {
 	var dependency corevalidation.BIOSDependency
 	var condition, emulatorPath, optionsJSON sql.NullString
-	var installationID, blobID, installationStatus sql.NullString
+	var installationID, fileRecord, installationStatus sql.NullString
 	var installationVersion sql.NullInt64
 	if err := rows.Scan(
 		&dependency.RequirementID, &dependency.RequirementVersion,
 		&dependency.CatalogDigest, &dependency.LogicalName, &dependency.RequirementMode,
 		&condition, &dependency.DeliveryKind, &emulatorPath, &optionsJSON,
-		&installationID, &installationVersion, &blobID, &installationStatus,
+		&installationID, &installationVersion, &fileRecord, &installationStatus,
 	); err != nil {
 		return service.BIOSRecord{}, fmt.Errorf("corevalidation/bios: %w", err)
 	}
@@ -101,7 +101,7 @@ func scanBIOSDependency(rows dbapi.Scanner) (service.BIOSRecord, error) {
 	dependency.EmulatorPath = nullableString(emulatorPath)
 	dependency.InstallationID = nullableString(installationID)
 	dependency.InstallationVersion = nullableInt64(installationVersion)
-	dependency.BlobID = nullableString(blobID)
+	dependency.FileRecord = nullableString(fileRecord)
 	dependency.InstallationStatus = nullableString(installationStatus)
 	return service.BIOSRecord{Dependency: dependency, ActivationOptions: nullableString(optionsJSON)}, nil
 }

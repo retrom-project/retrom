@@ -18,13 +18,12 @@ func ValidateReviewRuntimeScreenshots(ctx context.Context, db dbapi.Executor, ke
 }
 
 func UpsertReviewRuntimeScreenshots(
-	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return upsertRecords(
 		ctx,
 		db,
 		"review_runtime_screenshots",
-		scope,
 		query,
 		args,
 		"id",

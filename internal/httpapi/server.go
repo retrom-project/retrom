@@ -28,7 +28,6 @@ import (
 	jobpersistence "retrom/internal/persistence/jobs"
 
 	immersivepersistence "retrom/internal/persistence/immersive"
-	storagepersistence "retrom/internal/persistence/storageanalysis"
 
 	tagpersistence "retrom/internal/persistence/tagging"
 
@@ -72,7 +71,6 @@ import (
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
 	"retrom/internal/service/sourceimport"
-	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
 )
@@ -147,7 +145,6 @@ type Server struct {
 	sourceImports           *sourceimport.Service
 	cleanupJobs             *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
-	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration
 	idempotency             sync.Mutex
@@ -180,7 +177,6 @@ func (server *Server) WithReadinessDatabase(database dbapi.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
 		server.readinessService = composition.NewReadiness(database)
-		server.storageAnalysis = storageanalysis.New(storagepersistence.New(database), server.now)
 	}
 	return server
 }
@@ -269,13 +265,13 @@ func New(
 		platformDirectories: platforminstance.New(platformpersistence.New(database), now),
 		metadata:            scraper,
 		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithFileStore(blobs).
-			WithCleanup(payloadReleaseService).WithDeletionStager(payloadReleaseService).
+			WithCleanup(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		gameImpact:         gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
 		gameListService:    composition.NewGameList(database),
 		homeService:        composition.NewHome(database, tagService),
 		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),
-		gameMetadata:       composition.NewGameMetadata(database, payloadReleaseService, now),
+		gameMetadata:       composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
 		saveService:        saves.New(savepersistence.New(database), blobs, now),
 		rpgIsolation:       isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
 		favoriteService:    favorites.New(favoritepersistence.New(database), now),
@@ -289,7 +285,7 @@ func New(
 	server.reviewDetails = composition.NewLibraryReviewDetails(database)
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
-	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
+	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now, blobs)
 	server.importAdmissions = composition.NewLibraryImportAdmissions(
 		database, importer, libraryservice.ImportAdmissionOptions{
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
@@ -503,8 +499,6 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply", server.applyGameScrapeCandidate},
 		{"POST /api/v1/admin/games/{gameId}/move-preview", server.previewGameMove},
 		{"POST /api/v1/admin/games/{gameId}/move", server.moveGame},
-		{"GET /api/v1/admin/storage-analysis", server.adminStorageAnalysis},
-		{"POST /api/v1/admin/storage-cleanups", server.adminStorageCleanup},
 	}
 	for _, route := range routes {
 		mux.HandleFunc(route.pattern, route.handler)

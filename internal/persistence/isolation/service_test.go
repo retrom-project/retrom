@@ -181,14 +181,15 @@ CREATE TABLE launch_content_files(
  launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE review_preview_sessions(
- actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
+ actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,
+content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
- ticket_sha256 STORED_FILE,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ ticket_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  expires_at_ms INTEGER,consumed_at_ms INTEGER
 );
 CREATE TABLE isolated_runtime_capabilities(
- credential_sha256 STORED_FILE,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ credential_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  issued_at_ms INTEGER,expires_at_ms INTEGER,revoked_at_ms INTEGER
 );`); err != nil {
 		t.Fatal(err)
@@ -212,7 +213,8 @@ CREATE TABLE isolated_runtime_capabilities(
 			query     string
 			arguments []any
 		}{
-			{`INSERT INTO review_preview_sessions(id,state,hard_expires_at_ms,content_format) VALUES(?,'ACTIVE',?,'TYRANOSCRIPT_PROJECT')`, []any{launchID, nowMS + 120_000}},
+			{`INSERT INTO review_preview_sessions(id,state,hard_expires_at_ms,content_format) VALUES(?,'ACTIVE',?,
+'TYRANOSCRIPT_PROJECT')`, []any{launchID, nowMS + 120_000}},
 			{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,NULL,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 		}
 	}

@@ -45,13 +45,13 @@ func assertPendingReviewSurvivesSourceDeletion(t *testing.T, database dbapi.DB, 
 
 	var sourceFiles, pendingReviews, transportHistory, failedJobs int
 	err = dbapi.QueryRowContext(t.Context(), database, `SELECT
- (SELECT count(*) FROM stored_files WHERE owner_kind='SOURCE_IMPORT_ITEM'),
+ (SELECT count(*) FROM source_import_item_files WHERE file_record IS NOT NULL),
  (SELECT count(*) FROM import_items WHERE state='REVIEW_PENDING' AND payload_state='RETAINED'),
  (SELECT count(*) FROM upload_files u JOIN import_files i ON i.id=u.id
-  WHERE u.state='PURGED' AND u.final_blob_id IS NULL AND i.blob_id IS NULL),
- (SELECT count(*) FROM jobs WHERE kind IN ('OWNER_CLEANUP','FILE_DELETE') AND state='FAILED')`).
+  WHERE u.state='PURGED' AND u.final_file_record IS NULL AND i.file_record IS NULL),
+ (SELECT count(*) FROM jobs WHERE kind IN ('OWNER_CLEANUP','PATH_DELETE') AND state='FAILED')`).
 		Scan(&sourceFiles, &pendingReviews, &transportHistory, &failedJobs)
-	if err != nil || sourceFiles != 0 || pendingReviews != 2 || transportHistory != len(sourceIDs) || failedJobs != 0 {
+	if err != nil || sourceFiles != 0 || pendingReviews != 2 || transportHistory != 0 || failedJobs != 0 {
 		t.Fatalf("Source deletion: files=%d reviews=%d history=%d failed=%d error=%v",
 			sourceFiles, pendingReviews, transportHistory, failedJobs, err)
 	}
@@ -59,7 +59,14 @@ func assertPendingReviewSurvivesSourceDeletion(t *testing.T, database dbapi.DB, 
 
 func ownedSourceTestFiles(t *testing.T, database dbapi.DB, kind string) []string {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `SELECT id FROM stored_files WHERE owner_kind=?`, kind)
+	query := `SELECT file_record FROM source_import_item_files WHERE file_record IS NOT NULL UNION SELECT file_record
+FROM source_import_item_assets WHERE file_record IS NOT NULL UNION SELECT file_record FROM
+source_import_item_companions WHERE file_record IS NOT NULL`
+	if kind == "IMPORT_ITEM" {
+		query = `SELECT file_record FROM import_item_source_files WHERE file_record IS NOT NULL UNION SELECT file_record
+FROM import_item_assets WHERE file_record IS NOT NULL`
+	}
+	rows, err := database.QueryContext(t.Context(), query)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,22 +94,27 @@ func TestSourceRetirementRollsBackReceivedInputsOnOwnerWriteFailure(t *testing.T
 	seedHandoffMedia(t, service)
 	database := service.database
 	mustExecSourceTest(t.Context(), t, database, `INSERT INTO upload_files
- (id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
- VALUES('received-source','handoff-upload','rom.gba',4,4,'handoff-media','COMPLETE',1,1);
- INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
- VALUES('received-source','handoff-upload','rom.gba','handoff-media',4,1)`)
+ (id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_file_record,state,
+created_at_ms,updated_at_ms)
+ VALUES('received-source','018fbe68-0000-7000-8000-000000000013','rom.gba',4,4,'handoff-media',
+'COMPLETE',1,1);
+ INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms)
+ VALUES('received-source','018fbe68-0000-7000-8000-000000000013','rom.gba','handoff-media',4,1)`)
 	transaction, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(transaction)
 	_, err = sourcerelease.Change(t.Context(), transaction, recordstore.Update{
-		Set: "payload_state='INVALID'", Scope: recordstore.Scope{Where: "id=?", Args: []any{"item"}},
+		Set: "payload_state='INVALID'", Scope: recordstore.Scope{
+			Where: "id=?",
+			Args:  []any{"018fbe68-0000-7000-8000-000000000010"},
+		},
 	}, application.EffectOwnerChange{
 		Before: application.EffectOwner{
 			Owner: application.Owner{
-				Scope: application.Scope{Type: application.ScopeSourceImportItem, ID: "item"},
-				State: "VALIDATING", PublicID: "handoff-item",
+				Scope: application.Scope{Type: application.ScopeSourceImportItem, ID: "018fbe68-0000-7000-8000-000000000010"},
+				State: "VALIDATING", PublicID: "018fbe68-0000-7000-8000-000000000011",
 			}, ParentID: "import",
 		}, Released: true, NowMS: 100,
 	})
@@ -115,9 +127,9 @@ func TestSourceRetirementRollsBackReceivedInputsOnOwnerWriteFailure(t *testing.T
 	var complete, retained int
 	err = dbapi.QueryRowContext(t.Context(), database, `SELECT
  (SELECT count(*) FROM upload_files u JOIN import_files i ON i.id=u.id
-  WHERE u.id='received-source' AND u.state='COMPLETE' AND u.final_blob_id=i.blob_id
+  WHERE u.id='received-source' AND u.state='COMPLETE' AND u.final_file_record=i.file_record
   AND u.payload_released_at_ms IS NULL AND i.released_at_ms IS NULL),
- (SELECT count(*) FROM stored_files WHERE id='handoff-media' AND retired_at_ms IS NULL)`).Scan(&complete, &retained)
+ (SELECT count(*) FROM source_import_item_assets WHERE kind='COVER' AND file_record IS NOT NULL)`).Scan(&complete, &retained)
 	if err != nil || complete != 1 || retained != 1 {
 		t.Fatalf("failed Source release committed transport or retirement: complete=%d retained=%d error=%v", complete, retained, err)
 	}

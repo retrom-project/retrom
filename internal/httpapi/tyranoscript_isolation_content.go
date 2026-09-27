@@ -191,7 +191,7 @@ func (server *Server) tyranoScriptRuntimeProject(
 		server.serveTyranoScriptConfig(writer, request, content)
 		return
 	}
-	server.serveRPGBlob(writer, request, content.BlobID, content.Digest, mediaType, "private, no-store")
+	server.serveRPGBlob(writer, request, content.FileRecord, content.Digest, mediaType, "private, no-store")
 }
 
 func tyranoScriptProjectLogicalName(requestPath string) (string, bool) {

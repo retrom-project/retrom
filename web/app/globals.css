@@ -23,7 +23,6 @@
 @import "../features/player/player.css" layer(app);
 @import "../features/player/game-editor.css" layer(app);
 @import "../features/tags/tags.css" layer(app);
-@import "../features/storage-analysis/storage-analysis.css" layer(app);
 @import "../styles/responsive.css" layer(app);
 @import "../features/home/home-wide.css" layer(app);
 @import "../styles/mobile.css" layer(app);

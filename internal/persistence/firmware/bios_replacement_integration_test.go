@@ -14,24 +14,23 @@ import (
 )
 
 func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database dbapi.DB,
-	releases *cleanupjobs.Service, lifecycle firmwareReplacementLifecycle, blobID, installationID string,
+	releases *cleanupjobs.Service, lifecycle firmwareReplacementLifecycle, fileRecord, installationID string,
 ) {
 	t.Helper()
 	finishFirmwareReleaseJobs(t, ctx, releases)
 	testassert.False(t, releases.ReconcileDeletion(ctx) != nil, "reconcile retired BIOS")
 	var oldBlob sql.NullString
 	var released sql.NullInt64
-	err := dbapi.QueryRowContext(ctx, database, `SELECT blob_id,payload_released_at_ms FROM bios_installations WHERE id=?`, installationID).Scan(&oldBlob, &released)
+	err := dbapi.QueryRowContext(ctx, database, `SELECT file_record,payload_released_at_ms FROM bios_installations WHERE id=?`, installationID).Scan(&oldBlob, &released)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, !oldBlob.Valid && released.Valid, "retired installation still owns payload")
-	var refs, candidates, blobs int
+	var refs, candidates int
 	err = dbapi.QueryRowContext(ctx, database, `SELECT
- (SELECT count(*) FROM launch_external_files WHERE launch_session_id=? AND blob_id=?),
- (SELECT count(*) FROM file_deletions WHERE blob_id=?),
- (SELECT count(*) FROM stored_files WHERE id=?)`, lifecycle.launchID, blobID, blobID, blobID).Scan(&refs, &candidates, &blobs)
+ (SELECT count(*) FROM launch_external_files WHERE launch_session_id=? AND file_record=?),
+ (SELECT count(*) FROM job_input_snapshots WHERE json_extract(input_json,'$.inputs.relativePath')=?)`, lifecycle.launchID, fileRecord, "bios/"+installationID).Scan(&refs, &candidates)
 	testassert.False(t, err != nil, err)
-	testassert.Truef(t, refs == 0 && (blobs == 0 || candidates == 1),
-		"replaced BIOS remained unqueued: launch refs=%d, DeletionQueue candidates=%d, blobs=%d", refs, candidates, blobs)
+	testassert.Truef(t, refs == 0 && candidates == 1,
+		"replaced BIOS remained unqueued: launch refs=%d, DeletionQueue candidates=%d", refs, candidates)
 	var saves int
 	err = dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM save_states WHERE id=?`, lifecycle.saveID).Scan(&saves)
 	testassert.False(t, err != nil, err)

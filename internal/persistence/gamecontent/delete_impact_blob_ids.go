@@ -6,13 +6,16 @@ import (
 	dbapi "retrom/internal/database"
 )
 
-func gameImpactBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
+func gameImpactFileRecords(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
 	ids, err := dbapi.QueryStrings(
 		ctx,
 		transaction,
-		`SELECT id FROM stored_files WHERE (owner_kind='GAME' AND owner_id=?1)
- OR (owner_kind='SAVE_STATE' AND owner_id IN(SELECT id FROM save_states WHERE game_id=?1))
- OR (owner_kind='SCRAPE_RUN' AND owner_id IN(SELECT id FROM metadata_scrape_runs WHERE game_id=?1)) ORDER BY id`,
+		`SELECT file_record FROM game_files WHERE game_id=?1
+UNION SELECT file_record FROM game_assets WHERE game_id=?1
+UNION SELECT f.file_record FROM variant_files f JOIN game_variants v ON v.id=f.game_variant_id
+ WHERE v.game_id=?1 AND f.role<>'BIOS_BUNDLE'
+UNION SELECT payload_file_record FROM save_states WHERE game_id=?1 AND payload_file_record IS NOT NULL
+UNION SELECT screenshot_file_record FROM save_states WHERE game_id=?1 AND screenshot_file_record IS NOT NULL`,
 		gameID,
 	)
 	if err != nil {

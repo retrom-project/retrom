@@ -16,10 +16,11 @@ func (records *ReviewDependencies) MultiDiscSource(
 ) (application.MultiDiscSource, error) {
 	var result application.MultiDiscSource
 	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT file.logical_name,blob.size_bytes,blob.sha256,
+SELECT file.logical_name,json_extract(blob.value, '$.size_bytes'),json_extract(blob.value, '$.sha256'),
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxTotalBytes'),?)
-FROM import_item_source_snapshot_files file JOIN stored_files blob ON blob.id=file.blob_id
+FROM import_item_source_snapshot_files file JOIN json_each(json_array(file.file_record)) blob ON
+blob.value IS NOT NULL
 JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
 JOIN import_items item ON item.id=snapshot.import_item_id JOIN import_jobs job ON job.id=item.import_job_id
 WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
@@ -35,9 +36,11 @@ WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
 	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.ordinal,entry.source_reference,entry.canonical_name,entry.state,
-entry.source_logical_name,blob.size_bytes,blob.sha256 FROM import_item_multidisc_entries
+entry.source_logical_name,json_extract(blob.value, '$.size_bytes'),json_extract(blob.value, '$.sha256')
+FROM import_item_multidisc_entries
 entry
-LEFT JOIN stored_files blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=?
+LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
+entry.source_snapshot_id=?
 ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return application.MultiDiscSource{}, fmt.Errorf("query review discs: %w", err)

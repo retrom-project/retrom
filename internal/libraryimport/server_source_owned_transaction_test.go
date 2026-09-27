@@ -27,7 +27,10 @@ func (connector sourceFaultConnector) Connect(context.Context) (driver.Conn, err
 	if err != nil {
 		return nil, err
 	}
-	return &sourceFaultConnection{Conn: conn, phase: connector.phase, cause: connector.cause, beforeCreation: connector.beforeCreation}, nil
+	return &sourceFaultConnection{
+		Conn: conn, phase: connector.phase, cause: connector.cause,
+		beforeCreation: connector.beforeCreation,
+	}, nil
 }
 
 type sourceFaultConnection struct {
@@ -58,8 +61,11 @@ func (connection *sourceFaultConnection) BeginTx(ctx context.Context, options dr
 	return sourceFaultTransaction{Tx: tx, connection: connection}, nil
 }
 
-func (connection *sourceFaultConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	binding := strings.HasPrefix(query, "UPDATE source_import_items SET") && strings.Contains(query, "library_import_job_id=")
+func (connection *sourceFaultConnection) ExecContext(ctx context.Context, query string,
+	args []driver.NamedValue,
+) (driver.Result, error) {
+	binding := strings.HasPrefix(query, "UPDATE source_import_items SET") &&
+		strings.Contains(query, "library_import_job_id=")
 	if binding {
 		connection.bound = true
 		switch connection.phase {
@@ -105,7 +111,10 @@ func TestOwnedSourceRollsBackImportAndBindingOnTransactionFailure(t *testing.T) 
 			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
 				t.Fatal(err)
 			}
-			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{path: path, phase: phase, cause: cause}, dbsqlite.Options{})
+			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{
+				path: path, phase: phase,
+				cause: cause,
+			}, dbsqlite.Options{})
 			intercepted.SetMaxOpenConns(1)
 			t.Cleanup(func() {
 				if err := intercepted.Close(); err != nil {
@@ -132,7 +141,7 @@ func assertOwnedCreationRolledBack(t *testing.T, fixture deduplicateFixture) {
 	var version, imports, items, drafts int
 	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT execution_state,COALESCE(library_import_job_id,''),COALESCE(library_import_item_id,''),version,
 (SELECT count(*) FROM import_jobs),(SELECT count(*) FROM import_items),(SELECT count(*) FROM import_items)
-FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
+FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000021'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COPYING" || jobID != "" || itemID != "" || version != 1 || imports != 0 || items != 0 || drafts != 0 {

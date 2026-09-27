@@ -43,7 +43,7 @@ type BIOSDependency struct {
 	ActivationOptions   map[string]string `json:"activationOptions"`
 	InstallationID      *string           `json:"installationId"`
 	InstallationVersion *int64            `json:"installationVersion"`
-	BlobID              *string           `json:"blobId"`
+	FileRecord          *string           `json:"fileRecord"`
 	InstallationStatus  *string           `json:"installationStatus"`
 }
 

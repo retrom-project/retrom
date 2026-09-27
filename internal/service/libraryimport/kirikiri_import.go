@@ -113,11 +113,11 @@ func (service *ImportPreparation) prepareKiriKiriArchive(
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, PreparedSource{
 			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
-			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
+			ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 		})
 	}
 	return sourceDisposition(file), newKiriKiriGroup(sources, profile, file.Path), PreparedArchive{
-		BlobID: file.BlobID, Entries: entries, Materialized: materialized,
+		FileRecord: file.FileRecord, Entries: entries, Materialized: materialized,
 	}, nil
 }
 

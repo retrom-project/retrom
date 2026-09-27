@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
@@ -22,6 +23,7 @@ func NewRecorder(repository ResultRepository, blobs AssetBlobs, now func() time.
 }
 
 type preparedRaw struct {
+	id   string
 	blob *filestore.Metadata
 }
 
@@ -54,10 +56,17 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	if err != nil {
 		return false, err
 	}
-	blob, err := recorder.prepareRaw(attempt.Lookup)
+	blob, err := recorder.prepareRaw(ctx, attempt.Lookup)
 	if err != nil {
 		return false, err
 	}
+	committed := false
+	defer func() {
+		if !committed && blob.id != "" {
+			cleanup.Error("remove uncommitted provider response",
+				recorder.blobs.RemovePath(context.WithoutCancel(ctx), "responses/"+blob.id))
+		}
+	}()
 	now := recorder.now().UnixMilli()
 	created := false
 	err = recorder.repository.WithWrite(ctx, func(scope ResultScope) error {
@@ -70,7 +79,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 		if !writable {
 			return ErrExecutionLost
 		}
-		responseID, source, err := recordResponse(ctx, scope.Write, attempt.Lookup, blob.blob, now)
+		responseID, source, err := recordResponse(ctx, scope.Write, attempt.Lookup, blob, now)
 		if err != nil {
 			return err
 		}
@@ -94,10 +103,11 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	if err != nil {
 		return false, fmt.Errorf("commit scrape result: %w", err)
 	}
+	committed = true
 	return created, nil
 }
 
-func (recorder *ResultRecorder) prepareRaw(lookup ResolvedLookup) (preparedRaw, error) {
+func (recorder *ResultRecorder) prepareRaw(ctx context.Context, lookup ResolvedLookup) (preparedRaw, error) {
 	if lookup.CachedResponseID != "" || len(lookup.Result.RawResponse) == 0 {
 		return preparedRaw{}, nil
 	}
@@ -105,26 +115,41 @@ func (recorder *ResultRecorder) prepareRaw(lookup ResolvedLookup) (preparedRaw, 
 	if err != nil {
 		return preparedRaw{}, fmt.Errorf("store raw scrape response: %w", err)
 	}
-	return preparedRaw{blob: &blob}, nil
+	id, err := scheduleID()
+	if err != nil {
+		return preparedRaw{}, err
+	}
+	blob, err = recorder.blobs.CopyTo(ctx, blob.Record, "responses/"+id, "response")
+	if err != nil {
+		cleanup.Error("remove incomplete provider response",
+			recorder.blobs.RemovePath(context.WithoutCancel(ctx), "responses/"+id))
+		return preparedRaw{}, fmt.Errorf("prepare raw: %w", err)
+	}
+	return preparedRaw{id: id, blob: &blob}, nil
 }
 
 func recordResponse(
 	ctx context.Context,
 	writer ResultWriter,
 	lookup ResolvedLookup,
-	blob *filestore.Metadata,
+	prepared preparedRaw,
 	now int64,
 ) (string, string, error) {
 	if lookup.CachedResponseID != "" {
 		return lookup.CachedResponseID, "CACHE", nil
 	}
-	id, err := scheduleID()
-	if err != nil {
-		return "", "", err
+	id := prepared.id
+	if id == "" {
+		var err error
+		id, err = scheduleID()
+		if err != nil {
+			return "", "", err
+		}
 	}
 	result := lookup.Result
-	err = writer.Response(ctx, ResponseRecord{
-		ID: id, RequestDigest: result.RequestDigest, Outcome: result.Outcome, HTTPStatus: result.HTTPStatus, Blob: blob,
+	err := writer.Response(ctx, ResponseRecord{
+		ID: id, RequestDigest: result.RequestDigest, Outcome: result.Outcome,
+		HTTPStatus: result.HTTPStatus, Blob: prepared.blob,
 		Cacheable: result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss,
 		Now:       now, ExpiresAt: ResponseExpiry(
 			result.Outcome,

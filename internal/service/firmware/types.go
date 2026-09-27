@@ -29,6 +29,7 @@ type ArchiveInspection struct {
 }
 
 type ServerInstallRequest struct {
+	InstallationID     string
 	ServerImportID     string
 	JobID              string
 	WorkerID           string

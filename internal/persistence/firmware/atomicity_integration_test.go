@@ -5,20 +5,18 @@ package firmware
 import (
 	"testing"
 
+	"retrom/internal/testsupport"
+
 	dbapi "retrom/internal/database"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
 func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 	database, _, now := retirementFixture(t)
-	seedRetiringInstallation(t, database, "previous", 1, now)
+	seedRetiringInstallation(t, database, "018fbe68-0000-7000-8000-000000000033", 1, now)
 	var requirementID string
-	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT requirement_id FROM bios_installations WHERE id='previous'`).
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT requirement_id FROM bios_installations WHERE id='018fbe68-0000-7000-8000-000000000033'`).
 		Scan(&requirementID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.ExecContext(t.Context(), `INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
-SELECT 'replacement-file',sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,'UPLOAD','missing-upload' FROM stored_files WHERE owner_kind='BIOS_INSTALLATION' AND owner_id='previous'`); err != nil {
 		t.Fatal(err)
 	}
 	created := false
@@ -31,8 +29,10 @@ SELECT 'replacement-file',sha256,size_bytes,md5,sha1,crc32,media_type,created_at
 			return err
 		}
 		if err := scope.Installations.Create(t.Context(), firmwareservice.InstallationWrite{
-			ID: "replacement", RequirementID: requirementID, BlobID: "replacement-file", UploadSessionID: "missing-upload", Filename: active.Filename,
-			Size: active.Size, MD5: active.MD5, SHA1: active.SHA1, SHA256: active.SHA256,
+			ID: "replacement", RequirementID: requirementID,
+			FileRecord: testsupport.FileMetadata("replacement").Record, UploadSessionID: "missing-upload",
+			Filename: active.Filename,
+			Size:     active.Size, MD5: active.MD5, SHA1: active.SHA1, SHA256: active.SHA256,
 			Status: active.Status, RequirementVersion: active.ValidatedVersion, DetailsJSON: []byte(`{}`),
 			AtMS: now, SourceKind: "BROWSER_UPLOAD",
 		}); err != nil {
@@ -48,9 +48,11 @@ SELECT 'replacement-file',sha256,size_bytes,md5,sha1,crc32,media_type,created_at
 	}
 	var active, version, replacements int
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT is_active,version,
-(SELECT count(*) FROM bios_installations WHERE id='replacement') FROM bios_installations WHERE id='previous'`).
+(SELECT count(*) FROM bios_installations WHERE id='replacement') FROM bios_installations WHERE
+id='018fbe68-0000-7000-8000-000000000033'`).
 		Scan(&active, &version, &replacements); err != nil || active != 1 || version != 1 || replacements != 0 {
-		t.Fatalf("replacement partially committed: active=%d version=%d replacements=%d error=%v", active, version, replacements, err)
+		t.Fatalf("replacement partially committed: active=%d version=%d replacements=%d error=%v",
+			active, version, replacements, err)
 	}
 	assertBIOSReferenceCounts(t, database, 1, 1)
 }

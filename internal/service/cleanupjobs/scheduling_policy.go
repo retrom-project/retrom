@@ -5,7 +5,7 @@ func validScheduleScope(value ScopeType) bool {
 	case ScopeImportItem, ScopeImportJob, ScopeSourceImportItem,
 		ScopeUploadConsumption, ScopeGame:
 		return true
-	case ScopeFile:
+	case ScopePath:
 		return false
 	default:
 		return false

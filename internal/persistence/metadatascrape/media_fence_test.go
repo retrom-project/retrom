@@ -28,7 +28,10 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 				case "scope":
 					mediaFenceSQL(ctx, t, fixture.database, `UPDATE jobs SET scope_id='another-game',version=version+1 WHERE id=?`, fixture.jobID)
 				}
-				return hasheous.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, MediaType: "image/png", Width: 1, Height: 1}, nil
+				return hasheous.AssetData{
+					Bytes: []byte("media"), ReceivedBytes: 5, MediaType: "image/png",
+					Width: 1, Height: 1,
+				}, nil
 			})
 			if err := fixture.worker(source).Run(t.Context(), fixture.jobID); err == nil {
 				t.Fatal("changed authority returned success")
@@ -38,7 +41,7 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 				t.Fatalf("changed %s published media", change)
 			}
 			var count int
-			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM stored_files`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM scrape_candidate_assets WHERE file_record IS NOT NULL`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {

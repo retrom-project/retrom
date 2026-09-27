@@ -4,49 +4,24 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/filestore"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/firmware"
 )
 
-func (store writes) Ensure(ctx context.Context, metadata filestore.Metadata, now int64) (string, error) {
-	id, err := filecatalog.EnsureRecord(ctx, store.transaction, metadata, "application/octet-stream", now)
-	if err != nil {
-		return "", fmt.Errorf("register BIOS blob: %w", err)
-	}
-	return id, nil
-}
-
 func (store writes) Create(ctx context.Context, value firmware.InstallationWrite) error {
-	from := fileownership.Owner{Kind: "STAGING"}
-	if value.SourceKind == "BROWSER_UPLOAD" {
-		from = fileownership.Owner{Kind: "UPLOAD", ID: value.UploadSessionID}
-	}
-	if err := fileownership.Transfer(
-		ctx,
-		store.transaction,
-		value.BlobID,
-		from,
-		fileownership.Owner{Kind: "BIOS_INSTALLATION", ID: value.ID},
-	); err != nil {
-		return fmt.Errorf("writes: %w", err)
-	}
-
 	return changed(
 		recordstore.CreateBiosInstallations(
 			ctx,
 			store.transaction,
 			`
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,
 md5,sha1,sha256,
  validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,
 updated_at_ms,
  source_kind,server_import_candidate_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,1,?,?,?,?)`,
 			value.ID,
 			value.RequirementID,
-			value.BlobID,
+			value.FileRecord,
 			value.Filename,
 			value.Size,
 			value.MD5,

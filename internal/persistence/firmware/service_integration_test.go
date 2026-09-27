@@ -25,7 +25,6 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
@@ -51,7 +50,8 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
@@ -69,7 +69,9 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	)
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
-	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
+	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
+		fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, _ := uploadService.Get(ctx, upload.ID)
@@ -105,11 +107,11 @@ AND enabled=1
 	testassert.False(t, err != nil, err)
 	var md5Value, sha1Value, sha256Value string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT b.md5,
-b.sha1,
-b.sha256
+SELECT json_extract(b.value, '$.md5'),
+json_extract(b.value, '$.sha1'),
+json_extract(b.value, '$.sha256')
 FROM upload_files f
-JOIN stored_files b ON b.id=f.final_blob_id
+JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
 WHERE f.id=?
 `, upload.Files[0].ID).Scan(&md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
@@ -117,16 +119,18 @@ WHERE f.id=?
 	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	service := firmwareservice.New(New(database.SQL), time.Now).WithFileStore(blobs).WithCleanup(releases)
-	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
+	result, err := service.Install(ctx, requirementID, version,
+		firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
-	var oldBlobID string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT blob_id FROM bios_installations WHERE id=?`,
-		result.InstallationID).Scan(&oldBlobID); err != nil {
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" },
+		func() bool { return !result.Active }), "installation = %#v", result)
+	var oldFileRecord string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT file_record FROM bios_installations WHERE id=?`,
+		result.InstallationID).Scan(&oldFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	lifecycle := seedFirmwareReplacementLifecycle(
-		t, ctx, database.SQL, blobs, runtimeIdentity, result.InstallationID, oldBlobID,
+		t, ctx, database.SQL, blobs, runtimeIdentity, result.InstallationID, oldFileRecord,
 	)
 	replacementFileID := completeFirmwareUpload(
 		t, ctx, database.SQL, uploadService, "gba_bios.bin", []byte("retrom-replacement-bios\n"),
@@ -135,16 +139,17 @@ WHERE f.id=?
 		ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: replacementFileID},
 	)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, replaced.InstallationID == result.InstallationID, "replacement reused installation %s", replaced.InstallationID)
+	testassert.Falsef(t, replaced.InstallationID == result.InstallationID,
+		"replacement reused installation %s", replaced.InstallationID)
 	assertFirmwareReplacementLifecycle(t, ctx, database.SQL, lifecycle)
-	assertDeferredBIOSRelease(t, ctx, database.SQL, releases, lifecycle, oldBlobID, result.InstallationID)
+	assertDeferredBIOSRelease(t, ctx, database.SQL, releases, lifecycle, oldFileRecord, result.InstallationID)
 }
 
 type firmwareReplacementLifecycle struct {
-	variantID      string
-	launchID       string
-	saveID         string
-	payloadBlobIDs []string
+	variantID          string
+	launchID           string
+	saveID             string
+	payloadFileRecords []string
 }
 
 func seedFirmwareReplacementLifecycle(
@@ -152,16 +157,16 @@ func seedFirmwareReplacementLifecycle(
 	ctx context.Context,
 	database dbapi.DB,
 	blobs *filestore.Store,
-	runtimeIdentity testsupport.RuntimeTargetIdentity, installationID, biosBlobID string,
+	runtimeIdentity testsupport.RuntimeTargetIdentity, installationID, biosFileRecord string,
 ) firmwareReplacementLifecycle {
 	t.Helper()
-	contentBlobID := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-game-content"))
-	stateBlobID := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-save-state"))
-	screenshotBlobID := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-save-screenshot"))
+	contentFileRecord := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-game-content"))
+	stateFileRecord := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-save-state"))
+	screenshotFileRecord := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-save-screenshot"))
 	now := time.Now().UnixMilli()
 	snapshot := fmt.Sprintf(
-		`{"schemaVersion":1,"kind":"STATIC","bios":[{"installationId":%q,"blobId":%q}]}`,
-		installationID, biosBlobID,
+		`{"schemaVersion":1,"kind":"STATIC","bios":[{"installationId":%q,"fileRecord":%q}]}`,
+		installationID, biosFileRecord,
 	)
 	statePayload := []byte("firmware-save-state")
 	stateDigest := fmt.Sprintf("%x", sha256.Sum256(statePayload))
@@ -178,7 +183,8 @@ func seedFirmwareReplacementLifecycle(
 		args       []any
 		references string
 	}{
-		{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,created_at_ms,updated_at_ms)
+		{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,created_at_ms,
+updated_at_ms)
 VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',0,1,?,?)`, []any{now, now}, ""},
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
@@ -186,8 +192,8 @@ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
 source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 VALUES('firmware-game','firmware-platform','Firmware','F','','','','','ADMIN_EDIT','SINGLE_FILE',
 'ADMIN_REPLACE','firmware-source','{}',?,'PUBLISHED','firmware',1,?,?)`, []any{strings.Repeat("1", 64), now, now}, ""},
-		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order)
-VALUES('firmware-game','CONTENT','firmware.gba',?,0)`, []any{contentBlobID}, "game_files"},
+		{`INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
+VALUES('firmware-game','CONTENT','firmware.gba',?,0)`, []any{contentFileRecord}, "game_files"},
 		{
 			`INSERT INTO game_variants(
 id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
@@ -196,8 +202,8 @@ VALUES('firmware-variant','firmware-game','mgba',?,?,NULL,800001,'READY','READY'
 			[]any{runtimeIdentity.ProviderID, runtimeIdentity.TargetID, snapshot, now, now},
 			"",
 		},
-		{`INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-VALUES('firmware-variant','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosBlobID}, "variant_files"},
+		{`INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+VALUES('firmware-variant','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosFileRecord}, "variant_files"},
 		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}, ""},
 		{`INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
@@ -208,16 +214,18 @@ VALUES('firmware-launch','firmware-profile','firmware-game','mgba',?,?,?,
 			runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, snapshot, make([]byte, 32),
 			now + 60_000, now + 60_000, now, now + 120_000, now, now,
 		}, ""},
-		{`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}, ""},
-		{`INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
-VALUES('firmware-launch','/bios/gba_bios.bin','gba_bios.bin',?,?,'BIOS_BUNDLE')`, []any{biosBlobID, now}, ""},
+		{`INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
+VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentFileRecord, now}, ""},
+		{`INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind)
+VALUES('firmware-launch','/bios/gba_bios.bin','gba_bios.bin',?,?,'BIOS_BUNDLE')`, []any{biosFileRecord, now}, ""},
 		{
-			`INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
-payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?,?,?,?,'Firmware save',1,?,?,'firmware-launch')`,
+			`INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,
+payload_size_bytes,screenshot_file_record,name,active_duration_ms,created_at_ms,updated_at_ms,
+source_launch_session_id)
+VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?,?,?,?,'Firmware save',1,
+?,?,'firmware-launch')`,
 			[]any{
-				stateBlobID, stateDigest, len(statePayload), screenshotBlobID, now, now,
+				stateFileRecord, stateDigest, len(statePayload), screenshotFileRecord, now, now,
 			},
 			"save_states",
 		},
@@ -240,7 +248,7 @@ VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?
 	}
 	return firmwareReplacementLifecycle{
 		variantID: "firmware-variant", launchID: "firmware-launch", saveID: "firmware-save",
-		payloadBlobIDs: []string{stateBlobID, screenshotBlobID},
+		payloadFileRecords: []string{stateFileRecord, screenshotFileRecord},
 	}
 }
 
@@ -256,11 +264,11 @@ func ensureFirmwareBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := filecatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return blobID
+	return fileRecord
 }
 
 func assertFirmwareReplacementLifecycle(
@@ -277,7 +285,8 @@ func assertFirmwareReplacementLifecycle(
 		t.Fatal(err)
 	}
 	if variantStatus != "READY" || compatibilityCode != "READY" {
-		t.Fatalf("BIOS replacement must preserve current validation until next launch: %s/%s", variantStatus, compatibilityCode)
+		t.Fatalf("BIOS replacement must preserve current validation until next launch: %s/%s",
+			variantStatus, compatibilityCode)
 	}
 	var variantFiles, saves, launchFiles int
 	var launchState string
@@ -297,13 +306,14 @@ SELECT
 			variantFiles, saves, launchState, launchFiles,
 		)
 	}
-	for _, blobID := range lifecycle.payloadBlobIDs {
+	for _, fileRecord := range lifecycle.payloadFileRecords {
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM file_deletions WHERE blob_id=?`, blobID,
+			`SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
+'$.inputs.relativePath') || '/%'`, fileRecord,
 		).Scan(&candidates); err != nil || candidates != 0 {
-			t.Fatalf("BIOS replacement payload %s candidates = %d, error=%v", blobID, candidates, err)
+			t.Fatalf("BIOS replacement payload %s candidates = %d, error=%v", fileRecord, candidates, err)
 		}
 	}
 }
@@ -367,7 +377,8 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mame2003_plus")
@@ -386,7 +397,8 @@ VALUES('dat-test','mame2003_plus',?,?,'test.dat',?,'test-parser','READY',1,1,1,0
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
+INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,
+classification)
 VALUES('dat-test','stvbios','ST-V BIOS','','SEGA',1,'EXPLICIT_BIOS')
 `); err != nil {
 		t.Fatal(err)
@@ -412,7 +424,8 @@ VALUES('dat-test','stvbios',1,'non-default.bin',4,'00000000',?,'GOOD','usa')
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
-requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
+requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,
+updated_at_ms)
 VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED',
 'ARCADE_DAT_DEPENDENCY',?,'retrom:test','dat-test',1,1,?,?)
 `, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, strings.Repeat("b", 64), now, now); err != nil {
@@ -436,10 +449,19 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
+	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploads.FileDeclaration{{
+			ClientFileID: "bios", RelativePath: "stvbios.zip",
+			SizeBytes: int64(archive.Len()),
+		}},
+	})
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(archive.Bytes())
-	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", archive.Len()-1, archive.Len()), "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(archive.Bytes())); err != nil {
+	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
+		fmt.Sprintf("bytes 0-%d/%d", archive.Len()-1, archive.Len()),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+		bytes.NewReader(archive.Bytes())); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, _ := uploadService.Get(ctx, upload.ID)
@@ -459,12 +481,20 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		ctx, "requirement-test", 1, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" }, func() bool { return !result.Active }), "installation = %#v", result)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" },
+		func() bool { return !result.Active }), "installation = %#v", result)
 	warnings, ok := result.ValidationDetails["warnings"].([]string)
-	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return len(warnings) != 1 }, func() bool { return !strings.Contains(warnings[0], "epr-19730.ic8") }), "alias warnings = %#v", result.ValidationDetails["warnings"])
+	testassert.Falsef(t, testassert.Any(func() bool { return !ok },
+		func() bool { return len(warnings) != 1 }, func() bool {
+			return !strings.Contains(warnings[0],
+				"epr-19730.ic8")
+		}), "alias warnings = %#v", result.ValidationDetails["warnings"])
 	inspection, err := firmwareservice.New(New(database.SQL), time.Now).InspectArchive(ctx, "requirement-test")
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" }, func() bool { return inspection.InstallationStatus != "MATCHED" }, func() bool { return len(inspection.Entries) != 2 }), "inspection = %#v", inspection)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" },
+			func() bool { return inspection.InstallationStatus != "MATCHED" },
+			func() bool { return len(inspection.Entries) != 2 }), "inspection = %#v", inspection)
 	if comparison := inspection.Entries[0]; comparison.Status != "ALIASED" ||
 		comparison.Expected == nil || comparison.Expected.Name != "epr19730.ic8" ||
 		comparison.Actual == nil || comparison.Actual.Name != "epr-19730.ic8" ||

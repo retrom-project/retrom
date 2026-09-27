@@ -11,14 +11,15 @@ import (
 
 const configProductFiles = `
 SELECT logical_name,format,digest,size_bytes,role,virtual_path FROM (
- SELECT file.logical_name,file.format_version AS format,blob.sha256 AS digest,blob.size_bytes,
+ SELECT file.logical_name,file.format_version AS format,json_extract(blob.value, '$.sha256') AS digest,
+json_extract(blob.value, '$.size_bytes') AS size_bytes,
  'GAME' AS role,'' AS virtual_path
- FROM launch_content_files file JOIN stored_files blob ON blob.id=file.blob_id
+ FROM launch_content_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  WHERE file.launch_session_id=?
  UNION ALL
- SELECT file.logical_name,'',blob.sha256,blob.size_bytes,
+ SELECT file.logical_name,'',json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes'),
  CASE WHEN file.kind='BIOS' THEN 'EXTERNAL_FILE' ELSE file.kind END,file.virtual_path
- FROM launch_external_files file JOIN stored_files blob ON blob.id=file.blob_id
+ FROM launch_external_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  WHERE file.launch_session_id=?
 ) WHERE (?=0 OR role='GAME')
 ORDER BY role,CASE WHEN role='EXTERNAL_FILE' THEN virtual_path ELSE '' END,logical_name`
@@ -26,14 +27,17 @@ ORDER BY role,CASE WHEN role='EXTERNAL_FILE' THEN virtual_path ELSE '' END,logic
 const configPreviewFiles = `
 SELECT logical_name,format,digest,size_bytes,role,virtual_path FROM (
  SELECT preview.content_logical_name AS logical_name,preview.content_format AS format,
- blob.sha256 AS digest,blob.size_bytes,'GAME' AS role,'' AS virtual_path
- FROM review_preview_sessions preview JOIN stored_files blob ON blob.id=preview.content_blob_id
+ json_extract(blob.value, '$.sha256') AS digest,json_extract(blob.value, '$.size_bytes') AS size_bytes,
+'GAME' AS role,'' AS virtual_path
+ FROM review_preview_sessions preview JOIN json_each(json_array(preview.content_file_record)) blob ON
+blob.value IS NOT NULL
  WHERE preview.id=?
  UNION ALL
- SELECT file.logical_name,preview.content_format,blob.sha256,blob.size_bytes,
+ SELECT file.logical_name,preview.content_format,json_extract(blob.value, '$.sha256'),
+json_extract(blob.value, '$.size_bytes'),
  CASE WHEN file.role IN ('PROJECT_FILE','RUNTIME_FILE') THEN 'GAME' ELSE file.role END,
  COALESCE(file.virtual_path,'')
- FROM review_preview_files file JOIN stored_files blob ON blob.id=file.blob_id
+ FROM review_preview_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE file.preview_session_id=?
 ) WHERE (?=0 OR role='GAME')

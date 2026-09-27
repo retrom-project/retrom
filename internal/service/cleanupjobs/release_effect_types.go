@@ -30,8 +30,8 @@ type EffectPayload struct {
 }
 
 type EffectUpload struct {
-	ID, SessionID, BlobID, State, SessionState string
-	SessionVersion, ActiveConsumptions         int64
+	ID, SessionID, FileRecord, State, SessionState string
+	SessionVersion, ActiveConsumptions             int64
 }
 
 type EffectOwnerChange struct {

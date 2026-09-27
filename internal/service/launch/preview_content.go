@@ -50,7 +50,7 @@ func previewPrimaryContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 	case "SINGLE_FILE":
 		for _, file := range snapshot.SourceFiles {
 			if file.Role == "CONTENT" {
-				return PreviewContent{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: "SOURCE_V1"}, nil
+				return PreviewContent{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Format: "SOURCE_V1"}, nil
 			}
 		}
 	case "DOS_BUNDLE":
@@ -82,7 +82,7 @@ func previewPrimaryContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 func validatedPreviewContent(snapshot PreviewSnapshot, role, name, format string) (PreviewContent, error) {
 	for _, file := range snapshot.ValidationFiles {
 		if file.Role == role && file.LogicalName == name {
-			return PreviewContent{BlobID: file.BlobID, LogicalName: name, Format: format}, nil
+			return PreviewContent{FileRecord: file.FileRecord, LogicalName: name, Format: format}, nil
 		}
 	}
 	return PreviewContent{}, ErrReviewPreviewUnavailable
@@ -117,8 +117,8 @@ func previewRPGContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 		file.Role = "PROJECT_FILE"
 		if strings.HasPrefix(file.LogicalName, "__retrom__/") {
 			file.Role = "RUNTIME_FILE"
-		} else if content.BlobID == "" {
-			content.BlobID, content.LogicalName = file.BlobID, file.LogicalName
+		} else if content.FileRecord == "" {
+			content.FileRecord, content.LogicalName = file.FileRecord, file.LogicalName
 			continue
 		}
 		file.SortOrder = len(content.Files)

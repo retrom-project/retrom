@@ -73,13 +73,13 @@ func PrepareCreationStaticBIOS(
 		}
 		group.DependencySnapshot = string(encoded)
 		for _, dependency := range snapshot.BIOS {
-			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
+			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.FileRecord != nil {
 				group.ValidationFiles = append(
 					group.ValidationFiles,
 					PreparedValidationFile{
 						Role:        "BIOS_BUNDLE",
 						LogicalName: dependency.LogicalName,
-						BlobID:      *dependency.BlobID,
+						FileRecord:  *dependency.FileRecord,
 						SortOrder:   len(group.ValidationFiles),
 					},
 				)
@@ -178,13 +178,13 @@ func (run *creationCommit) resolveArcade(
 	group.ValidationStatus, group.CompatibilityCode = state.Status, state.Code
 	group.DependencySnapshot = state.SnapshotJSON
 	for _, dependency := range state.Dependencies {
-		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
+		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.FileRecord != nil {
 			group.ValidationFiles = append(
 				group.ValidationFiles,
 				PreparedValidationFile{
 					Role:        "BIOS_BUNDLE",
 					LogicalName: dependency.LogicalName,
-					BlobID:      *dependency.BlobID,
+					FileRecord:  *dependency.FileRecord,
 					SortOrder:   len(group.ValidationFiles),
 				},
 			)
@@ -208,7 +208,7 @@ func (run *creationCommit) registerValidationArtifacts(
 		if err != nil {
 			return creationError("register validation artifacts", err)
 		}
-		file.BlobID = id
+		file.FileRecord = id
 	}
 	if group.CanonicalPlaylist != nil {
 		id, err := run.registerArtifact(ctx, scope, *group.CanonicalPlaylist, "application/vnd.retrom.m3u")
@@ -217,10 +217,10 @@ func (run *creationCommit) registerValidationArtifacts(
 		}
 		group.ValidationFiles = append(
 			group.ValidationFiles,
-			PreparedValidationFile{Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: id, SortOrder: 0},
+			PreparedValidationFile{Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", FileRecord: id, SortOrder: 0},
 		)
 	}
-	bundle := group.BundleBlobID
+	bundle := group.BundleFileRecord
 	if group.Bundle != nil {
 		id, err := run.registerArtifact(ctx, scope, *group.Bundle, "application/zip")
 		if err != nil {
@@ -231,7 +231,7 @@ func (run *creationCommit) registerValidationArtifacts(
 	if bundle != "" {
 		group.ValidationFiles = append(
 			group.ValidationFiles,
-			PreparedValidationFile{Role: "DOS_LAUNCH_BUNDLE", LogicalName: "game.zip", BlobID: bundle, SortOrder: 0},
+			PreparedValidationFile{Role: "DOS_LAUNCH_BUNDLE", LogicalName: "game.zip", FileRecord: bundle, SortOrder: 0},
 		)
 	}
 	return nil

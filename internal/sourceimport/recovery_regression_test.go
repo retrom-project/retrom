@@ -13,9 +13,12 @@ func recoveryFixture(t *testing.T) *Service {
 	db := newSourceRetryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `
 UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,attempt_count=1,leased_until_ms=5,
-execution_started_at_ms=1,execution_deadline_at_ms=100,heartbeat_at_ms=1,worker_id='lost-worker' WHERE id='work';
-UPDATE source_imports SET state='RUNNING',phase='COPYING_CONTENT',completed_at_ms=NULL,failed_item_count=0,retryable=0;
-UPDATE source_import_items SET execution_state='COPYING',completed_at_ms=NULL,error_code=NULL,error_details_json=NULL,retryable=0;
+execution_started_at_ms=1,execution_deadline_at_ms=100,heartbeat_at_ms=1,worker_id='lost-worker' WHERE
+id='work';
+UPDATE source_imports SET state='RUNNING',phase='COPYING_CONTENT',completed_at_ms=NULL,
+failed_item_count=0,retryable=0;
+UPDATE source_import_items SET execution_state='COPYING',completed_at_ms=NULL,error_code=NULL,
+error_details_json=NULL,retryable=0;
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +83,8 @@ UPDATE source_import_items SET execution_state='PENDING';
 	var code sql.NullString
 	var failed int
 	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT item.execution_state,item.error_code,plan.failed_item_count
-FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id='item'`).Scan(&state, &code, &failed); err != nil {
+FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE
+item.id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state, &code, &failed); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" || !code.Valid || code.String != "SOURCE_WORKER_ATTEMPTS_EXHAUSTED" || failed != 1 {

@@ -22,8 +22,8 @@ func TestContentRetirementDrainsReferencesAcrossBatchBoundary(t *testing.T) {
 	fixture := contentRetirementFixture(t)
 	for i := 0; i < 200; i++ {
 		_, err := fixture.db.ExecContext(t.Context(), `INSERT INTO launch_content_files
-(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-SELECT launch_session_id,?,blob_id,format_version,created_at_ms FROM launch_content_files
+(launch_session_id,logical_name,file_record,format_version,created_at_ms)
+SELECT launch_session_id,?,file_record,format_version,created_at_ms FROM launch_content_files
 WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion-%03d.bin", i), fixture.launchID)
 		if err != nil {
 			t.Fatal(err)
@@ -32,7 +32,8 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 	var impact gamecontent.RetirementImpact
 	err := New(fixture.db).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		var err error
-		impact, err = gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+		impact, err = gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID,
+			fixture.variantID, time.Now().UnixMilli())
 		return err
 	})
 	if err != nil || impact.SaveStateCount != 1 {
@@ -58,7 +59,8 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 	var hits atomic.Int64
 	fault := testsupport.OpenSQLFaultDatabase(t, fixture.db, testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
-			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "SELECT file.launch_session_id,file.logical_name,'',file.blob_id,NULL FROM launch_content_files") {
+			if strings.HasPrefix(strings.Join(strings.Fields(query), " "),
+				"SELECT file.launch_session_id,file.logical_name,'',file.file_record,NULL FROM launch_content_files") {
 				hits.Add(1)
 				return cause
 			}
@@ -66,7 +68,8 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 		},
 	})
 	err := New(fault).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		_, err := gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+		_, err := gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID,
+			fixture.variantID, time.Now().UnixMilli())
 		return err
 	})
 	if !errors.Is(err, cause) || hits.Load() != 1 {

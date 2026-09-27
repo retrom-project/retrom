@@ -19,7 +19,6 @@ type Counts struct {
 	DeletedGames        int64
 	ActiveSaves         int64
 	DeletedSaves        int64
-	Blobs               int64
 	QueuedJobs          int64
 	RunningJobs         int64
 	CancelRequestedJobs int64

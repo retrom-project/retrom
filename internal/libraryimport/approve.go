@@ -10,7 +10,7 @@ import (
 
 func (service *Service) reviewApprovals() *application.ReviewApprovals {
 	return application.NewReviewApprovals(repository.NewReviewApprovals(service.database),
-		service.tags, service.now)
+		service.tags, service.now, service.blobs)
 }
 
 func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {

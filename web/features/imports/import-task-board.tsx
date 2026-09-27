@@ -97,6 +97,7 @@ function MultiDiscTaskDetail({ detail }: { detail?: DetailState }) {
   if (!summaries.length) {return <p className="import-task-detail-message">这个任务没有可显示的多盘目录。</p>;}
   const stateLabel = (state: string, missingDiscCount: number) => {
     if (missingDiscCount) {return `待审核 · 缺 ${missingDiscCount} 张`;}
+    if (state === "PUBLISHING") {return "正在发布";}
     if (state === "PUBLISHED") {return "已发布 · 目录完整";}
     if (state === "DISCARDED") {return "已丢弃 · 目录完整";}
     if (state === "FAILED_RETRYABLE" || state === "FAILED_FINAL") {return "处理失败 · 目录完整";}

@@ -52,9 +52,11 @@ func (records *ContentDuplicates) IdentityParts(
 	snapshotID string,
 ) ([]application.ContentIdentityPart, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT source.role,blob.sha256,count(*) FROM import_item_source_snapshot_files source
-JOIN stored_files blob ON blob.id=source.blob_id WHERE source.source_snapshot_id=?
-GROUP BY source.role,blob.sha256 ORDER BY source.role,blob.sha256`, snapshotID)
+SELECT source.role,json_extract(blob.value, '$.sha256'),count(*) FROM import_item_source_snapshot_files source
+JOIN json_each(json_array(source.file_record)) blob ON blob.value IS NOT NULL WHERE
+source.source_snapshot_id=?
+GROUP BY source.role,json_extract(blob.value, '$.sha256') ORDER BY source.role,json_extract(blob.value,
+'$.sha256')`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query content identity parts: %w", err)
 	}
@@ -78,8 +80,9 @@ func (records *ContentDuplicates) OrderedDiscs(
 	snapshotID string,
 ) ([]application.ContentIdentityDisc, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT entry.state,COALESCE(blob.sha256,'') FROM import_item_multidisc_entries entry
-LEFT JOIN stored_files blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=?
+SELECT entry.state,COALESCE(json_extract(blob.value, '$.sha256'),'') FROM import_item_multidisc_entries entry
+LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
+entry.source_snapshot_id=?
 ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query ordered content identity: %w", err)

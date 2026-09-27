@@ -3,7 +3,11 @@ package gameassets
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
+
+	"retrom/internal/filestore"
+	"retrom/internal/testsupport"
 )
 
 type memoryRepository struct {
@@ -96,12 +100,12 @@ func TestValidUploadRestrictsKindsAndOrdinals(t *testing.T) {
 
 func TestCreateUsesOneWriteScopeForReplacementAndRelease(t *testing.T) {
 	scope := &memoryWriteScope{version: 3}
-	service := New(&memoryRepository{scope: scope}, nil, nil).WithIDFactory(
+	service := New(&memoryRepository{scope: scope}, assetTestFiles{}, nil).WithIDFactory(
 		fixedIDs("asset-id", "consumption-id"),
 	)
 	result, err := service.Create(t.Context(), CreateRequest{
 		GameID: "game", UploadFileID: "file", Kind: "COVER", ExpectedVersion: 3, NowMS: 100,
-		Asset: PreparedAsset{UploadID: "upload", BlobID: "blob", MediaType: "image/png"},
+		Asset: PreparedAsset{UploadID: "upload", FileRecord: "blob", MediaType: "image/png"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -122,12 +126,12 @@ func TestCreateUsesOneWriteScopeForReplacementAndRelease(t *testing.T) {
 
 func TestCreateMapsUploadConsumptionFailureToStableConflict(t *testing.T) {
 	scope := &memoryWriteScope{version: 1, consumeErr: errors.New("unique constraint")}
-	service := New(&memoryRepository{scope: scope}, nil, nil).WithIDFactory(
+	service := New(&memoryRepository{scope: scope}, assetTestFiles{}, nil).WithIDFactory(
 		fixedIDs("asset-id", "consumption-id"),
 	)
 	_, err := service.Create(t.Context(), CreateRequest{
 		GameID: "game", UploadFileID: "file", Kind: "VIDEO", ExpectedVersion: 1, NowMS: 100,
-		Asset: PreparedAsset{UploadID: "upload", BlobID: "blob", MediaType: "video/mp4"},
+		Asset: PreparedAsset{UploadID: "upload", FileRecord: "blob", MediaType: "video/mp4"},
 	})
 	if !errors.Is(err, ErrUploadConsumed) {
 		t.Fatalf("create consumption error = %v", err)
@@ -139,7 +143,7 @@ func TestCreateMapsUploadConsumptionFailureToStableConflict(t *testing.T) {
 
 func TestDeleteRequiresExistingVideoAndCurrentVersion(t *testing.T) {
 	scope := &memoryWriteScope{version: 2, exists: false}
-	service := New(&memoryRepository{scope: scope}, nil, nil)
+	service := New(&memoryRepository{scope: scope}, assetTestFiles{}, nil)
 	_, err := service.Delete(context.Background(), DeleteRequest{
 		GameID: "game", Kind: "VIDEO", ExpectedVersion: 2, NowMS: 100,
 	})
@@ -150,3 +154,11 @@ func TestDeleteRequiresExistingVideoAndCurrentVersion(t *testing.T) {
 		t.Fatalf("delete calls = %v", scope.calls)
 	}
 }
+
+type assetTestFiles struct{}
+
+func (assetTestFiles) OpenRecord(string) (*os.File, error) { panic("unexpected open") }
+func (assetTestFiles) CopyTo(context.Context, string, string, string) (filestore.Metadata, error) {
+	return testsupport.FileMetadata("asset"), nil
+}
+func (assetTestFiles) RemovePath(context.Context, string) error { return nil }

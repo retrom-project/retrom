@@ -54,7 +54,7 @@ func (service *Service) validateParentArchive(
 	jobID, workerID string,
 ) (validatedParentArchive, bool) {
 	entries, err := importing.ScanZIP(
-		ctx, service.blobs.Path(candidate.blobID), importing.DefaultArchiveLimits(),
+		ctx, service.blobs.Path(candidate.fileRecord), importing.DefaultArchiveLimits(),
 	)
 	if err != nil {
 		code := ParentErrorArchiveUnsafe
@@ -123,7 +123,7 @@ func (service *Service) prepareParentCommit(
 	preparedFiles := make([]importSourceFile, 0, len(files))
 	for _, file := range files {
 		preparedFiles = append(preparedFiles, importSourceFile{
-			ID: file.uploadFileID, Path: file.logicalName, BlobID: file.blobID, SHA256: file.blobSHA,
+			ID: file.uploadFileID, Path: file.logicalName, FileRecord: file.fileRecord, SHA256: file.blobSHA,
 		})
 	}
 	_, groups, _, preparationErr := service.prepareArcadeFiles(
@@ -215,18 +215,18 @@ func parentAttachmentCandidateFromApplication(
 		baseSnapshotID: candidate.BaseSnapshotID, machine: candidate.Machine, requiredBy: candidate.RequiredBy,
 		providerID: candidate.ProviderID, targetID: candidate.TargetID, datID: candidate.DATID,
 		uploadFileID: candidate.UploadFileID, uploadSessionID: candidate.UploadSessionID,
-		originalName: candidate.OriginalName, blobID: candidate.BlobID, blobSHA: candidate.BlobSHA,
+		originalName: candidate.OriginalName, fileRecord: candidate.FileRecord, blobSHA: candidate.BlobSHA,
 		blobSize: candidate.BlobSize, contentPolicyDigest: candidate.ContentPolicyDigest, depth: candidate.Depth,
 	}
 }
 
 type attachedSourceFile struct {
-	role, logicalName, uploadFileID, blobID, blobSHA string
-	blobSize                                         int64
-	archiveBlobID                                    sql.NullString
-	archiveOrdinal                                   sql.NullInt64
-	archiveSHA                                       string
-	sortOrder                                        int
+	role, logicalName, uploadFileID, fileRecord, blobSHA string
+	blobSize                                             int64
+	archiveFileRecord                                    sql.NullString
+	archiveOrdinal                                       sql.NullInt64
+	archiveSHA                                           string
+	sortOrder                                            int
 }
 
 func (service *Service) buildAttachedSourceSnapshot(
@@ -245,11 +245,11 @@ func (service *Service) buildAttachedSourceSnapshot(
 	for _, source := range snapshotFiles {
 		file := attachedSourceFile{
 			role: source.Role, logicalName: source.LogicalName, uploadFileID: source.UploadFileID,
-			blobID: source.BlobID, blobSHA: source.BlobSHA, blobSize: source.BlobSize,
+			fileRecord: source.FileRecord, blobSHA: source.BlobSHA, blobSize: source.BlobSize,
 			archiveSHA: source.SourceArchiveSHA,
 		}
-		if source.SourceArchiveBlobID != "" {
-			file.archiveBlobID = sql.NullString{String: source.SourceArchiveBlobID, Valid: true}
+		if source.SourceArchiveFileRecord != "" {
+			file.archiveFileRecord = sql.NullString{String: source.SourceArchiveFileRecord, Valid: true}
 			if source.SourceArchiveEntryOrdinal != nil {
 				file.archiveOrdinal = sql.NullInt64{Int64: int64(*source.SourceArchiveEntryOrdinal), Valid: true}
 			}
@@ -260,7 +260,7 @@ func (service *Service) buildAttachedSourceSnapshot(
 			}
 			file = attachedSourceFile{
 				role: "COMPANION", logicalName: logicalName, uploadFileID: candidate.uploadFileID,
-				blobID: candidate.blobID, blobSHA: candidate.blobSHA, blobSize: candidate.blobSize,
+				fileRecord: candidate.fileRecord, blobSHA: candidate.blobSHA, blobSize: candidate.blobSize,
 			}
 			replaced = true
 		}
@@ -269,7 +269,7 @@ func (service *Service) buildAttachedSourceSnapshot(
 	if !replaced {
 		files = append(files, attachedSourceFile{
 			role: "COMPANION", logicalName: logicalName, uploadFileID: candidate.uploadFileID,
-			blobID: candidate.blobID, blobSHA: candidate.blobSHA, blobSize: candidate.blobSize,
+			fileRecord: candidate.fileRecord, blobSHA: candidate.blobSHA, blobSize: candidate.blobSize,
 		})
 	}
 	sort.Slice(files, func(left, right int) bool {
@@ -285,7 +285,7 @@ func (service *Service) buildAttachedSourceSnapshot(
 		manifest := contentmanifest.File{
 			Role: file.role, LogicalName: file.logicalName, BlobSHA256: file.blobSHA, SizeBytes: file.blobSize,
 		}
-		if file.archiveBlobID.Valid {
+		if file.archiveFileRecord.Valid {
 			ordinal := int(file.archiveOrdinal.Int64)
 			manifest.SourceArchiveSHA256 = &file.archiveSHA
 			manifest.SourceArchiveEntryOrdinal = &ordinal

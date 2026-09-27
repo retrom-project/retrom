@@ -29,8 +29,8 @@ func (memory *supersessionMemory) Deactivate(context.Context, SupersededInstalla
 func TestBIOSSupersessionRejectsInvalidIdentityBeforeWriting(t *testing.T) {
 	t.Parallel()
 	for _, before := range []SupersededInstallation{
-		{ID: "old", RequirementID: "other", BlobID: "blob", Version: 1},
-		{ID: "old", RequirementID: "requirement", BlobID: "blob", Version: math.MaxInt64},
+		{ID: "old", RequirementID: "other", FileRecord: "blob", Version: 1},
+		{ID: "old", RequirementID: "requirement", FileRecord: "blob", Version: math.MaxInt64},
 	} {
 		memory := &supersessionMemory{before: before, found: true}
 		err := SupersedeInScope(t.Context(), SupersessionScope{Read: memory, Write: memory}, "requirement", 10)
@@ -44,7 +44,7 @@ func TestBIOSSupersessionPreservesConsumptionReadCause(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("read old consumption failure")
 	memory := &supersessionMemory{before: SupersededInstallation{
-		ID: "old", RequirementID: "requirement", BlobID: "blob", Version: 1,
+		ID: "old", RequirementID: "requirement", FileRecord: "blob", Version: 1,
 	}, found: true, failure: cause}
 	err := SupersedeInScope(t.Context(), SupersessionScope{Read: memory, Write: memory}, "requirement", 10)
 	if !errors.Is(err, cause) || !memory.deactivated {

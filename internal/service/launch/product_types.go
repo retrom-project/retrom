@@ -56,9 +56,9 @@ type ProductSave struct {
 	DiscIndex                                                      *int64
 }
 type ProductFile struct {
-	Role, BlobID, LogicalName, Digest string
-	SortOrder                         int
-	SizeBytes                         int64
+	Role, FileRecord, LogicalName, Digest string
+	SortOrder                             int
+	SizeBytes                             int64
 }
 type ProductArcadeBIOS struct {
 	State          string
@@ -85,12 +85,12 @@ type (
 )
 
 type (
-	ProductContentFile  struct{ BlobID, LogicalName, Format string }
-	ProductExternalFile struct{ Kind, BlobID, LogicalName, VirtualPath string }
+	ProductContentFile  struct{ FileRecord, LogicalName, Format string }
+	ProductExternalFile struct{ Kind, FileRecord, LogicalName, VirtualPath string }
 	ProductDisc         struct {
-		BlobID, Digest, LogicalName, VirtualPath string
-		Index                                    int
-		SizeBytes                                int64
+		FileRecord, Digest, LogicalName, VirtualPath string
+		Index                                        int
+		SizeBytes                                    int64
 	}
 )
 
@@ -113,10 +113,10 @@ type ProductCreatePlan struct {
 	OverrideBIOS                 *corevalidation.Snapshot
 }
 type ProductBlobCheck struct {
-	BlobID    string
-	Digest    string
-	SizeBytes int64
-	Exact     []byte
+	FileRecord string
+	Digest     string
+	SizeBytes  int64
+	Exact      []byte
 }
 type ProductBlobVerifier interface {
 	Verify(context.Context, ProductBlobCheck) error

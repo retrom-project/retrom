@@ -22,19 +22,22 @@ func TestFinalizationManualRetryKeepsRoundAndCompletedFiles(t *testing.T) {
 	job := fixture.complete(t, session)
 	var calls atomic.Int64
 	failure := errors.New("temporary second-file CAS failure")
-	worker := uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
-		if calls.Add(1) == 2 {
-			return filestore.Metadata{}, failure
-		}
-		return fixture.blobs.Put(reader)
-	}}, fixture.root, finalizationNow)
+	worker := uploadservice.New(New(fixture.database), finalizationBlobs{
+		store: fixture.blobs,
+		put: func(reader io.Reader) (filestore.Metadata, error) {
+			if calls.Add(1) == 2 {
+				return filestore.Metadata{}, failure
+			}
+			return fixture.blobs.Put(reader)
+		},
+	}, fixture.root, finalizationNow)
 	t.Cleanup(worker.Close)
 	if err := worker.Run(t.Context(), job); !errors.Is(err, failure) {
 		t.Fatalf("expected original CAS failure, got %v", err)
 	}
 	var completedID, completedBlob string
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
-SELECT id,final_blob_id FROM upload_files WHERE upload_session_id=? AND state='COMPLETE'`, session.ID).
+SELECT id,final_file_record FROM upload_files WHERE upload_session_id=? AND state='COMPLETE'`, session.ID).
 		Scan(&completedID, &completedBlob); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +64,7 @@ SELECT id,final_blob_id FROM upload_files WHERE upload_session_id=? AND state='C
 	}
 	var preserved int
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
-SELECT count(*) FROM upload_files WHERE id=? AND final_blob_id=? AND state='COMPLETE'`, completedID, completedBlob).
+SELECT count(*) FROM upload_files WHERE id=? AND final_file_record=? AND state='COMPLETE'`, completedID, completedBlob).
 		Scan(&preserved); err != nil || preserved != 1 {
 		t.Fatalf("completed file changed: %d %v", preserved, err)
 	}
@@ -99,7 +102,8 @@ func TestFinalizationStartRecoversQueuedAndCancelledJobs(t *testing.T) {
 			fixture.service.Close()
 			job := fixture.complete(t, session)
 			if cancelled {
-				_, _, err := jobservice.New(jobpersistence.New(fixture.database), finalizationNow).Cancel(t.Context(), job, 1, "user cancelled")
+				_, _, err := jobservice.New(jobpersistence.New(fixture.database),
+					finalizationNow).Cancel(t.Context(), job, 1, "user cancelled")
 				if err != nil {
 					t.Fatal(err)
 				}

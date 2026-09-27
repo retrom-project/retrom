@@ -55,7 +55,7 @@ func TestCompanionPolicySelectsOnlyRequiredArchivesAndRechecksFrozenFacts(t *tes
 			{ItemID: "unrelated", File: ExecutionFile{Path: "unrelated.zip"}},
 		},
 	}
-	service := NewCompanions(memory, func() time.Time { return time.UnixMilli(10) })
+	service := NewCompanions(memory, &materialMemory{}, func() time.Time { return time.UnixMilli(10) })
 	selected, err := service.Find(t.Context(), id, "item")
 	if err != nil || len(selected) != 1 || selected[0] != candidate {
 		t.Fatalf("selection=%#v err=%v", selected, err)

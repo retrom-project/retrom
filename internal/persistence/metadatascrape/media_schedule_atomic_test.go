@@ -21,7 +21,7 @@ func TestCandidateMediaJobAndFrozenInputRollbackWithResult(t *testing.T) {
 				return nil
 			}
 			input, ok := args[1].Value.(string)
-			if ok && strings.Contains(input, `"kind":"MEDIA_FETCH"`) && strings.Contains(input, `"id":"game"`) {
+			if ok && strings.Contains(input, `"kind":"MEDIA_FETCH"`) && strings.Contains(input, `"id":"018fbe68-0000-7000-8000-000000000002"`) {
 				hits++
 				return cause
 			}

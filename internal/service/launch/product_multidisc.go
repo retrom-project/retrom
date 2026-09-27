@@ -26,14 +26,14 @@ func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
 		return ProductContent{}, ErrBlocked
 	}
 	checks := []ProductBlobCheck{
-		{BlobID: playlist.BlobID, Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical},
+		{FileRecord: playlist.FileRecord, Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical},
 	}
 	for _, disc := range discs {
-		checks = append(checks, ProductBlobCheck{BlobID: disc.BlobID, Digest: disc.Digest, SizeBytes: disc.SizeBytes})
+		checks = append(checks, ProductBlobCheck{FileRecord: disc.FileRecord, Digest: disc.Digest, SizeBytes: disc.SizeBytes})
 	}
 	return ProductContent{
 		Files: []ProductContentFile{
-			{BlobID: playlist.BlobID, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1"},
+			{FileRecord: playlist.FileRecord, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1"},
 		},
 		Discs:  discs,
 		Checks: checks,
@@ -57,7 +57,7 @@ func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
 			discs,
 			ProductDisc{
 				Index:       index,
-				BlobID:      file.BlobID,
+				FileRecord:  file.FileRecord,
 				Digest:      file.Digest,
 				SizeBytes:   file.SizeBytes,
 				LogicalName: name,

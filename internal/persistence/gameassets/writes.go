@@ -6,11 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/persistence/uploads/receivedfiles"
-
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gameassets"
 )
@@ -53,35 +50,27 @@ AND ordinal=0`, gameID, kind).Scan(&exists)
 }
 
 func (scope writeScope) RemoveSlot(
-	ctx context.Context, gameID, kind string, ordinal, now int64,
+	ctx context.Context, gameID, kind string, ordinal, _ int64,
 ) ([]string, error) {
 	rows, err := scope.executor.QueryContext(ctx, `
-SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
+SELECT file_record FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
 `, gameID, kind, ordinal)
 	if err != nil {
 		return nil, fmt.Errorf("list replaced game assets: %w", err)
 	}
 	defer func() { cleanup.Error("close replaced game assets", rows.Close()) }()
-	blobIDs := make([]string, 0, 1)
+	fileRecords := make([]string, 0, 1)
 	for rows.Next() {
-		var blobID string
-		if err := rows.Scan(&blobID); err != nil {
+		var fileRecord string
+		if err := rows.Scan(&fileRecord); err != nil {
 			return nil, fmt.Errorf("scan replaced game asset: %w", err)
 		}
-		blobIDs = append(blobIDs, blobID)
+		fileRecords = append(fileRecords, fileRecord)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
 	}
-	if _, err := scope.executor.ExecContext(ctx, `UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?)
- WHERE owner_kind='GAME' AND owner_id=? AND id IN(SELECT blob_id FROM game_assets WHERE
-game_id=? AND kind=? AND ordinal=?)`,
-		now, gameID, gameID, kind, ordinal); err != nil {
-		return nil, fmt.Errorf("retire game media: %w", err)
-	}
-	if err := receivedfiles.ReleaseRetired(ctx, scope.executor, "GAME", gameID, now); err != nil {
-		return nil, fmt.Errorf("release retired game media inputs: %w", err)
-	}
+
 	if _, err := recordstore.DeleteRows(
 		ctx,
 		scope.executor,
@@ -90,24 +79,14 @@ game_id=? AND kind=? AND ordinal=?)`,
 	); err != nil {
 		return nil, fmt.Errorf("delete replaced game asset: %w", err)
 	}
-	return blobIDs, nil
+	return fileRecords, nil
 }
 
 func (scope writeScope) Create(ctx context.Context, asset application.AssetRecord) error {
-	if err := fileownership.Transfer(
-		ctx,
-		scope.executor,
-		asset.BlobID,
-		fileownership.Owner{Kind: "UPLOAD", ID: asset.UploadID},
-		fileownership.Owner{Kind: "GAME", ID: asset.GameID},
-	); err != nil {
-		return fmt.Errorf("writes: %w", err)
-	}
-
 	if _, err := recordstore.CreateGameAssets(ctx, scope.executor, `
 INSERT INTO game_assets(id,
 game_id,
-blob_id,
+file_record,
 kind,
 ordinal,
 width_px,
@@ -116,7 +95,7 @@ media_type,
 created_at_ms) VALUES(?,?,?,?,?,?,?,?,?)`,
 		asset.ID,
 		asset.GameID,
-		asset.BlobID,
+		asset.FileRecord,
 		asset.Kind,
 		asset.Ordinal,
 		asset.WidthPX,

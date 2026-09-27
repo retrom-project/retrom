@@ -17,7 +17,7 @@ func TestItemsRejectCorruptStoredWarnings(t *testing.T) {
 			t.Parallel()
 			db := newSourceRetryDatabase(t)
 			seedQueryCollection(t, db)
-			if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET warnings_json=? WHERE id='item'`, stored); err != nil {
+			if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET warnings_json=? WHERE id='018fbe68-0000-7000-8000-000000000010'`, stored); err != nil {
 				t.Fatal(err)
 			}
 			service := &Service{database: db}
@@ -31,10 +31,12 @@ func TestItemsRejectCorruptStoredWarnings(t *testing.T) {
 
 func seedQueryCollection(t *testing.T, db dbapi.DB) {
 	t.Helper()
-	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,game_count,created_at_ms,updated_at_ms) VALUES('collection','import','metadata.pegasus.txt',0,'Collection',1,1,1)`); err != nil {
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,
+game_count,created_at_ms,updated_at_ms) VALUES('collection','import','metadata.pegasus.txt',0,
+'Collection',1,1,1)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET collection_id='collection' WHERE id='item'`); err != nil {
+	if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET collection_id='collection' WHERE id='018fbe68-0000-7000-8000-000000000010'`); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -55,7 +57,7 @@ func TestItemsNormalizeAbsentWarningsToEmptyArray(t *testing.T) {
 	t.Parallel()
 	db := newSourceRetryDatabase(t)
 	seedQueryCollection(t, db)
-	if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET warnings_json='null' WHERE id='item'`); err != nil {
+	if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET warnings_json='null' WHERE id='018fbe68-0000-7000-8000-000000000010'`); err != nil {
 		t.Fatal(err)
 	}
 	values, err := (&Service{database: db}).Items(t.Context(), "import", "", "", "", "", "", "", 10)
@@ -70,8 +72,10 @@ func TestItemsNormalizeAbsentWarningsToEmptyArray(t *testing.T) {
 func TestItemsRejectInvalidStructuredDiagnostics(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ name, statement string }{
-		{"failure_details", `UPDATE source_import_items SET error_details_json='{"stage":7}' WHERE id='item'`},
-		{"existing_matches", `UPDATE source_import_items SET existing_matches_json='[{"gameId":7}]' WHERE id='item'`},
+		{"failure_details", `UPDATE source_import_items SET error_details_json='{"stage":7}' WHERE
+id='018fbe68-0000-7000-8000-000000000010'`},
+		{"existing_matches", `UPDATE source_import_items SET existing_matches_json='[{"gameId":7}]' WHERE
+id='018fbe68-0000-7000-8000-000000000010'`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

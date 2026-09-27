@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/persistence/fileownership"
-
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
@@ -66,7 +64,8 @@ func (records companionRecords) Register(
 	// Fence the worker and selected source immediately before catalog insertion; no host IO runs in this scope.
 	var valid bool
 	if err := dbapi.QueryRowContext(ctx, records.tx, `SELECT EXISTS(SELECT 1 FROM source_import_items item WHERE
- item.id=? AND item.import_id=? AND item.version=? AND item.execution_state=? AND item.execution_state='COPYING'`+
+ item.id=? AND item.import_id=? AND item.version=? AND item.execution_state=? AND
+item.execution_state='COPYING'`+
 		itemExecutionFence+`)`, itemFenceArgs(change.Before, change.NowMS)...).Scan(&valid); err != nil {
 		return "", fmt.Errorf("check Source companion owner: %w", err)
 	}
@@ -90,10 +89,11 @@ func (records companionRecords) Register(
 	owner, candidate := change.Before.Item.ID, change.Candidate.ItemID
 	var existing, digest string
 	var size int64
-	err = dbapi.QueryRowContext(ctx, records.tx, `SELECT file.id,file.sha256,file.size_bytes
- FROM source_import_item_companions companion JOIN stored_files file ON file.id=companion.blob_id
- WHERE companion.item_id=? AND companion.candidate_item_id=? AND file.owner_kind='SOURCE_IMPORT_ITEM'
- AND file.owner_id=? AND file.retired_at_ms IS NULL`, owner, candidate, owner).Scan(&existing, &digest, &size)
+	err = dbapi.QueryRowContext(ctx, records.tx, `
+SELECT file.value,json_extract(file.value, '$.sha256'),json_extract(file.value, '$.size_bytes')
+ FROM source_import_item_companions companion JOIN json_each(json_array(companion.file_record)) file ON
+file.value IS NOT NULL
+ WHERE companion.item_id=? AND companion.candidate_item_id=?`, owner, candidate).Scan(&existing, &digest, &size)
 	if err == nil {
 		if digest != change.Blob.SHA256 || size != change.Blob.Size {
 			return "", application.ErrVersionConflict
@@ -107,16 +107,9 @@ func (records companionRecords) Register(
 	if err != nil {
 		return "", err
 	}
-	if err := fileownership.Adopt(
-		ctx,
-		records.tx,
-		id,
-		fileownership.Owner{Kind: "SOURCE_IMPORT_ITEM", ID: owner},
-	); err != nil {
-		return "", fmt.Errorf("companions: %w", err)
-	}
+
 	if _, err := recordstore.InsertRows(ctx, records.tx, "source_import_item_companions", `
- INSERT INTO source_import_item_companions(item_id,candidate_item_id,blob_id,created_at_ms)
+ INSERT INTO source_import_item_companions(item_id,candidate_item_id,file_record,created_at_ms)
  VALUES(?,?,?,?)`, owner, candidate, id, change.NowMS); err != nil {
 		return "", fmt.Errorf("record Source companion: %w", err)
 	}

@@ -103,7 +103,7 @@ func nxengineImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithFileStore(blobs), files

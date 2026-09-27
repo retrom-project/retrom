@@ -51,7 +51,8 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
@@ -66,7 +67,8 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
 		digest := sha256.Sum256(body)
-		if err := uploadService.PutPart(ctx, upload.ID, upload.Files[index].ID, 0, "bytes 0-2/3", "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(body)); err != nil {
+		if err := uploadService.PutPart(ctx, upload.ID, upload.Files[index].ID, 0, "bytes 0-2/3",
+			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(body)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -84,7 +86,8 @@ WHERE id=?
 		if state == "SUCCEEDED" {
 			break
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
 	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
@@ -111,7 +114,8 @@ WHERE import_job_id=?
 		t.Fatal(err)
 	}
 	patched, err := importService.PatchDraft(ctx, itemID, 1, defaultPatch)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 2 }), "clear default DOS entry = %#v, error=%v", patched, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return patched.Version != 2 }), "clear default DOS entry = %#v, error=%v", patched, err)
 	var validationCount int
 	var selectedDefault sql.NullString
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -138,7 +142,7 @@ WHERE d.id=?
 	selected := "DOOM/DOOM.EXE"
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	var fileCountBefore int
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM stored_files`).Scan(&fileCountBefore); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM game_files`).Scan(&fileCountBefore); err != nil {
 		t.Fatal(err)
 	}
 	direct, err := service.Create(
@@ -164,24 +168,29 @@ WHERE d.id=?
 		func() bool { return directGame["url"] == "" },
 		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, directEnvelope, "external")) != 0 },
 	), "DOS direct envelope = %#v", directEnvelope)
-	var directFormat, directLogicalName, directBlobID string
+	var directFormat, directLogicalName, directFileRecord string
 	var fileCountAfter int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT format_version,
 logical_name,
-blob_id
+file_record
 FROM launch_content_files
 WHERE launch_session_id=?
-`, direct.LaunchID).Scan(&directFormat, &directLogicalName, &directBlobID); err != nil ||
+`, direct.LaunchID).Scan(&directFormat, &directLogicalName, &directFileRecord); err != nil ||
 		directFormat != "RETROM_DOS_DIRECT_ZIP_V1" || directLogicalName != "game.zip" {
-		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directBlobID, err)
+		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directFileRecord, err)
 	}
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM stored_files`).Scan(&fileCountAfter); err != nil ||
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM game_files`).Scan(&fileCountAfter); err != nil ||
 		fileCountAfter != fileCountBefore {
 		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", fileCountBefore, fileCountAfter, err)
 	}
 	locked, err := service.Content(ctx, direct.LaunchID, direct.Capability, directLogicalName)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return locked.Format != "RETROM_DOS_DIRECT_ZIP_V1" }, func() bool { return locked.CoreID != "dosbox_pure" }, func() bool { return locked.DOSEntry == nil }, func() bool { return *locked.DOSEntry != selected }, func() bool { return locked.Digest == "" }), "DOS direct content: %v", err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return locked.Format != "RETROM_DOS_DIRECT_ZIP_V1" },
+		func() bool { return locked.CoreID != "dosbox_pure" },
+		func() bool { return locked.DOSEntry == nil },
+		func() bool { return *locked.DOSEntry != selected },
+		func() bool { return locked.Digest == "" }), "DOS direct content: %v", err)
 	menu, err := service.Create(
 		ctx,
 		"local",
@@ -200,14 +209,20 @@ WHERE launch_session_id=?
 		func() bool { return !strings.HasSuffix(menuURL, "game.zip") },
 	), "DOS menu envelope = %#v", menuEnvelope)
 	unsafe := "DOOM/SETUP%.BAT"
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{
+		GameID:   approved.GameID,
+		DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities,
+	}); !errors.Is(
 		err,
 		ErrDOSEntryUnsafe,
 	) {
 		t.Fatalf("unsafe DOS entry error = %v", err)
 	}
 	missing := "DOOM/MISSING.EXE"
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{
+		GameID:   approved.GameID,
+		DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities,
+	}); !errors.Is(
 		err,
 		ErrDOSEntryMissing,
 	) {
@@ -253,7 +268,9 @@ WHERE variant.game_id=?
 	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
 		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	retriedJobID, queued := retried.JobID, retried.Queued
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }), "automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }),
+		"automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
 	if err := retryTx.Commit(); err != nil {
 		t.Fatal(err)
 	}

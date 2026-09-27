@@ -32,14 +32,23 @@ func TestBIOSRulesRunWithoutDatabase(t *testing.T) {
 	}{
 		{name: "missing required", mode: "REQUIRED", want: "BLOCKED"},
 		{name: "absent optional", mode: "OPTIONAL", want: "READY"},
-		{name: "broken optional", mode: "OPTIONAL", status: stringValue("BROKEN"), blob: stringValue("blob"), want: "BLOCKED"},
-		{name: "hash warning advisory", mode: "REQUIRED", status: stringValue("HASH_WARNING"), blob: stringValue("blob"), want: "READY"},
-		{name: "missing entries advisory", mode: "REQUIRED", status: stringValue("MISSING_ENTRY"), blob: stringValue("blob"), want: "READY"},
+		{
+			name: "broken optional", mode: "OPTIONAL", status: stringValue("BROKEN"),
+			blob: stringValue("blob"), want: "BLOCKED",
+		},
+		{
+			name: "hash warning advisory", mode: "REQUIRED", status: stringValue("HASH_WARNING"),
+			blob: stringValue("blob"), want: "READY",
+		},
+		{
+			name: "missing entries advisory", mode: "REQUIRED", status: stringValue("MISSING_ENTRY"),
+			blob: stringValue("blob"), want: "READY",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			memory := &biosMemory{records: []BIOSRecord{{Dependency: corevalidation.BIOSDependency{
 				BIOSCatalogEntry:   corevalidation.BIOSCatalogEntry{RequirementID: "bios", RequirementMode: test.mode},
-				InstallationStatus: test.status, BlobID: test.blob,
+				InstallationStatus: test.status, FileRecord: test.blob,
 			}}}}
 			snapshot, status, _, err := New(memory).ResolveBIOS(t.Context(), "provider", "target", "game.chd")
 			if err != nil || status != test.want || len(snapshot.BIOS) != 1 {
@@ -59,7 +68,8 @@ func TestInapplicableBIOSOptionsAreNotParsed(t *testing.T) {
 		t.Fatalf("snapshot=%+v status=%s error=%v", snapshot, status, err)
 	}
 	_, status, code, err := New(memory).ResolveBIOS(t.Context(), "provider", "target", "disc.chd")
-	if !errors.Is(err, corevalidation.ErrInvalidSnapshot) || status != "BLOCKED" || code != "LAUNCH_CORE_VALIDATION_UNAVAILABLE" {
+	if !errors.Is(err, corevalidation.ErrInvalidSnapshot) || status != "BLOCKED" ||
+		code != "LAUNCH_CORE_VALIDATION_UNAVAILABLE" {
 		t.Fatalf("applicable malformed options: status=%s code=%s error=%v", status, code, err)
 	}
 }

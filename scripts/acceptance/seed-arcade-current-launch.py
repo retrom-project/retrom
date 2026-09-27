@@ -91,9 +91,9 @@ INSERT INTO games(
     connection.execute(
         """
 INSERT INTO game_files(
- game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+ game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files WHERE game_id=?
 """,
         (game_id, source["id"]),
@@ -113,8 +113,8 @@ INSERT INTO game_variants(
     )
     connection.execute(
         """
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-SELECT ?,role,logical_name,blob_id,sort_order FROM variant_files WHERE game_variant_id=?
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+SELECT ?,role,logical_name,file_record,sort_order FROM variant_files WHERE game_variant_id=?
 """,
         (variant_id, source["variant_id"]),
     )

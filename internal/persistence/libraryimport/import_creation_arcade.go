@@ -22,7 +22,7 @@ func (records creationArcadeRecords) BIOS(
 	providerID, targetID, logicalName string,
 ) (corevalidation.BIOSDependency, bool, error) {
 	var resolved corevalidation.BIOSDependency
-	var condition, emulatorPath, installationID, blobID, installationStatus sql.NullString
+	var condition, emulatorPath, installationID, fileRecord, installationStatus sql.NullString
 	var installationVersion sql.NullInt64
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT q.id,
@@ -35,7 +35,7 @@ q.delivery_kind,
 q.emulator_path,
 i.id,
 i.version,
-i.blob_id,
+i.file_record,
 i.status
 FROM bios_requirements q
 JOIN bios_installations i ON i.requirement_id=q.id
@@ -57,7 +57,7 @@ AND q.logical_name=?
 		&emulatorPath,
 		&installationID,
 		&installationVersion,
-		&blobID,
+		&fileRecord,
 		&installationStatus,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -73,7 +73,7 @@ AND q.logical_name=?
 	if installationVersion.Valid {
 		resolved.InstallationVersion = &installationVersion.Int64
 	}
-	resolved.BlobID = dbapi.StringPointer(blobID)
+	resolved.FileRecord = dbapi.StringPointer(fileRecord)
 	resolved.InstallationStatus = dbapi.StringPointer(installationStatus)
 	return resolved, true, nil
 }

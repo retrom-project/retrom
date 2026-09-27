@@ -213,7 +213,7 @@ native.last_synced_at_ms,
 source_launch.core_id,
 c.name,
 s.disc_index,
-s.screenshot_blob_id IS NOT NULL
+s.screenshot_file_record IS NOT NULL
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
@@ -286,7 +286,8 @@ JOIN cores c ON c.id=pc.core_id
 AND c.enabled=1
 LEFT JOIN game_variants v ON v.game_id=g.id
 AND (v.core_id=c.id OR pi.platform_id='rpgmaker')
-LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=v.provider_id AND bound_target.target_id=v.target_id
+LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=v.provider_id AND
+bound_target.target_id=v.target_id
 WHERE g.id=?
 ORDER BY c.name,
 c.id

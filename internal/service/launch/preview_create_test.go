@@ -18,11 +18,15 @@ func TestPreviewCreatorFreezesReceiptOnlyAfterCommit(t *testing.T) {
 	t.Parallel()
 	creator, repository, _, request := previewFixture(t)
 	created, err := creator.Create(t.Context(), request)
-	if err != nil || created.PreviewID != previewTestID || created.PlayURL != "/admin/review-previews/"+previewTestID || repository.transactions != 1 || len(repository.writes) != 1 {
-		t.Fatalf("creation: id=%q transactions=%d writes=%d error=%v", created.PreviewID, repository.transactions, len(repository.writes), err)
+	if err != nil || created.PreviewID != previewTestID ||
+		created.PlayURL != "/admin/review-previews/"+previewTestID || repository.transactions != 1 ||
+		len(repository.writes) != 1 {
+		t.Fatalf("creation: id=%q transactions=%d writes=%d error=%v", created.PreviewID,
+			repository.transactions, len(repository.writes), err)
 	}
 	plan := repository.writes[0]
-	if plan.Source.Title != "game.bin" || plan.BootstrapEnd != 301000 || plan.HardEnd != 7201000 || plan.Content.BlobID != "game" || len(plan.CredentialHash) != 32 {
+	if plan.Source.Title != "game.bin" || plan.BootstrapEnd != 301000 ||
+		plan.HardEnd != 7201000 || plan.Content.FileRecord != "game" || len(plan.CredentialHash) != 32 {
 		t.Fatalf("frozen content or lifetime incorrect: %+v", plan.Source)
 	}
 	cause := errors.New("commit failed")
@@ -70,12 +74,24 @@ func TestPreviewCreatorRejectsPreparationBeforeTransaction(t *testing.T) {
 		configure func(*PreviewCreator, *previewTestRepository, *previewTestProvider)
 		cause     error
 	}{
-		{"missing source", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) { r.missingSnapshot = true }, ErrReviewPreviewUnavailable},
-		{"missing provider", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.absent = true }, ErrReviewPreviewUnavailable},
+		{"missing source", func(_ *PreviewCreator, r *previewTestRepository,
+			_ *previewTestProvider,
+		) {
+			r.missingSnapshot = true
+		}, ErrReviewPreviewUnavailable},
+		{"missing provider", func(_ *PreviewCreator, _ *previewTestRepository,
+			p *previewTestProvider,
+		) {
+			p.absent = true
+		}, ErrReviewPreviewUnavailable},
 		{"bundle drift", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) {
 			r.snapshot.Source.BundleSHA256 = "new"
 		}, ErrReviewPreviewUnavailable},
-		{"game undeclared", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.target.Inputs = nil }, ErrReviewPreviewUnavailable},
+		{"game undeclared", func(_ *PreviewCreator, _ *previewTestRepository,
+			p *previewTestProvider,
+		) {
+			p.target.Inputs = nil
+		}, ErrReviewPreviewUnavailable},
 		{"threads", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) {
 			p.target.Capabilities.RequiresThreads = true
 		}, ErrBlocked},
@@ -95,7 +111,8 @@ func TestPreviewCreatorRejectsPreparationBeforeTransaction(t *testing.T) {
 			test.configure(creator, repository, provider)
 			result, err := creator.Create(t.Context(), request)
 			if !errors.Is(err, test.cause) || result.PreviewID != "" || repository.transactions != 0 {
-				t.Fatalf("invalid preparation entered transaction: id=%q transactions=%d error=%v", result.PreviewID, repository.transactions, err)
+				t.Fatalf("invalid preparation entered transaction: id=%q transactions=%d error=%v",
+					result.PreviewID, repository.transactions, err)
 			}
 		})
 	}

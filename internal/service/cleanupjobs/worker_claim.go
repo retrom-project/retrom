@@ -79,7 +79,7 @@ func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 }
 
 func validWork(work Work) bool {
-	return work.ID != "" && work.Scope.ID != "" && (work.Kind == "OWNER_CLEANUP" || work.Kind == "FILE_DELETE") &&
+	return work.ID != "" && work.Scope.ID != "" && (work.Kind == "OWNER_CLEANUP" || work.Kind == "PATH_DELETE") &&
 		work.ExecutionNo > 0 && work.Attempt >= 0 && work.MaxAttempts > 0 && work.Version > 0 && work.Version < math.MaxInt64
 }
 

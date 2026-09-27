@@ -36,7 +36,7 @@ func TestRetryPropagatesEntropyFailureWithoutResettingItems(t *testing.T) {
 		t.Errorf("retry ignored entropy failure: %#v, %v", value, err)
 	}
 	var state string
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" {
@@ -61,7 +61,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,er
 		t.Fatalf("claimed job closed early: %#v, pending=%v", value, pending)
 	}
 	var state string
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "PENDING" {
@@ -72,8 +72,10 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,er
 func TestRetryReportsActiveExecutionWithoutChangingFailedPlan(t *testing.T) {
 	t.Parallel()
 	db := newSourceRetryDatabase(t)
-	if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
-VALUES('other-scan','SOURCE_IMPORT','other','IMPORT_SCAN','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',1,'{}',1,'QUEUED',0,4,1,1,1);
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
+VALUES('other-scan','SOURCE_IMPORT','other','IMPORT_SCAN',
+'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',1,'{}',1,'QUEUED',0,4,1,1,1);
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
 VALUES('other-import','SOURCE_IMPORT','other','IMPORT_RECEIVE',
@@ -91,7 +93,7 @@ VALUES('other','games','Games','Other',
 		t.Fatalf("busy retry: %#v, %v", value, err)
 	}
 	var state string
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" {

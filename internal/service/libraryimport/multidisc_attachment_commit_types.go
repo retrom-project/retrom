@@ -12,9 +12,9 @@ import (
 // MultiDiscAttachmentFile is the storage metadata needed when an accepted
 // attachment becomes a new immutable source snapshot.
 type MultiDiscAttachmentFile struct {
-	Role, LogicalName, UploadFileID, BlobID, BlobSHA string
-	BlobSize                                         int64
-	SortOrder                                        int
+	Role, LogicalName, UploadFileID, FileRecord, BlobSHA string
+	BlobSize                                             int64
+	SortOrder                                            int
 }
 
 type MultiDiscAttachmentValidation struct {

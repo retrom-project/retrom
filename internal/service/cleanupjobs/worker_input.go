@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	"github.com/google/uuid"
 )
 
@@ -27,9 +29,8 @@ func DecodeWork(work Work) (Input, error) {
 }
 
 func validateWorkInput(input Input) error {
-	if input.Kind == "FILE_DELETE" {
-		hash, err := hex.DecodeString(input.Inputs.SHA256)
-		if input.Scope.Type != ScopeFile || err != nil || len(hash) != sha256.Size {
+	if input.Kind == "PATH_DELETE" {
+		if input.Scope.Type != ScopePath || !filestore.RemovablePath(input.Inputs.RelativePath) {
 			return ErrInputInvalid
 		}
 		return nil

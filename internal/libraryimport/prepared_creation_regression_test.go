@@ -8,10 +8,14 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/testsupport"
 )
@@ -19,7 +23,11 @@ import (
 func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 	t.Parallel()
 	service, request, digest := preparedRPGFixture(t)
-	artifactRoot := filepath.Dir(filepath.Dir(service.blobs.Path("018fbe68-0000-7000-8000-000000000001")))
+	var source string
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT final_file_record FROM upload_files WHERE upload_session_id=? LIMIT 1`, request.UploadID).Scan(&source); err != nil {
+		t.Fatal(err)
+	}
+	artifactRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(service.blobs.Path(source)))))
 	if preparedDigestExists(t, artifactRoot, digest) {
 		t.Fatal("fixture already materialized RPG output")
 	}
@@ -29,7 +37,8 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			verb := strings.ToUpper(strings.TrimSpace(query))
-			if !strings.HasPrefix(verb, "INSERT ") && !strings.HasPrefix(verb, "UPDATE ") && !strings.HasPrefix(verb, "DELETE ") {
+			if !strings.HasPrefix(verb, "INSERT ") && !strings.HasPrefix(verb, "UPDATE ") &&
+				!strings.HasPrefix(verb, "DELETE ") {
 				return nil
 			}
 			writes++
@@ -48,18 +57,34 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 
 func preparedDigestExists(t *testing.T, root, digest string) bool {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(root, "*", "*"))
+	found := false
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		hash := sha256.New()
+		_, copyErr := io.Copy(hash, file)
+		closeErr := file.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if fmt.Sprintf("%x", hash.Sum(nil)) == digest {
+			found = true
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range paths {
-		contents, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if fmt.Sprintf("%x", sha256.Sum256(contents)) == digest {
-			return true
-		}
-	}
-	return false
+	return found
 }

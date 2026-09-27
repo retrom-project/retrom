@@ -15,14 +15,14 @@ import (
 type Records struct{ Executor dbapi.Executor }
 
 const previewExpiryDue = `(state='CREATED' AND bootstrap_expires_at_ms<=? OR hard_expires_at_ms<=? OR state='REVOKED')
-AND (state NOT IN ('EXPIRED','REVOKED') OR checkpoint_payload_blob_id IS NOT NULL
-OR restore_payload_blob_id IS NOT NULL)`
+AND (state NOT IN ('EXPIRED','REVOKED') OR checkpoint_payload_file_record IS NOT NULL
+OR restore_payload_file_record IS NOT NULL)`
 
 func (records Records) Previews(
 	ctx context.Context, now int64, limit int,
 ) ([]application.PreviewExpiration, error) {
 	rows, err := records.Executor.QueryContext(ctx, `SELECT id,state,version,bootstrap_expires_at_ms,hard_expires_at_ms,
-finished_at_ms,COALESCE(checkpoint_payload_blob_id,''),COALESCE(restore_payload_blob_id,'')
+finished_at_ms,COALESCE(checkpoint_payload_file_record,''),COALESCE(restore_payload_file_record,'')
 FROM review_preview_sessions WHERE `+previewExpiryDue+` ORDER BY hard_expires_at_ms,id LIMIT ?`, now, now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("select expired previews: %w", err)
@@ -32,7 +32,7 @@ FROM review_preview_sessions WHERE `+previewExpiryDue+` ORDER BY hard_expires_at
 	for rows.Next() {
 		var row application.PreviewExpiration
 		if err := rows.Scan(&row.ID, &row.State, &row.Version, &row.BootstrapExpiresMS, &row.HardExpiresMS,
-			&row.FinishedMS, &row.CheckpointBlobID, &row.RestoreBlobID); err != nil {
+			&row.FinishedMS, &row.CheckpointFileRecord, &row.RestoreFileRecord); err != nil {
 			return nil, fmt.Errorf("scan expired preview: %w", err)
 		}
 		facts = append(facts, row)
@@ -47,15 +47,17 @@ func (records Records) ExpirePreview(ctx context.Context, change application.Pre
 	before := change.Before
 	result, err := sessionstore.ChangePreview(ctx, records.Executor, recordstore.Update{
 		Set: `state=?,finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1,
-checkpoint_payload_blob_id=NULL,checkpoint_format=NULL,checkpoint_created_at_ms=NULL,
-restore_payload_blob_id=NULL,restore_checkpoint_format=NULL`,
+checkpoint_payload_file_record=NULL,checkpoint_format=NULL,checkpoint_created_at_ms=NULL,
+restore_payload_file_record=NULL,restore_checkpoint_format=NULL`,
 		Scope: recordstore.Scope{
 			Where: `id=? AND state=? AND version=? AND bootstrap_expires_at_ms=? AND hard_expires_at_ms=?
 AND (finished_at_ms=? OR (finished_at_ms IS NULL AND ? IS NULL))
-AND COALESCE(checkpoint_payload_blob_id,'')=? AND COALESCE(restore_payload_blob_id,'')=? AND ` + previewExpiryDue,
+AND COALESCE(checkpoint_payload_file_record,'')=? AND COALESCE(restore_payload_file_record,'')=? AND
+` + previewExpiryDue,
 			Args: []any{
 				before.ID, before.State, before.Version, before.BootstrapExpiresMS, before.HardExpiresMS,
-				before.FinishedMS, before.FinishedMS, before.CheckpointBlobID, before.RestoreBlobID, change.NowMS, change.NowMS,
+				before.FinishedMS, before.FinishedMS, before.CheckpointFileRecord,
+				before.RestoreFileRecord, change.NowMS, change.NowMS,
 			},
 		},
 		Values: []any{change.State, change.NowMS, change.NowMS},

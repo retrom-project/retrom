@@ -58,12 +58,12 @@ CREATE INDEX favorite_games_profile_created
 ON favorite_games(profile_id,created_at_ms DESC,game_id DESC);
 
 
-CREATE INDEX fk_bios_installations_blob ON bios_installations(blob_id);
+CREATE INDEX fk_bios_installations_blob ON bios_installations(file_record);
 
 CREATE INDEX fk_import_item_duplicate_matches_game
 ON import_item_duplicate_matches(existing_game_id);
 
-CREATE INDEX fk_import_item_multidisc_blob ON import_item_multidisc_entries(blob_id);
+CREATE INDEX fk_import_item_multidisc_blob ON import_item_multidisc_entries(file_record);
 
 CREATE INDEX fk_import_item_multidisc_upload ON import_item_multidisc_entries(upload_file_id);
 
@@ -77,7 +77,7 @@ CREATE INDEX fk_import_jobs_platform ON import_jobs(target_platform_instance_id)
 CREATE INDEX fk_import_jobs_reconfigured_from
 ON import_jobs(reconfigured_from_import_job_id);
 
-CREATE INDEX fk_launch_external_files_blob ON launch_external_files(blob_id);
+CREATE INDEX fk_launch_external_files_blob ON launch_external_files(file_record);
 
 CREATE INDEX fk_launch_game ON launch_sessions(game_id);
 
@@ -175,7 +175,7 @@ ON review_multidisc_attachments(requested_by_user_id,created_at_ms,id);
 CREATE INDEX review_multidisc_attachment_history
 ON review_multidisc_attachments(import_item_id,created_at_ms,id);
 
-CREATE INDEX review_preview_files_blob ON review_preview_files(blob_id);
+CREATE INDEX review_preview_files_blob ON review_preview_files(file_record);
 
 CREATE INDEX review_preview_sessions_actor ON review_preview_sessions(actor_user_id);
 
@@ -190,7 +190,7 @@ CREATE INDEX review_preview_sessions_validation ON review_preview_sessions(valid
 
 CREATE INDEX review_queue ON import_items(review_updated_at_ms, id) WHERE state='REVIEW_PENDING';
 
-CREATE INDEX review_runtime_screenshots_blob ON review_runtime_screenshots(blob_id);
+CREATE INDEX review_runtime_screenshots_blob ON review_runtime_screenshots(file_record);
 
 CREATE INDEX review_runtime_screenshots_preview ON review_runtime_screenshots(preview_session_id);
 
@@ -202,7 +202,7 @@ CREATE INDEX review_uploaded_assets_item ON review_uploaded_assets(import_item_i
 
 CREATE INDEX save_states_library ON save_states(profile_id, game_id, created_at_ms DESC, id DESC);
 
-CREATE INDEX save_states_payload ON save_states(payload_blob_id);
+CREATE INDEX save_states_payload ON save_states(payload_file_record);
 
 CREATE INDEX save_states_source_launch
 ON save_states(source_launch_session_id,created_at_ms DESC,id DESC)

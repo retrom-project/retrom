@@ -1946,22 +1946,6 @@
       #retrom-ui-review .rt-detail-poster-shell { width: 240px; }
       #retrom-ui-review .rt-detail-save-facts { display: grid; }
     }
-    #retrom-ui-review .rt-storage-summary { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px }
-    #retrom-ui-review .rt-storage-summary article,#retrom-ui-review .rt-storage-detail { padding:18px;border:1px solid var(--retrom-line);border-radius: var(--radius-panel);background:var(--retrom-panel) }
-    #retrom-ui-review .rt-storage-summary span,#retrom-ui-review .rt-storage-detail span { display:block;color:var(--retrom-muted);font-size:var(--text-caption) }
-    #retrom-ui-review .rt-storage-summary strong { display:block;margin:5px 0;font-size:var(--text-page) }
-    #retrom-ui-review .rt-storage-summary small,#retrom-ui-review .rt-storage-detail small { color:var(--retrom-muted) }
-    #retrom-ui-review .rt-storage-panel { padding:18px;border:1px solid var(--retrom-line);border-radius: var(--radius-panel);background:var(--retrom-panel) }
-    #retrom-ui-review .rt-storage-bar { height:17px;display:flex;overflow:hidden;border-radius:999px;background:var(--retrom-panel-raised) }
-    #retrom-ui-review .rt-storage-bar i:nth-child(1){width:46%;background:var(--retrom-purple)}#retrom-ui-review .rt-storage-bar i:nth-child(2){width:12%;background:#287bb5}#retrom-ui-review .rt-storage-bar i:nth-child(3){width:8%;background:var(--retrom-cyan)}#retrom-ui-review .rt-storage-bar i:nth-child(4){width:14%;background:var(--retrom-green)}#retrom-ui-review .rt-storage-bar i:nth-child(5){width:13%;background:var(--retrom-amber)}#retrom-ui-review .rt-storage-bar i:nth-child(6){width:7%;background:#b9b4aa}
-    #retrom-ui-review .rt-storage-categories { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:16px;overflow:hidden;border:1px solid var(--retrom-line);border-radius: var(--radius-panel);background:var(--retrom-line) }
-    #retrom-ui-review .rt-storage-category { min-height:90px;padding:14px;background:var(--retrom-panel) }
-    #retrom-ui-review .rt-storage-category strong,#retrom-ui-review .rt-storage-category small { display:block }#retrom-ui-review .rt-storage-category small{margin-top:5px;color:var(--retrom-muted)}
-    #retrom-ui-review .rt-storage-details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px }
-    #retrom-ui-review .rt-storage-detail strong { display:block;margin:5px 0;font-size:var(--text-section) }
-    #retrom-ui-review .rt-storage-scope { margin-top:14px;padding:16px;border:1px solid var(--retrom-line);border-radius: var(--radius-panel);background:var(--retrom-panel-raised);color:var(--retrom-muted);font-size:var(--text-caption) }
-    #retrom-ui-review .rt-storage-scope strong { color:var(--retrom-text) }
-    @media(max-width:760px){#retrom-ui-review .rt-storage-summary,#retrom-ui-review .rt-storage-categories,#retrom-ui-review .rt-storage-details{grid-template-columns:1fr}}
     #retrom-ui-review .rt-immersive-design { min-height:100vh;color:#f8f7ff;background:#090c16;font-family:var(--font-sans);overflow:hidden }
     #retrom-ui-review .rt-immersive-design::before { content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 68% 34%,rgba(103,75,223,.34),transparent 34%),radial-gradient(circle at 18% 82%,rgba(25,160,176,.17),transparent 28%) }
     #retrom-ui-review .rt-im-stage { position:relative;min-height:100vh;padding:clamp(28px,4vw,76px) clamp(36px,6vw,112px);display:flex;flex-direction:column;box-sizing:border-box }
@@ -2718,7 +2702,6 @@
           <button type="button" class="rt-nav-button" data-page-target="admin-platform-instances"><i data-lucide="folders" aria-hidden="true"></i><span>游戏目录</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-users"><i data-lucide="users" aria-hidden="true"></i><span>用户管理</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-bios"><i data-lucide="microchip" aria-hidden="true"></i><span>运行依赖</span></button>
-          <button type="button" class="rt-nav-button" data-page-target="admin-storage"><i data-lucide="hard-drive" aria-hidden="true"></i><span>容量分析</span></button>
         </div>
       </nav>
 
@@ -3354,16 +3337,7 @@
             </div>
           </details>
       </section>
-      <section class="rt-page" data-page="admin-storage">
-        <div class="rt-page-head"><div><h1>容量分析</h1><p class="rt-subtitle">查看 Retrom 已登记文件的业务用途，定位长期数据、流程数据与等待回收内容。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-danger" data-open-storage-cleanup>立即清理</button><button type="button" class="rt-button">刷新分析</button></div></div>
-        <p class="rt-subtitle" style="text-align:right">统计生成于 2026/8/23 01:20:00</p>
-        <div class="rt-storage-summary"><article><span>已登记文件</span><strong>18.6 GiB</strong><small>482 个文件</small></article><article><span>保留数据</span><strong>17.3 GiB</strong><small>93.0% 继续保留</small></article><article><span>等待回收</span><strong>1.3 GiB</strong><small>7.0% 已安排删除</small></article></div>
-        <section class="rt-storage-panel"><div class="rt-panel-heading"><div><h2>按用途分析</h2><p class="rt-subtitle">按文件的当前用途分类；内容相同的独立文件分别计量。</p></div></div><div class="rt-storage-bar" aria-label="容量用途比例"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="rt-storage-categories">
-          <article class="rt-storage-category"><strong>ROM 与游戏内容</strong><small>8.6 GiB · 126 个文件</small></article><article class="rt-storage-category"><strong>BIOS 与运行 bundle</strong><small>2.2 GiB · 38 个文件</small></article><article class="rt-storage-category"><strong>存档</strong><small>1.5 GiB · 94 个文件</small></article><article class="rt-storage-category"><strong>游戏媒体</strong><small>2.6 GiB · 81 个文件</small></article><article class="rt-storage-category"><strong>导入与审核工作区</strong><small>2.4 GiB · 90 个文件</small></article><article class="rt-storage-category"><strong>待删除文件</strong><small>1.3 GiB · 53 个文件</small></article>
-        </div></section>
-        <div class="rt-storage-details"><article class="rt-storage-detail"><span>存档文件</span><strong>67 份有效 · 4 份软删除</strong><small>状态文件 1.1 GiB · 截图文件 420 MiB；两个文件详情不与用途分类相加。</small></article><article class="rt-storage-detail"><span>删除队列</span><strong>31 个文件 · 760 MiB</strong><small>已退休文件排队删除；管理员可补齐或重试任务，删除前仍会复核所有者的删除决定。</small></article></div>
-        <div class="rt-storage-scope"><strong>仅计算已登记文件</strong> · OWNED_FILES_V1<br>不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。</div>
-      </section>
+
       <section class="rt-page" data-page="me"><div class="rt-phone-profile"><h1>我的</h1><div class="rt-phone-identity"><span>T</span><div><strong>Test</strong><p>@test</p></div></div><nav class="rt-phone-links" aria-label="个人游戏资料"><button type="button" data-page-link="favorites"><i data-lucide="heart"></i>我的收藏</button><button type="button" data-page-link="saves"><i data-lucide="save"></i>我的存档</button><button type="button" data-page-link="recent"><i data-lucide="history"></i>最近游玩</button></nav><div class="rt-phone-links"><button type="button" data-page-link="account"><i data-lucide="settings"></i>账户设置</button><button type="button" data-phone-logout><i data-lucide="log-out"></i>退出登录</button></div></div></section>
       <section class="rt-phone-admin"><h1>请在电脑上管理游戏库</h1><p>导入、审核和维护适合在大屏幕上完成。现在可以先挑一款游戏来玩。</p><button type="button" class="rt-button rt-button-primary" data-phone-return>返回游戏库</button></section>
     </main>
@@ -3375,7 +3349,6 @@
   </div>
 
   <div class="rt-dialog-backdrop" data-batch-discard-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-batch-discard-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-batch-discard-title">丢弃本批次未发布内容？</h2><p class="rt-dialog-copy">本批次所有待审核和导入失败的内容都会丢弃，无法继续审核或重试导入。已发布游戏和服务器原始文件保留；无引用文件立即排队回收。</p></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-batch-discard>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-batch-discard>确认丢弃</button></div></section></div>
-  <div class="rt-dialog-backdrop" data-storage-cleanup-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-storage-cleanup-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-storage-cleanup-title">立即删除待清理文件？</h2><p class="rt-dialog-copy">这会提交待删除文件并重试失败任务。仍在使用的游戏、媒体和存档会保留。</p></div></div><div class="rt-dialog-impact">当前快照中有 <strong>53 个文件</strong>、<strong>1.3 GiB</strong> 等待删除。实际回收量以后台复核结果为准。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-storage-cleanup>取消</button><button type="button" class="rt-button rt-button-danger" data-close-storage-cleanup>立即清理</button></div></section></div>
 
   <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy" data-player-exit-copy>直接退出不会创建存档；如需保留当前位置，请先创建存档。</p></div></div><div class="rt-dialog-impact">只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录并返回启动前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-player-exit-save" data-save-before-player-exit><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
 
@@ -3560,7 +3533,7 @@
         home: '首页', me: '我的', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
         'admin-server-import': '本地扫描', 'admin-server-import-detail': 'BIOS 导入详情', 'admin-source-import-detail': '来源准备任务',
-        'admin-review': '待审核', 'admin-import-tasks': '任务结果', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
+        'admin-review': '待审核', 'admin-import-tasks': '任务结果', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖'
       };
       const authPageNames = new Set(['setup', 'login', 'register', 'reset']);
       function selectReviewScene(scene) {
@@ -4694,9 +4667,6 @@
         batchDiscardDialog.hidden = true;
         if (batchDiscardTrigger) { batchDiscardTrigger.disabled = true; batchDiscardTrigger.textContent = '未发布内容已丢弃'; }
       });
-      const storageCleanupDialog = root.querySelector('[data-storage-cleanup-dialog]');
-      root.querySelector('[data-open-storage-cleanup]').addEventListener('click', () => { storageCleanupDialog.hidden = false; });
-      root.querySelectorAll('[data-close-storage-cleanup]').forEach((button) => button.addEventListener('click', () => { storageCleanupDialog.hidden = true; }));
 
       root.querySelectorAll('.rt-home-rail').forEach((rail) => rail.addEventListener('wheel', (event) => {
         if (rail.scrollWidth <= rail.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;

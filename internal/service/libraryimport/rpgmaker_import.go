@@ -85,7 +85,7 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
 		index.files = append(index.files, detector.File{Path: file.Path, Size: file.SizeBytes})
-		index.paths[file.Path] = service.blobs.Path(source.BlobID)
+		index.paths[file.Path] = service.blobs.Path(source.FileRecord)
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {
@@ -182,7 +182,7 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, PreparedSource{
 			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
-			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
+			ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 		})
 	}
 	selectedEntries := projectEntriesForFiles(projectFiles, entryByOrdinal)
@@ -196,7 +196,7 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	return sourceDisposition(file), newRPGMakerGroup(
 			sources, profile, project.Root, removed, file.Path,
 		), PreparedArchive{
-			BlobID: file.BlobID, Entries: entries, Materialized: materialized,
+			FileRecord: file.FileRecord, Entries: entries, Materialized: materialized,
 		}, nil
 }
 

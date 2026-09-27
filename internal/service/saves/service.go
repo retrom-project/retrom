@@ -44,6 +44,7 @@ type ManualUpload struct {
 }
 
 type ManualResult struct {
+	unchangedPayload bool
 	ResourceKind     string
 	SaveStateID      string
 	PreviewID        string

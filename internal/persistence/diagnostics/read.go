@@ -27,7 +27,6 @@ SELECT
 (SELECT count(*) FROM games WHERE status='DELETED'),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NULL),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NOT NULL),
-(SELECT count(*) FROM stored_files),
 (SELECT count(*) FROM jobs WHERE state='QUEUED'),
 (SELECT count(*) FROM jobs WHERE state='RUNNING'),
 (SELECT count(*) FROM jobs WHERE state='CANCEL_REQUESTED'),
@@ -41,7 +40,7 @@ SELECT
 (SELECT count(*) FROM dat_versions WHERE parse_status='CANCELLED')
 `).Scan(
 		&counts.PublishedGames, &counts.DeletedGames, &counts.ActiveSaves, &counts.DeletedSaves,
-		&counts.Blobs, &counts.QueuedJobs, &counts.RunningJobs, &counts.CancelRequestedJobs,
+		&counts.QueuedJobs, &counts.RunningJobs, &counts.CancelRequestedJobs,
 		&counts.SucceededJobs, &counts.FailedJobs, &counts.CancelledJobs,
 		&counts.PendingDATs, &counts.ParsingDATs, &counts.ReadyDATs, &counts.FailedDATs,
 		&counts.CancelledDATs,

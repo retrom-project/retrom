@@ -16,11 +16,13 @@ func ClearUnpublishedScan(ctx context.Context, tx dbapi.Tx, importID string) err
 	err := dbapi.QueryRowContext(ctx, tx, `SELECT import_job_id IS NULL AND scan_completed_at_ms IS NULL
 AND state IN ('SCANNING','CANCEL_REQUESTED')
 AND NOT EXISTS(SELECT 1 FROM source_import_items i WHERE i.import_id=plan.id
- AND (i.library_import_item_id IS NOT NULL OR i.library_import_job_id IS NOT NULL OR i.execution_state<>'PENDING'))
+ AND (i.library_import_item_id IS NOT NULL OR i.library_import_job_id IS NOT NULL OR
+i.execution_state<>'PENDING'))
 AND NOT EXISTS(SELECT 1 FROM source_import_item_files f JOIN source_import_items i ON i.id=f.item_id
- WHERE i.import_id=plan.id AND (f.blob_id IS NOT NULL OR f.source_archive_blob_id IS NOT NULL OR f.state<>'DISCOVERED'))
+ WHERE i.import_id=plan.id AND (f.file_record IS NOT NULL OR f.source_archive_file_record IS NOT NULL OR
+f.state<>'DISCOVERED'))
 AND NOT EXISTS(SELECT 1 FROM source_import_item_assets a JOIN source_import_items i ON i.id=a.item_id
- WHERE i.import_id=plan.id AND (a.blob_id IS NOT NULL OR a.state<>'DISCOVERED'))
+ WHERE i.import_id=plan.id AND (a.file_record IS NOT NULL OR a.state<>'DISCOVERED'))
 AND NOT EXISTS(SELECT 1 FROM source_collection_tags tag
  JOIN source_import_collections c ON c.id=tag.collection_id WHERE c.import_id=plan.id)
 FROM source_imports plan WHERE id=?`, importID).Scan(&eligible)

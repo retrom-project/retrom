@@ -13,7 +13,7 @@ import (
 
 func scanApprovalAsset(row dbapi.Scanner) (application.ApprovalExternalAsset, bool, error) {
 	var asset application.ApprovalExternalAsset
-	err := row.Scan(&asset.BlobID, &asset.WidthPX, &asset.HeightPX, &asset.MediaType)
+	err := row.Scan(&asset.FileRecord, &asset.WidthPX, &asset.HeightPX, &asset.MediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ApprovalExternalAsset{}, false, nil
 	}
@@ -27,7 +27,7 @@ func (records reviewApprovalRecords) Candidate(
 	ctx context.Context, itemID, assetID string,
 ) (application.ApprovalExternalAsset, bool, error) {
 	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
-SELECT a.blob_id,a.width_px,a.height_px,a.media_type
+SELECT a.file_record,a.width_px,a.height_px,a.media_type
 FROM scrape_candidate_assets a
 JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
@@ -38,21 +38,12 @@ func (records reviewApprovalRecords) UploadedCover(
 	ctx context.Context, itemID, assetID string,
 ) (application.ApprovalExternalAsset, bool, error) {
 	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
-SELECT blob_id,width_px,height_px,media_type FROM review_uploaded_assets
+SELECT file_record,width_px,height_px,media_type FROM review_uploaded_assets
 WHERE id=? AND import_item_id=? AND kind='COVER'`, assetID, itemID))
 }
 
 func (records reviewApprovalRecords) Screenshots(ctx context.Context, itemID string) ([]string, error) {
 	return (ReviewDrafts{executor: records.transaction}).ScreenshotIDs(ctx, itemID)
-}
-
-func (records reviewApprovalRecords) BlobExists(ctx context.Context, id string) (bool, error) {
-	var exists bool
-	if err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=?)`,
-		id).Scan(&exists); err != nil {
-		return false, fmt.Errorf("read approved source blob: %w", err)
-	}
-	return exists, nil
 }
 
 func (records reviewApprovalRecords) Origin(
@@ -83,7 +74,7 @@ func (records reviewApprovalRecords) originAssets(
 ) ([]application.ApprovalExternalAsset, error) {
 	table := "import_item_assets"
 	rows, err := records.transaction.QueryContext(ctx, `
-SELECT kind,blob_id,media_type,width_px,height_px FROM `+table+`
+SELECT kind,file_record,media_type,width_px,height_px FROM `+table+`
 WHERE import_item_id=?
 ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, itemID)
 	if err != nil {
@@ -93,7 +84,7 @@ ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, itemID)
 	assets := make([]application.ApprovalExternalAsset, 0)
 	for rows.Next() {
 		var asset application.ApprovalExternalAsset
-		if err := rows.Scan(&asset.Kind, &asset.BlobID, &asset.MediaType, &asset.WidthPX,
+		if err := rows.Scan(&asset.Kind, &asset.FileRecord, &asset.MediaType, &asset.WidthPX,
 			&asset.HeightPX); err != nil {
 			return nil, fmt.Errorf("scan approval source asset: %w", err)
 		}

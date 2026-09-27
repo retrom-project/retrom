@@ -10,37 +10,28 @@ import (
 	"testing"
 	"time"
 
-	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
+	"retrom/internal/filestore"
 
-	storagepersistence "retrom/internal/persistence/storageanalysis"
+	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/service/storageanalysis"
 	"retrom/internal/testassert"
 )
 
-func TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity(t *testing.T) {
+func TestGameCoverReplacementRetiresOldPayload(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	gameID, metadataID, contentID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	coverAssetID, videoAssetID := uuid.NewString(), uuid.NewString()
-	oldCoverMetadata, err := server.blobs.Put(bytes.NewReader([]byte("old cover payload")))
-	testassert.False(t, err != nil, err)
-	coverBlobID := oldCoverMetadata.ID
+	coverFileRecord := ""
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	fixture := gameDetailSeed{now: time.Now().UnixMilli()}
 	seedGameDetailMedia(
-		t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture,
+		t, server, transaction, gameID, metadataID, contentID, coverFileRecord, coverAssetID, videoAssetID, &fixture,
 	)
-	mustExecHTTPTest(t, transaction, `
-UPDATE stored_files SET sha256=?,size_bytes=?,md5=?,sha1=?,crc32=? WHERE id=?
-`, oldCoverMetadata.SHA256, oldCoverMetadata.Size, oldCoverMetadata.MD5, oldCoverMetadata.SHA1,
-		oldCoverMetadata.CRC32, coverBlobID)
-	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='GAME',owner_id=? WHERE id=?`, gameID, coverBlobID)
 	mustCommitHTTPTest(t, transaction)
 	oldAssetURL := "/content/assets/" + coverAssetID
 	oldAsset := httptest.NewRecorder()
@@ -66,18 +57,19 @@ UPDATE stored_files SET sha256=?,size_bytes=?,md5=?,sha1=?,crc32=? WHERE id=?
 	testassert.False(t, err != nil, err)
 	metadata, err := server.blobs.Put(bytes.NewReader(png))
 	testassert.False(t, err != nil, err)
-	newBlobID, err := filecatalog.EnsureRecord(t.Context(), server.database, metadata, "image/png", fixture.now)
+	newFileRecord, err := filestore.FileRecord(metadata, "image/png")
 	testassert.False(t, err != nil, err)
 	uploadID, uploadFileID := uuid.NewString(), uuid.NewString()
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?)
 `, uploadID, len(png), metadata.SHA256, fixture.now+60_000, fixture.now, fixture.now)
-	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, uploadID, newBlobID)
 	mustCreateHTTPReferences(t, server.database, "upload_files", `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
-`, uploadFileID, uploadID, len(png), len(png), newBlobID, fixture.now, fixture.now)
+`, uploadFileID, uploadID, len(png), len(png), newFileRecord, fixture.now, fixture.now)
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
@@ -107,20 +99,12 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	), "replacement cover response = %d headers=%v body=%s", newAsset.Code, newAsset.Header(), response.Body.String())
 	assertRetiredGameAssetUnavailable(t, server, coverAssetID)
 
-	var retiredAssets, candidateCount, fileCount int64
-	mustScanHTTPTest(t, dbapi.QueryRowContext(t.Context(), server.database, `
-SELECT
- (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
-  WHERE game.id=? AND asset.game_id<>game.id),
-	(SELECT count(*) FROM file_deletions WHERE blob_id=?),
-	(SELECT count(*) FROM stored_files WHERE id=?)
-`, gameID, coverBlobID, coverBlobID), &retiredAssets, &candidateCount, &fileCount)
-	testassert.Falsef(t, retiredAssets != 0 || fileCount == 1 && candidateCount != 1,
-		"cover retirement = retired assets:%d DeletionQueue candidates:%d blobs:%d", retiredAssets, candidateCount, fileCount)
-	snapshot, err := storageanalysis.New(storagepersistence.New(server.database), time.Now).Analyze(t.Context())
-	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, fileCount == 1 && snapshot.Totals.PendingDeleteBytes < 4,
-		"unreferenced bytes = %d, wanted retired cover bytes", snapshot.Totals.PendingDeleteBytes)
+	var directoryJobs int
+	oldDirectory := filestore.GameDirectory(gameID) + "/media/" + coverAssetID
+	mustScanHTTPTest(t, dbapi.QueryRowContext(t.Context(), server.database,
+		`SELECT count(*) FROM job_input_snapshots WHERE json_extract(input_json,'$.inputs.relativePath')=?`, oldDirectory), &directoryJobs)
+	testassert.Falsef(t, directoryJobs != 1, "expected one directory removal, got %d", directoryJobs)
+	testassert.Falsef(t, !bytes.Equal(newAsset.Body.Bytes(), png), "replacement bytes changed")
 }
 
 func assertRetiredGameAssetUnavailable(t *testing.T, server *Server, assetID string) {

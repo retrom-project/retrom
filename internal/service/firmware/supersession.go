@@ -9,8 +9,8 @@ import (
 )
 
 type SupersededInstallation struct {
-	ID, RequirementID, BlobID string
-	Version                   int64
+	ID, RequirementID, FileRecord string
+	Version                       int64
 }
 
 type SupersessionReader interface {
@@ -36,7 +36,7 @@ func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementI
 	if !found {
 		return nil
 	}
-	if before.ID == "" || before.RequirementID != requirementID || before.BlobID == "" ||
+	if before.ID == "" || before.RequirementID != requirementID || before.FileRecord == "" ||
 		before.Version < 1 || before.Version == math.MaxInt64 {
 		return ErrInvalid
 	}

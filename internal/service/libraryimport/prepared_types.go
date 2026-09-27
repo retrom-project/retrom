@@ -14,26 +14,27 @@ type PreparedDisposition struct {
 }
 
 type PreparedSource struct {
-	Payload        *filestore.Metadata
-	File           ImportFile
-	Role           string
-	LogicalName    string
-	ArchiveBlobID  string
-	ArchiveOrdinal *int
-	SortOrder      *int
+	Payload           *filestore.Metadata
+	File              ImportFile
+	Role              string
+	LogicalName       string
+	ArchiveFileRecord string
+	ArchiveOrdinal    *int
+	SortOrder         *int
 }
 
 type PreparedArchive struct {
-	BlobID       string
+	FileRecord   string
 	Entries      []importing.ArchiveEntry
 	Materialized map[int]filestore.Metadata
 }
 
 type PreparedGroup struct {
+	ItemID              string
 	Sources             []PreparedSource
 	DOSEntries          []PreparedDOSEntry
 	DefaultDOSEntry     string
-	BundleBlobID        string
+	BundleFileRecord    string
 	Bundle              *filestore.Metadata
 	ValidationStatus    string
 	CompatibilityCode   string
@@ -55,13 +56,13 @@ type PreparedMultiDiscEntry struct {
 	Ordinal                                             int
 	State                                               string
 	SourceReference, NormalizedReference, CanonicalName string
-	UploadFileID, BlobID, SourceLogicalName             string
+	UploadFileID, FileRecord, SourceLogicalName         string
 }
 
 type PreparedValidationFile struct {
-	Artifact                  *filestore.Metadata
-	Role, LogicalName, BlobID string
-	SortOrder                 int
+	Artifact                      *filestore.Metadata
+	Role, LogicalName, FileRecord string
+	SortOrder                     int
 }
 
 type PreparedDOSEntry struct {
@@ -73,6 +74,6 @@ type PreparedDOSEntry struct {
 }
 
 type PreparedReusableUploadFile struct {
-	ID, Path, BlobID string
-	Size             int64
+	ID, Path, FileRecord string
+	Size                 int64
 }

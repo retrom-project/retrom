@@ -16,7 +16,7 @@ import (
 func (service *ImportPreparation) rpgMakerNestedArchiveFormat(
 	file ImportFile,
 ) (importing.NestedArchiveFormat, error) {
-	reader, err := os.Open(service.blobs.Path(file.BlobID))
+	reader, err := os.Open(service.blobs.Path(file.FileRecord))
 	if err != nil {
 		return importing.NestedArchiveNone, fmt.Errorf("open RPG Maker project file: %w", err)
 	}
@@ -35,7 +35,7 @@ func (service *ImportPreparation) scanProjectArchive(
 	file ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, map[int]*filestore.Candidate, error) {
-	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.BlobID), archiveFormat)
+	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.FileRecord), archiveFormat)
 }
 
 func (service *ImportPreparation) scanProjectArchivePath(
@@ -102,7 +102,7 @@ func (service *ImportPreparation) projectArchiveReadMetadata(
 	if len(missing) == 0 {
 		return result, nil
 	}
-	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.BlobID), missing)
+	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.FileRecord), missing)
 	if err != nil {
 		return nil, err
 	}

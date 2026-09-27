@@ -188,7 +188,7 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 	}
 	paths := make(map[int]string, len(project.Files))
 	for _, file := range project.Files {
-		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].BlobID)
+		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].FileRecord)
 	}
 	snapshot, err := definition.detect(project.Files, paths)
 	if err != nil {
@@ -237,7 +237,7 @@ func (service *ImportPreparation) prepareMarkerProjectArchive(
 	}
 	sources := archiveProjectSources(file, project.Files)
 	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.Path), PreparedArchive{
-		BlobID: file.BlobID, Entries: entries, Materialized: materialized,
+		FileRecord: file.FileRecord, Entries: entries, Materialized: materialized,
 	}, nil
 }
 
@@ -257,7 +257,7 @@ func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
 		return format, nil
 	}
 	detected, err := importing.DetectElectronASARZIP(
-		service.blobs.Path(file.BlobID), importing.RPGMakerArchiveLimits(),
+		service.blobs.Path(file.FileRecord), importing.RPGMakerArchiveLimits(),
 	)
 	if err != nil {
 		return "", fmt.Errorf("detect TyranoScript Electron archive: %w", err)
@@ -450,7 +450,7 @@ func archiveProjectSources(file ImportFile, files []fileset.SourceFile) []Prepar
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, PreparedSource{
 			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
-			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
+			ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 		})
 	}
 	return sources

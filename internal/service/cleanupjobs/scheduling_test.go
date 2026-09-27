@@ -113,7 +113,7 @@ func TestSchedulerIdentityFailuresCannotWrite(t *testing.T) {
 func TestSchedulerRejectsInvalidRequestsBeforeIdentityOrStorage(t *testing.T) {
 	t.Parallel()
 	for name, change := range map[string]func(*ScheduleRequest){
-		"blob":    func(value *ScheduleRequest) { value.Scope.Type = ScopeFile },
+		"blob":    func(value *ScheduleRequest) { value.Scope.Type = ScopePath },
 		"unknown": func(value *ScheduleRequest) { value.Scope.Type = "UNKNOWN" },
 		"empty":   func(value *ScheduleRequest) { value.Scope.ID = "" },
 		"version": func(value *ScheduleRequest) { value.ScopeVersion = 0 },

@@ -29,7 +29,8 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	png,
+		err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 		t.Fatalf("publication conflict leaked %d database connection(s)", stats.InUse)
 	}
 	var blobsCount int
-	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM stored_files`).Scan(&blobsCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM scrape_candidate_assets WHERE file_record IS NOT NULL`).Scan(&blobsCount); err != nil {
 		t.Fatal(err)
 	}
 	if blobsCount != 0 {

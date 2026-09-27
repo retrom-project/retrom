@@ -20,10 +20,11 @@ SELECT
   (SELECT count(*) FROM review_preview_files file JOIN review_preview_sessions preview
    ON preview.id=file.preview_session_id WHERE preview.import_item_id=?)+
   (SELECT count(*) FROM review_runtime_screenshots WHERE import_item_id=?)+
-  (SELECT count(*) FROM review_arcade_parent_attachments WHERE import_item_id=? AND accepted_blob_id IS NOT
+  (SELECT count(*) FROM review_arcade_parent_attachments WHERE import_item_id=? AND accepted_file_record
+IS NOT
 NULL)+
   (SELECT count(*) FROM import_item_multidisc_entries entry JOIN import_item_source_snapshots snapshot
-   ON snapshot.id=entry.source_snapshot_id WHERE snapshot.import_item_id=? AND entry.blob_id IS NOT NULL)+
+   ON snapshot.id=entry.source_snapshot_id WHERE snapshot.import_item_id=? AND entry.file_record IS NOT NULL)+
   (SELECT count(*) FROM import_item_source_files WHERE import_item_id=?)+
   (SELECT count(*) FROM import_item_source_snapshot_files file
    JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id

@@ -301,7 +301,7 @@ test("ACC-MOB-004 phone administration links lead back to play without mounting 
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/server", "/admin/imports/tasks",
     "/admin/reviews", "/admin/games", "/admin/platform-instances",
-    "/admin/users", "/admin/bios", "/admin/storage",
+    "/admin/users", "/admin/bios",
   ];
   for (const route of routes) {
     await page.goto(route);

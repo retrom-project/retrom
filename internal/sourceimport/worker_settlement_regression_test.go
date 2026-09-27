@@ -13,7 +13,9 @@ func TestWorkerFailureCannotCloseReplacedExecution(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
 	mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='replacement' WHERE id='work'`)
-	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); !errors.Is(err, ErrVersionConflict) {
+	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(),
+		application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); !errors.Is(err,
+		ErrVersionConflict) {
 		t.Fatalf("stale owner error=%v", err)
 	}
 	var state string
@@ -31,7 +33,8 @@ func TestWorkerFailureRollsBackWhenEventCannotBeWritten(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
 	mustExecSourceTest(t.Context(), t, service.database, `DROP TABLE job_events`)
-	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err == nil {
+	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(),
+		application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err == nil {
 		t.Fatal("event failure was not returned")
 	}
 	var state string
@@ -53,7 +56,9 @@ func TestWorkerCancellationCannotCloseReplacedExecution(t *testing.T) {
 		t.Context(),
 		t,
 		service.database,
-		`UPDATE jobs SET state='CANCEL_REQUESTED',worker_id='replacement',cancel_reason='stop',cancel_requested_at_ms=10 WHERE id='work';UPDATE source_imports SET state='CANCEL_REQUESTED',cancel_reason='stop' WHERE id='import'`,
+		`UPDATE jobs SET state='CANCEL_REQUESTED',worker_id='replacement',cancel_reason='stop',
+cancel_requested_at_ms=10 WHERE id='work';UPDATE source_imports SET state='CANCEL_REQUESTED',
+cancel_reason='stop' WHERE id='import'`,
 	)
 	closed, err := service.closeCancelled(t.Context(), unit)
 	if err == nil || closed {
@@ -68,9 +73,12 @@ func TestWorkerSettlementRetainsBoundReviewAndClosesOnlyUnfinishedSource(t *test
 			service, unit, _ := handoffFixture(t)
 			mustExecSourceTest(t.Context(), t, service.database, `UPDATE source_imports SET game_count=2 WHERE id='import';
 INSERT INTO source_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
-discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,created_at_ms,updated_at_ms)
-VALUES('unfinished','import','metadata.pegasus.txt',1,'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-'Unfinished','READY','COPYING','{}','{}','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,1);`)
+discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,created_at_ms,
+updated_at_ms)
+VALUES('unfinished','import','metadata.pegasus.txt',1,
+'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+'Unfinished','READY','COPYING','{}','{}',
+'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,1);`)
 			if cancel {
 				mustExecSourceTest(
 					t.Context(),
@@ -83,7 +91,8 @@ UPDATE source_imports SET state='CANCEL_REQUESTED',cancel_reason='stop' WHERE id
 					t.Fatalf("cancel=%v %v", closed, err)
 				}
 			} else {
-				if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err != nil {
+				if err := service.workerSettlement().Fail(t.Context(), unit.Identity(),
+					application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -102,9 +111,11 @@ func assertSettledReview(t *testing.T, service *Service, cancel bool) {
 	t.Helper()
 	var actual settledReviewOutcome
 	err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT plan.state,job.state,plan.review_pending_item_count,
-plan.failed_item_count,plan.cancelled_item_count,item.execution_state,item.payload_state,unfinished.execution_state,
+plan.failed_item_count,plan.cancelled_item_count,item.execution_state,item.payload_state,
+unfinished.execution_state,
 unfinished.retryable FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id
-JOIN source_import_items item ON item.id='item' JOIN source_import_items unfinished ON unfinished.id='unfinished'
+JOIN source_import_items item ON item.id='018fbe68-0000-7000-8000-000000000010' JOIN source_import_items
+unfinished ON unfinished.id='unfinished'
 WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &actual.Failed, &actual.Cancelled,
 		&actual.Review, &actual.Payload, &actual.Item, &actual.Retryable)
 	if err != nil {
@@ -128,7 +139,7 @@ WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &act
 		t.Fatalf("settlement=%#v want=%#v", actual, expected)
 	}
 	var title string
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='handoff-item'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='018fbe68-0000-7000-8000-000000000011'`).Scan(
 		&title,
 	); err != nil {
 		t.Fatal(

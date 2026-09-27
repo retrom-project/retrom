@@ -23,13 +23,13 @@ type (
 		Ordinal     int64
 		Path, Facts string
 		Size        int64
-		BlobID      string
+		FileRecord  string
 	}
 	ExecutionAsset struct {
 		Kind, Path, Facts, MediaType string
 		Size                         int64
 		Width, Height                *int64
-		BlobID                       string
+		FileRecord                   string
 	}
 	OwnedItem struct {
 		Execution ExecutionSnapshot

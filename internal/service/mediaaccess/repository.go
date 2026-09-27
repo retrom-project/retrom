@@ -14,7 +14,7 @@ type Reader interface {
 }
 
 type (
-	Resource  struct{ BlobID, Digest, MediaType string }
+	Resource  struct{ FileRecord, Digest, MediaType string }
 	GameAsset struct {
 		Resource
 		GameState string

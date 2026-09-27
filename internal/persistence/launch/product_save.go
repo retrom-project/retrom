@@ -21,7 +21,7 @@ func productCreationSave(
 	var save application.ProductSave
 	var readable bool
 	err := dbapi.QueryRowContext(ctx, executor, `SELECT save.id,save.profile_id,save.game_id,source.core_id,
- COALESCE(save.payload_blob_id,''),save.checkpoint_format,COALESCE(save.payload_sha256,''),
+ COALESCE(save.payload_file_record,''),save.checkpoint_format,COALESCE(save.payload_sha256,''),
  COALESCE(save.payload_size_bytes,0),save.dos_entry_path,save.disc_index,
  EXISTS(SELECT 1 FROM game_variants variant
  JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id

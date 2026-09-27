@@ -20,11 +20,11 @@ type ApprovalDependencyScope struct {
 }
 
 type ApprovalDisc struct {
-	Ordinal                         int
-	State, LogicalName              string
-	BlobID                          *string
-	SourceBlobID, SourceLogicalName *string
-	SourceOrdinal, SizeBytes        *int64
+	Ordinal                             int
+	State, LogicalName                  string
+	FileRecord                          *string
+	SourceFileRecord, SourceLogicalName *string
+	SourceOrdinal, SizeBytes            *int64
 }
 
 type ApprovalMultiDisc struct {

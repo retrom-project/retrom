@@ -1,6 +1,7 @@
 package metadatascrape
 
 import (
+	"context"
 	"errors"
 	"io"
 
@@ -14,6 +15,7 @@ var (
 
 type AssetPublication struct {
 	ID            string
+	Directory     string
 	Blob          filestore.Metadata
 	MediaType     string
 	Width, Height int
@@ -21,4 +23,6 @@ type AssetPublication struct {
 }
 type AssetBlobs interface {
 	Put(io.Reader) (filestore.Metadata, error)
+	CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
+	RemovePath(context.Context, string) error
 }

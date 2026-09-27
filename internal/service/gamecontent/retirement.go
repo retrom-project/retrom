@@ -11,10 +11,6 @@ import (
 func RetireInScope(
 	ctx context.Context, scope RetirementScope, gameID, selectedVariantID string, now int64,
 ) (RetirementImpact, error) {
-	blobs, err := scope.Read.Blobs(ctx, gameID)
-	if err != nil {
-		return RetirementImpact{}, fmt.Errorf("read replaced content blobs: %w", err)
-	}
 	owners, err := scope.Read.Owners(ctx, gameID)
 	if err != nil {
 		return RetirementImpact{}, fmt.Errorf("read replaced content runtime: %w", err)
@@ -34,7 +30,7 @@ func RetireInScope(
 	if err := scope.Write.RetireContent(ctx, gameID, now); err != nil {
 		return RetirementImpact{}, fmt.Errorf("retirement: %w", err)
 	}
-	impact := RetirementImpact{CandidateBlobIDs: blobs}
+	impact := RetirementImpact{}
 	for _, kind := range []RetirementReferenceKind{
 		RetirementSave, RetirementLaunchExternal, RetirementLaunchContent,
 		RetirementVariantFile, RetirementVariantDependency,

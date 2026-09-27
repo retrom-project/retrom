@@ -14,8 +14,10 @@ func (records Records) ClearEvidence(ctx context.Context, itemID string, now int
 		"review_arcade_parent_attachments",
 		recordstore.UpdateReviewArcadeParentAttachments,
 		recordstore.Update{
-			Set: `accepted_blob_id=NULL,payload_released_at_ms=?,version=version+1,updated_at_ms=?`, Scope: recordstore.Scope{
-				Where: `import_item_id=? AND accepted_blob_id IS NOT NULL`,
+			Set: `
+accepted_file_record=NULL,payload_released_at_ms=?,version=version+1,updated_at_ms=?
+`, Scope: recordstore.Scope{
+				Where: `import_item_id=? AND accepted_file_record IS NOT NULL`,
 				Args:  []any{itemID},
 			},
 			Values: []any{now, now},
@@ -28,10 +30,10 @@ func (records Records) ClearEvidence(ctx context.Context, itemID string, now int
 		"import_item_multidisc_entries",
 		recordstore.UpdateImportItemMultidiscEntries,
 		recordstore.Update{
-			Set: `state='RELEASED',upload_file_id=NULL,blob_id=NULL,payload_released_at_ms=?`,
+			Set: `state='RELEASED',upload_file_id=NULL,file_record=NULL,payload_released_at_ms=?`,
 			Scope: recordstore.Scope{
 				Where: `
-blob_id IS NOT NULL AND source_snapshot_id IN (
+file_record IS NOT NULL AND source_snapshot_id IN (
   SELECT id FROM import_item_source_snapshots WHERE import_item_id=?
 )
 `,
@@ -47,7 +49,7 @@ blob_id IS NOT NULL AND source_snapshot_id IN (
 		"content_hash_evidence",
 		recordstore.UpdateContentHashEvidence,
 		recordstore.Update{
-			Set: `blob_id=NULL,archive_blob_id=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?`,
+			Set: `file_record=NULL,archive_file_record=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?`,
 			Scope: recordstore.Scope{
 				Where: `
 payload_released_at_ms IS NULL AND scrape_run_id IN (

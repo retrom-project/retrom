@@ -16,6 +16,7 @@ func (service *Service) workerBundle() *composition.WorkerBundle {
 			service.now,
 			service.creationDependencies(),
 			func(err error) { cleanup.Error("ordinary import worker", err) },
+			service.reviewApprovals().Recover,
 		)
 		service.worker = &bundle
 		if service.workerClosed {
@@ -44,6 +45,7 @@ func (service *Service) ResumeImportGroupJobs(ctx context.Context) {
 }
 
 func (service *Service) RecoverImportGroupJobs(ctx context.Context) {
+	cleanup.Error("recover game publications", service.reviewApprovals().Recover(ctx))
 	cleanup.Error("recover ordinary imports", service.workerBundle().Worker.Recover(ctx))
 }
 func (service *Service) CancelImportGroupJob(id string) { service.workerBundle().Worker.Cancel(id) }

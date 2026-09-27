@@ -14,10 +14,11 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/composition"
-	"retrom/internal/persistence/filecatalog"
 	"retrom/internal/testsupport"
 )
 
@@ -45,7 +46,8 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 			server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
 			response := requestReviewCover(t, server, itemID, fileID)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
-				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s", response.Code, hits, response.Body.String())
+				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s",
+					response.Code, hits, response.Body.String())
 			}
 		})
 	}
@@ -74,23 +76,26 @@ func createReviewCoverUpload(t *testing.T, server *Server) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := filecatalog.EnsureRecord(t.Context(), server.database, blob, "image/png", server.now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(blob, "image/png")
 	if err != nil {
 		t.Fatal(err)
 	}
 	const uploadID = "01980000-0000-7000-8000-000000008602"
 	const fileID = "01980000-0000-7000-8000-000000008603"
 	if _, err := server.database.ExecContext(t.Context(), `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,
+created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,9999999999999,0,0)`, uploadID, blob.Size, blob.SHA256); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := recordstore.InsertRows(t.Context(), server.database, "upload_files", `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
-VALUES(?,?,'review-cover.png',?,?,?,'COMPLETE',0,0)`, fileID, uploadID, blob.Size, blob.Size, blobID); err != nil {
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
+VALUES(?,?,'review-cover.png',?,?,?,'COMPLETE',0,0)`, fileID, uploadID, blob.Size, blob.Size, fileRecord); err != nil {
 		t.Fatal(err)
 	}
-	mustCreateHTTPReferences(t, server.database, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE id=?`, fileID)
-	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, uploadID, blobID)
+	mustCreateHTTPReferences(t, server.database, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms) SELECT
+id,upload_session_id,relative_path,final_file_record,received_size_bytes,created_at_ms FROM upload_files
+WHERE id=?`, fileID)
 	return fileID
 }

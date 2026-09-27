@@ -28,7 +28,6 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
@@ -56,7 +55,8 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, _ := filestore.Open(dataDir)
@@ -73,7 +73,8 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	)
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
-	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, "bytes 0-13/14", "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
+	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, "bytes 0-13/14",
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
 		t.Fatal(err)
 	}
 	current, _ := uploadService.Get(ctx, upload.ID)
@@ -100,7 +101,8 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	)
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT id FROM import_items WHERE import_job_id=?", createdImport.ImportJobID).Scan(
+	if err := dbapi.QueryRowContext(ctx, database.SQL,
+		"SELECT id FROM import_items WHERE import_job_id=?", createdImport.ImportJobID).Scan(
 		&itemID,
 	); err != nil {
 		t.Fatal(err)
@@ -109,13 +111,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firmwareMetadata, err := blobs.Put(bytes.NewReader([]byte("local-gba-bios")))
 	testassert.False(t, err != nil, err)
-	firmwareBlobID, err := filecatalog.EnsureRecord(
-		ctx,
-		database.SQL,
-		firmwareMetadata,
-		"application/octet-stream",
-		time.Now().UnixMilli(),
-	)
+	firmwareFileRecord, err := filestore.FileRecord(firmwareMetadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -133,7 +129,7 @@ AND enabled=1
 	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
 INSERT INTO bios_installations(id,
 requirement_id,
-blob_id,
+file_record,
 original_filename,
 size_bytes,
 md5,
@@ -160,7 +156,7 @@ updated_at_ms) VALUES(?,
 1,
 ?,
 ?)
-`, installationID.String(), requirementID, firmwareBlobID, "gba_bios.bin", firmwareMetadata.Size, firmwareMetadata.MD5, firmwareMetadata.SHA1, firmwareMetadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID.String(), requirementID, firmwareFileRecord, "gba_bios.bin", firmwareMetadata.Size, firmwareMetadata.MD5, firmwareMetadata.SHA1, firmwareMetadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
@@ -201,7 +197,9 @@ SELECT state,error_code FROM jobs WHERE id=?
 			if state == "SUCCEEDED" {
 				break
 			}
-			testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "BIOS dependency revalidation = %s/%s", state, errorCode.String)
+			testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+				func() bool { return time.Now().After(deadline) }), "BIOS dependency revalidation = %s/%s",
+				state, errorCode.String)
 			time.Sleep(10 * time.Millisecond)
 		}
 		createdLaunch, err = service.Create(
@@ -213,7 +211,9 @@ SELECT state,error_code FROM jobs WHERE id=?
 				ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 			},
 		)
-		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "create launch after BIOS dependency revalidation = %#v, error=%v", createdLaunch, err)
+		testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+			func() bool { return createdLaunch.LaunchID == "" }),
+			"create launch after BIOS dependency revalidation = %#v, error=%v", createdLaunch, err)
 	}
 	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); !errors.Is(err, ErrCredential) {
 		t.Fatalf("bad credential error = %v", err)
@@ -235,24 +235,38 @@ SELECT state,error_code FROM jobs WHERE id=?
 		func() bool { return len(warnings) != 1 || warnings[0] != "BIOS_HASH_WARNING" },
 	), "launch envelope = %#v", envelope)
 	bundle, err := service.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(bundle) != 1 },
+		func() bool { return bundle[0].LogicalName != "gba_bios.bin" },
+		func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }),
+		"BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return contentDigest != base64DigestHex(digest) }),
+		"content digest = %s, error = %v", contentDigest, err)
 	saveID, _ := uuid.NewV7()
 	if _, err := recordstore.InsertRows(ctx, database.SQL, "save_states", `
 INSERT INTO save_states(
-id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
-screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
+id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
+screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
 VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'Locked mGBA save',0,1,?,?)
-`, saveID.String(), approved.GameID, firmwareBlobID, firmwareMetadata.SHA256, firmwareMetadata.Size, firmwareBlobID, createdLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, saveID.String(), approved.GameID, firmwareFileRecord, firmwareMetadata.SHA256, firmwareMetadata.Size, firmwareFileRecord, createdLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	startEvent := PlayEvent{ClientSequence: 0, ClientObservedAtMS: 1_786_000_000_000}
 	started, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "start", startEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return started.State != "ACTIVE" }, func() bool { return started.ClientSequence != 0 }), "start play session = %#v, error=%v", started, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return started.State != "ACTIVE" },
+		func() bool { return started.ClientSequence != 0 }), "start play session = %#v, error=%v", started, err)
 	replayedStart, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "start", startEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayedStart.PlaySessionID != started.PlaySessionID }), "replayed start = %#v, error=%v", replayedStart, err)
-	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "start", PlayEvent{ClientSequence: 0, ClientObservedAtMS: startEvent.ClientObservedAtMS + 1}); !errors.Is(
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayedStart.PlaySessionID != started.PlaySessionID }),
+		"replayed start = %#v, error=%v", replayedStart, err)
+	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability,
+		"start", PlayEvent{
+			ClientSequence:     0,
+			ClientObservedAtMS: startEvent.ClientObservedAtMS + 1,
+		}); !errors.Is(
 		err,
 		ErrBlocked,
 	) {
@@ -278,7 +292,8 @@ WHERE launch_session_id=?
 		"heartbeat",
 		heartbeatEvent,
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return heartbeatResult.AcceptedDuration != int64(45*time.Second/time.Millisecond) }), "bounded heartbeat = %#v, error=%v", heartbeatResult, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return heartbeatResult.AcceptedDuration != int64(45*time.Second/time.Millisecond) }), "bounded heartbeat = %#v, error=%v", heartbeatResult, err)
 	replayedHeartbeat, err := service.RecordPlay(
 		ctx,
 		createdLaunch.LaunchID,
@@ -286,8 +301,13 @@ WHERE launch_session_id=?
 		"heartbeat",
 		heartbeatEvent,
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayedHeartbeat.AcceptedDuration != heartbeatResult.AcceptedDuration }), "replayed heartbeat = %#v, error=%v", replayedHeartbeat, err)
-	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "heartbeat", PlayEvent{ClientSequence: 3, ClientObservedAtMS: startEvent.ClientObservedAtMS + 60_000, PreviousInterval: interval}); !errors.Is(
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayedHeartbeat.AcceptedDuration != heartbeatResult.AcceptedDuration }), "replayed heartbeat = %#v, error=%v", replayedHeartbeat, err)
+	if _, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability,
+		"heartbeat", PlayEvent{
+			ClientSequence:     3,
+			ClientObservedAtMS: startEvent.ClientObservedAtMS + 60_000, PreviousInterval: interval,
+		}); !errors.Is(
 		err,
 		ErrBlocked,
 	) {
@@ -299,8 +319,11 @@ WHERE launch_session_id=?
 		PreviousInterval:   &Interval{Running: false, Visible: true, Paused: false},
 	}
 	finished, err := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "finish", finishEvent)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return finished.State != "FINISHED" }, func() bool { return finished.AcceptedDuration != 0 }), "finish = %#v, error=%v", finished, err)
-	if replayed, replayErr := service.RecordPlay(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "finish", finishEvent); replayErr != nil ||
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return finished.State != "FINISHED" },
+		func() bool { return finished.AcceptedDuration != 0 }), "finish = %#v, error=%v", finished, err)
+	if replayed, replayErr := service.RecordPlay(ctx, createdLaunch.LaunchID,
+		createdLaunch.Capability, "finish", finishEvent); replayErr != nil ||
 		replayed.State != "FINISHED" {
 		t.Fatalf("replayed finish = %#v, error=%v", replayed, replayErr)
 	}
@@ -356,7 +379,9 @@ WHERE id=?
 			ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 		},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "pending validation = %#v, error=%v", pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return pending.Status != "VALIDATION_PENDING" },
+		func() bool { return pending.JobID == "" }), "pending validation = %#v, error=%v", pending, err)
 	var cancellable int
 	var dedupeKey, payloadJSON, inputJSON string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -373,7 +398,19 @@ WHERE j.id=?
 	}
 	var payload map[string]any
 	var snapshot application.ValidationSnapshot
-	testassert.Falsef(t, testassert.Any(func() bool { return json.Unmarshal([]byte(payloadJSON), &payload) != nil }, func() bool { return json.Unmarshal([]byte(inputJSON), &snapshot) != nil }, func() bool { return cancellable != 0 }, func() bool { return len(dedupeKey) != 64 }, func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest }, func() bool { return payload["inputExecutionNo"] != float64(1) }, func() bool { return snapshot.Inputs.GameVariantID == "" }), "validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable, dedupeKey, payloadJSON, inputJSON)
+	testassert.Falsef(t, testassert.Any(func() bool {
+		return json.Unmarshal([]byte(payloadJSON),
+			&payload) != nil
+	}, func() bool {
+		return json.Unmarshal([]byte(inputJSON),
+			&snapshot) != nil
+	}, func() bool { return cancellable != 0 },
+		func() bool { return len(dedupeKey) != 64 },
+		func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest },
+		func() bool { return payload["inputExecutionNo"] != float64(1) },
+		func() bool { return snapshot.Inputs.GameVariantID == "" }),
+		"validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable,
+		dedupeKey, payloadJSON, inputJSON)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
 		if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -414,37 +451,46 @@ WHERE id=?
 			ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 		},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return validatedLaunch.LaunchID == "" }, func() bool { return validatedLaunch.Status != "" }), "validated launch = %#v, error=%v", validatedLaunch, err)
-	var currentVariantID, contentBlobID string
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return validatedLaunch.LaunchID == "" },
+		func() bool { return validatedLaunch.Status != "" }), "validated launch = %#v, error=%v",
+		validatedLaunch, err)
+	var currentVariantID, contentFileRecord string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id FROM game_variants WHERE game_id=? AND core_id='gambatte'
 `, approved.GameID).Scan(&currentVariantID); err != nil {
 		t.Fatal(err)
 	}
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT blob_id
+SELECT file_record
 FROM game_files
 WHERE game_id=(SELECT id
 FROM games
 WHERE id=?)
 AND role='CONTENT' LIMIT 1
-`, approved.GameID).Scan(&contentBlobID); err != nil {
+`, approved.GameID).Scan(&contentFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := recordstore.InsertRows(ctx, database.SQL, "variant_files", `
 INSERT INTO variant_files(game_variant_id,
 role,
 logical_name,
-blob_id,
+file_record,
 sort_order) VALUES(?,
 'PARENT',
 'launch.GB',
 ?,
 0)
-	`, currentVariantID, contentBlobID); err != nil {
+	`, currentVariantID, contentFileRecord); err != nil {
 		t.Fatal(err)
 	}
-	separateResources, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}})
+	separateResources, err := service.Create(ctx, "local", CreateRequest{
+		GameID: approved.GameID,
+		CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{
+			SecureContext:       true,
+			CrossOriginIsolated: true, SharedArrayBuffer: true,
+		},
+	})
 	testassert.False(t, err != nil, err)
 	separateConfig, err := service.Config(ctx, separateResources.LaunchID, separateResources.Capability)
 	testassert.False(t, err != nil, err)
@@ -484,10 +530,11 @@ source.metadata_source_ref_id,'SINGLE_FILE',source.content_source_kind,source.co
 source.source_manifest_json,source.source_manifest_digest,'PUBLISHED','acceptance missing fds bios',1,?,?
 FROM games source CROSS JOIN platform_instances target
 WHERE source.id=? AND target.catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli(), sourceGameID}},
-		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
+		{`INSERT INTO game_files(game_id,role,logical_name,file_record,source_archive_file_record,
+source_archive_entry_ordinal,sort_order)
 SELECT ?,role,
 CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
-blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files WHERE game_id=?`, []any{gameID, sourceGameID}},
 	}
 	for _, statement := range statements {

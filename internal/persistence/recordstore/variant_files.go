@@ -26,13 +26,12 @@ func ValidateVariantFiles(ctx context.Context, db dbapi.Executor, keys ...any) e
 }
 
 func UpsertVariantFiles(
-	ctx context.Context, db dbapi.Executor, scope Scope, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return upsertRecords(
 		ctx,
 		db,
 		"variant_files",
-		scope,
 		query,
 		args,
 		"game_variant_id,role,logical_name",
@@ -42,11 +41,11 @@ func UpsertVariantFiles(
 
 const variant_filesOwnership = `
 SELECT CASE
-WHEN candidate.role<>'BIOS_BUNDLE' AND NOT EXISTS(SELECT 1 FROM stored_files file JOIN
-game_variants variant ON variant.game_id=file.owner_id
- WHERE file.id=candidate.blob_id AND variant.id=candidate.game_variant_id AND file.owner_kind='GAME'
-AND file.retired_at_ms IS NULL)
- THEN 'variant file has a different game owner'
+WHEN NOT json_valid(candidate.file_record) THEN 'invalid variant file record'
+WHEN candidate.role<>'BIOS_BUNDLE' AND NOT EXISTS(SELECT 1 FROM game_variants variant
+ WHERE variant.id=candidate.game_variant_id AND json_extract(candidate.file_record,'$.path') LIKE
+ 'files/' || substr(variant.game_id,-2) || '/' || variant.game_id || '/%')
+ THEN 'variant file is outside its game directory'
 WHEN (NOT EXISTS(
   SELECT 1 FROM game_variants variant
   JOIN games game ON game.id=variant.game_id

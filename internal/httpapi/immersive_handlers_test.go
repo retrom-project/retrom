@@ -12,8 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/filestore"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -165,17 +166,19 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 func seedImmersiveBlob(
 	t *testing.T,
 	server *Server,
-	transaction dbapi.Tx,
+	_ dbapi.Tx,
 	ownerID, payload, mediaType string,
-	now int64,
+	_ int64,
 ) string {
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte(payload)))
 	testassert.False(t, err != nil, err)
-	blobID, err := filecatalog.EnsureRecord(t.Context(), transaction, metadata, mediaType, now)
+	metadata, err = server.blobs.CopyTo(t.Context(), metadata.Record,
+		filestore.GameDirectory(ownerID)+"/media/"+uuid.NewString(), "asset")
 	testassert.False(t, err != nil, err)
-	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='GAME',owner_id=? WHERE id=?`, ownerID, blobID)
-	return blobID
+	fileRecord, err := filestore.FileRecord(metadata, mediaType)
+	testassert.False(t, err != nil, err)
+	return fileRecord
 }
 
 func seedImmersiveAssets(
@@ -188,18 +191,18 @@ func seedImmersiveAssets(
 ) {
 	t.Helper()
 	if seed.CoverID != "" {
-		coverBlobID := seedImmersiveBlob(t, server, transaction, seed.GameID, coverPayload, "image/png", now)
+		coverFileRecord := seedImmersiveBlob(t, server, transaction, seed.GameID, coverPayload, "image/png", now)
 		mustCreateHTTPReferences(t, transaction, "game_assets", `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'COVER',0,500,700,'image/png',?)
-`, seed.CoverID, seed.GameID, coverBlobID, now)
+`, seed.CoverID, seed.GameID, coverFileRecord, now)
 	}
 	if seed.VideoID != "" {
-		videoBlobID := seedImmersiveBlob(t, server, transaction, seed.GameID, videoPayload, "video/webm", now)
+		videoFileRecord := seedImmersiveBlob(t, server, transaction, seed.GameID, videoPayload, "video/webm", now)
 		mustCreateHTTPReferences(t, transaction, "game_assets", `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
-`, seed.VideoID, seed.GameID, videoBlobID, now)
+`, seed.VideoID, seed.GameID, videoFileRecord, now)
 	}
 }
 
@@ -212,9 +215,11 @@ func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,'Retrom Studio','','Action',1,1999,
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,
+'Retrom Studio','','Action',1,1999,
  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','immersive-test','[]',?,'PUBLISHED',lower(?),1,?,?)
 `, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description,
 		strings.Repeat(seed.GameID[len(seed.GameID)-1:], 64), seed.Title, now, now)
@@ -268,9 +273,25 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	fixedNow := time.UnixMilli(10_000)
 	server.now = func() time.Time { return fixedNow }
 	seeds := []immersiveGameSeed{
-		{GameID: "01980000-0000-7000-8000-00000000aa01", MetadataID: "01980000-0000-7000-8000-00000000ba01", ContentID: "01980000-0000-7000-8000-00000000ca01", Title: "alpha", Description: "Current alpha", CoverID: "01980000-0000-7000-8000-00000000da01", VideoID: "01980000-0000-7000-8000-00000000ea01"},
-		{GameID: "01980000-0000-7000-8000-00000000aa02", MetadataID: "01980000-0000-7000-8000-00000000ba02", ContentID: "01980000-0000-7000-8000-00000000ca02", Title: "Alpha", Description: "Second alpha", CoverID: "01980000-0000-7000-8000-00000000da02"},
-		{GameID: "01980000-0000-7000-8000-00000000aa03", MetadataID: "01980000-0000-7000-8000-00000000ba03", ContentID: "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta", CoverID: "01980000-0000-7000-8000-00000000da03"},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa01",
+			MetadataID: "01980000-0000-7000-8000-00000000ba01",
+			ContentID:  "01980000-0000-7000-8000-00000000ca01", Title: "alpha",
+			Description: "Current alpha", CoverID: "01980000-0000-7000-8000-00000000da01",
+			VideoID: "01980000-0000-7000-8000-00000000ea01",
+		},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa02",
+			MetadataID: "01980000-0000-7000-8000-00000000ba02",
+			ContentID:  "01980000-0000-7000-8000-00000000ca02", Title: "Alpha",
+			Description: "Second alpha", CoverID: "01980000-0000-7000-8000-00000000da02",
+		},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa03",
+			MetadataID: "01980000-0000-7000-8000-00000000ba03",
+			ContentID:  "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta",
+			CoverID: "01980000-0000-7000-8000-00000000da03",
+		},
 	}
 	for index, seed := range seeds {
 		seedImmersiveGame(t, server, seed, int64(1000+index))
@@ -278,7 +299,8 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	seedImmersivePlay(t, server, seeds[0], "local", 4000, 101)
 	seedImmersivePlay(t, server, seeds[1], "local", 5000, 102)
 	otherProfile := "01980000-0000-7000-8000-00000000f002"
-	mustExecHTTPTest(t, server.database, "INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other',0)", otherProfile)
+	mustExecHTTPTest(t, server.database,
+		"INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other',0)", otherProfile)
 	seedImmersivePlay(t, server, seeds[2], otherProfile, 9000, 103)
 
 	platforms := immersiveGET(t, server, "/api/v1/immersive/platforms")

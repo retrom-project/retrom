@@ -19,7 +19,9 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = payloadapplication.NewScheduler(nil).DeleteGame(t.Context(), payloadrepository.BindScheduling(tx), "game", 1, fixture.now.UnixMilli())
+	_, err = payloadapplication.NewScheduler(nil).DeleteGame(t.Context(),
+		payloadrepository.BindScheduling(tx), "018fbe68-0000-7000-8000-000000000002", 1,
+		fixture.now.UnixMilli())
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -49,7 +51,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	var state string
 	var assets int
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state,(SELECT count(*) FROM scrape_candidate_assets)
- FROM games WHERE id='game'`).Scan(&state, &assets); err != nil {
+ FROM games WHERE id='018fbe68-0000-7000-8000-000000000002'`).Scan(&state, &assets); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RELEASED" || assets != 0 {

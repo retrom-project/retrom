@@ -29,7 +29,7 @@ func (repository *ContentQueries) ProductContent(
 SELECT l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
-b.id,b.sha256,
+b.value,json_extract(b.value, '$.sha256'),
 lc.format_version,
 l.core_id,
 l.provider_id,l.target_id,l.bundle_sha256,
@@ -39,7 +39,7 @@ l.dos_entry_path,
  WHERE file.launch_session_id=l.id AND file.kind='DISC')
 FROM launch_sessions l
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
-JOIN stored_files b ON b.id=lc.blob_id
+JOIN json_each(json_array(lc.file_record)) b ON b.value IS NOT NULL
 LEFT JOIN games game ON game.id=l.game_id
 LEFT JOIN platform_instances instance ON instance.id=game.platform_instance_id
 LEFT JOIN platforms platform ON platform.id=instance.platform_id
@@ -68,13 +68,15 @@ func (repository *ContentQueries) PreviewContent(
 	id, logicalName string,
 ) (application.ContentRecord, bool, error) {
 	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.id,blob.sha256,
+SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
+json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
 (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
 FROM review_preview_sessions preview
-JOIN stored_files blob ON blob.id=preview.content_blob_id
-JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
+JOIN json_each(json_array(preview.content_file_record)) blob ON blob.value IS NOT NULL
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
+binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE preview.id=? AND preview.content_logical_name=?
@@ -88,17 +90,19 @@ func (repository *ContentQueries) PreviewProject(
 ) (application.ContentRecord, bool, error) {
 	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 WITH preview_files AS (
- SELECT id AS preview_session_id,content_logical_name AS logical_name,content_blob_id AS blob_id
+ SELECT id AS preview_session_id,content_logical_name AS logical_name,content_file_record AS file_record
  FROM review_preview_sessions WHERE id=?
  UNION ALL
- SELECT preview_session_id,logical_name,blob_id FROM review_preview_files
+ SELECT preview_session_id,logical_name,file_record FROM review_preview_files
  WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
 )
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.id,blob.sha256,
+SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
+json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,NULL,0
 FROM review_preview_sessions preview
-JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
+binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN preview_files file ON file.preview_session_id=preview.id AND (
@@ -106,7 +110,7 @@ JOIN preview_files file ON file.preview_session_id=preview.id AND (
  AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
  AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
 )
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE preview.id=?
 
 `, id, id, logicalName, folded, logicalName, logicalName, logicalName, id))
@@ -117,7 +121,7 @@ func scanContent(row dbapi.Scanner) (application.ContentRecord, bool, error) {
 	var dosEntry sql.NullString
 	session, content := &result.Session, &result.Content
 	err := row.Scan(&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
-		&content.BlobID, &content.Digest, &content.Format, &content.CoreID, &content.ProviderID, &content.TargetID,
+		&content.FileRecord, &content.Digest, &content.Format, &content.CoreID, &content.ProviderID, &content.TargetID,
 		&content.BundleSHA256, &content.PlatformKey, &dosEntry, &content.DiscCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ContentRecord{}, false, nil

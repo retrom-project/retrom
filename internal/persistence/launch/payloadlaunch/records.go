@@ -22,7 +22,8 @@ func (records Records) Launch(
 	var idle, finished sql.NullInt64
 	err := dbapi.QueryRowContext(ctx, records.Executor, `SELECT launch.id,launch.state,launch.version,retirement.due_at_ms,
 launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,launch.finished_at_ms
-FROM launch_payload_retirements retirement JOIN launch_sessions launch ON launch.id=retirement.launch_session_id
+FROM launch_payload_retirements retirement JOIN launch_sessions launch ON
+launch.id=retirement.launch_session_id
 WHERE retirement.released_at_ms IS NULL AND retirement.due_at_ms<=?
 ORDER BY retirement.due_at_ms,retirement.launch_session_id LIMIT 1`, now).
 		Scan(&facts.ID, &facts.State, &facts.Version, &facts.DueMS, &facts.BootstrapMS, &facts.HardMS, &idle, &finished)
@@ -36,13 +37,13 @@ ORDER BY retirement.due_at_ms,retirement.launch_session_id LIMIT 1`, now).
 	facts.Idle = application.WorkTime{Set: idle.Valid, Value: idle.Int64}
 	facts.Finished = application.WorkTime{Set: finished.Valid, Value: finished.Int64}
 	facts.Content, err = retirementops.Files(ctx, records.Executor,
-		`SELECT launch_session_id,logical_name,blob_id FROM launch_content_files
+		`SELECT launch_session_id,logical_name,file_record FROM launch_content_files
 WHERE launch_session_id=? ORDER BY logical_name LIMIT ?`, facts.ID, limit)
 	if err != nil {
 		return application.LaunchRetirement{}, wrapErr(err)
 	}
 	facts.External, err = retirementops.Files(ctx, records.Executor,
-		`SELECT launch_session_id,virtual_path,blob_id FROM launch_external_files
+		`SELECT launch_session_id,virtual_path,file_record FROM launch_external_files
 WHERE launch_session_id=? ORDER BY virtual_path LIMIT ?`, facts.ID, limit)
 	if err != nil {
 		return application.LaunchRetirement{}, wrapErr(err)
@@ -97,11 +98,11 @@ updated_at_ms=?,version=version+1 WHERE id=? AND version=? AND state='ACTIVE' AN
 
 func (records Records) ReleaseLaunchFiles(ctx context.Context, before application.LaunchRetirement) error {
 	if err := retirementops.DeleteFiles(ctx, records.Executor, recordstore.DeleteLaunchExternalFiles,
-		`(launch_session_id,virtual_path,blob_id)`, before.External); err != nil {
+		`(launch_session_id,virtual_path,file_record)`, before.External); err != nil {
 		return wrapErr(err)
 	}
 	return wrapErr(retirementops.DeleteFiles(ctx, records.Executor, recordstore.DeleteLaunchContentFiles,
-		`(launch_session_id,logical_name,blob_id)`, before.Content))
+		`(launch_session_id,logical_name,file_record)`, before.Content))
 }
 
 func (records Records) CompleteLaunch(ctx context.Context, change application.RetirementCompletion) error {

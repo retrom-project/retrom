@@ -28,7 +28,7 @@ func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {
 
 type failingPreparedArtifactBlobs struct{ cause error }
 
-func (blobs failingPreparedArtifactBlobs) OpenID(string) (io.ReadCloser, error) {
+func (blobs failingPreparedArtifactBlobs) OpenRecord(string) (io.ReadCloser, error) {
 	return nil, blobs.cause
 }
 

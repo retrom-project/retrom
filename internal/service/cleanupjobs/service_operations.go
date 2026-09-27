@@ -13,7 +13,3 @@ func (service *Service) Recover(ctx context.Context) error { return service.work
 func (service *Service) StageInScope(ctx context.Context, scope DeletionScope, ids []string) error {
 	return service.deletion.StageInScope(ctx, scope, ids)
 }
-
-func (service *Service) ScheduleImmediateDeletion(ctx context.Context, actor string) (ImmediateDeletionResult, error) {
-	return service.deletion.Immediate(ctx, actor)
-}

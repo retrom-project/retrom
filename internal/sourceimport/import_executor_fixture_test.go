@@ -11,7 +11,7 @@ func (service *Service) importExecutor(root Root) *application.ImportExecutor {
 		Items:     application.NewItemWork(repository.NewItemWork(service.database), service.now),
 		Materials: service.materialization(), Sources: importSource{service: service.sources(), root: root},
 		Reviews:     service.reviewPreparation(),
-		Companions:  application.NewCompanions(repository.NewCompanions(service.database), service.now),
+		Companions:  application.NewCompanions(repository.NewCompanions(service.database), service.blobs, service.now),
 		Settlement:  service.workerSettlement(),
 		Completion:  application.NewCompletion(repository.NewCompletion(service.database), service.now),
 		Diagnostics: importDiagnostics{service},

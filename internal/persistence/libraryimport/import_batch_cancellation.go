@@ -85,7 +85,8 @@ func loadImportCancellationEvidence(
 	err := dbapi.QueryRowContext(ctx, tx, `
 SELECT state,version,running_item_count,
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
-(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state IN ('REVIEW_PENDING',
+'PUBLISHING')),
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_RETRYABLE'),
 (SELECT id FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP'),
 (SELECT state FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP')
@@ -123,7 +124,8 @@ SELECT id,scope_type,scope_id,'CANCELLED',json_object('schemaVersion',1,'executi
 	}
 	if evidence.groupState.String == "RUNNING" {
 		if _, err := tx.ExecContext(ctx, `
-UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,version=version+1,updated_at_ms=?
+UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,version=version+1,
+updated_at_ms=?
 WHERE id=? AND state='RUNNING'
 `, now, reason, now, evidence.groupJobID.String); err != nil {
 			return fmt.Errorf("request import group cancellation: %w", err)

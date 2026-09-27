@@ -34,7 +34,7 @@ WHEN (NOT EXISTS(
 OR candidate.state='PRESENT' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshot_files file
   WHERE file.source_snapshot_id=candidate.source_snapshot_id AND file.role='DISC'
-  AND file.upload_file_id=candidate.upload_file_id AND file.blob_id=candidate.blob_id
+  AND file.upload_file_id=candidate.upload_file_id AND file.file_record=candidate.file_record
   AND file.logical_name=candidate.source_logical_name AND file.sort_order=candidate.ordinal
 )) THEN 'invalid multi-disc entry owner'
 ELSE '' END

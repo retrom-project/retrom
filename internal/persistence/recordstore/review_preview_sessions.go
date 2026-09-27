@@ -26,7 +26,7 @@ source.actor_user_id=candidate.actor_user_id
  AND source.import_item_id=candidate.import_item_id AND
 source.source_snapshot_id=candidate.source_snapshot_id
  AND source.provider_id=candidate.provider_id AND source.target_id=candidate.target_id
- AND source.checkpoint_payload_blob_id=candidate.restore_payload_blob_id
+ AND source.checkpoint_payload_file_record=candidate.restore_payload_file_record
  AND source.checkpoint_format=candidate.restore_checkpoint_format
  AND source.state IN ('ACTIVE','FINISHED') AND source.hard_expires_at_ms>candidate.created_at_ms
 )) THEN 'invalid review restore source'

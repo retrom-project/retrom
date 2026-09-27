@@ -64,8 +64,8 @@ func (source *Sources) Verify(ctx context.Context, check application.ProductBlob
 	return (productBlobVerifier{blobs: source.blobs}).Verify(ctx, check)
 }
 
-func (source *Sources) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
-	return (screenshotImages{blobs: source.blobs}).Read(ctx, reader)
+func (source *Sources) Read(ctx context.Context, itemID string, reader io.Reader) (application.ScreenshotImage, error) {
+	return (screenshotImages{blobs: source.blobs}).Read(ctx, itemID, reader)
 }
 
 func (source *Sources) SignCapability(id string) (string, []byte, error) {

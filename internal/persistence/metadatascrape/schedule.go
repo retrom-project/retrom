@@ -50,7 +50,8 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 	_, err := writes.transaction.ExecContext(
 		ctx,
 		`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
- payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+ payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,
+updated_at_ms)
  VALUES(?,?,?,'METADATA_SCRAPE',?,1,?,1,?,0,4,?,?,?,?)`,
 		plan.JobID,
 		plan.Subject.Kind,
@@ -78,7 +79,8 @@ func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.Sch
 		ctx,
 
 		`INSERT INTO metadata_scrape_runs
- (id,import_item_id,game_id,job_id,provider,provider_config_version,state,created_at_ms,updated_at_ms,completed_at_ms)
+ (id,import_item_id,game_id,job_id,provider,provider_config_version,state,created_at_ms,updated_at_ms,
+completed_at_ms)
  VALUES(?,?,?,?,?,1,?,?,?,?)`,
 
 		plan.RunID,
@@ -126,14 +128,14 @@ func (writes scheduleWrites) Evidence(ctx context.Context, evidence []metadatasc
 			writes.transaction,
 			"content_hash_evidence",
 			`INSERT INTO content_hash_evidence
- (id,scrape_run_id,profile,blob_id,archive_blob_id,archive_entry_ordinal,
+ (id,scrape_run_id,profile,file_record,archive_file_record,archive_entry_ordinal,
  crc32,md5,sha1,sha256,query_order,created_at_ms)
  VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
 			item.ID,
 			item.RunID,
 			item.Profile,
-			item.BlobID,
-			item.ArchiveBlobID,
+			item.FileRecord,
+			item.ArchiveFileRecord,
 			item.ArchiveOrdinal,
 			item.CRC32,
 			item.MD5,

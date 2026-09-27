@@ -61,6 +61,7 @@ func (service *Service) runReviewBulkApproval(ctx context.Context, bulkID string
 func (service *Service) processNextReviewBulkItem(ctx context.Context, work reviewBulkWork) (bool, error) {
 	var completed bool
 	var failedItemID string
+	var request *application.ReviewApprovalRequest
 	err := librarypersistence.NewReviewApprovals(service.database).WithBulkApprovalStep(
 		ctx, func(executor dbapi.Executor, approval application.ReviewApprovalScope) error {
 			worker := librarypersistence.BindReviewBulkWorker(executor)
@@ -77,6 +78,14 @@ func (service *Service) processNextReviewBulkItem(ctx context.Context, work revi
 				return nil
 			}
 			failedItemID = item.ID
+			publication, readErr := approval.Publications.ReadPublication(ctx, item.ID)
+			if readErr != nil {
+				return fmt.Errorf("read bulk publication: %w", readErr)
+			}
+			if publication.GameID != "" {
+				request = &application.ReviewApprovalRequest{ItemID: item.ID, ExpectedVersion: item.ReviewVersion}
+				return nil
+			}
 			if item.ReviewUpdatedAtMS > item.CreatedAtMS || item.ItemUpdatedAtMS > item.CreatedAtMS {
 				return worker.Skip(ctx, work.bulkID, work.jobID, work.workerID, item.ID, "CHANGED", now)
 			}
@@ -97,29 +106,36 @@ func (service *Service) processNextReviewBulkItem(ctx context.Context, work revi
 					reviewBulkSkipOutcome(counts), now)
 			}
 			selected := qualified[0]
-			_, approveErr := service.reviewApprovals().ApproveInScope(ctx, approval, application.ReviewApprovalRequest{
+			request = &application.ReviewApprovalRequest{
 				ItemID: item.ID, ExpectedVersion: item.ReviewVersion,
 				Bulk: &application.BulkPublicationIntent{
 					BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID,
 					ValidationID: selected.validationID.String, SourceSnapshotID: selected.sourceSnapshotID,
 				},
-			})
-			if approveErr != nil {
-				return fmt.Errorf("approve review bulk item: %w", approveErr)
 			}
+
 			return nil
 		})
+	if err == nil && request != nil {
+		err = service.publishReviewBulkRequest(ctx, work, *request)
+	}
 	if err == nil {
 		return completed, nil
 	}
+	return false, service.reviewBulkFailure(ctx, work, failedItemID, err)
+}
+
+func (service *Service) reviewBulkFailure(ctx context.Context, work reviewBulkWork,
+	failedItemID string, err error,
+) error {
 	var duplicate *DuplicateConflict
 	if errors.As(err, &duplicate) {
-		return false, service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "DUPLICATE")
+		return service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "DUPLICATE")
 	}
 	if errors.Is(err, ErrInvalid) {
-		return false, service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "NOT_READY")
+		return service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "NOT_READY")
 	}
-	return false, fmt.Errorf("publish review bulk item %s: %w", failedItemID, err)
+	return fmt.Errorf("publish review bulk item %s: %w", failedItemID, err)
 }
 
 func reviewBulkSkipOutcome(counts ReviewBulkCounts) string {
@@ -166,4 +182,29 @@ func (service *Service) ResumeReviewBulkJobs(ctx context.Context) {
 	for _, id := range ids {
 		go service.runReviewBulkApproval(context.WithoutCancel(ctx), id)
 	}
+}
+
+func (service *Service) publishReviewBulkRequest(ctx context.Context, work reviewBulkWork,
+	request application.ReviewApprovalRequest,
+) error {
+	result, err := service.reviewApprovals().Approve(ctx, request)
+	if err != nil {
+		return fmt.Errorf("approve bulk item: %w", err)
+	}
+	err = librarypersistence.NewReviewApprovals(service.database).WithApproval(ctx,
+		func(scope application.ReviewApprovalScope) error {
+			now := service.now().UnixMilli()
+			if err := scope.Bulk.RecordPublished(ctx, application.BulkPublication{
+				Intent: application.BulkPublicationIntent{BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID},
+				ItemID: request.ItemID, Result: result, NowMS: now,
+				ReviewVersion: request.ExpectedVersion, LeasedUntilMS: now + 60_000,
+			}); err != nil {
+				return fmt.Errorf("record bulk publication: %w", err)
+			}
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("commit bulk progress: %w", err)
+	}
+	return nil
 }

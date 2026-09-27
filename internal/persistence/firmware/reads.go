@@ -27,14 +27,16 @@ WHERE q.id=?`, id).
 func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload, bool, error) {
 	var value firmware.Upload
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT f.id,f.upload_session_id,f.relative_path,f.state,
- b.id,b.size_bytes,b.md5,b.sha1,b.sha256 FROM upload_files f JOIN stored_files b ON b.id=f.final_blob_id
+ b.value,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.md5'),json_extract(b.value,
+'$.sha1'),json_extract(b.value, '$.sha256') FROM upload_files f JOIN
+json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
 WHERE f.id=?`, id).
 		Scan(
 			&value.ID,
 			&value.SessionID,
 			&value.RelativePath,
 			&value.State,
-			&value.BlobID,
+			&value.FileRecord,
 			&value.Size,
 			&value.MD5,
 			&value.SHA1,
@@ -48,12 +50,12 @@ func (store installationRecords) Active(
 	id string,
 ) (firmware.ActiveInstallation, bool, error) {
 	var value firmware.ActiveInstallation
-	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT id,file_record,original_filename,size_bytes,md5,sha1,sha256,
  status,validated_requirement_version FROM bios_installations WHERE requirement_id=? AND
 is_active=1`, id).
 		Scan(
 			&value.ID,
-			&value.BlobID,
+			&value.FileRecord,
 			&value.Filename,
 			&value.Size,
 			&value.MD5,

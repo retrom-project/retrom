@@ -21,7 +21,8 @@ func TestFreshBIOSRetirementTracksLaunchesAndIndexesPendingWork(t *testing.T) {
 	t.Cleanup(func() { testassert.False(t, current.Close() != nil, "close fresh database") })
 	seedCurrentRuntimeGraph(t, current.SQL)
 	tx := lifecycleTransaction(t, current.SQL)
-	_, err = sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL, "current-launch", "current-game-a", "target-a")
+	_, err = sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL, "current-launch",
+		"current-game-a", "target-a")
 	testassert.False(t, err != nil, err)
 	testassert.False(t, tx.Commit() != nil, "commit launch")
 	var due int64
@@ -42,9 +43,11 @@ state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=v
 	testassert.False(t, err != nil, err)
 	testassert.True(t, due == 20, "active launch did not use hard retirement deadline")
 	for _, query := range []struct{ sql, index string }{
-		{`SELECT launch_session_id FROM launch_payload_retirements WHERE released_at_ms IS NULL AND due_at_ms<=100 ORDER BY due_at_ms,launch_session_id LIMIT 200`, "launch_payload_retirement"},
-		{`SELECT id,blob_id FROM bios_installations WHERE is_active=0 AND blob_id IS NOT NULL ORDER BY updated_at_ms,id LIMIT 1`, "bios_installations_retirement"},
-		{`SELECT rowid FROM variant_files WHERE role='BIOS_BUNDLE' AND blob_id='old' LIMIT 200`, "variant_files_bios_blob"},
+		{`SELECT launch_session_id FROM launch_payload_retirements WHERE released_at_ms IS NULL AND due_at_ms<=100
+ORDER BY due_at_ms,launch_session_id LIMIT 200`, "launch_payload_retirement"},
+		{`SELECT id,file_record FROM bios_installations WHERE is_active=0 AND file_record IS NOT NULL ORDER BY
+updated_at_ms,id LIMIT 1`, "bios_installations_retirement"},
+		{`SELECT rowid FROM variant_files WHERE role='BIOS_BUNDLE' AND file_record='old' LIMIT 200`, "variant_files_bios_blob"},
 	} {
 		assertRetirementIndex(t, current.SQL, query.sql, query.index)
 	}

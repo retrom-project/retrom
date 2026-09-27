@@ -63,9 +63,9 @@ type multiDiscAttachmentCandidate struct {
 }
 
 type attachedMultiDiscFile struct {
-	role, logicalName, uploadFileID, blobID, blobSHA string
-	blobSize                                         int64
-	sortOrder                                        int
+	role, logicalName, uploadFileID, fileRecord, blobSHA string
+	blobSize                                             int64
+	sortOrder                                            int
 }
 
 func missingMultiDiscEntries(entries []multidisc.Entry) []multidisc.Entry {

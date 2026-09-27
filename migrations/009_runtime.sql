@@ -3,7 +3,7 @@
 CREATE TABLE "launch_content_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
-  blob_id TEXT NOT NULL,
+  file_record TEXT NOT NULL,
   format_version TEXT NOT NULL CHECK(
     length(format_version) BETWEEN 2 AND 64 AND format_version=upper(format_version)
     AND format_version NOT GLOB '*[^A-Z0-9_]*'
@@ -90,7 +90,7 @@ CREATE TABLE "launch_external_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
-  blob_id TEXT NOT NULL,
+  file_record TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','BIOS_BUNDLE','PARENT','DISC')),
   PRIMARY KEY(launch_session_id, virtual_path),
   UNIQUE(launch_session_id, logical_name),
@@ -115,10 +115,10 @@ CREATE TABLE "save_states" (
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   game_id TEXT NOT NULL REFERENCES games(id),
   checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
-  payload_blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
+  payload_file_record TEXT NOT NULL,
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
   payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
-  screenshot_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  screenshot_file_record TEXT,
   name TEXT NOT NULL,
   active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
   dos_entry_path TEXT,

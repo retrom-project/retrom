@@ -20,11 +20,15 @@ func (catalog preparationCatalogStub) MachineClassification(context.Context, str
 	return "", false, catalog.failure
 }
 
-func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string, string) (ArcadeCatalogRequirements, error) {
+func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string,
+	string,
+) (ArcadeCatalogRequirements, error) {
 	return ArcadeCatalogRequirements{}, catalog.failure
 }
 
-func (catalog preparationCatalogStub) MachineRelation(context.Context, string, string) (ArcadeMachineRelation, bool, error) {
+func (catalog preparationCatalogStub) MachineRelation(context.Context, string,
+	string,
+) (ArcadeMachineRelation, bool, error) {
 	return ArcadeMachineRelation{}, false, catalog.failure
 }
 
@@ -53,14 +57,15 @@ func TestImportPreparationRetainsResolvedInputAndSourceGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	facts.files[0].BlobID = metadata.ID
+	facts.files[0].FileRecord = metadata.Record
 	facts.files[0].SHA256 = metadata.SHA256
 	preparation := NewImportPreparation(facts, preparationCatalogStub{}, files, ImportPreparationOptions{})
 	result, err := preparation.Prepare(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Upload.Version != 3 || result.Target.Version != 2 || result.Target.BindingID != "binding" || result.ContentMode != "STANDARD" {
+	if result.Upload.Version != 3 || result.Target.Version != 2 ||
+		result.Target.BindingID != "binding" || result.ContentMode != "STANDARD" {
 		t.Fatalf("result=%+v", result)
 	}
 	if len(result.Groups) != 1 || len(result.Groups[0].Sources) != 1 || result.Groups[0].Sources[0].File.ID != "file" {

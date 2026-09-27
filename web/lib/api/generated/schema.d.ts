@@ -1099,7 +1099,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Publishes a current READY validation, or a current blocked validation that has a five-second runtime screenshot captured by its matching review preview. Screenshot overrides remain explicit in immutable review evidence and the published Variant compatibility code. */
+        /** @description Freezes an eligible review decision and Game UUID, moves the prepared directory, then commits the game. Interrupted publication resumes from the PUBLISHING item; retries after publication return the same Game UUID. A blocked validation requires a matching review screenshot for explicit override, recorded in the published Variant compatibility code. */
         post: operations["postAdminReviewApprove"];
         delete?: never;
         options?: never;
@@ -1857,40 +1857,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/storage-analysis": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns one read-only snapshot of registered independently owned files usage. Byte quantities are decimal strings. */
-        get: operations["getAdminStorageAnalysis"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/storage-cleanups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Schedules retired registered files for deletion and retries failed cleanup jobs. Each file's owner and retirement state are rechecked before deletion. */
-        post: operations["postAdminStorageCleanup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/content/assets/{assetId}": {
         parameters: {
             query?: never;
@@ -2282,8 +2248,6 @@ export interface components {
         DiagnosticsCounts: {
             games: components["schemas"]["DiagnosticsGameCounts"];
             saveStates: components["schemas"]["DiagnosticsLifecycleCounts"];
-            /** Format: int64 */
-            storedFiles: number;
             jobs: components["schemas"]["DiagnosticsJobCounts"];
             datVersions: components["schemas"]["DiagnosticsDATCounts"];
         };
@@ -2324,54 +2288,6 @@ export interface components {
             failed: number;
             /** Format: int64 */
             cancelled: number;
-        };
-        StorageAnalysis: {
-            /** @enum {string} */
-            scope: "OWNED_FILES_V1";
-            /** Format: int64 */
-            generatedAtMs: number;
-            totals: components["schemas"]["StorageAnalysisTotals"];
-            categories: components["schemas"]["StorageAnalysisCategory"][];
-            details: components["schemas"]["StorageAnalysisDetails"];
-            excluded: ("DATABASE_FILES" | "UPLOAD_PARTS" | "JOB_SCRATCH" | "DEPENDENCY_ROOT" | "FILESYSTEM_OVERHEAD" | "UNREGISTERED_ORPHANS" | "VOLUME_FREE_SPACE")[];
-        };
-        StorageAnalysisTotals: {
-            registeredBytes: string;
-            retainedBytes: string;
-            pendingDeleteBytes: string;
-            /** Format: int64 */
-            fileCount: number;
-        };
-        StorageAnalysisCategory: {
-            /** @enum {string} */
-            code: "GAME_CONTENT" | "BIOS" | "SAVES" | "MEDIA" | "WORKFLOW" | "PENDING_DELETE";
-            bytes: string;
-            /** Format: int64 */
-            fileCount: number;
-        };
-        StorageAnalysisDetails: {
-            saveStates: components["schemas"]["StorageAnalysisSaveStates"];
-            cleanupCandidates: components["schemas"]["StorageAnalysisCleanupCandidates"];
-        };
-        StorageAnalysisSaveStates: {
-            /** Format: int64 */
-            activeCount: number;
-            /** Format: int64 */
-            deletedCount: number;
-            stateBytes: string;
-            screenshotBytes: string;
-        };
-        StorageAnalysisCleanupCandidates: {
-            /** Format: int64 */
-            fileCount: number;
-            bytes: string;
-        };
-        StorageCleanupResult: {
-            /** Format: int64 */
-            scheduledFileCount: number;
-            scheduledBytes: string;
-            /** Format: int64 */
-            acceptedAtMs: number;
         };
         ImportOverviewSummary: {
             /**
@@ -4577,24 +4493,6 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["DiagnosticsSnapshot"];
-            };
-        };
-        /** @description Registered independently owned files capacity snapshot */
-        StorageAnalysisResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["StorageAnalysis"];
-            };
-        };
-        /** @description Registered independently owned files accepted for cleanup or retry */
-        StorageCleanupResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["StorageCleanupResult"];
             };
         };
         /** @description Recommended platform/core directory catalog and current coverage */
@@ -7601,33 +7499,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["DiagnosticsResponse"];
-        };
-    };
-    getAdminStorageAnalysis: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["StorageAnalysisResponse"];
-        };
-    };
-    postAdminStorageCleanup: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            202: components["responses"]["StorageCleanupResponse"];
         };
     };
     getContentAsset: {

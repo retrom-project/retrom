@@ -30,9 +30,10 @@ func receive(ctx context.Context, executor dbapi.Executor, predicate, id string)
 		executor,
 		"import_files",
 		`
-INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
-SELECT upload.id,upload.upload_session_id,upload.relative_path,upload.final_blob_id,blob.size_bytes,upload.updated_at_ms
-FROM upload_files upload JOIN stored_files blob ON blob.id=upload.final_blob_id
+INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms)
+SELECT upload.id,upload.upload_session_id,upload.relative_path,upload.final_file_record,
+json_extract(blob.value, '$.size_bytes'),upload.updated_at_ms
+FROM upload_files upload JOIN json_each(json_array(upload.final_file_record)) blob ON blob.value IS NOT NULL
 WHERE `+predicate+` AND upload.state='COMPLETE'
 ON CONFLICT(id) DO NOTHING`,
 		id,
@@ -43,10 +44,11 @@ ON CONFLICT(id) DO NOTHING`,
 	var changed bool
 	err = dbapi.QueryRowContext(ctx, executor, `
 SELECT EXISTS(SELECT 1 FROM upload_files upload JOIN import_files file ON file.id=upload.id
-JOIN stored_files blob ON blob.id=upload.final_blob_id
+JOIN json_each(json_array(upload.final_file_record)) blob ON blob.value IS NOT NULL
 WHERE `+predicate+` AND upload.state='COMPLETE' AND
 (file.upload_session_id<>upload.upload_session_id OR file.relative_path<>upload.relative_path
-OR file.blob_id IS NOT upload.final_blob_id OR file.size_bytes<>blob.size_bytes))`, id).Scan(&changed)
+OR file.file_record IS NOT upload.final_file_record OR file.size_bytes<>json_extract(blob.value,'$.size_bytes')))
+`, id).Scan(&changed)
 	if err != nil {
 		return fmt.Errorf("verify received import files: %w", err)
 	}

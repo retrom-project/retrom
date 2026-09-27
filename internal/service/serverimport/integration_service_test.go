@@ -57,7 +57,8 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('01980000-0000-7000-8000-00000000a001','Admin',1);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','server.admin','Admin','ADMIN','ENABLED',1,1)
+VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','server.admin',
+'Admin','ADMIN','ENABLED',1,1)
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -72,12 +73,17 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithFileStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL),
+		time.Now).WithFileStore(blobs), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
-	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(ctx, CreateRequest{
+		Kind:   "BIOS_DIRECTORY",
+		RootID: "bios-root",
+	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	unit, ok, err := service.ClaimForTest(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "claim = %#v/%t/%v", unit, ok, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !ok }), "claim = %#v/%t/%v", unit, ok, err)
 	service.ExecuteForTest(ctx, unit)
 	var itemState, selectionDetails string
 	var outcome sql.NullString
@@ -87,7 +93,10 @@ FROM server_bios_import_items WHERE server_import_id=?
 `, created.ID).Scan(&itemState, &outcome, &selectionDetails); queryErr != nil {
 		t.Fatal(queryErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return itemState != "IMPORTED_MATCHED" }, func() bool { return !outcome.Valid }, func() bool { return outcome.String != "IMPORTED_MATCHED" }), "item after execute = %s/%v details=%s", itemState, outcome, selectionDetails)
+	testassert.Falsef(t, testassert.Any(func() bool { return itemState != "IMPORTED_MATCHED" },
+		func() bool { return !outcome.Valid },
+		func() bool { return outcome.String != "IMPORTED_MATCHED" }),
+		"item after execute = %s/%v details=%s", itemState, outcome, selectionDetails)
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		created, err = service.Get(ctx, created.ID)
@@ -95,15 +104,19 @@ FROM server_bios_import_items WHERE server_import_id=?
 		if created.State == "COMPLETED" {
 			break
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return created.State == "FAILED" }, func() bool { return created.State == "PARTIAL_FAILURE" }), "import = %#v", created)
+		testassert.Falsef(t, testassert.Any(func() bool { return created.State == "FAILED" },
+			func() bool { return created.State == "PARTIAL_FAILURE" }), "import = %#v", created)
 		time.Sleep(10 * time.Millisecond)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return created.State != "COMPLETED" }, func() bool { return created.Counts.Matched != 1 }), "import = %#v", created)
+	testassert.Falsef(t, testassert.Any(func() bool { return created.State != "COMPLETED" },
+		func() bool { return created.Counts.Matched != 1 }), "import = %#v", created)
 	var installationID, sourceKind, candidateID, status string
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT id,source_kind,server_import_candidate_id,status FROM bios_installations WHERE is_active=1`).Scan(&installationID, &sourceKind, &candidateID, &status); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "SERVER_DIRECTORY" }, func() bool { return candidateID == "" }, func() bool { return status != "MATCHED" }), "installation = %s/%s/%s", sourceKind, candidateID, status)
+	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "SERVER_DIRECTORY" },
+		func() bool { return candidateID == "" }, func() bool { return status != "MATCHED" }),
+		"installation = %s/%s/%s", sourceKind, candidateID, status)
 
 	installationID = verifyServerImportRecovery(ctx, t, service, database.SQL, created, releases)
 	verifyServerImportFallbacks(ctx, t, service, database.SQL, rootDir, contents, installationID)
@@ -177,9 +190,12 @@ SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND
 	return installationID
 }
 
-func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database dbapi.DB, releases *cleanupjobs.Service) {
+func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database dbapi.DB,
+	releases *cleanupjobs.Service,
+) {
 	var pending int
-	err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=0 AND blob_id IS NOT NULL AND payload_released_at_ms IS NULL`).Scan(&pending)
+	err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=0 AND
+file_record IS NOT NULL AND payload_released_at_ms IS NULL`).Scan(&pending)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, pending == 1, "server import must defer retirement")
 	testassert.False(t, releases.ReconcileDeletion(ctx) != nil, "reconcile server BIOS")
@@ -188,7 +204,7 @@ func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database 
 	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM bios_installations
 WHERE requirement_id='fixture-requirement' AND is_active=0
-  AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
+  AND file_record IS NULL AND payload_released_at_ms IS NOT NULL
 `).Scan(&retiredPayloads); err != nil || retiredPayloads != 1 {
 		t.Fatalf("retired server BIOS payloads = %d, %v", retiredPayloads, err)
 	}
@@ -211,10 +227,14 @@ func verifyServerImportFallbacks(
 	); err != nil {
 		t.Fatal(err)
 	}
-	downgrade, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true}, "01980000-0000-7000-8000-00000000b001")
+	downgrade, err := service.Create(ctx, CreateRequest{
+		Kind:   "BIOS_DIRECTORY",
+		RootID: "bios-root", ReplaceIfBetter: true,
+	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	downgradeUnit, ok, err := service.ClaimForTest(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "downgrade claim = %#v/%t/%v", downgradeUnit, ok, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !ok }), "downgrade claim = %#v/%t/%v", downgradeUnit, ok, err)
 	service.ExecuteForTest(ctx, downgradeUnit)
 	var downgradeState string
 	if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, downgrade.ID).Scan(&downgradeState); err != nil {
@@ -224,7 +244,10 @@ func verifyServerImportFallbacks(
 	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=1`).Scan(&activeID); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return downgradeState != "SKIPPED_NOT_BETTER" }, func() bool { return activeID != installationID }), "downgrade result = %s, active %s (want %s)", downgradeState, activeID, installationID)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return downgradeState != "SKIPPED_NOT_BETTER" },
+			func() bool { return activeID != installationID }),
+		"downgrade result = %s, active %s (want %s)", downgradeState, activeID, installationID)
 	if err := os.WriteFile(filepath.Join(rootDir, "bios.bin"), contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -234,14 +257,21 @@ func verifyServerImportFallbacks(
 	// a limit failure must terminalize the task before another installation is
 	// committed.
 	service.SetFileLimitForTest(0)
-	limited, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	limited, err := service.Create(ctx, CreateRequest{
+		Kind:   "BIOS_DIRECTORY",
+		RootID: "bios-root",
+	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	limitedUnit, ok, err := service.ClaimForTest(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "scan-limit claim = %#v/%t/%v", limitedUnit, ok, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !ok }), "scan-limit claim = %#v/%t/%v", limitedUnit, ok, err)
 	service.ExecuteForTest(ctx, limitedUnit)
 	limitedSummary, err := service.Get(ctx, limited.ID)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return limitedSummary.State != "FAILED" }, func() bool { return limitedSummary.LastErrorCode == nil }, func() bool { return *limitedSummary.LastErrorCode != "SERVER_IMPORT_SCAN_LIMIT_EXCEEDED" }), "scan-limit import = %#v", limitedSummary)
+	testassert.Falsef(t, testassert.Any(func() bool { return limitedSummary.State != "FAILED" },
+		func() bool { return limitedSummary.LastErrorCode == nil },
+		func() bool { return *limitedSummary.LastErrorCode != "SERVER_IMPORT_SCAN_LIMIT_EXCEEDED" }),
+		"scan-limit import = %#v", limitedSummary)
 	var installationCount int
 	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'`).Scan(&installationCount); err != nil || installationCount != 2 {
 		t.Fatalf("scan-limit installation count = %d, %v", installationCount, err)
@@ -250,7 +280,10 @@ func verifyServerImportFallbacks(
 
 	// A transient unavailable mount schedules a bounded automatic retry rather
 	// than prematurely terminalizing every catalog item.
-	retrying, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	retrying, err := service.Create(ctx, CreateRequest{
+		Kind:   "BIOS_DIRECTORY",
+		RootID: "bios-root",
+	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	offline := rootDir + ".offline"
 	if err := os.Rename(rootDir, offline); err != nil {
@@ -258,7 +291,8 @@ func verifyServerImportFallbacks(
 	}
 	defer func() { _ = os.Rename(offline, rootDir) }()
 	retryUnit, ok, err := service.ClaimForTest(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "retry claim = %#v/%t/%v", retryUnit, ok, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !ok }), "retry claim = %#v/%t/%v", retryUnit, ok, err)
 	service.ExecuteForTest(ctx, retryUnit)
 	var jobState, importState string
 	var attempt int
@@ -272,7 +306,10 @@ func verifyServerImportFallbacks(
 	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='RETRY_SCHEDULED'`, retrying.JobID).Scan(&retryEvents); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "QUEUED" }, func() bool { return importState != "QUEUED" }, func() bool { return attempt != 1 }, func() bool { return retryEvents != 1 }), "automatic retry = job %s/import %s/attempt %d/events %d", jobState, importState, attempt, retryEvents)
+	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "QUEUED" },
+		func() bool { return importState != "QUEUED" }, func() bool { return attempt != 1 },
+		func() bool { return retryEvents != 1 }),
+		"automatic retry = job %s/import %s/attempt %d/events %d", jobState, importState, attempt, retryEvents)
 }
 
 func TestRelativePathAndNoFollowDirectoryBoundary(t *testing.T) {
@@ -313,8 +350,12 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 		return nil
 	})
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return counts.Files != 1 }, func() bool { return counts.SkippedSpecial != 0 }, func() bool { return len(visited) != 1 }), "walk counts = %#v, visited = %#v", counts, visited)
-	testassert.Falsef(t, testassert.Any(func() bool { return visited[0].RelativePath != "bios.bin" }, func() bool { return visited[0].SizeBytes != int64(len(contents)) }), "visited file = %#v", visited[0])
+	testassert.Falsef(t, testassert.Any(func() bool { return counts.Files != 1 },
+		func() bool { return counts.SkippedSpecial != 0 }, func() bool { return len(visited) != 1 }),
+		"walk counts = %#v, visited = %#v", counts, visited)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return visited[0].RelativePath != "bios.bin" },
+			func() bool { return visited[0].SizeBytes != int64(len(contents)) }), "visited file = %#v", visited[0])
 }
 
 func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service, database dbapi.DB, created Summary) {
@@ -323,7 +364,8 @@ func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service,
 	if _, err := database.ExecContext(ctx, `UPDATE server_imports SET state='RUNNING',phase='INSTALLING',completed_at_ms=NULL,updated_at_ms=? WHERE id=?`, now, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,leased_until_ms=?,heartbeat_at_ms=?,worker_id='expired-worker',updated_at_ms=? WHERE id=?`, now-1, now, now, created.JobID); err != nil {
+	if _, err := database.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,leased_until_ms=?,heartbeat_at_ms=?,
+worker_id='expired-worker',updated_at_ms=? WHERE id=?`, now-1, now, now, created.JobID); err != nil {
 		t.Fatal(err)
 	}
 	recoveredUnit, ok, err := service.ClaimForTest(ctx)

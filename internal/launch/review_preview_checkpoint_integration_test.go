@@ -25,6 +25,7 @@ import (
 )
 
 type reviewCheckpointFixture struct {
+	files    *filestore.Store
 	database dbapi.DB
 	launcher *Service
 	saver    *saves.Service
@@ -52,15 +53,13 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := filestore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	blobs := source.files
 	releaser, err := cleanupjobs.New(t.Context(), database.SQL, blobs, clock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return reviewCheckpointFixture{
+		files:    blobs,
 		database: database.SQL, now: &now, itemID: source.itemID,
 		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
 		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
@@ -216,7 +215,8 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 	var remaining int
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT count(*) FROM review_preview_sessions WHERE id IN (?,?)
- AND (state<>'EXPIRED' OR checkpoint_payload_blob_id IS NOT NULL OR restore_payload_blob_id IS NOT NULL)
+ AND (state<>'EXPIRED' OR checkpoint_payload_file_record IS NOT NULL OR restore_payload_file_record IS
+NOT NULL)
 `, original.PreviewID, restored.PreviewID).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("expired trial retained checkpoint references: %d %v", remaining, err)
 	}
@@ -232,7 +232,8 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	}
 	mustRPGLaunchSQL(t, fixture.database,
 		`UPDATE import_items SET metadata_json='{"title":"Published trial"}' WHERE id=?`, fixture.itemID)
-	approved, err := libraryimport.New(fixture.database, func() time.Time { return *fixture.now }).
+	approved, err := libraryimport.New(fixture.database,
+		func() time.Time { return *fixture.now }).WithFileStore(fixture.files).
 		Approve(t.Context(), fixture.itemID, 2)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("publish ordinary review: %+v %v", approved, err)
@@ -255,6 +256,7 @@ SELECT (SELECT count(*) FROM review_preview_sessions WHERE id=?),
 		t.Fatal(err)
 	}
 	if previews != 0 || productSaves != 0 || payloadState != "RELEASED" {
-		t.Fatalf("publication retained temporary owners: previews=%d saves=%d payload=%s", previews, productSaves, payloadState)
+		t.Fatalf("publication retained temporary owners: previews=%d saves=%d payload=%s", previews,
+			productSaves, payloadState)
 	}
 }

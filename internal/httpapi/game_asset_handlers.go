@@ -146,7 +146,7 @@ func (server *Server) contentAsset(writer http.ResponseWriter, request *http.Req
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.serveBlob(writer, request, asset.BlobID, asset.Digest, asset.MediaType, false)
+	server.serveBlob(writer, request, asset.FileRecord, asset.Digest, asset.MediaType, false)
 }
 
 func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
@@ -160,5 +160,5 @@ func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *h
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.serveBlob(writer, request, asset.BlobID, asset.Digest, asset.MediaType, true)
+	server.serveBlob(writer, request, asset.FileRecord, asset.Digest, asset.MediaType, true)
 }

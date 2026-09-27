@@ -5,7 +5,7 @@ export type ReviewDependencySnapshot = {
   bios?: Array<{
     logicalName?: string;
     requirementMode?: string;
-    blobId?: string | null;
+    fileRecord?: string | null;
     installationStatus?: string | null;
   }>;
   dependencies?: Array<{
@@ -43,7 +43,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   snapshot?: ReviewDependencySnapshot;
 }) {
   if (status === "READY") {return null;}
-  const missingBIOS = (snapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId);
+  const missingBIOS = (snapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.fileRecord);
   const missingEntries = snapshot?.missingEntries ?? [];
   const mismatchedEntries = snapshot?.mismatchedEntries ?? [];
   const missingArcadeArchives = (snapshot?.dependencies ?? [])

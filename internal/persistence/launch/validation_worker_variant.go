@@ -95,13 +95,13 @@ func (records validationWorkerRecords) replaceValidationBIOSFiles(
 		return fmt.Errorf("delete current validation BIOS files: %w", err)
 	}
 	for sortOrder, dependency := range biosSnapshot.BIOS {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
 		if _, err := recordstore.CreateVariantFiles(ctx, records.executor, `
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
 VALUES(?,'BIOS_BUNDLE',?,?,?)
-`, variantID, dependency.LogicalName, *dependency.BlobID, sortOrder); err != nil {
+`, variantID, dependency.LogicalName, *dependency.FileRecord, sortOrder); err != nil {
 			return fmt.Errorf("insert current validation BIOS file: %w", err)
 		}
 	}

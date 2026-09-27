@@ -71,7 +71,7 @@ func ResolveBIOSRecords(
 				return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", corevalidation.ErrInvalidSnapshot
 			}
 		}
-		valid := dependency.InstallationStatus != nil && dependency.BlobID != nil &&
+		valid := dependency.InstallationStatus != nil && dependency.FileRecord != nil &&
 			corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus)
 		if !valid && (dependency.RequirementMode != "OPTIONAL" || dependency.InstallationStatus != nil) {
 			status, code = "BLOCKED", "LAUNCH_BIOS_MISSING"

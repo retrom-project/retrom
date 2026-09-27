@@ -46,8 +46,8 @@ func readReviewSourceFiles(
 			ID: record.ID, Name: record.Name, SizeBytes: record.SizeBytes, SHA256: record.SHA256, MD5: record.MD5,
 			CRC32: record.CRC32, Archive: record.Archive, ArchiveEntries: []ReviewArchiveEntry{},
 		}
-		if record.ArchiveBlobID != nil {
-			archive, err := reader.ArchiveEntries(ctx, *record.ArchiveBlobID)
+		if record.ArchiveFileRecord != nil {
+			archive, err := reader.ArchiveEntries(ctx, *record.ArchiveFileRecord)
 			if err != nil {
 				return nil, fmt.Errorf("read review archive entries: %w", err)
 			}

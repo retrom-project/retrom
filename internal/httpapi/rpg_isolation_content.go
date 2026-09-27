@@ -268,7 +268,7 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	server.serveRPGBlob(writer, request, content.BlobID, content.Digest, mediaType, "private, no-cache")
+	server.serveRPGBlob(writer, request, content.FileRecord, content.Digest, mediaType, "private, no-cache")
 }
 
 func isRPGServiceWorkerRequest(request *http.Request) bool {
@@ -295,11 +295,11 @@ func (server *Server) rpgRuntimeRestorePayload(
 		writeError(writer, request, status, code, "RPG Maker 恢复数据不可用", map[string]any{})
 		return
 	}
-	server.serveRPGBlob(writer, request, digest.BlobID, digest.Digest, "application/octet-stream", "private, no-store")
+	server.serveRPGBlob(writer, request, digest.FileRecord, digest.Digest, "application/octet-stream", "private, no-store")
 }
 
 func (server *Server) readRPGContent(content launch.ContentView, maximum int64) ([]byte, error) {
-	file, err := server.blobs.OpenID(content.BlobID)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		return nil, fmt.Errorf("open RPG entry: %w", err)
 	}
@@ -323,7 +323,7 @@ func (server *Server) serveRPGBlob(
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenID(id)
+	file, err := server.blobs.OpenRecord(id)
 	if err != nil {
 		writeError(
 			writer,

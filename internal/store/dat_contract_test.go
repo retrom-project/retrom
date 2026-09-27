@@ -17,7 +17,7 @@ func TestCurrentDATSchemaRejectsNonReleaseCatalogState(t *testing.T) {
 	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id", "builtin_relative_path",
 		"sha256", "parser_version", "parse_status")
 	columns := tableColumns(t, database.SQL, "dat_versions")
-	for _, column := range []string{"source_kind", "blob_id", "base_dat_version_id", "compatibility_json"} {
+	for _, column := range []string{"source_kind", "file_record", "base_dat_version_id", "compatibility_json"} {
 		testassert.Falsef(t, columns[column], "legacy DAT column %s remains", column)
 	}
 	names := queryStrings(t, database.SQL, `SELECT name FROM sqlite_schema

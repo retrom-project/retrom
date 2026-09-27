@@ -45,7 +45,7 @@ func (service *ScreenshotSaver) Store(
 	if !found || !service.authorized(before, capability, service.environment.Now().UnixMilli()) {
 		return ReviewScreenshot{}, ErrCredential
 	}
-	image, err := service.images.Read(ctx, reader)
+	image, err := service.images.Read(ctx, before.ItemID, reader)
 	if err != nil {
 		return ReviewScreenshot{}, fmt.Errorf("read screenshot image: %w", err)
 	}

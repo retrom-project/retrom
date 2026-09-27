@@ -12,7 +12,7 @@ func (service *Service) reviewPreparation() *application.ReviewPreparation {
 	return application.NewReviewPreparation(service.importer,
 		application.NewItemWork(repository.NewItemWork(service.database), service.now),
 		application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
-			libraryservice.NewMetadataSeeder(nil, service.now), service.now))
+			libraryservice.NewMetadataSeeder(nil, service.now), service.blobs, service.now))
 }
 
 func (service *Service) itemFailure(stage, operation string, err error, relativePath string) *FailureDetails {

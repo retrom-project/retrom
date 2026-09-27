@@ -1,33 +1,5 @@
 -- Pre-release bootstrap: create the current domain model directly.
 
-CREATE TABLE stored_files (
-  id TEXT PRIMARY KEY,
-  sha256 TEXT NOT NULL CHECK(length(sha256) = 64 AND sha256 = lower(sha256)),
-  owner_kind TEXT NOT NULL DEFAULT 'STAGING',
-  owner_id TEXT NOT NULL DEFAULT '',
-  retired_at_ms INTEGER CHECK(retired_at_ms IS NULL OR retired_at_ms>=0),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
-  md5 TEXT NOT NULL CHECK(length(md5) = 32 AND md5 = lower(md5)),
-  sha1 TEXT NOT NULL CHECK(length(sha1) = 40 AND sha1 = lower(sha1)),
-  crc32 TEXT NOT NULL CHECK(length(crc32) = 8 AND crc32 = lower(crc32)),
-  media_type TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0)
-);
-
-CREATE INDEX files_owner ON stored_files(owner_kind,owner_id);
-CREATE INDEX files_retired ON stored_files(id) WHERE retired_at_ms IS NOT NULL;
-
-CREATE TABLE file_deletions (
-  blob_id TEXT PRIMARY KEY REFERENCES stored_files(id) ON DELETE CASCADE,
-  deletion_job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
-  retired_at_ms INTEGER NOT NULL CHECK(retired_at_ms >= 0),
-  scheduled_at_ms INTEGER NOT NULL CHECK(scheduled_at_ms >= retired_at_ms),
-  deleted_at_ms INTEGER,
-  last_failed_at_ms INTEGER,
-  error_code TEXT,
-  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count >= 0)
-);
-
 CREATE TABLE "job_events" (
   id INTEGER PRIMARY KEY,
   job_id TEXT NOT NULL REFERENCES jobs(id),
@@ -93,7 +65,7 @@ CREATE TABLE "jobs" (
   scope_id TEXT NOT NULL,
   kind TEXT NOT NULL CHECK(kind IN (
     'UPLOAD_FINALIZE','IMPORT_GROUP','IMPORT_ITEM_PIPELINE','DAT_PARSE','VARIANT_VALIDATE',
-    'METADATA_SCRAPE','MEDIA_FETCH','GAME_CONTENT_REPLACE','FILE_DELETE','UPLOAD_CLEANUP',
+    'METADATA_SCRAPE','MEDIA_FETCH','GAME_CONTENT_REPLACE','PATH_DELETE','UPLOAD_CLEANUP',
     'REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE','SERVER_BIOS_IMPORT',
     'IMPORT_SCAN','IMPORT_RECEIVE',
     'REVIEW_BULK_APPROVE','OWNER_CLEANUP'
@@ -130,5 +102,5 @@ CREATE TABLE "jobs" (
     'IMPORT_ITEM','IMPORT_JOB','SOURCE_IMPORT_ITEM','UPLOAD_CONSUMPTION','GAME'
   )),
   CHECK(kind<>'OWNER_CLEANUP' OR (cancellable=0 AND max_attempts=4)),
-  CHECK(kind<>'FILE_DELETE' OR (scope_type='STORED_FILE' AND cancellable=0 AND max_attempts=4))
+  CHECK(kind<>'PATH_DELETE' OR (scope_type='STORAGE_PATH' AND cancellable=0 AND max_attempts=4))
 );

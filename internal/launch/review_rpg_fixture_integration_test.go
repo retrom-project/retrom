@@ -3,12 +3,15 @@
 package launch
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 
 	dbapi "retrom/internal/database"
 
@@ -41,7 +44,8 @@ func newRPGReviewLaunchService(
 }
 
 type rpgReviewFixture struct {
-	itemID, projectBlobID, projectSHA, indexBlobID string
+	files                                                  *filestore.Store
+	itemID, projectFileRecord, projectSHA, indexFileRecord string
 }
 
 func seedRPGReviewFixture(
@@ -57,20 +61,30 @@ func seedRPGReviewFixture(
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := rpgReviewFixture{
-		itemID: "01980000-0000-7000-8000-000000000901", projectBlobID: "rpg-project-a",
-		projectSHA: strings.Repeat("1", 64), indexBlobID: "rpg-index",
+	files, err := filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, blob := range []struct{ id, sha string }{
-		{fixture.projectBlobID, fixture.projectSHA},
-		{"rpg-project-b", strings.Repeat("2", 64)},
-		{fixture.indexBlobID, strings.Repeat("3", 64)},
-		{"rpg-checkpoint", strings.Repeat("4", 64)},
-	} {
-		mustRPGLaunchSQL(t, database, `
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
-VALUES(?,?,10,?,?,?,'application/octet-stream',?,'IMPORT_ITEM',?)`, blob.id, blob.sha, strings.Repeat("a", 32),
-			strings.Repeat("b", 40), strings.Repeat("c", 8), now, fixture.itemID)
+	fixture := rpgReviewFixture{
+		files: files, itemID: "01980000-0000-7000-8000-000000000901",
+		projectFileRecord: rpgFileRecord("rpg-project-a"), indexFileRecord: rpgFileRecord("rpg-index"),
+	}
+	record, err := filestore.ParseRecord(fixture.projectFileRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.projectSHA = record.SHA256
+	for _, name := range []string{"rpg-project-a", "rpg-project-b", "rpg-index", "rpg-checkpoint"} {
+		payload := sha256.Sum256([]byte(name))
+		metadata, err := files.Put(bytes.NewReader(payload[:10]))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = files.CopyTo(t.Context(), metadata.Record,
+			filestore.ItemDirectory(fixture.itemID)+"/payload/content/fixture", name)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
@@ -82,12 +96,12 @@ INSERT INTO upload_sessions(id,purpose,state,source_type,total_files,total_bytes
 VALUES('rpg-upload','PROJECT','COMPLETE','DIRECTORY',2,20,?,?,?,?)`,
 		strings.Repeat("8", 64), now+1_000_000, now, now)
 	for index, file := range []struct{ id, path, blob string }{
-		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
-		{"rpg-upload-b", "Map0001.lmu", "rpg-project-b"},
+		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectFileRecord},
+		{"rpg-upload-b", "Map0001.lmu", rpgFileRecord("rpg-project-b")},
 	} {
 		mustRPGReferenceSQL(t, database, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
- final_blob_id,state,created_at_ms,updated_at_ms)
+ final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,'rpg-upload',?,10,10,?,'COMPLETE',?,?)`, file.id, file.path, file.blob, now+int64(index), now+int64(index))
 	}
 	mustRPGLaunchSQL(t, database, `
@@ -110,30 +124,32 @@ INSERT INTO import_item_source_snapshots(id,import_item_id,content_kind,
 VALUES('rpg-snapshot',?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, fixture.itemID,
 		manifest, strings.Repeat("d", 64), now)
 	for index, file := range []struct{ upload, logical, blob string }{
-		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
-		{"rpg-upload-b", "Map0001.lmu", "rpg-project-b"},
+		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectFileRecord},
+		{"rpg-upload-b", "Map0001.lmu", rpgFileRecord("rpg-project-b")},
 	} {
 		mustRPGReferenceSQL(t, database, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
- blob_id,sort_order,created_at_ms)
+ file_record,sort_order,created_at_ms)
 VALUES('rpg-snapshot','PROJECT_FILE',?,?,?, ?,?)`, file.logical, file.upload, file.blob, index, now)
 	}
 	mustRPGLaunchSQL(t, database, `
 UPDATE import_items SET target_platform_instance_id='rpg-platform',metadata_json='{}',
- review_version=1,review_created_at_ms=?,review_updated_at_ms=?,effective_source_snapshot_id='rpg-snapshot' WHERE id=?`, now, now, fixture.itemID)
+ review_version=1,review_created_at_ms=?,review_updated_at_ms=?,
+effective_source_snapshot_id='rpg-snapshot' WHERE id=?`, now, now, fixture.itemID)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
  platform_instance_version,core_id,provider_id,target_id,
  source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
  dependency_snapshot_json,created_at_ms)
 VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,
- 'rpg-snapshot',?,'READY','READY','{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}',?)`, fixture.itemID,
+ 'rpg-snapshot',?,'READY','READY',
+'{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}',?)`, fixture.itemID,
 		target.ProviderID, target.TargetID,
 		strings.Repeat("d", 64), strings.Repeat("e", 64), now)
 	mustRPGReferenceSQL(t, database, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
  sort_order,created_at_ms)
-VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexBlobID, now)
+VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexFileRecord, now)
 	mustRPGLaunchSQL(t, database, `
 UPDATE import_items SET review_version=review_version+1,review_updated_at_ms=?
 WHERE id=?`, now, fixture.itemID)
@@ -182,4 +198,19 @@ func mustRPGReferenceSQL(t *testing.T, database dbapi.DB, table, query string, a
 	if _, err := recordstore.InsertRows(t.Context(), database, table, query, arguments...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func rpgFileRecord(name string) string {
+	payload := sha256.Sum256([]byte(name))
+	metadata := testsupport.FileMetadata(string(payload[:10]))
+	record, err := filestore.ParseRecord(metadata.Record)
+	if err != nil {
+		panic(err)
+	}
+	record.Path = "staging/items/01980000-0000-7000-8000-000000000901/payload/content/fixture/" + name
+	value, err := record.Encode()
+	if err != nil {
+		panic(err)
+	}
+	return value
 }

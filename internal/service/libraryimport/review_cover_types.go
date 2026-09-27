@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+
+	"retrom/internal/filestore"
 )
 
 var (
@@ -20,8 +22,8 @@ type ReviewCoverRequest struct {
 	ExpectedVersion            int64
 }
 type ReviewCoverSource struct {
-	FileID, UploadID, BlobID, Digest, Purpose string
-	SizeBytes                                 int64
+	FileID, UploadID, FileRecord, Digest, Purpose string
+	SizeBytes                                     int64
 }
 type ReviewCoverDraft struct {
 	Version    int64
@@ -29,9 +31,9 @@ type ReviewCoverDraft struct {
 	SourceBusy bool
 }
 type ReviewCoverRecord struct {
-	ID, ItemID, UploadFileID, BlobID, MediaType string
-	Width, Height                               int
-	CreatedAtMS                                 int64
+	ID, ItemID, UploadFileID, FileRecord, MediaType string
+	Width, Height                                   int
+	CreatedAtMS                                     int64
 }
 type ReviewCoverResult struct {
 	AssetID     string `json:"assetId"`
@@ -51,7 +53,8 @@ type ReviewCoverExisting struct {
 	HasConsumption bool
 }
 type ReviewCoverBlobs interface {
-	OpenID(string) (io.ReadCloser, error)
+	CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
+	OpenRecord(string) (io.ReadCloser, error)
 }
 type ReviewCoverRepository interface {
 	Source(context.Context, string) (ReviewCoverSource, bool, error)

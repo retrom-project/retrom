@@ -12,13 +12,13 @@ import (
 func assertOwnedGameFile(t *testing.T, server *Server, gameID, fileID string) {
 	t.Helper()
 	var retained bool
-	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=? AND owner_kind='GAME' AND owner_id=? AND retired_at_ms IS NULL)`, fileID, gameID).Scan(&retained); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM game_files WHERE file_record=? AND game_id=?)`, fileID, gameID).Scan(&retained); err != nil {
 		t.Fatal(err)
 	}
 	if !retained {
 		t.Fatal("other game's file ownership changed")
 	}
-	file, err := server.blobs.OpenID(fileID)
+	file, err := server.blobs.OpenRecord(fileID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func assertOwnedGameFile(t *testing.T, server *Server, gameID, fileID string) {
 func assertRetiredGameFile(t *testing.T, server *Server, fileID string) {
 	t.Helper()
 	var retained bool
-	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=? AND retired_at_ms IS NULL)`, fileID).Scan(&retained); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM game_files WHERE file_record=?)`, fileID).Scan(&retained); err != nil {
 		t.Fatal(err)
 	}
 	if retained {

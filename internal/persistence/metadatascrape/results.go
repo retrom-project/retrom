@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
@@ -79,28 +79,15 @@ func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascr
 }
 
 func (records resultRecords) Response(ctx context.Context, value metadatascrape.ResponseRecord) error {
-	var blobID *string
+	var fileRecord *string
 	state := "NONE"
 	if value.Blob != nil {
-		id, err := filecatalog.EnsureRecord(
-			ctx,
-			records.transaction,
-			*value.Blob,
-			"application/json",
-			value.Now,
-		)
+		id, err := filestore.FileRecord(*value.Blob, "application/json")
 		if err != nil {
 			return fmt.Errorf("register raw provider response: %w", err)
 		}
-		if err := fileownership.Adopt(
-			ctx,
-			records.transaction,
-			id,
-			fileownership.Owner{Kind: "PROVIDER_RESPONSE", ID: value.ID},
-		); err != nil {
-			return fmt.Errorf("results: %w", err)
-		}
-		blobID = &id
+
+		fileRecord = &id
 		state = "RETAINED"
 	}
 	var status *int
@@ -112,14 +99,14 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 		records.transaction,
 		"metadata_provider_responses",
 		`INSERT INTO metadata_provider_responses
- (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,
+ (id,provider,request_digest,http_status,outcome,raw_response_file_record,raw_payload_state,
 fetched_at_ms,expires_at_ms)
  VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)`,
 		value.ID,
 		value.RequestDigest,
 		status,
 		value.Outcome,
-		blobID,
+		fileRecord,
 		state,
 		value.Now,
 		value.ExpiresAt,

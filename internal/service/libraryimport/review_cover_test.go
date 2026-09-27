@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
+	"retrom/internal/testsupport"
 )
 
 type coverRepositoryFixture struct {
@@ -63,7 +66,7 @@ type coverBlobFixture struct {
 	openError  error
 }
 
-func (blobs coverBlobFixture) OpenID(string) (io.ReadCloser, error) {
+func (blobs coverBlobFixture) OpenRecord(string) (io.ReadCloser, error) {
 	if blobs.beforeOpen != nil {
 		blobs.beforeOpen()
 	}
@@ -87,7 +90,10 @@ func coverRequest() ReviewCoverRequest {
 
 func coverFixture(t *testing.T) (*coverRepositoryFixture, coverBlobFixture) {
 	t.Helper()
-	source := ReviewCoverSource{FileID: "upload", UploadID: "session", BlobID: "blob", Digest: "digest", Purpose: "GENERAL"}
+	source := ReviewCoverSource{
+		FileID: "upload", UploadID: "session",
+		FileRecord: testsupport.FileMetadata("cover").Record, Digest: "digest", Purpose: "GENERAL",
+	}
 	repository := &coverRepositoryFixture{
 		source: source, current: source,
 		draft: ReviewCoverDraft{Version: 1, State: "REVIEW_PENDING"},
@@ -128,7 +134,8 @@ func TestReviewCoverPreparationErrorsPreserveCause(t *testing.T) {
 			t.Parallel()
 			repository, _ := coverFixture(t)
 			result, err := coverService(repository, test.blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewCoverStorageUnavailable) || result != (ReviewCoverResult{}) || repository.transactions != 0 {
+			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewCoverStorageUnavailable) ||
+				result != (ReviewCoverResult{}) || repository.transactions != 0 {
 				t.Fatalf("CAS failure lost cause or entered transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
 			}
 		})
@@ -142,8 +149,16 @@ func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 		mutate   func(*coverRepositoryFixture, *coverBlobFixture)
 		expected error
 	}{
-		{"missing", func(repo *coverRepositoryFixture, _ *coverBlobFixture) { repo.source = ReviewCoverSource{} }, ErrReviewCoverUploadInvalid},
-		{"project upload", func(repo *coverRepositoryFixture, _ *coverBlobFixture) { repo.source.Purpose = "PROJECT" }, ErrReviewCoverConsumed},
+		{"missing", func(repo *coverRepositoryFixture,
+			_ *coverBlobFixture,
+		) {
+			repo.source = ReviewCoverSource{}
+		}, ErrReviewCoverUploadInvalid},
+		{"project upload", func(repo *coverRepositoryFixture,
+			_ *coverBlobFixture,
+		) {
+			repo.source.Purpose = "PROJECT"
+		}, ErrReviewCoverConsumed},
 		{"invalid image", func(_ *coverRepositoryFixture, blobs *coverBlobFixture) {
 			blobs.reader = io.NopCloser(strings.NewReader("not an image"))
 		}, ErrReviewCoverImageInvalid},
@@ -157,7 +172,8 @@ func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 			test.mutate(repository, &blobs)
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
 			if !errors.Is(err, test.expected) || result != (ReviewCoverResult{}) || repository.transactions != 0 {
-				t.Fatalf("invalid preparation reached transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
+				t.Fatalf("invalid preparation reached transaction: result=%+v err=%v transactions=%d",
+					result, err, repository.transactions)
 			}
 		})
 	}
@@ -170,8 +186,14 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 		mutate   func(*coverRepositoryFixture)
 		expected error
 	}{
-		{"changed blob", func(repo *coverRepositoryFixture) { repo.current.BlobID = "new-blob" }, ErrReviewCoverUploadInvalid},
-		{"lost upload", func(repo *coverRepositoryFixture) { repo.current = ReviewCoverSource{} }, ErrReviewCoverUploadInvalid},
+		{
+			"changed blob", func(repo *coverRepositoryFixture) { repo.current.FileRecord = "new-blob" },
+			ErrReviewCoverUploadInvalid,
+		},
+		{
+			"lost upload", func(repo *coverRepositoryFixture) { repo.current = ReviewCoverSource{} },
+			ErrReviewCoverUploadInvalid,
+		},
 		{"stale draft", func(repo *coverRepositoryFixture) { repo.draft.Version++ }, ErrReviewCoverVersion},
 		{"terminal item", func(repo *coverRepositoryFixture) { repo.draft.State = "DISCARDED" }, ErrReviewCoverVersion},
 		{"busy owner", func(repo *coverRepositoryFixture) { repo.draft.SourceBusy = true }, ErrReviewCoverVersion},
@@ -186,8 +208,10 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 				test.mutate(repository)
 			}
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, test.expected) || result != (ReviewCoverResult{}) || repository.assetWrites != 0 || repository.consumptions != 0 {
-				t.Fatalf("stale preparation accepted: result=%+v err=%v writes=%d/%d", result, err, repository.assetWrites, repository.consumptions)
+			if !errors.Is(err, test.expected) || result != (ReviewCoverResult{}) ||
+				repository.assetWrites != 0 || repository.consumptions != 0 {
+				t.Fatalf("stale preparation accepted: result=%+v err=%v writes=%d/%d", result, err,
+					repository.assetWrites, repository.consumptions)
 			}
 		})
 	}
@@ -208,11 +232,13 @@ func TestReviewCoverOwnershipReplay(t *testing.T) {
 			t.Parallel()
 			repository, blobs := coverFixture(t)
 			repository.existing = ReviewCoverExisting{HasConsumption: test.retained, Record: ReviewCoverRecord{
-				ID: "original", ItemID: test.owner, BlobID: "blob", Width: 2, Height: 3, MediaType: "image/png", CreatedAtMS: 42,
+				ID: "original", ItemID: test.owner, FileRecord: testsupport.FileMetadata("cover").Record,
+				Width: 2, Height: 3, MediaType: "image/png", CreatedAtMS: 42,
 			}}
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
 			if !errors.Is(err, test.expected) || repository.assetWrites != 0 || repository.consumptions != 0 {
-				t.Fatalf("invalid replay: result=%+v err=%v writes=%d/%d", result, err, repository.assetWrites, repository.consumptions)
+				t.Fatalf("invalid replay: result=%+v err=%v writes=%d/%d", result, err,
+					repository.assetWrites, repository.consumptions)
 			}
 			if test.expected == nil && (result.AssetID != "original" || result.CreatedAtMS != 42 || result.Version != 1) {
 				t.Fatalf("replay changed immutable identity: %+v", result)
@@ -264,7 +290,8 @@ func TestReviewCoverReadySourceAndDraftErrors(t *testing.T) {
 		repository, blobs := coverFixture(t)
 		repository.draft.SourceBusy = false
 		result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-		if err != nil || result.Width != 2 || result.Height != 3 || result.CreatedAtMS != 100 || repository.assetWrites != 1 || repository.consumptions != 1 {
+		if err != nil || result.Width != 2 || result.Height != 3 || result.CreatedAtMS != 100 ||
+			repository.assetWrites != 1 || repository.consumptions != 1 {
 			t.Fatalf("ready review not accepted: %+v err=%v", result, err)
 		}
 	})
@@ -278,4 +305,8 @@ func TestReviewCoverReadySourceAndDraftErrors(t *testing.T) {
 			t.Fatalf("draft query error mapped to conflict: %+v err=%v", result, err)
 		}
 	})
+}
+
+func (blobs coverBlobFixture) CopyTo(context.Context, string, string, string) (filestore.Metadata, error) {
+	return testsupport.FileMetadata("cover"), nil
 }

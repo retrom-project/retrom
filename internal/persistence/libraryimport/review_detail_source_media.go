@@ -24,7 +24,7 @@ EXISTS(
  SELECT 1 FROM import_item_assets asset
  WHERE asset.import_item_id=source.library_import_item_id
  AND asset.kind='COVER'
-AND asset.blob_id IS NOT NULL
+AND asset.file_record IS NOT NULL
 ),
 (
  SELECT asset.width_px FROM import_item_assets asset
@@ -40,7 +40,7 @@ EXISTS(
  SELECT 1 FROM import_item_assets asset
  WHERE asset.import_item_id=source.library_import_item_id
  AND asset.kind='VIDEO'
- AND asset.blob_id IS NOT NULL
+ AND asset.file_record IS NOT NULL
 )
 FROM source_import_items source
 LEFT JOIN source_import_collections collection ON collection.id=source.collection_id

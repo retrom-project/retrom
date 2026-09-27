@@ -15,7 +15,9 @@ import (
 	"retrom/internal/uploadfiles"
 )
 
-func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part) (filestore.Metadata, error) {
+func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part,
+	uploadID string,
+) (filestore.Metadata, error) {
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Offset < parts[j].Offset })
 	var offset int64
 	for _, part := range parts {
@@ -40,7 +42,11 @@ func (service *Service) assembleFile(ctx context.Context, file Candidate, parts 
 	if metadata.Size != file.Size {
 		return filestore.Metadata{}, fmt.Errorf("%w: assembled size mismatch", errFinalizeIO)
 	}
-	return metadata, nil
+	copied, err := service.blobs.CopyTo(ctx, metadata.Record, "staging/uploads/"+uploadID, file.ID)
+	if err != nil {
+		return filestore.Metadata{}, fmt.Errorf("prepare uploaded file: %w", err)
+	}
+	return copied, nil
 }
 
 type assemblyReader struct {

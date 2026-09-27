@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -17,7 +18,6 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -76,7 +76,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	gameID := "01980000-0000-7000-8000-000000000101"
 	metadataID := "01980000-0000-7000-8000-000000000102"
 	contentID := "01980000-0000-7000-8000-000000000103"
-	coverBlobID := "01980000-0000-7000-8000-000000000104"
+	coverFileRecord := "01980000-0000-7000-8000-000000000104"
 	coverAssetID := "01980000-0000-7000-8000-000000000105"
 	videoAssetID := "01980000-0000-7000-8000-000000000110"
 	variantID := "01980000-0000-7000-8000-000000000106"
@@ -86,13 +86,16 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	defer dbapi.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
-	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
+	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverFileRecord,
+		coverAssetID, videoAssetID, &fixture)
 	seedGameDetailRuntime(t, server, transaction, gameID, variantID, saveStateID, &fixture)
 	videoPayload, screenshot := fixture.videoPayload, fixture.screenshot
-	latestLaunchID, screenshotBlobID := fixture.latestLaunchID, fixture.screenshotBlobID
+	latestLaunchID, screenshotFileRecord := fixture.latestLaunchID, fixture.screenshotFileRecord
 	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
-	testassert.Falsef(t, recorder.Code != http.StatusOK, "game detail status = %d: %s", recorder.Code, recorder.Body.String())
+	server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games/"+gameID, nil))
+	testassert.Falsef(t, recorder.Code != http.StatusOK, "game detail status = %d: %s",
+		recorder.Code, recorder.Body.String())
 	var response struct {
 		DefaultDOSEntry *string `json:"defaultDosEntry"`
 		CoverURL        *string `json:"coverUrl"`
@@ -112,12 +115,27 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 		SaveStateCount int64 `json:"saveStateCount"`
 	}
 	mustDecodeHTTPTest(t, recorder.Body.Bytes(), &response)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(response.CoreOptions) != 1 }, func() bool { return response.CoreOptions[0].CoreID != "dosbox_pure" }, func() bool { return response.CoreOptions[0].Status != "READY" }), "core options = %#v", response.CoreOptions)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(response.CoreOptions) != 1 },
+		func() bool { return response.CoreOptions[0].CoreID != "dosbox_pure" },
+		func() bool { return response.CoreOptions[0].Status != "READY" }), "core options = %#v",
+		response.CoreOptions)
 	expectedCoverURL := "/content/assets/" + coverAssetID
 	expectedVideoURL := "/content/assets/" + videoAssetID
-	testassert.Falsef(t, testassert.Any(func() bool { return response.CoverURL == nil }, func() bool { return *response.CoverURL != expectedCoverURL }, func() bool { return response.DefaultDOSEntry != nil }, func() bool { return response.VideoURL == nil }, func() bool { return *response.VideoURL != expectedVideoURL }, func() bool { return len(response.DOSEntries) != 2 }, func() bool { return response.DOSEntries[0].Path != "GAMES/DOOM.EXE" }, func() bool { return !response.DOSEntries[0].DirectLaunchSafe }, func() bool { return response.DOSEntries[1].DirectLaunchSafe }, func() bool { return len(response.SaveStates) != 8 }, func() bool { return response.SaveStateCount != 9 }), "DOS choices = default:%v entries:%#v", response.DefaultDOSEntry, response.DOSEntries)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.CoverURL == nil },
+		func() bool { return *response.CoverURL != expectedCoverURL },
+		func() bool { return response.DefaultDOSEntry != nil },
+		func() bool { return response.VideoURL == nil },
+		func() bool { return *response.VideoURL != expectedVideoURL },
+		func() bool { return len(response.DOSEntries) != 2 },
+		func() bool { return response.DOSEntries[0].Path != "GAMES/DOOM.EXE" },
+		func() bool { return !response.DOSEntries[0].DirectLaunchSafe },
+		func() bool { return response.DOSEntries[1].DirectLaunchSafe },
+		func() bool { return len(response.SaveStates) != 8 },
+		func() bool { return response.SaveStateCount != 9 }), "DOS choices = default:%v entries:%#v",
+		response.DefaultDOSEntry, response.DOSEntries)
 	list := httptest.NewRecorder()
-	server.Handler().ServeHTTP(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
+	server.Handler().ServeHTTP(list, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games?limit=100", nil))
 	testassert.Falsef(t, anyTrue(
 		list.Code != http.StatusOK,
 		!strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`),
@@ -135,43 +153,51 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 		videoRange.Header().Get("Content-Type") != "video/mp4", videoRange.Header().Get("Accept-Ranges") != "bytes"),
 		"video range = %d headers=%v body=%q", videoRange.Code, videoRange.Header(), videoRange.Body.String())
 	videoHead := httptest.NewRecorder()
-	server.Handler().ServeHTTP(videoHead, httptest.NewRequestWithContext(context.Background(), http.MethodHead, expectedVideoURL, nil))
+	server.Handler().ServeHTTP(videoHead, httptest.NewRequestWithContext(context.Background(),
+		http.MethodHead, expectedVideoURL, nil))
 	testassert.Falsef(t, anyTrue(videoHead.Code != http.StatusOK, videoHead.Body.Len() != 0,
 		videoHead.Header().Get("Content-Length") != strconv.Itoa(len(videoPayload)),
 		videoHead.Header().Get("Content-Type") != "video/mp4"),
 		"video HEAD = %d headers=%v body=%q", videoHead.Code, videoHead.Header(), videoHead.Body.String())
 	adminList := httptest.NewRecorder()
-	server.Handler().ServeHTTP(adminList, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games?limit=100", nil))
+	server.Handler().ServeHTTP(adminList, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/games?limit=100", nil))
 	testassert.Falsef(t, anyTrue(adminList.Code != http.StatusOK,
 		!strings.Contains(adminList.Body.String(), `"releaseYear":`),
 		!strings.Contains(adminList.Body.String(), `"metadataComplete":`),
 		!strings.Contains(adminList.Body.String(), `"runtimeStatus":"READY"`)),
 		"admin game health projection = %d: %s", adminList.Code, adminList.Body.String())
 	adminDetail := httptest.NewRecorder()
-	server.Handler().ServeHTTP(adminDetail, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
+	server.Handler().ServeHTTP(adminDetail, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return adminDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(adminDetail.Body.String(), `"generatedAtMs":`) }), "admin game detail generated time = %d: %s", adminDetail.Code, adminDetail.Body.String())
 	saves := httptest.NewRecorder()
-	server.Handler().ServeHTTP(saves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves", nil))
+	server.Handler().ServeHTTP(saves, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/saves", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return saves.Code != http.StatusOK }, func() bool {
 		return !strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`)
 	}, func() bool {
 		return !strings.Contains(saves.Body.String(), `"sizeBytes":`+strconv.Itoa(len(screenshot)))
 	}, func() bool { return !strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) }, func() bool { return !strings.Contains(saves.Body.String(), `"platform":{"id":"dos","name":"MS-DOS"}`) }, func() bool { return !strings.Contains(saves.Body.String(), `"generatedAtMs":`) }), "save list projection = %d: %s", saves.Code, saves.Body.String())
 	filteredSaves := httptest.NewRecorder()
-	server.Handler().ServeHTTP(filteredSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+gameID, nil))
+	server.Handler().ServeHTTP(filteredSaves, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/saves?gameId="+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return filteredSaves.Code != http.StatusOK }, func() bool { return !strings.Contains(filteredSaves.Body.String(), `"gameId":"`+gameID+`"`) }), "save game filter = %d: %s", filteredSaves.Code, filteredSaves.Body.String())
 	missingGameSaves := httptest.NewRecorder()
-	server.Handler().ServeHTTP(missingGameSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+uuid.NewString(), nil))
+	server.Handler().ServeHTTP(missingGameSaves,
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/saves?gameId="+uuid.NewString(), nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return missingGameSaves.Code != http.StatusOK }, func() bool { return !strings.Contains(missingGameSaves.Body.String(), `"items":[]`) }), "save missing game filter = %d: %s", missingGameSaves.Code, missingGameSaves.Body.String())
-	assertGameHomeAndActivity(t, server, gameID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
+	assertGameHomeAndActivity(t, server, gameID, screenshotFileRecord, latestLaunchID, now,
+		expectedCoverURL, saveStateID, screenshot)
 	assertScreenshotlessSaveProjections(t, server, gameID)
 	assertGameProfileIsolation(t, server, gameID, saveStateID, now)
-	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload)
+	assertGameAdminMutations(t, server, gameID, contentID, fixture.coverRecord, now, videoPayload)
 }
 
 func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID string) {
 	t.Helper()
-	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_blob_id=NULL WHERE game_id=?", gameID)
+	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_file_record=NULL WHERE game_id=?", gameID)
 	for _, path := range []string{
 		"/api/v1/saves?gameId=" + gameID,
 		"/api/v1/games/" + gameID,
@@ -189,7 +215,7 @@ func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID st
 
 func assertGameHomeAndActivity(
 	t *testing.T, server *Server,
-	gameID, screenshotBlobID, latestLaunchID string,
+	gameID, screenshotFileRecord, latestLaunchID string,
 	now int64, expectedCoverURL, saveStateID string, screenshot []byte,
 ) {
 	home := httptest.NewRecorder()
@@ -245,11 +271,11 @@ func assertGameHomeAndActivity(
 	payloadDigest := sha256.Sum256(screenshot)
 	mustCreateHTTPReferences(t, server.database, "save_states", `
 INSERT INTO save_states(
- id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
- screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+ id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
+ screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
 ) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
-`, sessionSaveID, gameID, screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(screenshot),
-		screenshotBlobID, latestLaunchID, now+20, now+20)
+`, sessionSaveID, gameID, screenshotFileRecord, hex.EncodeToString(payloadDigest[:]), len(screenshot),
+		screenshotFileRecord, latestLaunchID, now+20, now+20)
 	var alternateLaunchID string
 	if err := dbapi.QueryRowContext(
 		context.Background(), server.database,
@@ -318,7 +344,8 @@ INSERT INTO save_states(
 
 func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateID string, now int64) {
 	localPage := httptest.NewRecorder()
-	server.Handler().ServeHTTP(localPage, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?limit=1", nil))
+	server.Handler().ServeHTTP(localPage, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/saves?limit=1", nil))
 	var localPageBody struct {
 		NextCursor *string `json:"nextCursor"`
 	}
@@ -333,7 +360,8 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 		DisplayName: "Other Player", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009995",
 	}}
 	otherDetail := httptest.NewRecorder()
-	server.Handler().ServeHTTP(otherDetail, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
+	server.Handler().ServeHTTP(otherDetail, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return otherDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(otherDetail.Body.String(), `"activeDurationMs":0`) }, func() bool { return !strings.Contains(otherDetail.Body.String(), `"saveStateCount":0`) }, func() bool { return !strings.Contains(otherDetail.Body.String(), `"saveStates":[]`) }), "other profile game detail = %d: %s", otherDetail.Code, otherDetail.Body.String())
 	for path, expectedFragment := range map[string]string{
 		"/api/v1/saves":        `"items":[]`,
@@ -341,15 +369,19 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	} {
 		response := httptest.NewRecorder()
 		server.Handler().ServeHTTP(response, httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil))
-		testassert.Falsef(t, testassert.Any(func() bool { return response.Code != http.StatusOK }, func() bool { return !strings.Contains(response.Body.String(), expectedFragment) }), "other profile %s = %d: %s", path, response.Code, response.Body.String())
+		testassert.Falsef(t, testassert.Any(func() bool { return response.Code != http.StatusOK },
+			func() bool { return !strings.Contains(response.Body.String(), expectedFragment) }),
+			"other profile %s = %d: %s", path, response.Code, response.Body.String())
 	}
 	otherHome := httptest.NewRecorder()
-	server.Handler().ServeHTTP(otherHome, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
+	server.Handler().ServeHTTP(otherHome, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/home", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return otherHome.Code != http.StatusOK }, func() bool { return !strings.Contains(otherHome.Body.String(), `"recentSaves":[]`) }, func() bool { return !strings.Contains(otherHome.Body.String(), `"recentGames":[]`) }, func() bool { return !strings.Contains(otherHome.Body.String(), `"featuredGame":null`) }, func() bool { return !strings.Contains(otherHome.Body.String(), `"latestGames":[`) }), "other profile home = %d: %s", otherHome.Code, otherHome.Body.String())
 	foreignCursor := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
 		foreignCursor,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?limit=1&cursor="+url.QueryEscape(*localPageBody.NextCursor), nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/saves?limit=1&cursor="+url.QueryEscape(*localPageBody.NextCursor), nil),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignCursor.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(foreignCursor.Body.String(), `"code":"INVALID_CURSOR"`) }), "cross-profile cursor = %d: %s", foreignCursor.Code, foreignCursor.Body.String())
 	foreignScreenshot := httptest.NewRecorder()
@@ -370,7 +402,8 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	foreignPatch := httptest.NewRecorder()
 	server.Handler().ServeHTTP(foreignPatch, foreignPatchRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignPatch.Code != http.StatusNotFound }, func() bool { return !strings.Contains(foreignPatch.Body.String(), `"code":"SAVE_STATE_NOT_FOUND"`) }), "foreign save patch = %d: %s", foreignPatch.Code, foreignPatch.Body.String())
-	foreignDeleteRequest := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/saves/"+saveStateID, nil)
+	foreignDeleteRequest := httptest.NewRequestWithContext(context.Background(),
+		http.MethodDelete, "/api/v1/saves/"+saveStateID, nil)
 	foreignDeleteRequest.Header.Set("If-Match", `"v1"`)
 	foreignDelete := httptest.NewRecorder()
 	server.Handler().ServeHTTP(foreignDelete, foreignDeleteRequest)
@@ -396,7 +429,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 }
 
 func assertGameAdminMutations(
-	t *testing.T, server *Server, gameID, contentID, coverBlobID string, now int64,
+	t *testing.T, server *Server, gameID, contentID, coverFileRecord string, now int64,
 	videoPayload []byte,
 ) {
 	var originalCoverAssetID, originalVideoAssetID string
@@ -405,11 +438,12 @@ SELECT
  (SELECT id FROM game_assets WHERE game_id=? AND kind='COVER' ORDER BY created_at_ms,id LIMIT 1),
  (SELECT id FROM game_assets WHERE game_id=? AND kind='VIDEO' ORDER BY created_at_ms,id LIMIT 1)
 `, gameID, gameID), &originalCoverAssetID, &originalVideoAssetID)
-	candidateID, candidateAssetID := seedCompletedGameScrape(t, server.database, gameID, contentID, coverBlobID, now)
+	candidateID, candidateAssetID := seedCompletedGameScrape(t, server.database, gameID, contentID, coverFileRecord, now)
 	candidates := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
 		candidates,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID+"/scrape-candidates", nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/admin/games/"+gameID+"/scrape-candidates", nil),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return candidates.Code != http.StatusOK }, func() bool { return !strings.Contains(candidates.Body.String(), `"candidateId":"`+candidateID+`"`) }, func() bool {
 		return !strings.Contains(candidates.Body.String(), `"candidateAssetId":"`+candidateAssetID+`"`)
@@ -427,7 +461,8 @@ SELECT
 	applyRequest.Header.Set("If-Match", `"v1"`)
 	applyRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	server.Handler().ServeHTTP(apply, applyRequest)
-	testassert.Falsef(t, apply.Code != http.StatusOK, "apply game scrape candidate = %d: %s", apply.Code, apply.Body.String())
+	testassert.Falsef(t, apply.Code != http.StatusOK, "apply game scrape candidate = %d: %s",
+		apply.Code, apply.Body.String())
 	var appliedTitle, appliedTitleInitial string
 	var preservedAssets int64
 	mustScanHTTPTest(t, dbapi.QueryRowContext(context.Background(), server.database, `
@@ -453,19 +488,20 @@ SELECT
 		"unselected candidate media changed: cover=%s video=%s", preservedCoverID, preservedVideoID)
 	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
-	videoBlobID, err := filecatalog.EnsureRecord(t.Context(), server.database, videoMetadata, "video/mp4", now)
+	videoFileRecord, err := filestore.FileRecord(videoMetadata, "video/mp4")
 	testassert.False(t, err != nil, err)
 	videoUploadID := "01980000-0000-7000-8000-000000000111"
 	videoUploadFileID := "01980000-0000-7000-8000-000000000112"
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?);
 `, videoUploadID, len(videoPayload), videoMetadata.SHA256, now+60_000, now, now)
-	mustExecHTTPTest(t, server.database, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, videoUploadID, videoBlobID)
 	mustCreateHTTPReferences(t, server.database, "upload_files", `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
-`, videoUploadFileID, videoUploadID, len(videoPayload), len(videoPayload), videoBlobID, now, now)
+`, videoUploadFileID, videoUploadID, len(videoPayload), len(videoPayload), videoFileRecord, now, now)
 	replaceVideo := httptest.NewRecorder()
 	replaceVideoRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/games/"+gameID+"/assets", strings.NewReader(`{"uploadFileId":"`+videoUploadFileID+`","kind":"VIDEO","ordinal":0}`))
 	replaceVideoRequest.Header.Set("Content-Type", "application/json")
@@ -474,7 +510,8 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	server.Handler().ServeHTTP(replaceVideo, replaceVideoRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return replaceVideo.Code != http.StatusCreated }, func() bool { return !strings.Contains(replaceVideo.Body.String(), `"mediaType":"video/mp4"`) }, func() bool { return !strings.Contains(replaceVideo.Body.String(), `"widthPx":null`) }), "replace video = %d: %s", replaceVideo.Code, replaceVideo.Body.String())
 	removeVideo := httptest.NewRecorder()
-	removeVideoRequest := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/admin/games/"+gameID+"/assets/VIDEO", nil)
+	removeVideoRequest := httptest.NewRequestWithContext(context.Background(), http.MethodDelete,
+		"/api/v1/admin/games/"+gameID+"/assets/VIDEO", nil)
 	removeVideoRequest.Header.Set("If-Match", `"v3"`)
 	removeVideoRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	server.Handler().ServeHTTP(removeVideo, removeVideoRequest)
@@ -483,7 +520,8 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	var currentTitleInitial string
 	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
-(SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id WHERE game.id=? AND asset.kind='VIDEO'),
+(SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id WHERE game.id=? AND
+asset.kind='VIDEO'),
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
  WHERE game.id=? AND asset.game_id<>game.id),
 (SELECT metadata.title_initial FROM games game
@@ -520,7 +558,8 @@ INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'D','','','','',NULL,NULL,
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'D','','',
+'','',NULL,NULL,
  'IMPORT_REVIEW','pagination-fixture','SINGLE_FILE','IMPORT_REVIEW','pagination-fixture','{}',?,
  'PUBLISHED',?,1,?,?)
 `, gameID, title, strings.Repeat(strconv.Itoa(index+1), 64), strings.ToLower(title), createdAt, createdAt)
@@ -548,7 +587,12 @@ INSERT INTO games(
 	if err := json.Unmarshal(first.Body.Bytes(), &firstPage); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(firstPage.Items) != 2 }, func() bool { return firstPage.Items[0].GameID != gameIDs[2] }, func() bool { return firstPage.Items[1].GameID != gameIDs[1] }, func() bool { return firstPage.NextCursor == nil }, func() bool { return firstPage.FilteredCount != 3 }, func() bool { return firstPage.Facets.TotalCount != 3 }), "first page = %#v", firstPage)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(firstPage.Items) != 2 },
+		func() bool { return firstPage.Items[0].GameID != gameIDs[2] },
+		func() bool { return firstPage.Items[1].GameID != gameIDs[1] },
+		func() bool { return firstPage.NextCursor == nil },
+		func() bool { return firstPage.FilteredCount != 3 },
+		func() bool { return firstPage.Facets.TotalCount != 3 }), "first page = %#v", firstPage)
 
 	second := httptest.NewRecorder()
 	server.Handler().ServeHTTP(second, httptest.NewRequestWithContext(context.Background(),
@@ -567,21 +611,23 @@ INSERT INTO games(
 func seedCompletedGameScrape(
 	t *testing.T,
 	database dbapi.DB,
-	gameID, _ string, coverBlobID string,
+	gameID, _ string, coverFileRecord string,
 	now int64,
 ) (string, string) {
 	t.Helper()
 	jobID, runID := uuid.NewString(), uuid.NewString()
 	responseID, candidateID, candidateAssetID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,
 max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'GAME',?,'METADATA_SCRAPE',?,1,'{}',0,'SUCCEEDED',1,2,?,?,?,?)
 `, jobID, gameID, strings.Repeat("7", 64), now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := recordstore.InsertRows(context.Background(), database, "metadata_provider_responses", `
-INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,
+INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,
+raw_response_file_record,
 raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES(?,'HASHEOUS',?,200,'HIT',NULL,'NONE',?,?)
 `, responseID, strings.Repeat("8", 64), now, now+60_000); err != nil {
@@ -603,9 +649,10 @@ VALUES(?,?,?,'doom-refreshed','{"title":"Doom refreshed","description":"Updated"
 	}
 	if _, err := recordstore.InsertRows(context.Background(), database, "scrape_candidate_assets", `
 INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,
-ordinal,source_path,status,blob_id,width_px,height_px,media_type,error_code,fetched_at_ms,version,created_at_ms,updated_at_ms)
+ordinal,source_path,status,file_record,width_px,height_px,media_type,error_code,fetched_at_ms,version,
+created_at_ms,updated_at_ms)
 VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?,?)
-`, candidateAssetID, candidateID, responseID, coverBlobID, now, now, now); err != nil {
+`, candidateAssetID, candidateID, responseID, coverFileRecord, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	return candidateID, candidateAssetID
@@ -627,9 +674,11 @@ func seedRecentGameHistory(t *testing.T, database dbapi.DB, now int64, count int
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'R','','','','',NULL,NULL,
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'R','','',
+'','',NULL,NULL,
  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',?,'{}',?,'PUBLISHED',?,1,?,?)
 `, gameID, fmt.Sprintf("Recent fixture %02d", index), fmt.Sprintf("recent-%d", index), strings.Repeat("7", 64),
 			fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index))
@@ -643,12 +692,14 @@ INSERT INTO game_variants(
 INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,
 state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,
+?,?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now, now+120_000, now, now)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
-last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,
+updated_at_ms)
 VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-int64(index+1)*1_000, now, now, now, now)
 	}
@@ -658,15 +709,15 @@ VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
 }
 
 type gameDetailSeed struct {
-	now                                           int64
-	videoPayload, screenshot                      []byte
-	videoMetadata                                 filestore.Metadata
-	latestLaunchID, videoBlobID, screenshotBlobID string
+	now                                                                int64
+	videoPayload, screenshot                                           []byte
+	videoMetadata                                                      filestore.Metadata
+	latestLaunchID, videoFileRecord, screenshotFileRecord, coverRecord string
 }
 
 func seedGameDetailMedia(
 	t *testing.T, server *Server, transaction dbapi.Tx,
-	gameID, _, _, coverBlobID, coverAssetID, videoAssetID string,
+	gameID, _, _, _, coverAssetID, videoAssetID string,
 	fixture *gameDetailSeed,
 ) {
 	now := fixture.now
@@ -685,28 +736,18 @@ INSERT INTO games(
  '{}',?,'PUBLISHED','doom',1,?,?
 )
 `, gameID, "首页游戏简介\n保留当前元信息。", strings.Repeat("0", 64), now, now)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO stored_files(id,
-sha256,
-size_bytes,
-md5,
-sha1,
-crc32,
-media_type,
-created_at_ms) VALUES(?,
-?,
-4,
-?,
-?,
-?,
-'image/png',
-?)
-`, coverBlobID, strings.Repeat("1", 64), strings.Repeat("2", 32), strings.Repeat("3", 40),
-		strings.Repeat("4", 8), now)
+	cover, err := server.blobs.Put(bytes.NewBufferString("old cover payload"))
+	testassert.False(t, err != nil, err)
+	cover, err = server.blobs.CopyTo(t.Context(), cover.Record,
+		filestore.GameDirectory(gameID)+"/media/"+coverAssetID, "asset")
+	testassert.False(t, err != nil, err)
+	coverFileRecord := cover.Record
+	fixture.coverRecord = cover.Record
+
 	mustCreateHTTPReferences(t, transaction, "game_assets", `
 INSERT INTO game_assets(id,
 game_id,
-blob_id,
+file_record,
 kind,
 ordinal,
 width_px,
@@ -721,16 +762,22 @@ created_at_ms) VALUES(?,
 800,
 'image/png',
 ?)
-`, coverAssetID, gameID, coverBlobID, now)
-	fixture.videoPayload = []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
+`, coverAssetID, gameID, coverFileRecord, now)
+	fixture.videoPayload = []byte{
+		0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0,
+		'i', 's', 'o', 'm', 'm', 'p', '4', '2',
+	}
 	fixture.videoMetadata, err = server.blobs.Put(bytes.NewReader(fixture.videoPayload))
 	testassert.False(t, err != nil, err)
-	fixture.videoBlobID, err = filecatalog.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
+	fixture.videoMetadata, err = server.blobs.CopyTo(t.Context(), fixture.videoMetadata.Record,
+		filestore.GameDirectory(gameID)+"/media/"+videoAssetID, "asset")
+	testassert.False(t, err != nil, err)
+	fixture.videoFileRecord, err = filestore.FileRecord(fixture.videoMetadata, "video/mp4")
 	testassert.False(t, err != nil, err)
 	mustCreateHTTPReferences(t, transaction, "game_assets", `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
-`, videoAssetID, gameID, fixture.videoBlobID, now)
+`, videoAssetID, gameID, fixture.videoFileRecord, now)
 }
 
 func seedGameDetailRuntime(
@@ -770,35 +817,40 @@ INSERT INTO game_variants(
  compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
 ) VALUES(?,?,?, ?,?,NULL,9001,'READY','READY','{}',NULL,1,?,?)
 `, variantID, gameID, "dosbox_pure", target.ProviderID, target.TargetID, now, now)
-	fixture.screenshot = []byte("retrom-save-fixture.screenshot")
+	fixture.screenshot,
+		err = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	testassert.False(t, err != nil, err)
 	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
 	testassert.False(t, err != nil, err)
-	fixture.screenshotBlobID, err = filecatalog.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
+	fixture.screenshotFileRecord, err = filestore.FileRecord(screenshotMetadata, "image/png")
 	testassert.False(t, err != nil, err)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
-credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
+credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,
+updated_at_ms,version)
 VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
 `, sourceLaunchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
 	mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
- id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
- screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+ id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
+ screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,
+updated_at_ms,deleted_at_ms
 ) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'入口存档',180000,1,?,?,NULL)
-`, saveStateID, gameID, fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
-		fixture.screenshotBlobID, sourceLaunchID, now, now)
+`, saveStateID, gameID, fixture.screenshotFileRecord, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
+		fixture.screenshotFileRecord, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
 		mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
- id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
- screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+ id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
+ screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,
+updated_at_ms,deleted_at_ms
 ) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,?,60000,1,?,?,NULL)
-`, uuid.NewString(), gameID, fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
-			fixture.screenshotBlobID, sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1),
+`, uuid.NewString(), gameID, fixture.screenshotFileRecord, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
+			fixture.screenshotFileRecord, sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1),
 			now+int64(index+1), now+int64(index+1))
 	}
 	for index, duration := range []int64{120_000, 240_000} {
@@ -807,13 +859,15 @@ INSERT INTO save_states(
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
-credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
+credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,
+updated_at_ms,version)
 VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
-last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,
+updated_at_ms)
 VALUES(?,?,'local',?,?,?,?,?,1,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-20_000+int64(index)*10_000, now, now, duration,
 			now, now+int64(10-index))

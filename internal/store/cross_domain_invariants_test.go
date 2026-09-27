@@ -83,10 +83,12 @@ func TestCurrentSessionSnapshotsRejectForeignGameVariantAndLaunchOwners(t *testi
 		"current-launch", "current-game-a", "target-a")
 	testassert.False(t, err != nil, err)
 
-	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL, "foreign-save", "current-game-b")
+	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL,
+		"foreign-save", "current-game-b")
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime checkpoint snapshot"),
 		"foreign save source launch error = %v", err)
-	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL, "current-save", "current-game-a")
+	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL,
+		"current-save", "current-game-a")
 	testassert.False(t, err != nil, err)
 }
 
@@ -103,7 +105,7 @@ INSERT INTO launch_sessions(
 
 const currentSaveInsertSQL = `
 INSERT INTO save_states(
- id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
+ id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
  name,active_duration_ms,version,created_at_ms,updated_at_ms,source_launch_session_id
 ) VALUES(
  ?,'current-profile',?,'state-v1','current-save-payload',
@@ -117,7 +119,8 @@ func seedCurrentRuntimeGraph(t *testing.T, database dbapi.DB) {
 	statements := []string{
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('current-profile','Current profile',1)`,
 		`INSERT INTO runtime_providers(
- provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,source,activated_at_ms
+ provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,source,
+activated_at_ms
 ) VALUES(
  'current-provider','1.0.0',1,
  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -125,7 +128,8 @@ func seedCurrentRuntimeGraph(t *testing.T, database dbapi.DB) {
  'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','candidate',1
 )`,
 		`INSERT INTO runtime_targets(
- provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json
+ provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,
+manifest_fragment_json
 ) VALUES
  ('current-provider','target-a','Target A','{"type":"object"}','{}',
   '{"writeFormat":"state-v1","readFormats":["state-v1"],"maxBytes":1024}','{}'),
@@ -149,15 +153,11 @@ func seedCurrentRuntimeGraph(t *testing.T, database dbapi.DB) {
   'ADMIN_REPLACE','current-source-b','{}','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   'PUBLISHED','current game b',1,1)`,
 		`INSERT INTO game_variants(
- id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,created_at_ms,updated_at_ms
+ id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,
+created_at_ms,updated_at_ms
 ) VALUES
  ('current-variant-a','current-game-a','fceumm','current-provider','target-a','READY','READY','{}',1,1),
  ('current-variant-b','current-game-b','fceumm','current-provider','target-a','READY','READY','{}',1,1)`,
-		`INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(
- 'current-save-payload','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',1,
- 'dddddddddddddddddddddddddddddddd','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
- 'ffffffff','application/octet-stream',1
-)`,
 	}
 	for _, statement := range statements {
 		_, err := database.ExecContext(t.Context(), statement)

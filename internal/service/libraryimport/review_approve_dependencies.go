@@ -78,8 +78,8 @@ func approvalDiscTotal(discs []ApprovalDisc) (int64, error) {
 	var total int64
 	for ordinal, disc := range discs {
 		if disc.Ordinal != ordinal || disc.State != "PRESENT" || disc.SourceOrdinal == nil ||
-			*disc.SourceOrdinal != int64(ordinal) || disc.SourceBlobID == nil || disc.BlobID == nil ||
-			*disc.SourceBlobID != *disc.BlobID ||
+			*disc.SourceOrdinal != int64(ordinal) || disc.SourceFileRecord == nil || disc.FileRecord == nil ||
+			*disc.SourceFileRecord != *disc.FileRecord ||
 			disc.SourceLogicalName == nil || *disc.SourceLogicalName != disc.LogicalName ||
 			disc.SizeBytes == nil || *disc.SizeBytes < 8 {
 			return 0, ErrInvalid

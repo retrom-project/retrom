@@ -13,7 +13,7 @@ const (
 	ScopeSourceImportItem  ScopeType = "SOURCE_IMPORT_ITEM"
 	ScopeUploadConsumption ScopeType = "UPLOAD_CONSUMPTION"
 	ScopeGame              ScopeType = "GAME"
-	ScopeFile              ScopeType = "STORED_FILE"
+	ScopePath              ScopeType = "STORAGE_PATH"
 )
 
 type Reason string
@@ -50,7 +50,7 @@ type Scope struct {
 type ScopeInputs struct {
 	ScopeVersion int64  `json:"scopeVersion,omitempty"`
 	Reason       Reason `json:"reason,omitempty"`
-	SHA256       string `json:"sha256,omitempty"`
+	RelativePath string `json:"relativePath,omitempty"`
 }
 
 type ScheduleRequest struct {

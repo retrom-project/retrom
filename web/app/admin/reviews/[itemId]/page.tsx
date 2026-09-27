@@ -87,7 +87,7 @@ type ReviewDetailSummary = {
 
 function missingRequiredBIOSCount(snapshot: DependencySnapshot | undefined) {
   return (snapshot?.bios ?? [])
-    .filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId).length;
+    .filter((item) => item.requirementMode !== "OPTIONAL" && !item.fileRecord).length;
 }
 
 function dependencyIssueCount(snapshot: DependencySnapshot | undefined) {

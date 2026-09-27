@@ -104,7 +104,7 @@ func (service *Recovery) Candidates(
 			return nil, err
 		}
 		if candidate.Metadata.SHA256 != "" {
-			candidate.Metadata.Path = service.blobs.Path(candidate.Metadata.ID)
+			candidate.Metadata.Path = service.blobs.Path(candidate.Metadata.Record)
 		}
 		if candidate.DAT != nil {
 			entries, ok := expected[item.RequirementID]
@@ -133,7 +133,7 @@ func restoreCandidate(record CandidateEvidence, item CatalogItem) (*EvaluatedCan
 			SizeBytes:    facts.SizeBytes,
 		},
 		Metadata: filestore.Metadata{
-			ID:     record.StorageID,
+			Record: record.StorageID,
 			Size:   facts.SizeBytes,
 			MD5:    facts.MD5,
 			SHA1:   facts.SHA1,

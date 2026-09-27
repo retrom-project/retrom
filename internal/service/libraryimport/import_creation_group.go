@@ -19,8 +19,8 @@ func (service *ImportCreations) prepareGroup(
 	group PreparedGroup,
 	archives []PreparedArchive,
 ) (creationGroup, error) {
-	record := creationGroup{group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
-	for _, destination := range []*string{&record.itemID, &record.snapshotID, &record.validationID} {
+	record := creationGroup{itemID: group.ItemID, group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
+	for _, destination := range []*string{&record.snapshotID, &record.validationID} {
 		if err := service.allocate(destination); err != nil {
 			return creationGroup{}, creationError("prepare group", err)
 		}
@@ -34,7 +34,7 @@ func (service *ImportCreations) prepareGroup(
 		}
 		var archiveSHA *string
 		if source.ArchiveOrdinal != nil {
-			if source.ArchiveBlobID != source.File.BlobID {
+			if source.ArchiveFileRecord != source.File.FileRecord {
 				return creationGroup{}, ErrInvalid
 			}
 			archiveSHA = &source.File.SHA256
@@ -150,21 +150,21 @@ func (run *creationCommit) sourceChange(record *creationGroup) (CreationSource, 
 		NowMS:          run.header.NowMS,
 	}
 	for index, source := range record.group.Sources {
-		blobID := source.File.BlobID
+		fileRecord := source.File.FileRecord
 		if source.ArchiveOrdinal != nil {
-			blobID = run.materialized[source.ArchiveBlobID][*source.ArchiveOrdinal]
+			fileRecord = run.materialized[source.ArchiveFileRecord][*source.ArchiveOrdinal]
 		}
 		if source.Payload != nil {
-			blobID = source.Payload.ID
+			fileRecord = source.Payload.Record
 		}
-		if blobID == "" {
+		if fileRecord == "" {
 			return CreationSource{}, ErrInvalid
 		}
 		order := index
 		if source.SortOrder != nil {
 			order = *source.SortOrder
 		}
-		value.Files = append(value.Files, CreationSourceFile{PreparedSource: source, BlobID: blobID, Order: order})
+		value.Files = append(value.Files, CreationSourceFile{PreparedSource: source, FileRecord: fileRecord, Order: order})
 	}
 	return value, nil
 }

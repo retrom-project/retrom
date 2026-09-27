@@ -33,14 +33,14 @@ func (repository *Repository) Upload(
 	var upload application.UploadedFile
 	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT f.upload_session_id,
-b.id,
-b.sha256,
-b.size_bytes
+b.value,
+json_extract(b.value, '$.sha256'),
+json_extract(b.value, '$.size_bytes')
 FROM upload_files f
-JOIN stored_files b ON b.id=f.final_blob_id
+JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
 WHERE f.id=?
 AND f.state='COMPLETE'
-`, uploadFileID).Scan(&upload.UploadID, &upload.BlobID, &upload.Digest, &upload.SizeBytes)
+`, uploadFileID).Scan(&upload.UploadID, &upload.FileRecord, &upload.Digest, &upload.SizeBytes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.UploadedFile{}, false, nil
 	}

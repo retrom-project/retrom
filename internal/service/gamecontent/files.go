@@ -40,7 +40,7 @@ func (service *Service) prepareReplacement(
 				role = "CONTENT"
 			}
 			replacement.Files = append(replacement.Files, ReplacementFile{
-				Role: role, LogicalName: file.LogicalName, BlobID: file.BlobID,
+				Role: role, LogicalName: file.LogicalName, FileRecord: file.FileRecord,
 				SHA256: file.SHA256, SizeBytes: file.SizeBytes, SortOrder: index,
 			})
 			manifestFiles = append(manifestFiles, contentmanifest.File{
@@ -79,7 +79,7 @@ func (service *Service) prepareMultiDiscReplacement(
 		return PreparedReplacement{}, err
 	}
 	directory := path.Dir(playlist.LogicalName)
-	candidates, err := service.replacementDiscCandidates(files, playlist.BlobID, directory)
+	candidates, err := service.replacementDiscCandidates(files, playlist.FileRecord, directory)
 	if err != nil {
 		return PreparedReplacement{}, err
 	}
@@ -122,7 +122,7 @@ func replacementPlaylist(files []UploadedFile) (UploadedFile, error) {
 }
 
 func (service *Service) readReplacementPlaylist(playlist UploadedFile) ([]byte, error) {
-	playlistFile, err := service.blobs.OpenID(playlist.BlobID)
+	playlistFile, err := service.blobs.OpenRecord(playlist.FileRecord)
 	if err != nil {
 		return nil, &replacementValidationError{code: "GAME_CONTENT_INPUT_UNAVAILABLE"}
 	}
@@ -136,11 +136,11 @@ func (service *Service) readReplacementPlaylist(playlist UploadedFile) ([]byte, 
 
 func (service *Service) replacementDiscCandidates(
 	files []UploadedFile,
-	playlistBlobID, directory string,
+	playlistFileRecord, directory string,
 ) ([]multidisc.File, error) {
 	candidates := make([]multidisc.File, 0, len(files))
 	for _, file := range files {
-		if file.BlobID == playlistBlobID || path.Dir(file.LogicalName) != directory ||
+		if file.FileRecord == playlistFileRecord || path.Dir(file.LogicalName) != directory ||
 			!strings.EqualFold(path.Ext(file.LogicalName), ".chd") {
 			continue
 		}
@@ -154,7 +154,7 @@ func (service *Service) replacementDiscCandidates(
 }
 
 func (service *Service) replacementDiscCandidate(file UploadedFile) (multidisc.File, error) {
-	blob, err := service.blobs.OpenID(file.BlobID)
+	blob, err := service.blobs.OpenRecord(file.FileRecord)
 	if err != nil {
 		return multidisc.File{}, &replacementValidationError{code: "GAME_CONTENT_INPUT_UNAVAILABLE"}
 	}
@@ -165,7 +165,7 @@ func (service *Service) replacementDiscCandidate(file UploadedFile) (multidisc.F
 	}
 	return multidisc.File{
 		Basename: path.Base(file.LogicalName), LogicalName: path.Base(file.LogicalName),
-		BlobID: file.BlobID, BlobSHA256: file.SHA256, SizeBytes: file.SizeBytes, Header: header,
+		FileRecord: file.FileRecord, BlobSHA256: file.SHA256, SizeBytes: file.SizeBytes, Header: header,
 	}, nil
 }
 
@@ -181,7 +181,7 @@ func buildPreparedMultiDiscReplacement(
 		FirstContentLogicalName: parsed.Entries[0].File.LogicalName,
 	}
 	replacement.Files = append(replacement.Files, ReplacementFile{
-		Role: "PLAYLIST_SOURCE", LogicalName: path.Base(playlist.LogicalName), BlobID: playlist.BlobID,
+		Role: "PLAYLIST_SOURCE", LogicalName: path.Base(playlist.LogicalName), FileRecord: playlist.FileRecord,
 		SHA256: playlist.SHA256, SizeBytes: playlist.SizeBytes, SortOrder: 0,
 	})
 	manifestFiles := make([]contentmanifest.File, 0, len(parsed.Entries)+1)
@@ -191,7 +191,7 @@ func buildPreparedMultiDiscReplacement(
 	})
 	for _, entry := range parsed.Entries {
 		file := ReplacementFile{
-			Role: "DISC", LogicalName: entry.File.LogicalName, BlobID: entry.File.BlobID,
+			Role: "DISC", LogicalName: entry.File.LogicalName, FileRecord: entry.File.FileRecord,
 			SHA256: entry.File.BlobSHA256, SizeBytes: entry.File.SizeBytes, SortOrder: entry.Ordinal,
 		}
 		replacement.Files = append(replacement.Files, file)

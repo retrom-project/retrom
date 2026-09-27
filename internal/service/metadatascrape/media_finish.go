@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"retrom/internal/cleanup"
 )
 
 func (worker *MediaWorker) settle(parent context.Context, execution mediaExecution,
@@ -12,6 +14,7 @@ func (worker *MediaWorker) settle(parent context.Context, execution mediaExecuti
 ) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
+	published := false
 	err := worker.repository.WithWrite(ctx, func(scope MediaScope) error {
 		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
 		if err != nil {
@@ -28,8 +31,12 @@ func (worker *MediaWorker) settle(parent context.Context, execution mediaExecuti
 		if err := publishMediaOutcome(ctx, scope, snapshot, outcome, publication); err != nil {
 			return err
 		}
+		published = outcome.State == "SUCCEEDED"
 		return mediaError("finish media job", scope.Leases.Finish(ctx, outcome))
 	})
+	if (err != nil || !published) && publication.Directory != "" {
+		cleanup.Error("remove unpublished media", worker.blobs.RemovePath(ctx, publication.Directory))
+	}
 	if err != nil {
 		return errors.Join(cause, fmt.Errorf("settle media fetch: %w", err))
 	}

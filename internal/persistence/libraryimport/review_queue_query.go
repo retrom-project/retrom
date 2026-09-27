@@ -22,13 +22,13 @@ FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE r.import_item_id=i.id
 AND r.state='COMPLETED'),
-(SELECT COALESCE(sum(b.size_bytes),0)
+(SELECT COALESCE(sum(json_extract(b.value, '$.size_bytes')),0)
  FROM import_item_source_snapshot_files source_file
- JOIN stored_files b ON b.id=source_file.blob_id
+ JOIN json_each(json_array(source_file.file_record)) b ON b.value IS NOT NULL
  WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id),
-(SELECT b.md5
+(SELECT json_extract(b.value, '$.md5')
  FROM import_item_source_snapshot_files source_file
- JOIN stored_files b ON b.id=source_file.blob_id
+ JOIN json_each(json_array(source_file.file_record)) b ON b.value IS NOT NULL
  WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id
  ORDER BY CASE source_file.role WHEN 'CONTENT' THEN 0 WHEN 'DOS_SOURCE' THEN 1 ELSE 2 END,
  source_file.sort_order,
@@ -51,7 +51,7 @@ COALESCE(d.cover_uploaded_asset_id,(SELECT asset.id
 EXISTS(
  SELECT 1 FROM import_item_assets source_asset
  WHERE source_asset.import_item_id=i.id AND source_asset.kind='COVER'
- AND source_asset.blob_id IS NOT NULL
+ AND source_asset.file_record IS NOT NULL
 )
 FROM import_items i
 JOIN import_items d ON d.id=i.id

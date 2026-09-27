@@ -27,17 +27,20 @@ func TestReviewOwnsMediaAfterIndependentSourceReleaseAndHandoffReplay(t *testing
 	var sourceRefs, itemRefs, count int
 	err = dbapi.QueryRowContext(t.Context(), service.database, `SELECT
  source.payload_state,item.payload_state,
- (SELECT count(*) FROM source_import_item_assets WHERE item_id=source.id AND blob_id IS NOT NULL),
+ (SELECT count(*) FROM source_import_item_assets WHERE item_id=source.id AND file_record IS NOT NULL),
  (SELECT count(*) FROM import_item_assets WHERE import_item_id=item.id),
- (SELECT owner_kind='IMPORT_ITEM' AND owner_id=item.id AND retired_at_ms IS NULL FROM stored_files WHERE id='handoff-media')
+ (SELECT count(*) FROM import_item_assets a WHERE a.import_item_id=item.id AND
+json_extract(a.file_record,'$.path') LIKE 'staging/items/' || item.id || '/scratch/%')
  FROM source_import_items source JOIN import_items item ON item.id=source.library_import_item_id
- WHERE source.id='item'`).Scan(&sourceState, &itemState, &sourceRefs, &itemRefs, &count)
-	if err != nil || sourceState != "RELEASED" || itemState != "RETAINED" || sourceRefs != 0 || itemRefs != 2 || count != 1 {
+ WHERE source.id='018fbe68-0000-7000-8000-000000000010'`).Scan(&sourceState, &itemState, &sourceRefs, &itemRefs, &count)
+	if err != nil || sourceState != "RELEASED" || itemState != "RETAINED" || sourceRefs != 0 ||
+		itemRefs != 2 || count != 2 {
 		t.Fatalf("ownership after release: %s/%s refs=%d/%d count=%d error=%v",
 			sourceState, itemState, sourceRefs, itemRefs, count, err)
 	}
 	for _, kind := range []string{"COVER", "VIDEO"} {
-		if _, err := access.New(media.New(service.database)).Review(t.Context(), "item", kind); err != nil {
+		if _, err := access.New(media.New(service.database)).Review(t.Context(),
+			"018fbe68-0000-7000-8000-000000000010", kind); err != nil {
 			t.Fatalf("review lost %s after Source release: %v", kind, err)
 		}
 	}

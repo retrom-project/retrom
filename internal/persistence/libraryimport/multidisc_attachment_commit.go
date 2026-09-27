@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
 	"retrom/internal/multidisc"
 	"retrom/internal/persistence/contentquery"
 	validationpersistence "retrom/internal/persistence/corevalidation"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	validationservice "retrom/internal/service/corevalidation"
 	application "retrom/internal/service/libraryimport"
@@ -243,25 +243,20 @@ VALUES(?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
 		return fmt.Errorf("insert multi-disc source snapshot: %w", err)
 	}
 	for _, file := range write.BaseFiles {
-		if err := fileownership.Transfer(ctx, scope.transaction, file.BlobID,
-			fileownership.Owner{Kind: "UPLOAD", ID: write.Input.UploadSessionID},
-			fileownership.Owner{Kind: "IMPORT_ITEM", ID: write.Input.ImportItemID}); err != nil {
-			return fmt.Errorf("multidisc attachment commit: %w", err)
-		}
 		if _, err := recordstore.InsertRows(
 			ctx,
 			scope.transaction,
 			"import_item_source_snapshot_files",
 			`
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,
-upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+upload_file_id,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,?,?,?,?,NULL,NULL,?,?)
 `,
 			write.SourceSnapshotID,
 			file.Role,
 			file.LogicalName,
 			nullableStringValue(file.UploadFileID),
-			file.BlobID,
+			file.FileRecord,
 			file.SortOrder,
 			write.NowMS,
 		); err != nil {
@@ -274,7 +269,7 @@ VALUES(?,?,?,?,?,NULL,NULL,?,?)
 			scope.transaction,
 			`
 INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,
-normalized_reference,canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms)
+normalized_reference,canonical_name,state,upload_file_id,file_record,source_logical_name,created_at_ms)
 VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
 `,
 			write.SourceSnapshotID,
@@ -284,7 +279,7 @@ VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
 
 			entry.CanonicalName,
 			nullableStringValue(entry.File.UploadFileID),
-			nullableStringValue(entry.File.BlobID),
+			nullableStringValue(entry.File.FileRecord),
 
 			entry.File.LogicalName,
 			write.NowMS,
@@ -298,16 +293,11 @@ VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
 func (scope multiDiscAttachmentCommitScope) insertValidation(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
-	canonicalBlobID, err := filecatalog.EnsureRecord(
-		ctx, scope.transaction, write.CanonicalPlaylist, "application/vnd.retrom.m3u", write.NowMS,
-	)
+	canonicalFileRecord, err := filestore.FileRecord(write.CanonicalPlaylist, "application/vnd.retrom.m3u")
 	if err != nil {
 		return fmt.Errorf("register multi-disc canonical playlist: %w", err)
 	}
-	if err := fileownership.Adopt(ctx, scope.transaction, canonicalBlobID,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: write.Input.ImportItemID}); err != nil {
-		return fmt.Errorf("multidisc attachment commit: %w", err)
-	}
+
 	inputDigest := application.PrepublishDigest(application.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: write.SourceSnapshotID,
 		SourceManifestDigest: write.ResultManifestDigest, ContentKind: multidisc.ContentKind,
@@ -333,13 +323,13 @@ VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 	}
 	validationFiles := append([]application.PreparedValidationFile(nil), write.Validation.Files...)
 	validationFiles = append(validationFiles, application.PreparedValidationFile{
-		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: canonicalBlobID, SortOrder: 0,
+		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", FileRecord: canonicalFileRecord, SortOrder: 0,
 	})
 	for _, file := range validationFiles {
 		if _, err := recordstore.InsertRows(ctx, scope.transaction, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
 sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
-`, write.ValidationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, write.NowMS); err != nil {
+`, write.ValidationID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, write.NowMS); err != nil {
 			return fmt.Errorf("insert multi-disc validation file: %w", err)
 		}
 	}

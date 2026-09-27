@@ -69,15 +69,19 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 		importer: libraryimport.New(database.SQL, now),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	session, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
-		{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
-	}})
+	session, err := uploader.Create(t.Context(), uploads.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploads.FileDeclaration{
+			{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256([]byte("bytes"))
 	digest := "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
-	if err := uploader.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 0-4/5", digest, bytes.NewBufferString("bytes")); err != nil {
+	if err := uploader.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 0-4/5",
+		digest, bytes.NewBufferString("bytes")); err != nil {
 		t.Fatal(err)
 	}
 	current, err := uploader.Get(t.Context(), session.ID)
@@ -107,4 +111,8 @@ func (fixture uploadRetryFixture) request(ctx context.Context, writer http.Respo
 	request.Header.Set("Idempotency-Key", validationRetryKey)
 	request.Header.Set("If-Match", fmt.Sprintf(`"v%d"`, fixture.version))
 	fixture.server.idempotencyHandler(http.HandlerFunc(fixture.server.retryJob)).ServeHTTP(writer, request)
+}
+
+func (source *retryUploadBlobs) CopyTo(ctx context.Context, value, directory, name string) (filestore.Metadata, error) {
+	return source.blobs.CopyTo(ctx, value, directory, name)
 }

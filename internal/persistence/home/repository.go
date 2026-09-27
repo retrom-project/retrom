@@ -62,7 +62,7 @@ WHERE g.status='PUBLISHED' AND pi.enabled=1 AND ps.profile_id=?`, []any{profileI
 func (repository *Repository) RecentSaves(ctx context.Context, profileID string) ([]application.RecentSave, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT s.id,s.game_id,m.title,s.name,s.created_at_ms,native.last_synced_at_ms,s.active_duration_ms,
-s.disc_index,s.screenshot_blob_id IS NOT NULL
+s.disc_index,s.screenshot_file_record IS NOT NULL
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN (`+storequery.SaveRuntimeCompatibility+`) runtime_compatibility
@@ -177,7 +177,8 @@ SELECT ps.launch_session_id,g.id,m.title,m.description,p.id,p.name,pi.id,pi.name
 (SELECT COALESCE(sum(all_sessions.active_duration_ms),0)
  FROM play_sessions all_sessions
  WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
-(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
+(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND
+all_sessions.profile_id=?),
 (SELECT a.id FROM game_assets a WHERE a.game_id=g.id AND a.kind='COVER' ORDER BY a.ordinal,a.id LIMIT 1),
 (SELECT variant.default_dos_entry FROM game_variants variant
  WHERE variant.game_id=g.id AND variant.core_id='dosbox_pure'
@@ -210,7 +211,8 @@ WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL`, item
 	var save application.FeaturedSave
 	var disc sql.NullInt64
 	err = dbapi.QueryRowContext(ctx, repository.database, `
-SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,save.screenshot_blob_id IS NOT NULL
+SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,save.screenshot_file_record IS
+NOT NULL
 FROM save_states save LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'

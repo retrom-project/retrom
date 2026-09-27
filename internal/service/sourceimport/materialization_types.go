@@ -3,9 +3,14 @@ package sourceimport
 import (
 	"context"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 type (
+	MaterialFiles interface {
+		CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
+	}
 	MaterialKey struct {
 		ItemID, Kind string
 		Ordinal      int64
@@ -21,11 +26,11 @@ type (
 		Size                                      int64
 	}
 	MaterialSnapshot struct {
-		Before                     OwnedItem
-		Source                     MaterialSource
-		State, BlobID, WarningCode string
-		Blob                       VerifiedBlob
-		Warnings                   []map[string]any
+		Before                         OwnedItem
+		Source                         MaterialSource
+		State, FileRecord, WarningCode string
+		Blob                           VerifiedBlob
+		Warnings                       []map[string]any
 	}
 	MaterialBinding struct {
 		Before MaterialSnapshot
@@ -65,10 +70,11 @@ type (
 	}
 	Materialization struct {
 		repository MaterialRepository
+		files      MaterialFiles
 		now        func() time.Time
 	}
 )
 
-func NewMaterialization(repository MaterialRepository, now func() time.Time) *Materialization {
-	return &Materialization{repository: repository, now: now}
+func NewMaterialization(repository MaterialRepository, files MaterialFiles, now func() time.Time) *Materialization {
+	return &Materialization{repository: repository, files: files, now: now}
 }

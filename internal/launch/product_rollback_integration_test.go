@@ -25,7 +25,9 @@ type productWriteFaultRepository struct {
 	reached bool
 }
 
-func (repository *productWriteFaultRepository) WithCreation(ctx context.Context, work func(application.ProductCreationScope) error) error {
+func (repository *productWriteFaultRepository) WithCreation(ctx context.Context,
+	work func(application.ProductCreationScope) error,
+) error {
 	return repository.ProductCreationRepository.WithCreation(ctx, func(scope application.ProductCreationScope) error {
 		if err := work(productWriteFaultScope{ProductCreationScope: scope, change: repository.change}); err != nil {
 			return err
@@ -53,7 +55,10 @@ func (scope productWriteFaultScope) Create(ctx context.Context, plan application
 func productCreationRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := playRows(t, database)
-	for _, table := range []string{"launch_content_files", "launch_external_files", "idempotency_records", "variant_files"} {
+	for _, table := range []string{
+		"launch_content_files", "launch_external_files",
+		"idempotency_records", "variant_files",
+	} {
 		encoded := productTableRows(t, database, table)
 		result[table] = string(encoded)
 	}
@@ -70,14 +75,18 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 	before := productCreationRows(t, service.database)
 	result, err := service.productCreator(repository).Create(t.Context(), command)
 	if !errors.Is(err, cause) || result.Created.LaunchID != "" || len(result.Body) != 0 || !repository.reached {
-		t.Fatalf("post-write error=%v reached=%v launch=%q bodyBytes=%d", err, repository.reached, result.Created.LaunchID, len(result.Body))
+		t.Fatalf("post-write error=%v reached=%v launch=%q bodyBytes=%d", err, repository.reached,
+			result.Created.LaunchID, len(result.Body))
 	}
 	if !reflect.DeepEqual(before, productCreationRows(t, service.database)) {
 		t.Fatal("post-write rollback retained product owners, files, tickets or receipt")
 	}
 	repository.after = nil
 	repository.change = func(plan *application.ProductCreatePlan) {
-		plan.External = append(plan.External, application.ProductExternalFile{Kind: "BIOS", LogicalName: "late-failure.bin", VirtualPath: "/late?failure.bin", BlobID: "absent"})
+		plan.External = append(plan.External, application.ProductExternalFile{
+			Kind:        "BIOS",
+			LogicalName: "late-failure.bin", VirtualPath: "/late?failure.bin", FileRecord: "absent",
+		})
 	}
 	result, err = service.productCreator(repository).Create(t.Context(), command)
 	var storage *sqlite.Error
@@ -91,7 +100,8 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 
 func TestProductCreationRollsBackEveryOwner(t *testing.T) {
 	fixture, request := productCreationFixture(t)
-	assertProductCreationRollback(t, fixture.launcher, application.ProductCreateCommand{ProfileID: "local", Request: request})
+	assertProductCreationRollback(t, fixture.launcher,
+		application.ProductCreateCommand{ProfileID: "local", Request: request})
 }
 
 func productTableRows(t *testing.T, database dbapi.DB, table string) []byte {

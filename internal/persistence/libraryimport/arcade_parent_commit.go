@@ -10,7 +10,6 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
 	"retrom/internal/persistence/contentquery"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 
@@ -45,11 +44,7 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	if err := validateArcadeParentCommitJob(ctx, transaction, request.JobID, request.WorkerID); err != nil {
 		return err
 	}
-	if err := fileownership.Transfer(ctx, transaction, request.Candidate.BlobID,
-		fileownership.Owner{Kind: "UPLOAD", ID: request.Candidate.UploadSessionID},
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: request.Candidate.ItemID}); err != nil {
-		return fmt.Errorf("arcade parent commit: %w", err)
-	}
+
 	artifacts, err := insertArcadeParentCommitArtifacts(
 		ctx, transaction, request.Candidate, request.Entries, request.Files,
 		request.ManifestJSON, request.ManifestDigest, request.Validation, target, request.NowMS,
@@ -65,7 +60,7 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	consumptionID, _ := uuid.NewV7()
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
-state='ACCEPTED',accepted_blob_id=?,
+state='ACCEPTED',accepted_file_record=?,
 result_source_snapshot_id=?,observed_size_bytes=?,observed_sha256=?,diagnostics_json=?,error_code=NULL,
 finished_at_ms=?,version=version+1,updated_at_ms=?
 `,
@@ -74,7 +69,7 @@ finished_at_ms=?,version=version+1,updated_at_ms=?
 			Args:  []any{request.Candidate.AttachmentID},
 		},
 		Values: []any{
-			request.Candidate.BlobID,
+			request.Candidate.FileRecord,
 			artifacts.snapshotID,
 			request.Candidate.BlobSize,
 			request.Candidate.BlobSHA,
@@ -413,7 +408,7 @@ INSERT INTO import_item_source_snapshots(
 	if err := insertArcadeParentSnapshotFiles(ctx, transaction, artifacts.snapshotID, files, now); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
-	if err := insertArcadeParentArchiveEntries(ctx, transaction, candidate.BlobID, entries, now); err != nil {
+	if err := insertArcadeParentArchiveEntries(ctx, transaction, candidate.FileRecord, entries, now); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
 	if err := insertArcadeParentCoreValidation(
@@ -463,9 +458,9 @@ INSERT INTO import_item_core_validations(
 	for _, file := range validation.Files {
 		if _, err := recordstore.InsertRows(ctx, transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?)
-`, validationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, now); err != nil {
+`, validationID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, now); err != nil {
 			return arcadeParentCommitStoreError("insert validation file", err)
 		}
 	}
@@ -552,9 +547,9 @@ func insertArcadeParentSnapshotFiles(
 	now int64,
 ) error {
 	for _, file := range files {
-		var archiveBlobID, archiveOrdinal any
-		if file.ArchiveBlobID != nil {
-			archiveBlobID = *file.ArchiveBlobID
+		var archiveFileRecord, archiveOrdinal any
+		if file.ArchiveFileRecord != nil {
+			archiveFileRecord = *file.ArchiveFileRecord
 		}
 		if file.ArchiveOrdinal != nil {
 			archiveOrdinal = *file.ArchiveOrdinal
@@ -565,7 +560,7 @@ func insertArcadeParentSnapshotFiles(
 			"import_item_source_snapshot_files",
 			`
 INSERT INTO import_item_source_snapshot_files(
-  source_snapshot_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,
+  source_snapshot_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,
   source_archive_entry_ordinal,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?)
 `,
@@ -573,8 +568,8 @@ INSERT INTO import_item_source_snapshot_files(
 			file.Role,
 			file.LogicalName,
 			file.UploadFileID,
-			file.BlobID,
-			archiveBlobID,
+			file.FileRecord,
+			archiveFileRecord,
 			archiveOrdinal,
 			file.SortOrder,
 			now,
@@ -588,7 +583,7 @@ INSERT INTO import_item_source_snapshot_files(
 func insertArcadeParentArchiveEntries(
 	ctx context.Context,
 	transaction dbapi.Tx,
-	archiveBlobID string,
+	archiveFileRecord string,
 	entries []importing.ArchiveEntry,
 	now int64,
 ) error {
@@ -599,12 +594,12 @@ func insertArcadeParentArchiveEntries(
 			"archive_entries",
 			`
 INSERT OR IGNORE INTO archive_entries(
-  archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+  archive_file_record,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
   archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,
   created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
 `,
-			archiveBlobID,
+			archiveFileRecord,
 			entry.Ordinal,
 			entry.OriginalPath,
 			entry.NormalizedPath,

@@ -4,7 +4,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
-from fixture_files import file_path, own_rows
+from fixture_files import own_rows, put_owned
 
 SQL = r"""
 PRAGMA foreign_keys=ON;
@@ -18,25 +18,19 @@ WITH base_job AS (
   ORDER BY i.updated_at_ms DESC,i.id DESC
   LIMIT 1
 ), base_payload AS (
-  SELECT file.blob_id,blob.size_bytes
+  SELECT file.file_record,json_extract(file.file_record,'$.size_bytes') AS size_bytes
   FROM games game
   JOIN platform_instances platform ON platform.id=game.platform_instance_id
   JOIN game_files file ON file.game_id=game.id
-  JOIN stored_files blob ON blob.id=file.blob_id
   WHERE game.status='PUBLISHED' AND platform.platform_id='gba'
   ORDER BY game.updated_at_ms DESC,game.id DESC,file.sort_order,file.logical_name
   LIMIT 1
 )
-SELECT base_job.item_id,base_job.job_id,base_payload.blob_id,base_payload.size_bytes
+SELECT base_job.item_id,base_job.job_id,base_payload.file_record,base_payload.size_bytes
 FROM base_job CROSS JOIN base_payload;
 
 -- Item 57 has distinct content so the stateful review test can leave exactly
 -- one strict READY, non-duplicate candidate for the quick-approval acceptance.
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms,owner_kind,owner_id)
-VALUES('65000000-0000-7000-8000-000000000057',
-       '142c6b7c4a5c0fa5cc12000ce0ab107f6a5906712a7f08e53000c87427a1eb2a',50,
-       '07f8202ba70c1f5013349c58949327b3','e0b7435f9e64b2e8413ec0e08393fab6b4fffaef',
-       '44d50099','application/octet-stream',1786000100057,'UPLOAD','10000000-0000-7000-8000-000000000001');
 
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,finalization_no,finalize_job_id,version,expires_at_ms,created_at_ms,updated_at_ms,unconsumed_pruned_at_ms,last_error_code)
 SELECT '10000000-0000-7000-8000-000000000001','COMPLETE','FILES',2,size_bytes+50,
@@ -49,21 +43,21 @@ SELECT '10000000-0000-7000-8000-000000000002','COMPLETE','FILES',1,size_bytes,
        4102444800000,1786000200000,1786000200000,NULL,NULL
 FROM acceptance_base;
 
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_file_record,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
 SELECT '11000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000001',
-       'shared/Game.gba',size_bytes,size_bytes,blob_id,'COMPLETE',NULL,NULL,1786000100000,1786000100000
+       'shared/Game.gba',size_bytes,size_bytes,file_record,'COMPLETE',NULL,NULL,1786000100000,1786000100000
 FROM acceptance_base;
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_file_record,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
 VALUES('11000000-0000-7000-8000-000000000057','10000000-0000-7000-8000-000000000001',
        'unique/Game-57.gba',50,50,'65000000-0000-7000-8000-000000000057','COMPLETE',NULL,NULL,
        1786000100057,1786000100057);
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_file_record,state,payload_released_at_ms,last_error_code,created_at_ms,updated_at_ms)
 SELECT '11000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000002',
-       'shared/Game.gba',size_bytes,size_bytes,blob_id,'COMPLETE',NULL,NULL,1786000200000,1786000200000
+       'shared/Game.gba',size_bytes,size_bytes,file_record,'COMPLETE',NULL,NULL,1786000200000,1786000200000
 FROM acceptance_base;
 
-INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
-SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms
+INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms)
+SELECT id,upload_session_id,relative_path,final_file_record,received_size_bytes,created_at_ms
 FROM upload_files WHERE upload_session_id IN (
   '10000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000002'
 );
@@ -83,21 +77,21 @@ WITH RECURSIVE generated(batch,n,max_n,job_id) AS (
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,failed_stage,last_error_code,version,created_at_ms,updated_at_ms,completed_at_ms)
 SELECT printf('30000000-0000-7000-80%02d-%012d',batch,n),job_id,printf('%064x',n),'REVIEW_PENDING',
 	       json_object('files',json_array(json_object(
-	         'blobId',CASE WHEN batch=1 AND n=57 THEN '65000000-0000-7000-8000-000000000057'
-	                       ELSE (SELECT blob_id FROM acceptance_base) END,
+	         'fileRecord',CASE WHEN batch=1 AND n=57 THEN '65000000-0000-7000-8000-000000000057'
+	                       ELSE (SELECT file_record FROM acceptance_base) END,
 	         'logicalName',printf('batch-%d/Game-%02d.gba',batch,n),'role','CONTENT'))),
 	       printf('%064x',batch*1000+n),
 	       lower(printf('batch %d game %02d',batch,n)),NULL,NULL,1,1786000000000+batch*100000+n,1786000000000+batch*100000+n,NULL
 FROM generated;
 
-INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 SELECT i.id,'CONTENT',
        printf('batch-%d/Game-%02d.gba',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
        CASE WHEN i.id='30000000-0000-7000-8001-000000000057' THEN '11000000-0000-7000-8000-000000000057'
             WHEN i.import_job_id LIKE '%1' THEN '11000000-0000-7000-8000-000000000001'
             ELSE '11000000-0000-7000-8000-000000000002' END,
        CASE WHEN i.id='30000000-0000-7000-8001-000000000057' THEN '65000000-0000-7000-8000-000000000057'
-            ELSE (SELECT blob_id FROM acceptance_base) END,
+            ELSE (SELECT file_record FROM acceptance_base) END,
        NULL,NULL,0,i.created_at_ms
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
@@ -108,9 +102,9 @@ SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
-INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
-       s.role,s.logical_name,s.upload_file_id,s.blob_id,s.source_archive_blob_id,s.source_archive_entry_ordinal,s.sort_order,s.created_at_ms
+       s.role,s.logical_name,s.upload_file_id,s.file_record,s.source_archive_file_record,s.source_archive_entry_ordinal,s.sort_order,s.created_at_ms
 FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
 WHERE i.id LIKE '30000000-%';
@@ -148,23 +142,21 @@ DROP TABLE acceptance_base;
 
 def seed(path):
     with sqlite3.connect(path, timeout=30) as db:
-        target = file_path(db, "65000000-0000-7000-8000-000000000057")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(b"retrom deterministic review bulk approval fixture\n")
-        db.executescript(SQL)
+        db.execute("BEGIN")
+        original = put_owned(db, b"retrom deterministic review bulk approval fixture\n", "UPLOAD", "10000000-0000-7000-8000-000000000001", "application/octet-stream")
+        db.executescript(SQL.replace("65000000-0000-7000-8000-000000000057", original.replace("'", "''")))
         for upload in ("10000000-0000-7000-8000-000000000001", "10000000-0000-7000-8000-000000000002"):
-            mapping = own_rows(db, "upload_files", "upload_session_id", upload, "UPLOAD", upload, ("final_blob_id",))
+            mapping = own_rows(db, "upload_files", "upload_session_id", upload, "UPLOAD", upload, ("final_file_record",))
             for old, new in mapping.items():
-                db.execute("UPDATE import_files SET blob_id=? WHERE upload_session_id=? AND blob_id=?", (new, upload, old))
+                db.execute("UPDATE import_files SET file_record=? WHERE upload_session_id=? AND file_record=?", (new, upload, old))
         items = db.execute("SELECT id FROM import_items WHERE id LIKE '30000000-%'").fetchall()
         for (item_id,) in items:
             mapping = own_rows(db, "import_item_source_files", "import_item_id", item_id, "IMPORT_ITEM", item_id)
             for old, new in mapping.items():
-                db.execute("UPDATE import_item_source_snapshot_files SET blob_id=? WHERE source_snapshot_id IN "
-                           "(SELECT id FROM import_item_source_snapshots WHERE import_item_id=?) AND blob_id=?", (new, item_id, old))
+                db.execute("UPDATE import_item_source_snapshot_files SET file_record=? WHERE source_snapshot_id IN "
+                           "(SELECT id FROM import_item_source_snapshots WHERE import_item_id=?) AND file_record=?", (new, item_id, old))
             rewrite_manifest(db, item_id, mapping)
         # The original unique input was only a source for copies in this fixture.
-        db.execute("UPDATE stored_files SET retired_at_ms=1786000100057 WHERE id='65000000-0000-7000-8000-000000000057'")
         if len(items) != 63:
             raise ValueError("review queue seed count mismatch")
     print("primary_import_job_id=20000000-0000-7000-8000-000000000001")
@@ -175,7 +167,7 @@ def seed(path):
 def rewrite_manifest(db, item, mapping):
     manifest = json.loads(db.execute("SELECT source_manifest_json FROM import_items WHERE id=?", (item,)).fetchone()[0])
     for entry in manifest["files"]:
-        entry["blobId"] = mapping[entry["blobId"]]
+        entry["fileRecord"] = mapping[entry["fileRecord"]]
     encoded = json.dumps(manifest, separators=(",", ":"))
     db.execute("UPDATE import_items SET source_manifest_json=? WHERE id=?", (encoded, item))
     db.execute("UPDATE import_item_source_snapshots SET source_manifest_json=? WHERE import_item_id=?", (encoded, item))

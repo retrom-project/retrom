@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 
 	"github.com/google/uuid"
@@ -54,7 +55,8 @@ type ReconfigurationCreate func(context.Context, ImportRequest, ImportCreationOp
 type Reconfigurations struct {
 	repository ReconfigurationRepository
 	create     ReconfigurationCreate
-	copyFile   func(context.Context, string) (filestore.Metadata, error)
+	copyFile   func(context.Context, string, string, string) (filestore.Metadata, error)
+	removePath func(context.Context, string) error
 	now        func() time.Time
 	newID      func() (string, error)
 }
@@ -62,7 +64,8 @@ type Reconfigurations struct {
 func NewReconfigurations(
 	repository ReconfigurationRepository,
 	create ReconfigurationCreate,
-	copyFile func(context.Context, string) (filestore.Metadata, error),
+	copyFile func(context.Context, string, string, string) (filestore.Metadata, error),
+	removePath func(context.Context, string) error,
 	now func() time.Time,
 ) *Reconfigurations {
 	if now == nil {
@@ -72,6 +75,7 @@ func NewReconfigurations(
 		repository: repository,
 		create:     create,
 		copyFile:   copyFile,
+		removePath: removePath,
 		now:        now,
 		newID:      newReconfigurationID,
 	}
@@ -106,6 +110,13 @@ func (service *Reconfigurations) Reconfigure(
 	if err != nil {
 		return ImportCreationResult{}, err
 	}
+	cloned := false
+	defer func() {
+		if !cloned && service.removePath != nil {
+			cleanup.Error("remove uncommitted replacement upload",
+				service.removePath(context.WithoutCancel(ctx), "staging/uploads/"+uploadID))
+		}
+	}()
 	clone := ReconfigurationClone{
 		UploadID:          uploadID,
 		SourceImportJobID: request.SourceImportJobID,
@@ -123,6 +134,7 @@ func (service *Reconfigurations) Reconfigure(
 	if err := service.repository.Clone(ctx, clone); err != nil {
 		return ImportCreationResult{}, fmt.Errorf("clone reconfiguration upload: %w", err)
 	}
+	cloned = true
 	created, err := service.create(ctx, ImportRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: request.TargetPlatformInstance,
@@ -159,7 +171,7 @@ func ReconfigurationManifestDigest(
 			"sourceUploadFileId": file.ID,
 			"relativePath":       file.Path,
 			"sizeBytes":          file.Size,
-			"blobId":             file.BlobID,
+			"fileRecord":         file.FileRecord,
 		})
 	}
 	manifest, _ := json.Marshal(map[string]any{

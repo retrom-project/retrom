@@ -1,12 +1,15 @@
 package sourceimport
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 
 	dbapi "retrom/internal/database"
 
@@ -18,18 +21,27 @@ func materialDatabase(t *testing.T) (dbapi.DB, application.MaterialKey, applicat
 	db := itemWorkDatabase(t)
 	if _, err := db.ExecContext(
 		t.Context(),
-		`INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,state,created_at_ms,updated_at_ms)
-VALUES('item-0',0,'FILE','game.gba',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED',1,1);
-INSERT INTO source_import_item_assets(item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,state,media_type,width_px,height_px,created_at_ms,updated_at_ms)
-VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED','image/png',1,1,1,1);`,
+		`INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,
+source_facts_digest,state,created_at_ms,updated_at_ms)
+VALUES('item-0',0,'FILE','game.gba',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+'DISCOVERED',1,1);
+INSERT INTO source_import_item_assets(item_id,kind,resolution_method,relative_path,size_bytes,
+source_facts_digest,state,media_type,width_px,height_px,created_at_ms,updated_at_ms)
+VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','DISCOVERED','image/png',1,1,1,1);`,
 	); err != nil {
+		t.Fatal(err)
+	}
+	record,
+		err := (filestore.Record{Path: "staging/sources/018fbe68-0000-7000-8000-000000000001/content/0", SHA256: strings.Repeat("c", 64), MD5: strings.Repeat("c", 32), SHA1: strings.Repeat("c", 40), CRC32: "cccccccc", Size: 4, MediaType: "application/octet-stream"}).Encode()
+	if err != nil {
 		t.Fatal(err)
 	}
 	return db, application.MaterialKey{
 			ItemID:  "item-0",
 			Ordinal: 0,
 		}, application.VerifiedBlob{
-			ID:     "018fbe68-0000-7000-8000-000000000001",
+			ID:     record,
 			SHA256: strings.Repeat("c", 64),
 			MD5:    strings.Repeat("c", 32),
 			SHA1:   strings.Repeat("c", 40),
@@ -41,7 +53,7 @@ VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaa
 func materialRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := workflowRows(t, db)
-	for _, table := range []string{"stored_files", "source_import_item_files", "source_import_item_assets"} {
+	for _, table := range []string{"source_import_item_files", "source_import_item_assets"} {
 		result[table] = workflowTable(t, db, table)
 	}
 	return result
@@ -191,7 +203,7 @@ func assertMaterialWriteVisible(
 		if current.State != "READ_FAILED" || len(current.Warnings) != 1 {
 			t.Fatalf("warning not written: %#v", current)
 		}
-	} else if current.State != "COPIED" || id == "" || current.BlobID != id {
+	} else if current.State != "COPIED" || id == "" || current.FileRecord != id {
 		t.Fatalf("binding not written: %#v", current)
 	}
 }
@@ -227,7 +239,8 @@ func TestMaterializationReplayAcceptsHeartbeatButRejectsDifferentCASFacts(t *tes
 	}); err != nil {
 		t.Fatal(err)
 	}
-	service := application.NewMaterialization(NewMaterialization(db), func() time.Time { return time.UnixMilli(10) })
+	service := application.NewMaterialization(NewMaterialization(db), materialTestFiles{},
+		func() time.Time { return time.UnixMilli(10) })
 	identity := application.ExecutionIdentity{
 		JobID:       "work",
 		ImportID:    "import-0",
@@ -241,7 +254,8 @@ func TestMaterializationReplayAcceptsHeartbeatButRejectsDifferentCASFacts(t *tes
 	}
 	if _, err := db.ExecContext(
 		t.Context(),
-		`UPDATE jobs SET version=version+1,leased_until_ms=99 WHERE id='work';UPDATE source_imports SET version=version+1 WHERE id='import-0'`,
+		`UPDATE jobs SET version=version+1,leased_until_ms=99 WHERE id='work';UPDATE source_imports SET
+version=version+1 WHERE id='import-0'`,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -289,4 +303,10 @@ func TestMaterializationWarningPreservesMalformedJSONCauseAndRows(t *testing.T) 
 	if !reflect.DeepEqual(before, materialRows(t, db)) {
 		t.Fatal("invalid warnings changed source")
 	}
+}
+
+type materialTestFiles struct{}
+
+func (materialTestFiles) CopyTo(_ context.Context, value, _, _ string) (filestore.Metadata, error) {
+	return filestore.Metadata{Record: value}, nil
 }

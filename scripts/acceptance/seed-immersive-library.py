@@ -83,9 +83,9 @@ INSERT INTO games(
     database.execute(
         """
 INSERT INTO game_files(
- game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+ game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files WHERE game_id=?
 """,
         (game_id, base["id"]),

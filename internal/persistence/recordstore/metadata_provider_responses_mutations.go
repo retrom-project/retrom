@@ -28,7 +28,7 @@ SELECT CASE
 -- provider_responses_immutable_update
 WHEN (NOT (
   previous.raw_payload_state='RETAINED' AND candidate.raw_payload_state='RELEASED'
-  AND candidate.raw_response_blob_id IS NULL AND candidate.raw_payload_released_at_ms IS NOT NULL
+  AND candidate.raw_response_file_record IS NULL AND candidate.raw_payload_released_at_ms IS NOT NULL
   AND candidate.id=previous.id AND candidate.provider=previous.provider AND
 candidate.request_digest=previous.request_digest
   AND candidate.http_status IS previous.http_status AND candidate.outcome=previous.outcome

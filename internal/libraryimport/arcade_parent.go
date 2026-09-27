@@ -83,7 +83,7 @@ type parentAttachmentCandidate struct {
 	attachmentID, itemID, draftID, baseSnapshotID    string
 	machine, requiredBy, providerID, targetID, datID string
 	uploadFileID, uploadSessionID, originalName      string
-	blobID, blobSHA                                  string
+	fileRecord, blobSHA                              string
 	blobSize                                         int64
 	contentPolicyDigest                              string
 	depth                                            int
@@ -163,7 +163,7 @@ type parentAttachmentSetup struct {
 	dependency          arcadeDraftDependency
 	uploadSessionID     string
 	originalName        string
-	blobID              string
+	fileRecord          string
 	blobSHA             string
 	blobSize            int64
 }
@@ -260,8 +260,8 @@ func (setup *parentAttachmentSetup) loadUpload() error {
 		return parentError(ParentErrorInvalid, ErrInvalid)
 	}
 	setup.uploadSessionID, setup.originalName = upload.UploadSessionID, upload.RelativePath
-	setup.blobID, setup.blobSHA, setup.blobSize = upload.BlobID, upload.BlobSHA, upload.BlobSize
-	info, err := os.Stat(setup.service.blobs.Path(setup.blobID))
+	setup.fileRecord, setup.blobSHA, setup.blobSize = upload.FileRecord, upload.BlobSHA, upload.BlobSize
+	info, err := os.Stat(setup.service.blobs.Path(setup.fileRecord))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != setup.blobSize {
 		return parentError(ParentErrorInvalid, err)
 	}

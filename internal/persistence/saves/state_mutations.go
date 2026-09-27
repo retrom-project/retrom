@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/filedeletion"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/saves"
 )
@@ -49,12 +50,7 @@ func (repository *Repository) Delete(
 		if err := checkMutationResult(ctx, tx, request.SaveStateID, request.ProfileID, result); err != nil {
 			return nil, err
 		}
-		return result, fileownership.RetireAll(
-			ctx,
-			tx,
-			fileownership.Owner{Kind: "SAVE_STATE", ID: request.SaveStateID},
-			request.UpdatedAtMS,
-		)
+		return result, filedeletion.QueuePath(ctx, tx, "saves/"+request.SaveStateID, request.UpdatedAtMS)
 	})
 	if err != nil {
 		return fmt.Errorf("delete save state: %w", err)

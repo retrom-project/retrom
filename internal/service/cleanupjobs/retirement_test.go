@@ -24,7 +24,9 @@ func (memory *retirementMemory) WithBIOSRetirement(_ context.Context, run func(j
 	return run(jobs.BIOSRetirementScope{Read: memory, BIOS: memory})
 }
 
-func (memory *retirementMemory) WithLaunchRetirement(_ context.Context, run func(jobs.LaunchRetirementScope) error) error {
+func (memory *retirementMemory) WithLaunchRetirement(_ context.Context,
+	run func(jobs.LaunchRetirementScope) error,
+) error {
 	return run(jobs.LaunchRetirementScope{Read: memory, Launch: memory})
 }
 
@@ -64,7 +66,10 @@ func (memory *retirementMemory) CompleteLaunch(_ context.Context, change jobs.Re
 
 func TestRetirementsWaitForBIOSReaderBatchDrain(t *testing.T) {
 	for _, count := range []int{0, 199, 200} {
-		memory := &retirementMemory{bios: jobs.BIOSRetirement{Found: true, ID: "old", BlobID: "bios", Version: 1, Files: make([]jobs.RetirementFile, count)}}
+		memory := &retirementMemory{bios: jobs.BIOSRetirement{
+			Found: true, ID: "old",
+			FileRecord: "bios", Version: 1, Files: make([]jobs.RetirementFile, count),
+		}}
 		service := bios.New(memory, func() time.Time { return time.UnixMilli(10) })
 		worked, err := service.BIOSBatch(t.Context())
 		if err != nil || !worked || !memory.removedBIOS || memory.releasedBIOS != (count < 200) {
@@ -80,7 +85,8 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 			t.Parallel()
 			memory := &retirementMemory{launch: jobs.LaunchRetirement{
 				Found: true, ID: "launch", State: state, Version: 1,
-				DueMS: 10, BootstrapMS: 10, Idle: jobs.WorkTime{Set: true, Value: 10}, HardMS: 20, Finished: jobs.WorkTime{Set: true, Value: 10},
+				DueMS: 10, BootstrapMS: 10, Idle: jobs.WorkTime{Set: true, Value: 10}, HardMS: 20,
+				Finished: jobs.WorkTime{Set: true, Value: 10},
 			}}
 			if state == "ACTIVE" {
 				memory.launch.HardMS = 10

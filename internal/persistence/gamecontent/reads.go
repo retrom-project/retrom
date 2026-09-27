@@ -48,8 +48,10 @@ func (records records) Input(
 }
 
 func (records records) Identity(ctx context.Context, id string) ([]gamecontent.IdentityFile, error) {
-	rows, err := records.executor.QueryContext(ctx, `SELECT file.role,blob.sha256 FROM game_files file
- JOIN stored_files blob ON blob.id=file.blob_id WHERE file.game_id=? ORDER BY file.sort_order,
+	rows, err := records.executor.QueryContext(ctx, `
+SELECT file.role,json_extract(blob.value, '$.sha256') FROM game_files file
+ JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL WHERE file.game_id=? ORDER
+BY file.sort_order,
 file.role,file.logical_name`, id)
 	if err != nil {
 		return nil, fmt.Errorf("read current content identity: %w", err)

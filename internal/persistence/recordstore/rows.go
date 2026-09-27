@@ -38,7 +38,7 @@ func DeleteRows(ctx context.Context, db dbapi.Executor, table string, scope Scop
 	return deleteRows(ctx, db, table, scope)
 }
 
-func upsertRecords(ctx context.Context, db dbapi.Executor, table string, _ Scope,
+func upsertRecords(ctx context.Context, db dbapi.Executor, table string,
 	query string, args []any, columns string, check validator,
 ) (sql.Result, error) {
 	if !validTable(table) {

@@ -5,23 +5,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DiagnosticsResponse'
-  /api/v1/admin/storage-analysis:
-    get:
-      operationId: getAdminStorageAnalysis
-      description: Returns one read-only snapshot of registered independently owned files usage. Byte quantities are decimal strings.
-      responses:
-        '200':
-          $ref: '#/components/responses/StorageAnalysisResponse'
-  /api/v1/admin/storage-cleanups:
-    post:
-      operationId: postAdminStorageCleanup
-      description: Schedules retired registered files for deletion and retries failed cleanup jobs. Each file's owner and retirement state are rechecked before deletion.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      responses:
-        '202':
-          $ref: '#/components/responses/StorageCleanupResponse'
 components:
   schemas:
     DiagnosticsSnapshot:
@@ -84,7 +67,6 @@ components:
       required:
         - games
         - saveStates
-        - storedFiles
         - jobs
         - datVersions
       properties:
@@ -92,10 +74,6 @@ components:
           $ref: '#/components/schemas/DiagnosticsGameCounts'
         saveStates:
           $ref: '#/components/schemas/DiagnosticsLifecycleCounts'
-        storedFiles:
-          type: integer
-          format: int64
-          minimum: 0
         jobs:
           $ref: '#/components/schemas/DiagnosticsJobCounts'
         datVersions:
@@ -162,162 +140,6 @@ components:
         ready: {type: integer, format: int64, minimum: 0}
         failed: {type: integer, format: int64, minimum: 0}
         cancelled: {type: integer, format: int64, minimum: 0}
-    StorageAnalysis:
-      type: object
-      additionalProperties: false
-      required:
-        - scope
-        - generatedAtMs
-        - totals
-        - categories
-        - details
-        - excluded
-      properties:
-        scope:
-          type: string
-          enum:
-            - OWNED_FILES_V1
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        totals:
-          $ref: '#/components/schemas/StorageAnalysisTotals'
-        categories:
-          type: array
-          minItems: 6
-          maxItems: 6
-          items:
-            $ref: '#/components/schemas/StorageAnalysisCategory'
-        details:
-          $ref: '#/components/schemas/StorageAnalysisDetails'
-        excluded:
-          type: array
-          minItems: 7
-          maxItems: 7
-          items:
-            type: string
-            enum:
-              - DATABASE_FILES
-              - UPLOAD_PARTS
-              - JOB_SCRATCH
-              - DEPENDENCY_ROOT
-              - FILESYSTEM_OVERHEAD
-              - UNREGISTERED_ORPHANS
-              - VOLUME_FREE_SPACE
-    StorageAnalysisTotals:
-      type: object
-      additionalProperties: false
-      required:
-        - registeredBytes
-        - retainedBytes
-        - pendingDeleteBytes
-        - fileCount
-      properties:
-        registeredBytes:
-          type: string
-          pattern: ^[0-9]+$
-        retainedBytes:
-          type: string
-          pattern: ^[0-9]+$
-        pendingDeleteBytes:
-          type: string
-          pattern: ^[0-9]+$
-        fileCount:
-          type: integer
-          format: int64
-          minimum: 0
-    StorageAnalysisCategory:
-      type: object
-      additionalProperties: false
-      required:
-        - code
-        - bytes
-        - fileCount
-      properties:
-        code:
-          type: string
-          enum:
-            - GAME_CONTENT
-            - BIOS
-            - SAVES
-            - MEDIA
-            - WORKFLOW
-            - PENDING_DELETE
-        bytes:
-          type: string
-          pattern: ^[0-9]+$
-        fileCount:
-          type: integer
-          format: int64
-          minimum: 0
-    StorageAnalysisDetails:
-      type: object
-      additionalProperties: false
-      required:
-        - saveStates
-        - cleanupCandidates
-      properties:
-        saveStates:
-          $ref: '#/components/schemas/StorageAnalysisSaveStates'
-        cleanupCandidates:
-          $ref: '#/components/schemas/StorageAnalysisCleanupCandidates'
-    StorageAnalysisSaveStates:
-      type: object
-      additionalProperties: false
-      required:
-        - activeCount
-        - deletedCount
-        - stateBytes
-        - screenshotBytes
-      properties:
-        activeCount:
-          type: integer
-          format: int64
-          minimum: 0
-        deletedCount:
-          type: integer
-          format: int64
-          minimum: 0
-        stateBytes:
-          type: string
-          pattern: ^[0-9]+$
-        screenshotBytes:
-          type: string
-          pattern: ^[0-9]+$
-    StorageAnalysisCleanupCandidates:
-      type: object
-      additionalProperties: false
-      required:
-        - fileCount
-        - bytes
-      properties:
-        fileCount:
-          type: integer
-          format: int64
-          minimum: 0
-        bytes:
-          type: string
-          pattern: ^[0-9]+$
-    StorageCleanupResult:
-      type: object
-      additionalProperties: false
-      required:
-        - scheduledFileCount
-        - scheduledBytes
-        - acceptedAtMs
-      properties:
-        scheduledFileCount:
-          type: integer
-          format: int64
-          minimum: 0
-        scheduledBytes:
-          type: string
-          pattern: ^[0-9]+$
-        acceptedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
   responses:
     DiagnosticsResponse:
       description: Runtime Provider and database diagnostic snapshot
@@ -325,15 +147,3 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/DiagnosticsSnapshot'
-    StorageAnalysisResponse:
-      description: Registered independently owned files capacity snapshot
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/StorageAnalysis'
-    StorageCleanupResponse:
-      description: Registered independently owned files accepted for cleanup or retry
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/StorageCleanupResult'

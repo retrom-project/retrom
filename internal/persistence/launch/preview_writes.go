@@ -17,23 +17,27 @@ func (records previewCreationRecords) Create(ctx context.Context, plan applicati
 	}
 	_, err := recordstore.CreateReviewPreviewSessions(ctx, records.executor, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
- target_platform_instance_id,provider_id,target_id,bundle_sha256,actor_user_id,idempotency_key,title,content_kind,
- content_blob_id,content_logical_name,content_format,dependency_snapshot_json,default_dos_entry,
- restore_from_preview_id,restore_payload_blob_id,restore_checkpoint_format,
- emulator_game_id,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+ target_platform_instance_id,provider_id,target_id,bundle_sha256,actor_user_id,idempotency_key,title,
+content_kind,
+ content_file_record,content_logical_name,content_format,dependency_snapshot_json,default_dos_entry,
+ restore_from_preview_id,restore_payload_file_record,restore_checkpoint_format,
+ emulator_game_id,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,
+updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)`,
 		plan.ID, request.ImportItemID, source.SourceSnapshotID, source.ValidationID, source.PlatformInstanceID,
 		source.ProviderID, source.TargetID, source.BundleSHA256, request.ActorUserID, request.IdempotencyKey,
-		source.Title, source.ContentKind, content.BlobID, content.LogicalName, content.Format, source.DependencySnapshot,
-		source.DefaultDOSEntry, request.RestoreFromPreviewID, plan.RestoreBlobID, plan.RestoreFormat, emulatorGameID,
+		source.Title, source.ContentKind, content.FileRecord, content.LogicalName, content.Format, source.DependencySnapshot,
+		source.DefaultDOSEntry, request.RestoreFromPreviewID, plan.RestoreFileRecord, plan.RestoreFormat, emulatorGameID,
 		plan.CredentialHash, plan.BootstrapEnd, plan.HardEnd, plan.NowMS, plan.NowMS)
 	if err != nil {
 		return fmt.Errorf("insert preview session: %w", err)
 	}
 	for _, file := range content.Files {
 		_, err := recordstore.CreateReviewPreviewFiles(ctx, records.executor, `
-INSERT INTO review_preview_files(preview_session_id,role,logical_name,virtual_path,blob_id,sort_order,created_at_ms)
-VALUES(?,?,?,?,?,?,?)`, plan.ID, file.Role, file.LogicalName, file.VirtualPath, file.BlobID, file.SortOrder, plan.NowMS)
+INSERT INTO review_preview_files(preview_session_id,role,logical_name,virtual_path,file_record,
+sort_order,created_at_ms)
+VALUES(?,?,?,?,?,?,?)
+`, plan.ID, file.Role, file.LogicalName, file.VirtualPath, file.FileRecord, file.SortOrder, plan.NowMS)
 		if err != nil {
 			return fmt.Errorf("insert preview file: %w", err)
 		}

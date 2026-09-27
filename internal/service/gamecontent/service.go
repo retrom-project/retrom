@@ -7,7 +7,6 @@ import (
 
 	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/filestore"
-	"retrom/internal/service/cleanupjobs"
 )
 
 var (
@@ -26,7 +25,6 @@ type Service struct {
 	repository             Repository
 	blobs                  *filestore.Store
 	cleanupJobs            ReleaseSignal
-	deletion               cleanupjobs.DeletionStager
 	multiDiscImportEnabled bool
 	now                    func() time.Time
 }
@@ -118,9 +116,4 @@ func pointerText(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func (service *Service) WithDeletionStager(deletion cleanupjobs.DeletionStager) *Service {
-	service.deletion = deletion
-	return service
 }

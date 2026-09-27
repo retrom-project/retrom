@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/persistence/filedeletion"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/cleanupjobs"
 )
@@ -22,7 +23,7 @@ WHERE attempt.provider_response_id=metadata_provider_responses.id AND run.state=
 func (records Records) Providers(
 	ctx context.Context, now int64, limit int,
 ) ([]application.ProviderExpiration, error) {
-	rows, err := records.Executor.QueryContext(ctx, `SELECT id,raw_response_blob_id,raw_payload_state,expires_at_ms,
+	rows, err := records.Executor.QueryContext(ctx, `SELECT id,raw_response_file_record,raw_payload_state,expires_at_ms,
 (SELECT count(*) FROM metadata_provider_cache WHERE current_response_id=metadata_provider_responses.id)
 FROM metadata_provider_responses WHERE raw_payload_state='RETAINED' AND expires_at_ms<=?
 AND `+providerNoRunning+` ORDER BY expires_at_ms,id LIMIT ?`, now, limit)
@@ -33,7 +34,7 @@ AND `+providerNoRunning+` ORDER BY expires_at_ms,id LIMIT ?`, now, limit)
 	var facts []application.ProviderExpiration
 	for rows.Next() {
 		var row application.ProviderExpiration
-		if err := rows.Scan(&row.ID, &row.BlobID, &row.State, &row.ExpiresMS, &row.CacheCount); err != nil {
+		if err := rows.Scan(&row.ID, &row.FileRecord, &row.State, &row.ExpiresMS, &row.CacheCount); err != nil {
 			return nil, fmt.Errorf("scan expired provider payload: %w", err)
 		}
 		facts = append(facts, row)
@@ -53,23 +54,18 @@ func (records Records) ReleaseProvider(
 		return fmt.Errorf("release expired provider cache: %w", err)
 	}
 	result, err = recordstore.UpdateMetadataProviderResponses(ctx, records.Executor, recordstore.Update{
-		Set: `raw_response_blob_id=NULL,raw_payload_state='RELEASED',raw_payload_released_at_ms=?`,
+		Set: `raw_response_file_record=NULL,raw_payload_state='RELEASED',raw_payload_released_at_ms=?`,
 		Scope: recordstore.Scope{
-			Where: `id=? AND raw_payload_state=? AND raw_response_blob_id=? AND expires_at_ms=? AND expires_at_ms<=?
+			Where: `id=? AND raw_payload_state=? AND raw_response_file_record=? AND expires_at_ms=? AND expires_at_ms<=?
 AND ` + providerNoRunning,
-			Args: []any{before.ID, before.State, before.BlobID, before.ExpiresMS, now},
+			Args: []any{before.ID, before.State, before.FileRecord, before.ExpiresMS, now},
 		},
 		Values: []any{now},
 	})
 	if err := expirationWrite(result, err, 1); err != nil {
 		return fmt.Errorf("release expired provider response: %w", err)
 	}
-	if err := fileownership.RetireAll(
-		ctx,
-		records.Executor,
-		fileownership.Owner{Kind: "PROVIDER_RESPONSE", ID: before.ID},
-		now,
-	); err != nil {
+	if err := filedeletion.QueuePath(ctx, records.Executor, "responses/"+before.ID, now); err != nil {
 		return fmt.Errorf("retire owned file: %w", err)
 	}
 	return nil

@@ -69,8 +69,8 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 				})
 			} else {
 				_, err = db.ExecContext(t.Context(), `INSERT INTO launch_external_files(
-launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
-SELECT launch_session_id,'/bios/later.bin','later.bin',blob_id,created_at_ms,kind
+launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind)
+SELECT launch_session_id,'/bios/later.bin','later.bin',file_record,created_at_ms,kind
 FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical_name='gba_bios.bin'`)
 			}
 			if err != nil {
@@ -88,7 +88,8 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 				if err := scope.Launch.ReleaseLaunchFiles(t.Context(), before); err != nil {
 					return err
 				}
-				return scope.Launch.CompleteLaunch(t.Context(), application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
+				return scope.Launch.CompleteLaunch(t.Context(),
+					application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
 			})
 			if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
 				t.Fatalf("stale retirement committed: %v", err)
@@ -114,7 +115,7 @@ func TestRetirementRejectsZeroCompletionRows(t *testing.T) {
 			prefix, fragment := "UPDATE launch_payload_retirements SET released_at_ms=", "WHERE"
 			if bios {
 				seedRetiringInstallation(t, db, "zero-installation", 0, now)
-				prefix, fragment = "UPDATE bios_installations SET", "blob_id=NULL"
+				prefix, fragment = "UPDATE bios_installations SET", "file_record=NULL"
 			} else {
 				seedExpiringFirmwarePlay(t, db, now)
 			}

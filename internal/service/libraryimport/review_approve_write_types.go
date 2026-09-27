@@ -86,5 +86,6 @@ type ApprovalDecisionWriter interface {
 }
 
 type BulkPublicationWriter interface {
+	CheckRequest(context.Context, ReviewApprovalRequest, int64) error
 	RecordPublished(context.Context, BulkPublication) error
 }

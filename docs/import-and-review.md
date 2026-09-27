@@ -222,7 +222,7 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 ## 6. 哈希语义
 
-- 独立文件存储去重始终使用原始上传 Blob SHA-256。
+- 文件按游戏独立存储；SHA-256 用于完整性、内容识别和重复游戏提示，不用于物理存储去重。
 - 一期刮削 hash profile 只有三个稳定 code：`RAW_FILE` 对实际文件 bytes 计算 CRC32/MD5/SHA-1/SHA-256；`SINGLE_ARCHIVE_MEMBER` 对安全扫描后唯一被平台规则选中的 ROM member 原始 bytes 计算四种 hash；`ARCADE_DAT_ENTRIES` 使用下述 DAT entry 规则，只保存上游 DAT 真实提供的 CRC32/SHA-1，缺失值为 NULL 而不伪造。`provider=HASHEOUS` 时，profile code、来源 Blob/entry、该 profile 适用的 hash 和 query_order 作为本次 MetadataScrapeRun 的不可变 ContentHashEvidence 持久化；没有 eligible hash 时 evidence 可以为零。`provider=NONE` 只创建明确的 no-op Run/Job，不创建 ContentHashEvidence、QueryAttempt、ProviderResponse 或 Candidate；内容来源与全部实际 hash 仍由 ImportItem source manifest、Blob 和 ArchiveEntry 保留，不会因没有 provider evidence 而丢失。
 - 一期不剥 iNES/FDS/SNES copier header、不改 padding/endian、不应用 patch，也不把重新打包后的 ZIP hash 冒充内容 hash。未来增加规范化算法必须使用新 profile code、固定测试向量并重新刮削，不能改变 V1 结果。
 - 非 Arcade archive 若存在零个或多个候选 ROM member，则不猜 primary member，按第 5 节生成 Blocker；DOS 目录/bundle 不做 Hasheous 精确 hash 命中声明。
@@ -407,7 +407,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 截图由管理员点击普通工具栏的“保存审核截图”创建并通知原审核页刷新，不设固定时长或核心专用启动回调。对于非 RPG 的人工放行，发布事务必须证明截图、当前 Validation、来源快照、目录与 Provider Target 一致，并记录 `REVIEW_SCREENSHOT_OVERRIDE` 和截图 ID；普通单机沿用该最佳努力依赖集合。输入发生实质变化时旧截图退出当前投影，需在当前 Preview 重新截图。截图保存失败、弹窗被阻止或核心启动失败必须明确显示错误。所有 Preview 都可按需重复保存会话级临时 checkpoint，并用已有 checkpoint 开启新的恢复 Preview；原 Preview 无需先结束，后续保存也不改变已创建恢复会话的 payload。临时 checkpoint 不进入 `/saves` 或持久用户存档升级门槛，到期或审核结束时释放。
 
-截图保存由 `internal/service/launch.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。Blob 登记、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
+截图保存由 `internal/service/launch.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。所属领域的文件记录、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
 任务进度展示 Worker/阶段运行态；待审核只展示未决条目；发布结果进入游戏库，丢弃结果保留在任务状态中。
 
@@ -433,7 +433,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种模式都显式发送。为保留普通文件入口的既有行为，`STANDARD + GENERAL` 在目标为 `rpgmaker` 且来源为恰一个 ZIP/7z（或完整 DIRECTORY）时，于准入事务前规范化为 `RPG_MAKER_PROJECT + NONE`；其他目标不得套用该规则。MULTI 只接受 `sourceType=DIRECTORY`，以每个 M3U 的直接父目录分组：同目录必须恰有一个 M3U，引用只允许安全 CHD basename，按精确 UTF-8 后唯一 ASCII case-fold 匹配，整组限制 2–8 盘和 1 GiB。不同子目录可在同一 UploadSession 形成多个 Item；未引用文件记录为 `IGNORED/NOT_REFERENCED_BY_PLAYLIST`。局部非法目录产生稳定 rejected outcome，不阻断其他合法目录。
 
-导入任务列表必须标明冻结的 MULTI 模式；详情按 Item 显示 playlist、总盘数、已找到/缺失盘数和最多 20 个未引用 basename，并保留未截断计数。即使任务已经进入待审核且没有异常，详情入口仍可用。任务详情不得返回 Blob ID 或宿主路径。
+导入任务列表必须标明冻结的 MULTI 模式；详情按 Item 显示 playlist、总盘数、已找到/缺失盘数和最多 20 个未引用 basename，并保留未截断计数。即使任务已经进入待审核且没有异常，详情入口仍可用。任务详情不得返回 内部文件记录 或宿主路径。
 
 合法缺盘组仍创建 `REVIEW_PENDING/BLOCKED` Item；缺失 entry 没有 Blob。管理员必须通过 `/api/v1/admin/reviews/{id}/multi-disc-attachments` 一次上传当前全部缺盘，Attachment 以请求 User 为 actor、冻结 base snapshot/limits/capability 并异步校验精确 basename 集合、CHD 头和总量。审核页常驻展示 playlist 证据、规范盘序、来源/规范文件名、大小/hash 与冻结上限；缺盘时明确阻止发布，并通过“上传全部缺失光盘”抽屉逐项核对。抽屉只在集合无遗漏、无多余、无 ASCII case-fold 重名且总量未超限时允许提交，支持 Esc、焦点圈定与关闭后焦点恢复；版本冲突时刷新审核证据但保留本地选择。进入异步校验后抽屉关闭，卡片展示 Job 和进度；REJECTED 允许重新选文件，FAILED_RETRYABLE 只走通用 Job retry。接受后追加不可变 SourceSnapshot 与 generation 4 validation，旧快照不改，并以“缺失光盘已补齐，正在更新审核结果”通知；拒绝或 retryable failure 不推进 effective snapshot。reconfigure 继续只处理 STANDARD rejected-only 文件，不能用它拼多盘目录。
 
@@ -567,3 +567,11 @@ OpenBOR 平台与核心均为 `openbor`，对应 `retrom-runtime/openbor`。导�
 Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确字节数与 SHA-256；运行时最大 16 MiB。
 本次固定为 MSX2+ 日本机器，不增加用户 BIOS 安装或新内容类型。存档与截图走现有公共产品路径。
 初始兼容性证据只覆盖所选卡带，磁盘/磁带软件的启动命令和兼容性须逐项验证；不声明多盘或 turbo R。
+
+## 目录发布与恢复
+
+上传、服务器来源与重新配置都准备独立的 Item 目录。审核阶段的 ROM、封面、视频、截图和检查点由 Item 管理；选择的媒体复制进 payload/media，其他临时材料保留在 scratch。
+
+批准分为冻结、移动、提交三个步骤：先在短事务中核对版本、确认重复游戏、冻结元信息/校验/媒体及 Game UUID，并写入 `PUBLISHING`；再于同一文件系统内把 payload 原子移动到 Game 目录；最后事务写入 Game、Variant 与领域结果，Item 改为 `PUBLISHED`。冻结后不再接受草稿、丢弃或来源变更。中断后后台恢复同一决定，已完成批准重试返回同一 Game UUID。批量批准逐项使用这条流程，进度保存失败也不产生第二个 Game。
+
+发布过程中 Item 仍计入批次的未完成待处理计数，但不属于可编辑的待审核列表。任务详情显示“正在发布”。发布完成后的来源和 Item 清理只能删除各自 staging 目录，不能影响 Game 目录。

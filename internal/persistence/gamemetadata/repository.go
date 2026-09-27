@@ -7,20 +7,15 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/persistence/uploads/receivedfiles"
-
 	"retrom/internal/persistence/filedeletion"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/gametitle"
 
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/gamemetadata"
-
-	"github.com/google/uuid"
 )
 
 type Repository struct {
@@ -116,19 +111,19 @@ func (scope candidateApplyScope) ReplaceGameAssets(
 	ctx context.Context, gameID, kind string,
 ) ([]string, error) {
 	rows, err := scope.transaction.QueryContext(ctx, `
-SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? ORDER BY ordinal,id
+SELECT file_record FROM game_assets WHERE game_id=? AND kind=? ORDER BY ordinal,id
 `, gameID, kind)
 	if err != nil {
 		return nil, fmt.Errorf("list replaced game assets: %w", err)
 	}
 	defer func() { cleanup.Error("close replaced game assets", rows.Close()) }()
-	blobIDs := make([]string, 0)
+	fileRecords := make([]string, 0)
 	for rows.Next() {
-		var blobID string
-		if err := rows.Scan(&blobID); err != nil {
+		var fileRecord string
+		if err := rows.Scan(&fileRecord); err != nil {
 			return nil, fmt.Errorf("scan replaced game asset: %w", err)
 		}
-		blobIDs = append(blobIDs, blobID)
+		fileRecords = append(fileRecords, fileRecord)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
@@ -141,7 +136,7 @@ SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? ORDER BY ordinal,id
 	); err != nil {
 		return nil, fmt.Errorf("delete replaced game assets: %w", err)
 	}
-	return blobIDs, nil
+	return fileRecords, nil
 }
 
 func (scope candidateApplyScope) CreateSelectedGameAssets(
@@ -152,25 +147,21 @@ func (scope candidateApplyScope) CreateSelectedGameAssets(
 ) ([]string, error) {
 	createdIDs := make([]string, 0, len(selected))
 	for _, choice := range selected {
-		var blobID, kind, mediaType string
+		var fileRecord, kind, mediaType string
 		var width, height int64
 		err := dbapi.QueryRowContext(ctx, scope.transaction, `
-SELECT blob_id,kind_hint,width_px,height_px,media_type
+SELECT file_record,kind_hint,width_px,height_px,media_type
 FROM scrape_candidate_assets
 WHERE id=? AND scrape_candidate_id=? AND status='READY'
-`, choice.ID, candidateID).Scan(&blobID, &kind, &width, &height, &mediaType)
+`, choice.ID, candidateID).Scan(&fileRecord, &kind, &width, &height, &mediaType)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, application.ErrCandidateAsset
 		}
 		if err != nil {
 			return nil, fmt.Errorf("read scrape candidate asset: %w", err)
 		}
-		if kind != choice.Kind {
+		if kind != choice.Kind || fileRecord != choice.SourceFile {
 			return nil, application.ErrCandidateAsset
-		}
-		assetID, err := uuid.NewV7()
-		if err != nil {
-			return nil, fmt.Errorf("create game asset identity: %w", err)
 		}
 		var runID string
 		if err := dbapi.QueryRowContext(
@@ -183,19 +174,11 @@ WHERE candidate.id=? AND run.game_id=?`,
 		).Scan(&runID); err != nil {
 			return nil, fmt.Errorf("read selected media owner: %w", err)
 		}
-		if err := fileownership.Transfer(
-			ctx,
-			scope.transaction,
-			blobID,
-			fileownership.Owner{Kind: "SCRAPE_RUN", ID: runID},
-			fileownership.Owner{Kind: "GAME", ID: gameID},
-		); err != nil {
-			return nil, fmt.Errorf("repository: %w", err)
-		}
+
 		if _, err := recordstore.CreateGameAssets(ctx, scope.transaction, `
 INSERT INTO game_assets(id,
 game_id,
-blob_id,
+file_record,
 kind,
 ordinal,
 width_px,
@@ -210,11 +193,11 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-		`, assetID.String(), gameID, blobID, choice.Kind, choice.Ordinal,
+		`, choice.AssetID, gameID, choice.File, choice.Kind, choice.Ordinal,
 			width, height, mediaType, now); err != nil {
 			return nil, fmt.Errorf("create game asset: %w", err)
 		}
-		createdIDs = append(createdIDs, assetID.String())
+		createdIDs = append(createdIDs, choice.AssetID)
 	}
 	return createdIDs, nil
 }
@@ -273,26 +256,21 @@ func (scope candidateApplyScope) StageCandidates(
 	ctx context.Context,
 	gameID string,
 	ids []string,
-	now int64,
+	_ int64,
 ) error {
+	removed := make([]string, 0, len(ids))
 	for _, id := range ids {
-		if _, err := scope.transaction.ExecContext(
-			ctx,
-			`UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?)
- WHERE id=? AND owner_kind='GAME' AND owner_id=? AND NOT EXISTS(SELECT 1 FROM game_assets
-WHERE game_id=? AND blob_id=?)`,
-			now,
-			id,
-			gameID,
-			gameID,
-			id,
-		); err != nil {
-			return fmt.Errorf("retire replaced media: %w", err)
+		var count int
+		if err := dbapi.QueryRowContext(ctx, scope.transaction, `SELECT count(*) FROM game_assets
+ WHERE game_id=? AND json_extract(file_record,'$.path')=json_extract(?,'$.path')
+`, gameID, id).Scan(&count); err != nil {
+			return fmt.Errorf("stage candidates: %w", err)
+		}
+		if count == 0 {
+			removed = append(removed, id)
 		}
 	}
-	if err := receivedfiles.ReleaseRetired(ctx, scope.transaction, "GAME", gameID, now); err != nil {
-		return fmt.Errorf("release retired game media inputs: %w", err)
-	}
+	ids = removed
 	if len(ids) == 0 || scope.deletion == nil {
 		return nil
 	}
@@ -316,3 +294,17 @@ func searchText(metadata application.Metadata) string {
 }
 
 var _ application.CandidateApplyRepository = (*Repository)(nil)
+
+func (repository *Repository) SelectedFiles(ctx context.Context, candidateID string,
+	selected []application.CandidateAssetSelection,
+) ([]application.CandidateAssetSelection, error) {
+	for i := range selected {
+		choice := &selected[i]
+		if err := dbapi.QueryRowContext(ctx, repository.database, `SELECT file_record FROM scrape_candidate_assets
+ WHERE id=? AND scrape_candidate_id=? AND status='READY' AND kind_hint=?
+`, choice.ID, candidateID, choice.Kind).Scan(&choice.SourceFile); err != nil {
+			return nil, fmt.Errorf("selected files: %w", err)
+		}
+	}
+	return selected, nil
+}

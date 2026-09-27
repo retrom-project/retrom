@@ -24,43 +24,13 @@ func (stub *approvalMediaStub) UploadedCover(context.Context, string, string) (A
 	return stub.asset, stub.found, stub.cause
 }
 
-func (stub *approvalMediaStub) BlobExists(context.Context, string) (bool, error) {
-	stub.reads++
-	return stub.found, stub.cause
-}
-
 func TestReviewApprovalManualCoverOverridesUnusedSourceCover(t *testing.T) {
 	cover := "manual-cover"
 	run := reviewApprovalRun{head: ReviewApprovalHead{UploadedCoverID: &cover}, origin: ApprovalOrigin{
-		Assets: []ApprovalExternalAsset{{Kind: "COVER", BlobID: "unavailable-source-cover", MediaType: "invalid"}},
+		Assets: []ApprovalExternalAsset{{Kind: "COVER", FileRecord: "unavailable-source-cover", MediaType: "invalid"}},
 	}}
 	if err := run.appendExternalAssets(); err != nil || len(run.assets) != 0 {
 		t.Fatalf("unused cover blocked manual choice: assets=%v err=%v", run.assets, err)
-	}
-}
-
-func TestReviewApprovalExternalMediaRequiresExistingBlob(t *testing.T) {
-	cause := errors.New("source asset read failed")
-	for _, test := range []struct {
-		name             string
-		found            bool
-		cause, errorWant error
-	}{
-		{"missing", false, nil, ErrInvalid}, {"unavailable", false, cause, cause}, {"valid", true, nil, nil},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			media := &approvalMediaStub{found: test.found, cause: test.cause}
-			run := reviewApprovalRun{ctx: t.Context(), scope: ReviewApprovalScope{Media: media}, origin: ApprovalOrigin{
-				Assets: []ApprovalExternalAsset{{Kind: "VIDEO", BlobID: "video", MediaType: "video/mp4"}},
-			}}
-			err := run.appendExternalAssets()
-			if !errors.Is(err, test.errorWant) || media.reads != 1 {
-				t.Fatalf("reads=%d err=%v", media.reads, err)
-			}
-			if (len(run.assets) == 1) != (err == nil) {
-				t.Fatalf("assets=%v err=%v", run.assets, err)
-			}
-		})
 	}
 }
 

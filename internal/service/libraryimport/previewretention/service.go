@@ -52,10 +52,6 @@ func (service *Service) PreviewBatch(ctx context.Context) (int, error) {
 			if err := scope.Write.ExpirePreview(ctx, jobs.PreviewExpiry{Before: before, State: state, NowMS: now}); err != nil {
 				return fmt.Errorf("expire review preview: %w", err)
 			}
-			blobs := []string{before.CheckpointBlobID, before.RestoreBlobID}
-			if err := service.deletion.StageInScope(ctx, scope.DeletionQueue, blobs); err != nil {
-				return fmt.Errorf("stage expired preview payloads: %w", err)
-			}
 		}
 		count = len(previews)
 		return nil
@@ -70,6 +66,6 @@ func previewDue(before jobs.PreviewExpiration, now int64) bool {
 	due := before.State == "CREATED" && before.BootstrapExpiresMS <= now ||
 		before.HardExpiresMS <= now || before.State == "REVOKED"
 	remaining := before.State != "EXPIRED" && before.State != "REVOKED" ||
-		before.CheckpointBlobID != "" || before.RestoreBlobID != ""
+		before.CheckpointFileRecord != "" || before.RestoreFileRecord != ""
 	return due && remaining
 }

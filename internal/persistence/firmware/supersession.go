@@ -25,9 +25,9 @@ func (records supersessionRecords) Current(
 	ctx context.Context, requirementID string,
 ) (firmware.SupersededInstallation, bool, error) {
 	var result firmware.SupersededInstallation
-	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id,requirement_id,blob_id,version
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id,requirement_id,file_record,version
 FROM bios_installations WHERE requirement_id=? AND is_active=1`, requirementID).
-		Scan(&result.ID, &result.RequirementID, &result.BlobID, &result.Version)
+		Scan(&result.ID, &result.RequirementID, &result.FileRecord, &result.Version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return firmware.SupersededInstallation{}, false, nil
 	}
@@ -56,24 +56,24 @@ func (records supersessionRecords) Deactivate(
 	if err := changed(recordstore.UpdateBiosInstallations(ctx, records.executor, recordstore.Update{
 		Set: `is_active=0,version=version+1,updated_at_ms=?`, Values: []any{now},
 		Scope: recordstore.Scope{
-			Where: `id=? AND requirement_id=? AND blob_id=? AND version=? AND is_active=1`,
-			Args:  []any{before.ID, before.RequirementID, before.BlobID, before.Version},
+			Where: `id=? AND requirement_id=? AND file_record=? AND version=? AND is_active=1`,
+			Args:  []any{before.ID, before.RequirementID, before.FileRecord, before.Version},
 		},
 	})); err != nil {
 		return err
 	}
-	return records.revokeBIOSLaunches(ctx, before.ID, before.BlobID, now)
+	return records.revokeBIOSLaunches(ctx, before.ID, before.FileRecord, now)
 }
 
 func (records supersessionRecords) revokeBIOSLaunches(
-	ctx context.Context, installationID, blobID string, now int64,
+	ctx context.Context, installationID, fileRecord string, now int64,
 ) error {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT DISTINCT launch.id FROM launch_sessions launch
 JOIN launch_external_files file ON file.launch_session_id=launch.id
-WHERE file.blob_id=? AND file.kind IN ('BIOS','BIOS_BUNDLE')
+WHERE file.file_record=? AND file.kind IN ('BIOS','BIOS_BUNDLE')
 AND EXISTS(SELECT 1 FROM json_each(launch.dependency_snapshot_json,'$.bios') dependency
- WHERE json_extract(dependency.value,'$.installationId')=?)`, blobID, installationID)
+ WHERE json_extract(dependency.value,'$.installationId')=?)`, fileRecord, installationID)
 	if err != nil {
 		return fmt.Errorf("find launches using superseded BIOS: %w", err)
 	}

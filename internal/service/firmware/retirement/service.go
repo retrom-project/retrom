@@ -42,7 +42,7 @@ func (service *Service) BIOSBatch(ctx context.Context) (bool, error) {
 		if !before.Found {
 			return nil
 		}
-		if before.ID == "" || before.BlobID == "" || before.Version < 1 || before.Version == math.MaxInt64 {
+		if before.ID == "" || before.FileRecord == "" || before.Version < 1 || before.Version == math.MaxInt64 {
 			return jobs.ErrRetirementSnapshotChanged
 		}
 		if err := scope.BIOS.FenceBIOS(ctx, before); err != nil {

@@ -109,8 +109,8 @@ type CreationArtifact struct {
 }
 type CreationSourceFile struct {
 	PreparedSource
-	BlobID string
-	Order  int
+	FileRecord string
+	Order      int
 }
 type CreationSource struct {
 	ItemID         string

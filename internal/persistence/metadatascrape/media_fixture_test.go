@@ -22,7 +22,9 @@ type mediaFixture struct {
 
 type mediaSource func(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error)
 
-func (source mediaSource) FetchAssetBounded(ctx context.Context, ref hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+func (source mediaSource) FetchAssetBounded(ctx context.Context, ref hasheous.AssetRef,
+	limit int64,
+) (hasheous.AssetData, error) {
 	return source(ctx, ref, limit)
 }
 
@@ -68,7 +70,7 @@ func newEmptyMediaFixture(t *testing.T) *mediaFixture {
 	}
 	recoveryExec(t, fixture.database, `INSERT INTO content_hash_evidence
  (id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,created_at_ms)
- VALUES('evidence','run','RAW_FILE','12345678',0,0,?)`, fixture.now.UnixMilli())
+ VALUES('evidence','018fbe68-0000-7000-8000-000000000001','RAW_FILE','12345678',0,0,?)`, fixture.now.UnixMilli())
 	return fixture
 }
 
@@ -78,7 +80,9 @@ func (fixture *mediaFixture) record(ctx context.Context, repository *ResultRepos
 	if len(assets) == 0 {
 		assets = []hasheous.AssetRef{{ProviderAssetID: "cover", Kind: "COVER", Path: "/api/v1/images/cover"}}
 	}
-	processor := recoveryProcess(func(ctx context.Context, claim metadatascrape.WorkerClaim, _ string) (int, string, error) {
+	processor := recoveryProcess(func(ctx context.Context, claim metadatascrape.WorkerClaim,
+		_ string,
+	) (int, string, error) {
 		created, err := recorder.Record(ctx, metadatascrape.LookupAttempt{
 			Claim: claim, EvidenceID: "evidence", AttemptNo: 1,
 			AllowCandidate: true, Lookup: metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{
@@ -92,5 +96,6 @@ func (fixture *mediaFixture) record(ctx context.Context, repository *ResultRepos
 		}
 		return 1, "", nil
 	})
-	return metadatascrape.NewWorker(NewWorker(fixture.database), processor, fixture.clock).Run(ctx, "run")
+	return metadatascrape.NewWorker(NewWorker(fixture.database), processor,
+		fixture.clock).Run(ctx, "018fbe68-0000-7000-8000-000000000001")
 }

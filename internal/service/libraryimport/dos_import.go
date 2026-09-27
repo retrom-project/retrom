@@ -332,7 +332,7 @@ func (service *ImportPreparation) inspectDOSBatch(digest string) []byte {
 	if service.blobs == nil || digest == "" {
 		return nil
 	}
-	file, err := service.blobs.OpenID(digest)
+	file, err := service.blobs.OpenRecord(digest)
 	if err != nil {
 		return nil
 	}
@@ -406,7 +406,7 @@ func (service *ImportPreparation) bundleDOSDirectory(files []ImportFile) (filest
 				buildErr = err
 				break
 			}
-			source, err := service.blobs.OpenID(file.BlobID)
+			source, err := service.blobs.OpenRecord(file.FileRecord)
 			if err != nil {
 				buildErr = err
 				break
@@ -472,7 +472,7 @@ func (service *ImportPreparation) prepareDOSArchive(
 		return appendRejectedDOSFiles(dispositions, candidates, "AMBIGUOUS_DOS_BUNDLE"), nil, nil
 	}
 	file := candidates[0]
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.BlobID), importing.DOSArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.FileRecord), importing.DOSArchiveLimits())
 	if err != nil {
 		return append(dispositions, rejectedDisposition(file, ArchiveReason(err))), nil, nil
 	}
@@ -487,9 +487,9 @@ func (service *ImportPreparation) prepareDOSArchive(
 	dispositions = append(dispositions, sourceDisposition(file))
 	group := PreparedGroup{
 		Sources: sources, DOSEntries: programs, DefaultDOSEntry: programs[0].Path,
-		BundleBlobID: file.BlobID, TitleSource: filepath.Base(file.Path),
+		BundleFileRecord: file.FileRecord, TitleSource: filepath.Base(file.Path),
 	}
-	archive := PreparedArchive{BlobID: file.BlobID, Entries: entries, Materialized: materialized}
+	archive := PreparedArchive{FileRecord: file.FileRecord, Entries: entries, Materialized: materialized}
 	return dispositions, []PreparedGroup{group}, []PreparedArchive{archive}
 }
 
@@ -513,7 +513,7 @@ func (service *ImportPreparation) materializeDOSArchive(
 	sources := make([]PreparedSource, 0, len(entries))
 	materialized := make(map[int]filestore.Metadata, len(entries))
 	for _, entry := range entries {
-		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.BlobID), entry)
+		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.FileRecord), entry)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -521,9 +521,9 @@ func (service *ImportPreparation) materializeDOSArchive(
 		materialized[ordinal] = metadata
 		sources = append(sources, PreparedSource{
 			File: file, Role: "DOS_SOURCE", LogicalName: entry.NormalizedPath,
-			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
+			ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 		})
-		if program, ok := service.preparedDOSProgram(entry.NormalizedPath, metadata.ID, len(programs)); ok {
+		if program, ok := service.preparedDOSProgram(entry.NormalizedPath, metadata.Record, len(programs)); ok {
 			programs = append(programs, program)
 		}
 	}
@@ -578,7 +578,7 @@ func (service *ImportPreparation) collectDOSDirectoryFiles(
 	sources := make([]PreparedSource, 0, len(candidates))
 	for _, file := range candidates {
 		sources = append(sources, PreparedSource{File: file, Role: "DOS_SOURCE", LogicalName: file.Path})
-		if program, ok := service.preparedDOSProgram(file.Path, file.BlobID, len(programs)); ok {
+		if program, ok := service.preparedDOSProgram(file.Path, file.FileRecord, len(programs)); ok {
 			programs = append(programs, program)
 		}
 	}

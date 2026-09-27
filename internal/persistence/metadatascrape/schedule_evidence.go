@@ -20,8 +20,12 @@ func (reads scheduleReads) Files(
 	subject metadatascrape.Subject,
 ) ([]metadatascrape.FileEvidence, error) {
 	table, column := evidenceSource(subject)
-	rows, err := reads.database.QueryContext(ctx, `SELECT s.logical_name,b.id,b.crc32,b.md5,b.sha1,b.sha256,
- s.source_archive_blob_id,s.source_archive_entry_ordinal FROM `+table+` s JOIN stored_files b ON b.id=s.blob_id
+	rows, err := reads.database.QueryContext(ctx, `
+SELECT s.logical_name,b.value,json_extract(b.value,'$.crc32'),json_extract(b.value,'$.md5'),
+json_extract(b.value,'$.sha1'),json_extract(b.value,'$.sha256'),
+ s.source_archive_file_record,s.source_archive_entry_ordinal FROM
+`+table+`
+ s JOIN json_each(json_array(s.file_record)) b ON b.value IS NOT NULL
  WHERE s.`+column+`=? AND s.role='CONTENT' ORDER BY s.sort_order,s.logical_name`, subject.ID)
 	if err != nil {
 		return nil, fmt.Errorf("query scrape content evidence: %w", err)
@@ -32,12 +36,12 @@ func (reads scheduleReads) Files(
 		var item metadatascrape.FileEvidence
 		if err := rows.Scan(
 			&item.Name,
-			&item.BlobID,
+			&item.FileRecord,
 			&item.CRC32,
 			&item.MD5,
 			&item.SHA1,
 			&item.SHA256,
-			&item.ArchiveBlobID,
+			&item.ArchiveFileRecord,
 			&item.ArchiveOrdinal,
 		); err != nil {
 			return nil, fmt.Errorf("scan scrape content evidence: %w", err)
@@ -58,8 +62,8 @@ func (reads scheduleReads) Arcade(
 	table, column := evidenceSource(subject)
 	rows, err := reads.database.QueryContext(
 		ctx,
-		`SELECT s.blob_id,e.ordinal,d.name,d.size_bytes,d.crc32,d.sha1
- FROM `+table+` s JOIN archive_entries e ON e.archive_blob_id=s.blob_id
+		`SELECT s.file_record,e.ordinal,d.name,d.size_bytes,d.crc32,d.sha1
+ FROM `+table+` s JOIN archive_entries e ON e.archive_file_record=s.file_record
  JOIN dat_rom_entries d ON d.dat_version_id=? AND d.machine_name=? AND d.name=e.normalized_path
  WHERE s.`+column+`=? AND s.role='CONTENT' AND COALESCE(d.status,'GOOD')!='NODUMP'
  AND (d.bios_name IS NULL OR d.bios_name=(SELECT bios_name FROM dat_bios_sets
@@ -77,7 +81,8 @@ func (reads scheduleReads) Arcade(
 	result := make([]metadatascrape.ArcadeEvidence, 0)
 	for rows.Next() {
 		var item metadatascrape.ArcadeEvidence
-		if err := rows.Scan(&item.ArchiveBlobID, &item.Ordinal, &item.Name, &item.Size, &item.CRC32, &item.SHA1); err != nil {
+		if err := rows.Scan(&item.ArchiveFileRecord, &item.Ordinal, &item.Name, &item.Size,
+			&item.CRC32, &item.SHA1); err != nil {
 			return nil, fmt.Errorf("scan arcade scrape evidence: %w", err)
 		}
 		result = append(result, item)

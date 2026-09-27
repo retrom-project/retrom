@@ -28,10 +28,12 @@ func ProductBIOSFacts(
 		ctx,
 		`SELECT dependency.logical_archive,dependency.state,
 requirement.id,requirement.version,requirement.catalog_digest,requirement.requirement_mode,
-requirement.condition_code,requirement.delivery_kind,requirement.emulator_path,requirement.activation_options_json,
-installation.id,installation.version,installation.blob_id,installation.status
+requirement.condition_code,requirement.delivery_kind,requirement.emulator_path,
+requirement.activation_options_json,
+installation.id,installation.version,installation.file_record,installation.status
 FROM game_variants variant
-JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id AND dependency.kind='BIOS_OR_BASE'
+JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id AND
+dependency.kind='BIOS_OR_BASE'
 LEFT JOIN bios_requirements requirement ON requirement.provider_id=? AND requirement.target_id=?
 AND requirement.source_kind='DAT_MACHINE' AND requirement.source_version=?
 AND requirement.logical_name=dependency.logical_archive AND requirement.enabled=1
@@ -70,7 +72,7 @@ func scanProductArcadeBIOS(scanner dbapi.Scanner) (application.ProductArcadeBIOS
 	dependency := &record.Dependency
 	err := scanner.Scan(&dependency.LogicalName, &record.State, &requirement, &version, &catalog, &mode,
 		&dependency.ConditionCode, &delivery, &dependency.EmulatorPath, &record.OptionsJSON,
-		&dependency.InstallationID, &dependency.InstallationVersion, &dependency.BlobID, &dependency.InstallationStatus)
+		&dependency.InstallationID, &dependency.InstallationVersion, &dependency.FileRecord, &dependency.InstallationStatus)
 	if err != nil {
 		return application.ProductArcadeBIOS{}, fmt.Errorf("scan product arcade BIOS: %w", err)
 	}

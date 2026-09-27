@@ -367,30 +367,21 @@ make acceptance-case CASE=<case-id>
 - 通过标准：全新库到 015 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
-### ACC-CAS-001：独立文件身份与原子写入
+### ACC-CAS-001：游戏目录与独立文件
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-CAS-001`。
-- 流程：顺序及并发写入相同合法 fixture，注入中途写失败，检查暂存提交/丢弃及超期清理。
-- 通过标准：每次成功写入都有独立 UUID、路径和 inode，相同内容的 hash 相同；删除其中一份不影响其他份；失败不发布半文件。已登记文件和新近暂存保留，超过 24 小时的未登记文件清理，登记查询失败不得误删。
-- 证据：文件 ID/hash、物理路径/inode、内容读取和临时目录清单。
+- 流程：不同游戏写入相同内容，校验目录、inode 与摘要；注入复制失败，测试原子移动和重复执行，以及穿越/符号链接拒绝。
+- 通过标准：不同游戏独立存储；删除一份不影响另一份；无半成品发布。只清理超期写入 scratch，长期待审 Item 不按临时文件年龄删除。
+- 证据：目录、inode、实际内容和故障测试结果。
 
-### ACC-CAS-002：领域退休与删除恢复
+### ACC-CAS-002：发布恢复与目录删除
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-CAS-002`。
-- 流程：建立同内容不同 owner 的独立文件，退休其中一份，执行真实持久 worker；在授权后重新发布同内容新文件、物理删除后注入失权或提交失败，再重试。
-- 通过标准：仅退休 owner 的文件被删除，另一份保留完整 bytes；旧任务始终按原 ID 执行，不能影响新发布文件。物理文件已删除而数据库结算失败时不恢复 inode，重试幂等收口；失权 worker 不改写新 execution。登记已缺失或超期输入失败；删除和退休事务失败不产生业务部分结果。
-- 证据：所有权与退休时刻、任务/租约/事件、物理文件与登记行、故障注入和重试结果。
-
-### ACC-STOR-001：已登记文件容量分析
-
-- 上限：240 秒。
-- 执行：`make acceptance-case CASE=ACC-STOR-001`。
-- 浏览器清理 fixture：先验证普通导入/丢弃收口，再用真实文件存储和调度器在同一事务建立持久 FAILED 候选，验证管理员确认后新 execution 重试；不依赖短暂排队窗口，不延迟生产 worker。
-- 流程：覆盖 Game 内容、BIOS、Save、媒体、工作流和退休文件；相同 hash 为多个游戏独立保存。分别检查交接、替换、退休、删除后的容量，ADMIN 确认立即清理及幂等重放，并覆盖缺 key/CSRF、USER/匿名、未知 query、空库、读取失败和既有 viewport/刷新/确认框矩阵。
-- 通过标准：唯一口径 OWNED_FILES_V1、private/no-store、十进制 byte 字符串；固定六类含零值，bytes/count 之和等于顶层，retainedBytes+pendingDeleteBytes=registeredBytes。同 hash 不同 ID 分别计量，未知 owner 与溢出失败。退休立即进入 PENDING_DELETE，物理与数据库删除完成后总量下降。媒体替换旧 URL 404；内容成功替换清理旧运行/存档，完全相同输入或失败不得改变 current；BIOS 替换撤销旧运行、保留存档和其他安装文件。手动清理只补排或重试退休文件，同 key 只写一条审计并重放原结果。页面每 2 秒更新到候选归零，收到 202 不提前清空；60 秒超时或失败保留快照并提供刷新，离页取消读取。详情不与分类相加，不暴露文件 ID/hash/路径/用户资源标识；手机只显示后台提示，平板桌面无溢出、键盘可用、axe 无 serious/critical。
-- 证据：API JSON 与 SUM(stored_files.size_bytes)/行数对比、所有权/六类 SQLite 回归、权限与脱敏矩阵、viewport/axe 断言和当次截图。
+- 流程：注入发布目录移动前和数据库最终提交失败，重启服务恢复；目录删除注入失败并重试，同时保留另一游戏的同内容文件。
+- 通过标准：持久发布决定保留同一 Game UUID，单条和批量只发布一次。清理按不可复用的目录执行，已删除目录重试成功，其他游戏不受影响；清理意图与业务变更同事务回滚。
+- 证据：Item 状态、固定 Game UUID、目录存在性、清理任务与重试结果。
 
 ### ACC-STOR-002：批次丢弃与引用释放
 
@@ -595,8 +586,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-003`。
 - 流程：分别用浏览器上传导入和 Pegasus 导入创建带 GameVariant/GameVariant、媒体、存档、活动 Launch 的游戏，读取 `deleteImpact`；先使用旧 version/digest，再用当前 version 但错误标题，最后用当前 version、精确标题、精确 digest 和新 Idempotency-Key 永久删除。以同 key 重放，再用不同 key 重删；执行 OwnerCleanup 与即时排队的 后台删除，并查询可执行列表与最近游玩、收藏、Play/Launch、审核和审计关系投影。
-- 通过标准：影响摘要精确覆盖内容、媒体、存档、运行时、来源文字关联和 Game 自身持有的独立文件数与容量；影响变化导致 digest/version 409，错误标题返回 `422 GAME_DELETE_CONFIRMATION_MISMATCH` 且均无副作用。成功请求原子设置 `status=DELETED`、`payloadState=RELEASING`、递增 version、撤销活动运行、写审计并调度 GAME OwnerCleanup，返回 202；同 key稳定重放原响应，不同 key 在墓碑已存在时返回 200。释放完成后 `payloadState=RELEASED`，内容、媒体、存档和运行 payload 被退休并清除读取关系，Game 及文字 Metadata/Content/Variant/Review/Audit/Play/Launch/Favorite/Tag 行保留。可执行游戏库、搜索、推荐和启动过滤该游戏；最近游玩、收藏及历史投影返回 `{gameId,title,status:'DELETED',coverUrl:null,availability:'DELETED'}`，收藏只允许移除。该游戏退休文件立即进入候选，由异步任务删除；其他游戏的独立文件保持可用；删除和释放重试均幂等。
-- 证据：两种来源的影响摘要/digest、四类 DELETE 响应与幂等记录、OwnerCleanup/后台删除 Job 和审计、运行撤销、各可执行/关系入口 DTO、容量前后对比及当前 UI 截图。
+- 通过标准：影响摘要精确覆盖内容、媒体、存档、运行时、来源文字关联和 Game 自身持有的独立文件数与容量；影响变化导致 digest/version 409，错误标题返回 `422 GAME_DELETE_CONFIRMATION_MISMATCH` 且均无副作用。成功请求原子设置 `status=DELETED`、`payloadState=RELEASING`、递增 version、撤销活动运行、写审计并调度 GAME OwnerCleanup，返回 202；同 key稳定重放原响应，不同 key 在墓碑已存在时返回 200。释放完成后 `payloadState=RELEASED`，内容、媒体、存档和运行 payload 被退休并清除读取关系，Game 及文字 Metadata/Content/Variant/Review/Audit/Play/Launch/Favorite/Tag 行保留。可执行游戏库、搜索、推荐和启动过滤该游戏；最近游玩、收藏及历史投影返回 `{gameId,title,status:'DELETED',coverUrl:null,availability:'DELETED'}`，收藏只允许移除。该游戏目录由异步任务删除；其他游戏的独立文件保持可用；删除和释放重试均幂等。
+- 证据：两种来源的影响摘要/digest、四类 DELETE 响应与幂等记录、OwnerCleanup/后台删除 Job 和审计、运行撤销、各可执行/关系入口 DTO、目录清理前后证据及当前 UI 截图。
 
 ## 10. 导入、刮削与审核
 
@@ -613,7 +604,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-002`。
 - 流程：先用“选择目录”打开应用内 Dialog，覆盖目录句柄浏览、递归相对路径、摘要确认、系统选择取消、Dialog 取消/Escape、焦点恢复，以及目录句柄 API 不可用时的 `webkitdirectory` 回退；再将 `gba-smoke.zip` 上传到 Arcade 目录，令它完成安全扫描但以 `ARCADE_MACHINE_NOT_FOUND` 拒绝；以新 UploadSession 把相同 bytes 导入 GBA 目录，验证复用同一 Archive Blob/Entry 并将 Unicode `.gba` member 一次性物化。另导入固定 DOS 目录到审核；检查两份 READY ImportItemCoreValidation，再分别 approve 并读取发布实体。
-- 通过标准：本地目录的产品确认只在 Retrom Dialog 内完成，Chrome / Edge 的目录句柄路径不触发“上传 N 个文件到此网站”的浏览器二次确认；Brave 未开放该 API 时自动回退 `webkitdirectory` 并允许其原生安全确认。两条路径中未确认文件都不进入配置步骤，Dialog 都保留以根目录开头的相对路径并满足焦点圈定与返回焦点；第一批次不物化无需的 member；第二批次不重复 ArchiveEntry，`materialized_blob_id` 只从 NULL 提升一次，物化 Blob 的 size/四种 hash 等于 entry/fixtures manifest，尝试改回 NULL、替换 Blob 或修改 entry hash 均被数据库拒绝。审核前 DOS 目录形成可追溯 source manifest/程序候选和确定性 ValidationFile，GBA 原 ZIP Blob/ArchiveEntry 保留，且没有提前创建 GameFiles。Approve 后 GameFiles 的 DOS_SOURCE/CONTENT 与来源 pair 正确，GameVariant 直接引用 GameFiles并复制已验证派生文件；浏览器启动不临时猜 ZIP 入口，审批事务不读 archive/重新打包。
+- 通过标准：本地目录的产品确认只在 Retrom Dialog 内完成，Chrome / Edge 的目录句柄路径不触发“上传 N 个文件到此网站”的浏览器二次确认；Brave 未开放该 API 时自动回退 `webkitdirectory` 并允许其原生安全确认。两条路径中未确认文件都不进入配置步骤，Dialog 都保留以根目录开头的相对路径并满足焦点圈定与返回焦点；第一批次不物化无需的 member；第二批次不重复 ArchiveEntry，`materialized_file_record` 只从 NULL 提升一次，物化 Blob 的 size/四种 hash 等于 entry/fixtures manifest，尝试改回 NULL、替换 Blob 或修改 entry hash 均被数据库拒绝。审核前 DOS 目录形成可追溯 source manifest/程序候选和确定性 ValidationFile，GBA 原 ZIP Blob/ArchiveEntry 保留，且没有提前创建 GameFiles。Approve 后 GameFiles 的 DOS_SOURCE/CONTENT 与来源 pair 正确，GameVariant 直接引用 GameFiles并复制已验证派生文件；浏览器启动不临时猜 ZIP 入口，审批事务不读 archive/重新打包。
 - 证据：审核前 Item/Validation/ValidationFile，发布后的 GameFiles 文件表、来源 archive/entry 与物化 Blob hash、实际 GameVariant 对 GameFiles 的引用。
 
 Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器来源交接导入原始 `.SMD`/`.BIN` 与 ZIP 内唯一 `.SMD`/`.BIN`，均应进入 `genesis_plus_gx` 的普通审核且逻辑文件名、内容 SHA-256 保持不变。content profile 单测同时覆盖 `.smd`/`.bin` 大小写、ZIP/7z 策略与 `.md`/`.smd`/`.bin` 多候选拒绝；此确定性回归只证明导入规则与内容保真，不替代实际 Player 的核心运行验证。
@@ -1163,8 +1154,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
-- 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理、`/admin/bios` 和 `/admin/storage`；在新建导入配置中展开目标目录类型分组、跨分组搜索核心并确认目录和推荐运行方式；另断言已移除的 `/admin/bios/dats` 返回 404。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段、BIOS hash 和容量六类不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖只显示 BIOS 管理，旧 `?tab=rpgmaker` 地址不恢复运行包安装入口；底部核心诊断可展开读取。 BIOS 两个范围来回切换后，tab 容器左边界及宽度的变化均不超过 1px，覆盖短列表无滚动条和长列表有滚动条。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备；容量分析紧跟运行依赖，统计范围说明保持只读，立即清理只作用于未引用类别并经危险确认。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“平台类型—游戏目录—游戏平台—扩展名—游戏数—推荐运行方式”排列，平台类型与导入目标目录菜单一致，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；在新建导入配置中展开目标目录类型分组、跨分组搜索核心并确认目录和推荐运行方式；另断言已移除的 `/admin/bios/dats` 返回 404。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段、BIOS hash不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖只显示 BIOS 管理，旧 `?tab=rpgmaker` 地址不恢复运行包安装入口；底部核心诊断可展开读取。 BIOS 两个范围来回切换后，tab 容器左边界及宽度的变化均不超过 1px，覆盖短列表无滚动条和长列表有滚动条。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“平台类型—游戏目录—游戏平台—扩展名—游戏数—推荐运行方式”排列，平台类型与导入目标目录菜单一致，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 #### 全站圆角的视觉复核
@@ -1260,7 +1251,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-004`。
 - 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一 Launch cookie 和过期 cookie。
-- 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 Blob ID、原始路径或 capability。
+- 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 内部文件记录、原始路径或 capability。
 - 证据：发布 GameVariant/validation snapshot、Launch/config、内容响应摘要、授权负向和独立文件存储 hash 对照。
 
 ### ACC-MDISC-005：双盘发布与 Provider 换盘契约
@@ -1392,7 +1383,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 ### ACC-MOB-004：手机管理访问边界
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-004`。
-- 流程：ADMIN 在竖屏手机依次直达导入、任务、审核、游戏、目录、用户、BIOS、容量路由，再验证 `844×390` 横屏及 resize 到桌面；USER 权限由应用壳组件回归覆盖。
+- 流程：ADMIN 在竖屏手机依次直达导入、任务、审核、游戏、目录、用户、BIOS 路由，再验证 `844×390` 横屏及 resize 到桌面；USER 权限由应用壳组件回归覆盖。
 - 通过标准：手机显示“请在电脑上管理游戏库”和返回游戏库入口，不挂载管理表单、输入和表格；三项导航仍可用，横屏不会恢复后台。非手机视口恢复当前路由原管理界面；USER 仍为应用级 403，API 权限没有改变。
 - 证据：路由/DOM/resize trace、返回路径与角色隔离组件断言。手机不再承担导入、审核、用户和依赖的完整管理操作验收；桌面管理仍由 ACC-UI-006 负责。
 
@@ -1888,7 +1879,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | --- | --- |
 | 工程质量与回归 | `ACC-QA-001`–`003` |
 | 镜像、本地开发、PFB、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case）、`ACC-PFB-001`–`012` |
-| SQLite、独立文件存储、容量、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`–`002`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
+| SQLite、领域目录、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-002`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`010` |

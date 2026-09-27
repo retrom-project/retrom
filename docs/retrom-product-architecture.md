@@ -157,7 +157,7 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-统一导入、审核只在可重试/待决期间持有自己的 ROM、媒体、预览和 provider 证据。ImportItem 发布将选定内容和媒体交给 Game；终态只清理剩余 Item 文件。Game 永久删除保留墓碑和审计，异步清理其独占内容、媒体、存档与运行关系。各领域明确退休文件，通用 OWNER_CLEANUP/FILE_DELETE 处理有界清理、租约和失败重试，不维护公共引用计数、保护图或跨游戏物理共享。
+统一导入、审核只在可重试/待决期间持有自己的 ROM、媒体、预览和 provider 证据。ImportItem 发布将选定内容和媒体交给 Game；终态只清理剩余 Item 文件。Game 永久删除保留墓碑和审计，异步清理其独占内容、媒体、存档与运行关系。各领域提交目录清理意图，通用 OWNER_CLEANUP/PATH_DELETE 处理有界清理、租约和失败重试，不维护公共引用计数、保护图或跨游戏物理共享。
 
 ### 3.13 沉浸模式是独立电视交互面
 
@@ -223,7 +223,7 @@ flowchart LR
 - 所有页面经同源认证入口；匿名用户只能访问初始化、登录、邀请注册和密码重置页面，普通用户不能访问管理 API。
 - 两个应用只监听明文 HTTP；生产环境只向受信容器/主机网络开放，由前置 NG 终结 TLS 并提供 HTTPS。
 - ROM、BIOS、parent 与多盘文件只通过短时 Launch content grant 授权的同源 `/runtime/content/` 端点提供；
-  URL 携带不可变内容身份，替换任一输入必须换 URL，但不暴露宿主路径或内部 Blob ID。SaveState 与截图继续
+  URL 携带不可变内容身份，替换任一输入必须换 URL，但不暴露宿主路径或内部文件记录。SaveState 与截图继续
   通过 Profile/Launch 限定的逻辑 ID 私有 no-store 端点提供。
 - NG 必须让页面、EmulatorJS 与受控内容端点保持同源，并保留/设置正确的 COOP/COEP/CORP 响应头；DOSBox Pure 等线程模式依赖该安全上下文。
 - MV/MZ 项目 JavaScript 必须运行在每个 Launch 唯一且与应用不同源的 runtime origin；该 origin 只有固定 `/__retrom/*` allowlist，应用 cookie 为 host-only，游戏不能访问主应用 DOM、cookie、API 或任意外网。
@@ -363,7 +363,6 @@ erDiagram
 - 游戏目录
 - 用户管理
 - 运行依赖（BIOS 文件；Arcade DAT 由 release 自动管理）
-- 容量分析（紧跟运行依赖；分析已登记独立文件存储 payload 用途，并允许 ADMIN 显式推进已退休文件的既有 后台删除，不表示卷空间）
 
 “游戏入库”是可点击的父级总览；五个子项使用明确缩进并保持同级，其中“本地扫描”位于“导入游戏”之后、“任务进度”之前并进入服务器 BIOS 导入能力。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
 
@@ -383,7 +382,6 @@ erDiagram
 | 游戏目录 | `/admin/platform-instances` |
 | 用户管理 | `/admin/users` |
 | 运行依赖 | `/admin/bios` |
-| 容量分析 | `/admin/storage` |
 
 完整页面状态、4K 密度和响应式上限见 [UI 与交互规范](./ui-specification.md)。
 

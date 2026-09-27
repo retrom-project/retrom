@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestReviewBulkPublicationAndProgressCommitTogether(t *testing.T) {
+func TestReviewBulkResumesProgressAfterGamePublication(t *testing.T) {
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "atomic-bulk", "bulk transaction content", 1)
 	itemID := created.Items[0].ItemID
@@ -34,7 +34,8 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	}
 	const workerID = "bulk-worker"
 	err = librarypersistence.NewTransactions(fixture.database).Write(fixture.ctx, func(executor dbapi.Executor) error {
-		_, _, claimErr := librarypersistence.BindReviewBulkWorker(executor).Claim(fixture.ctx, bulkID, workerID, time.Now().UnixMilli())
+		_, _, claimErr := librarypersistence.BindReviewBulkWorker(executor).Claim(fixture.ctx,
+			bulkID, workerID, time.Now().UnixMilli())
 		return claimErr
 	})
 	if err != nil {
@@ -49,18 +50,16 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	}
 	ctx := authn.WithPrincipal(fixture.ctx, authn.Principal{UserID: actorID, ProfileID: profileID, Role: "ADMIN"})
 	approve := func(worker string) error {
-		return librarypersistence.NewReviewApprovals(fixture.database).WithBulkApprovalStep(ctx,
-			func(_ dbapi.Executor, scope application.ReviewApprovalScope) error {
-				_, approveErr := fixture.service.reviewApprovals().ApproveInScope(ctx, scope, application.ReviewApprovalRequest{
-					ItemID: itemID, ExpectedVersion: version,
-					Bulk: &application.BulkPublicationIntent{
-						BulkID: bulkID, JobID: jobID, WorkerID: worker,
-						ValidationID: validationID, SourceSnapshotID: snapshotID,
-					},
-				})
-				return approveErr
-			})
+		_, err := fixture.service.reviewApprovals().Approve(ctx, application.ReviewApprovalRequest{
+			ItemID: itemID, ExpectedVersion: version,
+			Bulk: &application.BulkPublicationIntent{
+				BulkID: bulkID, JobID: jobID, WorkerID: worker,
+				ValidationID: validationID, SourceSnapshotID: snapshotID,
+			},
+		})
+		return err
 	}
+
 	if err := approve("stale-worker"); err == nil {
 		t.Fatal("stale worker published item")
 	}
@@ -81,7 +80,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		Scan(&games, &published, &scanned); err != nil {
 		t.Fatal(err)
 	}
-	if games != 1 || published != 1 || scanned != 1 {
+	if games != 1 || published != 0 || scanned != 0 {
 		t.Fatalf("commit games=%d published=%d scanned=%d", games, published, scanned)
 	}
 	fixture.service.ResumeReviewBulkJobs(context.WithoutCancel(ctx))
@@ -118,7 +117,8 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	bulkID, jobID := uuid.NewString(), uuid.NewString()
 	createdAt := time.Now().UnixMilli()
 	err := librarypersistence.NewTransactions(fixture.database).Write(fixture.ctx, func(executor dbapi.Executor) error {
-		_, createErr := librarypersistence.BindReviewBulkWrites(executor).CreateGlobal(fixture.ctx, bulkID, jobID, actorID, createdAt)
+		_, createErr := librarypersistence.BindReviewBulkWrites(executor).CreateGlobal(fixture.ctx,
+			bulkID, jobID, actorID, createdAt)
 		return createErr
 	})
 	if err != nil {

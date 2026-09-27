@@ -13,7 +13,8 @@ func TestValidationWorkerCommitsOnceAndJoinsMonitor(t *testing.T) {
 	if err := worker.Run(t.Context(), "job"); err != nil {
 		t.Fatal(err)
 	}
-	if repository.work.State != "SUCCEEDED" || repository.work.Attempt != 1 || repository.variants != 1 || !reflect.DeepEqual(repository.events, []string{"STARTED", "SUCCEEDED"}) {
+	if repository.work.State != "SUCCEEDED" || repository.work.Attempt != 1 ||
+		repository.variants != 1 || !reflect.DeepEqual(repository.events, []string{"STARTED", "SUCCEEDED"}) {
 		t.Fatalf("unexpected result: %+v", repository)
 	}
 	if repository.terminal.Code != "READY" {
@@ -53,7 +54,8 @@ func TestValidationWorkerChangedInputsCancelWithoutVariantWrites(t *testing.T) {
 	worker, repository, _ := newValidationTestWorker(t)
 	repository.facts.Content.Source.GameVersion++
 	validationTestCause(t, worker.Run(t.Context(), "job"), ErrValidationGameChanged)
-	if repository.work.State != "CANCELLED" || repository.terminal.Code != "GAME_STATE_CHANGED" || repository.terminal.Retryable || repository.variants != 0 {
+	if repository.work.State != "CANCELLED" || repository.terminal.Code != "GAME_STATE_CHANGED" ||
+		repository.terminal.Retryable || repository.variants != 0 {
 		t.Fatalf("unexpected cancellation: %+v", repository.terminal)
 	}
 }
@@ -92,7 +94,8 @@ func TestValidationWorkerRecoveryExhaustionIsIdempotent(t *testing.T) {
 			t.Fatalf("recovery: %v %v", ids, err)
 		}
 	}
-	if repository.work.State != "FAILED" || !reflect.DeepEqual(repository.events, []string{"FAILED"}) || *repository.work.DeadlineMS != deadline {
+	if repository.work.State != "FAILED" || !reflect.DeepEqual(repository.events,
+		[]string{"FAILED"}) || *repository.work.DeadlineMS != deadline {
 		t.Fatal("expired execution revived")
 	}
 }
@@ -155,7 +158,12 @@ func TestValidationWorkerCallerCancellationPreservesCause(t *testing.T) {
 	worker, repository, ticker := newValidationTestWorker(t)
 	cause := errors.New("server shutdown")
 	ctx, cancel := context.WithCancelCause(t.Context())
-	repository.readFacts = func(ctx context.Context) (ValidationFacts, error) { cancel(cause); return ValidationFacts{}, ctx.Err() }
+	repository.readFacts = func(ctx context.Context) (ValidationFacts,
+		error,
+	) {
+		cancel(cause)
+		return ValidationFacts{}, ctx.Err()
+	}
 	validationTestCause(t, worker.Run(ctx, "job"), cause)
 	if repository.work.State != "FAILED" || !repository.terminal.Retryable {
 		t.Fatal("cancelled attempt did not close retryably")
@@ -183,7 +191,12 @@ func TestValidationWorkerDoesNotGenerateIdentityForFutureWork(t *testing.T) {
 func TestValidationWorkerFinalVariantVersionRejectsManualChanges(t *testing.T) {
 	worker, repository, _ := newValidationTestWorker(t)
 	before := repository.facts
-	repository.readFacts = func(context.Context) (ValidationFacts, error) { repository.facts.VariantVersion++; return before, nil }
+	repository.readFacts = func(context.Context) (ValidationFacts,
+		error,
+	) {
+		repository.facts.VariantVersion++
+		return before, nil
+	}
 	validationTestCause(t, worker.Run(t.Context(), "job"), ErrValidationGameChanged)
 	if repository.variants != 0 || repository.work.State != "CANCELLED" {
 		t.Fatal("manual variant change overwritten")
@@ -195,7 +208,8 @@ func TestValidationWorkerFinalWriteRollsBackWithCompletionEvent(t *testing.T) {
 	cause := errors.New("completion event unavailable")
 	repository.finishError = cause
 	validationTestCause(t, worker.Run(t.Context(), "job"), cause)
-	if repository.variants != 0 || repository.work.State != "RUNNING" || !reflect.DeepEqual(repository.events, []string{"STARTED"}) {
+	if repository.variants != 0 || repository.work.State != "RUNNING" ||
+		!reflect.DeepEqual(repository.events, []string{"STARTED"}) {
 		t.Fatal("completion event failure retained variant or terminal writes")
 	}
 }

@@ -16,7 +16,9 @@ import (
 
 type failingPublicationRepository struct{ gamecontent.Repository }
 
-func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
+func (repository failingPublicationRepository) WithWrite(ctx context.Context,
+	work func(gamecontent.WriteScope) error,
+) error {
 	return repository.Repository.WithWrite(ctx, func(scope gamecontent.WriteScope) error {
 		scope.ContentWriter = failingPublicationWriter{scope.ContentWriter}
 		return work(scope)
@@ -32,13 +34,14 @@ func (writer failingPublicationWriter) Publish(ctx context.Context, value gameco
 	return context.DeadlineExceeded
 }
 
-func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *filestore.Store, uploadService *uploads.Service,
-	releases *cleanupjobs.Service, gameID string, version int64, blobID, saveID string,
+func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *filestore.Store,
+	uploadService *uploads.Service,
+	releases *cleanupjobs.Service, gameID string, version int64, fileRecord, saveID string,
 ) {
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
 	repository := failingPublicationRepository{New(database)}
-	service := gamecontent.New(repository, time.Now).WithFileStore(blobs).WithCleanup(releases).WithDeletionStager(releases)
+	service := gamecontent.New(repository, time.Now).WithFileStore(blobs).WithCleanup(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +50,7 @@ func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *files
 	var currentVersion int64
 	var currentBlob string
 	var saves, successes int
-	err = dbapi.QueryRowContext(t.Context(), database, `SELECT g.version,f.blob_id,
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT g.version,f.file_record,
  (SELECT count(*) FROM save_states WHERE id=?),
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='SUCCEEDED')
  FROM games g JOIN game_files f ON f.game_id=g.id WHERE g.id=? ORDER BY f.sort_order LIMIT 1`,
@@ -55,7 +58,8 @@ func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *files
 	if err != nil {
 		t.Fatal(err)
 	}
-	if currentVersion != version || currentBlob != blobID || saves != 1 || successes != 0 {
-		t.Fatalf("partial replacement escaped rollback: version=%d blob=%s saves=%d successes=%d", currentVersion, currentBlob, saves, successes)
+	if currentVersion != version || currentBlob != fileRecord || saves != 1 || successes != 0 {
+		t.Fatalf("partial replacement escaped rollback: version=%d blob=%s saves=%d successes=%d",
+			currentVersion, currentBlob, saves, successes)
 	}
 }

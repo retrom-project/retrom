@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -31,24 +30,18 @@ updated_at_ms
 func (records reviewApprovalRecords) CopySourceFiles(
 	ctx context.Context, source application.ApprovalContentCopy,
 ) error {
-	if err := fileownership.TransferSelected(
-		ctx,
-		records.transaction,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: source.ItemID},
-		fileownership.Owner{Kind: "GAME", ID: source.GameID},
-		`SELECT blob_id FROM import_item_source_snapshot_files WHERE source_snapshot_id=?`,
-		source.SnapshotID,
-	); err != nil {
-		return fmt.Errorf("review approve game: %w", err)
-	}
 	result, err := recordstore.CreateGameFiles(ctx, records.transaction, `
-INSERT INTO game_files(game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,
+INSERT INTO game_files(game_id,role,logical_name,file_record,source_archive_file_record,
+source_archive_entry_ordinal,
 sort_order)
-SELECT ?,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,
+SELECT ?,role,logical_name,json_set(file_record,'$.path',
+ 'files/' || substr(?,-2) || '/' || ? || '/' || substr(json_extract(file_record,'$.path'),
+length('staging/items/' || ? || '/payload/')+1)),
+NULL,NULL,
 sort_order
 FROM import_item_source_snapshot_files WHERE source_snapshot_id=? ORDER BY sort_order,
 role,logical_name`,
-		source.GameID, source.SnapshotID)
+		source.GameID, source.GameID, source.GameID, source.ItemID, source.SnapshotID)
 	return approvalMutation(result, err, "copy approved source files", false)
 }
 
@@ -85,21 +78,11 @@ UPDATE games SET content_profile_json=? WHERE id=? AND content_kind='RPG_MAKER_P
 }
 
 func (records reviewApprovalRecords) CreateAsset(ctx context.Context, asset application.ApprovalAsset) error {
-	if err := fileownership.Transfer(
-		ctx,
-		records.transaction,
-		asset.BlobID,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: asset.ItemID},
-		fileownership.Owner{Kind: "GAME", ID: asset.GameID},
-	); err != nil {
-		return fmt.Errorf("review approve game: %w", err)
-	}
-
 	result, err := recordstore.CreateGameAssets(ctx, records.transaction, `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,
 created_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?)`,
-		asset.ID, asset.GameID, asset.BlobID, asset.Kind, asset.Ordinal, asset.WidthPX, asset.HeightPX,
+		asset.ID, asset.GameID, asset.FileRecord, asset.Kind, asset.Ordinal, asset.WidthPX, asset.HeightPX,
 		asset.MediaType, asset.NowMS)
 	return approvalMutation(result, err, "insert approved asset", true)
 }

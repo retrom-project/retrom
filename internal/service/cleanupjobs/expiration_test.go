@@ -21,11 +21,15 @@ type expirationMemory struct {
 	fail      error
 }
 
-func (memory *expirationMemory) WithProviderExpiration(_ context.Context, run func(jobs.ProviderExpirationScope) error) error {
+func (memory *expirationMemory) WithProviderExpiration(_ context.Context,
+	run func(jobs.ProviderExpirationScope) error,
+) error {
 	return run(jobs.ProviderExpirationScope{Read: memory, Write: memory})
 }
 
-func (memory *expirationMemory) WithPreviewExpiration(_ context.Context, run func(jobs.PreviewExpirationScope) error) error {
+func (memory *expirationMemory) WithPreviewExpiration(_ context.Context,
+	run func(jobs.PreviewExpirationScope) error,
+) error {
 	return run(jobs.PreviewExpirationScope{Read: memory, Write: memory})
 }
 
@@ -59,11 +63,11 @@ func TestExpirationServiceOwnsPreviewPolicy(t *testing.T) {
 			t.Parallel()
 			memory := &expirationMemory{previews: []jobs.PreviewExpiration{{
 				ID: "preview", State: state, Version: 1, BootstrapExpiresMS: 5, HardExpiresMS: 10,
-				CheckpointBlobID: "checkpoint", RestoreBlobID: "restore",
+				CheckpointFileRecord: "checkpoint", RestoreFileRecord: "restore",
 			}}}
 			service := previewservice.New(memory, memory, func() time.Time { return time.UnixMilli(10) })
 			count, err := service.PreviewBatch(t.Context())
-			if err != nil || count != 1 || len(memory.expired) != 1 || len(memory.staged) != 2 {
+			if err != nil || count != 1 || len(memory.expired) != 1 || len(memory.staged) != 0 {
 				t.Fatalf("expire %s: count=%d writes=%v staged=%v err=%v", state, count, memory.expired, memory.staged, err)
 			}
 			want := "EXPIRED"
@@ -100,7 +104,7 @@ func TestExpirationReturnsNoSuccessWhenGCStagingFails(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("stage expired response failed")
 	memory := &expirationMemory{providers: []jobs.ProviderExpiration{{
-		ID: "response", BlobID: "payload", State: "RETAINED", ExpiresMS: 10,
+		ID: "response", FileRecord: "payload", State: "RETAINED", ExpiresMS: 10,
 	}}, fail: cause}
 	service := provider.New(memory, memory, func() time.Time { return time.UnixMilli(10) })
 	count, err := service.ProviderBatch(t.Context())

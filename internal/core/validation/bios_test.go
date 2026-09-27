@@ -50,10 +50,13 @@ func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *tes
 		CanonicalPlaylistSHA256: strings64("e"),
 	}
 	first, err := MultiDiscValidationInputDigest(input)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(first) != 64 }), "MultiDiscValidationInputDigest() = %q, %v", first, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(first) != 64 }), "MultiDiscValidationInputDigest() = %q, %v", first, err)
 	input.OrderedDiscSHA256[0], input.OrderedDiscSHA256[1] = input.OrderedDiscSHA256[1], input.OrderedDiscSHA256[0]
 	second, err := MultiDiscValidationInputDigest(input)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first == second }), "ordered digest did not change: first=%q second=%q err=%v", first, second, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return first == second }),
+		"ordered digest did not change: first=%q second=%q err=%v", first, second, err)
 }
 
 func TestValidationDigestsUseStableProviderTargetIdentity(t *testing.T) {
@@ -106,7 +109,11 @@ func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 	encoded, err := snapshot.JSON()
 	testassert.False(t, err != nil, err)
 	parsed, err := ParseSnapshot(string(encoded))
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return parsed.MultiDisc == nil }, func() bool { return parsed.MultiDisc.DiscCount != 3 }, func() bool { return len(parsed.MultiDisc.MissingEntries) != 1 }), "ParseSnapshot() = %#v, error=%v", parsed, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return parsed.MultiDisc == nil },
+		func() bool { return parsed.MultiDisc.DiscCount != 3 },
+		func() bool { return len(parsed.MultiDisc.MissingEntries) != 1 }),
+		"ParseSnapshot() = %#v, error=%v", parsed, err)
 	for _, raw := range []string{
 		`{"schemaVersion":1,"kind":"STATIC","bios":[],"multiDisc":{"discCount":1,"missingEntries":[]}}`,
 		`{"schemaVersion":1,"kind":"STATIC","bios":[],"multiDisc":{"discCount":2,"missingEntries":[{"ordinal":2,"sourceReference":"x","normalizedReference":"x"}]}}`,
@@ -120,13 +127,18 @@ func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 
 func TestParseRuntimeBIOSDependenciesAcceptsStaticAndArcadeSnapshots(t *testing.T) {
 	t.Parallel()
-	static := `{"schemaVersion":1,"kind":"STATIC","bios":[{"requirementId":"bios","requirementVersion":1,"catalogDigest":"digest","logicalName":"bios.bin","requirementMode":"REQUIRED","conditionCode":null,"deliveryKind":"EXTERNAL_FILE","emulatorPath":"/bios.bin","activationOptions":{},"installationId":"installation","installationVersion":1,"blobId":"blob","installationStatus":"MATCHED"}]}`
+	static := `{"schemaVersion":1,"kind":"STATIC","bios":[{"requirementId":"bios","requirementVersion":1,"catalogDigest":"digest","logicalName":"bios.bin","requirementMode":"REQUIRED","conditionCode":null,"deliveryKind":"EXTERNAL_FILE","emulatorPath":"/bios.bin","activationOptions":{},"installationId":"installation","installationVersion":1,"fileRecord":"blob","installationStatus":"MATCHED"}]}`
 	dependencies, err := ParseRuntimeBIOSDependencies(static)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(dependencies) != 1 }, func() bool { return dependencies[0].LogicalName != "bios.bin" }), "ParseRuntimeBIOSDependencies(static) = %#v, error=%v", dependencies, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(dependencies) != 1 },
+		func() bool { return dependencies[0].LogicalName != "bios.bin" }),
+		"ParseRuntimeBIOSDependencies(static) = %#v, error=%v", dependencies, err)
 
 	arcade := `{"schemaVersion":1,"kind":"ARCADE","machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"deco32","state":"SATISFIED_EXTERNAL","requiredEntries":["mb7124h.16r"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`
 	dependencies, err = ParseRuntimeBIOSDependencies(arcade)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(dependencies) != 0 }), "ParseRuntimeBIOSDependencies(arcade) = %#v, error=%v", dependencies, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(dependencies) != 0 }),
+		"ParseRuntimeBIOSDependencies(arcade) = %#v, error=%v", dependencies, err)
 }
 
 func TestParseRuntimeBIOSDependenciesRejectsMalformedSnapshots(t *testing.T) {

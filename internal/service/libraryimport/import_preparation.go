@@ -103,11 +103,11 @@ func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *Pr
 
 type preparationArtifactBlobs struct{ store *filestore.Store }
 
-func (blobs preparationArtifactBlobs) OpenID(digest string) (io.ReadCloser, error) {
+func (blobs preparationArtifactBlobs) OpenRecord(digest string) (io.ReadCloser, error) {
 	if blobs.store == nil {
 		return nil, ErrInvalid
 	}
-	file, err := blobs.store.OpenID(digest)
+	file, err := blobs.store.OpenRecord(digest)
 	if err != nil {
 		return nil, fmt.Errorf("open prepared artifact source: %w", err)
 	}

@@ -93,16 +93,14 @@ describe("AppShell", () => {
       .toEqual(["游戏入库", "导入游戏", "本地扫描", "任务进度"]);
   });
 
-  it("places storage analysis directly after runtime dependencies and marks it active", () => {
-    shellState.pathname = "/admin/storage";
+  it("marks runtime dependencies as the final admin navigation entry", () => {
+    shellState.pathname = "/admin/bios";
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     render(<AppShell><div>页面内容</div></AppShell>);
-
     const navigation = screen.getByRole("navigation", { name: "主要导航" });
     const links = Array.from(navigation.querySelectorAll("a"));
-    const labels = links.map((link) => link.textContent);
-    expect(labels.slice(-2)).toEqual(["运行依赖", "容量分析"]);
-    expect(within(navigation).getByRole("link", { name: "容量分析" })).toHaveAttribute("aria-current", "page");
+    expect(links.at(-1)?.textContent).toBe("运行依赖");
+    expect(within(navigation).getByRole("link", { name: "运行依赖" })).toHaveAttribute("aria-current", "page");
   });
 
   it("offers recent games without a multiplayer entry", () => {

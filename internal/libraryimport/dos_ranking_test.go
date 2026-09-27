@@ -22,20 +22,32 @@ func TestDOSRankingPromotesGameAfterInteractiveLauncherHelper(t *testing.T) {
 
 	rankDOSEntries(entries)
 
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "PAL/PAL.EXE" }, func() bool { return entries[0].Rank != 0 }, func() bool { return !entries[0].InferredTerminalTarget }), "interactive launcher default = %#v", entries)
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[1].Path != "PAL/PLAY.BAT" }, func() bool { return entries[2].Path != "PAL/INSTALL.EXE" }, func() bool { return entries[3].Path != "PAL/JS3.EXE" }), "interactive launcher candidates = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "PAL/PAL.EXE" },
+		func() bool { return entries[0].Rank != 0 },
+		func() bool { return !entries[0].InferredTerminalTarget }),
+		"interactive launcher default = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[1].Path != "PAL/PLAY.BAT" },
+		func() bool { return entries[2].Path != "PAL/INSTALL.EXE" },
+		func() bool { return entries[3].Path != "PAL/JS3.EXE" }),
+		"interactive launcher candidates = %#v", entries)
 }
 
 func TestDOSRankingKeepsLauncherWhenBatchHasNoInteractiveHelper(t *testing.T) {
 	t.Parallel()
 	entries := []preparedDOSEntry{
-		{Path: "GAME/PLAY.BAT", Kind: "BAT", Safe: true, BatchContents: []byte("@echo off\r\nSET BLASTER=A220 I7 D1\r\nMAIN.EXE\r\n")},
+		{
+			Path: "GAME/PLAY.BAT", Kind: "BAT", Safe: true,
+			BatchContents: []byte("@echo off\r\nSET BLASTER=A220 I7 D1\r\nMAIN.EXE\r\n"),
+		},
 		{Path: "GAME/MAIN.EXE", Kind: "EXE", Safe: true},
 	}
 
 	rankDOSEntries(entries)
 
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "GAME/PLAY.BAT" }, func() bool { return entries[0].Rank != 0 }, func() bool { return entries[1].InferredTerminalTarget }), "non-interactive launcher default = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "GAME/PLAY.BAT" },
+		func() bool { return entries[0].Rank != 0 },
+		func() bool { return entries[1].InferredTerminalTarget }),
+		"non-interactive launcher default = %#v", entries)
 }
 
 func TestDOSRankingFailsClosedForConditionalUnknownAndOversizedBatch(t *testing.T) {
@@ -53,7 +65,10 @@ func TestDOSRankingFailsClosedForConditionalUnknownAndOversizedBatch(t *testing.
 				{Path: "PAL/PAL.EXE", Kind: "EXE", Safe: true},
 			}
 			rankDOSEntries(entries)
-			testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "PAL/PLAY.BAT" }, func() bool { return entries[1].InferredTerminalTarget }, func() bool { return entries[2].InferredTerminalTarget }), "%s batch was inferred: %#v", name, entries)
+			testassert.Falsef(t,
+				testassert.Any(func() bool { return entries[0].Path != "PAL/PLAY.BAT" },
+					func() bool { return entries[1].InferredTerminalTarget },
+					func() bool { return entries[2].InferredTerminalTarget }), "%s batch was inferred: %#v", name, entries)
 		})
 	}
 }
@@ -74,11 +89,13 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 		metadata, putErr := blobs.Put(bytes.NewReader(contents))
 		testassert.False(t, putErr != nil, putErr)
 		directorySources = append(directorySources, importSourceFile{
-			ID: path, Path: path, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: path, Path: path, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	_, directoryGroups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", directorySources)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(directoryGroups) != 1 }, func() bool { return directoryGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }), "directory DOS default = %#v", directoryGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(directoryGroups) != 1 },
+		func() bool { return directoryGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }),
+		"directory DOS default = %#v", directoryGroups)
 
 	var archive bytes.Buffer
 	writer := zip.NewWriter(&archive)
@@ -95,9 +112,11 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 	archiveMetadata, err := blobs.Put(bytes.NewReader(archive.Bytes()))
 	testassert.False(t, err != nil, err)
 	archiveSource := importSourceFile{
-		ID: "archive", Path: "pal.zip", BlobID: archiveMetadata.ID, SHA256: archiveMetadata.SHA256,
+		ID: "archive", Path: "pal.zip", FileRecord: archiveMetadata.Record, SHA256: archiveMetadata.SHA256,
 		Size: archiveMetadata.Size,
 	}
 	_, archiveGroups, _ := service.prepareDOSFiles(context.Background(), "FILES", []importSourceFile{archiveSource})
-	testassert.Falsef(t, testassert.Any(func() bool { return len(archiveGroups) != 1 }, func() bool { return archiveGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }), "ZIP DOS default = %s / %#v", fmt.Sprint(len(archiveGroups)), archiveGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(archiveGroups) != 1 },
+		func() bool { return archiveGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }),
+		"ZIP DOS default = %s / %#v", fmt.Sprint(len(archiveGroups)), archiveGroups)
 }

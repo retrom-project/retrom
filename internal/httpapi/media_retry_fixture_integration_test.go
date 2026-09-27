@@ -17,14 +17,19 @@ import (
 type retryMediaSource struct{}
 
 func (retryMediaSource) FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error) {
-	return hasheous.AssetData{Bytes: []byte("deterministic media"), ReceivedBytes: 18, MediaType: "image/png", Width: 1, Height: 1}, nil
+	return hasheous.AssetData{
+		Bytes: []byte("deterministic media"), ReceivedBytes: 18,
+		MediaType: "image/png", Width: 1, Height: 1,
+	}, nil
 }
 
 type retryMediaProcessor struct {
 	recorder *metadatascrape.ResultRecorder
 }
 
-func (processor retryMediaProcessor) Process(ctx context.Context, claim metadatascrape.WorkerClaim, _ string) (int, string, error) {
+func (processor retryMediaProcessor) Process(ctx context.Context,
+	claim metadatascrape.WorkerClaim, _ string,
+) (int, string, error) {
 	_, err := processor.recorder.Record(ctx, metadatascrape.LookupAttempt{
 		Claim: claim, EvidenceID: "media-evidence", AttemptNo: 1,
 		AllowCandidate: true, Lookup: metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{
@@ -43,26 +48,28 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	database := fixture.server.database
 	now := fixture.now().UnixMilli()
 	gameID := "01980000-0000-7000-8000-000000000191"
-	err := metadatapersistence.NewScheduler(database).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "GAME", ID: gameID},
-			RunID:   "media-run", JobID: "metadata-job", Provider: "HASHEOUS", Dedupe: strings.Repeat("8", 64), PayloadJSON: `{}`,
-			JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: now,
+	err := metadatapersistence.NewScheduler(database).WithWrite(t.Context(),
+		func(scope metadatascrape.ScheduleScope) error {
+			return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
+				Subject: metadatascrape.Subject{Kind: "GAME", ID: gameID},
+				RunID:   "01980000-0000-7000-8000-000000000192", JobID: "metadata-job", Provider: "HASHEOUS", Dedupe: strings.Repeat("8", 64), PayloadJSON: `{}`,
+				JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: now,
+			})
 		})
-	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	validationRetrySQL(t, database, `INSERT INTO content_hash_evidence
  (id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,created_at_ms)
- VALUES('media-evidence','media-run','RAW_FILE','12345678',0,0,?)`, now)
+ VALUES('media-evidence','01980000-0000-7000-8000-000000000192','RAW_FILE','12345678',0,0,?)`, now)
 	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	recorder := metadatascrape.NewRecorder(metadatapersistence.NewRecorder(database), blobs, fixture.now)
-	metadata := metadatascrape.NewWorker(metadatapersistence.NewWorker(database), retryMediaProcessor{recorder}, fixture.now)
-	if err := metadata.Run(t.Context(), "media-run"); err != nil {
+	metadata := metadatascrape.NewWorker(metadatapersistence.NewWorker(database),
+		retryMediaProcessor{recorder}, fixture.now)
+	if err := metadata.Run(t.Context(), "01980000-0000-7000-8000-000000000192"); err != nil {
 		t.Fatal(err)
 	}
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT id FROM jobs WHERE kind='MEDIA_FETCH'`).Scan(&fixture.jobID); err != nil {

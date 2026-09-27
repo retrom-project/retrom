@@ -19,11 +19,12 @@ import (
 func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, release := make(chan struct{}), make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (filestore.Metadata, error) {
-		close(entered)
-		<-release
-		return fixture.blobs.Put(reader)
-	}}, fixture.root, finalizationNow)
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(reader io.Reader) (filestore.Metadata, error) {
+			close(entered)
+			<-release
+			return fixture.blobs.Put(reader)
+		}}, fixture.root, finalizationNow)
 	session := fixture.upload(t, []byte("bytes"))
 	job := fixture.complete(t, session)
 	select {
@@ -49,9 +50,10 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	failure := errors.New("temporary CAS write unavailable")
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (filestore.Metadata, error) {
-		return filestore.Metadata{}, failure
-	}}, fixture.root, finalizationNow)
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(io.Reader) (filestore.Metadata, error) {
+			return filestore.Metadata{}, failure
+		}}, fixture.root, finalizationNow)
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
 	awaitFinalizeState(t, fixture.database, job, "FAILED")
 	var retryable bool
@@ -72,7 +74,8 @@ func TestFinalizationCorruptionRemovesOnlyFailedPart(t *testing.T) {
 		Scan(&key); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(fixture.root, "tmp", "uploads", filepath.FromSlash(key)), []byte("wrong"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(fixture.root, "tmp", "uploads", filepath.FromSlash(key)),
+		[]byte("wrong"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	job := fixture.complete(t, session)

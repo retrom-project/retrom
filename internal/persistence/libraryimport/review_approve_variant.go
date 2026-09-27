@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -35,16 +34,13 @@ updated_at_ms
 func (records reviewApprovalRecords) CopyValidationFiles(
 	ctx context.Context, source application.ApprovalValidationCopy,
 ) error {
-	if err := fileownership.TransferSelected(ctx, records.transaction,
-		fileownership.Owner{Kind: "IMPORT_ITEM", ID: source.ItemID}, fileownership.Owner{Kind: "GAME", ID: source.GameID},
-		`SELECT blob_id FROM import_item_validation_files WHERE import_item_core_validation_id=?
-AND role<>'BIOS_BUNDLE'`, source.ValidationID); err != nil {
-		return fmt.Errorf("review approve variant: %w", err)
-	}
 	result, err := recordstore.CreateVariantFiles(ctx, records.transaction, `
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-SELECT ?,role,logical_name,blob_id,sort_order
-FROM import_item_validation_files WHERE import_item_core_validation_id=?`, source.VariantID, source.ValidationID)
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+SELECT ?,role,logical_name,CASE WHEN role='BIOS_BUNDLE' THEN file_record ELSE
+ json_set(file_record,'$.path','files/' || substr(?,-2) || '/' || ? || '/' ||
+ substr(json_extract(file_record,'$.path'),length('staging/items/' || ? || '/payload/')+1)) END,sort_order
+FROM import_item_validation_files WHERE import_item_core_validation_id=?
+`, source.VariantID, source.GameID, source.GameID, source.ItemID, source.ValidationID)
 	return approvalMutation(result, err, "copy approved validation files", false)
 }
 

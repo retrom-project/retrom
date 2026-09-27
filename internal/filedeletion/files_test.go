@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -21,17 +22,17 @@ func TestDeletionRetryCannotRemoveAnotherFileWithIdenticalBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := New(store)
-	if err := files.Delete(t.Context(), original.ID); err != nil {
+	if err := files.Delete(t.Context(), "staging/writes/"+filepath.Base(original.Path)); err != nil {
 		t.Fatal(err)
 	}
 	replacement, err := store.Put(bytes.NewBufferString("same bytes"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if replacement.ID == original.ID || replacement.SHA256 != original.SHA256 {
+	if replacement.Record == original.Record || replacement.SHA256 != original.SHA256 {
 		t.Fatal("file identity is coupled to hash")
 	}
-	if err := files.Delete(t.Context(), original.ID); err != nil {
+	if err := files.Delete(t.Context(), "staging/writes/"+filepath.Base(original.Path)); err != nil {
 		t.Fatal(err)
 	}
 	contents, err := os.ReadFile(replacement.Path)
@@ -53,7 +54,7 @@ func TestDeleteRejectsNilStoreAndCanceledContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := New(store).Delete(t.Context(), "../../outside"); !errors.Is(err, os.ErrInvalid) {
+	if err := New(store).Delete(t.Context(), "../../outside"); !errors.Is(err, filestore.ErrRecordInvalid) {
 		t.Fatalf("unsafe ID: %v", err)
 	}
 }

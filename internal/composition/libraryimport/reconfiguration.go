@@ -17,9 +17,11 @@ func NewReconfigurations(
 	options CreationOptions,
 ) *application.Reconfigurations {
 	creations := NewCreations(database, now, options)
-	var copyFile func(context.Context, string) (filestore.Metadata, error)
+	var copyFile func(context.Context, string, string, string) (filestore.Metadata, error)
+	var removePath func(context.Context, string) error
 	if options.Blobs != nil {
-		copyFile = options.Blobs.Copy
+		copyFile = options.Blobs.CopyTo
+		removePath = options.Blobs.RemovePath
 	}
 	return application.NewReconfigurations(
 		repository.NewReconfigurations(database),
@@ -27,6 +29,6 @@ func NewReconfigurations(
 			creationOptions application.ImportCreationOptions,
 		) (application.ImportCreationResult, error) {
 			return creations.Create(ctx, request, creationOptions)
-		}, copyFile, now,
+		}, copyFile, removePath, now,
 	)
 }

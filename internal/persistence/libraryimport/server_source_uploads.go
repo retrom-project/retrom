@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
@@ -16,17 +18,12 @@ func NewServerSourceUploads(database dbapi.DB) *ServerSourceUploads {
 	return &ServerSourceUploads{database: database}
 }
 
-func (repository *ServerSourceUploads) BlobSize(ctx context.Context, blobID string) (int64, bool, error) {
-	var size int64
-	err := dbapi.QueryRowContext(ctx, repository.database, `SELECT size_bytes FROM stored_files WHERE id=?`, blobID).
-		Scan(&size)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, false, nil
-	}
+func (repository *ServerSourceUploads) BlobSize(_ context.Context, fileRecord string) (int64, bool, error) {
+	file, err := filestore.ParseRecord(fileRecord)
 	if err != nil {
-		return 0, false, fmt.Errorf("query server source blob: %w", err)
+		return 0, false, fmt.Errorf("blob size: %w", err)
 	}
-	return size, true, nil
+	return file.Size, true, nil
 }
 
 func (repository *ServerSourceUploads) Insert(

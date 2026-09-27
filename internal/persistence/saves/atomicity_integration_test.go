@@ -39,7 +39,7 @@ func savePersistenceEvidence(t *testing.T, fixture *saveFixture) [7]int64 {
 	t.Helper()
 	var evidence [7]int64
 	err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `SELECT
- (SELECT count(*) FROM save_states), (SELECT count(*) FROM stored_files),
+ (SELECT count(*) FROM save_states), (SELECT count(*) FROM jobs WHERE kind='PATH_DELETE'),
  (SELECT count(*) FROM idempotency_records),
  (SELECT COALESCE(sum(data_version),0) FROM game_save_versions),
  (SELECT COALESCE(sum(expected_data_version),0) FROM launch_game_save_bindings),

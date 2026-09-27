@@ -48,7 +48,7 @@ func (memory *screenshotMemory) Replace(_ context.Context, write ScreenshotWrite
 	return memory.replaceError
 }
 
-func (memory *screenshotMemory) Read(context.Context, io.Reader) (ScreenshotImage, error) {
+func (memory *screenshotMemory) Read(context.Context, string, io.Reader) (ScreenshotImage, error) {
 	memory.reads++
 	if memory.transactions != 0 {
 		panic("image IO ran inside writer")
@@ -123,8 +123,10 @@ func TestScreenshotSaverRejectsChangedFinalAuthorityBeforeIdentity(t *testing.T)
 			service, memory := screenshotPolicyFixture()
 			test.change(memory)
 			result, err := service.Store(t.Context(), "preview", "capability", nil)
-			if !errors.Is(err, ErrCredential) || result.ID != "" || memory.reads != 1 || memory.transactions != 1 || memory.identities != 0 || memory.writes != 0 {
-				t.Fatalf("result=%+v error=%v reads=%d tx=%d ids=%d writes=%d", result, err, memory.reads, memory.transactions, memory.identities, memory.writes)
+			if !errors.Is(err, ErrCredential) || result.ID != "" || memory.reads != 1 ||
+				memory.transactions != 1 || memory.identities != 0 || memory.writes != 0 {
+				t.Fatalf("result=%+v error=%v reads=%d tx=%d ids=%d writes=%d", result, err, memory.reads,
+					memory.transactions, memory.identities, memory.writes)
 			}
 		})
 	}
@@ -148,7 +150,8 @@ func TestScreenshotSaverCapturesWithFinalAuthorityTime(t *testing.T) {
 	if result != want || calls != 2 || !memory.committed || memory.writes != 1 || memory.identities != 1 {
 		t.Fatalf("result=%+v calls=%d memory=%+v", result, calls, memory)
 	}
-	if !reflect.DeepEqual(memory.pending.Source, memory.initial) || memory.pending.Image != memory.image || memory.pending.AtMS != result.CapturedAtMS {
+	if !reflect.DeepEqual(memory.pending.Source, memory.initial) ||
+		memory.pending.Image != memory.image || memory.pending.AtMS != result.CapturedAtMS {
 		t.Fatalf("write changed authorized snapshot or inspected image: %+v", memory.pending)
 	}
 }
@@ -195,7 +198,8 @@ func TestScreenshotSaverRejectsInvalidImagesBeforeWriter(t *testing.T) {
 }
 
 func TestScreenshotSaverRejectsUnavailableImagesBeforeAuthorization(t *testing.T) {
-	service := NewScreenshotSaver(failingScreenshotRepository{cause: errors.New("must not read")}, nil, ScreenshotEnvironment{})
+	service := NewScreenshotSaver(failingScreenshotRepository{cause: errors.New("must not read")},
+		nil, ScreenshotEnvironment{})
 	_, err := service.Store(t.Context(), "preview", "capability", nil)
 	if !errors.Is(err, ErrReviewScreenshotInvalid) {
 		t.Fatal(err)

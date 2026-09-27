@@ -73,8 +73,9 @@ type ImportWork struct {
 	Request   ImportRequest
 }
 type ImportWorkerSettings struct {
-	Now    func() time.Time
-	Report func(error)
+	RecoverPublications func(context.Context) error
+	Now                 func() time.Time
+	Report              func(error)
 }
 type ImportJobCancellation struct {
 	JobID, ImportID string

@@ -169,7 +169,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewApprove
-      description: Publishes a current READY validation, or a current blocked validation that has a five-second runtime screenshot captured by its matching review preview. Screenshot overrides remain explicit in immutable review evidence and the published Variant compatibility code.
+      description: Freezes an eligible review decision and Game UUID, moves the prepared directory, then commits the game. Interrupted publication resumes from the PUBLISHING item; retries after publication return the same Game UUID. A blocked validation requires a matching review screenshot for explicit override, recorded in the published Variant compatibility code.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey

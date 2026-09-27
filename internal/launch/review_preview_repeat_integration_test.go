@@ -94,7 +94,8 @@ func seedOlderReviewScreenshot(t *testing.T, database dbapi.DB, screenshot Revie
 	ctx := t.Context()
 	validationID, screenshotID := uuid.NewString(), uuid.NewString()
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
+platform_instance_version,
 core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
 prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
 SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
@@ -106,8 +107,9 @@ FROM import_item_core_validations WHERE id=?
 	}
 	if _, err := recordstore.InsertRows(ctx, database, "review_runtime_screenshots", `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms)
-SELECT ?,import_item_id,preview_session_id,source_snapshot_id,?,provider_id,target_id,blob_id,
+validation_id,provider_id,target_id,file_record,media_type,width_px,height_px,captured_at_ms,
+created_at_ms,updated_at_ms)
+SELECT ?,import_item_id,preview_session_id,source_snapshot_id,?,provider_id,target_id,file_record,
 media_type,width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms
 FROM review_runtime_screenshots WHERE id=?
 `, screenshotID, validationID, screenshot.ID); err != nil {

@@ -14,6 +14,7 @@ import (
 )
 
 type reviewApprovalRun struct {
+	identityDigest        string
 	ctx                   context.Context
 	service               *ReviewApprovals
 	scope                 ReviewApprovalScope
@@ -32,10 +33,6 @@ type reviewApprovalRun struct {
 	publication           ApprovalPublication
 	publishedTags         []tagging.Reference
 	duplicateGames        []DuplicateGame
-}
-
-func (run *reviewApprovalRun) result() ReviewApproved {
-	return ReviewApproved{GameID: run.gameID, Status: "PUBLISHED"}
 }
 
 func (run *reviewApprovalRun) load() error {
@@ -147,7 +144,7 @@ func (run *reviewApprovalRun) prepareScreenshotOverride() error {
 	filtered := make([]corevalidation.BIOSDependency, 0, len(snapshot.BIOS))
 	for _, dependency := range snapshot.BIOS {
 		if dependency.DeliveryKind != "EXTERNAL_FILE" ||
-			(dependency.EmulatorPath != nil && dependency.BlobID != nil &&
+			(dependency.EmulatorPath != nil && dependency.FileRecord != nil &&
 				dependency.InstallationStatus != nil && corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus)) {
 			filtered = append(filtered, dependency)
 		}
@@ -214,6 +211,7 @@ func (run *reviewApprovalRun) claimDuplicates() error {
 	if err != nil {
 		return fmt.Errorf("read approval duplicates: %w", err)
 	}
+	run.identityDigest = digest
 	decision := run.request.Decision
 	if len(run.duplicateGames) > 0 && (decision.DuplicatePolicy != "ALLOW_NEW" ||
 		!SameApprovalDuplicateIDs(run.duplicateGames, decision.AcknowledgedGameIDs)) {

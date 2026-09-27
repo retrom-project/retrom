@@ -46,8 +46,8 @@ type BulkPublicationIntent struct {
 }
 
 type ApprovalExternalAsset struct {
-	Kind, BlobID, MediaType string
-	WidthPX, HeightPX       *int64
+	Kind, FileRecord, MediaType string
+	WidthPX, HeightPX           *int64
 }
 
 type ReviewApprovalHead struct {
@@ -69,10 +69,12 @@ type ApprovalOrigin struct {
 }
 
 type ReviewApprovalRepository interface {
+	PendingPublications(context.Context) ([]ReviewApprovalRequest, error)
 	WithApproval(context.Context, func(ReviewApprovalScope) error) error
 }
 
 type ReviewApprovalScope struct {
+	Publications PublicationRecords
 	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
@@ -95,5 +97,4 @@ type ApprovalMediaReader interface {
 	Candidate(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	UploadedCover(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	Screenshots(context.Context, string) ([]string, error)
-	BlobExists(context.Context, string) (bool, error)
 }

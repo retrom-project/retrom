@@ -29,7 +29,7 @@ func (records saveRecords) ForGames(
 	rows, err := records.database.QueryContext(ctx, `
 SELECT save.game_id,save.id,save.name,save.created_at_ms,native.last_synced_at_ms,
        save.payload_size_bytes,save.disc_index,
-       save.screenshot_blob_id IS NOT NULL
+       save.screenshot_file_record IS NOT NULL
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility

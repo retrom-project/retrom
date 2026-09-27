@@ -127,7 +127,7 @@ func ValidateOwnedSourceFiles(snapshot SourceCreationSnapshot, inputs []ServerSo
 		byPath[file.RelativePath] = file
 	}
 	for _, source := range snapshot.Files {
-		if source.State != "COPIED" || source.File.BlobID == "" || source.File.SizeBytes < 0 ||
+		if source.State != "COPIED" || source.File.FileRecord == "" || source.File.SizeBytes < 0 ||
 			byPath[source.File.RelativePath] != source.File {
 			return ErrVersionConflict
 		}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
@@ -95,7 +96,7 @@ func (service *Service) prepareInstall(
 		entries, err := importing.ScanZIP(
 			ctx,
 			service.blobs.Path(
-				prepared.snapshot.Upload.BlobID,
+				prepared.snapshot.Upload.FileRecord,
 			),
 			importing.DefaultArchiveLimits(),
 		)
@@ -117,6 +118,21 @@ func (service *Service) Install(
 	if err != nil {
 		return Installation{}, err
 	}
+	installationID, err := uuid.NewV7()
+	if err != nil {
+		return Installation{}, fmt.Errorf("install: %w", err)
+	}
+	directory := "bios/" + installationID.String()
+	file, err := service.blobs.CopyTo(ctx, prepared.snapshot.Upload.FileRecord, directory, "payload")
+	if err != nil {
+		return Installation{}, fmt.Errorf("install: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard BIOS candidate", service.blobs.RemovePath(context.WithoutCancel(ctx), directory))
+		}
+	}()
 	var result Installation
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		current, err := readInstallSnapshot(ctx, scope.ReadScope, id, request.UploadFileID, version)
@@ -134,17 +150,19 @@ func (service *Service) Install(
 			return &firmware.ArchiveContentError{Details: details}
 		}
 		now := service.now().UnixMilli()
+		current.Upload.FileRecord = file.Record
 		if current.Requirement.FileKind == "ARCHIVE" {
-			if err := scope.Archives.Put(ctx, current.Upload.BlobID, prepared.entries, now); err != nil {
+			if err := scope.Archives.Put(ctx, current.Upload.FileRecord, prepared.entries, now); err != nil {
 				return fmt.Errorf("record BIOS archive facts: %w", err)
 			}
 		}
-		result, err = persistBrowserInstallation(ctx, scope, current, status, details, now)
+		result, err = persistBrowserInstallation(ctx, scope, current, installationID.String(), status, details, now)
 		return err
 	})
 	if err != nil {
 		return Installation{}, fmt.Errorf("install BIOS: %w", err)
 	}
+	committed = true
 	service.signalRelease()
 	return result, nil
 }
@@ -152,21 +170,17 @@ func (service *Service) Install(
 func sameInstallSource(current, prepared installSnapshot) bool {
 	return current.Requirement.SourceKind == prepared.Requirement.SourceKind &&
 		current.Requirement.FileKind == prepared.Requirement.FileKind &&
-		current.Upload.BlobID == prepared.Upload.BlobID && current.Upload.SHA256 == prepared.Upload.SHA256
+		current.Upload.FileRecord == prepared.Upload.FileRecord && current.Upload.SHA256 == prepared.Upload.SHA256
 }
 
 func persistBrowserInstallation(
 	ctx context.Context,
 	scope WriteScope,
 	snapshot installSnapshot,
-	status string,
+	id, status string,
 	details map[string]any,
 	now int64,
 ) (Installation, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return Installation{}, fmt.Errorf("generate BIOS installation ID: %w", err)
-	}
 	consumption, err := uuid.NewV7()
 	if err != nil {
 		return Installation{}, fmt.Errorf("generate BIOS consumption ID: %w", err)
@@ -180,7 +194,7 @@ func persistBrowserInstallation(
 		return Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
 	if err := scope.Installations.Create(ctx, InstallationWrite{
-		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, UploadSessionID: upload.SessionID,
+		ID: id, RequirementID: requirement.ID, FileRecord: upload.FileRecord, UploadSessionID: upload.SessionID,
 		Filename: upload.RelativePath,
 		MD5:      upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
 		RequirementVersion: requirement.Version, DetailsJSON: encoded, AtMS: now, SourceKind: "BROWSER_UPLOAD",
@@ -189,12 +203,12 @@ func persistBrowserInstallation(
 	}
 	if err := scope.Installations.Consume(ctx, Consumption{
 		ID: consumption.String(), UploadID: upload.SessionID,
-		FileID: upload.ID, InstallationID: id.String(), AtMS: now,
+		FileID: upload.ID, InstallationID: id, AtMS: now,
 	}); err != nil {
 		return Installation{}, fmt.Errorf("consume BIOS upload: %w", err)
 	}
 	return Installation{
-		InstallationID: id.String(), RequirementID: requirement.ID, Status: status, Active: true,
+		InstallationID: id, RequirementID: requirement.ID, Status: status, Active: true,
 		ValidatedRequirementVersion: requirement.Version, ValidationDetails: details, CreatedAtMS: now,
 	}, nil
 }

@@ -24,6 +24,7 @@ type manualMetadata struct {
 }
 
 type parsedManual struct {
+	saveID, directory   string
 	metadata            manualMetadata
 	payload             filestore.Metadata
 	screenshot          *filestore.Metadata

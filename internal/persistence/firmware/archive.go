@@ -43,7 +43,7 @@ func (store archiveRecords) Entries(ctx context.Context, id string) ([]importing
 		ctx,
 		`SELECT ordinal,original_relative_path,normalized_path,ascii_casefold_path,
  archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256
-FROM archive_entries WHERE archive_blob_id=? ORDER BY ordinal`,
+FROM archive_entries WHERE archive_file_record=? ORDER BY ordinal`,
 		id,
 	)
 	if err != nil {
@@ -83,10 +83,10 @@ func (store writes) Put(ctx context.Context, id string, entries []importing.Arch
 			ctx,
 			store.transaction,
 			"archive_entries",
-			`INSERT INTO archive_entries(archive_blob_id,ordinal,
+			`INSERT INTO archive_entries(archive_file_record,ordinal,
 original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,
 uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(archive_blob_id,ordinal) DO NOTHING`,
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(archive_file_record,ordinal) DO NOTHING`,
 			id,
 			entry.Ordinal,
 			entry.OriginalPath,

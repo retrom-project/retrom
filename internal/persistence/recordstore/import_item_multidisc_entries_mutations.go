@@ -26,7 +26,7 @@ SELECT CASE
 -- import_item_multidisc_entries_immutable_update
 WHEN (NOT (
   previous.state='PRESENT' AND candidate.state='RELEASED'
-  AND candidate.upload_file_id IS NULL AND candidate.blob_id IS NULL AND
+  AND candidate.upload_file_id IS NULL AND candidate.file_record IS NULL AND
 candidate.payload_released_at_ms IS NOT NULL
   AND EXISTS(
     SELECT 1 FROM import_item_source_snapshots snapshot JOIN import_items item ON

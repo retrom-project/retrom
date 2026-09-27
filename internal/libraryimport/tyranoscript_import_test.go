@@ -69,7 +69,7 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "game", Path: "game.exe", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "game", Path: "game.exe", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -101,7 +101,8 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", FileRecord: metadata.Record,
+		SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -147,7 +148,7 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *test
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "ambiguous", Path: "ambiguous.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "ambiguous", Path: "ambiguous.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	_, _, _, err = New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -169,7 +170,7 @@ func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		ID: "electron", Path: "electron.zip", BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "electron", Path: "electron.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -227,7 +228,7 @@ func tyranoScriptImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: metadata.ID, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithFileStore(blobs), files

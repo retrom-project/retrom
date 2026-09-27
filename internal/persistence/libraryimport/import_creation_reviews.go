@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -65,22 +64,11 @@ VALUES(?,?,?,?,?,1,?,?)`,
 		}
 	}
 	for _, file := range change.Files {
-		if file.Role != "BIOS_BUNDLE" {
-			if err := fileownership.Adopt(
-				ctx,
-				records.transaction,
-				file.BlobID,
-				fileownership.Owner{Kind: "IMPORT_ITEM", ID: change.ItemID},
-			); err != nil {
-				return fmt.Errorf("import creation reviews: %w", err)
-			}
-		}
-
 		result, err = recordstore.InsertRows(ctx, records.transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,
-blob_id,
+file_record,
  sort_order,created_at_ms)
-VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, change.NowMS)
+VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, change.NowMS)
 		if err := creationMutation(result, err, "insert creation validation file", 1); err != nil {
 			return err
 		}

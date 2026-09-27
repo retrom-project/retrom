@@ -14,7 +14,7 @@ func TestGameSaveUpdatedPayloadReleasesOldBlobWhileLaunchExists(t *testing.T) {
 	a := syncGameData(t, f, f.createLaunch(t), "first")
 	restoring := f.createLaunchFromSave(t, &a.SaveStateID)
 	var oldPayload string
-	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT payload_blob_id FROM save_states WHERE id=?`, a.SaveStateID).Scan(&oldPayload); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT payload_file_record FROM save_states WHERE id=?`, a.SaveStateID).Scan(&oldPayload); err != nil {
 		t.Fatal(err)
 	}
 	syncGameData(t, f, restoring, "second")
@@ -26,7 +26,7 @@ func TestGameSaveUpdatedPayloadReleasesOldBlobWhileLaunchExists(t *testing.T) {
 func assertGameSaveProtection(t *testing.T, f *saveFixture, id string, expected bool) {
 	t.Helper()
 	var retained bool
-	err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT EXISTS(SELECT 1 FROM stored_files WHERE id=? AND retired_at_ms IS NULL)`, id).Scan(&retained)
+	err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT EXISTS(SELECT 1 FROM save_states WHERE payload_file_record=? AND deleted_at_ms IS NULL)`, id).Scan(&retained)
 	if err != nil {
 		t.Fatal(err)
 	}

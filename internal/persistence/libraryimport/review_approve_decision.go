@@ -16,9 +16,9 @@ VALUES(?,?,?) ON CONFLICT(platform_id,content_identity_digest) DO NOTHING`, plat
 
 func (records reviewApprovalRecords) PublishItem(ctx context.Context, change application.ApprovalPublication) error {
 	result, err := recordstore.UpdateImportItems(ctx, records.transaction, recordstore.Update{
-		Set: `state='PUBLISHED',version=version+1,updated_at_ms=?,completed_at_ms=?`,
+		Set: `state='PUBLISHED',publication_json=NULL,version=version+1,updated_at_ms=?,completed_at_ms=?`,
 		Scope: recordstore.Scope{
-			Where: `id=? AND state='REVIEW_PENDING'
+			Where: `id=? AND state='PUBLISHING'
 AND EXISTS(SELECT 1 FROM import_items d WHERE d.id=import_items.id
  AND d.review_version=? AND d.effective_source_snapshot_id=? AND d.target_platform_instance_id=?)`,
 			Args: []any{

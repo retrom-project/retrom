@@ -1,6 +1,7 @@
 package libraryimport
 
 import (
+	"context"
 	"time"
 
 	dbapi "retrom/internal/database"
@@ -14,7 +15,9 @@ type WorkerBundle struct {
 	Worker     *application.ImportWorker
 }
 
-func NewWorker(database dbapi.DB, now func() time.Time, options CreationOptions, report func(error)) WorkerBundle {
+func NewWorker(database dbapi.DB, now func() time.Time, options CreationOptions,
+	report func(error), recoverPublications func(context.Context) error,
+) WorkerBundle {
 	executions := application.NewImportExecutions(repository.NewImportExecutions(database), now)
 	worker := application.NewImportWorker(
 		application.ImportWorkerDependencies{
@@ -24,7 +27,7 @@ func NewWorker(database dbapi.DB, now func() time.Time, options CreationOptions,
 			Preparation: NewPreparation(database, options),
 			Creations:   NewCreations(database, now, options),
 		},
-		application.ImportWorkerSettings{Now: now, Report: report},
+		application.ImportWorkerSettings{Now: now, Report: report, RecoverPublications: recoverPublications},
 	)
 	return WorkerBundle{Executions: executions, Worker: worker}
 }

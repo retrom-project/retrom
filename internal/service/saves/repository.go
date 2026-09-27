@@ -63,7 +63,6 @@ type DeleteRequest struct {
 type WriteScope struct {
 	Launches    LaunchReader
 	Idempotency IdempotencyRecords
-	Blobs       BlobRecords
 	Checkpoints CheckpointRecords
 	GameSaves   GameSaveRecords
 }
@@ -74,9 +73,7 @@ type IdempotencyRecords interface {
 	Replay(context.Context, ReplayKey) (Replay, bool, error)
 	Remember(context.Context, ReplayWrite) error
 }
-type BlobRecords interface {
-	Ensure(context.Context, filestore.Metadata, string, int64) (string, error)
-}
+
 type CheckpointRecords interface {
 	Duration(context.Context, string) (Duration, error)
 	CreateSave(context.Context, SaveCreation) error
@@ -91,6 +88,7 @@ type GameSaveRecords interface {
 }
 
 type Launch struct {
+	ItemID                                  string
 	PrincipalID, ProfileID, Purpose, GameID string
 	ProviderID, TargetID                    string
 	DOSEntry                                *string
@@ -105,9 +103,9 @@ type Launch struct {
 	localDraft                              bool
 }
 type Restore struct {
-	Checkpoint             runtimebundle.Checkpoint
-	BlobID, Format, Digest string
-	Size                   int64
+	Checkpoint                 runtimebundle.Checkpoint
+	FileRecord, Format, Digest string
+	Size                       int64
 }
 type ReplayKey struct {
 	PrincipalID, Key string

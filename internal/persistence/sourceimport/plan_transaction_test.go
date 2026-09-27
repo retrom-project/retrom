@@ -21,9 +21,13 @@ func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *te
 	}
 	for _, statement := range []string{
 		`UPDATE source_imports SET state='AWAITING_MAPPING' WHERE id='import-0'`,
-		`INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,game_count,created_at_ms,updated_at_ms) VALUES('collection','import-0','metadata.pegasus.txt',0,'Collection',0,1,1)`,
-		`INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms) VALUES('019b0000-0000-7000-8000-000000000001','Tag','tag','tag','ACTIVE','actor','actor',1,1)`,
-		`INSERT INTO source_collection_tags(collection_id,tag_id,assigned_by_user_id,created_at_ms) VALUES('collection','019b0000-0000-7000-8000-000000000001','actor',1)`,
+		`INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,
+game_count,created_at_ms,updated_at_ms) VALUES('collection','import-0','metadata.pegasus.txt',0,
+'Collection',0,1,1)`,
+		`INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,
+updated_at_ms) VALUES('019b0000-0000-7000-8000-000000000001','Tag','tag','tag','ACTIVE','actor','actor',1,1)`,
+		`INSERT INTO source_collection_tags(collection_id,tag_id,assigned_by_user_id,created_at_ms)
+VALUES('collection','019b0000-0000-7000-8000-000000000001','actor',1)`,
 	} {
 		if _, err := db.ExecContext(t.Context(), statement); err != nil {
 			t.Fatal(err)
@@ -34,14 +38,18 @@ func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *te
 		if err != nil {
 			return err
 		}
-		return records.Delete(t.Context(), application.PlanDeletion{Before: before, ActorID: "actor", AuditID: created.AuditID, NowMS: 10})
+		return records.Delete(t.Context(), application.PlanDeletion{
+			Before: before, ActorID: "actor",
+			AuditID: created.AuditID, NowMS: 10,
+		})
 	})
 	if err == nil {
 		t.Fatal("duplicate deletion audit committed")
 	}
 	assertCreationCounts(t, db, 1)
 	var version, relations, collections int
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT version FROM tags),(SELECT count(*) FROM source_collection_tags),(SELECT count(*) FROM source_import_collections)`).Scan(&version, &relations, &collections); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT version FROM tags),(SELECT count(*) FROM source_collection_tags),(SELECT count(*) FROM
+source_import_collections)`).Scan(&version, &relations, &collections); err != nil {
 		t.Fatal(err)
 	}
 	if version != 1 || relations != 1 || collections != 1 {
@@ -53,7 +61,12 @@ func TestPlanExpiryRejectsStaleVersionAndRollsBackLateFailure(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error { _, err := writer.Insert(t.Context(), plan); return err }); err != nil {
+	if err := NewCreation(db).WithCreate(t.Context(),
+		func(writer application.CreationWriter) error {
+			_, err := writer.Insert(t.Context(),
+				plan)
+			return err
+		}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE source_imports SET state='AWAITING_MAPPING' WHERE id='import-0'`); err != nil {
@@ -95,13 +108,19 @@ func TestExpiryCommitsAtDeadlineAndDoesNotRepeat(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error { _, err := writer.Insert(t.Context(), plan); return err }); err != nil {
+	if err := NewCreation(db).WithCreate(t.Context(),
+		func(writer application.CreationWriter) error {
+			_, err := writer.Insert(t.Context(),
+				plan)
+			return err
+		}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE source_imports SET state='AWAITING_MAPPING' WHERE id='import-0'`); err != nil {
 		t.Fatal(err)
 	}
-	service := application.NewPlanLifecycle(NewPlanLifecycle(db), func() time.Time { return time.UnixMilli(plan.ExpiresAtMS) })
+	service := application.NewPlanLifecycle(NewPlanLifecycle(db),
+		func() time.Time { return time.UnixMilli(plan.ExpiresAtMS) })
 	for range 2 {
 		if err := service.Expire(t.Context()); err != nil {
 			t.Fatal(err)

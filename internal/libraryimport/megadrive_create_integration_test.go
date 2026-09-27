@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/filestore"
+
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/testsupport"
 )
@@ -27,9 +28,11 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 		body        []byte
 	}{
 		{name: "Game.SMD", contentName: "Game.SMD", body: payload},
-		{name: "SMD.zip", contentName: "Game.SMD", body: makeZIP(t, map[string][]byte{"folder/Game.SMD": payload, "README.txt": []byte("readme")})},
+		{name: "SMD.zip", contentName: "Game.SMD", body: makeZIP(t,
+			map[string][]byte{"folder/Game.SMD": payload, "README.txt": []byte("readme")})},
 		{name: "Game.BIN", contentName: "Game.BIN", body: payload},
-		{name: "BIN.zip", contentName: "Game.BIN", body: makeZIP(t, map[string][]byte{"folder/Game.BIN": payload, "README.txt": []byte("readme")})},
+		{name: "BIN.zip", contentName: "Game.BIN", body: makeZIP(t,
+			map[string][]byte{"folder/Game.BIN": payload, "README.txt": []byte("readme")})},
 	} {
 		t.Run(source.name, func(t *testing.T) {
 			ctx := t.Context()
@@ -38,7 +41,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			blobID, err := filecatalog.EnsureRecord(ctx, database.SQL, metadata, "application/octet-stream", time.Now().UnixMilli())
+			fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +49,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			result, err := service.CreateServerSource(ctx,
 				testsupport.MustPlatformInstanceID(t, database.SQL, "megadrive/genesis_plus_gx"),
 				contentcapability.ModeStandard,
-				[]ServerSourceFile{{RelativePath: source.name, BlobID: blobID, SizeBytes: metadata.Size}}, nil, "")
+				[]ServerSourceFile{{RelativePath: source.name, FileRecord: fileRecord, SizeBytes: metadata.Size}}, nil, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -59,8 +62,9 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			}
 			var name, digest string
 			if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT source.logical_name,blob.sha256
-FROM import_item_source_files source JOIN stored_files blob ON blob.id=source.blob_id
+SELECT source.logical_name,json_extract(blob.value, '$.sha256')
+FROM import_item_source_files source JOIN json_each(json_array(source.file_record)) blob ON blob.value
+IS NOT NULL
 WHERE source.import_item_id=? AND source.role='CONTENT'
 `, item.ItemID).Scan(&name, &digest); err != nil {
 				t.Fatal(err)

@@ -23,7 +23,7 @@ func Files(ctx context.Context, executor dbapi.Executor, query string, args ...a
 	var files []application.RetirementFile
 	for rows.Next() {
 		var file application.RetirementFile
-		if err := rows.Scan(&file.OwnerID, &file.Name, &file.BlobID); err != nil {
+		if err := rows.Scan(&file.OwnerID, &file.Name, &file.FileRecord); err != nil {
 			return nil, fmt.Errorf("scan retirement file: %w", err)
 		}
 		files = append(files, file)
@@ -71,7 +71,7 @@ func DeleteFiles(ctx context.Context, executor dbapi.Executor, remove Delete,
 	}
 	args := make([]any, 0, len(files)*3)
 	for _, file := range files {
-		args = append(args, file.OwnerID, file.Name, file.BlobID)
+		args = append(args, file.OwnerID, file.Name, file.FileRecord)
 	}
 	where := columns + ` IN (` + strings.TrimSuffix(strings.Repeat("(?,?,?),", len(files)), ",") + `)`
 	result, err := remove(ctx, executor, recordstore.Scope{Where: where, Args: args})

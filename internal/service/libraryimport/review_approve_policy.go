@@ -53,7 +53,7 @@ func ValidApprovalSourceKind(value string) bool {
 func ValidApprovalExternalAssets(assets []ApprovalExternalAsset) bool {
 	seen := make(map[string]struct{}, len(assets))
 	for _, asset := range assets {
-		if _, exists := seen[asset.Kind]; exists || asset.BlobID == "" || !ValidApprovalExternalAsset(asset) {
+		if _, exists := seen[asset.Kind]; exists || asset.FileRecord == "" || !ValidApprovalExternalAsset(asset) {
 			return false
 		}
 		seen[asset.Kind] = struct{}{}

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/persistence/fileownership"
+	"retrom/internal/persistence/filedeletion"
+
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
@@ -26,7 +27,7 @@ func (records Records) Candidates(
 	sessionID, cursor string,
 	limit int,
 ) ([]application.EffectUpload, error) {
-	query := `SELECT file.id,file.upload_session_id,COALESCE(file.final_blob_id,''),file.state,
+	query := `SELECT file.id,file.upload_session_id,COALESCE(file.final_file_record,''),file.state,
 session.state,session.version,` + effectUploadConsumptions + `
 FROM upload_files file JOIN upload_sessions session ON session.id=file.upload_session_id
 WHERE file.upload_session_id=? AND file.id>? AND file.state='COMPLETE'
@@ -42,7 +43,7 @@ AND ` + effectUploadConsumptions + `=0 ORDER BY file.id LIMIT ?`
 		if err := rows.Scan(
 			&file.ID,
 			&file.SessionID,
-			&file.BlobID,
+			&file.FileRecord,
 			&file.State,
 			&file.SessionState,
 			&file.SessionVersion,
@@ -60,7 +61,7 @@ AND ` + effectUploadConsumptions + `=0 ORDER BY file.id LIMIT ?`
 
 func (records Records) Purge(ctx context.Context, file application.EffectUpload, now int64) error {
 	predicate := `upload_files.id=? AND upload_files.upload_session_id=? AND upload_files.state=? AND
-upload_files.final_blob_id=?
+upload_files.final_file_record=?
 AND EXISTS(SELECT 1 FROM upload_sessions session WHERE session.id=upload_files.upload_session_id AND
 session.state=? AND session.version=?)
 AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") + `=?`
@@ -69,7 +70,7 @@ AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") +
 		records.Executor,
 		"upload_files",
 		recordstore.Update{
-			Set:    `state='PURGED',final_blob_id=NULL,payload_released_at_ms=?,updated_at_ms=?`,
+			Set:    `state='PURGED',final_file_record=NULL,payload_released_at_ms=?,updated_at_ms=?`,
 			Values: []any{now, now},
 
 			Scope: recordstore.Scope{
@@ -78,7 +79,7 @@ AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") +
 					file.ID,
 					file.SessionID,
 					file.State,
-					file.BlobID,
+					file.FileRecord,
 					file.SessionState,
 					file.SessionVersion,
 					file.ActiveConsumptions,
@@ -94,20 +95,23 @@ AND ` + strings.ReplaceAll(effectUploadConsumptions, "file.", "upload_files.") +
 		records.Executor,
 		"import_files",
 		recordstore.Update{
-			Set:    "blob_id=NULL,released_at_ms=?",
+			Set:    "file_record=NULL,released_at_ms=?",
 			Values: []any{now},
-			Scope:  recordstore.Scope{Where: "id=? AND blob_id=?", Args: []any{file.ID, file.BlobID}},
+			Scope:  recordstore.Scope{Where: "id=? AND file_record=?", Args: []any{file.ID, file.FileRecord}},
 		},
 	); err != nil {
 		return fmt.Errorf("release received import file: %w", err)
 	}
-	if err := fileownership.Retire(
-		ctx,
-		records.Executor,
-		fileownership.Owner{Kind: "UPLOAD", ID: file.SessionID},
-		file.BlobID,
-		now,
-	); err != nil {
+	var remaining bool
+	if err := dbapi.QueryRowContext(ctx, records.Executor, `SELECT EXISTS(
+SELECT 1 FROM upload_files WHERE upload_session_id=? AND final_file_record IS NOT NULL)`,
+		file.SessionID).Scan(&remaining); err != nil {
+		return fmt.Errorf("read remaining upload files: %w", err)
+	}
+	if remaining {
+		return nil
+	}
+	if err := filedeletion.QueuePath(ctx, records.Executor, "staging/uploads/"+file.SessionID, now); err != nil {
 		return fmt.Errorf("retire owned file: %w", err)
 	}
 	return nil

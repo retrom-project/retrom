@@ -36,7 +36,6 @@ const pages = [
   ["platforms", "游戏目录", "/admin/platform-instances", ".page-header"],
   ["users", "用户管理", "/admin/users", ".page-header"],
   ["bios", "运行依赖", "/admin/bios", ".page-header"],
-  ["storage", "容量分析", "/admin/storage", ".page-header"],
 ];
 const captures = [];
 const errors = [];

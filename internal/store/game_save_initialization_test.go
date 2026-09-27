@@ -19,10 +19,12 @@ func TestFreshGameSavePreservesDataAndBindsRunningLaunches(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { testassert.False(t, database.Close() != nil, "close fresh database") })
 	seedCurrentRuntimeGraph(t, database.SQL)
-	_, err = database.SQL.ExecContext(t.Context(), `UPDATE runtime_targets SET checkpoint_json=json_set(checkpoint_json,'$.semantics','GAME_SAVE') WHERE target_id='target-a'`)
+	_, err = database.SQL.ExecContext(t.Context(), `UPDATE runtime_targets SET checkpoint_json=json_set(checkpoint_json,'$.semantics','GAME_SAVE') WHERE
+target_id='target-a'`)
 	testassert.False(t, err != nil, err)
 	tx := lifecycleTransaction(t, database.SQL)
-	_, err = sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL, "current-launch", "current-game-a", "target-a")
+	_, err = sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL, "current-launch",
+		"current-game-a", "target-a")
 	testassert.False(t, err != nil, err)
 	_, err = sessionstore.CreateSave(t.Context(), tx, currentSaveInsertSQL, "current-save", "current-game-a")
 	testassert.False(t, err != nil, err)
@@ -45,16 +47,22 @@ func assertInitializedGameSave(t *testing.T, database dbapi.DB) {
 	var name, payload, format string
 	var created, version, dataVersion int64
 	var synced sql.NullInt64
-	err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,payload_blob_id,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,payload_file_record,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms
+FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE
+save.id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, name == "Current save" && payload == "current-save-payload" && format == "state-v1" && created == 1 && version == 1 && dataVersion == 1 && !synced.Valid, "save creation changed persisted data")
+	testassert.True(t, name == "Current save" && payload == "current-save-payload" &&
+		format == "state-v1" && created == 1 && version == 1 && dataVersion == 1 && !synced.Valid,
+		"save creation changed persisted data")
 	var target string
 	var expected int64
-	err = dbapi.QueryRowContext(t.Context(), database, `SELECT save_state_id,expected_data_version FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&target, &expected)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT save_state_id,expected_data_version FROM launch_game_save_bindings WHERE
+launch_session_id='restoring-launch'`).Scan(&target, &expected)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, target == "current-save" && expected == 1, "running restore save version was not bound")
 	var unbound int
-	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='current-launch' AND save_state_id IS NULL AND expected_data_version=0`).Scan(&unbound)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='current-launch' AND
+save_state_id IS NULL AND expected_data_version=0`).Scan(&unbound)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, unbound == 1, "fresh launch incorrectly adopted a save")
 	_, err = sessionstore.ChangeLaunch(t.Context(), database, recordstore.Update{
@@ -64,7 +72,8 @@ func assertInitializedGameSave(t *testing.T, database dbapi.DB) {
 		},
 	})
 	testassert.False(t, err != nil, err)
-	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch' AND save_state_id='current-save' AND expected_data_version=1`).Scan(&unbound)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch' AND
+save_state_id='current-save' AND expected_data_version=1`).Scan(&unbound)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, unbound == 1, "finished launch lost save version binding")
 }

@@ -7,13 +7,13 @@ import (
 
 var ErrRetirementSnapshotChanged = errors.New("PAYLOAD_RETIREMENT_SNAPSHOT_CHANGED")
 
-type RetirementFile struct{ OwnerID, Name, BlobID string }
+type RetirementFile struct{ OwnerID, Name, FileRecord string }
 
 type BIOSRetirement struct {
-	Found      bool
-	ID, BlobID string
-	Version    int64
-	Files      []RetirementFile
+	Found          bool
+	ID, FileRecord string
+	Version        int64
+	Files          []RetirementFile
 }
 
 type RetirementPlay struct {

@@ -10,7 +10,7 @@ import (
 )
 
 func (service *Service) materialization() *application.Materialization {
-	return application.NewMaterialization(repository.NewMaterialization(service.database), service.now)
+	return application.NewMaterialization(repository.NewMaterialization(service.database), service.blobs, service.now)
 }
 
 func (service *Service) recordCopiedFile(

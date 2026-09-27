@@ -299,7 +299,6 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
 | SQLite migration | 空库 001–015 直接建最终模型，无 trigger/view，显式所有权与事务回滚、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
 | 文件所有权与后台删除 | 同内容文件物理隔离、交接原子性、旧 owner 无权退休、退休不可撤销、崩溃后删除重试、未退休文件保留 |
-| 已登记独立文件存储容量分析 | 唯一 owner 与容量分类一致；退休立即计为待删除；相同 hash 的不同物理 ID 分别计量；未知 owner 拒绝分类；六类含零值且总量恒等；int64 溢出失败；存档/候选引用视图不与分类相加；ADMIN/USER/匿名、未知 query、脱敏、空库与读库失败 |
 
 ### 7.2 前端与浏览器
 
@@ -311,7 +310,6 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 默认全屏 | Fullscreen 请求发生在原始用户激活链；拒绝/刷新深链有恢复入口；阻断失败退出全屏并返回可修复错误 |
 | 存档快速启动 | 首页、存档页和详情存档都直接启动；使用存档绑定环境，不重新询问核心或 DOS 程序 |
 | 多盘导入与审核 | capability 隐藏/自动 mode/退回 STANDARD、递归目录预检、完整/缺盘/非法/ignored 计数、精确缺盘上传、Job resume/retry、审核刷新、管理详情和完整目录替换 |
-| 容量分析 | BigInt IEC 格式化、精确 byte 可访问文本、loading/empty/initial error/refresh success/refresh failure 保留快照、六类固定顺序、范围说明、导航顺序，以及 320/768/1280/2560/物理 4K 的 overflow/axe |
 | DOS 启动 | 程序列表、默认项、缺失选择校验和 launch payload；不能在浏览器端猜测可执行文件；4.3 thread core 的 7z/ZIP Worker 在生产 CSP 下完成无 `eval` 精确转换，源形状漂移 fail closed |
 | 管理侧信息架构 | “游戏入库”为父级总览；导入、任务、待审核、历史同级缩进；父/子高亮和直接路由一致 |
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |
@@ -476,7 +474,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 ## 11. 服务器 BIOS 导入测试矩阵
 
 - 配置/路径：封闭 JSON、数量/字符/重叠/受保护根、root 不可用、逐段 no-follow、symlink/special/traversal/cursor 绑定和零绝对路径泄漏。
-- 领域/存储：当前 clean schema 与 lineage 拒绝；STATIC/DAT exact、fallback、同名/重命名、多 Requirement 独立文件存储去重；overwrite off/on、同分/更差、同 bytes、版本漂移与并发安装均证明不降级。
+- 领域/存储：当前 clean schema 与 lineage 拒绝；STATIC/DAT exact、fallback、同名/重命名、多 Requirement 安装目录隔离；overwrite off/on、同分/更差、同 bytes、版本漂移与并发安装均证明不降级。
 - Worker：完整发现前零安装、扫描门禁、2 hash/1 archive 并发、8 MiB cancel、lease/heartbeat/deadline、崩溃后不重复 installation、瞬时 root 退避与 attempt 耗尽。
 - HTTP：ADMIN/USER/匿名与 CSRF 矩阵，严格 body/Idempotency/ETag/active conflict，root/directory/list/item/candidate cursor 和 allowlist 投影；BIOS 286 fixture 为 100/100/86，无重复遗漏且全集汇总恒为 286。
 - React/Chrome：无配置/不可用/空历史、Drawer 键盘、SSE/cancel/retry、完成/部分失败/候选解释；FULL_CATALOG abort/乱序/重复触发/追加失败/键盘 fallback。分别验证 1280×800、2560×1440、物理 4K 150% scale、无页面横向溢出及零 serious/critical axe 结果。
@@ -488,7 +486,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 - parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
 - 映射/持久化：当前 clean schema 只包含 review handoff、精确诊断与受当前来源/目标/Provider Target/generation 约束的 preview/screenshot Blob 保护边；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
 - 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 Provider Target 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖全局有界扫描、严格 READY 与截图 override 分界、duplicate/Attachment 排除、创建后编辑跳过、逐项发布与游标/计数原子记账、重启恢复、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖 Worker 的候选复核与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game、GameFiles、GameVariant 或 Blob。
-- Worker/存储：BIOS、Pegasus 与 EmulationStation 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、外部 root 变更、媒体告警、所有权交接和退休文件删除  均有确定性测试。
+- Worker/存储：BIOS、Pegasus 与 EmulationStation 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、外部 root 变更、媒体告警、审核目录独立和退休目录删除  均有确定性测试。
 - HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`sourceImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核试运行锁定现有依赖并复用普通 Player；管理员可按需保存审核截图，核心截图有界失败时回退 canvas。RPG Maker 不保留运行证明/固定延迟截图或 gate 状态；真正依赖阻断不能被截图绕过，临时 checkpoint 按会话过期和来源生命周期释放。非 RPG 阻断截图按既有人工发布 override 策略处理；覆盖过期会话拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖全局任务发现、空队列/已有活动任务/网络错误、进度轮询与刷新恢复、终态缓存清理，以及 390/1280/物理 4K 150% scale 的键盘/reduced-motion。三张服务器导入能力卡中 Pegasus 的三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
 - 产品运行：独立的项目自有 `pegasus-smoke.gba` 必须从临时服务器 root 经 Chrome 完成目录选择、真实扫描、显式 GBA 映射、Worker、待审核、逐项发布、Game 详情、Launch config、受限内容端点与 mGBA 帧推进；不得复用普通上传已经发布的相同内容、直接写库、mock Pegasus API 或只检查 canvas 元素。
 - 总览聚合：一个包含多个游戏的 SourceImport 只能贡献一个最近任务和一个顶层批次；其逐游戏内部 ImportJob 不进入普通任务分页。进行中/完成/异常批次、处理中条目、异常条目和实际待审核 Item 分别按正式口径断言，主动取消不误报为异常，最近三条不能反向决定流水线数字。

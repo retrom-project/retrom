@@ -18,7 +18,7 @@ func (repository *creationRepositoryProbe) WithCreation(
 
 func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 	cause := errors.New("creation identity entropy unavailable")
-	for failure := 1; failure <= 6; failure++ {
+	for failure := 1; failure <= 5; failure++ {
 		repository := &creationRepositoryProbe{}
 		service := NewImportCreations(repository, nil, nil, nil, ImportCreationSettings{})
 		calls := 0
@@ -46,11 +46,11 @@ func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 
 func creationPreparedInput() PreparedImport {
 	file := ImportFile{
-		ID:     "file",
-		Path:   "game.gba",
-		BlobID: "blob",
-		SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		Size:   16,
+		ID:         "file",
+		Path:       "game.gba",
+		FileRecord: "blob",
+		SHA256:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Size:       16,
 	}
 	return PreparedImport{
 		Request: ImportRequest{

@@ -16,8 +16,6 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/filecatalog"
-
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/composition/cleanupjobs"
@@ -96,16 +94,17 @@ func (f *fixture) file(t *testing.T, name string, payload byte) libraryimport.Se
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := filecatalog.EnsureRecord(f.ctx, f.db, blob, "application/octet-stream", f.now().UnixMilli())
+	id, err := filestore.FileRecord(blob, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return libraryimport.ServerSourceFile{RelativePath: name, BlobID: id, SizeBytes: blob.Size}
+	return libraryimport.ServerSourceFile{RelativePath: name, FileRecord: id, SizeBytes: blob.Size}
 }
 
 func (f *fixture) create(t *testing.T, files ...libraryimport.ServerSourceFile) libraryimport.ServerImportResult {
 	t.Helper()
-	result, err := f.importer.CreateServerSource(f.ctx, testsupport.MustPlatformInstanceID(t, f.db, "nes/fceumm"), "STANDARD", files, nil, adminID)
+	result, err := f.importer.CreateServerSource(f.ctx, testsupport.MustPlatformInstanceID(t,
+		f.db, "nes/fceumm"), "STANDARD", files, nil, adminID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,16 +158,14 @@ func TestDiscardRejectedOnlyBatchReleasesUploadAndIsIdempotent(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM upload_consumptions WHERE consumer_id=? AND released_at_ms IS NULL`, result.Created.ImportJobID); n != 0 {
 		t.Fatalf("active consumption: %d", n)
 	}
-	if n := f.count(t, `SELECT count(*) FROM upload_files WHERE final_blob_id=?`, file.BlobID); n != 0 {
+	if n := f.count(t, `SELECT count(*) FROM upload_files WHERE final_file_record=?`, file.FileRecord); n != 0 {
 		t.Fatalf("protected upload: %d", n)
 	}
-	if n := f.count(t, `SELECT count(*) FROM import_job_files WHERE import_job_id=? AND disposition='REJECTED' AND reason_code='UNSUPPORTED_CONTENT_FORMAT'`, result.Created.ImportJobID); n != 1 {
+	if n := f.count(t, `SELECT count(*) FROM import_job_files WHERE import_job_id=? AND disposition='REJECTED' AND
+reason_code='UNSUPPORTED_CONTENT_FORMAT'`, result.Created.ImportJobID); n != 1 {
 		t.Fatal("rejection evidence was lost")
 	}
-	if n := f.count(t, `SELECT count(*) FROM stored_files blob WHERE blob.id=? AND blob.retired_at_ms IS NOT NULL
-AND NOT EXISTS(SELECT 1 FROM file_deletions candidate WHERE candidate.blob_id=blob.id)`, file.BlobID); n != 0 {
-		t.Fatal("released bytes are neither queued nor collected")
-	}
+
 	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +204,8 @@ func TestDiscardPreservesPublishedGameAndOtherBatch(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_items WHERE import_job_id=? AND state='REVIEW_PENDING'`, other.Created.ImportJobID); n != 1 {
 		t.Fatal("unrelated batch changed")
 	}
-	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN file_deletions deletion ON deletion.blob_id=file.blob_id`); n != 0 {
+	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN job_input_snapshots deletion ON json_extract(file.file_record,
+'$.path') LIKE json_extract(deletion.input_json,'$.inputs.relativePath') || '/%'`); n != 0 {
 		t.Fatal("published content entered DeletionQueue")
 	}
 }
@@ -248,10 +246,12 @@ func TestDiscardKeepsOtherReviewsIndependentCopy(t *testing.T) {
 	}
 	f.finish(t, "IMPORT", first.Created.ImportJobID)
 	if n := f.count(t, `SELECT count(*) FROM import_item_source_files WHERE import_item_id IN
- (SELECT id FROM import_items WHERE import_job_id=?) AND blob_id<>?`, second.Created.ImportJobID, file.BlobID); n != 1 {
+ (SELECT id FROM import_items WHERE import_job_id=?) AND file_record<>?`, second.Created.ImportJobID, file.FileRecord); n != 1 {
 		t.Fatal("another review lost its content")
 	}
-	if n := f.count(t, `SELECT count(*) FROM file_deletions WHERE blob_id IN(SELECT blob_id FROM import_item_source_files WHERE import_item_id IN(SELECT id FROM import_items WHERE import_job_id=?))`, second.Created.ImportJobID); n != 0 {
+	if n := f.count(t, `SELECT count(*) FROM job_input_snapshots deletion JOIN import_items item ON
+json_extract(deletion.input_json,'$.inputs.relativePath')='staging/items/' || item.id WHERE
+item.import_job_id=?`, second.Created.ImportJobID); n != 0 {
 		t.Fatal("shared pending content entered DeletionQueue")
 	}
 }
@@ -272,7 +272,8 @@ func TestDiscardUnavailableWhenEveryItemAlreadyDecided(t *testing.T) {
 	if err != nil || status.State != "UNAVAILABLE" {
 		t.Fatalf("already decided availability=%+v error=%v", status, err)
 	}
-	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); !errors.Is(err, importdiscard.ErrInvalid) {
+	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID,
+		adminID); !errors.Is(err, importdiscard.ErrInvalid) {
 		t.Fatalf("already decided request=%v", err)
 	}
 }

@@ -96,7 +96,7 @@ func (service *Service) InspectArchive(ctx context.Context, id string) (ArchiveI
 		if err != nil {
 			return err
 		}
-		actual, err := scope.Archives.Entries(ctx, active.BlobID)
+		actual, err := scope.Archives.Entries(ctx, active.FileRecord)
 		if err != nil {
 			return fmt.Errorf("read BIOS archive inspection: %w", err)
 		}

@@ -50,6 +50,12 @@ func (service *ImportCreations) Create(ctx context.Context, request ImportReques
 func (service *ImportCreations) CommitPrepared(ctx context.Context, plan PreparedImport,
 	options ImportCreationOptions,
 ) (ImportCreationResult, error) {
+	committed := false
+	defer func() {
+		if !committed {
+			service.preparation.removePreparedDirectories(ctx, plan)
+		}
+	}()
 	run, err := service.prepareCommit(plan, options)
 	if err != nil {
 		return ImportCreationResult{}, creationError("commit prepared", err)
@@ -58,6 +64,7 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 	if err != nil {
 		return ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
 	}
+	committed = true
 	for _, scheduled := range run.scheduled {
 		if !scheduled.IsNoop() {
 			service.scraper.Dispatch(ctx, scheduled.ScrapeRunID())
@@ -149,7 +156,7 @@ func (run *creationCommit) commit(ctx context.Context, scope ImportCreationScope
 		if err != nil {
 			return fmt.Errorf("catalog prepared archive: %w", err)
 		}
-		run.materialized[archive.BlobID] = materialized
+		run.materialized[archive.FileRecord] = materialized
 	}
 	for index := range run.groups {
 		if err := run.persistGroup(ctx, scope, &run.groups[index]); err != nil {

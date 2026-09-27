@@ -42,14 +42,14 @@ func (service *Service) ProviderBatch(ctx context.Context) (int, error) {
 		}
 		var blobs []string
 		for _, before := range responses {
-			if before.ID == "" || before.State != "RETAINED" || before.BlobID == "" ||
+			if before.ID == "" || before.State != "RETAINED" || before.FileRecord == "" ||
 				before.Running || before.ExpiresMS > now || before.CacheCount < 0 {
 				return jobs.ErrExpirationSnapshotChanged
 			}
 			if err := scope.Write.ReleaseProvider(ctx, before, now); err != nil {
 				return fmt.Errorf("release expired provider payload: %w", err)
 			}
-			blobs = append(blobs, before.BlobID)
+			blobs = append(blobs, before.FileRecord)
 		}
 		if err := service.deletion.StageInScope(ctx, scope.DeletionQueue, blobs); err != nil {
 			return fmt.Errorf("stage expired provider payloads: %w", err)

@@ -74,7 +74,8 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
@@ -91,25 +92,29 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	candidateID := "01980000-0000-7000-8000-000000000129"
 	candidateAssetID := "01980000-0000-7000-8000-000000000130"
 	readyCoverAssetID := "01980000-0000-7000-8000-000000000131"
-	sourceBlobID := "01980000-0000-7000-8000-000000000132"
+	sourceFileRecord := testsupport.FileMetadata("blocked archive").Record
 	uploadFileID := "01980000-0000-7000-8000-000000000134"
 	coverUploadFileID := "01980000-0000-7000-8000-000000000136"
 	sourceSnapshotID := "01980000-0000-7000-8000-000000000137"
 	digest := strings.Repeat("a", 64)
 	timestamp := now.UnixMilli()
-	coverPayload, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	coverPayload,
+		err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 	testassert.False(t, err != nil, err)
 	coverMetadata, err := server.blobs.Put(bytes.NewReader(coverPayload))
 	testassert.False(t, err != nil, err)
-	coverBlobID := coverMetadata.ID
+	coverFileRecord := coverMetadata.Record
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
-	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
-	mustExecHTTPTest(t, transaction, `UPDATE stored_files SET owner_kind='UPLOAD',owner_id=? WHERE id=?`, uploadID, coverBlobID)
+	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID,
+		sourceFileRecord, coverFileRecord, uploadFileID, coverUploadFileID, sourceSnapshotID,
+		manifest, timestamp, coverMetadata)
 	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, scrapeJobID, timestamp)
-	seedReviewMetadataEvidence(t, transaction, scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID, readyCoverAssetID, coverBlobID, digest, timestamp)
+	seedReviewMetadataEvidence(t, transaction, scrapeRunID, itemID, scrapeJobID,
+		providerResponseID, candidateID, candidateAssetID, readyCoverAssetID, coverFileRecord, digest,
+		timestamp)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
@@ -173,19 +178,23 @@ WHERE provider_id=?
 		t.Fatalf("manual and candidate cover database invariant error = %v", err)
 	}
 	list := httptest.NewRecorder()
-	server.reviews(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return list.Code != http.StatusOK }, func() bool { return !strings.Contains(list.Body.String(), `"sourceTotalSizeBytes":4096`) }, func() bool { return !strings.Contains(list.Body.String(), `"sourceMd5":"`+strings.Repeat("c", 32)+`"`) }, func() bool {
+	server.reviews(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/reviews", nil))
+	testassert.Falsef(t, testassert.Any(func() bool { return list.Code != http.StatusOK }, func() bool { return !strings.Contains(list.Body.String(), `"sourceTotalSizeBytes":15`) }, func() bool {
+		return !strings.Contains(list.Body.String(), `"sourceMd5":"`+testsupport.FileMetadata("blocked archive").MD5+`"`)
+	}, func() bool {
 		return !strings.Contains(list.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+uploadedCoverAssetID+`"`)
 	}), "review queue source projection = %d %s", list.Code, list.Body.String())
 	filteredList := httptest.NewRecorder()
 	server.reviews(
-		filteredList, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?importJobId="+importID, nil),
+		filteredList, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/admin/reviews?importJobId="+importID, nil),
 	)
 	testassert.Falsef(t, anyTrue(filteredList.Code != http.StatusOK,
 		!strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`)),
 		"review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
 	assertSourceReviewSources(
-		t, server, itemID, importID, target, coverBlobID,
+		t, server, itemID, importID, target, coverFileRecord,
 		manifest, digest, timestamp, coverMetadata,
 	)
 }
@@ -239,7 +248,7 @@ func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID
 func assertSourceReviewSources(
 	t *testing.T,
 	server *Server,
-	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverBlobID string,
+	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverFileRecord string,
 	manifest, digest string,
 	timestamp int64,
 	coverMetadata filestore.Metadata,
@@ -252,7 +261,7 @@ func assertSourceReviewSources(
 	videoPayload := []byte("source review video fixture")
 	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
-	pegasusVideoBlobID := videoMetadata.ID
+	pegasusVideoFileRecord := videoMetadata.Record
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
@@ -291,26 +300,21 @@ INSERT INTO source_import_items(
 `, pegasusItemID, sourceImportID, pegasusCollectionID, strings.Repeat("4", 64), manifest, digest,
 		importID, itemID, timestamp, timestamp, timestamp,
 	)
-	mustExecHTTPTest(t, server.database, `
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES(?,?,?,?,?,?,'video/mp4',?)
-`, pegasusVideoBlobID, videoMetadata.SHA256, videoMetadata.Size, videoMetadata.MD5,
-		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
-	)
+
 	mustCreateHTTPReferences(t, server.database, "source_import_item_assets", `
 INSERT INTO source_import_item_assets(
- item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,
+ item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,file_record,media_type,
  width_px,height_px,state,created_at_ms,updated_at_ms
 ) VALUES(?,'COVER','EXPLICIT_GAME','FC/media/cover.png',?,?,?,'image/png',1,1,'COPIED',?,?),
         (?,'VIDEO','EXPLICIT_GAME','FC/media/video.mp4',?,?,?,'video/mp4',NULL,NULL,'COPIED',?,?)
-`, pegasusItemID, coverMetadata.Size, strings.Repeat("5", 64), coverBlobID, timestamp, timestamp,
-		pegasusItemID, videoMetadata.Size, strings.Repeat("6", 64), pegasusVideoBlobID, timestamp, timestamp,
+`, pegasusItemID, coverMetadata.Size, strings.Repeat("5", 64), coverFileRecord, timestamp, timestamp,
+		pegasusItemID, videoMetadata.Size, strings.Repeat("6", 64), pegasusVideoFileRecord, timestamp, timestamp,
 	)
 	mustCreateHTTPReferences(t, server.database, "import_item_assets", `
-INSERT INTO import_item_assets(import_item_id,kind,blob_id,media_type,width_px,height_px,created_at_ms)
-SELECT ?,kind,blob_id,media_type,width_px,height_px,? FROM source_import_item_assets WHERE item_id=?`, itemID, timestamp, pegasusItemID)
+INSERT INTO import_item_assets(import_item_id,kind,file_record,media_type,width_px,height_px,created_at_ms)
+SELECT ?,kind,file_record,media_type,width_px,height_px,? FROM source_import_item_assets WHERE item_id=?`, itemID, timestamp, pegasusItemID)
 	if _, err := recordstore.UpdateRows(t.Context(), server.database, "source_import_item_assets", recordstore.Update{
-		Set: "blob_id=NULL,state='RELEASED',payload_released_at_ms=?", Values: []any{timestamp},
+		Set: "file_record=NULL,state='RELEASED',payload_released_at_ms=?", Values: []any{timestamp},
 		Scope: recordstore.Scope{Where: "item_id=?", Args: []any{pegasusItemID}},
 	}); err != nil {
 		t.Fatal(err)
@@ -323,16 +327,19 @@ WHERE id=?
 	hiddenSourceList := httptest.NewRecorder()
 	server.reviews(
 		hiddenSourceList,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
 	)
 	testassert.Falsef(t, anyTrue(hiddenSourceList.Code != http.StatusOK,
 		strings.Contains(hiddenSourceList.Body.String(), itemID)),
 		"incomplete Source handoff leaked into review queue = %d %s", hiddenSourceList.Code, hiddenSourceList.Body.String())
 	hiddenSourceDetail := httptest.NewRecorder()
-	hiddenSourceDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	hiddenSourceDetailRequest := httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	hiddenSourceDetailRequest.SetPathValue("importItemId", itemID)
 	server.review(hiddenSourceDetail, hiddenSourceDetailRequest)
-	testassert.Falsef(t, hiddenSourceDetail.Code != http.StatusNotFound, "incomplete Source handoff detail = %d %s", hiddenSourceDetail.Code, hiddenSourceDetail.Body.String())
+	testassert.Falsef(t, hiddenSourceDetail.Code != http.StatusNotFound,
+		"incomplete Source handoff detail = %d %s", hiddenSourceDetail.Code, hiddenSourceDetail.Body.String())
 	mustExecHTTPTest(t, server.database, `
 UPDATE source_import_items
 SET execution_state='REVIEW_PENDING',completed_at_ms=?
@@ -341,13 +348,15 @@ WHERE id=?
 	pegasusList := httptest.NewRecorder()
 	server.reviews(
 		pegasusList,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+			"/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return pegasusList.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"itemId":"`+itemID+`"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceKind":"SOURCE"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceLabel":"FC"`) }, func() bool {
 		return !strings.Contains(pegasusList.Body.String(), `"sourceImportId":"`+sourceImportID+`"`)
 	}), "Source review queue filter = %d %s", pegasusList.Code, pegasusList.Body.String())
 	pegasusDetail := httptest.NewRecorder()
-	pegasusDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	pegasusDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/reviews/"+itemID, nil)
 	pegasusDetailRequest.SetPathValue("importItemId", itemID)
 	server.review(pegasusDetail, pegasusDetailRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return pegasusDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusDetail.Body.String(), `"sourceKind":"SOURCE"`) }, func() bool {
@@ -365,13 +374,14 @@ WHERE id=?
 	server.reviewCandidateAsset(pegasusVideo, pegasusVideoRequest)
 	testassert.Falsef(t, anyTrue(pegasusVideo.Code != http.StatusOK,
 		!bytes.Equal(pegasusVideo.Body.Bytes(), videoPayload), pegasusVideo.Header().Get("Content-Type") != "video/mp4"),
-		"Source review video = %d/%s %q", pegasusVideo.Code, pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
+		"Source review video = %d/%s %q", pegasusVideo.Code,
+		pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
 }
 
 func seedReviewSources(
 	t *testing.T, transaction dbapi.Tx,
 	uploadID, digest, importID string, target testsupport.RuntimeTargetIdentity,
-	itemID, sourceBlobID, coverBlobID string,
+	itemID, sourceFileRecord, coverFileRecord string,
 	uploadFileID, coverUploadFileID, sourceSnapshotID, manifest string,
 	timestamp int64, coverMetadata filestore.Metadata,
 ) {
@@ -452,28 +462,28 @@ updated_at_ms) VALUES(?,
 ?,
 ?)
 `, itemID, importID, digest, manifest, digest, timestamp, timestamp)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO stored_files(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES
-(?,?,4096,?,?,?,'application/octet-stream',?),
-(?,?,?,?,?,?,'image/png',?)
-`, sourceBlobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), timestamp,
-		coverBlobID, coverMetadata.SHA256, coverMetadata.Size, coverMetadata.MD5, coverMetadata.SHA1, coverMetadata.CRC32, timestamp)
+
 	mustCreateHTTPReferences(t, transaction, "upload_files", `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
 (?,?,'manual-cover.png',?,?,?,'COMPLETE',?,?)
-	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp,
-		coverUploadFileID, uploadID, coverMetadata.Size, coverMetadata.Size, coverBlobID, timestamp, timestamp)
-	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
+	`, uploadFileID, uploadID, sourceFileRecord, timestamp, timestamp,
+		coverUploadFileID, uploadID, coverMetadata.Size, coverMetadata.Size, coverFileRecord, timestamp, timestamp)
+	mustCreateHTTPReferences(t, transaction, "import_files", `INSERT INTO import_files(id,upload_session_id,relative_path,file_record,size_bytes,created_at_ms) SELECT
+id,upload_session_id,relative_path,final_file_record,received_size_bytes,created_at_ms FROM upload_files
+WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+INSERT INTO archive_entries(archive_file_record,ordinal,original_relative_path,normalized_path,
+ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
 VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba','ZIP','DEFLATE',4096,?,?,?,?,?)
-	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), timestamp)
+	`, sourceFileRecord, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), timestamp)
 	mustCreateHTTPReferences(t, transaction, "import_item_source_files", `
-INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,file_record,
+source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
-	`, itemID, uploadFileID, sourceBlobID, timestamp)
+	`, itemID, uploadFileID, sourceFileRecord, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,
 source_manifest_digest,created_by,created_at_ms)
@@ -481,9 +491,9 @@ VALUES(?,?,?,?,'IDENTIFICATION',?)
 	`, sourceSnapshotID, itemID, manifest, digest, timestamp)
 	mustCreateHTTPReferences(t, transaction, "import_item_source_snapshot_files", `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
-blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
-	`, sourceSnapshotID, uploadFileID, sourceBlobID, timestamp)
+	`, sourceSnapshotID, uploadFileID, sourceFileRecord, timestamp)
 }
 
 func seedReviewValidation(
@@ -522,7 +532,8 @@ created_at_ms) VALUES(?,
 ?)
 `, validationID, itemID, target.ProviderID, target.TargetID, digest, sourceSnapshotID, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
-UPDATE import_items SET target_platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
+UPDATE import_items SET target_platform_instance_id=(SELECT id FROM platform_instances WHERE
+catalog_template_key='gba/mgba'),
 selected_validation_id=NULL,effective_source_snapshot_id=?,
 metadata_json='{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',
 review_version=1,review_created_at_ms=?,review_updated_at_ms=? WHERE id=?
@@ -565,7 +576,7 @@ updated_at_ms) VALUES(?,
 func seedReviewMetadataEvidence(
 	t *testing.T, transaction dbapi.Tx,
 	scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID string,
-	readyCoverAssetID, coverBlobID, digest string, timestamp int64,
+	readyCoverAssetID, coverFileRecord, digest string, timestamp int64,
 ) {
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO metadata_scrape_runs(id,
@@ -646,10 +657,12 @@ updated_at_ms) VALUES(?,
 ?)
 `, candidateAssetID, candidateID, providerResponseID, timestamp, timestamp)
 	mustCreateHTTPReferences(t, transaction, "scrape_candidate_assets", `
-INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,ordinal,
-source_path,status,blob_id,width_px,height_px,media_type,fetched_at_ms,version,created_at_ms,updated_at_ms)
+INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,
+kind_hint,ordinal,
+source_path,status,file_record,width_px,height_px,media_type,fetched_at_ms,version,created_at_ms,
+updated_at_ms)
 VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,800,'image/png',?,1,?,?)
-`, readyCoverAssetID, candidateID, providerResponseID, coverBlobID, timestamp, timestamp, timestamp)
+`, readyCoverAssetID, candidateID, providerResponseID, coverFileRecord, timestamp, timestamp, timestamp)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}

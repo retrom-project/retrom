@@ -30,14 +30,14 @@ func (service *Service) stateFileAuthorized(ctx context.Context, launchID string
 		return Restore{}, ErrCheckpointIncompatible
 	}
 	maximum := min(restore.Checkpoint.MaxBytes, maxStoredCheckpointBytes)
-	if _, err := service.readRestorePayload(restore.BlobID, restore.Digest, maximum, restore.Size); err != nil {
+	if _, err := service.readRestorePayload(restore.FileRecord, restore.Digest, maximum, restore.Size); err != nil {
 		return Restore{}, err
 	}
 	return restore, nil
 }
 
 func (service *Service) readRestorePayload(id, digest string, maximum, expectedSize int64) ([]byte, error) {
-	file, err := service.blobs.OpenID(id)
+	file, err := service.blobs.OpenRecord(id)
 	if err != nil {
 		return nil, ErrCheckpointIncompatible
 	}

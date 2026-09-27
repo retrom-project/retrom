@@ -107,17 +107,17 @@ func (service *ImportPreparation) prepareProfileFile(
 	if err != nil {
 		return rejectedDisposition(file, archiveSelectionReason(err)), nil, nil
 	}
-	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.BlobID), candidate)
+	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.FileRecord), candidate)
 	if err != nil {
 		return rejectedDisposition(file, ArchiveReason(err)), nil, nil
 	}
 	ordinal := candidate.Ordinal
 	group := &PreparedGroup{Sources: []PreparedSource{{
 		File: file, Role: "CONTENT", LogicalName: filepath.Base(candidate.NormalizedPath),
-		ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
+		ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 	}}}
 	archive := &PreparedArchive{
-		BlobID: file.BlobID, Entries: entries,
+		FileRecord: file.FileRecord, Entries: entries,
 		Materialized: map[int]filestore.Metadata{ordinal: selected},
 	}
 	return sourceDisposition(file), group, archive
@@ -166,7 +166,7 @@ func (service *ImportPreparation) scanProfileArchive(
 	file ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, error) {
-	archivePath := service.blobs.Path(file.BlobID)
+	archivePath := service.blobs.Path(file.FileRecord)
 	var entries []importing.ArchiveEntry
 	var err error
 	if archiveFormat == contentprofile.ArchiveZIP {
@@ -184,7 +184,7 @@ func (service *ImportPreparation) readMultiDiscBlob(file ImportFile, maximum int
 	if service.blobs == nil || file.Size > maximum {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenID(file.BlobID)
+	reader, err := service.blobs.OpenRecord(file.FileRecord)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
@@ -200,7 +200,7 @@ func (service *ImportPreparation) readMultiDiscHeader(file ImportFile) ([]byte, 
 	if service.blobs == nil || file.Size < 8 {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenID(file.BlobID)
+	reader, err := service.blobs.OpenRecord(file.FileRecord)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
@@ -260,7 +260,7 @@ func (service *ImportPreparation) multiDiscCandidates(
 		}
 		candidates = append(candidates, multidisc.File{
 			Basename: path.Base(file.Path), LogicalName: path.Base(file.Path),
-			UploadFileID: file.ID, BlobID: file.BlobID, BlobSHA256: file.SHA256,
+			UploadFileID: file.ID, FileRecord: file.FileRecord, BlobSHA256: file.SHA256,
 			SizeBytes: file.Size, Header: header,
 		})
 	}
@@ -305,11 +305,11 @@ func preparedMultiDiscGroup(
 		if entry.State == multidisc.EntryPresent {
 			discOrder := entry.Ordinal
 			preparedEntry.UploadFileID = entry.File.UploadFileID
-			preparedEntry.BlobID = entry.File.BlobID
+			preparedEntry.FileRecord = entry.File.FileRecord
 			preparedEntry.SourceLogicalName = entry.File.LogicalName
 			sourceFile := ImportFile{
 				ID: entry.File.UploadFileID, Path: path.Join(directory, entry.File.Basename),
-				BlobID: entry.File.BlobID, SHA256: entry.File.BlobSHA256, Size: entry.File.SizeBytes,
+				FileRecord: entry.File.FileRecord, SHA256: entry.File.BlobSHA256, Size: entry.File.SizeBytes,
 			}
 			group.Sources = append(group.Sources, PreparedSource{
 				File: sourceFile, Role: "DISC", LogicalName: entry.File.LogicalName, SortOrder: &discOrder,

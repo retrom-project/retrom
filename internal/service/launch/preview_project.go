@@ -30,7 +30,7 @@ func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 			continue
 		}
 		if file.LogicalName == marker {
-			content.BlobID, content.LogicalName = file.BlobID, file.LogicalName
+			content.FileRecord, content.LogicalName = file.FileRecord, file.LogicalName
 			continue
 		}
 		if len(content.Files) >= maximum {
@@ -38,7 +38,7 @@ func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 		}
 		content.Files = append(content.Files, file)
 	}
-	if content.BlobID == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
+	if content.FileRecord == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
 		return PreviewContent{}, ErrReviewPreviewUnavailable
 	}
 	return content, nil

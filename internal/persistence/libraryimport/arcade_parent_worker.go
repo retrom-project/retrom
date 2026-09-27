@@ -95,16 +95,17 @@ SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
 attachment.depth,attachment.provider_id,attachment.target_id,
 attachment.dat_version_id,attachment.upload_file_id,
-file.upload_session_id,attachment.original_filename,file.blob_id,blob.sha256,blob.size_bytes
+file.upload_session_id,attachment.original_filename,file.file_record,json_extract(blob.value,
+'$.sha256'),json_extract(blob.value, '$.size_bytes')
 FROM review_arcade_parent_attachments attachment
 JOIN import_files file ON file.id=attachment.upload_file_id
-JOIN stored_files blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE attachment.job_id=? AND attachment.state='RUNNING'
 `, jobID).Scan(
 		&candidate.AttachmentID, &candidate.ItemID, &candidate.DraftID, &candidate.BaseSnapshotID,
 		&candidate.Machine, &candidate.RequiredBy, &candidate.Depth, &candidate.ProviderID, &candidate.TargetID,
 		&candidate.DATID, &candidate.UploadFileID, &candidate.UploadSessionID, &candidate.OriginalName,
-		&candidate.BlobID, &candidate.BlobSHA, &candidate.BlobSize,
+		&candidate.FileRecord, &candidate.BlobSHA, &candidate.BlobSize,
 	); err != nil {
 		return application.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf(
 			"read claimed arcade parent attachment: %w",
@@ -143,11 +144,13 @@ func (repository *ArcadeParentAttachmentWorker) SourceSnapshot(
 	ctx context.Context, snapshotID string,
 ) ([]application.ArcadeParentSourceSnapshotFile, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.upload_file_id,file.blob_id,blob.sha256,blob.size_bytes,
-file.source_archive_blob_id,file.source_archive_entry_ordinal,COALESCE(archive.sha256,'')
+SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
+'$.sha256'),json_extract(blob.value, '$.size_bytes'),
+file.source_archive_file_record,file.source_archive_entry_ordinal,COALESCE(json_extract(archive.value,
+'$.sha256'),'')
 FROM import_item_source_snapshot_files file
-JOIN stored_files blob ON blob.id=file.blob_id
-LEFT JOIN stored_files archive ON archive.id=file.source_archive_blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+LEFT JOIN json_each(json_array(file.source_archive_file_record)) archive ON archive.value IS NOT NULL
 WHERE file.source_snapshot_id=?
 ORDER BY file.role,file.logical_name
 `, snapshotID)
@@ -161,13 +164,13 @@ ORDER BY file.role,file.logical_name
 		var archiveID sql.NullString
 		var archiveOrdinal sql.NullInt64
 		if err := rows.Scan(
-			&file.Role, &file.LogicalName, &file.UploadFileID, &file.BlobID, &file.BlobSHA, &file.BlobSize,
+			&file.Role, &file.LogicalName, &file.UploadFileID, &file.FileRecord, &file.BlobSHA, &file.BlobSize,
 			&archiveID, &archiveOrdinal, &file.SourceArchiveSHA,
 		); err != nil {
 			return nil, fmt.Errorf("scan arcade parent source snapshot: %w", err)
 		}
 		if archiveID.Valid {
-			file.SourceArchiveBlobID = archiveID.String
+			file.SourceArchiveFileRecord = archiveID.String
 			if archiveOrdinal.Valid {
 				ordinal := int(archiveOrdinal.Int64)
 				file.SourceArchiveEntryOrdinal = &ordinal

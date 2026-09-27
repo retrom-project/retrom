@@ -19,9 +19,10 @@ func ValidateGameAssets(ctx context.Context, db dbapi.Executor, keys ...any) err
 
 const game_assetsOwnership = `
 SELECT CASE
-WHEN NOT EXISTS(SELECT 1 FROM stored_files file WHERE file.id=candidate.blob_id
- AND file.owner_kind='GAME' AND file.owner_id=candidate.game_id AND file.retired_at_ms IS NULL)
- THEN 'game file has a different owner'
+WHEN NOT json_valid(candidate.file_record) THEN 'invalid game file record'
+WHEN json_extract(candidate.file_record,'$.path') NOT LIKE
+ 'files/' || substr(candidate.game_id,-2) || '/' || candidate.game_id || '/%'
+ THEN 'game file is outside its game directory'
 WHEN (NOT EXISTS(SELECT 1 FROM games WHERE id=candidate.game_id AND status='PUBLISHED')) THEN
 'game payload owner is not published'
 ELSE '' END

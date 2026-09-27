@@ -56,12 +56,12 @@ def seed(database_path: Path, state: str) -> None:
             raise ValueError("UI fixture target must support checkpoints")
         screenshot = (ROOT / "testdata/public-roms/gba-smoke/emulationstation-smoke-cover.png").read_bytes()
         digest = hashlib.sha256(screenshot).hexdigest()
-        blob_id = put_owned(database, screenshot, "SAVE_STATE", SAVE_ID, "image/png")
+        file_record = put_owned(database, screenshot, "SAVE_STATE", SAVE_ID, "image/png")
         database.execute(
-            "INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,"
-            "payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms) "
+            "INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,"
+            "payload_size_bytes,screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms) "
             "VALUES(?,?,?,?,?,?,?,?,?,'UI layout fixture',1000,1,?,?)",
-            (SAVE_ID, profile, game["id"], checkpoint_format, blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
+            (SAVE_ID, profile, game["id"], checkpoint_format, file_record, digest, len(screenshot), file_record, launch_id, timestamp, timestamp),
         )
 
 
@@ -87,8 +87,8 @@ def seed_recent_poster(database, module, profile, game, timestamp):
         database, game, index, "Homepage poster acceptance", "H", timestamp - 2000, index,
     )
     database.execute(
-        "INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms) "
-        "SELECT ?,?,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms "
+        "INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms) "
+        "SELECT ?,?,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms "
         "FROM game_assets WHERE game_id=? AND kind='COVER' AND ordinal=0",
         (module.identifier(7, index), recent_id, game["id"]),
     )

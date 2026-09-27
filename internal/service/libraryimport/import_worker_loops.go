@@ -48,6 +48,9 @@ func (worker *ImportWorker) runMaintenance(ctx context.Context) {
 	for ctx.Err() == nil {
 		bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 		err := worker.dependencies.Recovery.Recover(bounded)
+		if worker.settings.RecoverPublications != nil {
+			worker.report(ctx, worker.settings.RecoverPublications(bounded))
+		}
 		cancel()
 		worker.report(ctx, fmtWorkerError("maintain import executions", err))
 		select {

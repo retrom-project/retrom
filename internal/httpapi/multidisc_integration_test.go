@@ -15,13 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/persistence/recordstore"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"github.com/google/uuid"
 
@@ -78,7 +79,7 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	ctx := context.Background()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := filecatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -90,10 +91,10 @@ WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 	}
 	installationID := uuid.NewString()
 	if _, err := recordstore.InsertRows(ctx, server.database, "bios_installations", `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, installationID, requirementID, blobID, "saturn_bios.bin", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID, requirementID, fileRecord, "saturn_bios.bin", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,10 +106,12 @@ func multiDiscHTTPCHD(value string) []byte {
 func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, string) {
 	t.Helper()
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -119,7 +122,8 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
+			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
@@ -146,9 +150,7 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := filecatalog.EnsureRecord(
-		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
-	)
+	fileRecord, err := filestore.FileRecord(metadata, "application/zip")
 	testassert.False(t, err != nil, err)
 	var variantID string
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `
@@ -162,15 +164,15 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	if _, err := recordstore.InsertRows(t.Context(), transaction, "variant_files", `
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
-`, variantID, blobID); err != nil {
+`, variantID, fileRecord); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(t.Context(), `
-INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind)
 VALUES(?,'/__retrom__/parent/00/parent.zip','parent.zip',?,?,'PARENT')
-`, created.LaunchID, blobID, time.Now().UnixMilli()); err != nil {
+`, created.LaunchID, fileRecord, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -299,7 +301,10 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		assertImmutableRuntimeGETAndHEAD(t, parentURL, requestContent)
 	}
 
-	for name, contentURL := range map[string]string{"game": gameURL, "disc": firstDiscURL, "bios": biosURL, "parent": parentURL} {
+	for name, contentURL := range map[string]string{
+		"game": gameURL, "disc": firstDiscURL,
+		"bios": biosURL, "parent": parentURL,
+	} {
 		t.Run(name+" Content I/O", func(t *testing.T) { assertContentIOProtocol(t, contentURL, requestContent) })
 	}
 
@@ -345,10 +350,12 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -360,7 +367,8 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 		{path: "game/notes.txt", contents: []byte("not referenced")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
+		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
+			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
@@ -388,9 +396,12 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 		`"ignoredFileCount":1`,
 		`"ignoredFiles":["notes.txt"]`,
 	} {
-		testassert.Falsef(t, testassert.Any(func() bool { return importDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(importDetail.Body.String(), expected) }), "import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
+		testassert.Falsef(t,
+			testassert.Any(func() bool { return importDetail.Code != http.StatusOK },
+				func() bool { return !strings.Contains(importDetail.Body.String(), expected) }),
+			"import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
 	}
-	testassert.Falsef(t, strings.Contains(importDetail.Body.String(), `"blobId"`), "import detail exposes blob id = %s", importDetail.Body.String())
+	testassert.Falsef(t, strings.Contains(importDetail.Body.String(), `"fileRecord"`), "import detail exposes blob id = %s", importDetail.Body.String())
 	attachmentUploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{
 		{path: "three.chd", contents: multiDiscHTTPCHD("three")},
 	})
@@ -425,7 +436,8 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	replay := send()
 	testassert.Falsef(t, testassert.Any(func() bool { return replay.Code != http.StatusAccepted }, func() bool { return replay.Body.String() != first.Body.String() }, func() bool { return replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replay.Header().Get("ETag") != `"v2"` }), "attachment replay = %d %s, headers=%v", replay.Code, replay.Body.String(), replay.Header())
 	waitForHTTPJob(t, server.database, attachment.JobID, "SUCCEEDED")
-	reviewRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	reviewRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/reviews/"+itemID, nil)
 	reviewRequest.AddCookie(cookie)
 	review := httptest.NewRecorder()
 	handler.ServeHTTP(review, reviewRequest)
@@ -437,12 +449,13 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 		!reviewProjection.CanApprove || !bytes.Contains(reviewProjection.MultiDisc, []byte(`"missingDiscCount":0`)) ||
 		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxDiscs":8`)) ||
 		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxTotalBytes":1073741824`)) ||
-		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
+		bytes.Contains(reviewProjection.MultiDisc, []byte(`"fileRecord"`)) {
 		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
 	}
 	if _, err := server.database.ExecContext(ctx, `
 UPDATE runtime_providers
-SET provider_version='1.1.0',bundle_sha256=?,manifest_sha256=?,module_sha256=?,activated_at_ms=activated_at_ms+1
+SET provider_version='1.1.0',bundle_sha256=?,manifest_sha256=?,module_sha256=?,
+activated_at_ms=activated_at_ms+1
 WHERE provider_id=(
  SELECT binding.provider_id FROM runtime_target_bindings binding
  WHERE binding.core_id='yabause' LIMIT 1
@@ -450,7 +463,8 @@ WHERE provider_id=(
 `, strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64)); err != nil {
 		t.Fatal(err)
 	}
-	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/reviews/"+itemID, nil)
 	staleRequest.AddCookie(cookie)
 	stale := httptest.NewRecorder()
 	handler.ServeHTTP(stale, staleRequest)
@@ -460,10 +474,12 @@ WHERE provider_id=(
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -474,7 +490,8 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
+			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
@@ -520,7 +537,10 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		`{"eventType":"START","resultCode":"OK","discCount":2,"observedDiscCount":2}`,
 		launchCookie,
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return accepted.Code != http.StatusNoContent }, func() bool { return accepted.Body.Len() != 0 }), "accepted event = %d %s", accepted.Code, accepted.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return accepted.Code != http.StatusNoContent },
+			func() bool { return accepted.Body.Len() != 0 }), "accepted event = %d %s", accepted.Code,
+		accepted.Body.String())
 	mismatched := send(
 		`{"eventType":"START","resultCode":"OK","discCount":3,"observedDiscCount":3}`,
 		launchCookie,

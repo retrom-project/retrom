@@ -33,7 +33,11 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 			_, err := application.NewContentDuplicates(repository.BindContentDuplicates(database)).Identity(t.Context(), "item")
 			return err
 		}},
-		{"duplicate matches", func() error { _, err := findDuplicateGames(t.Context(), database, "item", "gba"); return err }},
+		{"duplicate matches", func() error {
+			_, err := findDuplicateGames(t.Context(), database,
+				"item", "gba")
+			return err
+		}},
 		{"arcade relations", func() error {
 			_, _, err := application.LoadArcadeClosure(t.Context(), repository.BindArcadeRelations(database), "dat", "machine")
 			return err

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/service/filestaging"
 	biosretirement "retrom/internal/service/firmware/retirement"
 	launchretirement "retrom/internal/service/launch/retirement"
 	previewretention "retrom/internal/service/libraryimport/previewretention"
@@ -52,9 +50,6 @@ func New(
 		application.Dependencies{
 			Worker: workerrepo.NewWorker(database),
 
-			DeletionQueue: filedeletion.NewQueue(database, workerrepo.BindWorker),
-			FileDeletion:  filedeletion.NewFileDeletion(database, workerrepo.BindWorker),
-
 			Effects: map[application.ScopeType]application.EffectRepository{
 				application.ScopeGame:              gamerelease.NewEffects(database),
 				application.ScopeImportItem:        itemrelease.NewEffects(database),
@@ -64,7 +59,7 @@ func New(
 			},
 			Maintenance: func(deletion application.DeletionStager) []func(context.Context) error {
 				return []func(context.Context) error{
-					filestaging.New(filecatalog.NewStaging(database), blobs, now).Run,
+					scratchMaintenance(blobs, database, now),
 					biosretirement.New(payloadbios.New(database), now).BIOS,
 					launchretirement.New(payloadlaunch.New(database), now).Launches,
 					previewretention.New(payloadpreview.New(database), deletion, now).Previews,

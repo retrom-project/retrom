@@ -85,7 +85,7 @@ func attachedMultiDiscFileFromApplication(file application.MultiDiscAttachmentFi
 		role:         file.Role,
 		logicalName:  file.LogicalName,
 		uploadFileID: file.UploadFileID,
-		blobID:       file.BlobID,
+		fileRecord:   file.FileRecord,
 		blobSHA:      file.BlobSHA,
 		blobSize:     file.BlobSize,
 		sortOrder:    file.SortOrder,
@@ -168,7 +168,7 @@ func (service *Service) multiDiscFileForValidation(
 	if err := service.heartbeatMultiDiscAttachment(ctx, candidate); err != nil {
 		return multidisc.File{}, err
 	}
-	reader, err := service.blobs.OpenID(file.blobID)
+	reader, err := service.blobs.OpenRecord(file.fileRecord)
 	if err != nil {
 		return multidisc.File{}, multiDiscAttachmentStoreError("open disc", err)
 	}
@@ -202,7 +202,7 @@ func (service *Service) multiDiscFileForValidation(
 	}
 	return multidisc.File{
 		Basename: file.logicalName, LogicalName: file.logicalName,
-		UploadFileID: file.uploadFileID, BlobID: file.blobID, BlobSHA256: file.blobSHA,
+		UploadFileID: file.uploadFileID, FileRecord: file.fileRecord, BlobSHA256: file.blobSHA,
 		SizeBytes: file.blobSize, Header: header,
 	}, nil
 }

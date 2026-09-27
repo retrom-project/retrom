@@ -17,14 +17,7 @@ func (run *reviewApprovalRun) publish() error {
 			return err
 		}
 	}
-	if run.request.Bulk != nil {
-		if err := run.scope.Bulk.RecordPublished(run.ctx, BulkPublication{
-			Intent: *run.request.Bulk, ItemID: run.request.ItemID, Result: run.result(), NowMS: run.now,
-			ReviewVersion: run.request.ExpectedVersion, LeasedUntilMS: run.now + 60_000,
-		}); err != nil {
-			return fmt.Errorf("record bulk published review: %w", err)
-		}
-	}
+
 	return nil
 }
 

@@ -4,20 +4,40 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/persistence/uploads/receivedfiles"
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filedeletion"
 )
 
 func (records retirementRecords) RetireContent(ctx context.Context, gameID string, now int64) error {
-	_, err := records.executor.ExecContext(ctx, `UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?2)
- WHERE (owner_kind='GAME' AND owner_id=?1 AND id IN(
- SELECT blob_id FROM game_files WHERE game_id=?1 UNION SELECT file.blob_id FROM variant_files file
- JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=?1 AND file.role<>'BIOS_BUNDLE'))
- OR (owner_kind='SAVE_STATE' AND owner_id IN(SELECT id FROM save_states WHERE game_id=?1))`, gameID, now)
+	values, err := dbapi.QueryStrings(ctx, records.executor, `SELECT file_record FROM game_files WHERE game_id=?1
+ UNION SELECT f.file_record FROM variant_files f JOIN game_variants v ON v.id=f.game_variant_id
+ WHERE v.game_id=?1 AND f.role<>'BIOS_BUNDLE'`, gameID)
 	if err != nil {
-		return fmt.Errorf("retire replaced content files: %w", err)
+		return fmt.Errorf("retire content: %w", err)
 	}
-	if err := receivedfiles.ReleaseRetired(ctx, records.executor, "GAME", gameID, now); err != nil {
-		return fmt.Errorf("release retired content inputs: %w", err)
+	seen := map[string]bool{}
+	for _, value := range values {
+		directory, err := filestore.CleanupDirectory(value)
+		if err != nil {
+			return fmt.Errorf("read replaced content directory: %w", err)
+		}
+		if directory == "" || seen[directory] {
+			continue
+		}
+		seen[directory] = true
+		if err := filedeletion.QueuePath(ctx, records.executor, directory, now); err != nil {
+			return fmt.Errorf("retire content: %w", err)
+		}
+	}
+	ids, err := dbapi.QueryStrings(ctx, records.executor, `SELECT id FROM save_states WHERE game_id=?`, gameID)
+	if err != nil {
+		return fmt.Errorf("retire content: %w", err)
+	}
+	for _, id := range ids {
+		if err := filedeletion.QueuePath(ctx, records.executor, "saves/"+id, now); err != nil {
+			return fmt.Errorf("retire content: %w", err)
+		}
 	}
 	return nil
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/filedeletion"
+
 	"retrom/internal/persistence/recordstore"
 
 	application "retrom/internal/service/metadatascrape"
@@ -28,10 +31,16 @@ func (writes scheduleWrites) replaceCurrent(ctx context.Context, plan applicatio
 	if err != nil {
 		return fmt.Errorf("cancel replaced scrape jobs: %w", err)
 	}
-	if _, err := writes.transaction.ExecContext(ctx, `UPDATE stored_files SET retired_at_ms=COALESCE(retired_at_ms,?)
-WHERE owner_kind='SCRAPE_RUN' AND owner_id IN (`+current+`)`, plan.Now, plan.Subject.ID); err != nil {
-		return fmt.Errorf("retire replaced scrape files: %w", err)
+	ids, err := dbapi.QueryStrings(ctx, writes.transaction, current, plan.Subject.ID)
+	if err != nil {
+		return fmt.Errorf("read replaced scrape directories: %w", err)
 	}
+	for _, id := range ids {
+		if err := filedeletion.QueuePath(ctx, writes.transaction, "scrapes/"+id, plan.Now); err != nil {
+			return fmt.Errorf("replace current: %w", err)
+		}
+	}
+
 	if _, err := recordstore.DeleteScrapeCandidateAssets(
 		ctx,
 		writes.transaction,

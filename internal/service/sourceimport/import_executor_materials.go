@@ -15,14 +15,14 @@ func (run *importItemRun) copyFiles(ctx context.Context) (bool, error) {
 			}
 			return false, run.finish(ctx, err, outcome)
 		}
-		blobID, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), MaterialSource{
+		fileRecord, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), MaterialSource{
 			Key:  MaterialKey{ItemID: run.item.ID, Ordinal: file.Ordinal},
 			Path: file.Path, Facts: file.Facts, Size: file.Size,
 		}, blob)
 		if err != nil {
 			return false, run.finish(ctx, err, ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true})
 		}
-		run.item.Files[index].BlobID = blobID
+		run.item.Files[index].FileRecord = fileRecord
 	}
 	return true, nil
 }
@@ -45,11 +45,11 @@ func (run *importItemRun) copyAssets(ctx context.Context) (bool, error) {
 			}
 			continue
 		}
-		blobID, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), source, blob)
+		fileRecord, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), source, blob)
 		if err != nil {
 			return false, run.failure(ctx, "STORAGE", "BIND_MEDIA", err, asset.Path)
 		}
-		run.item.Assets[index].BlobID = blobID
+		run.item.Assets[index].FileRecord = fileRecord
 	}
 	return true, nil
 }

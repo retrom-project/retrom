@@ -39,7 +39,7 @@ func (service *ImportPreparation) prepareScummVMDirectory(
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
 		metadata[file.SourceIndex] = filestore.Metadata{
-			ID: source.BlobID, Path: service.blobs.Path(source.BlobID), SHA256: source.SHA256, Size: source.Size,
+			Record: source.FileRecord, Path: service.blobs.Path(source.FileRecord), SHA256: source.SHA256, Size: source.Size,
 		}
 	}
 	snapshot, err := service.detectScummVMTree(ctx, project.Files, metadata, nil)
@@ -93,7 +93,7 @@ func (service *ImportPreparation) prepareScummVMArchive(
 		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
 	}
 	group, err := newScummVMGroup(archiveProjectSources(file, project.Files), snapshot, file.Path)
-	archive := PreparedArchive{BlobID: file.BlobID, Entries: entries, Materialized: materialized}
+	archive := PreparedArchive{FileRecord: file.FileRecord, Entries: entries, Materialized: materialized}
 	return sourceDisposition(file), group, archive, err
 }
 

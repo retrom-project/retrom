@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/multidisc"
-	"retrom/internal/persistence/filecatalog"
-	"retrom/internal/persistence/fileownership"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/gamecontent"
 )
 
 func (writes writes) Publish(ctx context.Context, value gamecontent.Publication) error {
+	for _, copy := range value.Prepared.FileCopies {
+		if err := recordstore.CopyArchiveFacts(ctx, writes.transaction, copy.Source, copy.Target); err != nil {
+			return fmt.Errorf("publish: %w", err)
+		}
+	}
 	if err := writes.game(ctx, value); err != nil {
 		return err
 	}
@@ -60,25 +65,15 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 		return fmt.Errorf("remove old game files: %w", err)
 	}
 	for _, file := range prepared.Files {
-		if err := fileownership.Transfer(
-			ctx,
-			writes.transaction,
-			file.BlobID,
-			fileownership.Owner{Kind: "UPLOAD", ID: snapshot.UploadSessionID},
-			fileownership.Owner{Kind: "GAME", ID: snapshot.GameID},
-		); err != nil {
-			return fmt.Errorf("publication: %w", err)
-		}
-
 		_, err := recordstore.CreateGameFiles(
 			ctx,
 			writes.transaction,
-			`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order)
+			`INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
   VALUES(?,?,?,?,?)`,
 			snapshot.GameID,
 			file.Role,
 			file.LogicalName,
-			file.BlobID,
+			file.FileRecord,
 			file.SortOrder,
 		)
 		if err != nil {
@@ -131,28 +126,15 @@ func (writes writes) variant(ctx context.Context, value gamecontent.Publication)
 }
 
 func (writes writes) playlist(ctx context.Context, value gamecontent.Publication) error {
-	id, err := filecatalog.EnsureRecord(
-		ctx,
-		writes.transaction,
-		value.Prepared.CanonicalPlaylist,
-		"application/vnd.retrom.m3u",
-		value.Now,
-	)
+	id, err := filestore.FileRecord(value.Prepared.CanonicalPlaylist, "application/vnd.retrom.m3u")
 	if err != nil {
 		return fmt.Errorf("register replacement playlist: %w", err)
 	}
-	if err := fileownership.Adopt(
-		ctx,
-		writes.transaction,
-		id,
-		fileownership.Owner{Kind: "GAME", ID: value.Snapshot.GameID},
-	); err != nil {
-		return fmt.Errorf("publication: %w", err)
-	}
+
 	_, err = recordstore.CreateVariantFiles(
 		ctx,
 		writes.transaction,
-		`INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+		`INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
  VALUES(?,'MULTI_DISC_PLAYLIST','playlist.m3u',?,0)`,
 		value.Snapshot.VariantID,
 		id,

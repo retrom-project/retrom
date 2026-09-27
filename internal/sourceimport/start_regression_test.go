@@ -12,6 +12,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"retrom/internal/filestore"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	tagrepository "retrom/internal/persistence/tagging"
@@ -37,7 +39,8 @@ VALUES('019b0000-0000-7000-8000-000000000011','start-profile','start-admin','Sta
 UPDATE source_imports SET state='AWAITING_MAPPING',completed_at_ms=NULL,import_job_id=NULL,
 failed_item_count=0,mapped_collection_count=0,created_by_user_id='019b0000-0000-7000-8000-000000000011',
 source_snapshot_digest='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,game_count,created_at_ms,updated_at_ms)
+INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,
+game_count,created_at_ms,updated_at_ms)
 VALUES('019b0000-0000-7000-8000-000000000012','import','metadata.pegasus.txt',0,'Collection',1,1,1);
 UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,error_code=NULL,
 error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-000000000012';
@@ -59,8 +62,19 @@ error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-00000
 	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&target); err != nil {
 		t.Fatal(err)
 	}
-	service := &Service{database: db, roots: map[string]Root{"games": root}, now: func() time.Time { return time.UnixMilli(10) }, tags: tagging.New(tagrepository.New(db), time.Now)}
-	mapped, err := service.UpdateMappings(t.Context(), "import", 4, []Mapping{{CollectionID: startCollection, Action: "IMPORT", PlatformInstanceID: target, TagIDs: []string{}}})
+	files, err := filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{
+		database: db, blobs: files, roots: map[string]Root{"games": root},
+		now: func() time.Time { return time.UnixMilli(10) }, tags: tagging.New(tagrepository.New(db), time.Now),
+	}
+	mapped, err := service.UpdateMappings(t.Context(), "import", 4,
+		[]Mapping{{
+			CollectionID: startCollection, Action: "IMPORT", PlatformInstanceID: target,
+			TagIDs: []string{},
+		}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +97,8 @@ func startMetadataSource(t *testing.T, db dbapi.DB) Root {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(metadata)
-	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_metadata_files(import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,created_at_ms)
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_metadata_files(import_id,relative_path,size_bytes,content_digest,
+source_facts_digest,parse_state,created_at_ms)
 VALUES('import','metadata.pegasus.txt',?,?,?,'VALID',1)`, len(metadata), hex.EncodeToString(digest[:]), serversource.FactsDigest(info)); err != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,6 @@ import (
 	validationservice "retrom/internal/service/corevalidation"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/filecatalog"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -76,27 +75,26 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, clock()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, clock()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	content, err := blobs.Put(bytes.NewReader([]byte("save-fixture-gba")))
 	testassert.False(t, err != nil, err)
-	contentBlobID, err := filecatalog.EnsureRecord(
-		ctx,
-		database.SQL,
-		content,
-		"application/octet-stream",
-		clock().UnixMilli(),
-	)
+	contentFileRecord, err := filestore.FileRecord(content, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
 	testassert.False(t, err != nil, err)
 	gameID := uuid.NewString()
 	variantID := uuid.NewString()
-	dependencySnapshot, status, _, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, target.ProviderID, target.TargetID, "save.gba")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
+	dependencySnapshot, status, _,
+		err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx,
+		target.ProviderID, target.TargetID, "save.gba")
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v",
+		dependencySnapshot, status, err)
 	dependencySnapshotJSON, err := dependencySnapshot.JSON()
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
@@ -165,8 +163,8 @@ NULL,
 INSERT INTO game_files(game_id,
 role,
 logical_name,
-blob_id,
-source_archive_blob_id,
+file_record,
+source_archive_file_record,
 source_archive_entry_ordinal,
 sort_order) VALUES(?,
 'CONTENT',
@@ -176,7 +174,7 @@ NULL,
 NULL,
 0)
 `,
-			[]any{gameID, contentBlobID},
+			[]any{gameID, contentFileRecord},
 		},
 		{
 			`
@@ -265,8 +263,8 @@ WHERE game.id=?
 		t.Fatal(err)
 	}
 	_, err = tx.ExecContext(fixture.ctx, `
-INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-SELECT ?,file.logical_name,file.blob_id,'SOURCE_V1',?
+INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
+SELECT ?,file.logical_name,file.file_record,'SOURCE_V1',?
 FROM games game JOIN game_files file
  ON file.game_id=game.id AND file.role='CONTENT'
 WHERE game.id=?
@@ -362,16 +360,18 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return result.SaveStateID == "" }), "manual state = %#v, replayed=%v, error=%v", result, replayed, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayed }, func() bool { return result.SaveStateID == "" }),
+		"manual state = %#v, replayed=%v, error=%v", result, replayed, err)
 	var sourceLaunchID string
 	var stateSize, screenshotSize int64
 	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT s.source_launch_session_id,
-state_blob.size_bytes,
-screenshot_blob.size_bytes
+json_extract(state_blob.value, '$.size_bytes'),
+json_extract(screenshot_blob.value, '$.size_bytes')
 FROM save_states s
-JOIN stored_files state_blob ON state_blob.id=s.payload_blob_id
-JOIN stored_files screenshot_blob ON screenshot_blob.id=s.screenshot_blob_id
+JOIN json_each(json_array(s.payload_file_record)) state_blob ON state_blob.value IS NOT NULL
+JOIN json_each(json_array(s.screenshot_file_record)) screenshot_blob ON screenshot_blob.value IS NOT NULL
 WHERE s.id=?
 `, result.SaveStateID).Scan(&sourceLaunchID, &stateSize, &screenshotSize); err != nil ||
 		sourceLaunchID != created.LaunchID ||
@@ -386,8 +386,12 @@ WHERE s.id=?
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.SaveStateID != result.SaveStateID }), "manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
-	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !replayed },
+		func() bool { return replay.SaveStateID != result.SaveStateID }),
+		"manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
+	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability,
+		uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
 		err,
 		saveservice.ErrCheckpointInvalid,
 	) {

@@ -33,7 +33,7 @@ func contentEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sc
 	}
 	evidence := make([]HashEvidence, 0, len(files))
 	for _, file := range files {
-		if strings.EqualFold(filepath.Ext(file.Name), ".zip") && file.ArchiveBlobID == nil {
+		if strings.EqualFold(filepath.Ext(file.Name), ".zip") && file.ArchiveFileRecord == nil {
 			continue
 		}
 		id, err := scheduleID()
@@ -41,20 +41,20 @@ func contentEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sc
 			return nil, err
 		}
 		item := HashEvidence{
-			ID:      id,
-			RunID:   plan.RunID,
-			Profile: "RAW_FILE",
-			BlobID:  &file.BlobID,
-			Hashes:  file.Hashes,
+			ID:         id,
+			RunID:      plan.RunID,
+			Profile:    "RAW_FILE",
+			FileRecord: &file.FileRecord,
+			Hashes:     file.Hashes,
 			Order: len(
 				evidence,
 			),
 			Now: plan.Now,
 		}
-		if file.ArchiveBlobID != nil && file.ArchiveOrdinal != nil {
+		if file.ArchiveFileRecord != nil && file.ArchiveOrdinal != nil {
 			item.Profile = "SINGLE_ARCHIVE_MEMBER"
-			item.BlobID = nil
-			item.ArchiveBlobID = file.ArchiveBlobID
+			item.FileRecord = nil
+			item.ArchiveFileRecord = file.ArchiveFileRecord
 			item.ArchiveOrdinal = file.ArchiveOrdinal
 		}
 		evidence = append(evidence, item)
@@ -106,7 +106,7 @@ func selectArcadeEvidence(entries []ArcadeEvidence, plan SchedulePlan) ([]HashEv
 			return nil, err
 		}
 		evidence = append(evidence, HashEvidence{
-			ID: id, RunID: plan.RunID, Profile: "ARCADE_DAT_ENTRIES", ArchiveBlobID: &entry.ArchiveBlobID,
+			ID: id, RunID: plan.RunID, Profile: "ARCADE_DAT_ENTRIES", ArchiveFileRecord: &entry.ArchiveFileRecord,
 			ArchiveOrdinal: &entry.Ordinal, Hashes: Hashes{
 				CRC32: entry.CRC32,
 				SHA1:  entry.SHA1,

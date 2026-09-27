@@ -10,7 +10,7 @@ type ReviewSourceRecord struct {
 	ID, Name, SHA256, MD5, CRC32 string
 	SizeBytes                    int64
 	Archive                      bool
-	ArchiveBlobID                *string
+	ArchiveFileRecord            *string
 }
 type ReviewSourceFile struct {
 	ID             string               `json:"uploadFileId"`

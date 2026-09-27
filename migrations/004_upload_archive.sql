@@ -25,7 +25,7 @@ CREATE TABLE upload_files (
   relative_path TEXT NOT NULL,
   declared_size_bytes INTEGER NOT NULL CHECK(declared_size_bytes BETWEEN 0 AND 8589934592),
   received_size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(received_size_bytes >= 0),
-  final_blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  final_file_record TEXT,
   state TEXT NOT NULL CHECK(state IN ('PENDING','PARTIAL','FINALIZING','COMPLETE','FAILED','PURGED')),
   payload_released_at_ms INTEGER,
   last_error_code TEXT,
@@ -33,9 +33,9 @@ CREATE TABLE upload_files (
   updated_at_ms INTEGER NOT NULL,
   UNIQUE(upload_session_id, relative_path),
   CHECK(
-    state='COMPLETE' AND final_blob_id IS NOT NULL AND payload_released_at_ms IS NULL OR
-    state='PURGED' AND final_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
-    state NOT IN ('COMPLETE','PURGED') AND final_blob_id IS NULL AND payload_released_at_ms IS NULL
+    state='COMPLETE' AND final_file_record IS NOT NULL AND payload_released_at_ms IS NULL OR
+    state='PURGED' AND final_file_record IS NULL AND payload_released_at_ms IS NOT NULL OR
+    state NOT IN ('COMPLETE','PURGED') AND final_file_record IS NULL AND payload_released_at_ms IS NULL
   )
 );
 
@@ -45,12 +45,12 @@ CREATE TABLE import_files (
   id TEXT PRIMARY KEY REFERENCES upload_files(id),
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   relative_path TEXT NOT NULL,
-  blob_id TEXT REFERENCES stored_files(id) ON DELETE CASCADE,
+  file_record TEXT,
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
   released_at_ms INTEGER,
   UNIQUE(upload_session_id, relative_path),
-  CHECK((blob_id IS NULL) = (released_at_ms IS NOT NULL))
+  CHECK((file_record IS NULL) = (released_at_ms IS NOT NULL))
 );
 
 CREATE TABLE upload_parts (
@@ -65,7 +65,7 @@ CREATE TABLE upload_parts (
 );
 
 CREATE TABLE archive_entries (
-  archive_blob_id TEXT NOT NULL REFERENCES stored_files(id) ON DELETE CASCADE,
+  archive_file_record TEXT NOT NULL,
   ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
   original_relative_path TEXT NOT NULL,
   normalized_path TEXT NOT NULL,
@@ -80,12 +80,16 @@ CREATE TABLE archive_entries (
   sha1 TEXT NOT NULL CHECK(length(sha1) = 40),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
   created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY(archive_blob_id, ordinal),
-  UNIQUE(archive_blob_id, normalized_path),
-  UNIQUE(archive_blob_id, ascii_casefold_path),
+  PRIMARY KEY(archive_file_record, ordinal),
+  UNIQUE(archive_file_record, normalized_path),
+  UNIQUE(archive_file_record, ascii_casefold_path),
   CHECK((archive_format='ZIP' AND compression_profile IN ('STORE','DEFLATE')) OR
         (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED') OR
         (archive_format='ELECTRON_ASAR' AND compression_profile IN ('ELECTRON_ASAR_STORE','ELECTRON_ASAR_DEFLATE')))
+);
+
+CREATE INDEX archive_entries_path ON archive_entries(
+  CASE WHEN json_valid(archive_file_record) THEN json_extract(archive_file_record,'$.path') END
 );
 
 CREATE TABLE "upload_consumptions" (

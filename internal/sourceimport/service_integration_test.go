@@ -234,9 +234,13 @@ func assertSourcePayloadReleased(
 	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database, `
 SELECT
  (SELECT count(*) FROM source_import_items WHERE import_id=? AND payload_state='RELEASED'),
- (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM source_import_items WHERE import_id=?) AND payload_state='RELEASED'),
- (SELECT count(*) FROM source_import_item_files file JOIN source_import_items item ON item.id=file.item_id WHERE item.import_id=? AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
- (SELECT count(*) FROM source_import_item_assets asset JOIN source_import_items item ON item.id=asset.item_id WHERE item.import_id=? AND asset.blob_id IS NOT NULL),
+ (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM source_import_items
+WHERE import_id=?) AND payload_state='RELEASED'),
+ (SELECT count(*) FROM source_import_item_files file JOIN source_import_items item ON
+item.id=file.item_id WHERE item.import_id=? AND (file.file_record IS NOT NULL OR
+file.source_archive_file_record IS NOT NULL))+
+ (SELECT count(*) FROM source_import_item_assets asset JOIN source_import_items item ON
+item.id=asset.item_id WHERE item.import_id=? AND asset.file_record IS NOT NULL),
  (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
 `, importID, importID, importID, importID, gameID, gameID), &releasedSource, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
@@ -290,15 +294,19 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES(?,'source-recovery-profile','source-recovery','Recovery','ADMIN','ENABLED',1,1)
 `, userID)
 	mustExecSourceTest(ctx, t, database.SQL, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,1,1,1,1)
 `, scanJobID, importID, strings.Repeat("1", 64))
 	mustExecSourceTest(ctx, t, database.SQL, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,execution_started_at_ms,execution_deadline_at_ms,leased_until_ms,heartbeat_at_ms,created_at_ms,updated_at_ms)
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,execution_started_at_ms,execution_deadline_at_ms,
+leased_until_ms,heartbeat_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'SOURCE_IMPORT',?,'IMPORT_RECEIVE',?,1,'{}',1,'RUNNING',4,4,1,1,1,?,?,?,1,1)
 `, workJobID, importID, strings.Repeat("2", 64), now.Add(time.Hour).UnixMilli(), now.Add(-time.Second).UnixMilli(), now.Add(-time.Second).UnixMilli())
 	mustExecSourceTest(ctx, t, database.SQL, `
-INSERT INTO source_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,import_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
+INSERT INTO source_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,
+phase,scan_job_id,import_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 VALUES(?,'games','Games','',?,'RUNNING','COPYING_CONTENT',?,?,?,1,1,?)
 `, importID, strings.Repeat("3", 64), scanJobID, workJobID, userID, now.Add(time.Hour).UnixMilli())
 	service := &Service{database: database.SQL, now: func() time.Time { return now }}
@@ -307,10 +315,17 @@ VALUES(?,'games','Games','',?,'RUNNING','COPYING_CONTENT',?,?,?,1,1,?)
 	}
 	var aggregateState, jobState, aggregateCode, jobCode string
 	var completedAt int64
-	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT import.state,job.state,import.last_error_code,job.error_code,import.completed_at_ms FROM source_imports import JOIN jobs job ON job.id=import.import_job_id WHERE import.id=?`, importID).Scan(&aggregateState, &jobState, &aggregateCode, &jobCode, &completedAt); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT import.state,job.state,import.last_error_code,job.error_code,import.completed_at_ms FROM
+source_imports import JOIN jobs job ON job.id=import.import_job_id WHERE import.id=?`, importID).Scan(&aggregateState, &jobState, &aggregateCode, &jobCode, &completedAt); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return aggregateState != "FAILED" }, func() bool { return jobState != "FAILED" }, func() bool { return aggregateCode != "SOURCE_WORKER_ATTEMPTS_EXHAUSTED" }, func() bool { return jobCode != aggregateCode }, func() bool { return completedAt != now.UnixMilli() }), "recovered state = aggregate:%s job:%s codes:%s/%s completed:%d", aggregateState, jobState, aggregateCode, jobCode, completedAt)
+	testassert.Falsef(t, testassert.Any(func() bool { return aggregateState != "FAILED" },
+		func() bool { return jobState != "FAILED" },
+		func() bool { return aggregateCode != "SOURCE_WORKER_ATTEMPTS_EXHAUSTED" },
+		func() bool { return jobCode != aggregateCode },
+		func() bool { return completedAt != now.UnixMilli() }),
+		"recovered state = aggregate:%s job:%s codes:%s/%s completed:%d", aggregateState, jobState,
+		aggregateCode, jobCode, completedAt)
 }
 
 func assertResumedSourceReview(
@@ -352,7 +367,11 @@ WHERE id=?`, claimedWork.JobID)
 	}
 	claimedWork = resumedWork
 	resumed, found, err := service.nextItem(ctx, claimedWork)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !found }, func() bool { return resumed.LibraryImportJobID != resumedImportJobID }, func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }), "resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !found },
+		func() bool { return resumed.LibraryImportJobID != resumedImportJobID },
+		func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }),
+		"resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
 	if err := service.importExecutor(service.roots["games"]).Process(ctx, claimedWork, resumed); err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +385,11 @@ SELECT item.execution_state,
  (SELECT version FROM import_items WHERE id=item.library_import_item_id)
 FROM source_import_items item WHERE item.id=?
 `, resumedSourceItemID), &resumedState, &resumedImportJobCount, &resumedDraftVersion)
-	testassert.Falsef(t, testassert.Any(func() bool { return resumedState != "REVIEW_PENDING" }, func() bool { return resumedImportJobCount != importJobCount }, func() bool { return resumedDraftVersion != draftVersion }), "resumed review = state:%s imports:%d/%d draft versions:%d/%d", resumedState, resumedImportJobCount, importJobCount, resumedDraftVersion, draftVersion)
+	testassert.Falsef(t, testassert.Any(func() bool { return resumedState != "REVIEW_PENDING" },
+		func() bool { return resumedImportJobCount != importJobCount },
+		func() bool { return resumedDraftVersion != draftVersion }),
+		"resumed review = state:%s imports:%d/%d draft versions:%d/%d", resumedState,
+		resumedImportJobCount, importJobCount, resumedDraftVersion, draftVersion)
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM review_draft_tags WHERE tag_id=?`, tagID).
 		Scan(&mappedDrafts); err != nil || mappedDrafts != 2 {
 		t.Fatalf("resumed tag inheritance = %d, %v", mappedDrafts, err)

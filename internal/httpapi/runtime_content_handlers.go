@@ -35,7 +35,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	isMultiDisc := content.Format == "RETROM_MULTIDISC_M3U_V1" && content.DiscCount >= 2
-	file, err := server.blobs.OpenID(content.BlobID)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		if isMultiDisc {
 			logMultiDiscContentResponse(
@@ -132,7 +132,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
-	file, err := server.blobs.OpenID(content.BlobID)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "项目内容不可用", map[string]any{})
 		return
@@ -323,7 +323,7 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
 	}
-	file, err := server.blobs.OpenID(content.BlobID)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
@@ -404,7 +404,7 @@ func (server *Server) populateLaunchBundle(archiveWriter *zip.Writer, files []la
 		if err != nil {
 			return "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖"
 		}
-		source, err := server.blobs.OpenID(entry.BlobID)
+		source, err := server.blobs.OpenRecord(entry.FileRecord)
 		if err != nil {
 			return "FILE_STORAGE_UNAVAILABLE", "启动依赖不可用"
 		}
@@ -458,7 +458,7 @@ func (server *Server) createLaunchBundle(files []launch.BundleFile) (*os.File, e
 	if len(files) == 0 {
 		return nil, launch.ErrBlocked
 	}
-	temporary, err := os.CreateTemp(filepath.Join(server.config.DataDir, "tmp", "jobs"), ".launch-bundle-")
+	temporary, err := os.CreateTemp(filepath.Join(server.config.DataDir, "staging", "writes"), ".launch-bundle-")
 	if err != nil {
 		return nil, fmt.Errorf("create launch bundle: %w", err)
 	}

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 type materialMemory struct {
@@ -72,9 +74,9 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 			case "replay mismatch":
 				memory.snapshot.State = "COPIED"
 				memory.snapshot.Blob = VerifiedBlob{SHA256: "other", Size: 4}
-				memory.snapshot.BlobID = "other"
+				memory.snapshot.FileRecord = "other"
 			}
-			service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+			service := NewMaterialization(memory, memory, func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Copy(t.Context(), id, source, blob)
 			if err == nil || result != "" || memory.binds != 0 {
 				t.Fatalf("%s wrote: %s %v binds=%d", field, result, err, memory.binds)
@@ -84,8 +86,8 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 	memory, id, source, blob := materialMemoryFixture()
 	memory.snapshot.State = "COPIED"
 	memory.snapshot.Blob = blob
-	memory.snapshot.BlobID = "existing"
-	service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+	memory.snapshot.FileRecord = "existing"
+	service := NewMaterialization(memory, memory, func() time.Time { return time.UnixMilli(10) })
 	if result, err := service.Copy(
 		t.Context(),
 		id,
@@ -99,7 +101,7 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 func TestMaterializationPhaseAndCancellationPreserveAuthorityAndReadCause(t *testing.T) {
 	t.Parallel()
 	memory, id, _, _ := materialMemoryFixture()
-	service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+	service := NewMaterialization(memory, memory, func() time.Time { return time.UnixMilli(10) })
 	if err := service.SetPhase(t.Context(), id, "COPYING_CONTENT"); err != nil || memory.phases != 0 {
 		t.Fatalf("same phase=%v", err)
 	}
@@ -121,4 +123,8 @@ func TestMaterializationPhaseAndCancellationPreserveAuthorityAndReadCause(t *tes
 	if cancelled, err := service.Cancelled(t.Context(), id); cancelled || !errors.Is(err, ErrVersionConflict) {
 		t.Fatalf("stale checkpoint=%v %v", cancelled, err)
 	}
+}
+
+func (m *materialMemory) CopyTo(_ context.Context, value, _, _ string) (filestore.Metadata, error) {
+	return filestore.Metadata{Record: value}, nil
 }

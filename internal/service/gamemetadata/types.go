@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 var (
@@ -35,6 +37,7 @@ type SelectedAssets struct {
 }
 
 type ApplyCandidateRequest struct {
+	prepared        []CandidateAssetSelection
 	GameID          string
 	CandidateID     string
 	ExpectedVersion int64
@@ -43,10 +46,10 @@ type ApplyCandidateRequest struct {
 }
 
 type ApplyCandidateResult struct {
-	AssetIDs        []string
-	ReplacedBlobIDs []string
-	Version         int64
-	UpdatedAtMS     int64
+	AssetIDs            []string
+	ReplacedFileRecords []string
+	Version             int64
+	UpdatedAtMS         int64
 }
 
 type CandidateApplySnapshot struct {
@@ -56,9 +59,10 @@ type CandidateApplySnapshot struct {
 }
 
 type CandidateAssetSelection struct {
-	ID      string
-	Kind    string
-	Ordinal int64
+	SourceFile, File, AssetID string
+	ID                        string
+	Kind                      string
+	Ordinal                   int64
 }
 
 type GameMetadataUpdate struct {
@@ -81,11 +85,13 @@ type CandidateApplyScope interface {
 }
 
 type CandidateApplyRepository interface {
+	SelectedFiles(context.Context, string, []CandidateAssetSelection) ([]CandidateAssetSelection, error)
 	WithCandidateApply(context.Context, func(CandidateApplyScope) error) error
 }
 
 type Service struct {
 	repository CandidateApplyRepository
+	files      *filestore.Store
 	now        func() time.Time
 }
 
@@ -94,4 +100,9 @@ func New(repository CandidateApplyRepository, now func() time.Time) *Service {
 		now = time.Now
 	}
 	return &Service{repository: repository, now: now}
+}
+
+func (service *Service) WithFileStore(files *filestore.Store) *Service {
+	service.files = files
+	return service
 }

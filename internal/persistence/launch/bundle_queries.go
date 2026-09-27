@@ -16,17 +16,19 @@ func (repository *SessionQueries) Bundle(
 	kind string,
 ) (application.BundleRecord, bool, error) {
 	query := `
- SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.id,blob.sha256
+ SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.value,
+json_extract(blob.value, '$.sha256')
  FROM launch_sessions session
  LEFT JOIN launch_external_files file ON file.launch_session_id=session.id AND file.kind=?
- LEFT JOIN stored_files blob ON blob.id=file.blob_id
+ LEFT JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  WHERE session.id=? ORDER BY file.logical_name`
 	if ref.Preview {
 		query = `
- SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.id,blob.sha256
+ SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.value,
+json_extract(blob.value, '$.sha256')
  FROM review_preview_sessions session
  LEFT JOIN review_preview_files file ON file.preview_session_id=session.id AND file.role=?
- LEFT JOIN stored_files blob ON blob.id=file.blob_id
+ LEFT JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  WHERE session.id=? ORDER BY file.sort_order,file.logical_name`
 	}
 	rows, err := repository.executor.QueryContext(ctx, query, kind, ref.ID)
@@ -52,7 +54,7 @@ func (repository *SessionQueries) Bundle(
 		if name.Valid {
 			result.Files = append(
 				result.Files,
-				application.BundleFile{BlobID: id.String, LogicalName: name.String, SHA256: digest.String},
+				application.BundleFile{FileRecord: id.String, LogicalName: name.String, SHA256: digest.String},
 			)
 		}
 	}

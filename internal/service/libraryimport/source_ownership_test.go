@@ -23,8 +23,18 @@ func (records *sourceRecordsStub) BindSource(_ context.Context, change SourceBin
 }
 
 func sourceOwnershipFixture() (SourceCreationIntent, SourceCreationSnapshot) {
-	intent := SourceCreationIntent{Kind: SourceOwnerSource, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"}}
-	snapshot := SourceCreationSnapshot{Kind: SourceOwnerSource, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING", ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200, TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT", PrimaryPaths: []string{"games/main.gba"}}
+	intent := SourceCreationIntent{
+		Kind: SourceOwnerSource, ImportID: "plan", ItemID: "source",
+		JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"},
+	}
+	snapshot := SourceCreationSnapshot{
+		Kind: SourceOwnerSource, ImportID: "plan",
+		ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1,
+		SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING",
+		ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200,
+		TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT",
+		PrimaryPaths: []string{"games/main.gba"},
+	}
 	return intent, snapshot
 }
 
@@ -82,7 +92,11 @@ func TestSourceOwnershipPreservesStorageErrors(t *testing.T) {
 		t.Fatalf("read failure lost: %#v %v", result, err)
 	}
 	records := &sourceRecordsStub{writeErr: failure}
-	err = service.Attach(t.Context(), records, before, ServerCreated{ImportJobID: "library"}, ServerImportItem{ItemID: "item", ContentKind: "SINGLE_FILE", SourceManifestJSON: "{}", SourceManifestDigest: "digest"})
+	err = service.Attach(t.Context(), records, before, ServerCreated{ImportJobID: "library"},
+		ServerImportItem{
+			ItemID: "item", ContentKind: "SINGLE_FILE", SourceManifestJSON: "{}",
+			SourceManifestDigest: "digest",
+		})
 	if !errors.Is(err, failure) {
 		t.Fatalf("bind failure lost: %v", err)
 	}
@@ -91,12 +105,17 @@ func TestSourceOwnershipPreservesStorageErrors(t *testing.T) {
 func TestOwnedSourceRequiresOneDeclaredPrimaryGroup(t *testing.T) {
 	t.Parallel()
 	wanted := []string{"games/main.zip"}
-	for _, paths := range [][][]string{nil, {{"parent.zip"}}, {{"games/main.zip"}, {"parent.zip"}}, {{"games/main.zip"}, {"games/main.zip"}}} {
-		if err := ValidateOwnedSourceGroups(wanted, paths); !errors.Is(err, ErrInvalid) || !errors.Is(err, ErrSourceGrouping) {
+	for _, paths := range [][][]string{nil, {{"parent.zip"}}, {
+		{"games/main.zip"},
+		{"parent.zip"},
+	}, {{"games/main.zip"}, {"games/main.zip"}}} {
+		if err := ValidateOwnedSourceGroups(wanted, paths); !errors.Is(err, ErrInvalid) ||
+			!errors.Is(err, ErrSourceGrouping) {
 			t.Fatalf("unowned groups accepted: %#v %v", paths, err)
 		}
 	}
-	if err := ValidateOwnedSourceGroups(nil, [][]string{{"games/main.zip"}}); !errors.Is(err, ErrInvalid) || !errors.Is(err, ErrSourceGrouping) {
+	if err := ValidateOwnedSourceGroups(nil, [][]string{{"games/main.zip"}}); !errors.Is(err,
+		ErrInvalid) || !errors.Is(err, ErrSourceGrouping) {
 		t.Fatalf("missing primary paths lack grouping classification: %v", err)
 	}
 	if err := ValidateOwnedSourceGroups(wanted, [][]string{{"games/main.zip"}}); err != nil {
@@ -119,14 +138,15 @@ func TestSourceOwnershipAcceptsLeaseRenewalForSameExecution(t *testing.T) {
 
 func TestOwnedSourceFilesMatchCopiedPrimaryButAllowDependencies(t *testing.T) {
 	t.Parallel()
-	source := ServerSourceFile{RelativePath: "main.zip", BlobID: "primary", SizeBytes: 1}
+	source := ServerSourceFile{RelativePath: "main.zip", FileRecord: "primary", SizeBytes: 1}
 	snapshot := SourceCreationSnapshot{Files: []SourceCreationFile{{File: source, State: "COPIED"}}}
-	inputs := []ServerSourceFile{source, {RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}
+	inputs := []ServerSourceFile{source, {RelativePath: "parent.zip", FileRecord: "parent", SizeBytes: 2}}
 	if err := ValidateOwnedSourceFiles(snapshot, inputs); err != nil {
 		t.Fatal(err)
 	}
-	inputs[0].BlobID = "other"
-	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrSourceGrouping) {
+	inputs[0].FileRecord = "other"
+	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, ErrVersionConflict) ||
+		errors.Is(err, ErrSourceGrouping) {
 		t.Fatalf("different copied blob accepted: %v", err)
 	}
 	inputs[0] = source

@@ -151,7 +151,6 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 
 | 表 | 用途 |
 | --- | --- |
-| `stored_files` | 独立文件身份、大小及多种内容哈希 |
 | `archive_entries` | 经安全扫描的 archive entry 路径、大小及内容 hash |
 | `games` | 用户可见游戏及当前 metadata/content 来源；可选 `content_profile_json` 保存内容类型专属一对一扩展；`platform_instance_id` 必填，不保存 `platform_id` |
 | `game_assets` | 封面、背景、截图等 |
@@ -221,7 +220,6 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `jobs` / `job_input_snapshots` / `job_events` | 带 scope、不可变 execution 输入、lease、attempt、SSE resume ID 的持久 work-unit 与事件 |
 | `idempotency_records` | 按 USER/SYSTEM principal 隔离的写操作 24 小时请求/响应重放 |
 | `audit_events` | 管理操作 append-only 审计 |
-| `file_deletions` | 已退休文件删除与失败重试 |
 | `schema_migrations` | migration version、name、checksum 与整数应用时刻 |
 
 ### 4.6 启动与游玩数据
@@ -260,26 +258,36 @@ data/
 .dev-data/data/              # 开发 RETROM_DATA_DIR，不进入版本控制
   retrom.lock
   retrom.db
-  files/<id-prefix>/<uuid>
+  files/<game-id-last2>/<game-uuid>/{content,media}/
   secrets/launch-capability.key
   tmp/uploads/<upload-id>/
-  tmp/jobs/
+  staging/items/<item-uuid>/{payload,scratch}/
+  staging/uploads/<upload-uuid>/
+  staging/sources/<source-item-uuid>/
+  staging/writes/
+  saves/<save-uuid>/<write-uuid>/
+  bios/<installation-uuid>/
+  scrapes/<run-uuid>/
+  responses/<response-uuid>/
 .dev-data/dev-state/         # make dev PID 登记与接管锁，不进入版本控制
 .dev-data/dev.mk             # make dev 本地启动配置，不进入版本控制
 ~~~
 
 项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和五个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。Arcade DAT 不接受上传且不进入独立文件存储。完整契约见 [第三方依赖管理](./dependency-management.md)。
 
-### 5.2 独立文件写入
+### 5.2 领域目录与独立文件
 
-1. 在数据根同一文件系统的 `tmp/jobs/` 创建 `0600` 独占临时文件；不使用上传文件名。
-2. 从实际 bytes 流式计算 SHA-256、MD5、SHA-1、CRC32 和 size，不信任客户端声明值。
-3. 完整接收后 fsync 文件并关闭，校验传输 size/digest。
-4. 为每次写入生成独立 UUIDv7，独占发布到 `files/<ID 前两字符>/<ID>` 并 fsync 父目录。同内容的两个游戏也有不同 ID、路径和 inode；不按 hash 查找或复用物理文件。
-5. 数据库短事务按 ID 登记 `stored_files`，验证准备好的文件仍存在且大小匹配。初始所有者为 `STAGING`，领域在同一事务接收或交接到确定的 owner。摘要只用于完整性、DAT、内容识别与重复游戏提示。
-6. 事务失败不发布业务结果。未登记完整文件与 `.file-*` 临时文件超过 24 小时后由每小时暂存维护清理；查询登记状态失败时保留文件。超过该期限的未登记文件不能再登记。已登记但未接收的 `STAGING` 行在相同期限后标记退休，进入普通删除队列。
+每个游戏独占 `files/<游戏 UUID 最后两位>/<游戏 UUID>/`。`content/<写入 UUID>/` 保存 ROM、目录项目与校验产物，`media/<资源 UUID>/` 保存封面、视频和截图。相同内容的两个游戏仍有独立目录、文件与 inode；摘要只用于完整性、DAT、内容识别和重复游戏提示。
 
-文件 ID 永不重用，文件发布后不原地修改。不同 owner 需要同一输入时先独立复制，再提交业务事务；每个 owner 内的来源、校验、预览等读取关系可以使用其同一文件。原始文件名只保存在业务元数据中。
+导入条目独占 `staging/items/<Item UUID>/`，其中 `payload/` 是准备发布的目录，`scratch/` 保存审核截图、预览检查点等临时材料。浏览器上传与服务器来源分别使用 `staging/uploads/<Upload UUID>/`、`staging/sources/<SourceItem UUID>/`。来源只是输入；准备完成后 Item 的 ROM 和媒体都能独立于来源存活。
+
+未登记为导入条目、来源项或上传会话的准备目录超过 24 小时后按目录清理；数据库查询失败时保留。长期待审条目不按目录年龄过期。
+
+文件先在同一数据根的 `staging/writes/` 完整写入并计算 SHA-256、MD5、SHA-1、CRC32、size，fsync 后才进入领域目录。业务记录直接保存受约束的文件记录值，包含相对路径、摘要、大小和 MIME，不再建立全局文件登记、公共引用计数或所有权交接表。
+
+审批先在 Item 上持久化发布决定、固定 Game UUID 和选中的校验/媒体，再把 `payload/` 原子 rename 到游戏目录，最后在短事务中写入 Game/Variant 并完成 Item。中断后按原决定继续，不分配第二个游戏；批量审批复用单条流程。数据库发布失败时保留目录和决定供恢复。
+
+替换 ROM 或媒体写入全新子目录，数据库提交后清理旧目录；目录标识永不复用，延迟任务不能删除新内容。存档写入 `saves/<Save UUID>/<写入 UUID>/`，BIOS 安装写入 `bios/<Installation UUID>/`，抓取候选和响应分别属于 `scrapes/<Run UUID>/`、`responses/<Response UUID>/`。这些领域各自决定保留和清理，不向 Game 交接全局文件所有权。
 
 ### 5.3 内容服务
 
@@ -292,7 +300,7 @@ data/
 - 固定版本 EmulatorJS 与发布媒体：`Cache-Control: public, max-age=31536000, immutable`；媒体替换创建新
   GameAsset ID 与 URL，current 切换后旧 URL 失效。
 - ROM、parent、BIOS、多盘外部文件和目录型 runtime 项目：仅经 `/runtime/content/` 的 Launch content grant 访问，URL 携带由
-  实际 bytes 与必要输出选项带领域分隔派生的内容身份而不暴露 Blob ID/hash；`Cache-Control: private,
+  实际 bytes 与必要输出选项带领域分隔派生的内容身份而不暴露 内部文件记录或摘要；`Cache-Control: private,
   max-age=31536000, immutable`。ROM 或 bundle 任一文件替换必须改变 URL，授权校验仍逐请求重算并匹配身份。
 - 状态存档与截图继续是 Profile 私有数据，使用 Launch/SaveState 逻辑 ID、`Cache-Control: private,
   no-store` 与限定路径 cookie；不得因 ROM/BIOS 改为内容寻址而把存档设为 immutable 或跨用户复用。
@@ -319,39 +327,13 @@ ArchiveEntry 只保存所属归档的不可变扫描事实。归档文件退休�
 - 读取 Arcade ZIP central directory 时不默认展开全部内容到磁盘。
 - Arcade DAT 遇到运行必需 CHD 仍直接产生 `UNSUPPORTED_CHD` 审核 Blocker；PSX、Saturn、3DO、PC-FX 的 STANDARD profile 接受单个 raw CHD，Saturn 另可在 capability 明确允许时使用 `MULTI_DISC`，这些规则不能与 Arcade CHD 混用。PSP 的 raw ISO/CSO 不作为 archive 扫描。
 
-## 7. 领域所有权与持久删除
+## 7. 目录清理与失败恢复
 
-`stored_files` 每行只有一个 `owner_kind/owner_id`，以及可空的 `retired_at_ms`。领域通过 `fileownership` 在自身业务事务中接收、交接或退休文件；退休时由上传领域的 receivedfiles 适配器清空对应传输载荷指针，保留历史 ID，删除不依赖其他异步任务先完成。系统不维护引用计数、保护闭包、archive 传播或跨领域共享 registry。`recordstore` 负责业务关系校验，不替领域推断文件寿命。
+Game 删除立即撤销可见性与运行授权，在同一业务事务中安排领域清理。领域关系处理完成后，以游戏目录为单位执行 `PATH_DELETE`；Item 发布或丢弃后清理自己的 staging 目录。Game 已移动到持久目录，因此清理旧 Item 不会影响已发布数据。批次丢弃只清理其未发布条目和输入，外部服务器来源文件不删除。
 
-- Game 独占 ROM、项目文件、光盘、非 BIOS 派生产物、封面和视频。不同游戏的同内容文件也独立保存。内容替换先准备独立输入，再原子撤销旧运行、清理旧存档、退休旧内容并切换 current；失败不影响原 current。
-- Upload 与 SourceItem 各自持有接收文件。进入审核时，ROM 为 ImportItem 独立复制；来源媒体交给 ImportItem。发布从 ImportItem 将选定内容、产物和媒体的所有权转给 Game。历史关系不构成第二个所有者，终态清理只退休仍属于自己的文件。
-- SaveState 独占状态和截图；覆盖、删除在同一事务退休旧文件。审核 screenshot/checkpoint 属于 ImportItem，冻结恢复读取同一 Item 的原文件；审核终态清理剩余临时文件。
-- metadata 下载按当前用途归 ImportItem 或 ScrapeRun；应用候选将选定媒体交给 Game，替换后的旧 Game 媒体退休。Provider response 由其领域按到期规则退休。
-- BIOSInstallation 持有独立安装文件，其他安装不得共享其物理 ID；服务器候选安装前独立复制。Game/Launch 对 BIOS 的使用是只读选择，不形成公共引用计数。替换安装先撤销旧 Launch，再分批清除旧 Variant BIOS 关系并退休旧安装文件。
-- Launch 只冻结资源标识与授权；结束、过期、撤销时由 Launch 领域清理会话关系。
+删除任务保存受校验的相对目录，执行前复核任务租约；文件系统删除在 SQL 事务外进行。目录已经不存在视为成功，删除后结算失败可幂等重试。不存在逐文件登记表、候选表、引用计数或全库文件 GC；封面、ROM 和存档替换只清理其已被替换的不可变子目录。
 
-领域的 `payloadpolicy` 决定清理组、终态条件与上传消费边界。`internal/service/cleanupjobs` 执行通用 `OWNER_CLEANUP` 与 `FILE_DELETE`：短事务、分页、任务输入、租约、重试和结果提交。Provider、Preview、BIOS 与 Launch 的到期决策在各自应用领域，composition 注入协调。一次清理每组最多 200 行，每批独立提交；过期 worker 不能改写新 execution。任务采用 60 秒租约、15 秒续期和原始 30 分钟 execution 上限；手动重试建立新 execution。
-
-文件退休是不可逆决定。维护每秒从 `retired_at_ms IS NOT NULL` 的索引补排 `file_deletions`，手动清理推进相同队列。删除器在短事务核对任务、文件 ID/摘要与退休状态，事务外按 ID 删除物理文件并 fsync，再短事务重验执行权限、删除登记行及候选。物理删除后失权或提交失败仍保留可重试记录；重试的文件缺失视为已删除，不恢复 inode、不复活退休文件。新发布的同 hash 文件使用新 ID，旧任务不能删除它。
-
-### 7.1 已登记文件容量分析
-
-唯一口径 `OWNED_FILES_V1` 统计 `stored_files.size_bytes`，每个物理 ID 计一次，相同 hash 的独立文件分别计量。在独立只读连接的一致事务读取输入，以受检 int64 汇总，HTTP byte 值用十进制字符串。未知 owner 分类直接报错，不能隐入“其他共享数据”。
-
-| code | 展示名 | 归类依据 |
-| --- | --- | --- |
-| `GAME_CONTENT` | ROM 与游戏内容 | Game 所有的内容与非 BIOS 派生产物。 |
-| `BIOS` | BIOS 与运行 bundle | BIOSInstallation 所有的文件。 |
-| `SAVES` | 存档 | SaveState 所有的状态与截图。 |
-| `MEDIA` | 游戏媒体 | Game 当前媒体文件。 |
-| `WORKFLOW` | 导入与审核工作区 | STAGING、Upload、SourceItem、ImportItem、ScrapeRun、Provider response。 |
-| `PENDING_DELETE` | 待删除文件 | 已退休文件，是否已经补排队不改变分类。 |
-
-每个文件只进入一类，固定六类包含零值。恒等式为 `registeredBytes = retainedBytes + pendingDeleteBytes = sum(categories[].bytes)`，`fileCount = sum(categories[].fileCount)`。存档详情给有效/软删除行数、状态与截图 bytes；删除队列详情给 fileCount/bytes，详情不与分类相加。退休立即进入 pendingDeleteBytes，物理与数据库删除完成后 registeredBytes 才下降。
-
-`POST /api/v1/admin/storage-cleanups` 为 ADMIN-only，要求 CSRF 与 UUID Idempotency-Key，无 body/query；返回 `scheduledFileCount/scheduledBytes/acceptedAtMs`，提交成功 202，相同 key 重放原结果。它只推进已退休文件，不根据读者数量判断删除。
-
-容量不包括 `DATABASE_FILES/UPLOAD_PARTS/JOB_SCRATCH/DEPENDENCY_ROOT/FILESYSTEM_OVERHEAD/UNREGISTERED_ORPHANS/VOLUME_FREE_SPACE`，不能表示卷总量或剩余空间。批次丢弃清理自己的 Item、Source 与上传消费，已交给 Game 的文件不受影响，外部服务器来源不删除。完成丢弃与物理腾空为不同阶段，失败通过任务中心重试。统一验证见 ACC-STOR-001、ACC-STOR-002。
+容量分析页面、统计 API、容量分类与“立即清理”功能均已移除。任务失败沿用任务中心的重试能力。清理完成与业务删除是两个阶段，以任务状态及目录实际存在性验证。
 
 ## 8. 数据根进程锁
 

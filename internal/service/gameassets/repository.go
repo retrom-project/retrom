@@ -24,16 +24,16 @@ type WriteScope interface {
 }
 
 type UploadedFile struct {
-	UploadID, BlobID, Digest string
-	SizeBytes                int64
+	UploadID, FileRecord, Digest string
+	SizeBytes                    int64
 }
 
 type AssetRecord struct {
-	ID, GameID, BlobID, Kind, UploadID string
-	Ordinal                            int64
-	WidthPX, HeightPX                  *int64
-	MediaType                          string
-	CreatedAtMS                        int64
+	ID, GameID, FileRecord, Kind, UploadID string
+	Ordinal                                int64
+	WidthPX, HeightPX                      *int64
+	MediaType                              string
+	CreatedAtMS                            int64
 }
 
 type ConsumptionRecord struct {

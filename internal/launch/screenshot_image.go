@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
@@ -15,7 +16,9 @@ import (
 
 type screenshotImages struct{ blobs *filestore.Store }
 
-func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
+func (images screenshotImages) Read(ctx context.Context, itemID string,
+	reader io.Reader,
+) (application.ScreenshotImage, error) {
 	if images.blobs == nil || reader == nil {
 		return application.ScreenshotImage{}, ErrReviewScreenshotInvalid
 	}
@@ -41,8 +44,17 @@ func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (appl
 	if err != nil {
 		return application.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
 	}
+	record, err := filestore.ParseRecord(metadata.Record)
+	if err != nil {
+		return application.ScreenshotImage{}, fmt.Errorf("read: %w", err)
+	}
+	metadata, err = images.blobs.CopyTo(ctx, metadata.Record,
+		filestore.ItemDirectory(itemID)+"/scratch/screenshots/"+path.Base(record.Path), "image")
+	if err != nil {
+		return application.ScreenshotImage{}, fmt.Errorf("read: %w", err)
+	}
 	return application.ScreenshotImage{
-		BlobID: metadata.ID, StoragePath: metadata.Path,
+		FileRecord: metadata.Record, StoragePath: metadata.Path,
 		SHA256: metadata.SHA256,
 		MD5:    metadata.MD5,
 		SHA1:   metadata.SHA1,

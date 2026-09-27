@@ -7,6 +7,8 @@ import (
 	"io"
 	"time"
 
+	"retrom/internal/filestore"
+
 	"retrom/internal/hasheous"
 
 	"github.com/google/uuid"
@@ -51,9 +53,18 @@ func (service *ReviewCoverUploads) Upload(ctx context.Context, request ReviewCov
 	if err != nil {
 		return ReviewCoverResult{}, err
 	}
+	file, err := service.blobs.CopyTo(ctx, source.FileRecord,
+		filestore.ItemDirectory(request.ItemID)+"/scratch/covers/"+source.FileID, "cover")
+	if err != nil {
+		return ReviewCoverResult{}, fmt.Errorf("upload: %w", err)
+	}
+	value, err := filestore.FileRecord(file, prepared.MediaType)
+	if err != nil {
+		return ReviewCoverResult{}, fmt.Errorf("upload: %w", err)
+	}
 	var result ReviewCoverResult
 	err = service.repository.WithWrite(ctx, func(scope ReviewCoverScope) error {
-		record, saveErr := service.save(ctx, scope, request, source, prepared)
+		record, saveErr := service.save(ctx, scope, request, source, prepared, value)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -73,7 +84,7 @@ func (service *ReviewCoverUploads) prepare(ctx context.Context, source ReviewCov
 	if err := ctx.Err(); err != nil {
 		return hasheous.AssetData{}, fmt.Errorf("prepare review cover: %w", err)
 	}
-	file, err := service.blobs.OpenID(source.BlobID)
+	file, err := service.blobs.OpenRecord(source.FileRecord)
 	if err != nil {
 		return hasheous.AssetData{}, fmt.Errorf("%w: open: %w", ErrReviewCoverStorageUnavailable, err)
 	}
@@ -94,7 +105,7 @@ func (service *ReviewCoverUploads) prepare(ctx context.Context, source ReviewCov
 
 func (service *ReviewCoverUploads) save(
 	ctx context.Context, scope ReviewCoverScope, request ReviewCoverRequest,
-	source ReviewCoverSource, prepared hasheous.AssetData,
+	source ReviewCoverSource, prepared hasheous.AssetData, value string,
 ) (ReviewCoverRecord, error) {
 	if err := checkReviewCoverAuthority(ctx, scope.Reader, request, source); err != nil {
 		return ReviewCoverRecord{}, err
@@ -107,7 +118,7 @@ func (service *ReviewCoverUploads) save(
 		if existing.Record.ItemID != request.ItemID {
 			return ReviewCoverRecord{}, ErrReviewCoverConsumed
 		}
-		if !existing.HasConsumption || existing.Record.BlobID != source.BlobID {
+		if !existing.HasConsumption || existing.Record.FileRecord != value {
 			return ReviewCoverRecord{}, ErrReviewCoverIntegrity
 		}
 		return existing.Record, nil
@@ -121,7 +132,7 @@ func (service *ReviewCoverUploads) save(
 		return ReviewCoverRecord{}, fmt.Errorf("create review consumption ID: %w", err)
 	}
 	record := ReviewCoverRecord{
-		ID: assetID, ItemID: request.ItemID, UploadFileID: source.FileID, BlobID: source.BlobID,
+		ID: assetID, ItemID: request.ItemID, UploadFileID: source.FileID, FileRecord: value,
 		Width: prepared.Width, Height: prepared.Height, MediaType: prepared.MediaType, CreatedAtMS: service.now().UnixMilli(),
 	}
 	if err := scope.Writer.InsertAsset(ctx, record); err != nil {

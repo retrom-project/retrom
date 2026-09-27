@@ -159,7 +159,7 @@ func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.serveBlob(writer, request, asset.BlobID, asset.Digest, asset.MediaType, true)
+	server.serveBlob(writer, request, asset.FileRecord, asset.Digest, asset.MediaType, true)
 }
 
 // Contract branches stay contiguous for a single auditable decision.
@@ -184,9 +184,8 @@ func (server *Server) diagnostics(writer http.ResponseWriter, request *http.Requ
 		"databaseSchemaVersion": report.DatabaseSchemaVersion,
 		"runtimeProviders":      runtimeProviders,
 		"counts": map[string]any{
-			"games":       map[string]any{"published": counts.PublishedGames, "deleted": counts.DeletedGames},
-			"saveStates":  map[string]any{"active": counts.ActiveSaves, "deleted": counts.DeletedSaves},
-			"storedFiles": counts.Blobs,
+			"games":      map[string]any{"published": counts.PublishedGames, "deleted": counts.DeletedGames},
+			"saveStates": map[string]any{"active": counts.ActiveSaves, "deleted": counts.DeletedSaves},
 			"jobs": map[string]any{
 				"queued": counts.QueuedJobs, "running": counts.RunningJobs,
 				"cancelRequested": counts.CancelRequestedJobs, "succeeded": counts.SucceededJobs,

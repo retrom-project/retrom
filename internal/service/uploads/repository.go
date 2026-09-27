@@ -8,6 +8,7 @@ import (
 )
 
 type BlobWriter interface {
+	CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
 	Put(io.Reader) (filestore.Metadata, error)
 }
 type Repository interface {
@@ -109,9 +110,9 @@ type Run struct {
 	Attempt, Deadline           int64
 }
 type FilePublication struct {
-	Run            Run
-	FileID, BlobID string
-	AtMS           int64
+	Run                Run
+	FileID, FileRecord string
+	AtMS               int64
 }
 type PendingFailure struct {
 	UploadID, Code string

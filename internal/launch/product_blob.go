@@ -26,7 +26,7 @@ func (verifier productBlobVerifier) Verify(ctx context.Context, check applicatio
 	if verifier.blobs == nil {
 		return nil
 	}
-	file, err := verifier.blobs.OpenID(check.BlobID)
+	file, err := verifier.blobs.OpenRecord(check.FileRecord)
 	if err != nil {
 		return fmt.Errorf("open locked blob: %w", err)
 	}

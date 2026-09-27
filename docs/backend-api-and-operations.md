@@ -76,7 +76,7 @@ internal/core/rpgmaker/ RPG Maker 的 detector、fileset、materializer 与 nati
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
 internal/persistence/isolation/ 票据、会话与 capability 读取及原子签发
 internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策
-internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
+internal/persistence/saves/ 存档、所属领域的文件记录、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
 internal/filestore/       独立文件存储写入、读取、引用与垃圾回收
 internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
@@ -137,7 +137,7 @@ Handler 负责协议解析、身份提取和结果映射，通过 Service 执行
 
 数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。SQLite 适配器在 `internal/database/sqlite` 内持有 `sql.DB`、`sql.Tx` 和独占连接，提供普通、只读及 `BEGIN IMMEDIATE` 事务；Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
-公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`fileownership` 维护唯一 owner，`filecatalog` 登记独立文件。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
+公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，文件路径与摘要随领域记录保存，不设全局文件目录。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
@@ -153,9 +153,9 @@ Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewSou
 
 Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
 
-沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 独立文件、owner、退休状态与用途快照，Service 按 owner 分类并完成受检整数汇总；聚合不再占用数据库事务。
+沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。
 
-分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、后台删除 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
+分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、通用任务操作、后台删除 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
 
 ## 3. HTTP 与数据约定
 
@@ -198,7 +198,7 @@ Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `inte
 
 ## 5. 内容端点与 LaunchSession capability
 
-浏览器不得获得宿主机路径、Blob ID/hash 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7
+浏览器不得获得宿主机路径、内部文件记录或摘要 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7
 `launchId`，同时通过 `retrom_launch_<launchId>` HttpOnly cookie 下发 32-byte capability；数据库只保存其
 SHA-256。Player URL 固定为 `/play/:launchId`；config、状态和事件保留在 `/runtime/launches/:launchId/**`，
 ROM/BIOS/parent/外部盘片以及 EasyRPG、mkxp、ONS、KiriKiri 项目文件使用不含 launch ID 的 `/runtime/content/**`，并由相同 capability 派生的
@@ -225,7 +225,7 @@ handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂�
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 Blob 即时回收。当前 `composition/cleanupjobs` 组装领域释放与 后台删除，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 FILE_DELETE；领域终态只创建持久 Job，不自行删独立文件存储。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 目录删除。当前 `composition/cleanupjobs` 组装领域释放与 后台删除，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 PATH_DELETE；领域终态只创建持久 Job，不自行删独立文件存储。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 
@@ -432,7 +432,6 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、Provider/Target version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - EmulationStation 事件只记录 import/job ID、phase、封闭计数、执行时长和稳定错误码；不得记录 XML 文本、`command/emulator/core/provider` 值、标题、ROM/媒体 basename、绝对路径、facts digest 或底层 `os.PathError`。管理员失败详情只使用 OpenAPI 封闭字段和截断后的低敏技术 code。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
-- `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记独立文件存储 payload 的用途总量；不得扫描宿主目录或返回资源标识。`POST /api/v1/admin/storage-cleanups` 只允许 ADMIN 在 CSRF/幂等保护下把当前已退休候选推进为立即可执行，仍由既有 OwnerCleanup/FILE_DELETE worker 逐 Blob 复核并回收；HTTP 不同步删除文件，也不返回 Blob/Job 标识。未知 owner 分类使统计失败；日志不得输出文件 ID/hash/路径。
 
 ## 11. 数据库初始化
 
