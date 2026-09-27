@@ -26,8 +26,10 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
 	dependencyservice "retrom/internal/service/dependencies"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/jobs"
 	"retrom/internal/testsupport"
 )
@@ -58,8 +60,9 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	}
 	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now)
 	server := &Server{
-		variants: variants,
-		database: database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+		variants:           variants,
+		database:           database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
 		importer: libraryimport.New(database.SQL, now), launcher: launchcomposition.New(database.SQL,
 			launch.NewSources(nil, nil), "", now, variants.Dispatch),
 	}
@@ -67,6 +70,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	fixture := validationRetryFixture{server: server, now: now}
 	fixture.jobID = seedValidationRetry(t, fixture)
 	t.Cleanup(server.variants.Close)
+	t.Cleanup(server.importer.Close)
 	return fixture
 }
 
@@ -184,7 +188,7 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 	hits := 0
 	cause := errors.New("receipt write failed")
 	source := fixture.server.database
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, source,
+	fault := testsupport.OpenSQLFaultDatabase(t, source,
 		testsupport.SQLFaultHooks{BeforeExec: func(_ context.Context, query string,
 			args []driver.NamedValue,
 		) error {
@@ -195,6 +199,7 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 			}
 			return nil
 		}})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {

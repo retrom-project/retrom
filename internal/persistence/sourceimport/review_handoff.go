@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	"retrom/internal/persistence/recordstore"
@@ -139,7 +141,8 @@ job.leased_until_ms>?
 	); err != nil {
 		return err
 	}
-	if _, err := payloadService.NewScheduler(nil).TerminalSource(ctx, payload.BindScheduling(records.executor),
+	if _, err := sourcecleanup.TerminalSource(ctx, payloadService.NewScheduler(nil),
+		payload.BindScheduling(records.executor),
 		payloadService.Scope{Type: payloadService.ScopeSourceImportItem, ID: identity.ItemID}, change.NowMS); err != nil {
 		return fmt.Errorf("schedule handed-off Source release: %w", err)
 	}

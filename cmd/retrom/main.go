@@ -23,6 +23,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
+	"retrom/internal/application"
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -96,15 +97,21 @@ func run(mode config.Mode) error {
 	}
 	cancelCatalogs := startCatalogBootstrap(resources)
 	defer cancelCatalogs()
-	apiServer := httpapi.New(
-		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
-		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
-	).WithReadinessDatabase(resources.database.ReadOnly)
-	apiServer.WithRuntimeProvider(
-		resources.runtimeProviders.Builder,
-		resources.runtimeProviders.Handler,
-	)
-	defer apiServer.Close()
+	services, err := application.New(application.Inputs{
+		Config: configuration, Database: resources.database.SQL, ReadinessDatabase: resources.database.ReadOnly,
+		Dependencies: resources.dependencies, Files: resources.blobs, Credentials: resources.credentials,
+		Accounts: accountService, Now: time.Now, ScummVMDetector: resources.scummVMDetector,
+		RuntimeProvider: resources.runtimeProviders.Builder,
+	})
+	if err != nil {
+		return fmt.Errorf("compose application: %w", err)
+	}
+	defer services.Close()
+	if err := services.Start(startupContext); err != nil {
+		return fmt.Errorf("start application: %w", err)
+	}
+	apiServer := httpapi.New(configuration, services, accountService, time.Now).
+		WithRuntimeProviderHandler(resources.runtimeProviders.Handler)
 	return serveHTTP(configuration, apiServer)
 }
 

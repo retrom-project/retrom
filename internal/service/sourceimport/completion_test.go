@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/cleanupjobs"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 )
 
 type completionFake struct {
@@ -87,4 +87,4 @@ func TestCompletionCountFailureRetainsCause(t *testing.T) {
 	}
 }
 
-func (*completionFake) Payload() payload.ReleaseScope { return emptyPayloadScope() }
+func (*completionFake) Payload() sourcecleanup.ReleaseScope { return emptyPayloadScope() }

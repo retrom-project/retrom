@@ -11,7 +11,15 @@ import (
 
 // Start reconciles persisted dispositions, including requests interrupted by a restart.
 // Work is bounded; the existing import jobs and OWNER_CLEANUP jobs retain their own lifecycle.
-func (service *Service) Start() {
+func (service *Service) Start(parent context.Context) {
+	service.lifecycleMu.Lock()
+	defer service.lifecycleMu.Unlock()
+	if service.started || service.closed {
+		return
+	}
+	service.started = true
+	worker, cancel := context.WithCancel(context.WithoutCancel(parent))
+	service.cancel = cancel
 	service.wait.Add(1)
 	go func() {
 		defer service.wait.Done()
@@ -23,7 +31,7 @@ func (service *Service) Start() {
 				return
 			case <-ticker.C:
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(worker, 30*time.Second)
 			_, err := service.RunOnce(ctx)
 			cleanup.Error("reconcile import batch discard", err)
 			cancel()
@@ -31,7 +39,18 @@ func (service *Service) Start() {
 	}()
 }
 
-func (service *Service) Close() { close(service.stop); service.wait.Wait() }
+func (service *Service) Close() {
+	service.lifecycleMu.Lock()
+	if !service.closed {
+		service.closed = true
+		close(service.stop)
+		if service.cancel != nil {
+			service.cancel()
+		}
+	}
+	service.lifecycleMu.Unlock()
+	service.wait.Wait()
+}
 
 func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 	var request Request

@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/cleanupjobs"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	"github.com/google/uuid"
 )
@@ -20,7 +20,7 @@ type (
 		RetryableItems        int64
 	}
 	WorkflowScope struct {
-		Payload payload.ReleaseScope
+		Payload sourcecleanup.ReleaseScope
 		Read    WorkflowReader
 		Write   WorkflowWriter
 	}

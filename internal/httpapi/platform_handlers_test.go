@@ -184,6 +184,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	server.importer.Close()
 	server.importer = libraryimport.New(server.database, server.now, server.metadata).
 		WithFileStore(server.blobs).WithMultiDiscImportEnabled(true)
+	t.Cleanup(server.importer.Close)
 	server.importer.Start()
 	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database,
 		server.importer, libraryservice.ImportAdmissionOptions{

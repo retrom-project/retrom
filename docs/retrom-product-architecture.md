@@ -42,7 +42,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持浏览、搜索、按基础平台及游戏目录筛选并启动已发布游戏。
 - 支持手动状态存档；每个存档必须有非空可恢复 payload，截图为最佳努力的可选预览，并能一键恢复到对应进度。
 - 记录最近游玩、继续游玩和有效游玩时长。
-- 支持文件和目录导入、SHA-256 去重、元信息刮削、人工审核、发布与审核回溯。
+- 支持文件和目录导入、基于哈希的内容识别与重复提示、元信息刮削、人工审核和发布。
 - 支持管理员从受信服务器目录扫描 Pegasus 或 EmulationStation 元数据，显式映射到游戏目录后复用同一审核、发布和删除释放链路。
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
@@ -120,14 +120,16 @@ flowchart LR
 
 存档快速启动锁定 Game 和 checkpoint format；恢复使用当前 READY GameVariant，并要求其 Target 明确声明可读取该格式，不让目录默认 Core 静默回退到不兼容实现。同一浏览器携带 launch cookie 刷新深链时因缺少用户激活而无法自动进入全屏，允许显示一次“进入全屏”恢复控件但仍自动运行；把 URL 复制到没有 cookie 的 context 只能显示“启动会话不可用”。
 
-### 3.5 原始内容不可变并用 SHA-256 去重
+### 3.5 游戏独占文件与不可变内容
 
 - 上传内容流式计算 SHA-256，写入按独立 UUID 寻址的文件存储。每个游戏独占 ROM、封面、视频等数据；相同内容也分别保存。哈希用于完整性、DAT 和重复内容提示。
-- Blob 发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
+- 游戏文件发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
 - 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再将该游戏的旧文件标记退休并持久排队删除。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
+
+进程入口通过 `internal/application` 组装服务，在依赖和 Runtime Provider 配置完整后显式恢复并启动后台工作，退出或启动失败时统一关闭和等待。HTTP 服务接收已组装的服务，只承担协议与路由，不在构造时启动或恢复任务。Game、Import、SourceImport 和 Upload 各自维护清理资格、状态转换和业务记录清理；`cleanupjobs` 提供任务事务围栏、租约、重试和物理删除，通过固定领域处理器执行，不解释跨领域清理计划。
 
 一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
 

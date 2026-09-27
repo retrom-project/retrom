@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
@@ -69,12 +71,13 @@ SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`,
 	}
 	scheduler := payloadservice.NewScheduler(nil)
 	for _, id := range ids {
-		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), id,
+		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), id,
 			payloadservice.ReasonImportDiscarded, now); err != nil {
 			return fmt.Errorf("release discarded child: %w", err)
 		}
 	}
-	if _, err := scheduler.TerminalImport(ctx, payloadpersistence.BindScheduling(tx), importID, now); err != nil {
+	if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
+		importID, now); err != nil {
 		return fmt.Errorf("release discarded batch: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

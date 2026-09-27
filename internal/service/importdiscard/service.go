@@ -27,12 +27,15 @@ type Status struct {
 	ErrorCode *string `json:"errorCode"`
 }
 type Service struct {
-	repository Repository
-	importer   ImportWorkflow
-	sources    SourceWorkflow
-	now        func() time.Time
-	stop       chan struct{}
-	wait       sync.WaitGroup
+	repository      Repository
+	importer        ImportWorkflow
+	sources         SourceWorkflow
+	now             func() time.Time
+	stop            chan struct{}
+	wait            sync.WaitGroup
+	lifecycleMu     sync.Mutex
+	cancel          context.CancelFunc
+	started, closed bool
 }
 
 func New(repository Repository, importer ImportWorkflow, sources SourceWorkflow, now func() time.Time) *Service {

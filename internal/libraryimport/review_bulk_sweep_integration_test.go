@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/authn"
+	librarycomposition "retrom/internal/composition/libraryimport"
 	dbapi "retrom/internal/database"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
@@ -83,10 +84,14 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	if games != 1 || published != 0 || scanned != 0 {
 		t.Fatalf("commit games=%d published=%d scanned=%d", games, published, scanned)
 	}
-	fixture.service.ResumeReviewBulkJobs(context.WithoutCancel(ctx))
+	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.reviewApprovals(), time.Now)
+	t.Cleanup(bulkService.Close)
+	if err := bulkService.Start(context.WithoutCancel(ctx)); err != nil {
+		t.Fatal(err)
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		summary, readErr := fixture.service.GetReviewBulk(ctx, bulkID)
+		summary, readErr := bulkService.Get(ctx, bulkID)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
@@ -125,10 +130,14 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		t.Fatal(err)
 	}
 	fixture.execute(t, `UPDATE import_items SET review_version=review_version+1,review_updated_at_ms=? WHERE id=?`, createdAt+1, itemID)
-	fixture.service.ResumeReviewBulkJobs(fixture.ctx)
+	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.reviewApprovals(), time.Now)
+	t.Cleanup(bulkService.Close)
+	if err := bulkService.Start(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		summary, readErr := fixture.service.GetReviewBulk(fixture.ctx, bulkID)
+		summary, readErr := bulkService.Get(fixture.ctx, bulkID)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}

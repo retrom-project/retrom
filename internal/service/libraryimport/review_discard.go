@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/service/cleanupjobs"
 )
 
@@ -112,10 +114,9 @@ func persistReviewDiscard(
 	}); err != nil {
 		return fmt.Errorf("transition discarded review owner: %w", err)
 	}
-	if err := cleanupjobs.NewScheduler(nil).Review(
-		ctx,
+	if err := importcleanup.Review(ctx, cleanupjobs.NewScheduler(nil),
 		scope.Payload,
-		cleanupjobs.ReviewRelease{
+		importcleanup.ReviewRelease{
 			ItemID:   request.ItemID,
 			ImportID: change.ImportID,
 			Reason:   cleanupjobs.ReasonImportDiscarded,

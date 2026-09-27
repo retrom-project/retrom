@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	jobs "retrom/internal/service/cleanupjobs"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 )
 
 type releaseGraphMemory struct {
 	scheduleMemory
-	links   []Scope
+	links   []jobs.Scope
 	linkErr error
 }
 
-func (memory *releaseGraphMemory) BeginRelease(ctx context.Context, change OwnerRelease) error {
+func (memory *releaseGraphMemory) BeginRelease(ctx context.Context, change jobs.OwnerRelease) error {
 	if err := memory.scheduleMemory.BeginRelease(ctx, change); err != nil {
 		return err
 	}
@@ -23,7 +27,7 @@ func (memory *releaseGraphMemory) BeginRelease(ctx context.Context, change Owner
 	return nil
 }
 
-func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch SourceBatch, after string, _ int) ([]string, error) {
+func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch sourcecleanup.SourceBatch, after string, _ int) ([]string, error) {
 	if after != "" {
 		return nil, nil
 	}
@@ -37,26 +41,26 @@ func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch Sourc
 }
 
 func reviewReleaseMemory() *releaseGraphMemory {
-	item := Scope{Type: ScopeImportItem, ID: "ordinary"}
-	job := Scope{Type: ScopeImportJob, ID: "import"}
-	source := Scope{Type: ScopeSourceImportItem, ID: "source"}
-	return &releaseGraphMemory{scheduleMemory: scheduleMemory{owners: map[Scope]Owner{
+	item := jobs.Scope{Type: jobs.ScopeImportItem, ID: "ordinary"}
+	job := jobs.Scope{Type: jobs.ScopeImportJob, ID: "import"}
+	source := jobs.Scope{Type: jobs.ScopeSourceImportItem, ID: "source"}
+	return &releaseGraphMemory{scheduleMemory: scheduleMemory{owners: map[jobs.Scope]jobs.Owner{
 		item:   {Scope: item, State: "PUBLISHED", PayloadState: "RETAINED", Version: 3},
 		job:    {Scope: job, State: "COMPLETED", PayloadState: "RETAINED", Version: 4},
 		source: {Scope: source, State: "PUBLISHED", PayloadState: "RETAINED", Version: 5, PublicID: item.ID},
-	}}, links: []Scope{source}}
+	}}, links: []jobs.Scope{source}}
 }
 
 func TestReviewReleaseSchedulesOnlyItemAndAggregate(t *testing.T) {
 	t.Parallel()
 	memory := reviewReleaseMemory()
-	err := NewScheduler(scheduleIDs()).Review(t.Context(), memory, ReviewRelease{
-		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
+	err := importcleanup.Review(t.Context(), jobs.NewScheduler(scheduleIDs()), memory, importcleanup.ReviewRelease{
+		ItemID: "ordinary", ImportID: "import", Reason: jobs.ReasonImportPublished, NowMS: 10,
 	})
 	if err != nil || len(memory.jobs) != 2 || len(memory.changes) != 2 {
 		t.Fatalf("review release: %v %+v", err, memory)
 	}
-	if memory.changes[0].JobID == memory.changes[1].JobID || memory.changes[1].Before.Scope.Type != ScopeImportJob {
+	if memory.changes[0].JobID == memory.changes[1].JobID || memory.changes[1].Before.Scope.Type != jobs.ScopeImportJob {
 		t.Fatalf("independent item and aggregate jobs lost: %+v", memory.changes)
 	}
 }
@@ -66,8 +70,8 @@ func TestReviewReleaseDoesNotConsultSource(t *testing.T) {
 	memory := reviewReleaseMemory()
 	cause := errors.New("source links unavailable")
 	memory.linkErr = cause
-	err := NewScheduler(scheduleIDs()).Review(t.Context(), memory, ReviewRelease{
-		ItemID: "ordinary", ImportID: "import", Reason: ReasonImportPublished, NowMS: 10,
+	err := importcleanup.Review(t.Context(), jobs.NewScheduler(scheduleIDs()), memory, importcleanup.ReviewRelease{
+		ItemID: "ordinary", ImportID: "import", Reason: jobs.ReasonImportPublished, NowMS: 10,
 	})
 	if err != nil || len(memory.jobs) != 2 {
 		t.Fatalf("unrelated source read blocked review release: %v %+v", err, memory.jobs)

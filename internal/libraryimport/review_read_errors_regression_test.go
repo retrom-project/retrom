@@ -34,8 +34,7 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 			return err
 		}},
 		{"duplicate matches", func() error {
-			_, err := findDuplicateGames(t.Context(), database,
-				"item", "gba")
+			_, err := application.NewContentDuplicates(repository.BindContentDuplicates(database)).Matches(t.Context(), "item", "gba")
 			return err
 		}},
 		{"arcade relations", func() error {

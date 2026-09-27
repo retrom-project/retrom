@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
 	"retrom/internal/service/cleanupjobs"
@@ -191,8 +193,7 @@ func (run *creationCommit) discardDuplicate(
 	); err != nil {
 		return false, creationError("discard duplicate", err)
 	}
-	if _, err := cleanupjobs.NewScheduler(nil).TerminalItem(
-		ctx,
+	if _, err := importcleanup.TerminalItem(ctx, cleanupjobs.NewScheduler(nil),
 		scope.Payload,
 		record.itemID,
 		cleanupjobs.ReasonImportDiscarded,

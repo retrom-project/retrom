@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+	uploadcleanup "retrom/internal/service/uploads/payloadpolicy"
+
 	biosretirement "retrom/internal/service/firmware/retirement"
 	launchretirement "retrom/internal/service/launch/retirement"
 	previewretention "retrom/internal/service/libraryimport/previewretention"
@@ -50,12 +55,15 @@ func New(
 		application.Dependencies{
 			Worker: workerrepo.NewWorker(database),
 
-			Effects: map[application.ScopeType]application.EffectRepository{
-				application.ScopeGame:              gamerelease.NewEffects(database),
-				application.ScopeImportItem:        itemrelease.NewEffects(database),
-				application.ScopeImportJob:         itemrelease.NewEffects(database),
-				application.ScopeSourceImportItem:  sourcerelease.NewEffects(database),
-				application.ScopeUploadConsumption: payloadpurge.NewEffects(database),
+			Effects: map[application.ScopeType]application.EffectBinding{
+				application.ScopeGame:             gamecleanup.Cleanup(gamerelease.NewEffects(database), files),
+				application.ScopeImportItem:       {Repository: itemrelease.NewEffects(database), Apply: importcleanup.Release},
+				application.ScopeImportJob:        {Repository: itemrelease.NewEffects(database), Apply: importcleanup.Release},
+				application.ScopeSourceImportItem: {Repository: sourcerelease.NewEffects(database), Apply: sourcecleanup.Release},
+				application.ScopeUploadConsumption: {
+					Repository: payloadpurge.NewEffects(database),
+					Apply:      uploadcleanup.ConsumptionCleanup,
+				},
 			},
 			Maintenance: func(deletion application.DeletionStager) []func(context.Context) error {
 				return []func(context.Context) error{
@@ -67,8 +75,7 @@ func New(
 				}
 			},
 
-			Files:  files,
-			Waiter: files,
+			Files: files,
 		},
 		application.Options{
 			Now:    now,
@@ -97,8 +104,8 @@ func (service *Service) StageCandidates(ctx context.Context, transaction dbapi.T
 func (service *Service) ScheduleConsumption(
 	ctx context.Context, transaction dbapi.Tx, consumptionID string, now int64,
 ) (string, error) {
-	jobID, err := application.NewScheduler(nil).Consumption(
-		ctx, payloadpurge.BindScheduling(transaction), consumptionID, now,
+	jobID, err := uploadcleanup.Consumption(ctx, application.NewScheduler(nil),
+		payloadpurge.BindScheduling(transaction), consumptionID, now,
 	)
 	if err != nil {
 		return "", fmt.Errorf("schedule payload consumption release: %w", err)
@@ -111,9 +118,8 @@ func (service *Service) ScheduleConsumption(
 func (service *Service) ScheduleGameDeletion(
 	ctx context.Context, transaction dbapi.Tx, gameID string, version, now int64,
 ) (string, error) {
-	jobID, err := application.NewScheduler(nil).DeleteGame(
-		ctx, gamerelease.BindScheduling(transaction), gameID, version, now,
-	)
+	jobID, err := gamecleanup.DeleteGame(ctx, application.NewScheduler(nil),
+		gamerelease.BindScheduling(transaction), gameID, version, now)
 	if err != nil {
 		return "", fmt.Errorf("schedule game payload release: %w", err)
 	}

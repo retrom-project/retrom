@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+
 	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
@@ -19,7 +21,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = payloadapplication.NewScheduler(nil).DeleteGame(t.Context(),
+	_, err = gamecleanup.DeleteGame(t.Context(), payloadapplication.NewScheduler(nil),
 		payloadrepository.BindScheduling(tx), "018fbe68-0000-7000-8000-000000000002", 1,
 		fixture.now.UnixMilli())
 	if err != nil {

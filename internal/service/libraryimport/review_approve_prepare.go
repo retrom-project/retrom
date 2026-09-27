@@ -60,7 +60,7 @@ func (run *reviewApprovalRun) prepare() error {
 		return fmt.Errorf("decode approval metadata: %w", err)
 	}
 	run.metadata.Title = strings.TrimSpace(run.metadata.Title)
-	if run.metadata.Title == "" {
+	if run.metadata.Title == "" || !validField(run.metadata.Title, reviewShortFieldMaximumRunes, false) {
 		return ErrInvalid
 	}
 	for _, step := range []func() error{run.prepareValidation, run.prepareOrigin, run.prepareAssets} {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/service/cleanupjobs"
 
 	"retrom/internal/authn"
@@ -143,10 +145,9 @@ func (run *reviewApprovalRun) publishDecision() error {
 	}); err != nil {
 		return fmt.Errorf("publish review source owner: %w", err)
 	}
-	if err := cleanupjobs.NewScheduler(nil).Review(
-		run.ctx,
+	if err := importcleanup.Review(run.ctx, cleanupjobs.NewScheduler(nil),
 		run.scope.Payload,
-		cleanupjobs.ReviewRelease{
+		importcleanup.ReviewRelease{
 			ItemID:   run.request.ItemID,
 			ImportID: run.head.ImportID,
 			Reason:   cleanupjobs.ReasonImportPublished,

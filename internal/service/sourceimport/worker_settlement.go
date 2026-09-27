@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	payload "retrom/internal/service/cleanupjobs"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	library "retrom/internal/service/libraryimport"
 )
@@ -30,7 +30,7 @@ type (
 		Close(context.Context, WorkerSettlementChange) error
 	}
 	WorkerSettlementScope struct {
-		Payload  payload.ReleaseScope
+		Payload  sourcecleanup.ReleaseScope
 		Read     WorkerSettlementReader
 		Write    WorkerSettlementWriter
 		Metadata library.MetadataScope

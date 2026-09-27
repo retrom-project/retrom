@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/testsupport"
 )
 
@@ -48,7 +50,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 	fixture := newMediaRetryFixture(t)
 	hits := 0
 	cause := errors.New("media receipt write unavailable")
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
+	fault := testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 && args[1].Value == "postAdminJobRetry" {
 				hits++
@@ -57,6 +59,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 			return nil
 		},
 	})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {

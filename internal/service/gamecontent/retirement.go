@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 
+	uploadcleanup "retrom/internal/service/uploads/payloadpolicy"
+
 	"retrom/internal/service/cleanupjobs"
 )
 
@@ -97,7 +99,7 @@ func releaseReplacementUpload(ctx context.Context, scope RetirementScope, jobID 
 	if err != nil {
 		return fmt.Errorf("read replacement upload consumption: %w", err)
 	}
-	if _, err := cleanupjobs.NewScheduler(nil).Consumption(ctx, scope.Payload, id, now); err != nil {
+	if _, err := uploadcleanup.Consumption(ctx, cleanupjobs.NewScheduler(nil), scope.Payload, id, now); err != nil {
 		return fmt.Errorf("release replacement upload: %w", err)
 	}
 	return nil

@@ -22,6 +22,8 @@ import (
 	"time"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -412,15 +414,17 @@ SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	`, itemID).Scan(&baseSnapshotID); err != nil {
 		t.Fatal(err)
 	}
-	initialReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
-	initialProjection, projectionOK := initialReview.(map[string]any)
+	initialDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	testassert.False(t, err != nil, err)
+	initialReview := initialDetail.MultiDisc
+	testassert.True(t, initialReview != nil, "multi-disc detail missing")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return !hasMultiDisc }, func() bool { return !projectionOK },
-		func() bool { return initialProjection["discCount"] != 3 },
-		func() bool { return initialProjection["presentDiscCount"] != 2 },
-		func() bool { return initialProjection["missingDiscCount"] != 1 },
-		func() bool { return initialProjection["canAttachMissingDiscs"] != true }),
-		"initial multi-disc review = %#v, present=%v, error=%v", initialReview, hasMultiDisc, err)
+
+		func() bool { return initialReview.DiscCount != 3 },
+		func() bool { return initialReview.PresentDiscCount != 2 },
+		func() bool { return initialReview.MissingDiscCount != 1 },
+		func() bool { return initialReview.CanAttachMissingDiscs != true }),
+		"initial multi-disc review = %#v, error=%v", initialReview, err)
 	encodedReview, _ := json.Marshal(initialReview)
 	testassert.Falsef(t, testassert.Any(func() bool {
 		return bytes.Contains(encodedReview,
@@ -484,16 +488,19 @@ WHERE attachment.id=?
 		testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" },
 			func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s",
 		requestedBy, attachmentState)
-	acceptedReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
-	acceptedProjection, projectionOK := acceptedReview.(map[string]any)
-	latest, latestOK := acceptedProjection["latestAttachment"].(map[string]any)
+	acceptedDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	testassert.False(t, err != nil, err)
+	acceptedReview := acceptedDetail.MultiDisc
+	testassert.True(t, acceptedReview != nil, "multi-disc detail missing")
+	latest := acceptedReview.LatestAttachment
+	testassert.True(t, latest != nil, "latest attachment missing")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return !hasMultiDisc }, func() bool { return !projectionOK },
-		func() bool { return !latestOK }, func() bool { return latest["state"] != "ACCEPTED" },
-		func() bool { return acceptedProjection["presentDiscCount"] != 3 },
-		func() bool { return acceptedProjection["missingDiscCount"] != 0 },
-		func() bool { return acceptedProjection["canAttachMissingDiscs"] != false }),
-		"accepted multi-disc review = %#v, present=%v, error=%v", acceptedReview, hasMultiDisc, err)
+
+		func() bool { return latest.State != "ACCEPTED" },
+		func() bool { return acceptedReview.PresentDiscCount != 3 },
+		func() bool { return acceptedReview.MissingDiscCount != 0 },
+		func() bool { return acceptedReview.CanAttachMissingDiscs != false }),
+		"accepted multi-disc review = %#v, error=%v", acceptedReview, err)
 	if _, err := importer.Approve(ctx, itemID, version); err != nil {
 		t.Fatalf("Approve() after attachment: %v", err)
 	}

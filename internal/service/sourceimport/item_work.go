@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	payload "retrom/internal/service/cleanupjobs"
 )
 
@@ -65,7 +67,7 @@ type (
 		Finish(context.Context, ItemFinish) error
 	}
 	ItemWorkScope struct {
-		Payload payload.ReleaseScope
+		Payload sourcecleanup.ReleaseScope
 		Read    ItemWorkReader
 		Write   ItemWorkWriter
 	}
@@ -176,8 +178,7 @@ func (service *ItemWork) Finish(
 		if err := scope.Write.Finish(ctx, ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
 			return fmt.Errorf("save Source item outcome: %w", err)
 		}
-		_, err = payload.NewScheduler(nil).TerminalSource(
-			ctx, scope.Payload.Scheduling,
+		_, err = sourcecleanup.TerminalSource(ctx, payload.NewScheduler(nil), scope.Payload.Scheduling,
 			payload.Scope{Type: payload.ScopeSourceImportItem, ID: itemID}, now,
 		)
 		if err != nil {

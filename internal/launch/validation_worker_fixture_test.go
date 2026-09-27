@@ -14,8 +14,7 @@ func (service *Service) validationWorker() *gamevariant.ValidationWorker {
 func (service *Service) resumeValidationJob(ctx context.Context, id string) {
 	service.validationRuns.Resume(ctx, id)
 }
-func (service *Service) ResumeQueuedValidationJobs() { service.validationRuns.Recover() }
-func (service *Service) Close()                      { service.validationRuns.Close() }
+func (service *Service) Close() { service.validationRuns.Close() }
 
 type testValidationRunner struct{ service *Service }
 

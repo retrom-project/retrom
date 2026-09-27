@@ -3,12 +3,14 @@ package sourcerelease
 import (
 	"context"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/cleanupjobs"
 )
 
 func RetainedSources(
-	ctx context.Context, executor dbapi.Executor, batch application.SourceBatch, after string, limit int,
+	ctx context.Context, executor dbapi.Executor, batch sourcecleanup.SourceBatch, after string, limit int,
 ) ([]string, error) {
 	if batch.Type != application.ScopeSourceImportItem {
 		return nil, application.ErrScopeInvalid

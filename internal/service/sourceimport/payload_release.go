@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	payload "retrom/internal/service/cleanupjobs"
 )
 
-func scheduleTerminalPayloads(ctx context.Context, scope payload.ReleaseScope, id string, now int64) error {
-	err := payload.NewScheduler(nil).TerminalSources(ctx, scope, payload.SourceBatch{
+func scheduleTerminalPayloads(ctx context.Context, scope sourcecleanup.ReleaseScope, id string, now int64) error {
+	err := sourcecleanup.TerminalSources(ctx, payload.NewScheduler(nil), scope, sourcecleanup.SourceBatch{
 		Type: payload.ScopeSourceImportItem, ImportID: id,
 	}, now)
 	if err != nil {

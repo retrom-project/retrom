@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"path"
@@ -20,11 +21,16 @@ import (
 	"retrom/internal/multidisc"
 )
 
-func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) {
+func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) error {
 	now := service.now().UnixMilli()
-	for _, job := range service.queuedJobRuns(ctx, "REVIEW_MULTI_DISC_VALIDATE") {
-		service.scheduleMultiDiscAttachmentRun(ctx, job.id, time.Duration(job.availableAt-now)*time.Millisecond)
+	jobs, err := repository.NewQueuedJobs(service.database).Queued(ctx, "REVIEW_MULTI_DISC_VALIDATE")
+	if err != nil {
+		return fmt.Errorf("resume multi-disc attachments: %w", err)
 	}
+	for _, job := range jobs {
+		service.scheduleMultiDiscAttachmentRun(ctx, job.ID, time.Duration(job.AvailableAtMS-now)*time.Millisecond)
+	}
+	return nil
 }
 
 func (service *Service) scheduleMultiDiscAttachmentRun(
@@ -32,12 +38,9 @@ func (service *Service) scheduleMultiDiscAttachmentRun(
 	jobID string,
 	delay time.Duration,
 ) {
-	workerContext := context.WithoutCancel(ctx)
-	if delay <= 0 {
-		go service.runMultiDiscAttachment(workerContext, jobID)
-		return
-	}
-	time.AfterFunc(delay, func() { service.runMultiDiscAttachment(workerContext, jobID) })
+	service.scheduleAttachment(ctx, delay, func(worker context.Context) {
+		service.runMultiDiscAttachment(worker, jobID)
+	})
 }
 
 func (service *Service) claimMultiDiscAttachment(

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	payload "retrom/internal/persistence/sourceimport/sourcerelease"
-	payloadService "retrom/internal/service/cleanupjobs"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -133,6 +134,6 @@ VALUES(?,'SOURCE_IMPORT',?,'SUCCEEDED',?,?)`,
 	return nil
 }
 
-func (records completionRecords) Payload() payloadService.ReleaseScope {
+func (records completionRecords) Payload() sourcecleanup.ReleaseScope {
 	return payload.BindReleases(records.tx)
 }

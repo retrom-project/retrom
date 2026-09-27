@@ -127,7 +127,7 @@ func (service *Service) CreateArcadeParentAttachment(
 		}
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
-	go service.runParentAttachment(context.WithoutCancel(ctx), result.JobID)
+	service.scheduleAttachment(ctx, 0, func(worker context.Context) { service.runParentAttachment(worker, result.JobID) })
 	return result, nil
 }
 
@@ -351,13 +351,13 @@ func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	return snapshot, nil
 }
 
-func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) {
+func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) error {
 	jobIDs, err := librarypersistence.NewReviewArcadeParentJobs(service.database).Queued(ctx)
 	if err != nil {
-		return
+		return fmt.Errorf("resume arcade attachments: %w", err)
 	}
-	workerContext := context.WithoutCancel(ctx)
 	for _, jobID := range jobIDs {
-		go service.runParentAttachment(workerContext, jobID)
+		service.scheduleAttachment(ctx, 0, func(worker context.Context) { service.runParentAttachment(worker, jobID) })
 	}
+	return nil
 }

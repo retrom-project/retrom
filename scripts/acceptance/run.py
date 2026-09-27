@@ -254,8 +254,8 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMP-009": (
         240,
-        "go test ./internal/libraryimport ./internal/store -run 'TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence|TestMigrationsCreateCurrentSchemaWithoutProductSeeds' -count=1 && "
-        "go test -tags=integration ./internal/libraryimport -run '^TestReviewBulkApprovalPublishes(StrictReadyCandidatesAtomically|CurrentTypedArcadeSnapshot)$' -count=1 -timeout=60s",
+        "go test ./internal/service/libraryimport ./internal/store -run 'TestAutomaticApprovalLeavesManualDecisionsToTheReviewer|TestBulkStartupIsIdempotentAndCloseJoinsWorkers|TestMigrationsCreateCurrentSchemaWithoutProductSeeds' -count=1 && "
+        "go test -tags=integration ./internal/libraryimport -run '^Test(ReviewBulk|BulkApproval)' -count=1 -timeout=60s",
     ),
     "ACC-IMP-010": (
         180,

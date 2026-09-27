@@ -3,6 +3,8 @@ package sourcerelease
 import (
 	"context"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/releaseschedule"
 	application "retrom/internal/service/cleanupjobs"
@@ -29,14 +31,14 @@ func (records scheduling) BeginRelease(ctx context.Context, change application.O
 	return Begin(ctx, records.Executor, releaseschedule.OwnerUpdate(change.Before, change.JobID), change)
 }
 
-func BindReleases(executor dbapi.Executor) application.ReleaseScope {
-	return application.ReleaseScope{
+func BindReleases(executor dbapi.Executor) sourcecleanup.ReleaseScope {
+	return sourcecleanup.ReleaseScope{
 		Scheduling: BindScheduling(executor), Links: scheduling{releaseschedule.Records{Executor: executor}},
 	}
 }
 
 func (records scheduling) RetainedSources(
-	ctx context.Context, batch application.SourceBatch, after string, limit int,
+	ctx context.Context, batch sourcecleanup.SourceBatch, after string, limit int,
 ) ([]string, error) {
 	return RetainedSources(ctx, records.Executor, batch, after, limit)
 }

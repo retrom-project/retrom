@@ -115,7 +115,7 @@ func assertReviewBulkResume(t *testing.T, db dbapi.DB, worker *ReviewBulkWorker,
 	if err != nil || summary.State != "COMPLETED" || summary.ScannedCount != 1 || summary.SkippedChangedCount != 1 {
 		t.Fatalf("summary=%#v err=%v", summary, err)
 	}
-	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-3", 16); !errors.Is(err, ErrReviewBulkNotRunnable) {
+	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-3", 16); !errors.Is(err, application.ErrReviewBulkNotRunnable) {
 		t.Fatalf("reclaim=%v", err)
 	}
 }

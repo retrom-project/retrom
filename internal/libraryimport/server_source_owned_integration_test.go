@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	payloadcomposition "retrom/internal/composition/cleanupjobs"
 
 	dbapi "retrom/internal/database"
@@ -170,7 +172,7 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 version=version+1 WHERE id='018fbe68-0000-7000-8000-000000000021'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx,
+	if _, err := sourcecleanup.TerminalSource(fixture.ctx, payloadservice.NewScheduler(nil),
 		payloadpersistence.BindScheduling(tx),
 		payloadservice.Scope{
 			Type: payloadservice.ScopeSourceImportItem,

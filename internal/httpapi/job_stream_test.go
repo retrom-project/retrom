@@ -14,6 +14,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
+	"retrom/internal/application"
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -287,23 +288,23 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	testassert.Falsef(t, err != nil, "open blobs: %v", err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.Falsef(t, err != nil, "create credentials: %v", err)
-	server := New(
-		config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir},
-		database.SQL,
-		dependencySet,
-		blobs,
-		credentials,
-		testAuthenticator{},
-		nil,
-		time.Now,
-	).WithReadinessDatabase(database.ReadOnly)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
-	server.WithRuntimeProvider(runtimeBuilder, http.NotFoundHandler())
+	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir}
+	services, err := application.New(application.Inputs{
+		Config: settings, Database: database.SQL, ReadinessDatabase: database.ReadOnly,
+		Dependencies: dependencySet, Files: blobs, Credentials: credentials, Now: time.Now,
+		RuntimeProvider: runtimeBuilder,
+	})
+	testassert.False(t, err != nil, err)
+	t.Cleanup(services.Close)
+	if err := services.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	server := New(settings, services, testAuthenticator{}, time.Now)
 	// General HTTP contract tests exercise handlers, not the asynchronous DAT
 	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
 	server.startupReady.Store(true)
-	t.Cleanup(server.Close)
 	return server
 }
 

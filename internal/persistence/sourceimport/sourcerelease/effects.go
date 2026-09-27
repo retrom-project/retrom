@@ -30,8 +30,8 @@ func BindEffects(executor dbapi.Executor) application.EffectScope {
 		) (sql.Result, error) {
 			return Change(ctx, executor, update, change)
 		},
-		Remove: func(ctx context.Context, change application.EffectRemoval) error {
-			return effectRemove(ctx, executor, change)
+		Clear: func(ctx context.Context, before application.EffectOwner, now int64) error {
+			return clearPayload(ctx, executor, before, now)
 		},
 	}
 	return releaseeffects.Bind(executor, domain, uploads.BindUploads(executor))
@@ -45,21 +45,16 @@ func effectRemaining(ctx context.Context, executor dbapi.Executor, scope applica
 	return Remaining(ctx, executor, scope.ID)
 }
 
-func effectRemove(ctx context.Context, executor dbapi.Executor, change application.EffectRemoval) error {
-	if change.Before.Owner.Scope.Type != application.ScopeSourceImportItem {
+func clearPayload(ctx context.Context, executor dbapi.Executor, before application.EffectOwner, now int64) error {
+	if before.Owner.Scope.Type != application.ScopeSourceImportItem {
 		return application.ErrScopeInvalid
 	}
-	switch change.Group {
-	case application.EffectSourceFiles, application.EffectSourceAssets:
-		return Clear(ctx, executor, change)
-	case application.EffectGameRuntime,
-		application.EffectGameEvidence,
-		application.EffectGameFiles,
-		application.EffectImportReview,
-		application.EffectImportEvidence,
-		application.EffectImportFiles:
-		return application.ErrScopeInvalid
-	default:
-		return application.ErrScopeInvalid
+	id := before.Owner.Scope.ID
+	if err := ClearFiles(ctx, executor, id, now); err != nil {
+		return wrapErr(err)
 	}
+	if err := ClearAssets(ctx, executor, id, now); err != nil {
+		return wrapErr(err)
+	}
+	return nil
 }

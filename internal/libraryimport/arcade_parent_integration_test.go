@@ -19,6 +19,9 @@ import (
 	"time"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
+	librarycomposition "retrom/internal/composition/libraryimport"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
 
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -90,12 +93,14 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
-	bulk, err := importer.CreateReviewBulk(ctx)
+	bulkService := librarycomposition.NewReviewBulk(database.SQL, importer.reviewApprovals(), time.Now)
+	t.Cleanup(bulkService.Close)
+	bulk, err := bulkService.Create(ctx)
 	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(5 * time.Second)
-	var summary ReviewBulkSummary
+	var summary application.ReviewBulkSummary
 	for {
-		summary, err = importer.GetReviewBulk(ctx, bulk.BulkApprovalID)
+		summary, err = bulkService.Get(ctx, bulk.BulkApprovalID)
 		testassert.False(t, err != nil, err)
 		if summary.State == "COMPLETED" || summary.State == "FAILED" {
 			break
@@ -149,11 +154,11 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	if source {
 		linkReviewToSourceOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
-	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
+	detail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, found, "arcade dependencies were not projected")
-	viewMap := view.(map[string]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(viewMap["nodes"].([]map[string]any)) != 2 }), "initial dependency view = %#v", view)
+	view := detail.ArcadeDependencies
+	testassert.True(t, view != nil, "arcade dependencies were not projected")
+	testassert.Falsef(t, testassert.Any(func() bool { return view.Machine != "a" }, func() bool { return len(view.Nodes) != 2 }), "initial dependency view = %#v", view)
 	parent := uploadCompleteFile(t, ctx, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",

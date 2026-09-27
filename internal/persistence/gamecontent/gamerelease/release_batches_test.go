@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
 	"retrom/internal/testsupport"
 
 	dbapi "retrom/internal/database"
@@ -47,7 +48,7 @@ func TestReleaseCommitsBoundedPagesAndResumesAfterLostAuthority(t *testing.T) {
 	}
 	now := func() time.Time { return time.UnixMilli(10) }
 	authority := &batchAuthority{failAt: 4}
-	service := application.NewReleaseEffects(gamerelease.NewEffects(db), authority, nil, now)
+	service := application.NewReleaseEffects(gamecleanup.Cleanup(gamerelease.NewEffects(db), nil), authority, now)
 	unit := application.Execution{Work: work, Input: input}
 	if err := service.Execute(t.Context(), unit); !errors.Is(err, application.ErrExecutionLost) {
 		t.Fatalf("lost authority=%v", err)

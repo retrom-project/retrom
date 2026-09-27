@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/service/cleanupjobs"
 )
 
@@ -150,7 +152,7 @@ func (service *ImportExecutions) rejectQueued(
 }
 
 func scheduleImportTerminal(ctx context.Context, scope ImportExecutionScope, id string, now int64) error {
-	_, err := cleanupjobs.NewScheduler(nil).TerminalImport(ctx, scope.Payload, id, now)
+	_, err := importcleanup.TerminalImport(ctx, cleanupjobs.NewScheduler(nil), scope.Payload, id, now)
 	if err != nil {
 		return fmt.Errorf("schedule import execution payload: %w", err)
 	}

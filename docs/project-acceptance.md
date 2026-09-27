@@ -666,7 +666,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-009`。
 - 流程：创建跨两个 ImportJob 的 READY、阻断截图 override、重复内容、活动 Attachment、过期 Validation、非法标题和 hidden/adult Item。并发创建两个全局任务；运行中修改待审 Item，在发布事务、游标及计数提交处故障注入，模拟进程退出/重启。
-- 通过标准：全局任务只保留最大 Item ID、创建时间、游标、状态和汇总计数，最多 10,000 个待审 Item；第二个活动任务、空队列和超限返回稳定错误。Worker 对每个 Item 重新检查当前待审状态与全部严格自动发布条件；修改过的、不合格的和重复内容留在待审队列。每个成功项的 Game/GameFiles/GameVariant、普通与服务器来源聚合、游标和计数在同一事务提交，失败全回滚。重启从游标继续且不重复发布。`review_version` 与 Item `version` 独立，子实体外键指向 Item ID，fresh schema 无 `review_drafts` 或逐项批次表。
+- 通过标准：全局任务只保留最大 Item ID、创建时间、游标、状态和汇总计数，最多 10,000 个待审 Item；第二个活动任务、空队列和超限返回稳定错误。Worker 对每个 Item 重新检查当前待审状态，筛除需要人工决策的条目后调用单项 Approve，复用其当前 Validation、依赖、标题和重复内容校验；修改过的、不合格的和重复内容留在待审队列。每个成功项通过持久化发布状态推进目录迁移，再原子提交 Game/GameFiles/GameVariant 和普通与服务器来源聚合；批量游标及计数在确认该项已发布后单独提交。发布完成但进度尚未提交时退出，重启必须识别既有发布结果、补齐进度且不重复创建 Game。发布前事务失败不得留下部分游戏记录。`review_version` 与 Item `version` 独立，子实体外键指向 Item ID，fresh schema 无 `review_drafts` 或逐项批次表。
 - 证据：并发创建、运行中编辑、跳过、故障回滚、恢复及最终 Game 数的自动化测试和数据库完整性检查。
 
 ### ACC-IMP-010：快速去重丢弃已发布重复内容

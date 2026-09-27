@@ -13,7 +13,9 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	uploadpersistence "retrom/internal/persistence/uploads"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -51,7 +53,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 	fixture := newUploadRetryFixture(t)
 	hits := 0
 	cause := errors.New("upload receipt write unavailable")
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
+	fault := testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 && args[1].Value == "postAdminJobRetry" {
 				hits++
@@ -60,6 +62,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 			return nil
 		},
 	})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {

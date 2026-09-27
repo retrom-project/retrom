@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/authn"
 	"retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/metadatascrape"
@@ -268,7 +270,8 @@ func cloneCreationGroup(group PreparedGroup) PreparedGroup {
 }
 
 func (run *creationCommit) schedulePayload(ctx context.Context, scope ImportCreationScope) error {
-	_, err := cleanupjobs.NewScheduler(nil).TerminalImport(ctx, scope.Payload, run.header.ImportID, run.header.NowMS)
+	_, err := importcleanup.TerminalImport(ctx, cleanupjobs.NewScheduler(nil), scope.Payload,
+		run.header.ImportID, run.header.NowMS)
 	if err != nil {
 		return fmt.Errorf("schedule creation payload: %w", err)
 	}

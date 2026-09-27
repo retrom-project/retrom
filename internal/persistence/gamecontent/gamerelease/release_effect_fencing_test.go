@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/gamecontent/gamerelease"
 	"retrom/internal/persistence/releaseeffects"
@@ -44,7 +46,7 @@ catalog_template_key='gba/mgba'),
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(tx)
-	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(),
+	if _, err := gamecleanup.DeleteGame(t.Context(), application.NewScheduler(nil),
 		gamerelease.BindScheduling(tx), "018fbe68-0000-7000-8000-000000000001", 1, 10); err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ func (service *FileDeletionCollector) Execute(ctx context.Context, unit Executio
 		return fmt.Errorf("authorize path removal: %w", err)
 	}
 	if err := service.files.Delete(ctx, unit.Input.Inputs.RelativePath); err != nil {
-		return effectFailure("PATH_DELETE_IO_FAILED", err)
+		return Failure("PATH_DELETE_IO_FAILED", err)
 	}
 	return nil
 }

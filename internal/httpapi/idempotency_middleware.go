@@ -104,7 +104,7 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 		}
 		server.lockIdempotentRequest()
 		defer server.idempotency.Unlock()
-		idempotencyRecords := server.idempotencyRecords()
+		idempotencyRecords := server.idempotencyService
 		now := server.now().UnixMilli()
 		if err := idempotencyRecords.PurgeExpired(
 			request.Context(), operationID, key, principalID, now,

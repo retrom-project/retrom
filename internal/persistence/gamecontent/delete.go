@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/auditevents"
 	payloadpersistence "retrom/internal/persistence/gamecontent/gamerelease"
@@ -82,9 +84,8 @@ func (writes writes) DeleteGameImpact(
 func (writes writes) ScheduleGameDeletion(
 	ctx context.Context, gameID string, version, now int64,
 ) (string, error) {
-	jobID, err := payloadservice.NewScheduler(nil).DeleteGame(
-		ctx, payloadpersistence.BindScheduling(writes.transaction), gameID, version, now,
-	)
+	jobID, err := gamecleanup.DeleteGame(ctx, payloadservice.NewScheduler(nil),
+		payloadpersistence.BindScheduling(writes.transaction), gameID, version, now)
 	if err != nil {
 		return "", fmt.Errorf("schedule game payload release: %w", err)
 	}

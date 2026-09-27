@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"slices"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/service/cleanupjobs"
 	validation "retrom/internal/service/corevalidation"
@@ -234,6 +236,7 @@ func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope Imp
 	if err := scope.Finish.ResolveFiles(ctx, change); err != nil {
 		return creationError("resolve reconfiguration", err)
 	}
-	_, err = cleanupjobs.NewScheduler(nil).TerminalImport(ctx, scope.Payload, request.ImportID, run.header.NowMS)
+	_, err = importcleanup.TerminalImport(ctx, cleanupjobs.NewScheduler(nil), scope.Payload,
+		request.ImportID, run.header.NowMS)
 	return creationError("resolve reconfiguration", err)
 }

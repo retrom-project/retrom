@@ -3,8 +3,6 @@ package libraryimport
 import (
 	"context"
 	"errors"
-
-	contentcapability "retrom/internal/content/capability"
 )
 
 const ReviewBulkQueryLimit = 10_001
@@ -28,17 +26,10 @@ type ReviewBulkCandidateQuery struct {
 }
 
 type ReviewBulkCandidate struct {
-	ItemID, SourceSnapshotID, PlatformInstanceID       string
-	PlatformName, PlatformID, Title, ContentKind       string
-	ReviewVersion, PlatformVersion                     int64
-	ProviderID, TargetID                               *string
-	ContentPolicy                                      contentcapability.Policy
-	ValidationID, ValidationStatus                     *string
-	ValidationPlatformVersion                          *int64
-	ValidationDAT, CurrentDAT                          *string
-	ValidationDOSEntry, DraftDOSEntry                  *string
-	DependencySnapshot                                 *string
-	ScreenshotCurrent, AttachmentActive, SourceFlagged bool
+	ItemID, SourceSnapshotID, PlatformID string
+	ReviewVersion                        int64
+	ValidationID, ValidationStatus       *string
+	AttachmentActive, SourceFlagged      bool
 }
 
 type ReviewBulkSummary struct {

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"math"
 
-	importpolicy "retrom/internal/service/libraryimport/payloadpolicy"
-
 	"github.com/google/uuid"
 )
 
@@ -30,7 +28,7 @@ func NewScheduler(newID func() (string, error)) *Scheduler {
 
 func (service *Scheduler) Queue(ctx context.Context, scope JobWriter, request ScheduleRequest) (string, error) {
 	if !validScheduleScope(request.Scope.Type) || request.Scope.ID == "" || request.ScopeVersion < 1 ||
-		!validReason(request.Reason) || request.NowMS < 0 {
+		!ValidReason(request.Reason) || request.NowMS < 0 {
 		return "", ErrScopeInvalid
 	}
 	job, err := service.prepare(request)
@@ -85,44 +83,11 @@ func (service *Scheduler) identity() (string, error) {
 	return id, nil
 }
 
-func (service *Scheduler) TerminalItem(
-	ctx context.Context, scope OwnerSchedulingScope, id string, reason Reason, now int64,
-) (string, error) {
-	owner, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportItem, ID: id})
-	if err != nil {
-		return "", err
-	}
-	if !importpolicy.ItemTerminal(owner.State) {
-		return "", ErrScopeInvalid
-	}
-	return service.scheduleOwner(ctx, scope, owner, reason, now)
-}
-
-func (service *Scheduler) TerminalImport(
-	ctx context.Context, scope ItemSchedulingScope, id string, now int64,
-) (string, error) {
-	pending, err := scope.PendingChildren(ctx, id)
-	if err != nil {
-		return "", fmt.Errorf("read pending release children: %w", err)
-	}
-	if pending > 0 {
-		return "", nil
-	}
-	owner, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportJob, ID: id})
-	if err != nil {
-		return "", err
-	}
-	if !importpolicy.JobTerminal(owner.State) {
-		return "", nil
-	}
-	return service.scheduleOwner(ctx, scope, owner, ReasonImportTerminal, now)
-}
-
-func (service *Scheduler) scheduleOwner(
+func (service *Scheduler) ScheduleOwner(
 	ctx context.Context, scope OwnerSchedulingScope, owner Owner, reason Reason, now int64,
 ) (string, error) {
 	if owner.PayloadState != "RETAINED" {
-		return existingOwnerRelease(owner)
+		return ExistingOwnerRelease(owner)
 	}
 	if owner.Version == math.MaxInt64 {
 		return "", ErrScopeInvalid
@@ -139,7 +104,7 @@ func (service *Scheduler) scheduleOwner(
 	return id, nil
 }
 
-func readSchedulingOwner(ctx context.Context, scope OwnerSchedulingScope, ref Scope) (Owner, error) {
+func ReadSchedulingOwner(ctx context.Context, scope OwnerSchedulingScope, ref Scope) (Owner, error) {
 	if ref.ID == "" {
 		return Owner{}, ErrScopeInvalid
 	}
@@ -153,7 +118,7 @@ func readSchedulingOwner(ctx context.Context, scope OwnerSchedulingScope, ref Sc
 	return owner, nil
 }
 
-func existingOwnerRelease(owner Owner) (string, error) {
+func ExistingOwnerRelease(owner Owner) (string, error) {
 	if owner.ReleaseJobID != "" && (owner.PayloadState == "RELEASING" || owner.PayloadState == "RELEASED") {
 		return owner.ReleaseJobID, nil
 	}

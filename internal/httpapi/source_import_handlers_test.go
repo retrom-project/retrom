@@ -38,6 +38,7 @@ func TestSourceImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 		server.database, server.blobs, server.importer, server.credentials,
 		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now,
 	)
+	t.Cleanup(server.sourceImports.Close)
 	server.sourceImports.Start()
 	requireHTTPTestRuntimeTarget(t, server.database, "fceumm")
 	handler := server.Handler()

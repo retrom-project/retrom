@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
@@ -150,12 +152,13 @@ ORDER BY id`, importID)
 	}
 	scheduler := payloadservice.NewScheduler(nil)
 	for _, itemID := range ids {
-		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), itemID,
+		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), itemID,
 			payloadservice.ReasonImportCancelled, now); err != nil {
 			return fmt.Errorf("schedule cancelled import payload: %w", err)
 		}
 	}
-	if _, err := scheduler.TerminalImport(ctx, payloadpersistence.BindScheduling(tx), importID, now); err != nil {
+	if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
+		importID, now); err != nil {
 		return fmt.Errorf("schedule cancelled import aggregate: %w", err)
 	}
 	return nil

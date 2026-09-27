@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/persistence/recordstore"
@@ -58,8 +60,7 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 func scheduleSourceRelease(ctx context.Context, tx dbapi.Tx, kind, id string, now int64) error {
 	var err error
 	if kind == "SOURCE" {
-		_, err = payloadservice.NewScheduler(nil).TerminalSource(
-			ctx,
+		_, err = sourcecleanup.TerminalSource(ctx, payloadservice.NewScheduler(nil),
 			payloadpersistence.BindScheduling(tx),
 			payloadservice.Scope{Type: payloadservice.ScopeSourceImportItem, ID: id},
 			now,

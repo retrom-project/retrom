@@ -34,7 +34,9 @@ func TestValidationSupervisorClosesDispatchedWorkAndRejectsNewWork(t *testing.T)
 	}
 	supervisor.Dispatch(t.Context(), "late")
 	supervisor.Resume(t.Context(), "late-sync")
-	supervisor.Recover()
+	if err := supervisor.Recover(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	if worker.calls.Load() != 1 {
 		t.Fatal("closed supervisor started new work")
 	}

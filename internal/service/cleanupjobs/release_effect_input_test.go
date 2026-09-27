@@ -39,7 +39,7 @@ func TestReleaseEffectsRejectsUnfrozenInputsBeforeTransaction(t *testing.T) {
 	}
 	input.Inputs.ScopeVersion++
 	repository := &forbiddenEffects{}
-	service := NewReleaseEffects(repository, nil, nil, nil)
+	service := NewReleaseEffects(EffectBinding{Repository: repository}, nil, nil)
 	err = service.Execute(t.Context(), Execution{Work: work, Input: input})
 	if !errors.Is(err, ErrInputInvalid) || repository.calls != 0 {
 		t.Fatalf("input error=%v transaction calls=%d", err, repository.calls)

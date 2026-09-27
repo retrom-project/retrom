@@ -9,7 +9,6 @@ import (
 
 	dbapi "retrom/internal/database"
 	validationpersistence "retrom/internal/persistence/corevalidation"
-	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	contentcapability "retrom/internal/content/capability"
@@ -35,23 +34,6 @@ type (
 	ApprovalDecision = application.ReviewApprovalDecision
 	ExternalAsset    = application.ApprovalExternalAsset
 )
-
-func (service *Service) validateCurrentApprovalDependencySnapshot(
-	ctx context.Context, transaction dbapi.Executor, sourceSnapshotID, validationID, platformID, providerID,
-	targetID string,
-	policy contentcapability.Policy, contentKind, frozenJSON string,
-) error {
-	err := application.ValidateApprovalDependencies(ctx,
-		librarypersistence.BindApprovalDependencies(transaction), application.ApprovalDependencyInput{
-			SnapshotID: sourceSnapshotID, ValidationID: validationID, PlatformID: platformID,
-			ProviderID: providerID, TargetID: targetID,
-			Policy: policy, ContentKind: contentKind, DependencyJSON: frozenJSON,
-		})
-	if err != nil {
-		return fmt.Errorf("validate approval dependencies: %w", err)
-	}
-	return nil
-}
 
 type approvalValidationDigestInput struct {
 	VariantID, ContentID, ContentKind, ProviderID, TargetID string

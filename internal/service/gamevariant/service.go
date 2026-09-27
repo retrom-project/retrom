@@ -83,5 +83,5 @@ func SameValidationInputs(before, after Snapshot) bool {
 }
 func (s *Service) Dispatch(ctx context.Context, id string) { s.supervisor.Dispatch(ctx, id) }
 func (s *Service) Resume(ctx context.Context, id string)   { s.supervisor.Resume(ctx, id) }
-func (s *Service) Recover()                                { s.supervisor.Recover() }
+func (s *Service) Recover(ctx context.Context) error       { return s.supervisor.Recover(ctx) }
 func (s *Service) Close()                                  { s.supervisor.Close() }

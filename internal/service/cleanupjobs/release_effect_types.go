@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var ErrEffectConflict = effectFailure("OWNER_CLEANUP_SCOPE_VERSION_MISMATCH", nil)
+var ErrEffectConflict = Failure("OWNER_CLEANUP_SCOPE_VERSION_MISMATCH", nil)
 
 type EffectOwner struct {
 	Owner                         Owner
@@ -47,25 +47,6 @@ type EffectConsumptionChange struct {
 	NowMS  int64
 }
 
-type EffectReferenceGroup string
-
-const (
-	EffectGameRuntime    EffectReferenceGroup = "GAME_RUNTIME"
-	EffectGameEvidence   EffectReferenceGroup = "GAME_EVIDENCE"
-	EffectGameFiles      EffectReferenceGroup = "GAME_FILES"
-	EffectImportReview   EffectReferenceGroup = "IMPORT_REVIEW"
-	EffectImportEvidence EffectReferenceGroup = "IMPORT_EVIDENCE"
-	EffectImportFiles    EffectReferenceGroup = "IMPORT_FILES"
-	EffectSourceFiles    EffectReferenceGroup = "SOURCE_FILES"
-	EffectSourceAssets   EffectReferenceGroup = "SOURCE_ASSETS"
-)
-
-type EffectRemoval struct {
-	Before EffectOwner
-	Group  EffectReferenceGroup
-	NowMS  int64
-}
-
 type EffectReader interface {
 	Owner(context.Context, Scope) (EffectOwner, error)
 	Payload(context.Context, Scope) (EffectPayload, error)
@@ -76,7 +57,7 @@ type EffectReader interface {
 
 type EffectWriter interface {
 	ChangeOwner(context.Context, EffectOwnerChange) error
-	Remove(context.Context, EffectRemoval) error
+	Clear(context.Context, EffectOwner, int64) error
 	Consume(context.Context, EffectConsumptionChange) error
 }
 
@@ -101,18 +82,19 @@ type EffectWaiter interface {
 	Wait(context.Context, time.Duration) error
 }
 
-type ReleaseEffects struct {
-	repository EffectRepository
-	authority  EffectAuthority
-	waiter     EffectWaiter
-	now        func() time.Time
+// EffectBinding connects one fixed domain handler to its transaction repository.
+type EffectBinding struct {
+	Repository EffectRepository
+	Prepare    func(context.Context, Scope) error
+	Apply      func(context.Context, EffectScope, Execution, int64) (bool, error)
 }
 
-func NewReleaseEffects(
-	repository EffectRepository,
-	authority EffectAuthority,
-	waiter EffectWaiter,
-	now func() time.Time,
-) *ReleaseEffects {
-	return &ReleaseEffects{repository: repository, authority: authority, waiter: waiter, now: now}
+type ReleaseEffects struct {
+	binding   EffectBinding
+	authority EffectAuthority
+	now       func() time.Time
+}
+
+func NewReleaseEffects(binding EffectBinding, authority EffectAuthority, now func() time.Time) *ReleaseEffects {
+	return &ReleaseEffects{binding: binding, authority: authority, now: now}
 }

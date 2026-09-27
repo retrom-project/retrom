@@ -50,22 +50,25 @@ type Options struct {
 	Now      func() time.Time
 }
 type Service struct {
-	blobs       BlobStore
-	firmware    FirmwareInstaller
-	roots       map[string]Root
-	now         func() time.Time
-	queries     *Queries
-	creation    *Creation
-	control     *Control
-	recovery    *Recovery
-	discovery   *Discovery
-	leases      *Leases
-	outcomes    *Outcomes
-	wake        chan struct{}
-	stop        chan struct{}
-	stopOnce    sync.Once
-	archiveScan chan struct{}
-	scanLimits  scanLimits
+	blobs           BlobStore
+	firmware        FirmwareInstaller
+	roots           map[string]Root
+	now             func() time.Time
+	queries         *Queries
+	creation        *Creation
+	control         *Control
+	recovery        *Recovery
+	discovery       *Discovery
+	leases          *Leases
+	outcomes        *Outcomes
+	wake            chan struct{}
+	stop            chan struct{}
+	lifecycleMu     sync.Mutex
+	cancel          context.CancelFunc
+	started, closed bool
+	wait            sync.WaitGroup
+	archiveScan     chan struct{}
+	scanLimits      scanLimits
 }
 
 func New(repositories Repositories, options Options) *Service {
@@ -112,8 +115,7 @@ func New(repositories Repositories, options Options) *Service {
 		), scanLimits: defaultScanLimits(),
 	}
 }
-func (service *Service) Start() { go service.runLoop(); service.signal() }
-func (service *Service) Close() { service.stopOnce.Do(func() { close(service.stop) }) }
+
 func (service *Service) Roots() []Root {
 	result := make([]Root, 0, len(service.roots))
 	for _, root := range service.roots {

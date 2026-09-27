@@ -18,7 +18,7 @@ type Domain struct {
 	Links     func(context.Context, application.Scope) ([]application.Scope, error)
 	Remaining func(context.Context, application.Scope) (int64, error)
 	Change    func(context.Context, recordstore.Update, application.EffectOwnerChange) (sql.Result, error)
-	Remove    func(context.Context, application.EffectRemoval) error
+	Clear     func(context.Context, application.EffectOwner, int64) error
 }
 type Uploads struct {
 	Owner   func(context.Context, application.Scope) (application.EffectOwner, error)
@@ -100,15 +100,15 @@ func (records records) ChangeOwner(ctx context.Context, change application.Effec
 	return nil
 }
 
-func (records records) Remove(ctx context.Context, change application.EffectRemoval) error {
-	if err := records.fence(ctx, change.Before); err != nil {
+func (records records) Clear(ctx context.Context, before application.EffectOwner, now int64) error {
+	if err := records.fence(ctx, before); err != nil {
 		return err
 	}
-	if records.domain.Remove == nil {
+	if records.domain.Clear == nil {
 		return application.ErrScopeInvalid
 	}
-	if err := records.domain.Remove(ctx, change); err != nil {
-		return fmt.Errorf("remove domain payload: %w", err)
+	if err := records.domain.Clear(ctx, before, now); err != nil {
+		return fmt.Errorf("clear domain payload: %w", err)
 	}
 	return nil
 }

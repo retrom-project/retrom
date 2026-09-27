@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/cleanupjobs"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 )
 
 type payloadLinksMemory struct {
@@ -14,13 +14,13 @@ type payloadLinksMemory struct {
 	calls int
 }
 
-func (memory *payloadLinksMemory) RetainedSources(context.Context, payload.SourceBatch, string, int) ([]string, error) {
+func (memory *payloadLinksMemory) RetainedSources(context.Context, sourcecleanup.SourceBatch, string, int) ([]string, error) {
 	memory.calls++
 	return nil, memory.cause
 }
 
-func emptyPayloadScope() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: &payloadLinksMemory{}}
+func emptyPayloadScope() sourcecleanup.ReleaseScope {
+	return sourcecleanup.ReleaseScope{Links: &payloadLinksMemory{}}
 }
 
 type completionPayloadMemory struct {
@@ -37,8 +37,8 @@ func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run fun
 	return nil
 }
 
-func (memory *completionPayloadMemory) Payload() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: memory.links}
+func (memory *completionPayloadMemory) Payload() sourcecleanup.ReleaseScope {
+	return sourcecleanup.ReleaseScope{Links: memory.links}
 }
 
 func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {

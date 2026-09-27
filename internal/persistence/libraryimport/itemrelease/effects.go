@@ -34,8 +34,8 @@ func BindEffects(executor dbapi.Executor) application.EffectScope {
 		) (sql.Result, error) {
 			return Change(ctx, executor, update, change)
 		},
-		Remove: func(ctx context.Context, change application.EffectRemoval) error {
-			return effectRemove(ctx, executor, change)
+		Clear: func(ctx context.Context, before application.EffectOwner, now int64) error {
+			return clearPayload(ctx, executor, before, now)
 		},
 	}
 	domain.Links = func(ctx context.Context, scope application.Scope) ([]application.Scope, error) {
@@ -75,26 +75,23 @@ func effectRemaining(ctx context.Context, executor dbapi.Executor, scope applica
 	return records.ItemRemaining(ctx, scope.ID)
 }
 
-func effectRemove(ctx context.Context, executor dbapi.Executor, change application.EffectRemoval) error {
-	if change.Before.Owner.Scope.Type != application.ScopeImportItem {
+func clearPayload(ctx context.Context, executor dbapi.Executor, before application.EffectOwner, now int64) error {
+	if before.Owner.Scope.Type == application.ScopeImportJob {
+		return nil
+	}
+	if before.Owner.Scope.Type != application.ScopeImportItem {
 		return application.ErrScopeInvalid
 	}
+	id := before.Owner.Scope.ID
 	records := Records{Executor: executor}
-	id, now := change.Before.Owner.Scope.ID, change.NowMS
-	switch change.Group {
-	case application.EffectImportReview:
-		return records.ClearReview(ctx, id, now)
-	case application.EffectImportEvidence:
-		return records.ClearEvidence(ctx, id, now)
-	case application.EffectImportFiles:
-		return wrapErr((releaseops.Records{Executor: executor}).RemoveBatches(ctx, DeleteStatements(), id))
-	case application.EffectGameRuntime,
-		application.EffectGameEvidence,
-		application.EffectGameFiles,
-		application.EffectSourceFiles,
-		application.EffectSourceAssets:
-		return application.ErrScopeInvalid
-	default:
-		return application.ErrScopeInvalid
+	if err := records.ClearReview(ctx, id, now); err != nil {
+		return wrapErr(err)
 	}
+	if err := (releaseops.Records{Executor: executor}).RemoveBatches(ctx, DeleteStatements(), id); err != nil {
+		return wrapErr(err)
+	}
+	if err := records.ClearEvidence(ctx, id, now); err != nil {
+		return wrapErr(err)
+	}
+	return nil
 }

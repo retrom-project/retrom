@@ -22,8 +22,10 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -65,10 +67,12 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	uploader := uploads.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
 	t.Cleanup(uploader.Close)
 	server := &Server{
-		database: database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+		database:           database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
 		importer: libraryimport.New(database.SQL, now),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
+	t.Cleanup(server.importer.Close)
 	session, err := uploader.Create(t.Context(), uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{

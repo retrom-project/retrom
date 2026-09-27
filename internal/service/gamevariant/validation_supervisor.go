@@ -2,6 +2,7 @@ package gamevariant
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -46,24 +47,24 @@ func (supervisor *ValidationSupervisor) Dispatch(parent context.Context, id stri
 	}()
 }
 
-func (supervisor *ValidationSupervisor) Recover() {
-	ctx, timeout := context.WithTimeout(context.Background(), 10*time.Second)
+func (supervisor *ValidationSupervisor) Recover(parent context.Context) error {
+	ctx, timeout := context.WithTimeout(parent, 10*time.Second)
 	defer timeout()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(context.Canceled)
 	done, accepted := supervisor.runs.register(cancel)
 	if !accepted {
-		return
+		return nil
 	}
 	defer done()
 	ids, err := supervisor.worker.Recover(ctx)
 	if err != nil {
-		supervisor.failed(err)
-		return
+		return fmt.Errorf("recover variant validations: %w", err)
 	}
 	for _, id := range ids {
-		supervisor.Dispatch(context.Background(), id)
+		supervisor.Dispatch(context.WithoutCancel(parent), id)
 	}
+	return nil
 }
 
 func (supervisor *ValidationSupervisor) failed(err error) {

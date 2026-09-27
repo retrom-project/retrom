@@ -33,6 +33,9 @@ type Service struct {
 	workerMu               sync.Mutex
 	worker                 *composition.WorkerBundle
 	workerClosed           bool
+	attachmentCancels      map[uint64]context.CancelFunc
+	nextAttachmentID       uint64
+	attachments            sync.WaitGroup
 }
 
 func (service *Service) WithMultiDiscImportEnabled(enabled bool) *Service {

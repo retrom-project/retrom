@@ -5,46 +5,40 @@ import (
 	"fmt"
 )
 
-func (run *effectRun) finish(ctx context.Context, before EffectOwner) error {
-	remains, err := run.scope.Read.Remaining(ctx, before.Owner.Scope)
+// FinishRelease commits bounded progress and fences the resulting owner state.
+func FinishRelease(ctx context.Context, scope EffectScope, before EffectOwner,
+	initial int64, more, advance bool, now int64,
+) (bool, error) {
+	remaining, err := scope.Read.Remaining(ctx, before.Owner.Scope)
 	if err != nil {
-		return fmt.Errorf("read remaining payload references: %w", err)
+		return false, fmt.Errorf("read remaining payload references: %w", err)
 	}
-	if remains != 0 {
-		if remains >= run.initialReferences {
-			return effectFailure("OWNER_CLEANUP_REFERENCE_REMAINS", nil)
+	if remaining != 0 {
+		if remaining >= initial {
+			return false, Failure("OWNER_CLEANUP_REFERENCE_REMAINS", nil)
 		}
-		run.more = true
-		return nil
+		return true, nil
 	}
-	if run.more {
-		return nil
+	if more {
+		return true, nil
 	}
 	after := before.Owner
 	after.PayloadState = "RELEASED"
-	plan, err := ownerCleanupPlan(after.Scope.Type)
-	if err != nil {
-		return err
-	}
-	if plan.AdvanceVersion {
+	if advance {
 		after.Version++
 	}
-	if err := run.scope.Write.ChangeOwner(
-		ctx,
-		EffectOwnerChange{Before: before, After: after, Released: true, NowMS: run.nowMS},
-	); err != nil {
-		return fmt.Errorf("complete payload owner: %w", err)
+	if err := scope.Write.ChangeOwner(ctx, EffectOwnerChange{
+		Before: before, After: after, Released: true, NowMS: now,
+	}); err != nil {
+		return false, fmt.Errorf("complete payload owner: %w", err)
+	}
+	current, err := scope.Read.Owner(ctx, before.Owner.Scope)
+	if err != nil {
+		return false, fmt.Errorf("confirm payload owner: %w", err)
 	}
 	before.Owner = after
-	run.completed = append(run.completed, before)
-	return nil
-}
-
-func (run *effectRun) remove(ctx context.Context, before EffectOwner, groups ...EffectReferenceGroup) error {
-	for _, group := range groups {
-		if err := run.scope.Write.Remove(ctx, EffectRemoval{Before: before, Group: group, NowMS: run.nowMS}); err != nil {
-			return fmt.Errorf("remove %s references: %w", group, err)
-		}
+	if current != before {
+		return false, ErrEffectConflict
 	}
-	return nil
+	return false, nil
 }

@@ -233,7 +233,7 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 每个 ImportItem 或 Game 只保留一份当前 MetadataScrapeRun。显式重新抓取在同一事务取消旧的活动抓取/媒体 Job、删除旧 run 及候选/查询证据/媒体引用、清空指向旧候选的草稿选择，再建立当前 run；任一步失败保留原结果。已发布 GameAsset 不依赖候选生命周期。Provider response 缓存仍按 TTL 复用，是按查询键共享的网络缓存，不是按游戏保留的抓取历史。
 
-抓取结果由 Service 决定缓存复用、候选去重后的媒体登记和命中证据内容，原始响应文件在数据库写事务前写入独立文件存储。Repository 在同一事务内登记响应及 Blob 引用、更新缓存、保存查询 attempt、候选、命中与待抓取媒体；事务提交失败不得报告候选创建成功。
+抓取结果由 Service 决定缓存复用、候选去重后的媒体登记和命中证据内容，原始响应文件在数据库写事务前写入独立文件存储。Repository 在同一事务内登记响应文件、更新缓存、保存查询 attempt、候选、命中与待抓取媒体；事务提交失败不得报告候选创建成功。
 
 
 抓取调度由 `internal/service/metadatascrape.Scheduler` 判断 Provider、游戏/审核版本、原始文件与归档证据，并决定 Arcade 查询排序、去重与上限。任务、当前抓取记录、证据和版本推进使用同一个 Repository 写事务；初次导入通过调用方已有事务绑定同样的业务端口。只有提交成功后才启动抓取，数据库错误不应被转换成版本冲突。
@@ -407,15 +407,15 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 截图由管理员点击普通工具栏的“保存审核截图”创建并通知原审核页刷新，不设固定时长或核心专用启动回调。对于非 RPG 的人工放行，发布事务必须证明截图、当前 Validation、来源快照、目录与 Provider Target 一致，并记录 `REVIEW_SCREENSHOT_OVERRIDE` 和截图 ID；普通单机沿用该最佳努力依赖集合。输入发生实质变化时旧截图退出当前投影，需在当前 Preview 重新截图。截图保存失败、弹窗被阻止或核心启动失败必须明确显示错误。所有 Preview 都可按需重复保存会话级临时 checkpoint，并用已有 checkpoint 开启新的恢复 Preview；原 Preview 无需先结束，后续保存也不改变已创建恢复会话的 payload。临时 checkpoint 不进入 `/saves` 或持久用户存档升级门槛，到期或审核结束时释放。
 
-截图保存由 `internal/service/launch.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。所属领域的文件记录、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
+截图保存由 `internal/service/libraryimport.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。所属领域的文件记录、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
 任务进度展示 Worker/阶段运行态；待审核只展示未决条目；发布结果进入游戏库，丢弃结果保留在任务状态中。
 
 待审核不是隐式的“下一条”游标。`/admin/reviews` 展示跨 ImportJob 的分页未决队列，每页最多 20 条并在滚动到底部后继续取页；可按 `importJobId` 收窄到同一批导入，任务页进入审核时必须携带该筛选。“当前已加载 / 可以发布 / 运行异常 / 未找到信息”是对已加载集合的真实即时筛选按钮，数量与筛选结果同步更新而不是装饰统计。用户可以查看各条目的来源、草稿标题、目录、Validation/Blocker、候选和更新时间后任意选择，详情路由保持队列上下文。普通 Approve/Discard 仍是逐 ImportItem、逐 ETag 和逐 Idempotency-Key 的原子决策；快速审批只在服务端枚举当前 URL 中的 `q/tagId/importJobId/sourceImportId/platformInstanceId/blockerCode` 全范围，不使用 sort、cursor 或浏览器已加载集合。
 
-“快速审批”先打开影响预览，明确 matched、严格 READY candidate，以及阻断截图放行、重复内容、活动 Parent/多盘补传和其他不 READY/已过期排除数。只有严格 `READY`、当前 generation/来源/目录/Provider Target/active DAT/BIOS/DOS entry/dependency snapshot 均一致、标题合法、没有重复内容和活动 Attachment 的 Item 才能进入 candidate；仅靠按需运行截图启用逐项按钮的条目永不自动发布。dependency snapshot 必须按内容类型进入同一普通发布校验分支：两者统一使用 schemaVersion=1，静态 BIOS/多盘为 `kind=STATIC`，Arcade 为 `kind=ARCADE` 并包含 machine/DAT/closure/dependencies；后者重新核对当前 active DAT 的闭包、required entries 与冻结 ValidationFile，不得送入 STATIC 解析器。预览返回 scope digest 与候选 manifest digest；确认创建时服务端在一个事务重新枚举，任何筛选或 Item 输入漂移都以 `REVIEW_BULK_PREVIEW_STALE` 要求重新确认。空范围拒绝启动，单批上限 10,000，全实例同时只允许一个 active batch。
+“快速审批”创建覆盖当前全局待审队列的有界后台任务，在事务中冻结创建时刻和最大 Item ID；新进入队列的条目不扩展本次任务。空队列拒绝启动，单批上限 10,000，全实例同时只允许一个活动批次。任务读取类型化候选，只筛除非严格 `READY`、活动 Parent/多盘补传及来源 hidden/adult 标记等需要人工判断的项目；批量执行复用普通 `ReviewApprovals.Approve`，由同一实现核对当前内容策略、验证输入、依赖、元信息、重复游戏和发布资格，不维护第二套审批预检。截图人工放行和重复内容仍由管理员逐项决定。
 
-后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；批次结果保存 Game ID，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
+后台逐项使用冻结、移动、提交的普通发布流程。创建后被编辑的条目记入 changed，重复内容记入 duplicate，严格门禁不再满足记入 not-ready；统计和游标持久化推进。发布与批量进度分步保存，恢复先查已有发布决定，再继续同一 Game 并补齐进度，不重复创建 Game。意外存储或执行故障保留失败状态；关闭进程时取消并等待工作，未完成任务留给下次启动恢复。`service/libraryimport.ReviewBulk` 负责批量任务的编排和生命周期，SQL 留在领域 persistence，HTTP 直接调用该应用服务。
 
 “快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/SHA256/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，更新 ImportItem 当前状态，并推进普通/服务器来源计数、调度既有 OwnerCleanup。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
 
@@ -455,7 +455,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 `internal/service/sourceimport.ImportExecutor` 编排永久关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与独立文件存储读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
-普通 ImportJob/Item 的创建与 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/独立文件存储来源重新选取结果。
+普通 ImportJob/Item 的创建与 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的记录、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/独立文件存储来源重新选取结果。
 
 内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 来源 metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。来源 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 来源 Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `sourceImportId` 精确收窄，来源 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过全局待审队列的快速审批发布。Approve 才在普通审核事务内形成 `IMPORT_RECEIVE` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 来源 COVER；Discard 把来源 Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 来源 聚合。
 

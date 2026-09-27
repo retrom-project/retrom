@@ -30,10 +30,14 @@ func (service *Service) Close() {
 	service.workerMu.Lock()
 	service.workerClosed = true
 	worker := service.worker
+	for _, cancel := range service.attachmentCancels {
+		cancel()
+	}
 	service.workerMu.Unlock()
 	if worker != nil {
 		worker.Worker.Close()
 	}
+	service.attachments.Wait()
 }
 
 func (service *Service) NotifyImportGroup(ctx context.Context, id string) {

@@ -7,9 +7,8 @@ import (
 
 type Dependencies struct {
 	Worker      WorkerRepository
-	Effects     map[ScopeType]EffectRepository
+	Effects     map[ScopeType]EffectBinding
 	Files       FileDeletionFiles
-	Waiter      EffectWaiter
 	Maintenance func(DeletionStager) []func(context.Context) error
 }
 
@@ -42,15 +41,15 @@ func New(_ context.Context, dependencies Dependencies, options Options) (*Servic
 	})
 	service.fileDeletion = NewFileDeletionCollector(dependencies.Worker, service.worker, dependencies.Files)
 	service.effects = make(map[ScopeType]*ReleaseEffects, len(dependencies.Effects))
-	for kind, repository := range dependencies.Effects {
-		service.effects[kind] = NewReleaseEffects(repository, service.worker, dependencies.Waiter, options.Now)
+	for kind, binding := range dependencies.Effects {
+		service.effects[kind] = NewReleaseEffects(binding, service.worker, options.Now)
 	}
 	return service, nil
 }
 
 func (service *Service) Execute(ctx context.Context, unit Execution) error {
 	if unit.Input.SchemaVersion != 1 || unit.Input.Scope != unit.Work.Scope || unit.Input.Kind != unit.Work.Kind {
-		return effectFailure("OWNER_CLEANUP_DATABASE_FAILED", ErrInputInvalid)
+		return Failure("OWNER_CLEANUP_DATABASE_FAILED", ErrInputInvalid)
 	}
 	switch unit.Input.Kind {
 	case "PATH_DELETE":
@@ -58,11 +57,11 @@ func (service *Service) Execute(ctx context.Context, unit Execution) error {
 	case "OWNER_CLEANUP":
 		handler, ok := service.effects[unit.Work.Scope.Type]
 		if !ok {
-			return effectFailure("OWNER_CLEANUP_DATABASE_FAILED", ErrScopeInvalid)
+			return Failure("OWNER_CLEANUP_DATABASE_FAILED", ErrScopeInvalid)
 		}
 		return handler.Execute(ctx, unit)
 	default:
-		return effectFailure("OWNER_CLEANUP_DATABASE_FAILED", ErrInputInvalid)
+		return Failure("OWNER_CLEANUP_DATABASE_FAILED", ErrInputInvalid)
 	}
 }
 

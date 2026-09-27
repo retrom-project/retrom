@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 
+	uploadcleanup "retrom/internal/service/uploads/payloadpolicy"
+
 	"retrom/internal/service/cleanupjobs"
 )
 
@@ -50,7 +52,8 @@ func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementI
 	if consumptionID == "" {
 		return nil
 	}
-	if _, err := cleanupjobs.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
+	if _, err := uploadcleanup.Consumption(ctx, cleanupjobs.NewScheduler(nil), scope.Payload, consumptionID,
+		now); err != nil {
 		return fmt.Errorf("schedule superseded BIOS consumption: %w", err)
 	}
 	return nil

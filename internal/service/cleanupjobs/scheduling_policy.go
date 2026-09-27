@@ -12,7 +12,7 @@ func validScheduleScope(value ScopeType) bool {
 	}
 }
 
-func validReason(value Reason) bool {
+func ValidReason(value Reason) bool {
 	switch value {
 	case ReasonImportPublished, ReasonImportDiscarded, ReasonImportFailed, ReasonImportCancelled,
 		ReasonImportTerminal, ReasonSourceTerminal,
