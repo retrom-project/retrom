@@ -22,7 +22,7 @@ func NewImportAdmissions(database dbapi.DB) *ImportAdmissions {
 func (repository *ImportAdmissions) WithAdmission(
 	ctx context.Context, work func(libraryservice.ImportAdmissionScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
+	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import admission: %w", err)
 	}

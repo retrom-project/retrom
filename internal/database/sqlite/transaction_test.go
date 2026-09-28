@@ -63,34 +63,31 @@ func requireItemSum(ctx context.Context, t *testing.T, db dbapi.Queryer, want in
 }
 
 func TestWriteTransactionReservesWriterBeforeQueries(t *testing.T) {
-	for _, isolation := range []dbapi.IsolationLevel{dbapi.LevelDefault, dbapi.LevelSerializable} {
-		first, second := transactionDatabases(t)
-		options := &dbapi.TxOptions{Isolation: isolation}
-		tx, err := first.BeginTx(t.Context(), options)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { dbapi.Rollback(tx) })
-		blocked, err := second.BeginTx(t.Context(), options)
-		if blocked != nil {
-			dbapi.Rollback(blocked)
-			t.Fatal("second writer started before first writer released its reservation")
-		}
-		requireSQLiteCode(t, err, sqlitecodes.SQLITE_BUSY)
-		if second.Stats().InUse != 0 {
-			t.Fatal("failed begin leaked a connection")
-		}
-		if err := tx.Rollback(); err != nil {
-			t.Fatal(err)
-		}
-		if err := dbapi.InTransaction(t.Context(), second, options, func(tx dbapi.Tx) error {
-			_, err := tx.ExecContext(t.Context(), "INSERT INTO items VALUES(2)")
-			return err
-		}); err != nil {
-			t.Fatal(err)
-		}
-		requireItemSum(t.Context(), t, first, 3)
+	first, second := transactionDatabases(t)
+	tx, err := first.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { dbapi.Rollback(tx) })
+	blocked, err := second.BeginTx(t.Context(), nil)
+	if blocked != nil {
+		dbapi.Rollback(blocked)
+		t.Fatal("second writer started before first writer released its reservation")
+	}
+	requireSQLiteCode(t, err, sqlitecodes.SQLITE_BUSY)
+	if second.Stats().InUse != 0 {
+		t.Fatal("failed begin leaked a connection")
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dbapi.InTransaction(t.Context(), second, nil, func(tx dbapi.Tx) error {
+		_, err := tx.ExecContext(t.Context(), "INSERT INTO items VALUES(2)")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	requireItemSum(t.Context(), t, first, 3)
 }
 
 func TestReadOnlyTransactionKeepsSnapshotWhileWriterCommits(t *testing.T) {

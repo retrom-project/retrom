@@ -108,6 +108,7 @@ PRAGMA busy_timeout = 5000;
 
 - 所有写操作通过短事务完成；耗时哈希、网络请求和 DAT 解析不得占用写事务。
 - 事务统一通过 `database.DB.BeginTx` 开始。SQLite 接入层固定驱动参数 `_txlock=immediate`，非只读事务在开始时取得写保留，避免先读后写的锁升级冲突；只读事务必须显式传入 `ReadOnly: true`，由驱动使用普通 `BEGIN`，不预占写锁。提交、回滚、context 取消和连接归还统一由 `database/sql` 与驱动管理，不另行持有 `sql.Conn` 手写事务状态机。驱动故障注入连接也必须使用相同事务策略。
+- 隔离性沿用 SQLite 自身的事务语义；`TxOptions` 只提供 `ReadOnly`，不暴露逐事务隔离级别选择。`_txlock` 控制取得写锁的时机，不用于切换隔离级别。
 - SQLite 数据库和 WAL 必须位于本机磁盘；不支持把数据库放在 NFS/SMB/分布式文件系统。独立文件存储可单独挂载，但必须满足原子 rename 语义。
 - 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；独立只读 handle 使用 `mode=ro` 且最多 4 个连接，健康探测等只读控制面查询不能排在唯一写连接之后。每个新连接都执行 `foreign_keys=ON` 和 `busy_timeout=5000`，不能只在首个连接设置。
 - 外键删除策略默认 `RESTRICT`，业务软删除通过状态字段实现。

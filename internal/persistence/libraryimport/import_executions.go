@@ -23,7 +23,7 @@ func (repository *ImportExecutions) WithExecution(
 	ctx context.Context,
 	work func(libraryservice.ImportExecutionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import execution: %w", err)
 	}

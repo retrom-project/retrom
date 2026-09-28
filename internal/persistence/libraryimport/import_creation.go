@@ -26,7 +26,7 @@ func (repository *ImportCreations) WithCreation(
 	ctx context.Context,
 	work func(libraryservice.ImportCreationScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import creation: %w", err)
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -32,8 +31,6 @@ type (
 		now func() time.Time
 	}
 )
-
-var errUnsupportedIsolation = errors.New("unsupported transaction isolation")
 
 var (
 	_ database.DB = (*handle)(nil)
@@ -115,15 +112,7 @@ func (db *handle) Stats() database.Stats {
 func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (database.Tx, error) {
 	var sqlOptions *sql.TxOptions
 	if options != nil {
-		isolation := sql.LevelDefault
-		switch options.Isolation {
-		case database.LevelDefault:
-		case database.LevelSerializable:
-			isolation = sql.LevelSerializable
-		default:
-			return nil, fmt.Errorf("%w: %d", errUnsupportedIsolation, options.Isolation)
-		}
-		sqlOptions = &sql.TxOptions{Isolation: isolation, ReadOnly: options.ReadOnly}
+		sqlOptions = &sql.TxOptions{ReadOnly: options.ReadOnly}
 	}
 	raw, err := db.raw.BeginTx(ctx, sqlOptions)
 	if err != nil {
