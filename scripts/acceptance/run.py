@@ -871,6 +871,7 @@ def run_command(
     node_home = environment.get("NODE_HOME", "")
     if node_home:
         environment["PATH"] = str(Path(node_home) / "bin") + os.pathsep + environment.get("PATH", "")
+        command = command.replace(".cache/tools/node-v24.18.0-linux-x64/bin/node ", "node ")
     process = subprocess.Popen(
         ["bash", "-c", command], cwd=ROOT, env=environment,
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

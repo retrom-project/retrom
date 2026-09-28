@@ -17,6 +17,7 @@ from typing import Any
 
 from scripts.local_user import LocalUserError, require_local_user
 
+from .branch_policy import valid_core_ancestry
 from .common import atomic_json, canonical_bytes, load_json, remove_tree
 from .data_reset import reset_workspace_data
 from .docker import (
@@ -390,8 +391,7 @@ def _validate_branch_policy(spec: dict[str, Any]) -> None:
             raise PFBError("PFB_BRANCH_POLICY_INVALID", core["id"])
         if not any(identity["branch"].startswith(prefix) for prefix in ("fix/", "feat/", "build/", "sync/upstream-")):
             raise PFBError("PFB_BRANCH_POLICY_INVALID", core["id"])
-        if subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", fork["defaultBranch"], "HEAD"],
-                          check=False).returncode != 0:
+        if not valid_core_ancestry(root, identity["branch"], fork):
             raise PFBError("PFB_BRANCH_POLICY_INVALID", core["id"])
 
 

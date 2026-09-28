@@ -62,6 +62,11 @@ worktree，再读取该 PFB 的清单准备选中源码；`REPOS` 精确选择�
 两份清单涉及的现有 checkout 和维护分支。通过后才克隆新增仓库并切换现有分支，移除条目
 不会删除历史 checkout。该命令不用于刷新某个 PFB。
 
+上游同步使用 `sync/upstream-g<12位提交>` 时，可在新维护分支晋升前验证候选。fork 清单必须以
+`COMMIT` 固定唯一的完整上游提交，`ref` 与 `commit` 相同，且分支后缀和声明的 `retrom/g...`
+维护分支与该提交匹配。该提交必须是候选 HEAD 的祖先，其后不能包含 merge commit；普通
+功能分支仍要求现有维护分支祖先关系。此校验只允许本地联调，不创建维护分支或发布 tag。
+
 ## 未打 tag 的 runtime
 
 正式 `data/runtime-providers/release.json` 只选择已发布基座，不记录开发分支、commit 或本机路径。日常联调给 `pfb-init` 提供同一 PFB 内的 `RUNTIME_ROOT`，由 spec 记录源码路径与分支；watcher 消费该工作树的未打 tag、未提交修改，无需修改正式配置。
