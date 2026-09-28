@@ -31,7 +31,7 @@ func TestReviewDetailUsesOneSnapshotAcrossDraftAndTags(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
-	tag, err := server.tagService.Create(t.Context(), "01980000-0000-7000-8000-000000009999", "Later tag")
+	tag, err := server.libraryDeps.Tags.Create(t.Context(), "01980000-0000-7000-8000-000000009999", "Later tag")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=
 			var mutationErr error
 			barrier.Do(func() {
 				title := "Later title"
-				_, mutationErr = server.importer.PatchDraft(authn.WithPrincipal(ctx,
+				_, mutationErr = server.importDeps.Importer.PatchDraft(authn.WithPrincipal(ctx,
 					authn.Principal{UserID: "01980000-0000-7000-8000-000000009999"}), itemID, beforeVersion,
 					libraryimport.DraftPatch{
 						Metadata: &libraryimport.MetadataPatch{Title: &title}, TagIDs: []string{tag.TagID},
@@ -62,7 +62,7 @@ SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=
 			return mutationErr
 		},
 	})
-	server.reviewDetails = librarycomposition.NewReviewDetails(database)
+	server.reviewDeps.Details = librarycomposition.NewReviewDetails(database)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	recorder := httptest.NewRecorder()
@@ -95,9 +95,9 @@ SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=
 	assertNextReviewSnapshot(t, server, itemID, tag.TagID, beforeVersion)
 }
 
-func createReviewSnapshotItem(t *testing.T, server *Server) string {
+func createReviewSnapshotItem(t *testing.T, server *testServer) string {
 	t.Helper()
-	metadata, err := server.blobs.Put(bytes.NewReader([]byte("Retrom owned review snapshot fixture")))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("Retrom owned review snapshot fixture")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func createReviewSnapshotItem(t *testing.T, server *Server) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := server.importer.CreateServerSource(t.Context(),
+	result, err := server.importDeps.Importer.CreateServerSource(t.Context(),
 		testsupport.MustPlatformInstanceID(t, server.database, "gba/mgba"), "STANDARD",
 		[]libraryimport.ServerSourceFile{{
 			RelativePath: "Snapshot.gba", FileRecord: fileRecord,
@@ -138,7 +138,7 @@ func TestReviewDetailInvisibleHeadlinePrecedesChildReads(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewDetails = librarycomposition.NewReviewDetails(database)
+	server.reviewDeps.Details = librarycomposition.NewReviewDetails(database)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	response := httptest.NewRecorder()
@@ -168,7 +168,7 @@ func TestReviewDetailPreservesLateSQLFailureAndClearsProjection(t *testing.T) {
 	if !errors.Is(err, cause) || !reflect.DeepEqual(result, libraryservice.ReviewDetail{}) || calls != 1 {
 		t.Fatalf("late SQL failure: calls=%d result=%+v err=%v", calls, result, err)
 	}
-	server.reviewDetails = reader
+	server.reviewDeps.Details = reader
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	response := httptest.NewRecorder()
@@ -179,10 +179,10 @@ func TestReviewDetailPreservesLateSQLFailureAndClearsProjection(t *testing.T) {
 	}
 }
 
-func assertNextReviewSnapshot(t *testing.T, server *Server, itemID, tagID string, beforeVersion int64) {
+func assertNextReviewSnapshot(t *testing.T, server *testServer, itemID, tagID string, beforeVersion int64) {
 	t.Helper()
 
-	latest, err := server.reviewDetails.Get(t.Context(), itemID)
+	latest, err := server.reviewDeps.Details.Get(t.Context(), itemID)
 	if err != nil || latest.Version != beforeVersion+1 || len(latest.Tags) != 1 || latest.Tags[0].TagID != tagID ||
 		!strings.Contains(string(latest.Metadata), "Later title") {
 		t.Fatalf("next snapshot did not observe committed mutation: %+v %v", latest, err)
@@ -194,11 +194,11 @@ func TestReviewDetailRetainsPublishedDuplicateProjection(t *testing.T) {
 	server := newTestServer(t)
 	originalID := createReviewSnapshotItem(t, server)
 	reviewID := createReviewSnapshotItem(t, server)
-	published, err := server.importer.Approve(t.Context(), originalID, 1)
+	published, err := server.importDeps.Importer.Approve(t.Context(), originalID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	detail, err := server.reviewDetails.Get(t.Context(), reviewID)
+	detail, err := server.reviewDeps.Details.Get(t.Context(), reviewID)
 	if err != nil {
 		t.Fatal(err)
 	}

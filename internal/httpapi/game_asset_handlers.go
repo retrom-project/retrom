@@ -33,7 +33,7 @@ func (server *Server) readGameAssetUpload(
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游戏媒体参数无效", map[string]any{})
 		return gameAssetUpload{}, gameassets.PreparedAsset{}, false
 	}
-	asset, err := server.gameAssets.Prepare(request.Context(), body.UploadFileID, body.Kind)
+	asset, err := server.libraryDeps.Assets.Prepare(request.Context(), body.UploadFileID, body.Kind)
 	if err != nil {
 		var validation *gameassets.ValidationError
 		if !errors.As(err, &validation) {
@@ -59,7 +59,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 	if !ok {
 		return
 	}
-	result, err := server.gameAssets.Create(request.Context(), gameassets.CreateRequest{
+	result, err := server.libraryDeps.Assets.Create(request.Context(), gameassets.CreateRequest{
 		GameID: request.PathValue("gameId"), UploadFileID: body.UploadFileID, Kind: body.Kind,
 		Ordinal: body.Ordinal, ExpectedVersion: expected, NowMS: server.now().UnixMilli(), Asset: asset,
 	})
@@ -75,7 +75,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.cleanupJobs.Signal()
+	server.systemDeps.Cleanup.Signal()
 	writeCreatedGameAsset(writer, request, result)
 }
 
@@ -116,7 +116,7 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游戏媒体类型无效", map[string]any{})
 		return
 	}
-	result, err := server.gameAssets.Delete(request.Context(), gameassets.DeleteRequest{
+	result, err := server.libraryDeps.Assets.Delete(request.Context(), gameassets.DeleteRequest{
 		GameID: request.PathValue("gameId"), Kind: kind, ExpectedVersion: expected, NowMS: server.now().UnixMilli(),
 	})
 	if errors.Is(err, gameassets.ErrVersionConflict) {
@@ -131,13 +131,13 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.cleanupJobs.Signal()
+	server.systemDeps.Cleanup.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writer.WriteHeader(http.StatusNoContent)
 }
 
 func (server *Server) contentAsset(writer http.ResponseWriter, request *http.Request) {
-	asset, err := server.mediaAccess.Game(request.Context(), request.PathValue("assetId"))
+	asset, err := server.contentDeps.Access.Game(request.Context(), request.PathValue("assetId"))
 	if errors.Is(err, mediaaccess.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "ASSET_NOT_FOUND", "媒体不存在", map[string]any{})
 		return
@@ -151,7 +151,7 @@ func (server *Server) contentAsset(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	asset, err := server.mediaAccess.Save(request.Context(), request.PathValue("saveStateId"), principal.ProfileID)
+	asset, err := server.contentDeps.Access.Save(request.Context(), request.PathValue("saveStateId"), principal.ProfileID)
 	if errors.Is(err, mediaaccess.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "SAVE_SCREENSHOT_NOT_FOUND", "存档截图不存在", map[string]any{})
 		return

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"retrom/internal/authn"
-	librarycomposition "retrom/internal/composition/libraryimport"
 	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/cursor"
@@ -21,12 +20,8 @@ import (
 
 type importListItem = libraryservice.ImportListItem
 
-func (server *Server) importReads() *libraryservice.ImportReads {
-	return librarycomposition.NewImportReads(server.database)
-}
-
 func (server *Server) importSummary(writer http.ResponseWriter, request *http.Request) {
-	summary, err := server.importReads().Summary(request.Context())
+	summary, err := server.importDeps.Reads.Summary(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -160,7 +155,7 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 		return
 	}
-	items, err := server.importReads().List(request.Context(), query)
+	items, err := server.importDeps.Reads.List(request.Context(), query)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -185,7 +180,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 			return
 		}
 	}
-	created, err := server.importAdmissions.Queue(request.Context(), body)
+	created, err := server.importDeps.Admissions.Queue(request.Context(), body)
 	switch {
 	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
 		writeError(

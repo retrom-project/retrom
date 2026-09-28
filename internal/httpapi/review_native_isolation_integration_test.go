@@ -44,7 +44,7 @@ func TestNativeReviewIsolationServesFrozenMVAndMZResources(t *testing.T) {
 	}
 }
 
-func assertNativeReviewResourceRevalidation(t *testing.T, server *Server, origin string, cookie *http.Cookie) {
+func assertNativeReviewResourceRevalidation(t *testing.T, server *testServer, origin string, cookie *http.Cookie) {
 	t.Helper()
 	target := origin + "/__retrom/project/audio/bgs/se_き\u3099.rpgmvo"
 	first := requestReviewArchiveHTTP(t, server, target, http.MethodGet, cookie, "")
@@ -70,7 +70,7 @@ func assertNativeReviewResourceRevalidation(t *testing.T, server *Server, origin
 	}
 }
 
-func assertNativeReviewResourceMethods(t *testing.T, server *Server, target, path string, cookie *http.Cookie) {
+func assertNativeReviewResourceMethods(t *testing.T, server *testServer, target, path string, cookie *http.Cookie) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		response := requestReviewArchiveHTTP(t, server, target, method, cookie, "")
@@ -89,7 +89,7 @@ func assertNativeReviewResourceMethods(t *testing.T, server *Server, target, pat
 	}
 }
 
-func assertNativeReviewFrozenRestore(t *testing.T, server *Server, itemID, previewID string, cookie *http.Cookie) *http.Cookie {
+func assertNativeReviewFrozenRestore(t *testing.T, server *testServer, itemID, previewID string, cookie *http.Cookie) *http.Cookie {
 	t.Helper()
 	configuration := requestReviewCheckpointHTTP(t, server, previewID, cookie, "GET", "checkpoint-status", nil, "")
 	var declaration struct {
@@ -117,7 +117,7 @@ func assertNativeReviewFrozenRestore(t *testing.T, server *Server, itemID, previ
 	return restoreIsolatedCookie
 }
 
-func assertNativeReviewIsolationRevoked(t *testing.T, server *Server, origin string, paths []string, cookie *http.Cookie) {
+func assertNativeReviewIsolationRevoked(t *testing.T, server *testServer, origin string, paths []string, cookie *http.Cookie) {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), "POST", origin+"/__retrom/cleanup", nil)
 	request.AddCookie(cookie)
@@ -135,12 +135,12 @@ func assertNativeReviewIsolationRevoked(t *testing.T, server *Server, origin str
 	}
 }
 
-func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, string) {
+func newNativeReviewIsolationFixture(t *testing.T, engine string) (*testServer, string) {
 	t.Helper()
 	server := newTestServer(t)
 	const template = "http://{launchId}.rpg.localhost:3000"
 	server.launchSources.WithRPGRuntimeOriginTemplate(template)
-	server.rpgIsolation = isolation.New(isolationpersistence.New(server.database), template, time.Now)
+	server.playDeps.Isolation = isolation.New(isolationpersistence.New(server.database), template, time.Now)
 	active, manifests, err := testsupport.RuntimeProviderInputs(t.Context(), server.database)
 	if err != nil {
 		t.Fatal(err)
@@ -157,9 +157,9 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 		t.Fatal(err)
 	}
 	server.launchSources.WithRuntimeProvider(builder)
-	server.WithRuntimeProviderHandler(http.NotFoundHandler())
+	server.playDeps.Provider = http.NotFoundHandler()
 	// The installed Provider handler is not part of this HTTP authorization test.
-	server.runtimeProvider = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server.playDeps.Provider = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/native/bridge.js") {
 			t.Errorf("undeclared bridge asset: %s", r.URL.Path)
 		}
@@ -192,7 +192,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	}
 	files = append(files, rpgMakerHTTPFixtureFile{path: "project/index.html", contents: []byte(entry + "</head><body></body></html>")})
 	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, files)
-	created, err := server.importer.Create(t.Context(), libraryimport.CreateRequest{
+	created, err := server.importDeps.Importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 	})
@@ -206,7 +206,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	return server, itemID
 }
 
-func bootstrapNativeReviewHTTP(t *testing.T, server *Server, previewID string, cookie *http.Cookie) (string, *http.Cookie) {
+func bootstrapNativeReviewHTTP(t *testing.T, server *testServer, previewID string, cookie *http.Cookie) (string, *http.Cookie) {
 	t.Helper()
 	response := requestReviewCheckpointHTTP(t, server, previewID, cookie, "GET", "config", nil, "")
 	var envelope map[string]any
@@ -237,7 +237,7 @@ func bootstrapNativeReviewHTTP(t *testing.T, server *Server, previewID string, c
 	return "", nil
 }
 
-func assertNativeReviewIsolationDenied(t *testing.T, server *Server, origin string, paths []string, cookie, otherCookie *http.Cookie) {
+func assertNativeReviewIsolationDenied(t *testing.T, server *testServer, origin string, paths []string, cookie, otherCookie *http.Cookie) {
 	t.Helper()
 	for _, path := range paths {
 		for _, supplied := range []*http.Cookie{nil, otherCookie} {

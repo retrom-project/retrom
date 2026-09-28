@@ -20,9 +20,9 @@ const rpgRuntimePermissionsPolicy = "camera=(), microphone=(), geolocation=(), p
 
 func (server *Server) routeByRuntimeHost(application http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		access, runtimeHost := server.rpgIsolation.ResolveHost(request.Host)
+		access, runtimeHost := server.playDeps.Isolation.ResolveHost(request.Host)
 		if !runtimeHost {
-			if server.rpgIsolation.IsRuntimeHostCandidate(request.Host) ||
+			if server.playDeps.Isolation.IsRuntimeHostCandidate(request.Host) ||
 				strings.HasPrefix(request.URL.Path, "/__retrom/") {
 				http.NotFound(writer, request)
 				return
@@ -193,7 +193,7 @@ func (server *Server) authenticateRPGRuntime(
 	if len(cookies) != 1 || cookies[0].Value == "" {
 		return isolation.Access{}, isolation.ErrCredential
 	}
-	authorized, err := server.rpgIsolation.Authenticate(
+	authorized, err := server.playDeps.Isolation.Authenticate(
 		request.Context(), access.LaunchID, access.Origin, cookies[0].Value,
 	)
 	if err != nil {

@@ -16,7 +16,7 @@ func (server *Server) createUpload(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "上传清单无效", map[string]any{})
 		return
 	}
-	session, err := server.uploads.Create(request.Context(), body)
+	session, err := server.importDeps.Uploads.Create(request.Context(), body)
 	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "上传清单无效", map[string]any{})
 		return
@@ -26,7 +26,7 @@ func (server *Server) createUpload(writer http.ResponseWriter, request *http.Req
 }
 
 func (server *Server) getUpload(writer http.ResponseWriter, request *http.Request) {
-	session, err := server.uploads.Get(request.Context(), request.PathValue("uploadId"))
+	session, err := server.importDeps.Uploads.Get(request.Context(), request.PathValue("uploadId"))
 	if errors.Is(err, uploads.ErrNotFound) {
 		server.notFound(writer, request)
 		return
@@ -46,7 +46,7 @@ func (server *Server) putUploadPart(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	body := http.MaxBytesReader(writer, request.Body, uploads.PartSize+1)
-	err = server.uploads.PutPart(
+	err = server.importDeps.Uploads.PutPart(
 		request.Context(),
 		request.PathValue("uploadId"),
 		request.PathValue("fileId"),
@@ -82,7 +82,9 @@ func (server *Server) completeUpload(writer http.ResponseWriter, request *http.R
 		)
 		return
 	}
-	jobID, finalization, err := server.uploads.Complete(request.Context(), request.PathValue("uploadId"), version)
+	jobID, finalization, err := server.importDeps.Uploads.Complete(
+		request.Context(), request.PathValue("uploadId"), version,
+	)
 	if err != nil {
 		if !errors.Is(err, uploads.ErrInvalid) && !errors.Is(err, uploads.ErrNotFound) {
 			server.databaseError(writer, request, err)
@@ -116,7 +118,7 @@ func (server *Server) cancelUpload(writer http.ResponseWriter, request *http.Req
 		)
 		return
 	}
-	result, pending, err := server.uploads.Cancel(request.Context(), request.PathValue("uploadId"), version)
+	result, pending, err := server.importDeps.Uploads.Cancel(request.Context(), request.PathValue("uploadId"), version)
 	if err != nil {
 		writeError(writer, request, http.StatusConflict, "UPLOAD_CANCEL_CONFLICT", "上传状态或版本已经变化", map[string]any{})
 		return
@@ -130,7 +132,7 @@ func (server *Server) cancelUpload(writer http.ResponseWriter, request *http.Req
 }
 
 func (server *Server) job(writer http.ResponseWriter, request *http.Request) {
-	snapshot, err := server.jobService.Get(request.Context(), request.PathValue("jobId"))
+	snapshot, err := server.systemDeps.Jobs.Get(request.Context(), request.PathValue("jobId"))
 	if errors.Is(err, jobs.ErrNotFound) {
 		server.notFound(writer, request)
 		return

@@ -107,7 +107,7 @@ func (server *Server) multiDiscPlayerEvent(writer http.ResponseWriter, request *
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "Player 观测事件无效", map[string]any{})
 		return
 	}
-	dimensions, err := server.launcher.MultiDiscTelemetryDimensions(
+	dimensions, err := server.playDeps.Launcher.MultiDiscTelemetryDimensions(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
 	)
 	if err != nil {

@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"retrom/internal/authn"
-	"retrom/internal/composition"
 	gamemove "retrom/internal/service/gamemove"
 )
 
@@ -23,7 +22,7 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	impact, err := composition.NewGameMove(server.database).Preview(request.Context(), gamemove.PreviewRequest{
+	impact, err := server.libraryDeps.Moves.Preview(request.Context(), gamemove.PreviewRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: targetID,
 		ExpectedVersion:          expected,
@@ -77,7 +76,7 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 		return
 	}
 	if impact.VariantStatus == "NEEDS_VALIDATION" {
-		pending, ensureErr := server.variants.Ensure(
+		pending, ensureErr := server.playDeps.Variants.Ensure(
 			request.Context(),
 			request.PathValue("gameId"),
 			impact.TargetCoreID,
@@ -125,10 +124,10 @@ func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, 
 		// very small validation can become READY.
 		server.waitForQueuedIdempotentRequests()
 		server.idempotency.Lock()
-		state, err := composition.NewGameMove(server.database).QueuedJobState(ctx, jobID)
+		state, err := server.libraryDeps.Moves.QueuedJobState(ctx, jobID)
 		server.idempotency.Unlock()
 		if err == nil && state == "QUEUED" {
-			server.variants.Resume(ctx, jobID)
+			server.playDeps.Variants.Resume(ctx, jobID)
 		}
 	})
 }
@@ -179,7 +178,7 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 	now := server.now().UnixMilli()
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := composition.NewGameMove(server.database).Move(request.Context(), gamemove.MoveRequest{
+	result, err := server.libraryDeps.Moves.Move(request.Context(), gamemove.MoveRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: body.TargetPlatformInstanceID,
 		ExpectedVersion:          expected,
@@ -237,7 +236,9 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 		)
 		return
 	}
-	scheduled, version, err := server.metadata.ScheduleGame(request.Context(), request.PathValue("gameId"), expected)
+	scheduled, version, err := server.reviewDeps.Metadata.ScheduleGame(
+		request.Context(), request.PathValue("gameId"), expected,
+	)
 	if err != nil {
 		writeError(
 			writer,
@@ -259,7 +260,7 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 
 // Cursor validation and the candidate/evidence projection form one stable response contract.
 func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *http.Request) {
-	result, err := composition.NewGameMove(server.database).ScrapeCandidates(
+	result, err := server.libraryDeps.Moves.ScrapeCandidates(
 		request.Context(), request.PathValue("gameId"),
 	)
 	if err != nil {

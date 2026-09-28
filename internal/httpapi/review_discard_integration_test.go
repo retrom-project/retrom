@@ -37,7 +37,7 @@ func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 				return nil
 			}
 			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
-			server.reviewDiscards = librarycomposition.NewReviewDiscards(database, server.now)
+			server.reviewDeps.Discards = librarycomposition.NewReviewDiscards(database, server.now)
 			response := requestReviewDiscard(t, server, itemID, `"v1"`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure became decision conflict: status=%d hits=%d body=%s", response.Code, hits, response.Body.String())
@@ -46,7 +46,7 @@ func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 	}
 }
 
-func requestReviewDiscard(t *testing.T, server *Server, itemID, version string) *httptest.ResponseRecorder {
+func requestReviewDiscard(t *testing.T, server *testServer, itemID, version string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/discard", strings.NewReader(`{"reason":"test discard"}`))
 	request.SetPathValue("importItemId", itemID)

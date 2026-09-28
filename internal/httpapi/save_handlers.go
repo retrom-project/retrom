@@ -132,7 +132,7 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	if raw := values.Get("limit"); raw != "" {
 		limit, _ = strconv.Atoi(raw)
 	}
-	rows, err := server.saveService.List(request.Context(), saveservice.ListQuery{
+	rows, err := server.playDeps.Saves.List(request.Context(), saveservice.ListQuery{
 		ProfileID: principal.ProfileID, Query: filters.NormalizedQ,
 		GameID: filters.GameID, PlatformID: filters.PlatformID,
 		PlatformInstanceID: filters.PlatformInstanceID, CoreID: filters.CoreID,
@@ -147,7 +147,7 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	for _, row := range rows {
 		items = append(items, projectSaveListItem(row))
 	}
-	if err := projectMapTags(request.Context(), items, "gameId", server.tagService.References); err != nil {
+	if err := projectMapTags(request.Context(), items, "gameId", server.libraryDeps.Tags.References); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -215,7 +215,7 @@ func (server *Server) patchSave(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	now := server.now().UnixMilli()
-	err = server.saveService.Rename(request.Context(), saveservice.RenameRequest{
+	err = server.playDeps.Saves.Rename(request.Context(), saveservice.RenameRequest{
 		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
 		Name: body.Name, ExpectedVersion: expected, UpdatedAtMS: now,
 	})
@@ -259,7 +259,7 @@ func (server *Server) deleteSave(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	now := server.now().UnixMilli()
-	err = server.saveService.Delete(request.Context(), saveservice.DeleteRequest{
+	err = server.playDeps.Saves.Delete(request.Context(), saveservice.DeleteRequest{
 		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
 		ExpectedVersion: expected, UpdatedAtMS: now,
 	})

@@ -49,7 +49,7 @@ func TestPreviewFinishRequiresNoBodyAndRetainsIdempotency(t *testing.T) {
 func TestProductProgressKeepsAccessAndRejectsPreviewFinish(t *testing.T) {
 	server := newReadyHTTPServer(t)
 	gameID, _ := seedMovableGame(t, server)
-	created, err := server.launcher.Create(t.Context(), "local", launch.CreateRequest{GameID: gameID, ReturnTo: "/library", ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}})
+	created, err := server.playDeps.Launcher.Create(t.Context(), "local", launch.CreateRequest{GameID: gameID, ReturnTo: "/library", ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestProductProgressKeepsAccessAndRejectsPreviewFinish(t *testing.T) {
 	if denied.Code != http.StatusUnauthorized {
 		t.Fatalf("product finish status=%d", denied.Code)
 	}
-	if err := server.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
+	if err := server.playDeps.Launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
 		t.Fatalf("progress revoked save: %v", err)
 	}
 }

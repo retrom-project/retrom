@@ -84,7 +84,7 @@ func (server *Server) createGameContentReplacement(writer http.ResponseWriter, r
 		ContentMode: resolvedContentMode(body.ContentMode),
 	})
 	digest := sha256.Sum256(canonical)
-	scheduled, replayed, err := server.gameContent.ScheduleIdempotentMode(
+	scheduled, replayed, err := server.libraryDeps.Content.ScheduleIdempotentMode(
 		request.Context(),
 		request.PathValue("gameId"),
 		body.UploadID,
@@ -121,7 +121,7 @@ func (server *Server) createGameContentReplacement(writer http.ResponseWriter, r
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) adminGame(writer http.ResponseWriter, request *http.Request) {
-	detail, err := server.gameContent.AdminGame(request.Context(), request.PathValue("gameId"))
+	detail, err := server.libraryDeps.Content.AdminGame(request.Context(), request.PathValue("gameId"))
 	if errors.Is(err, gamecontent.ErrAdminGameNotFound) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
@@ -130,7 +130,7 @@ func (server *Server) adminGame(writer http.ResponseWriter, request *http.Reques
 		server.databaseError(writer, request, err)
 		return
 	}
-	impact, err := server.gameImpact.Game(request.Context(), request.PathValue("gameId"))
+	impact, err := server.libraryDeps.Impact.Game(request.Context(), request.PathValue("gameId"))
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -265,7 +265,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := server.gameContent.PatchAdminGame(request.Context(), gamecontent.AdminGamePatchRequest{
+	result, err := server.libraryDeps.Content.PatchAdminGame(request.Context(), gamecontent.AdminGamePatchRequest{
 		GameID:             request.PathValue("gameId"),
 		ExpectedVersion:    expected,
 		Title:              body.Title,
@@ -294,7 +294,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.cleanupJobs.Signal()
+	server.systemDeps.Cleanup.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(
 		writer,
@@ -314,7 +314,7 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 	server.lockIdempotentRequest()
 	defer server.idempotency.Unlock()
 	principal := input.principal
-	result, err := server.gameContent.DeleteAdminGame(request.Context(), gamecontent.DeleteGameRequest{
+	result, err := server.libraryDeps.Content.DeleteAdminGame(request.Context(), gamecontent.DeleteGameRequest{
 		GameID:          request.PathValue("gameId"),
 		PrincipalID:     principal.UserID,
 		Key:             request.Header.Get("Idempotency-Key"),

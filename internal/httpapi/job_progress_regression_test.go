@@ -82,7 +82,7 @@ UPDATE jobs SET state='SUCCEEDED',finished_at_ms=2 WHERE id=?`, progressJobID); 
 	}
 }
 
-func seedProgressJob(t *testing.T, server *Server, state string) {
+func seedProgressJob(t *testing.T, server *testServer, state string) {
 	t.Helper()
 	var finished *int64
 	if state == "SUCCEEDED" {
@@ -98,7 +98,7 @@ VALUES(?,'GAME_VARIANT',?,'VARIANT_VALIDATE',?,1,'{}',0,?,1,2,1,?,1,1)`,
 	}
 }
 
-func appendProgressEvent(t *testing.T, server *Server, event string) {
+func appendProgressEvent(t *testing.T, server *testServer, event string) {
 	t.Helper()
 	if _, err := server.database.ExecContext(t.Context(), `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)

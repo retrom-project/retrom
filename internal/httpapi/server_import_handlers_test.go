@@ -33,7 +33,7 @@ func (serverImportRejectAuthenticator) Authenticate(context.Context, string) (ac
 func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	server.serverImports.Close()
+	server.importDeps.Server.Close()
 	root := t.TempDir()
 	for _, name := range []string{"A BIOS", "B BIOS"} {
 		if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
@@ -47,12 +47,12 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "bios.bin"), []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.serverImports = composition.NewServerImports(
-		server.database, server.blobs, server.firmware, server.credentials,
+	server.importDeps.Server = composition.NewServerImports(
+		server.database, server.contentDeps.Files, server.libraryDeps.Firmware, server.contentDeps.Credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: root}},
 		time.Now,
 	)
-	t.Cleanup(server.serverImports.Close)
+	t.Cleanup(server.importDeps.Server.Close)
 	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
 	if err != nil {
@@ -99,16 +99,16 @@ lower(hex(zeroblob(32))),7,'c0a53b8a2b3c6f7a7f6e1fcbf9f99f15',NULL,NULL,
 	escape := get("/api/v1/admin/server-import-roots/bios-root/directories?path=..%2Fescape")
 	testassert.Falsef(t, testassert.Any(func() bool { return escape.Code != http.StatusBadRequest }, func() bool { return strings.Contains(escape.Body.String(), root) }), "escape path = %d %s", escape.Code, escape.Body.String())
 
-	server.authenticator = serverImportRejectAuthenticator{}
+	server.accountDeps.Authenticator = serverImportRejectAuthenticator{}
 	anonymous := httptest.NewRecorder()
 	handler.ServeHTTP(anonymous, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/server-import-roots", nil))
 	testassert.Falsef(t, anonymous.Code != http.StatusUnauthorized, "anonymous roots = %d %s", anonymous.Code, anonymous.Body.String())
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: uuid.NewString(), ProfileID: uuid.NewString(), Username: "member", DisplayName: "Member", Role: "USER",
 	}}
 	member := get("/api/v1/admin/server-import-roots")
 	testassert.Falsef(t, testassert.Any(func() bool { return member.Code != http.StatusForbidden }, func() bool { return !strings.Contains(member.Body.String(), "ADMIN_REQUIRED") }), "member roots = %d %s", member.Code, member.Body.String())
-	server.authenticator = testAuthenticator{}
+	server.accountDeps.Authenticator = testAuthenticator{}
 
 	post := func(key, body string, ifMatch string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/server-imports", strings.NewReader(body))

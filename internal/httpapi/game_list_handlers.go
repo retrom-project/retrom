@@ -23,7 +23,7 @@ func (server *Server) games(writer http.ResponseWriter, request *http.Request) {
 func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	gameID := request.PathValue("gameId")
-	detail, err := server.gameListService.Detail(
+	detail, err := server.libraryDeps.List.Detail(
 		request.Context(), principal.ProfileID, gameID,
 	)
 	if errors.Is(err, gamelistservice.ErrNotFound) {
@@ -141,7 +141,7 @@ func projectGameSaveStates(states []gamelistservice.SaveState) []map[string]any 
 func (server *Server) gameCoreOptions(
 	ctx context.Context, gameID string,
 ) ([]map[string]any, error) {
-	detail, err := server.gameListService.Detail(ctx, "compatibility", gameID)
+	detail, err := server.libraryDeps.List.Detail(ctx, "compatibility", gameID)
 	if err != nil {
 		return nil, fmt.Errorf("read game core options: %w", err)
 	}
@@ -333,7 +333,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 			return
 		}
 	}
-	result, err := server.gameListService.List(request.Context(), gamelistservice.ListRequest{
+	result, err := server.libraryDeps.List.List(request.Context(), gamelistservice.ListRequest{
 		ProfileID: principal.ProfileID, IncludeDeleted: includeDeleted,
 		Filters: filters.Filters, Sort: sortCode, Cursor: pageCursor, Limit: limit,
 		IncludeFacets: !includeDeleted && values.Get("cursor") == "",
@@ -390,7 +390,7 @@ func (server *Server) projectGameListFavorites(
 		gameID, _ := item["gameId"].(string)
 		gameIDs = append(gameIDs, gameID)
 	}
-	references, err := server.favoriteService.References(ctx, profileID, gameIDs)
+	references, err := server.libraryDeps.Favorites.References(ctx, profileID, gameIDs)
 	if err != nil {
 		return fmt.Errorf("project game list favorites: %w", err)
 	}
@@ -406,7 +406,7 @@ func (server *Server) projectGameListFavorites(
 }
 
 func (server *Server) projectGameListTags(ctx context.Context, items []map[string]any) error {
-	return projectMapTags(ctx, items, "gameId", server.tagService.References)
+	return projectMapTags(ctx, items, "gameId", server.libraryDeps.Tags.References)
 }
 
 func (server *Server) projectGameListAssociations(

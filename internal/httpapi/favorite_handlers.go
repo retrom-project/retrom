@@ -132,7 +132,7 @@ func (server *Server) favoritesList(writer http.ResponseWriter, request *http.Re
 		}
 		options.Cursor = &favorites.PageCursor{SortValues: payload.SortValues, ID: payload.ID}
 	}
-	result, err := server.favoriteService.List(request.Context(), favoritePrincipal(request), options)
+	result, err := server.libraryDeps.Favorites.List(request.Context(), favoritePrincipal(request), options)
 	if errors.Is(err, favorites.ErrFolderNotFound) {
 		writeFavoriteError(writer, request, err)
 		return
@@ -169,7 +169,7 @@ func (server *Server) putFavorite(writer http.ResponseWriter, request *http.Requ
 	if err := decodeJSON(writer, request, &body, 1024); err != nil {
 		return
 	}
-	state, err := server.favoriteService.Favorite(
+	state, err := server.libraryDeps.Favorites.Favorite(
 		request.Context(), favoritePrincipal(request), request.PathValue("gameId"),
 	)
 	if err != nil {
@@ -190,7 +190,7 @@ func (server *Server) putFavoriteFolders(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "folderIds 必填", map[string]any{})
 		return
 	}
-	state, err := server.favoriteService.ReplaceFolders(
+	state, err := server.libraryDeps.Favorites.ReplaceFolders(
 		request.Context(), favoritePrincipal(request), request.PathValue("gameId"), body.FolderIDs,
 	)
 	if err != nil {
@@ -222,7 +222,7 @@ func (server *Server) organizeFavorites(writer http.ResponseWriter, request *htt
 	if err := decodeJSON(writer, request, &body, 65536); err != nil {
 		return
 	}
-	response, err := server.favoriteService.Organize(
+	response, err := server.libraryDeps.Favorites.Organize(
 		request.Context(), favoritePrincipal(request), key,
 		body.GameIDs, body.AddFolderIDs, body.RemoveFolderIDs,
 	)
@@ -244,7 +244,7 @@ func (server *Server) unfavorite(writer http.ResponseWriter, request *http.Reque
 	if err := decodeJSON(writer, request, &body, 65536); err != nil {
 		return
 	}
-	response, err := server.favoriteService.Unfavorite(
+	response, err := server.libraryDeps.Favorites.Unfavorite(
 		request.Context(), favoritePrincipal(request), key, body.GameIDs,
 	)
 	if err != nil {
@@ -265,7 +265,7 @@ func (server *Server) restoreFavorites(writer http.ResponseWriter, request *http
 	if err := decodeJSON(writer, request, &body, 262144); err != nil {
 		return
 	}
-	response, err := server.favoriteService.Restore(
+	response, err := server.libraryDeps.Favorites.Restore(
 		request.Context(), favoritePrincipal(request), key, body.Items,
 	)
 	if err != nil {
@@ -291,7 +291,7 @@ func (server *Server) createFavoriteFolder(writer http.ResponseWriter, request *
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "initialGameIds 必填", map[string]any{})
 		return
 	}
-	response, err := server.favoriteService.CreateFolder(
+	response, err := server.libraryDeps.Favorites.CreateFolder(
 		request.Context(), favoritePrincipal(request), key, body.Name, body.InitialGameIDs,
 	)
 	if err != nil {
@@ -325,7 +325,7 @@ func (server *Server) patchFavoriteFolder(writer http.ResponseWriter, request *h
 	if err := decodeJSON(writer, request, &body, 4096); err != nil {
 		return
 	}
-	response, err := server.favoriteService.RenameFolder(
+	response, err := server.libraryDeps.Favorites.RenameFolder(
 		request.Context(), favoritePrincipal(request), key, request.PathValue("folderId"), body.Name, expected,
 	)
 	if err != nil {
@@ -348,7 +348,7 @@ func (server *Server) deleteFavoriteFolder(writer http.ResponseWriter, request *
 	if err := decodeJSON(writer, request, &body, 1024); err != nil {
 		return
 	}
-	response, err := server.favoriteService.DeleteFolder(
+	response, err := server.libraryDeps.Favorites.DeleteFolder(
 		request.Context(), favoritePrincipal(request), key, request.PathValue("folderId"), expected,
 	)
 	if err != nil {

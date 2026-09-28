@@ -33,11 +33,11 @@ func decodeNewAccountCredential(
 }
 
 func (server *Server) authContext(writer http.ResponseWriter, request *http.Request) {
-	if server.accounts == nil {
+	if server.accountDeps.Accounts == nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "SERVICE_NOT_READY", "认证服务不可用", map[string]any{})
 		return
 	}
-	contextView, err := server.accounts.Context(request.Context(), server.authCookieToken(request))
+	contextView, err := server.accountDeps.Accounts.Context(request.Context(), server.authCookieToken(request))
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -53,7 +53,7 @@ func (server *Server) authInitialize(writer http.ResponseWriter, request *http.R
 	if !decodeNewAccountCredential(writer, request, &body, "初始化请求无效") {
 		return
 	}
-	session, err := server.accounts.InitializeRateLimited(request.Context(), accounts.InitializeRequest{
+	session, err := server.accountDeps.Accounts.InitializeRateLimited(request.Context(), accounts.InitializeRequest{
 		Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 	}, server.authenticationClientIP(request))
@@ -70,7 +70,7 @@ func (server *Server) writeAuthenticatedSession(
 	status int,
 	session accounts.Session,
 ) {
-	contextView, err := server.accounts.Context(request.Context(), session.CookieToken)
+	contextView, err := server.accountDeps.Accounts.Context(request.Context(), session.CookieToken)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -92,7 +92,7 @@ func (server *Server) authLogin(writer http.ResponseWriter, request *http.Reques
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "登录请求无效", map[string]any{})
 		return
 	}
-	session, err := server.accounts.LoginRateLimited(
+	session, err := server.accountDeps.Accounts.LoginRateLimited(
 		request.Context(), body.Username, body.Password, server.authenticationClientIP(request),
 	)
 	if err != nil {
@@ -114,7 +114,7 @@ func (server *Server) authLogout(writer http.ResponseWriter, request *http.Reque
 }
 
 func (server *Server) revokeLogoutSession(writer http.ResponseWriter, request *http.Request, token string) bool {
-	session, err := server.accounts.Authenticate(request.Context(), token)
+	session, err := server.accountDeps.Accounts.Authenticate(request.Context(), token)
 	if err != nil {
 		return true
 	}
@@ -122,7 +122,7 @@ func (server *Server) revokeLogoutSession(writer http.ResponseWriter, request *h
 		writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
 		return false
 	}
-	if err := server.accounts.Logout(request.Context(), session.Principal.SessionID); err != nil {
+	if err := server.accountDeps.Accounts.Logout(request.Context(), session.Principal.SessionID); err != nil {
 		server.databaseError(writer, request, err)
 		return false
 	}
@@ -144,7 +144,7 @@ func (server *Server) authChangePassword(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "密码请求无效", map[string]any{})
 		return
 	}
-	session, err := server.accounts.ChangePassword(
+	session, err := server.accountDeps.Accounts.ChangePassword(
 		request.Context(), principal, body.CurrentPassword, body.NewPassword, body.NewPasswordConfirmation,
 	)
 	if err != nil {

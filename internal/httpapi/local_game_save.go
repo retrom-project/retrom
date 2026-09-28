@@ -20,7 +20,7 @@ func (server *Server) createLocalGameSave(writer http.ResponseWriter, request *h
 	}
 	request.Body = http.MaxBytesReader(writer, request.Body, saves.MaxRequestBytes)
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	result, replayed, err := server.saveService.CreateLocalDraft(request.Context(), request.PathValue("launchId"),
+	result, replayed, err := server.playDeps.Saves.CreateLocalDraft(request.Context(), request.PathValue("launchId"),
 		principal.UserID, principal.ProfileID, key,
 		saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body})
 	if errors.Is(err, saves.ErrCredential) {

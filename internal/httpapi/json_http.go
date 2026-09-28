@@ -143,7 +143,7 @@ func saveStateScreenshotURL(saveStateID string) string {
 }
 
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
-	asset, err := server.mediaAccess.Review(
+	asset, err := server.contentDeps.Access.Review(
 		request.Context(), request.PathValue("assetId"), request.URL.Query().Get("kind"),
 	)
 	switch {
@@ -164,7 +164,7 @@ func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) diagnostics(writer http.ResponseWriter, request *http.Request) {
-	report, err := server.diagnosticsService.Report(request.Context())
+	report, err := server.systemDeps.Diagnostics.Report(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

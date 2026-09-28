@@ -44,7 +44,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 					return nil
 				},
 			})
-			server.reviewCoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
+			server.reviewDeps.CoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
 			response := requestReviewCover(t, server, itemID, fileID)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s",
@@ -54,7 +54,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 	}
 }
 
-func requestReviewCover(t *testing.T, server *Server, itemID, fileID string) *httptest.ResponseRecorder {
+func requestReviewCover(t *testing.T, server *testServer, itemID, fileID string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets",
 		strings.NewReader(`{"uploadFileId":"`+fileID+`","kind":"COVER"}`))
@@ -67,13 +67,13 @@ func requestReviewCover(t *testing.T, server *Server, itemID, fileID string) *ht
 	return response
 }
 
-func createReviewCoverUpload(t *testing.T, server *Server) string {
+func createReviewCoverUpload(t *testing.T, server *testServer) string {
 	t.Helper()
 	var contents bytes.Buffer
 	if err := png.Encode(&contents, image.NewNRGBA(image.Rect(0, 0, 2, 3))); err != nil {
 		t.Fatal(err)
 	}
-	blob, err := server.blobs.Put(bytes.NewReader(contents.Bytes()))
+	blob, err := server.contentDeps.Files.Put(bytes.NewReader(contents.Bytes()))
 	if err != nil {
 		t.Fatal(err)
 	}

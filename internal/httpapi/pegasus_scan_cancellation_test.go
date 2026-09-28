@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func seedHTTPSourceScan(t *testing.T, server *Server, running bool) (string, string) {
+func seedHTTPSourceScan(t *testing.T, server *testServer, running bool) (string, string) {
 	t.Helper()
-	server.sourceImports.Close()
+	server.importDeps.Source.Close()
 	planID, jobID := uuid.NewString(), uuid.NewString()
 	var actorID string
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM users WHERE role='ADMIN' LIMIT 1`).Scan(
@@ -73,7 +73,7 @@ leased_until_ms=?,heartbeat_at_ms=?,execution_started_at_ms=?,execution_deadline
 	return planID, jobID
 }
 
-func cancelHTTPScan(t *testing.T, server *Server, jobID string) *httptest.ResponseRecorder {
+func cancelHTTPScan(t *testing.T, server *testServer, jobID string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/jobs/"+jobID+"/cancel",
 		strings.NewReader(`{"reason":"Stop scan"}`))

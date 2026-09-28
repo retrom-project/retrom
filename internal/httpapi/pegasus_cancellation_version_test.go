@@ -32,8 +32,8 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 	server := newTestServer(t)
 	planID, jobID := seedHTTPSourceScan(t, server, false)
 	hits := 0
-	server.jobService = composition.WithSourceJobCancellation(server.jobService, beforeSourceCancellation{
-		service: server.sourceImports,
+	server.systemDeps.Jobs = composition.WithSourceJobCancellation(server.systemDeps.Jobs, beforeSourceCancellation{
+		service: server.importDeps.Source,
 		before: func(request application.JobCancellationRequest) {
 			hits++
 			if request.ExpectedVersion != 1 || request.ScopeID != planID || request.JobID != jobID || request.ActorID == "" {

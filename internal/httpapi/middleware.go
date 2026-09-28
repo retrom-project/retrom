@@ -63,8 +63,8 @@ func (server *Server) authenticateRequest(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) (accounts.Session, bool) {
-	if server.accounts != nil {
-		contextView, err := server.accounts.Context(request.Context(), server.authCookieToken(request))
+	if server.accountDeps.Accounts != nil {
+		contextView, err := server.accountDeps.Accounts.Context(request.Context(), server.authCookieToken(request))
 		if err != nil {
 			server.databaseError(writer, request, err)
 			return accounts.Session{}, false
@@ -74,11 +74,11 @@ func (server *Server) authenticateRequest(
 			return accounts.Session{}, false
 		}
 	}
-	if server.authenticator == nil {
+	if server.accountDeps.Authenticator == nil {
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
 		return accounts.Session{}, false
 	}
-	session, err := server.authenticator.Authenticate(request.Context(), server.authCookieToken(request))
+	session, err := server.accountDeps.Authenticator.Authenticate(request.Context(), server.authCookieToken(request))
 	if errors.Is(err, accounts.ErrAuthenticationNeeded) {
 		server.clearAuthCookies(writer)
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
@@ -343,5 +343,5 @@ func (server *Server) healthReady(writer http.ResponseWriter, request *http.Requ
 }
 
 func (server *Server) readinessReason(ctx context.Context) string {
-	return server.readinessService.Reason(ctx)
+	return server.systemDeps.Readiness.Reason(ctx)
 }

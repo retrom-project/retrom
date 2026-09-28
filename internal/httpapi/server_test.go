@@ -87,7 +87,7 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 	server := newTestServer(t)
 	cookie, _ := testSessionCredentials()
 
-	server.authenticator = fixedAuthenticator{Err: errors.New("database unavailable")}
+	server.accountDeps.Authenticator = fixedAuthenticator{Err: errors.New("database unavailable")}
 	unavailableRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games", nil)
 	unavailableRequest.AddCookie(cookie)
 	unavailable := httptest.NewRecorder()
@@ -98,7 +98,7 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 		"temporary auth failure = %d cookies=%v body=%s", unavailable.Code,
 		unavailable.Header().Values("Set-Cookie"), unavailable.Body.String())
 
-	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
+	server.accountDeps.Authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
 	revokedRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games", nil)
 	revokedRequest.AddCookie(cookie)
 	revoked := httptest.NewRecorder()

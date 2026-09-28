@@ -61,7 +61,7 @@ SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM launch_sessions)+
 	}
 }
 
-func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
+func newCheckpointReviewHTTPFixture(t *testing.T) (*testServer, string) {
 	t.Helper()
 	server := newTestServer(t)
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
@@ -70,7 +70,7 @@ func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
 	uploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{
 		{path: "review.gba", contents: []byte("deterministic review HTTP fixture")},
 	})
-	created, err := server.importer.Create(t.Context(), libraryimport.CreateRequest{
+	created, err := server.importDeps.Importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "gba/mgba"),
 		MetadataProvider: "NONE",
 	})
@@ -85,7 +85,7 @@ func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
 	return server, itemID
 }
 
-func createCheckpointPreviewHTTP(t *testing.T, server *Server, itemID string, restoreFrom *string) (launch.ReviewPreviewCreated, *http.Cookie) {
+func createCheckpointPreviewHTTP(t *testing.T, server *testServer, itemID string, restoreFrom *string) (launch.ReviewPreviewCreated, *http.Cookie) {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{"clientCapabilities": launch.Capabilities{}, "restoreFromPreviewId": restoreFrom})
 	if err != nil {
@@ -140,7 +140,7 @@ func checkpointHTTPForm(t *testing.T, format, payload string) (*bytes.Buffer, st
 	return &body, writer.FormDataContentType()
 }
 
-func requestReviewCheckpointHTTP(t *testing.T, server *Server, previewID string, cookie *http.Cookie, method, endpoint string,
+func requestReviewCheckpointHTTP(t *testing.T, server *testServer, previewID string, cookie *http.Cookie, method, endpoint string,
 	body io.Reader, contentType string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
@@ -157,7 +157,7 @@ func requestReviewCheckpointHTTP(t *testing.T, server *Server, previewID string,
 	return response
 }
 
-func assertReviewCheckpointHTTPAuthorization(t *testing.T, server *Server, preview launch.ReviewPreviewCreated,
+func assertReviewCheckpointHTTPAuthorization(t *testing.T, server *testServer, preview launch.ReviewPreviewCreated,
 	cookie, otherCookie *http.Cookie,
 ) {
 	t.Helper()

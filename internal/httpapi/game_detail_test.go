@@ -195,7 +195,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	assertGameAdminMutations(t, server, gameID, contentID, fixture.coverRecord, now, videoPayload)
 }
 
-func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID string) {
+func assertScreenshotlessSaveProjections(t *testing.T, server *testServer, gameID string) {
 	t.Helper()
 	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_file_record=NULL WHERE game_id=?", gameID)
 	for _, path := range []string{
@@ -214,8 +214,7 @@ func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID st
 }
 
 func assertGameHomeAndActivity(
-	t *testing.T, server *Server,
-	gameID, screenshotFileRecord, latestLaunchID string,
+	t *testing.T, server *testServer, gameID, screenshotFileRecord, latestLaunchID string,
 	now int64, expectedCoverURL, saveStateID string, screenshot []byte,
 ) {
 	home := httptest.NewRecorder()
@@ -342,7 +341,7 @@ INSERT INTO save_states(
 	testassert.Falsef(t, testassert.Any(func() bool { return screenshotResponse.Code != http.StatusOK }, func() bool { return screenshotResponse.Body.String() != string(screenshot) }, func() bool { return screenshotResponse.Header().Get("Cache-Control") != "private, no-store" }, func() bool { return screenshotResponse.Header().Get("Content-Type") != "image/png" }), "save screenshot = %d headers=%v body=%q", screenshotResponse.Code, screenshotResponse.Header(), screenshotResponse.Body.String())
 }
 
-func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateID string, now int64) {
+func assertGameProfileIsolation(t *testing.T, server *testServer, gameID, saveStateID string, now int64) {
 	localPage := httptest.NewRecorder()
 	server.Handler().ServeHTTP(localPage, httptest.NewRequestWithContext(context.Background(),
 		http.MethodGet, "/api/v1/saves?limit=1", nil))
@@ -355,7 +354,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	const otherProfileID = "01980000-0000-7000-8000-000000009997"
 	mustExecHTTPTest(t, server.database,
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other Player',?)`, otherProfileID, now)
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: "01980000-0000-7000-8000-000000009996", ProfileID: otherProfileID, Username: "other-user",
 		DisplayName: "Other Player", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009995",
 	}}
@@ -416,7 +415,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	).Scan(&preservedName, &preservedDeletedAt); err != nil || preservedName != "入口存档" || preservedDeletedAt.Valid {
 		t.Fatalf("foreign mutation changed save: name=%q deleted=%v error=%v", preservedName, preservedDeletedAt, err)
 	}
-	server.authenticator = testAuthenticator{}
+	server.accountDeps.Authenticator = testAuthenticator{}
 	mustExecHTTPTest(t, server.database, "UPDATE save_states SET deleted_at_ms=? WHERE id=?", now+1, saveStateID)
 	deletedScreenshot := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -429,7 +428,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 }
 
 func assertGameAdminMutations(
-	t *testing.T, server *Server, gameID, contentID, coverFileRecord string, now int64,
+	t *testing.T, server *testServer, gameID, contentID, coverFileRecord string, now int64,
 	videoPayload []byte,
 ) {
 	var originalCoverAssetID, originalVideoAssetID string
@@ -486,7 +485,7 @@ SELECT
 `, gameID, gameID), &preservedCoverID, &preservedVideoID)
 	testassert.Falsef(t, preservedCoverID != originalCoverAssetID || preservedVideoID != originalVideoAssetID,
 		"unselected candidate media changed: cover=%s video=%s", preservedCoverID, preservedVideoID)
-	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
+	videoMetadata, err := server.contentDeps.Files.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
 	videoFileRecord, err := filestore.FileRecord(videoMetadata, "video/mp4")
 	testassert.False(t, err != nil, err)
@@ -716,7 +715,7 @@ type gameDetailSeed struct {
 }
 
 func seedGameDetailMedia(
-	t *testing.T, server *Server, transaction dbapi.Tx,
+	t *testing.T, server *testServer, transaction dbapi.Tx,
 	gameID, _, _, _, coverAssetID, videoAssetID string,
 	fixture *gameDetailSeed,
 ) {
@@ -736,9 +735,9 @@ INSERT INTO games(
  '{}',?,'PUBLISHED','doom',1,?,?
 )
 `, gameID, "首页游戏简介\n保留当前元信息。", strings.Repeat("0", 64), now, now)
-	cover, err := server.blobs.Put(bytes.NewBufferString("old cover payload"))
+	cover, err := server.contentDeps.Files.Put(bytes.NewBufferString("old cover payload"))
 	testassert.False(t, err != nil, err)
-	cover, err = server.blobs.CopyTo(t.Context(), cover.Record,
+	cover, err = server.contentDeps.Files.CopyTo(t.Context(), cover.Record,
 		filestore.GameDirectory(gameID)+"/media/"+coverAssetID, "asset")
 	testassert.False(t, err != nil, err)
 	coverFileRecord := cover.Record
@@ -767,9 +766,9 @@ created_at_ms) VALUES(?,
 		0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0,
 		'i', 's', 'o', 'm', 'm', 'p', '4', '2',
 	}
-	fixture.videoMetadata, err = server.blobs.Put(bytes.NewReader(fixture.videoPayload))
+	fixture.videoMetadata, err = server.contentDeps.Files.Put(bytes.NewReader(fixture.videoPayload))
 	testassert.False(t, err != nil, err)
-	fixture.videoMetadata, err = server.blobs.CopyTo(t.Context(), fixture.videoMetadata.Record,
+	fixture.videoMetadata, err = server.contentDeps.Files.CopyTo(t.Context(), fixture.videoMetadata.Record,
 		filestore.GameDirectory(gameID)+"/media/"+videoAssetID, "asset")
 	testassert.False(t, err != nil, err)
 	fixture.videoFileRecord, err = filestore.FileRecord(fixture.videoMetadata, "video/mp4")
@@ -781,7 +780,7 @@ VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
 }
 
 func seedGameDetailRuntime(
-	t *testing.T, server *Server, transaction dbapi.Tx,
+	t *testing.T, server *testServer, transaction dbapi.Tx,
 	gameID, variantID, saveStateID string,
 	fixture *gameDetailSeed,
 ) {
@@ -820,7 +819,7 @@ INSERT INTO game_variants(
 	fixture.screenshot,
 		err = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 	testassert.False(t, err != nil, err)
-	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
+	screenshotMetadata, err := server.contentDeps.Files.Put(bytes.NewReader(fixture.screenshot))
 	testassert.False(t, err != nil, err)
 	fixture.screenshotFileRecord, err = filestore.FileRecord(screenshotMetadata, "image/png")
 	testassert.False(t, err != nil, err)

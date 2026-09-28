@@ -25,7 +25,7 @@ func (server *Server) approveReview(writer http.ResponseWriter, request *http.Re
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核决定无效", map[string]any{})
 		return
 	}
-	approved, err := server.reviewApprovals.Approve(request.Context(), libraryservice.ReviewApprovalRequest{
+	approved, err := server.reviewDeps.Approvals.Approve(request.Context(), libraryservice.ReviewApprovalRequest{
 		ItemID: request.PathValue("importItemId"), ExpectedVersion: version,
 		Decision: libraryservice.ReviewApprovalDecision{
 			Reason:              body.Reason,

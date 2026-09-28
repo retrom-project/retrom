@@ -70,6 +70,21 @@ linters:
               desc: inner layers must not assemble dependencies
             - pkg: retrom/internal/httpapi
               desc: inner layers must not depend on HTTP
+        http-transport:
+          files:
+            - "${base-path}/internal/httpapi/**.go"
+            - "!$test"
+          deny:
+            - pkg: retrom/internal/application
+              desc: HTTP receives feature dependencies from the process root
+            - pkg: retrom/internal/composition
+              desc: HTTP must not assemble business services
+            - pkg: retrom/internal/database
+              desc: HTTP must not access raw database connections
+            - pkg: retrom/internal/persistence
+              desc: HTTP must use business services instead of persistence adapters
+            - pkg: retrom/internal/store
+              desc: HTTP must not own database resources
         storage-layer:
           files:
             - "${base-path}/internal/store/**.go"

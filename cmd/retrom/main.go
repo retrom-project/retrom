@@ -108,7 +108,7 @@ func runServer(lifetime context.Context, configuration config.Config,
 	catalogs := dependencyservice.New(resources.dependencies, dependencypersistence.New(resources.database.SQL))
 	services, err = application.New(startupContext, application.Inputs{
 		Config: configuration, Database: resources.database.SQL, ReadinessDatabase: resources.database.ReadOnly,
-		Dependencies: resources.dependencies, Files: resources.blobs, Credentials: resources.credentials,
+		Files: resources.blobs, Credentials: resources.credentials,
 		Accounts: accountService, Now: time.Now, ScummVMDetector: resources.scummVMDetector,
 		RuntimeProvider: resources.runtimeProviders.Builder,
 		IndexCatalogs:   catalogBootstrap(catalogs),
@@ -120,8 +120,8 @@ func runServer(lifetime context.Context, configuration config.Config,
 		return fmt.Errorf("start application: %w", err)
 	}
 	cancelStartup()
-	apiServer := httpapi.New(configuration, services, accountService, time.Now).
-		WithRuntimeProviderHandler(resources.runtimeProviders.Handler)
+	dependencies := httpDependencies(services, accountService, resources.runtimeProviders.Handler)
+	apiServer := httpapi.New(configuration, dependencies, time.Now)
 	err = serveHTTP(lifetime, configuration, apiServer.Handler(), beginShutdown, progress)
 	progress.set("HTTP deferred work", nil)
 	apiServer.Wait()

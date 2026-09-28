@@ -11,7 +11,7 @@ import (
 )
 
 func (server *Server) biosEntries(writer http.ResponseWriter, request *http.Request) {
-	result, err := server.firmware.InspectArchive(request.Context(), request.PathValue("requirementId"))
+	result, err := server.libraryDeps.Firmware.InspectArchive(request.Context(), request.PathValue("requirementId"))
 	if err != nil {
 		if errors.Is(err, firmwareservice.ErrArchiveFactsNotFound) {
 			writeError(
@@ -44,7 +44,9 @@ func (server *Server) installBIOS(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "BIOS 安装请求无效", map[string]any{})
 		return
 	}
-	result, err := server.firmware.Install(request.Context(), request.PathValue("requirementId"), version, body)
+	result, err := server.libraryDeps.Firmware.Install(
+		request.Context(), request.PathValue("requirementId"), version, body,
+	)
 	if err != nil {
 		details := map[string]any{}
 		message := "上传文件、需求版本或 BIOS 内容无效"

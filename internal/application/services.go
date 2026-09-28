@@ -6,13 +6,10 @@ import (
 
 	gamevariant "retrom/internal/service/gamevariant"
 
-	dbapi "retrom/internal/database"
-
 	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -26,6 +23,7 @@ import (
 	"retrom/internal/service/gamecontent"
 	gamelistservice "retrom/internal/service/gamelist"
 	gamemetadataservice "retrom/internal/service/gamemetadata"
+	"retrom/internal/service/gamemove"
 	homeservice "retrom/internal/service/home"
 	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/immersive"
@@ -52,10 +50,9 @@ type Services struct {
 	stopping            atomic.Bool
 	shutdown            *shutdownGroup
 	catalogs            *catalogTask
-	Database            dbapi.DB
-	ReadinessDatabase   dbapi.DB
+	ImportReads         *libraryservice.ImportReads
+	GameMove            *gamemove.Service
 	ReadinessService    *readinessservice.Service
-	Dependencies        *dependencies.Set
 	Blobs               *filestore.Store
 	Credentials         *retromruntime.Credentials
 	Uploads             *uploads.Service

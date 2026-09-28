@@ -3,6 +3,8 @@ package httpapi
 import (
 	"testing"
 
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	"retrom/internal/cleanup"
 	dbsqlite "retrom/internal/database/sqlite"
 )
@@ -39,7 +41,14 @@ INSERT INTO import_item_multidisc_entries VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{database: database}
+	server := &testServer{
+		database: database,
+		Server: &Server{
+			importDeps: ImportDependencies{
+				Reads: librarycomposition.NewImportReads(database),
+			},
+		},
+	}
 	initial, err := server.importMultiDiscItemSummaries(t.Context(), "job")
 	if err != nil || len(initial) != 1 {
 		t.Fatalf("initial summaries = %v, error = %v", initial, err)

@@ -12,11 +12,11 @@ import (
 func TestLaunchBundleBytesAreCanonicalAcrossInputOrder(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	firstMetadata, err := server.blobs.Put(bytes.NewReader([]byte("first BIOS")))
+	firstMetadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("first BIOS")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondMetadata, err := server.blobs.Put(bytes.NewReader([]byte("second BIOS")))
+	secondMetadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("second BIOS")))
 	if err != nil {
 		t.Fatal(err)
 	}

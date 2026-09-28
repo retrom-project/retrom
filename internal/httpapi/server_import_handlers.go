@@ -13,7 +13,7 @@ import (
 )
 
 func (server *Server) serverImportRoots(writer http.ResponseWriter, _ *http.Request) {
-	writeJSON(writer, http.StatusOK, map[string]any{"items": server.serverImports.Roots()})
+	writeJSON(writer, http.StatusOK, map[string]any{"items": server.importDeps.Server.Roots()})
 }
 
 // Directory keyset cursor fields mirror the stable name/path ordering contract.
@@ -39,7 +39,7 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 		}
 		afterName, afterPath = payload.SortValues[0], payload.ID
 	}
-	directories, err := server.serverImports.Directories(rootID, path)
+	directories, err := server.importDeps.Server.Directories(rootID, path)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -79,7 +79,7 @@ func (server *Server) createServerImport(writer http.ResponseWriter, request *ht
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	created, err := server.serverImports.Create(request.Context(), body, principal.UserID)
+	created, err := server.importDeps.Server.Create(request.Context(), body, principal.UserID)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -122,7 +122,7 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 		}
 		beforeID = payload.ID
 	}
-	items, err := server.serverImports.List(request.Context(), state, beforeAt, beforeID, limit+1)
+	items, err := server.importDeps.Server.List(request.Context(), state, beforeAt, beforeID, limit+1)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -148,7 +148,7 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 // Item filters and cursor fields remain visibly aligned with the application query contract.
 func (server *Server) serverImportDetail(writer http.ResponseWriter, request *http.Request) {
 	importID := request.PathValue("serverImportId")
-	summary, err := server.serverImports.Get(request.Context(), importID)
+	summary, err := server.importDeps.Server.Get(request.Context(), importID)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -176,7 +176,7 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 		}
 		afterCore, afterName, afterID = payload.SortValues[0], payload.SortValues[1], payload.ID
 	}
-	items, err := server.serverImports.Items(
+	items, err := server.importDeps.Server.Items(
 		request.Context(),
 		importID,
 		strings.TrimSpace(values.Get("q")),
@@ -238,7 +238,7 @@ func (server *Server) serverImportCandidates(writer http.ResponseWriter, request
 		}
 		afterID = payload.ID
 	}
-	items, err := server.serverImports.Candidates(request.Context(), importID, requirementID, rank, afterID, limit+1)
+	items, err := server.importDeps.Server.Candidates(request.Context(), importID, requirementID, rank, afterID, limit+1)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -289,7 +289,7 @@ func (server *Server) cancelServerImport(writer http.ResponseWriter, request *ht
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	summary, pending, err := server.serverImports.Cancel(
+	summary, pending, err := server.importDeps.Server.Cancel(
 		request.Context(),
 		request.PathValue("serverImportId"),
 		version,
@@ -328,7 +328,7 @@ func (server *Server) retryServerImport(writer http.ResponseWriter, request *htt
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	summary, err := server.serverImports.Retry(
+	summary, err := server.importDeps.Server.Retry(
 		request.Context(),
 		request.PathValue("serverImportId"),
 		version,

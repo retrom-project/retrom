@@ -72,7 +72,7 @@ func (server *Server) rpgBootstrapPage(
 		http.Redirect(writer, request, "/__retrom/entry", http.StatusSeeOther)
 		return
 	}
-	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
+	inspected, err := server.playDeps.Isolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
 	if err != nil || inspected.ContentFormat != "RPG_MAKER_PROJECT" {
 		writeError(
 			writer,
@@ -117,7 +117,7 @@ func (server *Server) rpgBootstrapConsume(
 		)
 		return
 	}
-	credential, consumed, err := server.rpgIsolation.ConsumeTicket(
+	credential, consumed, err := server.playDeps.Isolation.ConsumeTicket(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
 	if err != nil || consumed.ContentFormat != "RPG_MAKER_PROJECT" {
@@ -152,7 +152,7 @@ func (server *Server) rpgRuntimeCleanup(
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil || !validRPGRuntimeWrite(request, access.Origin) ||
-		server.rpgIsolation.Revoke(request.Context(), authorized) != nil {
+		server.playDeps.Isolation.Revoke(request.Context(), authorized) != nil {
 		http.NotFound(writer, request)
 		return
 	}
@@ -178,7 +178,7 @@ func (server *Server) rpgRuntimeEntry(
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.ContentAuthorized(
+	content, err := server.playDeps.Launcher.ContentAuthorized(
 		request.Context(), access.LaunchID, "index.html", authorized.Preview,
 	)
 	if err != nil || content.Format != "RPG_MAKER_PROJECT" {
@@ -225,7 +225,7 @@ func (server *Server) rpgRuntimeBridge(
 		http.NotFound(writer, request)
 		return
 	}
-	asset, err := server.launcher.ProviderAssetAuthorized(
+	asset, err := server.playDeps.Launcher.ProviderAssetAuthorized(
 		request.Context(), access.LaunchID, authorized.Preview, "bridge.js",
 	)
 	if err != nil {
@@ -261,7 +261,7 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.RPGProjectContentAuthorized(
+	content, err := server.playDeps.Launcher.RPGProjectContentAuthorized(
 		request.Context(), access.LaunchID, logicalName, authorized.Preview,
 	)
 	if err != nil {
@@ -285,7 +285,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 		http.NotFound(writer, request)
 		return
 	}
-	digest, err := server.saveService.IsolatedStateFile(request.Context(), access.LaunchID)
+	digest, err := server.playDeps.Saves.IsolatedStateFile(request.Context(), access.LaunchID)
 	if err != nil {
 		status := http.StatusConflict
 		code := "RPG_CHECKPOINT_INCOMPATIBLE"
@@ -299,7 +299,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 }
 
 func (server *Server) readRPGContent(content launch.ContentView, maximum int64) ([]byte, error) {
-	file, err := server.blobs.OpenRecord(content.FileRecord)
+	file, err := server.contentDeps.Files.OpenRecord(content.FileRecord)
 	if err != nil {
 		return nil, fmt.Errorf("open RPG entry: %w", err)
 	}
@@ -323,7 +323,7 @@ func (server *Server) serveRPGBlob(
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenRecord(id)
+	file, err := server.contentDeps.Files.OpenRecord(id)
 	if err != nil {
 		writeError(
 			writer,

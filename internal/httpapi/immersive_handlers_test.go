@@ -79,7 +79,7 @@ type immersiveGameResponse struct {
 	NextCursor *string `json:"nextCursor"`
 }
 
-func immersiveGET(t *testing.T, server *Server, path string) *httptest.ResponseRecorder {
+func immersiveGET(t *testing.T, server *testServer, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -165,15 +165,14 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 
 func seedImmersiveBlob(
 	t *testing.T,
-	server *Server,
-	_ dbapi.Tx,
+	server *testServer, _ dbapi.Tx,
 	ownerID, payload, mediaType string,
 	_ int64,
 ) string {
 	t.Helper()
-	metadata, err := server.blobs.Put(bytes.NewReader([]byte(payload)))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte(payload)))
 	testassert.False(t, err != nil, err)
-	metadata, err = server.blobs.CopyTo(t.Context(), metadata.Record,
+	metadata, err = server.contentDeps.Files.CopyTo(t.Context(), metadata.Record,
 		filestore.GameDirectory(ownerID)+"/media/"+uuid.NewString(), "asset")
 	testassert.False(t, err != nil, err)
 	fileRecord, err := filestore.FileRecord(metadata, mediaType)
@@ -183,8 +182,7 @@ func seedImmersiveBlob(
 
 func seedImmersiveAssets(
 	t *testing.T,
-	server *Server,
-	transaction dbapi.Tx,
+	server *testServer, transaction dbapi.Tx,
 	seed immersiveGameSeed,
 	coverPayload, videoPayload string,
 	now int64,
@@ -206,7 +204,7 @@ VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
 	}
 }
 
-func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now int64) {
+func seedImmersiveGame(t *testing.T, server *testServer, seed immersiveGameSeed, now int64) {
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
@@ -229,8 +227,7 @@ source_manifest_digest,
 
 func seedImmersivePlay(
 	t *testing.T,
-	server *Server,
-	seed immersiveGameSeed,
+	server *testServer, seed immersiveGameSeed,
 	profileID string,
 	startedAtMS, emulatorGameID int64,
 ) {
@@ -344,7 +341,7 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 		!strings.Contains(changedLimit.Body.String(), `"code":"INVALID_CURSOR"`),
 		"limit-bound cursor = %d %s", changedLimit.Code, changedLimit.Body.String())
 
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: uuid.NewString(), ProfileID: otherProfile, Username: "other", DisplayName: "Other", Role: "USER",
 	}}
 	otherPlatforms := decodeImmersiveResponse[immersivePlatformResponse](t,
@@ -385,7 +382,7 @@ func TestImmersiveQueriesFailClosedAndUnavailablePlatformsDoNotLeak(t *testing.T
 	testassert.Falsef(t, invalidCursor.Code != http.StatusBadRequest ||
 		!strings.Contains(invalidCursor.Body.String(), `"code":"INVALID_CURSOR"`),
 		"invalid cursor = %d %s", invalidCursor.Code, invalidCursor.Body.String())
-	impact, err := server.gameImpact.Game(context.Background(), seed.GameID)
+	impact, err := server.libraryDeps.Impact.Game(context.Background(), seed.GameID)
 	testassert.False(t, err != nil, err)
 	deleteRequest := httptest.NewRequestWithContext(
 		context.Background(),
@@ -423,7 +420,7 @@ WHERE catalog_template_key='gba/mgba'
 		disabled.Code, disabled.Body.String())
 }
 
-func replaceImmersiveMetadata(t *testing.T, server *Server, game immersiveGameSeed, replacement immersiveGameSeed) {
+func replaceImmersiveMetadata(t *testing.T, server *testServer, game immersiveGameSeed, replacement immersiveGameSeed) {
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)

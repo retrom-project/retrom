@@ -24,11 +24,17 @@ class ArchitectureRulesTests(unittest.TestCase):
             "internal/store": "retrom/internal/application",
             "internal/format/arcadedat": "retrom/internal/service/metadatascrape",
             "internal/runtime/fixture": "retrom/internal/composition/fixture",
+            "internal/httpapi": "retrom/internal/application",
+            "internal/httpapi/assembly": "retrom/internal/composition/fixture",
+            "internal/httpapi/database": "retrom/internal/database",
+            "internal/httpapi/repository": "retrom/internal/persistence/libraryimport",
+            "internal/httpapi/storage": "retrom/internal/store",
         }
         allowed = {
             "internal/persistence/libraryimport": "retrom/internal/service/libraryimport/port",
             "internal/service/gameassets": "retrom/internal/filestore/port",
             "internal/composition/fixture": "retrom/internal/service/libraryimport/port",
+            "internal/httpapi/legal": "retrom/internal/service/libraryimport/port",
         }
         with tempfile.TemporaryDirectory(prefix="retrom-architecture-") as directory:
             root = Path(directory)

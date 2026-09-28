@@ -33,7 +33,7 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
 		AfterQuery: fault.afterQuery, BeforeQuery: fault.beforeQuery,
 	})
-	service := librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
+	service := librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
 	request := libraryservice.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
 	result, err := service.Upload(t.Context(), request)
 	if !errors.Is(err, fault.cause) || errors.Is(err, libraryservice.ErrReviewCoverConsumed) ||
@@ -48,7 +48,7 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 		t.Fatalf("retry=%+v err=%v", saved, err)
 	}
 	assertReviewCoverCounts(t, server, itemID, 1)
-	server.reviewCoverUploads = service
+	server.reviewDeps.CoverUploads = service
 	assertReviewCoverReplay(t, server, itemID, fileID, saved, fault)
 }
 
@@ -82,7 +82,7 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 			itemID := createReviewSnapshotItem(t, server)
 			fileID := createReviewCoverUpload(t, server)
 			changed := false
-			blobs := reviewCoverBarrierBlobs{store: server.blobs, beforeOpen: func() {
+			blobs := reviewCoverBarrierBlobs{store: server.contentDeps.Files, beforeOpen: func() {
 				id := itemID
 				if test.name == "upload release" {
 					id = fileID
@@ -142,7 +142,7 @@ func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string,
 }
 
 func assertReviewCoverReplay(
-	t *testing.T, server *Server, itemID, fileID string, saved libraryservice.ReviewCoverResult, fault *reviewCoverWriteFault,
+	t *testing.T, server *testServer, itemID, fileID string, saved libraryservice.ReviewCoverResult, fault *reviewCoverWriteFault,
 ) {
 	t.Helper()
 	response := requestReviewCover(t, server, itemID, fileID)

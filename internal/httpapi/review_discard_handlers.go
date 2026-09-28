@@ -27,7 +27,7 @@ func (server *Server) discardReview(writer http.ResponseWriter, request *http.Re
 	if body.Reason != nil {
 		reason = *body.Reason
 	}
-	result, err := server.reviewDiscards.Discard(request.Context(), libraryservice.ReviewDiscardRequest{
+	result, err := server.reviewDeps.Discards.Discard(request.Context(), libraryservice.ReviewDiscardRequest{
 		ItemID: request.PathValue("importItemId"), ExpectedVersion: version,
 		Reason: reason, Mode: libraryservice.ReviewDiscardSingle,
 	})

@@ -77,7 +77,7 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	}
 	validationRetrySQL(t, database, `UPDATE jobs SET state='FAILED',error_code='MEDIA_BLOB_FAILED',error_retryable=1,finished_at_ms=? WHERE id=?`, now, fixture.jobID)
 	worker := metadatascrape.NewMediaWorker(metadatapersistence.NewMedia(database), retryMediaSource{}, blobs, fixture.now)
-	fixture.server.metadata = metadatascrape.NewWithMedia(nil, metadata, worker, fixture.now)
-	t.Cleanup(fixture.server.metadata.Close)
+	fixture.server.reviewDeps.Metadata = metadatascrape.NewWithMedia(nil, metadata, worker, fixture.now)
+	t.Cleanup(fixture.server.reviewDeps.Metadata.Close)
 	return fixture
 }

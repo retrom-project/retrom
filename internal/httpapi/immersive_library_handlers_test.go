@@ -51,8 +51,7 @@ type immersiveLibraryResponse struct {
 
 func seedImmersiveFavoriteAndSave(
 	t *testing.T,
-	server *Server,
-	profileID, favoriteGameID, savedGameID, folderID, saveStateID string,
+	server *testServer, profileID, favoriteGameID, savedGameID, folderID, saveStateID string,
 ) {
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
@@ -93,7 +92,7 @@ INSERT INTO save_states(
 	mustCommitHTTPTest(t, transaction)
 }
 
-func assertImmersiveDestinations(t *testing.T, server *Server) {
+func assertImmersiveDestinations(t *testing.T, server *testServer) {
 	t.Helper()
 	response := immersiveGET(t, server, "/api/v1/immersive/destinations")
 	result := decodeImmersiveResponse[immersiveDestinationResponse](t, response)
@@ -109,7 +108,7 @@ func assertImmersiveDestinations(t *testing.T, server *Server) {
 	testassert.Falsef(t, result.Items[3].GameCount != 1, "save count = %#v", result.Items[3])
 }
 
-func assertImmersiveSortedLibraries(t *testing.T, server *Server, recentGameID string) {
+func assertImmersiveSortedLibraries(t *testing.T, server *testServer, recentGameID string) {
 	t.Helper()
 	firstResponse := immersiveGET(t, server, "/api/v1/immersive/libraries/all/games?limit=2")
 	first := decodeImmersiveResponse[immersiveLibraryResponse](t, firstResponse)
@@ -137,8 +136,7 @@ func assertImmersiveSortedLibraries(t *testing.T, server *Server, recentGameID s
 
 func assertImmersiveFavoriteAndSaveLibraries(
 	t *testing.T,
-	server *Server,
-	folderID, saveStateID string,
+	server *testServer, folderID, saveStateID string,
 ) {
 	t.Helper()
 	favorites := decodeImmersiveResponse[immersiveLibraryResponse](t,
@@ -177,7 +175,7 @@ func TestImmersiveDestinationsAndProfileLibraries(t *testing.T) {
 	profileID := "01980000-0000-7000-8000-00000000f101"
 	mustExecHTTPTest(t, server.database,
 		"INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Player',0)", profileID)
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: "01980000-0000-7000-8000-00000000f102", ProfileID: profileID,
 		Username: "player", DisplayName: "Player", Role: "USER",
 	}}

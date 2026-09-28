@@ -240,11 +240,11 @@ func TestGameMetadataPatchDistinguishesNullFromAbsent(t *testing.T) {
 	testassert.False(t, validPatchGame(patchGameRequest{}, time.Now()), "empty metadata patch accepted")
 }
 
-func newTestServer(t *testing.T) *Server {
+func newTestServer(t *testing.T) *testServer {
 	return newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"}, false)
 }
 
-func newRecommendationTestServer(t *testing.T) *Server {
+func newRecommendationTestServer(t *testing.T) *testServer {
 	t.Helper()
 	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"}, false)
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
@@ -255,7 +255,7 @@ func newRecommendationTestServer(t *testing.T) *Server {
 	return server
 }
 
-func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versions []string, multiDisc bool) *Server {
+func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versions []string, multiDisc bool) *testServer {
 	t.Helper()
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	testassert.Falsef(t, err != nil, "repository root: %v", err)
@@ -294,7 +294,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir, MultiDiscImportEnabled: multiDisc}
 	services, err := application.New(t.Context(), application.Inputs{
 		Config: settings, Database: database.SQL, ReadinessDatabase: database.ReadOnly,
-		Dependencies: dependencySet, Files: blobs, Credentials: credentials, Now: time.Now,
+		Files: blobs, Credentials: credentials, Now: time.Now,
 		RuntimeProvider: runtimeBuilder,
 	})
 	testassert.False(t, err != nil, err)
@@ -302,7 +302,13 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	if err := services.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	server := New(settings, services, testAuthenticator{}, time.Now)
+	server := &testServer{
+		Server:            New(settings, testHTTPDependencies(services, testAuthenticator{}, nil), time.Now),
+		database:          database.SQL,
+		readinessDatabase: database.ReadOnly,
+		dependencies:      dependencySet,
+		launchSources:     services.LaunchSources,
+	}
 	// General HTTP contract tests exercise handlers, not the asynchronous DAT
 	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
 	t.Cleanup(server.Wait)

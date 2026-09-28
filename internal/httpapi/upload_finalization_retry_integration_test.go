@@ -62,7 +62,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 			return nil
 		},
 	})
-	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
+	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -77,7 +77,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 		t.Fatalf("receipt failure invoked dispatch: %s/%d", state, attempt)
 	}
 	// The mutation has its own committed transaction. A later durable recovery is still allowed.
-	if err := fixture.server.uploads.Recover(t.Context()); err != nil {
+	if err := fixture.server.importDeps.Uploads.Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	state, _, attempt = waitValidationRetry(t, fixture.validationRetryFixture)
@@ -99,8 +99,8 @@ func TestUploadFinalizationRetrySurvivesResponseCancellationAndStopsAfterClose(t
 	if ctx.Err() == nil || state != "SUCCEEDED" || execution != 2 || attempt != 1 {
 		t.Fatalf("cancelled response start=%s/%d/%d", state, execution, attempt)
 	}
-	fixture.server.uploads.Close()
-	if fixture.server.uploads.Resume(t.Context(), fixture.jobID) {
+	fixture.server.importDeps.Uploads.Close()
+	if fixture.server.importDeps.Uploads.Resume(t.Context(), fixture.jobID) {
 		t.Fatal("upload registered after Close")
 	}
 }
@@ -121,9 +121,9 @@ func TestUploadCompletePreservesStorageFailureBoundary(t *testing.T) {
 		}
 		return nil
 	}})
-	fixture.server.uploads.Close()
-	fixture.server.uploads = uploads.New(uploadpersistence.New(database), nil, t.TempDir(), fixture.now)
-	t.Cleanup(fixture.server.uploads.Close)
+	fixture.server.importDeps.Uploads.Close()
+	fixture.server.importDeps.Uploads = uploads.New(uploadpersistence.New(database), nil, t.TempDir(), fixture.now)
+	t.Cleanup(fixture.server.importDeps.Uploads.Close)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/uploads/"+uploadID+"/complete", nil)
 	request.SetPathValue("uploadId", uploadID)
 	request.Header.Set("If-Match", fmt.Sprintf(`"v%d"`, version))

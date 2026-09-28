@@ -135,6 +135,8 @@ flowchart LR
 
 导入流程由 `composition/importworkflow` 一次组装，Importer、HTTP、批量审批和发布恢复共用审批实例；创建、重配与队列 Worker 共用准备及创建服务，标签服务由应用统一提供。审核草稿校验器独立于 Importer；每次校验只使用当前事务传入的 executor。`WithApproval`、`BindReviewApproval(tx)` 等事务作用域仍在事务内建立，不能缓存进长期服务。请求工作状态保持为局部值。跨领域协作采用消费者定义的小接口，导入只接收所需标签操作及元数据调度能力。
 
+HTTP 只接收自身声明的 `httpapi.Dependencies`，按账号、资料库、导入、审核、游玩、内容访问和系统功能分组。`cmd/retrom` 将 application 的已构造服务显式映射到各组；HTTP 不接收完整 `application.Services`，也不导入装配、持久化或数据库包。导入读取与游戏移动用例在启动时构造；清理通知仅依赖 `Signal()` 接口。数据库和可变的 Launch Sources 仅可在测试夹具中持有，不作为生产 Server 字段。依赖仍采用普通 Go 构造和静态字段，不引入 DI 框架或运行时服务查找。
+
 构造不启动后台任务。导入队列通知只发送唤醒信号，`Start` 才启动 Worker；`Close` 取消并等待所属任务，关闭后不可重启。新建与恢复的附件任务都注册到 Importer 生命周期，显式发布恢复也受 Worker 的取消与等待约束。应用启动失败自动发起已构造服务的取消，进程所有者通过 `Close` 等待完成。DAT 索引同样由 application 管理。停止时先取消所有生产任务并拒绝新任务，再等待结束，最后关闭清理 Worker；`Shutdown(ctx)` 超时只表示调用方停止等待，不表示任务已经退出，也不允许释放共享资源。进程总关闭期限与强制退出策略以运维专题为准。
 
 

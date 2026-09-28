@@ -35,7 +35,7 @@ func immersiveDestinationProjection(destination immersive.Destination) map[strin
 
 func (server *Server) immersiveDestinations(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	destinations, err := server.immersive.Destinations(request.Context(), principal.ProfileID)
+	destinations, err := server.libraryDeps.Immersive.Destinations(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -156,7 +156,7 @@ func (server *Server) immersiveLibraryGames(writer http.ResponseWriter, request 
 		}
 		pageCursor = &decoded
 	}
-	page, err := server.immersive.LibraryGames(
+	page, err := server.libraryDeps.Immersive.LibraryGames(
 		request.Context(),
 		principal.ProfileID,
 		kind,

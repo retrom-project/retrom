@@ -50,7 +50,7 @@ func TestReviewDeduplicateHTTPContractAndReplay(t *testing.T) {
 	if response := send(`{"scope":{}}`, csrf, ""); response.Code != http.StatusBadRequest {
 		t.Fatalf("missing key status = %d", response.Code)
 	}
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{UserID: "01980000-0000-7000-8000-000000009999", Role: "USER"}}
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{UserID: "01980000-0000-7000-8000-000000009999", Role: "USER"}}
 	if response := send(`{"scope":{}}`, csrf, uuid.NewString()); response.Code != http.StatusForbidden {
 		t.Fatalf("non-admin status = %d", response.Code)
 	}

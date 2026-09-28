@@ -9,7 +9,7 @@ import (
 	dbapi "retrom/internal/database"
 )
 
-func assertOwnedGameFile(t *testing.T, server *Server, gameID, fileID string) {
+func assertOwnedGameFile(t *testing.T, server *testServer, gameID, fileID string) {
 	t.Helper()
 	var retained bool
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM game_files WHERE file_record=? AND game_id=?)`, fileID, gameID).Scan(&retained); err != nil {
@@ -18,7 +18,7 @@ func assertOwnedGameFile(t *testing.T, server *Server, gameID, fileID string) {
 	if !retained {
 		t.Fatal("other game's file ownership changed")
 	}
-	file, err := server.blobs.OpenRecord(fileID)
+	file, err := server.contentDeps.Files.OpenRecord(fileID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func assertOwnedGameFile(t *testing.T, server *Server, gameID, fileID string) {
 	}
 }
 
-func assertRetiredGameFile(t *testing.T, server *Server, fileID string) {
+func assertRetiredGameFile(t *testing.T, server *testServer, fileID string) {
 	t.Helper()
 	var retained bool
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT EXISTS(SELECT 1 FROM game_files WHERE file_record=?)`, fileID).Scan(&retained); err != nil {

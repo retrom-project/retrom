@@ -25,7 +25,7 @@ func (server *Server) createReviewAsset(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核封面参数无效", map[string]any{})
 		return
 	}
-	result, err := server.reviewCoverUploads.Upload(request.Context(), libraryservice.ReviewCoverRequest{
+	result, err := server.reviewDeps.CoverUploads.Upload(request.Context(), libraryservice.ReviewCoverRequest{
 		ItemID: request.PathValue("importItemId"), UploadFileID: body.UploadFileID,
 		Kind: body.Kind, ExpectedVersion: expected,
 	})

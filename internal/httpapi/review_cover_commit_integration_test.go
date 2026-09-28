@@ -38,7 +38,7 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewCoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
+	server.reviewDeps.CoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
 	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusInternalServerError || inserted != 1 || failed != 1 {
 		t.Fatalf("consumption SQL failure misclassified: status=%d inserted=%d failed=%d body=%s", response.Code, inserted, failed, response.Body.String())
@@ -61,7 +61,7 @@ func TestReviewCoverDiscardedDraftCannotConsumeUpload(t *testing.T) {
 	assertReviewCoverCounts(t, server, itemID, 0)
 }
 
-func assertReviewCoverCounts(t *testing.T, server *Server, itemID string, want int) {
+func assertReviewCoverCounts(t *testing.T, server *testServer, itemID string, want int) {
 	t.Helper()
 	var assets, consumptions int
 	var version int64

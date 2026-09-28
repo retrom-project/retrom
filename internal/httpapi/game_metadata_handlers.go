@@ -28,7 +28,7 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "候选采用字段无效", map[string]any{})
 		return
 	}
-	result, err := server.gameMetadata.ApplyCandidate(
+	result, err := server.libraryDeps.Metadata.ApplyCandidate(
 		request.Context(), gamemetadata.ApplyCandidateRequest{
 			GameID: request.PathValue("gameId"), CandidateID: request.PathValue("candidateId"),
 			ExpectedVersion: expected, Fields: body.Fields, SelectedAssets: body.SelectedAssets,
@@ -76,8 +76,8 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		server.databaseError(writer, request, err)
 		return
 	}
-	if server.cleanupJobs != nil {
-		server.cleanupJobs.Signal()
+	if server.systemDeps.Cleanup != nil {
+		server.systemDeps.Cleanup.Signal()
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(

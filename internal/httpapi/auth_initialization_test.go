@@ -77,7 +77,7 @@ func assertInitialAdministratorSession(t *testing.T, handler http.Handler, initi
 	}
 }
 
-func assertInitializationRows(t *testing.T, server *Server, expected int) {
+func assertInitializationRows(t *testing.T, server *testServer, expected int) {
 	t.Helper()
 	var users, admins, profiles, credentials, sessions, audits int
 	err := dbapi.QueryRowContext(t.Context(), server.database, `

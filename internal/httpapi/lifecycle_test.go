@@ -6,8 +6,12 @@ import (
 )
 
 func TestWaitJoinsDeferredValidationAfterResponse(t *testing.T) {
-	server := &Server{}
-	// Model validation scheduled by a handler after persisting its response.
+	server := &testServer{
+		Server:
+		// Model validation scheduled by a handler after persisting its response.
+		&Server{},
+	}
+
 	entered, release, joined := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	finish := sync.OnceFunc(func() { close(release) })
 	defer finish()

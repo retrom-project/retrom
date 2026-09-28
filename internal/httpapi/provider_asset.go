@@ -16,5 +16,5 @@ func (server *Server) serveProviderAsset(
 	forwarded.SetPathValue("providerId", asset.ProviderID)
 	forwarded.SetPathValue("bundleSha256", asset.BundleSHA256)
 	forwarded.SetPathValue("runtimePath", asset.Path)
-	server.runtimeProvider.ServeHTTP(writer, forwarded)
+	server.playDeps.Provider.ServeHTTP(writer, forwarded)
 }

@@ -34,7 +34,7 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 	}
 	canonical, _ := json.Marshal(body)
 	digestBytes := sha256.Sum256(append([]byte("postLaunch\x00"+principal.UserID+"\x00"), canonical...))
-	receipt, err := server.launcher.CreateProduct(request.Context(), launchservice.ProductCreateCommand{
+	receipt, err := server.playDeps.Launcher.CreateProduct(request.Context(), launchservice.ProductCreateCommand{
 		ActorID: principal.UserID, ProfileID: principal.ProfileID, Key: key,
 		Digest: hex.EncodeToString(digestBytes[:]), Request: body,
 	})
@@ -84,7 +84,7 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 	if err != nil || parsed.Version() != 7 {
 		return
 	}
-	capability := server.credentials.Capability(parsed)
+	capability := server.contentDeps.Credentials.Capability(parsed)
 	server.setLaunchCookieValue(writer, launchID, retromruntime.EncodeCapability(capability))
 }
 
@@ -123,12 +123,12 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	itemID := request.PathValue("importItemId")
-	if err := server.importer.RefreshReviewPreviewValidation(request.Context(), itemID); err != nil {
+	if err := server.importDeps.Importer.RefreshReviewPreviewValidation(request.Context(), itemID); err != nil {
 		writeError(writer, request, http.StatusUnprocessableEntity,
 			"REVIEW_PREVIEW_UNAVAILABLE", "无法刷新审核运行依赖", map[string]any{})
 		return
 	}
-	created, err := server.launcher.CreateReviewPreview(request.Context(), launch.ReviewPreviewRequest{
+	created, err := server.playDeps.Launcher.CreateReviewPreview(request.Context(), launch.ReviewPreviewRequest{
 		ImportItemID: request.PathValue("importItemId"), ActorUserID: principal.UserID,
 		IdempotencyKey: key, ClientCapabilities: body.ClientCapabilities, RestoreFromPreviewID: body.RestoreFromPreviewID,
 	})
@@ -156,14 +156,14 @@ func (server *Server) launchCapability(request *http.Request) string {
 
 func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Request) {
 	capability := server.launchCapability(request)
-	configuration, err := server.launcher.Config(
+	configuration, err := server.playDeps.Launcher.Config(
 		request.Context(),
 		request.PathValue("launchId"),
 		capability,
 	)
 	productErr := err
 	if errors.Is(err, launch.ErrCredential) {
-		configuration, err = server.launcher.ReviewPreviewConfig(
+		configuration, err = server.playDeps.Launcher.ReviewPreviewConfig(
 			request.Context(), request.PathValue("launchId"), capability,
 		)
 	}
@@ -177,7 +177,7 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
-	if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
+	if dimensions, dimensionErr := server.playDeps.Launcher.MultiDiscTelemetryDimensions(
 		request.Context(), request.PathValue("launchId"), capability,
 	); dimensionErr == nil {
 		logMultiDiscRuntime(
@@ -199,7 +199,7 @@ func (server *Server) launchProgress(writer http.ResponseWriter, request *http.R
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游玩进度无效", map[string]any{})
 		return
 	}
-	result, err := server.launcher.RecordPlaySnapshot(request.Context(), request.PathValue("launchId"),
+	result, err := server.playDeps.Launcher.RecordPlaySnapshot(request.Context(), request.PathValue("launchId"),
 		server.launchCapability(request), body)
 	if err != nil {
 		if errors.Is(err, launch.ErrCredential) {
@@ -225,7 +225,7 @@ func (server *Server) launchProgress(writer http.ResponseWriter, request *http.R
 
 func (server *Server) launchFinish(writer http.ResponseWriter, request *http.Request) {
 	id := request.PathValue("launchId")
-	err := server.launcher.FinishReviewPreview(request.Context(), id, server.launchCapability(request))
+	err := server.playDeps.Launcher.FinishReviewPreview(request.Context(), id, server.launchCapability(request))
 	if err != nil {
 		if errors.Is(err, launch.ErrCredential) {
 			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "试玩会话不可用", map[string]any{})
@@ -268,7 +268,7 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		return
 	}
 	request.Body = http.MaxBytesReader(writer, request.Body, saves.MaxRequestBytes)
-	result, replayed, err := server.saveService.CreateManual(
+	result, replayed, err := server.playDeps.Saves.CreateManual(
 		request.Context(),
 		request.PathValue("launchId"),
 		server.launchCapability(request),
@@ -329,7 +329,7 @@ func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http
 	if server.rejectInvalidSaveSession(writer, request) {
 		return
 	}
-	result, err := server.saveService.CheckpointStatus(
+	result, err := server.playDeps.Saves.CheckpointStatus(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
 	)
 	if errors.Is(err, saves.ErrCredential) {
@@ -344,7 +344,7 @@ func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) rejectInvalidSaveSession(writer http.ResponseWriter, request *http.Request) bool {
-	err := server.launcher.AuthorizeSave(
+	err := server.playDeps.Launcher.AuthorizeSave(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
 	)
 	if err != nil {
@@ -361,7 +361,7 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	digest, err := server.saveService.StateFile(
+	digest, err := server.playDeps.Saves.StateFile(
 		request.Context(),
 		request.PathValue("launchId"),
 		server.launchCapability(request),
@@ -408,7 +408,7 @@ func (server *Server) serveBlob(
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenRecord(id)
+	file, err := server.contentDeps.Files.OpenRecord(id)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "内容不可用", map[string]any{})
 		return

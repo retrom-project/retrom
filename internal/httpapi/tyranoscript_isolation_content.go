@@ -49,7 +49,7 @@ func (server *Server) tyranoScriptBootstrapPage(
 		http.Redirect(writer, request, "/__retrom/tyranoscript/entry", http.StatusSeeOther)
 		return
 	}
-	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
+	inspected, err := server.playDeps.Isolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
 	if err != nil || inspected.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
@@ -84,7 +84,7 @@ func (server *Server) tyranoScriptBootstrapConsume(
 		http.NotFound(writer, request)
 		return
 	}
-	credential, consumed, err := server.rpgIsolation.ConsumeTicket(
+	credential, consumed, err := server.playDeps.Isolation.ConsumeTicket(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
 	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" {
@@ -108,7 +108,7 @@ func (server *Server) tyranoScriptRuntimeEntry(
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.TyranoScriptProjectContentAuthorized(
+	content, err := server.playDeps.Launcher.TyranoScriptProjectContentAuthorized(
 		request.Context(), access.LaunchID, "index.html", authorized.Preview,
 	)
 	if err != nil {
@@ -147,7 +147,7 @@ func (server *Server) tyranoScriptRuntimeBridge(
 		http.NotFound(writer, request)
 		return
 	}
-	asset, err := server.launcher.ProviderAssetAuthorized(
+	asset, err := server.playDeps.Launcher.ProviderAssetAuthorized(
 		request.Context(), access.LaunchID, authorized.Preview, "bridge.js",
 	)
 	if err != nil {
@@ -177,7 +177,7 @@ func (server *Server) tyranoScriptRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.TyranoScriptProjectContentAuthorized(
+	content, err := server.playDeps.Launcher.TyranoScriptProjectContentAuthorized(
 		request.Context(), access.LaunchID, logicalName, authorized.Preview,
 	)
 	if err != nil {

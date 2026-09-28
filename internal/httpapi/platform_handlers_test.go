@@ -151,8 +151,7 @@ func decodeCreatedImport(t *testing.T, response *httptest.ResponseRecorder) libr
 
 func waitForImportState(
 	t *testing.T,
-	server *Server,
-	importID string,
+	server *testServer, importID string,
 	done func(string) bool,
 ) string {
 	t.Helper()
@@ -182,17 +181,17 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 		dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.Close()
-	server.importer = importfixture.New(t, server.database, server.blobs, importfixture.Options{Now: server.now, MultiDiscEnabled: true, Scraper: server.metadata})
-	t.Cleanup(server.importer.Close)
-	server.importer.Start()
-	server.importAdmissions = librarycomposition.NewImportAdmissions(server.database,
-		server.importer, server.tagService, libraryservice.ImportAdmissionOptions{
+	server.importDeps.Importer.Close()
+	server.importDeps.Importer = importfixture.New(t, server.database, server.contentDeps.Files, importfixture.Options{Now: server.now, MultiDiscEnabled: true, Scraper: server.reviewDeps.Metadata})
+	t.Cleanup(server.importDeps.Importer.Close)
+	server.importDeps.Importer.Start()
+	server.importDeps.Admissions = librarycomposition.NewImportAdmissions(server.database,
+		server.importDeps.Importer, server.libraryDeps.Tags, libraryservice.ImportAdmissionOptions{
 			Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
 		})
 	createUpload := func(uploadID, fileID string) {
 		t.Helper()
-		metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
+		metadata, err := server.contentDeps.Files.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
 		testassert.False(t, err != nil, err)
 		fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 		testassert.False(t, err != nil, err)

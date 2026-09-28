@@ -8,7 +8,7 @@ import (
 )
 
 func (server *Server) platforms(writer http.ResponseWriter, request *http.Request) {
-	platforms, err := server.catalogService.Platforms(request.Context())
+	platforms, err := server.libraryDeps.Catalog.Platforms(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -30,7 +30,7 @@ func (server *Server) platforms(writer http.ResponseWriter, request *http.Reques
 }
 
 func (server *Server) runtimeTargets(writer http.ResponseWriter, request *http.Request) {
-	targets, err := server.catalogService.RuntimeTargets(request.Context())
+	targets, err := server.libraryDeps.Catalog.RuntimeTargets(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -68,7 +68,7 @@ func (server *Server) platformInstances(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "目录启用状态无效", map[string]any{})
 		return
 	}
-	instances, err := server.catalogService.PlatformInstances(
+	instances, err := server.libraryDeps.Catalog.PlatformInstances(
 		request.Context(), query, server.config.MultiDiscImportEnabled,
 	)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 )
 
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
-	result, err := server.reviewDetails.Get(request.Context(), request.PathValue("importItemId"))
+	result, err := server.reviewDeps.Details.Get(request.Context(), request.PathValue("importItemId"))
 	if errors.Is(err, libraryservice.ErrReviewNotFound) {
 		server.notFound(writer, request)
 		return
