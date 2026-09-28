@@ -17,6 +17,7 @@ import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import {installVirtualStandardGamepad, sendGamepadInput} from "./standard_gamepad.mjs";
+import {visibleButterscotchFrame} from "./butterscotch_frame.mjs";
 
 const caseId = "ACC-BUTTERSCOTCH-001";
 const requiredEnvironment = [
@@ -276,6 +277,7 @@ async function waitForCheckpoint(page) {
 }
 
 async function createCheckpoint(page, launchId) {
+  await waitForCheckpoint(page);
   await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
   const responsePromise = page.waitForResponse((response) =>
@@ -288,6 +290,10 @@ async function createCheckpoint(page, launchId) {
 }
 
 async function screenshotEvidence(canvas, filename) {
+  return visibleButterscotchFrame(() => captureScreenshotEvidence(canvas, filename));
+}
+
+async function captureScreenshotEvidence(canvas, filename) {
   const layout = await canvasLayoutEvidence(canvas);
   if (!validCanvasLayout(layout)) {throw new Error("BUTTERSCOTCH_ACCEPTANCE_CANVAS_LAYOUT_INVALID");}
   const screenshot = await canvas.screenshot({ type: "png", path: join(screenshotsDirectory, filename) });

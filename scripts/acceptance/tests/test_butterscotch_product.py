@@ -17,6 +17,10 @@ NODE_PATH = ROOT / ".cache/tools/node-v24.18.0-linux-x64/bin/node"
 
 
 class ButterscotchProductAcceptanceTests(unittest.TestCase):
+    def test_transient_dark_frames_preserve_the_visual_acceptance_requirement(self) -> None:
+        subprocess.run([NODE_PATH, "--test", "scripts/acceptance/tests/butterscotch_frame.test.mjs"],
+                       cwd=ROOT, check=True, capture_output=True, text=True, timeout=10)
+
     def test_formal_case_is_registered(self) -> None:
         spec = importlib.util.spec_from_file_location("acceptance_run_butterscotch", RUNNER_PATH)
         assert spec and spec.loader
