@@ -4,7 +4,7 @@ import (
 	"context"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // ReviewDeduplicates owns the transaction-scoped readers and discard scope
@@ -16,10 +16,10 @@ func NewReviewDeduplicates(database dbapi.DB) *ReviewDeduplicates {
 }
 
 func (repository *ReviewDeduplicates) WithDeduplicate(
-	ctx context.Context, work func(application.ReviewDeduplicateScope) error,
+	ctx context.Context, work func(libraryservice.ReviewDeduplicateScope) error,
 ) error {
 	return NewTransactions(repository.database).Write(ctx, func(executor dbapi.Executor) error {
-		scope := application.ReviewDeduplicateScope{
+		scope := libraryservice.ReviewDeduplicateScope{
 			Reader:     BindReviewBulkQueries(executor),
 			Duplicates: BindContentDuplicates(executor),
 			Discard:    BindReviewDiscard(executor),
@@ -28,4 +28,4 @@ func (repository *ReviewDeduplicates) WithDeduplicate(
 	})
 }
 
-var _ application.ReviewDeduplicateRepository = (*ReviewDeduplicates)(nil)
+var _ libraryservice.ReviewDeduplicateRepository = (*ReviewDeduplicates)(nil)

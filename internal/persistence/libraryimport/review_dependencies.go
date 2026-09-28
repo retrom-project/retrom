@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewDependencies struct {
@@ -21,8 +21,8 @@ func BindReviewDependencies(executor dbapi.Executor) *ReviewDependencies {
 func (records *ReviewDependencies) Head(
 	ctx context.Context,
 	itemID string,
-) (application.ReviewDependencyHead, error) {
-	var result application.ReviewDependencyHead
+) (libraryservice.ReviewDependencyHead, error) {
+	var result libraryservice.ReviewDependencyHead
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.effective_source_snapshot_id,snapshot.content_kind,platform.platform_id,
 validation.status,validation.compatibility_code,validation.dependency_snapshot_json
@@ -42,7 +42,7 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'`,
 		&result.CompatibilityCode,
 		&result.DependencyJSON)
 	if err != nil {
-		return application.ReviewDependencyHead{}, fmt.Errorf("read review dependency head: %w", err)
+		return libraryservice.ReviewDependencyHead{}, fmt.Errorf("read review dependency head: %w", err)
 	}
 	return result, nil
 }
@@ -50,7 +50,7 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'`,
 func (records *ReviewDependencies) ArcadeAttachments(
 	ctx context.Context,
 	itemID string,
-) ([]application.ArcadeAttachment, error) {
+) ([]libraryservice.ArcadeAttachment, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT id,dependency_machine,expected_logical_name,original_filename,state,error_code,
 job_id,observed_size_bytes,observed_sha256,diagnostics_json,created_at_ms,updated_at_ms,finished_at_ms
@@ -59,9 +59,9 @@ FROM review_arcade_parent_attachments WHERE import_item_id=? ORDER BY created_at
 		return nil, fmt.Errorf("query review arcade attachments: %w", err)
 	}
 	defer func() { cleanup.Error("close arcade attachments", rows.Close()) }()
-	result := make([]application.ArcadeAttachment, 0)
+	result := make([]libraryservice.ArcadeAttachment, 0)
 	for rows.Next() {
-		var row application.ArcadeAttachment
+		var row libraryservice.ArcadeAttachment
 		var diagnostics []byte
 		if err := rows.Scan(&row.ID,
 			&row.Machine,

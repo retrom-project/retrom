@@ -7,11 +7,11 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) PublicationFiles(ctx context.Context,
-	head application.ReviewApprovalHead,
+	head libraryservice.ReviewApprovalHead,
 ) ([]string, error) {
 	values, err := dbapi.QueryStrings(ctx, records.transaction, `
 SELECT file_record FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
@@ -24,7 +24,7 @@ role<>'BIOS_BUNDLE'`, head.SourceSnapshotID, head.ValidationID)
 }
 
 func (records reviewApprovalRecords) PreparePublicationRecords(ctx context.Context,
-	intent application.Publication,
+	intent libraryservice.Publication,
 ) error {
 	for _, file := range intent.Files {
 		if err := recordstore.CopyArchiveFacts(ctx, records.transaction, file.Source, file.Staged); err != nil {

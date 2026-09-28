@@ -67,13 +67,23 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	}
 	uploader := uploads.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
 	t.Cleanup(uploader.Close)
-	server := &Server{
-		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
-		database:           database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}),
+	server := &testServer{
+		database: database.SQL,
+		Server: &Server{
+			systemDeps: SystemDependencies{
+				Idempotency: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+				Jobs:        jobs.New(jobpersistence.New(database.SQL), now),
+			},
+			now: now,
+			importDeps: ImportDependencies{
+				Uploads:  uploader,
+				Importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}),
+			},
+		},
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	t.Cleanup(server.importer.Close)
+	t.Cleanup(server.importDeps.Importer.Close)
+	t.Cleanup(server.Wait)
 	session, err := uploader.Create(t.Context(), uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{

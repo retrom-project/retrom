@@ -21,7 +21,7 @@ type queueRegressionPage struct {
 	NextCursor *string `json:"nextCursor"`
 }
 
-func seedReviewQueuePagination(t *testing.T, server *Server) []string {
+func seedReviewQueuePagination(t *testing.T, server *testServer) []string {
 	t.Helper()
 	instance := testsupport.MustPlatformInstanceID(t, server.database, "gba/mgba")
 	digest := strings.Repeat("a", 64)
@@ -41,7 +41,7 @@ VALUES(?,'queue-import',?,'REVIEW_PENDING','{"files":[{"logicalName":"queue.gba"
 	return ids
 }
 
-func readReviewQueuePage(t *testing.T, server *Server, query url.Values) queueRegressionPage {
+func readReviewQueuePage(t *testing.T, server *testServer, query url.Values) queueRegressionPage {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews?"+query.Encode(), nil)
 	response := httptest.NewRecorder()

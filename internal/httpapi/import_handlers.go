@@ -131,7 +131,7 @@ func (server *Server) createReviewArcadeParentAttachment(writer http.ResponseWri
 		func(ctx context.Context, itemID string, version int64, body libraryimport.ParentAttachmentRequest) (
 			reviewAttachmentCreated, error,
 		) {
-			created, err := server.importer.CreateArcadeParentAttachment(ctx, itemID, version, body)
+			created, err := server.importDeps.Importer.CreateArcadeParentAttachment(ctx, itemID, version, body)
 			if err != nil {
 				return reviewAttachmentCreated{}, fmt.Errorf("create arcade parent attachment: %w", err)
 			}
@@ -150,7 +150,7 @@ func (server *Server) createReviewMultiDiscAttachment(writer http.ResponseWriter
 		func(ctx context.Context, itemID string, version int64, body libraryimport.MultiDiscAttachmentRequest) (
 			reviewAttachmentCreated, error,
 		) {
-			created, err := server.importer.CreateMultiDiscAttachment(ctx, itemID, version, body)
+			created, err := server.importDeps.Importer.CreateMultiDiscAttachment(ctx, itemID, version, body)
 			if err != nil {
 				return reviewAttachmentCreated{}, fmt.Errorf("create multi-disc attachment: %w", err)
 			}
@@ -169,7 +169,7 @@ func (server *Server) importMultiDiscItemSummaries(
 	ctx context.Context,
 	importJobID string,
 ) ([]importMultiDiscItemSummary, error) {
-	result, err := server.importReads().MultiDiscItemSummaries(ctx, importJobID)
+	result, err := server.importDeps.Reads.MultiDiscItemSummaries(ctx, importJobID)
 	if err != nil {
 		return nil, fmt.Errorf("read multi-disc item summaries: %w", err)
 	}
@@ -178,7 +178,7 @@ func (server *Server) importMultiDiscItemSummaries(
 
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
-	item, err := server.importReads().Detail(request.Context(), request.PathValue("importJobId"))
+	item, err := server.importDeps.Reads.Detail(request.Context(), request.PathValue("importJobId"))
 	if errors.Is(err, sql.ErrNoRows) {
 		server.notFound(writer, request)
 		return
@@ -211,7 +211,7 @@ func (server *Server) reconfigureImport(writer http.ResponseWriter, request *htt
 			return
 		}
 	}
-	created, err := server.importer.Reconfigure(
+	created, err := server.importDeps.Importer.Reconfigure(
 		request.Context(),
 		request.PathValue("importJobId"),
 		version,
@@ -256,7 +256,7 @@ func (server *Server) cancelImport(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "取消原因无效", map[string]any{})
 		return
 	}
-	result, pending, err := server.importer.Cancel(
+	result, pending, err := server.importDeps.Importer.Cancel(
 		request.Context(),
 		request.PathValue("importJobId"),
 		version,
@@ -295,7 +295,7 @@ func (server *Server) retryImportItem(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "重试请求无效", map[string]any{})
 		return
 	}
-	result, err := server.importer.RetryItem(request.Context(), request.PathValue("importItemId"), version)
+	result, err := server.importDeps.Importer.RetryItem(request.Context(), request.PathValue("importItemId"), version)
 	if err != nil {
 		writeError(
 			writer,
@@ -325,7 +325,9 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 		writeTagError(writer, request, err)
 		return
 	}
-	result, err := server.importer.PatchDraft(request.Context(), request.PathValue("importItemId"), version, body)
+	result, err := server.importDeps.Importer.PatchDraft(
+		request.Context(), request.PathValue("importItemId"), version, body,
+	)
 	if errors.Is(err, libraryimport.ErrReimportRequiredPlatformChange) {
 		writeError(
 			writer,
@@ -376,7 +378,7 @@ func (server *Server) scrapeReview(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "刮削请求无效", map[string]any{})
 		return
 	}
-	scheduled, version, err := server.metadata.ScheduleReview(
+	scheduled, version, err := server.reviewDeps.Metadata.ScheduleReview(
 		request.Context(),
 		request.PathValue("importItemId"),
 		expected,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (server *Server) createReviewAsset(writer http.ResponseWriter, request *http.Request) {
@@ -25,7 +25,7 @@ func (server *Server) createReviewAsset(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核封面参数无效", map[string]any{})
 		return
 	}
-	result, err := server.reviewCoverUploads.Upload(request.Context(), application.ReviewCoverRequest{
+	result, err := server.reviewDeps.CoverUploads.Upload(request.Context(), libraryservice.ReviewCoverRequest{
 		ItemID: request.PathValue("importItemId"), UploadFileID: body.UploadFileID,
 		Kind: body.Kind, ExpectedVersion: expected,
 	})
@@ -35,23 +35,23 @@ func (server *Server) createReviewAsset(writer http.ResponseWriter, request *htt
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(writer, http.StatusCreated, struct {
-		application.ReviewCoverResult
+		libraryservice.ReviewCoverResult
 		URL string `json:"url"`
 	}{ReviewCoverResult: result, URL: "/api/v1/admin/review-assets/" + result.AssetID})
 }
 
 func (server *Server) reviewCoverError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, application.ErrReviewCoverUploadInvalid):
+	case errors.Is(err, libraryservice.ErrReviewCoverUploadInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity, "ASSET_UPLOAD_INVALID", "上传文件不可用", map[string]any{})
-	case errors.Is(err, application.ErrReviewCoverStorageUnavailable):
+	case errors.Is(err, libraryservice.ErrReviewCoverStorageUnavailable):
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "媒体字节不可用", map[string]any{})
-	case errors.Is(err, application.ErrReviewCoverImageInvalid):
+	case errors.Is(err, libraryservice.ErrReviewCoverImageInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity,
 			"ASSET_IMAGE_INVALID", "封面必须是受限 PNG、JPEG 或 WebP", map[string]any{})
-	case errors.Is(err, application.ErrReviewCoverVersion):
+	case errors.Is(err, libraryservice.ErrReviewCoverVersion):
 		writeError(writer, request, http.StatusConflict, "REVIEW_VERSION_CONFLICT", "审核条目已发生变化", map[string]any{})
-	case errors.Is(err, application.ErrReviewCoverConsumed):
+	case errors.Is(err, libraryservice.ErrReviewCoverConsumed):
 		writeError(writer, request, http.StatusConflict, "UPLOAD_ALREADY_CONSUMED", "上传文件已被其他操作占用", map[string]any{})
 	default:
 		server.databaseError(writer, request, err)

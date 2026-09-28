@@ -21,7 +21,7 @@ func (server *Server) createSourceImport(writer http.ResponseWriter, request *ht
 		sourceimport.CreateRequest{},
 		"Source 扫描配置无效",
 		"/api/v1/admin/source-imports/",
-		server.sourceImports.Create,
+		server.importDeps.Source.Create,
 		func(summary sourceimport.Summary) string { return summary.ID },
 		writeSourceSummary,
 		server.writeSourceImportError,
@@ -55,7 +55,7 @@ func (server *Server) sourceImportList(writer http.ResponseWriter, request *http
 		}
 		beforeID = payload.ID
 	}
-	items, err := server.sourceImports.List(request.Context(), sourceimport.ListQuery{
+	items, err := server.importDeps.Source.List(request.Context(), sourceimport.ListQuery{
 		State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit + 1,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func (server *Server) sourceImportList(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) sourceImportDetail(writer http.ResponseWriter, request *http.Request) {
-	summary, err := server.sourceImports.Get(request.Context(), request.PathValue("sourceImportId"))
+	summary, err := server.importDeps.Source.Get(request.Context(), request.PathValue("sourceImportId"))
 	if err != nil {
 		server.writeSourceImportError(writer, request, err)
 		return
@@ -117,7 +117,7 @@ func (server *Server) sourceImportCollections(writer http.ResponseWriter, reques
 		}
 		afterID = payload.ID
 	}
-	items, err := server.sourceImports.Collections(
+	items, err := server.importDeps.Source.Collections(
 		request.Context(), sourceimport.CollectionQuery{
 			ImportID: importID, AfterPath: afterPath, AfterOrdinal: afterOrdinal, AfterID: afterID, Limit: limit + 1,
 		},
@@ -156,7 +156,7 @@ func (server *Server) updateSourceMappings(writer http.ResponseWriter, request *
 		},
 		func(ctx context.Context, id string, version int64, mappings []sourceimport.Mapping) (sourceimport.Summary, error) {
 			principal, _ := authn.PrincipalFromContext(ctx)
-			return server.sourceImports.UpdateMappings(ctx, id, version, mappings, principal.UserID)
+			return server.importDeps.Source.UpdateMappings(ctx, id, version, mappings, principal.UserID)
 		},
 		writeSourceSummary,
 		server.writeSourceImportError,
@@ -170,7 +170,7 @@ func (server *Server) startSourceImport(writer http.ResponseWriter, request *htt
 		"sourceImportId",
 		func(ctx context.Context, id string, version int64) (sourceimport.Summary, error) {
 			principal, _ := authn.PrincipalFromContext(ctx)
-			return server.sourceImports.StartImport(ctx, id, version, principal.UserID)
+			return server.importDeps.Source.StartImport(ctx, id, version, principal.UserID)
 		},
 		writeSourceSummary,
 		server.writeSourceImportError,
@@ -201,7 +201,7 @@ func (server *Server) sourceImportItems(writer http.ResponseWriter, request *htt
 		}
 		afterTitle, afterID = payload.SortValues[0], payload.ID
 	}
-	items, err := server.sourceImports.Items(
+	items, err := server.importDeps.Source.Items(
 		request.Context(), sourceimport.ItemQuery{
 			ImportID: importID, Text: strings.TrimSpace(values.Get("q")), Outcome: values.Get("outcome"),
 			Warning: values.Get("warning"), CollectionID: values.Get("collectionId"),
@@ -235,7 +235,7 @@ func (server *Server) cancelSourceImport(writer http.ResponseWriter, request *ht
 		writer,
 		request,
 		"sourceImportId",
-		server.sourceImports.Cancel,
+		server.importDeps.Source.Cancel,
 		writeSourceSummary,
 		server.writeSourceImportError,
 	)
@@ -246,7 +246,7 @@ func (server *Server) retrySourceImport(writer http.ResponseWriter, request *htt
 		writer,
 		request,
 		"sourceImportId",
-		server.sourceImports.Retry,
+		server.importDeps.Source.Retry,
 		writeSourceSummary,
 		server.writeSourceImportError,
 	)
@@ -266,7 +266,7 @@ func (server *Server) deleteSourceImport(writer http.ResponseWriter, request *ht
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	if err := server.sourceImports.Delete(
+	if err := server.importDeps.Source.Delete(
 		request.Context(), request.PathValue("sourceImportId"), version, principal.UserID,
 	); err != nil {
 		server.writeSourceImportError(writer, request, err)

@@ -28,7 +28,9 @@ func TestGeneratedProjectIndexOnlyStaticFormatFallsBack(t *testing.T) {
 	}
 	for _, item := range cases {
 		t.Run(item.name, func(t *testing.T) {
-			server := &Server{}
+			server := &testServer{
+				Server: &Server{},
+			}
 			writer := httptest.NewRecorder()
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/runtime/content/project/identity/index.json", nil)
 			handled := server.writeGeneratedProjectIndex(writer, request, launch.ProjectIndexView{}, item.cause)
@@ -48,7 +50,9 @@ func TestGeneratedProjectIndexOnlyStaticFormatFallsBack(t *testing.T) {
 func TestGeneratedProjectIndexPreservesJSONHeadersAndHEAD(t *testing.T) {
 	t.Parallel()
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
-		server := &Server{}
+		server := &testServer{
+			Server: &Server{},
+		}
 		writer := httptest.NewRecorder()
 		request := httptest.NewRequestWithContext(t.Context(), method, "/runtime/content/project/identity/index.json", nil)
 		index := launch.ProjectIndexView{Contents: []byte(`{"files":[],"schemaVersion":1}`), SHA256: strings.Repeat("a", 64)}

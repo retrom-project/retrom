@@ -9,7 +9,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	validationpersistence "retrom/internal/persistence/corevalidation"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	contentcapability "retrom/internal/content/capability"
 	corevalidation "retrom/internal/core/validation"
@@ -22,17 +22,17 @@ func prepareStaticBIOSDependencies(
 	providerID, targetID, platformID string,
 	groups []preparedGroup,
 ) error {
-	if err := application.PrepareCreationStaticBIOS(ctx, validationpersistence.New(transaction),
-		application.ImportTarget{ProviderID: providerID, TargetID: targetID, PlatformID: platformID}, groups); err != nil {
+	if err := libraryservice.PrepareCreationStaticBIOS(ctx, validationpersistence.New(transaction),
+		libraryservice.ImportTarget{ProviderID: providerID, TargetID: targetID, PlatformID: platformID}, groups); err != nil {
 		return fmt.Errorf("prepare static BIOS: %w", err)
 	}
 	return nil
 }
 
 type (
-	Approved         = application.ReviewApproved
-	ApprovalDecision = application.ReviewApprovalDecision
-	ExternalAsset    = application.ApprovalExternalAsset
+	Approved         = libraryservice.ReviewApproved
+	ApprovalDecision = libraryservice.ReviewApprovalDecision
+	ExternalAsset    = libraryservice.ApprovalExternalAsset
 )
 
 type approvalValidationDigestInput struct {

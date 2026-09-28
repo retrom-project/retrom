@@ -2,16 +2,14 @@ package application
 
 import (
 	"sync"
+	"sync/atomic"
 
 	gamevariant "retrom/internal/service/gamevariant"
 
-	dbapi "retrom/internal/database"
-
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -25,6 +23,7 @@ import (
 	"retrom/internal/service/gamecontent"
 	gamelistservice "retrom/internal/service/gamelist"
 	gamemetadataservice "retrom/internal/service/gamemetadata"
+	"retrom/internal/service/gamemove"
 	homeservice "retrom/internal/service/home"
 	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/immersive"
@@ -47,11 +46,13 @@ import (
 // Services owns the process services shared by transports and background work.
 type Services struct {
 	lifecycleMu         sync.Mutex
-	started, closed     bool
-	Database            dbapi.DB
-	ReadinessDatabase   dbapi.DB
+	started             bool
+	stopping            atomic.Bool
+	shutdown            *shutdownGroup
+	catalogs            *catalogTask
+	ImportReads         *libraryservice.ImportReads
+	GameMove            *gamemove.Service
 	ReadinessService    *readinessservice.Service
-	Dependencies        *dependencies.Set
 	Blobs               *filestore.Store
 	Credentials         *retromruntime.Credentials
 	Uploads             *uploads.Service
@@ -88,7 +89,7 @@ type Services struct {
 	MetadataEvidence    *metadatascrape.EvidenceQueries
 	ServerImports       *serverimport.Service
 	SourceImports       *sourceimport.Service
-	CleanupJobs         *payloadcomposition.Service
+	CleanupJobs         *cleanupcomposition.Service
 	PlatformDirectories *platforminstance.Service
 	Accounts            *accounts.Service
 	DiagnosticsService  *diagnosticsservice.Service

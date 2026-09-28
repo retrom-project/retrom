@@ -22,9 +22,9 @@ func TestLocalGameSaveRequiresAccountAndCSRF(t *testing.T) {
 		request.Header.Set("Content-Type", "multipart/form-data; boundary=test")
 		request.Header.Set("Idempotency-Key", "01980000-0000-7000-8000-000000000099")
 		request.Header.Set("Origin", server.config.PublicOrigin.String())
-		server.authenticator = nil
+		server.accountDeps.Authenticator = nil
 		if authenticated {
-			server.authenticator = testAuthenticator{}
+			server.accountDeps.Authenticator = testAuthenticator{}
 			request.AddCookie(cookie)
 		}
 		response := httptest.NewRecorder()

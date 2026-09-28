@@ -24,7 +24,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func newAuthHTTPServer(t *testing.T, mode config.Mode) *Server {
+func newAuthHTTPServer(t *testing.T, mode config.Mode) *testServer {
 	t.Helper()
 	root := t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000).UTC() }
@@ -53,13 +53,20 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) *Server {
 	testassert.False(t, err != nil, err)
 	origin, _ := url.Parse("http://localhost:3000")
 	settings := config.Config{Mode: mode, PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: root}
-	services, err := application.New(application.Inputs{
-		Config: settings, Database: database.SQL, Dependencies: dependencySet, Files: blobs,
+	services, err := application.New(t.Context(), application.Inputs{
+		Config: settings, Database: database.SQL, Files: blobs,
 		Credentials: credentials, Accounts: accountService, Now: now,
 	})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(services.Close)
-	server := New(settings, services, accountService, now)
+	server := &testServer{
+		Server:            New(settings, testHTTPDependencies(services, accountService, nil), now),
+		database:          database.SQL,
+		readinessDatabase: database.ReadOnly,
+		dependencies:      dependencySet,
+		launchSources:     services.LaunchSources,
+	}
+	t.Cleanup(server.Wait)
 	server.startupReady.Store(true)
 	return server
 }

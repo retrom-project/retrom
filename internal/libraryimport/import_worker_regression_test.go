@@ -11,15 +11,15 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
 func workerAuthorityFixture(t *testing.T) (*Service, queuedCreationWork) {
 	t.Helper()
 	service, plan := preparedCommitFixture(t)
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryservice.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)
@@ -96,8 +96,8 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 			table,
 			func(t *testing.T) {
 				service, plan := preparedCommitFixture(t)
-				admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-					application.ImportAdmissionOptions{Now: service.now})
+				admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+					libraryservice.ImportAdmissionOptions{Now: service.now})
 				created, err := admissions.Queue(t.Context(), plan.Request)
 				if err != nil {
 					t.Fatal(err)
@@ -140,8 +140,8 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 
 func TestImportWorkerClaimRejectsExpiredExecutionBudget(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryservice.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)

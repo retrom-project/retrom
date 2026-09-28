@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type PreparationCatalog struct{ executor dbapi.Executor }
@@ -48,12 +48,12 @@ func (records *PreparationCatalog) MachineClassification(
 
 func (records *PreparationCatalog) ArcadeRequirements(
 	ctx context.Context, datID, machine string,
-) (application.ArcadeCatalogRequirements, error) {
+) (libraryservice.ArcadeCatalogRequirements, error) {
 	return (approvalDependencyRecords{executor: records.executor}).ArcadeRequirements(ctx, datID, machine)
 }
 
 func (records *PreparationCatalog) MachineRelation(
 	ctx context.Context, datID, machine string,
-) (application.ArcadeMachineRelation, bool, error) {
+) (libraryservice.ArcadeMachineRelation, bool, error) {
 	return BindArcadeRelations(records.executor).MachineRelation(ctx, datID, machine)
 }

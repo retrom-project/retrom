@@ -30,7 +30,7 @@ func (server *Server) authAccountLinkInspect(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "链接请求无效", map[string]any{})
 		return
 	}
-	result, err := server.accounts.InspectAccountLinkRateLimited(
+	result, err := server.accountDeps.Accounts.InspectAccountLinkRateLimited(
 		request.Context(), body.ExpectedKind, body.Token, server.authenticationClientIP(request),
 	)
 	if err != nil {
@@ -49,10 +49,13 @@ func (server *Server) authInvitationAccept(writer http.ResponseWriter, request *
 	if !decodeNewAccountCredential(writer, request, &body, "注册请求无效") {
 		return
 	}
-	session, err := server.accounts.AcceptInvitationRateLimited(request.Context(), accounts.AcceptInvitationRequest{
+	input := accounts.AcceptInvitationRequest{
 		Token: body.Token, Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
-	}, server.authenticationClientIP(request))
+	}
+	session, err := server.accountDeps.Accounts.AcceptInvitationRateLimited(
+		request.Context(), input, server.authenticationClientIP(request),
+	)
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -70,7 +73,7 @@ func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "密码重置请求无效", map[string]any{})
 		return
 	}
-	result, err := server.accounts.CompletePasswordResetRateLimited(
+	result, err := server.accountDeps.Accounts.CompletePasswordResetRateLimited(
 		request.Context(), accounts.CompletePasswordResetRequest{
 			Token: body.Token, Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 		}, server.authenticationClientIP(request))
@@ -101,7 +104,7 @@ func (server *Server) adminCreateInvitation(writer http.ResponseWriter, request 
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "邀请请求无效", map[string]any{})
 		return
 	}
-	result, replayed, err := server.accounts.CreateInvitation(
+	result, replayed, err := server.accountDeps.Accounts.CreateInvitation(
 		request.Context(), principal, body.Role, body.ConfirmAdminRole, key,
 	)
 	if err != nil {
@@ -158,7 +161,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 		}
 		filter.AfterValues, filter.AfterID = payload.SortValues, payload.ID
 	}
-	items, err := server.accounts.ListUsers(request.Context(), filter)
+	items, err := server.accountDeps.Accounts.ListUsers(request.Context(), filter)
 	if err != nil {
 		if errors.Is(err, accounts.ErrUserQuery) {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "用户筛选无效", map[string]any{})
@@ -203,7 +206,7 @@ func adminUserCursorSortValues(user accounts.AdminUser, sortCode string) []strin
 }
 
 func (server *Server) adminUser(writer http.ResponseWriter, request *http.Request) {
-	result, err := server.accounts.GetUser(request.Context(), request.PathValue("userId"))
+	result, err := server.accountDeps.Accounts.GetUser(request.Context(), request.PathValue("userId"))
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -234,7 +237,7 @@ func (server *Server) adminPatchUser(writer http.ResponseWriter, request *http.R
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "用户修改请求无效", map[string]any{})
 		return
 	}
-	result, replayed, err := server.accounts.UpdateUser(
+	result, replayed, err := server.accountDeps.Accounts.UpdateUser(
 		request.Context(), principal, request.PathValue("userId"), expected,
 		accounts.UserPatch{Role: body.Role, Status: body.Status, ConfirmAdminRole: body.ConfirmAdminRole}, key,
 	)
@@ -269,7 +272,7 @@ func (server *Server) adminDeleteUser(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "用户删除请求无效", map[string]any{})
 		return
 	}
-	replayed, err := server.accounts.DeleteUser(
+	replayed, err := server.accountDeps.Accounts.DeleteUser(
 		request.Context(), principal, request.PathValue("userId"), expected, body.ConfirmUsername, key,
 	)
 	if err != nil {
@@ -305,7 +308,7 @@ func (server *Server) adminAccountLinks(
 	operationID := "getAdminInvitations"
 	if kind == "PASSWORD_RESET" {
 		operationID = "getAdminUserPasswordResetLinks"
-		if _, err := server.accounts.GetUser(request.Context(), targetUserID); err != nil {
+		if _, err := server.accountDeps.Accounts.GetUser(request.Context(), targetUserID); err != nil {
 			server.writeAccountError(writer, request, err)
 			return
 		}
@@ -333,7 +336,7 @@ func (server *Server) adminAccountLinks(
 		}
 		filter.AfterAtMS, filter.AfterID = createdAt, payload.ID
 	}
-	items, err := server.accounts.ListAccountLinks(request.Context(), filter)
+	items, err := server.accountDeps.Accounts.ListAccountLinks(request.Context(), filter)
 	if err != nil {
 		if errors.Is(err, accounts.ErrAccountLinkUnavailable) {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "链接筛选无效", map[string]any{})
@@ -379,7 +382,7 @@ func (server *Server) adminCreatePasswordReset(writer http.ResponseWriter, reque
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "密码重置链接请求无效", map[string]any{})
 		return
 	}
-	result, replayed, err := server.accounts.CreatePasswordReset(
+	result, replayed, err := server.accountDeps.Accounts.CreatePasswordReset(
 		request.Context(), principal, request.PathValue("userId"), expected, key,
 	)
 	if err != nil {
@@ -416,7 +419,7 @@ func (server *Server) adminRevokeAccountLink(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "链接撤销请求无效", map[string]any{})
 		return
 	}
-	replayed, err := server.accounts.RevokeAccountLink(
+	replayed, err := server.accountDeps.Accounts.RevokeAccountLink(
 		request.Context(), principal, request.PathValue("accountLinkId"), expected, key,
 	)
 	if err != nil {

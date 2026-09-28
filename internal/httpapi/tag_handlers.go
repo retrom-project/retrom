@@ -144,12 +144,12 @@ func (server *Server) adminTags(writer http.ResponseWriter, request *http.Reques
 		}
 		filter.AfterValues, filter.AfterID = payload.SortValues, payload.ID
 	}
-	items, err := server.tagService.List(request.Context(), filter)
+	items, err := server.libraryDeps.Tags.List(request.Context(), filter)
 	if err != nil {
 		writeTagError(writer, request, err)
 		return
 	}
-	summary, err := server.tagService.Summary(request.Context())
+	summary, err := server.libraryDeps.Tags.Summary(request.Context())
 	if err != nil {
 		writeTagError(writer, request, err)
 		return
@@ -175,7 +175,7 @@ func (server *Server) createAdminTag(writer http.ResponseWriter, request *http.R
 	if err := decodeJSON(writer, request, &body, 4096); err != nil {
 		return
 	}
-	result, err := server.tagService.Create(request.Context(), tagActorID(request), body.Name)
+	result, err := server.libraryDeps.Tags.Create(request.Context(), tagActorID(request), body.Name)
 	if err != nil {
 		writeTagError(writer, request, err)
 		return
@@ -192,7 +192,7 @@ func (server *Server) applyAdminTagDefaults(writer http.ResponseWriter, request 
 	if err := decodeJSON(writer, request, &body, 1024); err != nil {
 		return
 	}
-	result, err := server.tagService.EnsureCommonTags(request.Context(), tagActorID(request))
+	result, err := server.libraryDeps.Tags.EnsureCommonTags(request.Context(), tagActorID(request))
 	if err != nil {
 		writeTagError(writer, request, err)
 		return
@@ -208,7 +208,7 @@ func writeTagItem(writer http.ResponseWriter, status int, result tagging.AdminIt
 }
 
 func (server *Server) adminTag(writer http.ResponseWriter, request *http.Request) {
-	result, err := server.tagService.Get(request.Context(), request.PathValue("tagId"))
+	result, err := server.libraryDeps.Tags.Get(request.Context(), request.PathValue("tagId"))
 	if err != nil {
 		writeTagError(writer, request, err)
 		return
@@ -238,7 +238,7 @@ func (server *Server) patchAdminTag(writer http.ResponseWriter, request *http.Re
 	if err := decodeJSON(writer, request, &body, 4096); err != nil {
 		return
 	}
-	result, err := server.tagService.Rename(
+	result, err := server.libraryDeps.Tags.Rename(
 		request.Context(), tagActorID(request), request.PathValue("tagId"), body.Name, expected,
 	)
 	if err != nil {
@@ -270,7 +270,7 @@ func (server *Server) deleteAdminTag(writer http.ResponseWriter, request *http.R
 	if err := decodeJSON(writer, request, &body, 4096); err != nil {
 		return
 	}
-	result, _, err := server.tagService.Delete(
+	result, _, err := server.libraryDeps.Tags.Delete(
 		request.Context(), tagActorID(request), request.PathValue("tagId"), body.ConfirmName, expected,
 	)
 	if err != nil {
@@ -308,7 +308,7 @@ func (server *Server) putAdminGameTags(writer http.ResponseWriter, request *http
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "tagIds 必填", map[string]any{})
 		return
 	}
-	result, err := server.tagService.ReplaceGameTags(
+	result, err := server.libraryDeps.Tags.ReplaceGameTags(
 		request.Context(), tagActorID(request), request.PathValue("gameId"), expected, body.TagIDs,
 	)
 	if err != nil {

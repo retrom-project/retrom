@@ -6,7 +6,7 @@ import (
 
 	corevalidation "retrom/internal/core/validation"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -65,7 +65,7 @@ func assertRefreshCandidates(
 	instance, coreID, providerID, targetID string,
 ) {
 	t.Helper()
-	lookup := application.ReviewValidationRefreshLookup{
+	lookup := libraryservice.ReviewValidationRefreshLookup{
 		ItemID: "item", SourceSnapshotID: "snapshot", TargetPlatformInstanceID: instance,
 		CoreID: coreID, ProviderID: providerID, TargetID: targetID,
 	}
@@ -102,7 +102,7 @@ VALUES('refresh-source','item',?,?,?,?,?,?,?,'READY','READY','{}',2,'snapshot')`
 		instance, 1, coreID, providerID, targetID, sourceDigest, sourceDigest)
 	newID := "refresh-created"
 	repository := BindReviewValidation(database)
-	if err := repository.Create(t.Context(), application.ReviewValidationRefreshCreate{
+	if err := repository.Create(t.Context(), libraryservice.ReviewValidationRefreshCreate{
 		ID: newID, ItemID: "item", TargetPlatformInstanceID: instance,
 		PlatformInstanceVersion: 1, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
 		SourceManifestDigest: sourceDigest, SourceSnapshotID: "snapshot", PrepublishInputDigest: sourceDigest,
@@ -112,7 +112,7 @@ VALUES('refresh-source','item',?,?,?,?,?,?,?,'READY','READY','{}',2,'snapshot')`
 		t.Fatal(err)
 	}
 	fileRecord := testsupport.FileMetadata("bios").Record
-	if err := repository.CopyFiles(t.Context(), application.ReviewValidationRefreshFileCopy{
+	if err := repository.CopyFiles(t.Context(), libraryservice.ReviewValidationRefreshFileCopy{
 		ValidationID: newID, SourceValidationID: "refresh-source", CreatedAtMS: 3,
 		ReplaceBIOSBundle: true,
 		Dependencies: []corevalidation.BIOSDependency{{

@@ -15,7 +15,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
 	"retrom/internal/persistence/storequery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
@@ -30,8 +30,8 @@ func (repository *Reconfigurations) Source(
 	ctx context.Context,
 	sourceImportJobID string,
 	expectedVersion int64,
-) (application.ReconfigurationSource, bool, error) {
-	var source application.ReconfigurationSource
+) (libraryservice.ReconfigurationSource, bool, error) {
+	var source libraryservice.ReconfigurationSource
 	var state string
 	var version int64
 	err := dbapi.QueryRowContext(
@@ -52,12 +52,12 @@ WHERE import_job.id=?
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return application.ReconfigurationSource{}, false, nil
+			return libraryservice.ReconfigurationSource{}, false, nil
 		}
-		return application.ReconfigurationSource{}, false, fmt.Errorf("query reconfiguration source: %w", err)
+		return libraryservice.ReconfigurationSource{}, false, fmt.Errorf("query reconfiguration source: %w", err)
 	}
 	if state != "PARTIAL_FAILURE" || version != expectedVersion {
-		return application.ReconfigurationSource{}, false, nil
+		return libraryservice.ReconfigurationSource{}, false, nil
 	}
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.file_record
@@ -72,13 +72,13 @@ WHERE import_file.import_job_id=?
 ORDER BY upload_file.relative_path,upload_file.id
 `, sourceImportJobID)
 	if err != nil {
-		return application.ReconfigurationSource{}, false, fmt.Errorf("query reconfiguration files: %w", err)
+		return libraryservice.ReconfigurationSource{}, false, fmt.Errorf("query reconfiguration files: %w", err)
 	}
 	defer func() { cleanup.Error("close reconfiguration files", rows.Close()) }()
 	for rows.Next() {
-		var file application.PreparedReusableUploadFile
+		var file libraryservice.PreparedReusableUploadFile
 		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.FileRecord); err != nil {
-			return application.ReconfigurationSource{}, false, fmt.Errorf(
+			return libraryservice.ReconfigurationSource{}, false, fmt.Errorf(
 				"scan reconfiguration file: %w",
 				err,
 			)
@@ -86,7 +86,7 @@ ORDER BY upload_file.relative_path,upload_file.id
 		source.Files = append(source.Files, file)
 	}
 	if err := rows.Err(); err != nil {
-		return application.ReconfigurationSource{}, false, fmt.Errorf(
+		return libraryservice.ReconfigurationSource{}, false, fmt.Errorf(
 			"iterate reconfiguration files: %w",
 			err,
 		)
@@ -95,7 +95,7 @@ ORDER BY upload_file.relative_path,upload_file.id
 }
 
 func (repository *Reconfigurations) Clone(
-	ctx context.Context, clone application.ReconfigurationClone,
+	ctx context.Context, clone libraryservice.ReconfigurationClone,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -108,7 +108,7 @@ func (repository *Reconfigurations) Clone(
 SELECT state,version FROM import_jobs WHERE id=?
 `, clone.SourceImportJobID).Scan(&state, &version)
 	if errors.Is(err, sql.ErrNoRows) || state != "PARTIAL_FAILURE" || version != clone.ExpectedVersion {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if err != nil {
 		return fmt.Errorf("verify reconfiguration source: %w", err)
@@ -132,7 +132,7 @@ func InsertClonedUpload(
 	ctx context.Context,
 	executor dbapi.Executor,
 	uploadID, sourceType string,
-	files []application.PreparedReusableUploadFile,
+	files []libraryservice.PreparedReusableUploadFile,
 	manifestDigest string,
 	now int64,
 ) error {
@@ -167,7 +167,7 @@ VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
 	return nil
 }
 
-func totalUploadBytes(files []application.PreparedReusableUploadFile) int64 {
+func totalUploadBytes(files []libraryservice.PreparedReusableUploadFile) int64 {
 	var total int64
 	for _, file := range files {
 		total += file.Size
@@ -218,4 +218,4 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	return nil
 }
 
-var _ application.ReconfigurationRepository = (*Reconfigurations)(nil)
+var _ libraryservice.ReconfigurationRepository = (*Reconfigurations)(nil)

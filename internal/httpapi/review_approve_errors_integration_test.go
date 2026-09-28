@@ -34,7 +34,7 @@ func TestReviewApproveSQLFailuresAreServerErrors(t *testing.T) {
 			}
 			database := testsupport.OpenSQLFaultDatabase(t, server.database,
 				testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
-			server.reviewApprovals = librarycomposition.NewReviewApprovals(database, server.now, server.blobs, server.tagService)
+			server.reviewDeps.Approvals = librarycomposition.NewReviewApprovals(database, server.now, server.contentDeps.Files, server.libraryDeps.Tags)
 			response := requestReviewApprove(t, server, itemID, `"v1"`, `{}`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("approval SQL failure became conflict: status=%d hits=%d body=%s", response.Code,
@@ -44,7 +44,7 @@ func TestReviewApproveSQLFailuresAreServerErrors(t *testing.T) {
 	}
 }
 
-func requestReviewApprove(t *testing.T, server *Server, itemID, version, body string) *httptest.ResponseRecorder {
+func requestReviewApprove(t *testing.T, server *testServer, itemID, version, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
 		"/api/v1/admin/reviews/"+itemID+"/approve", strings.NewReader(body))

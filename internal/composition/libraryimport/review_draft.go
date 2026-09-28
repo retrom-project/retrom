@@ -6,7 +6,7 @@ import (
 	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )
 
@@ -17,8 +17,8 @@ func NewReviewDrafts(
 	now func() time.Time,
 	refresh repository.DraftValidationRefresher,
 	selectScummVM repository.ScummVMSelector,
-) *application.ReviewDrafts {
-	return application.NewReviewDrafts(repository.NewReviewDraftPatches(database, repository.ReviewDraftPatchOptions{
+) *libraryservice.ReviewDrafts {
+	return libraryservice.NewReviewDrafts(repository.NewReviewDraftPatches(database, repository.ReviewDraftPatchOptions{
 		Tags: tags, Now: now, RefreshValidation: refresh, SelectScummVM: selectScummVM,
 	}))
 }

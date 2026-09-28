@@ -205,19 +205,19 @@ if load_registration; then
     is_retrom_dev_process "$registered_supervisor_pid" "$registered_supervisor_start_ticks"; then
     printf 'stopping previous Retrom dev instance (pid %s)\n' "$registered_supervisor_pid"
     kill -TERM "$registered_supervisor_pid"
-    deadline=$((SECONDS + 15))
+    deadline=$((SECONDS + 35))
     while is_retrom_dev_process "$registered_supervisor_pid" "$registered_supervisor_start_ticks"; do
       if (( SECONDS >= deadline )); then
-        printf 'previous Retrom dev instance did not stop within 15 seconds (pid %s)\n' \
+        printf 'previous Retrom dev instance did not stop within 35 seconds (pid %s)\n' \
           "$registered_supervisor_pid" >&2
         exit 1
       fi
       sleep 0.1
     done
-    deadline=$((SECONDS + 15))
+    deadline=$((SECONDS + 35))
     while ! data_root_lock_available; do
       if (( SECONDS >= deadline )); then
-        printf 'previous Retrom backend did not release its data lock within 15 seconds (%s)\n' "$data_root_lock" >&2
+        printf 'previous Retrom backend did not release its data lock within 35 seconds (%s)\n' "$data_root_lock" >&2
         exit 1
       fi
       sleep 0.1
@@ -240,18 +240,18 @@ if load_registration; then
       if [[ "$registered_web_active" == true ]]; then
         kill -TERM -- "-$registered_web_pid"
       fi
-      deadline=$((SECONDS + 15))
+      deadline=$((SECONDS + 35))
       while { is_registered_backend || is_registered_web; }; do
         if (( SECONDS >= deadline )); then
-          echo 'orphaned Retrom dev children did not stop within 15 seconds' >&2
+          echo 'orphaned Retrom dev children did not stop within 35 seconds' >&2
           exit 1
         fi
         sleep 0.1
       done
-      deadline=$((SECONDS + 15))
+      deadline=$((SECONDS + 35))
       while ! data_root_lock_available; do
         if (( SECONDS >= deadline )); then
-          echo 'orphaned Retrom backend did not release its data lock within 15 seconds' >&2
+          echo 'orphaned Retrom backend did not release its data lock within 35 seconds' >&2
           exit 1
         fi
         sleep 0.1

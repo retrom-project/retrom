@@ -9,7 +9,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
@@ -48,13 +48,13 @@ func assemble(input Inputs) libraryimport.Dependencies {
 	discards := commands.NewReviewDiscards(database, now)
 	executions := commands.NewExecutions(database, now)
 	validator := libraryimport.NewDraftValidator(now)
-	worker := application.NewImportWorker(application.ImportWorkerDependencies{
+	worker := libraryservice.NewImportWorker(libraryservice.ImportWorkerDependencies{
 		Queue: executions, Control: executions, Recovery: executions, Preparation: preparation, Creations: creations,
-	}, application.ImportWorkerSettings{
+	}, libraryservice.ImportWorkerSettings{
 		Now: now, Report: func(err error) { cleanup.Error("ordinary import worker", err) },
 		RecoverPublications: approvals.Recover,
 	})
-	admissions := commands.NewImportAdmissions(database, worker, tags, application.ImportAdmissionOptions{
+	admissions := commands.NewImportAdmissions(database, worker, tags, libraryservice.ImportAdmissionOptions{
 		Now: now, MultiDiscEnabled: input.MultiDiscEnabled, MetadataScraperAvailable: input.Scraper != nil,
 	})
 	return libraryimport.Dependencies{

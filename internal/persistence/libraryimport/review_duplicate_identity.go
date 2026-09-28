@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ContentDuplicates struct{ executor dbapi.Executor }
@@ -19,8 +19,8 @@ func BindContentDuplicates(executor dbapi.Executor) *ContentDuplicates {
 func (records *ContentDuplicates) Snapshot(
 	ctx context.Context,
 	itemID string,
-) (application.ContentSnapshot, error) {
-	var result application.ContentSnapshot
+) (libraryservice.ContentSnapshot, error) {
+	var result libraryservice.ContentSnapshot
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT snapshot.id,snapshot.content_kind FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
@@ -29,7 +29,7 @@ WHERE snapshot.id=COALESCE(
  WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )`, itemID, itemID).Scan(&result.ID, &result.Kind)
 	if err != nil {
-		return application.ContentSnapshot{}, fmt.Errorf("read duplicate snapshot: %w", err)
+		return libraryservice.ContentSnapshot{}, fmt.Errorf("read duplicate snapshot: %w", err)
 	}
 	return result, nil
 }
@@ -50,7 +50,7 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'`, itemID).Scan(&result)
 func (records *ContentDuplicates) IdentityParts(
 	ctx context.Context,
 	snapshotID string,
-) ([]application.ContentIdentityPart, error) {
+) ([]libraryservice.ContentIdentityPart, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT source.role,json_extract(blob.value, '$.sha256'),count(*) FROM import_item_source_snapshot_files source
 JOIN json_each(json_array(source.file_record)) blob ON blob.value IS NOT NULL WHERE
@@ -61,9 +61,9 @@ GROUP BY source.role,json_extract(blob.value, '$.sha256') ORDER BY source.role,j
 		return nil, fmt.Errorf("query content identity parts: %w", err)
 	}
 	defer func() { cleanup.Error("close identity parts", rows.Close()) }()
-	result := make([]application.ContentIdentityPart, 0)
+	result := make([]libraryservice.ContentIdentityPart, 0)
 	for rows.Next() {
-		var part application.ContentIdentityPart
+		var part libraryservice.ContentIdentityPart
 		if err := rows.Scan(&part.Role, &part.SHA256, &part.Count); err != nil {
 			return nil, fmt.Errorf("scan content identity part: %w", err)
 		}
@@ -78,7 +78,7 @@ GROUP BY source.role,json_extract(blob.value, '$.sha256') ORDER BY source.role,j
 func (records *ContentDuplicates) OrderedDiscs(
 	ctx context.Context,
 	snapshotID string,
-) ([]application.ContentIdentityDisc, error) {
+) ([]libraryservice.ContentIdentityDisc, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.state,COALESCE(json_extract(blob.value, '$.sha256'),'') FROM import_item_multidisc_entries entry
 LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
@@ -100,10 +100,10 @@ ORDER BY entry.ordinal`, snapshotID)
 	return result, nil
 }
 
-func scanContentIdentityDisc(rows *sql.Rows) (application.ContentIdentityDisc, error) {
-	var disc application.ContentIdentityDisc
+func scanContentIdentityDisc(rows *sql.Rows) (libraryservice.ContentIdentityDisc, error) {
+	var disc libraryservice.ContentIdentityDisc
 	if err := rows.Scan(&disc.State, &disc.SHA256); err != nil {
-		return application.ContentIdentityDisc{}, fmt.Errorf("scan content identity row: %w", err)
+		return libraryservice.ContentIdentityDisc{}, fmt.Errorf("scan content identity row: %w", err)
 	}
 	return disc, nil
 }

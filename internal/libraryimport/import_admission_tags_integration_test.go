@@ -10,7 +10,7 @@ import (
 	"retrom/internal/authn"
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )
 
@@ -30,8 +30,8 @@ func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
 		t.Fatal(err)
 	}
 	request.TagIDs = []string{tag.TagID}
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryservice.ImportAdmissionOptions{Now: service.now})
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: actor})
 	result, err := admissions.Queue(ctx, request)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
 	if err := dbapi.QueryRowContext(ctx, service.database, `SELECT actor_user_id,request_json FROM import_group_requests WHERE import_job_id=?`, result.ImportJobID).Scan(&actorID, &document); err != nil {
 		t.Fatal(err)
 	}
-	var frozen application.QueuedImportRequest
+	var frozen libraryservice.QueuedImportRequest
 	if err := json.Unmarshal([]byte(document), &frozen); err != nil {
 		t.Fatal(err)
 	}

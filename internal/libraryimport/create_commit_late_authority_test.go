@@ -12,7 +12,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -21,8 +21,8 @@ func TestImportCreationRollsBackWhenLeaseExpiresAfterSourceWrite(t *testing.T) {
 	var clock atomic.Int64
 	clock.Store(time.Now().UnixMilli())
 	service = newTestImporter(t, service.database, service.blobs, testImportOptions{Now: func() time.Time { return time.UnixMilli(clock.Load()) }, MultiDiscEnabled: service.multiDiscImportEnabled})
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryservice.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)

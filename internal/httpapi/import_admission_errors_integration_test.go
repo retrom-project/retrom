@@ -39,7 +39,7 @@ func TestImportAdmissionStorageFailureReturns500(t *testing.T) {
 			return nil
 		},
 	})
-	server.importAdmissions = librarycomposition.NewImportAdmissions(database, nil, server.tagService, libraryservice.ImportAdmissionOptions{Now: server.now})
+	server.importDeps.Admissions = librarycomposition.NewImportAdmissions(database, nil, server.libraryDeps.Tags, libraryservice.ImportAdmissionOptions{Now: server.now})
 	body := fmt.Sprintf(`{"uploadId":%q,"targetPlatformInstanceId":%q,"metadataProvider":"NONE","tagIds":[]}`, uploadID, targetID)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/imports", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")

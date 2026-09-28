@@ -38,7 +38,7 @@ import (
 const validationRetryKey = "01980000-0000-7000-8000-000000000097"
 
 type validationRetryFixture struct {
-	server *Server
+	server *testServer
 	jobID  string
 	now    func() time.Time
 }
@@ -60,18 +60,30 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 		t.Fatal(err)
 	}
 	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now)
-	server := &Server{
-		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
-		variants:           variants,
-		database:           database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}), launcher: launchcomposition.New(database.SQL,
-			launch.NewSources(nil, nil), "", now, variants.Dispatch),
+	server := &testServer{
+		database: database.SQL,
+		Server: &Server{
+			systemDeps: SystemDependencies{
+				Idempotency: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+				Jobs:        jobs.New(jobpersistence.New(database.SQL), now),
+			},
+			playDeps: PlayDependencies{
+				Variants: variants,
+				Launcher: launchcomposition.New(database.SQL,
+					launch.NewSources(nil, nil), "", now, variants.Dispatch),
+			},
+			now: now,
+			importDeps: ImportDependencies{
+				Importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}),
+			},
+		},
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	fixture := validationRetryFixture{server: server, now: now}
 	fixture.jobID = seedValidationRetry(t, fixture)
-	t.Cleanup(server.variants.Close)
-	t.Cleanup(server.importer.Close)
+	t.Cleanup(server.playDeps.Variants.Close)
+	t.Cleanup(server.importDeps.Importer.Close)
+	t.Cleanup(server.Wait)
 	return fixture
 }
 
@@ -200,7 +212,7 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 			}
 			return nil
 		}})
-	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
+	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {

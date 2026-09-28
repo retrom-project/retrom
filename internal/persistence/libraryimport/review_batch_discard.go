@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	payloadservice "retrom/internal/service/cleanupjobs"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewBatchDiscards struct{ database dbapi.DB }
@@ -21,7 +21,7 @@ func NewReviewBatchDiscards(database dbapi.DB) *ReviewBatchDiscards {
 
 func (repository *ReviewBatchDiscards) Pending(
 	ctx context.Context, importID string, limit int,
-) ([]application.ReviewBatchItem, error) {
+) ([]libraryservice.ReviewBatchItem, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT i.id,d.review_version
 FROM import_items i JOIN import_items d ON d.id=i.id
@@ -31,9 +31,9 @@ ORDER BY i.id LIMIT ?`, importID, limit)
 		return nil, fmt.Errorf("query batch reviews: %w", err)
 	}
 	defer func() { cleanup.Error("close batch reviews", rows.Close()) }()
-	result := make([]application.ReviewBatchItem, 0)
+	result := make([]libraryservice.ReviewBatchItem, 0)
 	for rows.Next() {
-		var item application.ReviewBatchItem
+		var item libraryservice.ReviewBatchItem
 		if err := rows.Scan(&item.ItemID, &item.Version); err != nil {
 			return nil, fmt.Errorf("scan batch review: %w", err)
 		}
@@ -57,7 +57,7 @@ AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID
 		return fmt.Errorf("check discarded batch: %w", err)
 	}
 	if pending != 0 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE import_jobs SET state='CANCELLED',cancel_reason='丢弃本批次未发布内容',
 cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALESCE(completed_at_ms,?),
@@ -86,4 +86,4 @@ SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`,
 	return nil
 }
 
-var _ application.ReviewBatchDiscardRepository = (*ReviewBatchDiscards)(nil)
+var _ libraryservice.ReviewBatchDiscardRepository = (*ReviewBatchDiscards)(nil)

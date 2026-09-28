@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) prepareRPGMakerProject(
@@ -16,5 +16,5 @@ func (service *Service) prepareRPGMakerProject(
 }
 
 func rpgMakerDirectoryTitle(files []importSourceFile) string {
-	return application.RpgMakerDirectoryTitle(files)
+	return libraryservice.RpgMakerDirectoryTitle(files)
 }

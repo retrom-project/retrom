@@ -44,7 +44,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 		}
 		pageCursor = &biosservice.Cursor{SortValues: payload.SortValues, ID: payload.ID}
 	}
-	result, err := server.biosService.List(request.Context(), biosservice.ListRequest{
+	result, err := server.libraryDeps.BIOS.List(request.Context(), biosservice.ListRequest{
 		Scope:      parsed.scope,
 		Query:      strings.TrimSpace(values.Get("q")),
 		PlatformID: values.Get("platformId"),

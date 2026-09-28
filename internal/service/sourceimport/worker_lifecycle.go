@@ -66,14 +66,20 @@ func (worker *Worker) Start() {
 }
 
 func (worker *Worker) Close() {
+	worker.Stop()
+	worker.Wait()
+}
+
+func (worker *Worker) Stop() {
 	worker.mutex.Lock()
 	worker.closed = true
 	if worker.cancel != nil {
 		worker.cancel()
 	}
 	worker.mutex.Unlock()
-	worker.wait.Wait()
 }
+
+func (worker *Worker) Wait() { worker.wait.Wait() }
 
 func (worker *Worker) Signal() {
 	for _, wake := range []chan struct{}{worker.queueWake, worker.maintenanceWake, worker.cancellationWake} {

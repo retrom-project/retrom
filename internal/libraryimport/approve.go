@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
@@ -20,7 +20,7 @@ func (service *Service) ApproveWithReason(
 func (service *Service) ApproveWithDecision(
 	ctx context.Context, itemID string, expectedVersion int64, decision ApprovalDecision,
 ) (Approved, error) {
-	result, err := service.approvals.Approve(ctx, application.ReviewApprovalRequest{
+	result, err := service.approvals.Approve(ctx, libraryservice.ReviewApprovalRequest{
 		ItemID:          itemID,
 		ExpectedVersion: expectedVersion, Decision: decision,
 	})

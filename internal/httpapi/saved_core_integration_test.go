@@ -9,9 +9,9 @@ import (
 	"retrom/internal/launch"
 )
 
-func assertSavedCoreChoice(t *testing.T, server *Server, gameID, saveID string, coreID *string, expected string) {
+func assertSavedCoreChoice(t *testing.T, server *testServer, gameID, saveID string, coreID *string, expected string) {
 	t.Helper()
-	saved, err := server.launcher.Create(t.Context(), "local", launch.CreateRequest{
+	saved, err := server.playDeps.Launcher.Create(t.Context(), "local", launch.CreateRequest{
 		GameID: gameID, CoreID: coreID, SaveStateID: &saveID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 	})

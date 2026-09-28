@@ -26,7 +26,7 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "取消原因无效", map[string]any{})
 		return
 	}
-	result, pending, err := server.jobService.Cancel(
+	result, pending, err := server.systemDeps.Jobs.Cancel(
 		request.Context(),
 		request.PathValue("jobId"),
 		version,
@@ -48,11 +48,11 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	if !pending {
-		server.importer.SyncImportGroupCancellation(request.Context(), result.JobID)
-		server.importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
-		server.importer.SyncMultiDiscAttachmentCancellation(request.Context(), result.JobID)
+		server.importDeps.Importer.SyncImportGroupCancellation(request.Context(), result.JobID)
+		server.importDeps.Importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
+		server.importDeps.Importer.SyncMultiDiscAttachmentCancellation(request.Context(), result.JobID)
 	} else {
-		server.importer.CancelImportGroupJob(result.JobID)
+		server.importDeps.Importer.CancelImportGroupJob(result.JobID)
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	status := http.StatusOK
@@ -76,7 +76,7 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "重试请求无效", map[string]any{})
 		return
 	}
-	result, err := server.jobService.Retry(request.Context(), request.PathValue("jobId"), version)
+	result, err := server.systemDeps.Jobs.Retry(request.Context(), request.PathValue("jobId"), version)
 	if errors.Is(err, jobs.ErrRetryViaDomain) {
 		writeError(
 			writer,
@@ -100,19 +100,20 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
-	cleanup.Error("resume arcade attachments", server.importer.ResumeParentAttachmentJobs(request.Context()))
-	cleanup.Error("resume multi-disc attachments", server.importer.ResumeMultiDiscAttachmentJobs(request.Context()))
-	server.importer.ResumeImportGroupJobs(request.Context())
+	cleanup.Error("resume arcade attachments", server.importDeps.Importer.ResumeParentAttachmentJobs(request.Context()))
+	cleanup.Error("resume multi-disc attachments",
+		server.importDeps.Importer.ResumeMultiDiscAttachmentJobs(request.Context()))
+	server.importDeps.Importer.ResumeImportGroupJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 	ctx := context.WithoutCancel(request.Context())
 	afterIdempotencyCommit(writer, func() {
 		switch result.Kind {
 		case "VARIANT_VALIDATE":
-			go server.variants.Resume(ctx, result.JobID)
+			server.deferredWork.Go(func() { server.playDeps.Variants.Resume(ctx, result.JobID) })
 		case "UPLOAD_FINALIZE":
-			server.uploads.Resume(ctx, result.JobID)
+			server.importDeps.Uploads.Resume(ctx, result.JobID)
 		case "MEDIA_FETCH":
-			server.metadata.ResumeMediaJob(ctx, result.JobID)
+			server.reviewDeps.Metadata.ResumeMediaJob(ctx, result.JobID)
 		}
 	})
 }

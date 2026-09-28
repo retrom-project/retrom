@@ -4,17 +4,17 @@ import (
 	"context"
 	"math"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records importExecutionRecords) Transition(
 	ctx context.Context,
-	change application.ImportWorkerTransition,
+	change libraryservice.ImportWorkerTransition,
 ) error {
 	before := change.Before.Creation
 	if before.JobVersion < 1 || before.JobVersion == math.MaxInt64 || before.ParentVersion < 1 ||
 		before.ParentVersion == math.MaxInt64 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	if !change.ParentOnly {
 		if err := records.writeJob(ctx, change); err != nil {
@@ -47,7 +47,7 @@ VALUES(?,'IMPORT_GROUP',?,?,?,?)`,
 
 func (records importExecutionRecords) writeJob(
 	ctx context.Context,
-	change application.ImportWorkerTransition,
+	change libraryservice.ImportWorkerTransition,
 ) error {
 	before := change.Before.Creation
 	old := before.Execution
@@ -95,7 +95,7 @@ WHERE id=? AND kind='IMPORT_GROUP' AND scope_type='IMPORT_GROUP' AND scope_id=? 
 
 func (records importExecutionRecords) writeParent(
 	ctx context.Context,
-	change application.ImportWorkerTransition,
+	change libraryservice.ImportWorkerTransition,
 ) error {
 	before := change.Before.Creation
 	parent := change.Parent

@@ -40,8 +40,7 @@ type multiDiscHTTPFile struct {
 
 func completeMultiDiscHTTPUpload(
 	t *testing.T,
-	server *Server,
-	sourceType string,
+	server *testServer, sourceType string,
 	files []multiDiscHTTPFile,
 ) string {
 	t.Helper()
@@ -53,11 +52,11 @@ func completeMultiDiscHTTPUpload(
 		})
 	}
 	ctx := context.Background()
-	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
+	upload, err := server.importDeps.Uploads.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
 		digest := sha256.Sum256(file.contents)
-		if err := server.uploads.PutPart(
+		if err := server.importDeps.Uploads.PutPart(
 			ctx, upload.ID, upload.Files[index].ID, 0,
 			fmt.Sprintf("bytes 0-%d/%d", len(file.contents)-1, len(file.contents)),
 			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
@@ -66,18 +65,18 @@ func completeMultiDiscHTTPUpload(
 			t.Fatal(err)
 		}
 	}
-	current, err := server.uploads.Get(ctx, upload.ID)
+	current, err := server.importDeps.Uploads.Get(ctx, upload.ID)
 	testassert.False(t, err != nil, err)
-	jobID, _, err := server.uploads.Complete(ctx, upload.ID, current.Version)
+	jobID, _, err := server.importDeps.Uploads.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
 	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
 	return upload.ID
 }
 
-func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
+func seedMultiDiscHTTPBIOS(t *testing.T, server *testServer) {
 	t.Helper()
 	ctx := context.Background()
-	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
 	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)
@@ -103,7 +102,7 @@ func multiDiscHTTPCHD(value string) []byte {
 	return append([]byte("MComprHD"), []byte(value)...)
 }
 
-func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, string) {
+func createMultiDiscHTTPLaunch(t *testing.T, server *testServer) (launch.Created, string) {
 	t.Helper()
 	ctx := context.Background()
 	if err := dependencyservice.New(server.dependencies,
@@ -120,7 +119,7 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 		{path: "game/one.chd", contents: multiDiscHTTPCHD("one")},
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 	})
-	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
+	createdImport, err := server.importDeps.Importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
 			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
@@ -133,9 +132,9 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	approved, err := server.importer.Approve(ctx, itemID, 1)
+	approved, err := server.importDeps.Importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	created, err := server.launcher.Create(ctx, "local", launch.CreateRequest{
+	created, err := server.playDeps.Launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
 			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
@@ -145,9 +144,9 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	return created, approved.GameID
 }
 
-func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Created) {
+func addParentBundleToLaunch(t *testing.T, server *testServer, created launch.Created) {
 	t.Helper()
-	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
 	testassert.False(t, err != nil, err)
 	fileRecord, err := filestore.FileRecord(metadata, "application/zip")
 	testassert.False(t, err != nil, err)
@@ -307,14 +306,14 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		t.Run(name+" Content I/O", func(t *testing.T) { assertContentIOProtocol(t, contentURL, requestContent) })
 	}
 
-	second, err := server.launcher.Create(t.Context(), "local", launch.CreateRequest{
+	second, err := server.playDeps.Launcher.Create(t.Context(), "local", launch.CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: launch.Capabilities{
 			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 		},
 	})
 	testassert.False(t, err != nil, err)
-	secondConfiguration, err := server.launcher.Config(t.Context(), second.LaunchID, second.Capability)
+	secondConfiguration, err := server.playDeps.Launcher.Config(t.Context(), second.LaunchID, second.Capability)
 	secondEnvelope := testsupport.RuntimeEnvelope(t, secondConfiguration)
 	secondGameURL, _ := testsupport.RuntimeEnvelopeResource(t, secondEnvelope, "game")["url"].(string)
 	secondBIOSFiles := testsupport.RuntimeResourceFiles(t,
@@ -364,7 +363,7 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 		{path: "game/notes.txt", contents: []byte("not referenced")},
 	})
-	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
+	createdImport, err := server.importDeps.Importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
 			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
@@ -486,7 +485,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		{path: "game/one.chd", contents: multiDiscHTTPCHD("one")},
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 	})
-	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
+	createdImport, err := server.importDeps.Importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
 			server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
@@ -499,16 +498,16 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	approved, err := server.importer.Approve(ctx, itemID, 1)
+	approved, err := server.importDeps.Importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	createdLaunch, err := server.launcher.Create(ctx, "local", launch.CreateRequest{
+	createdLaunch, err := server.playDeps.Launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
 			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 		},
 	})
 	testassert.False(t, err != nil, err)
-	if _, err := server.launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability); err != nil {
+	if _, err := server.playDeps.Launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability); err != nil {
 		t.Fatal(err)
 	}
 	handler := server.Handler()

@@ -133,7 +133,7 @@ func homeDiscLabel(value *int64) any {
 // The dashboard aggregates documented counters in one consistent response snapshot.
 func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	data, err := server.homeService.Dashboard(request.Context(), principal.ProfileID)
+	data, err := server.libraryDeps.Home.Dashboard(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -206,7 +206,7 @@ func projectMapTags(
 }
 
 func (server *Server) activeGameTags(ctx context.Context, gameID string) ([]tagging.Reference, error) {
-	references, err := server.tagService.References(ctx, []string{gameID})
+	references, err := server.libraryDeps.Tags.References(ctx, []string{gameID})
 	if err != nil {
 		return nil, fmt.Errorf("project game tags: %w", err)
 	}
@@ -221,7 +221,7 @@ func (server *Server) gameAssociations(
 	ctx context.Context,
 	profileID, gameID string,
 ) (*favorites.FavoriteReference, []tagging.Reference, error) {
-	favorite, err := server.favoriteService.Reference(ctx, profileID, gameID)
+	favorite, err := server.libraryDeps.Favorites.Reference(ctx, profileID, gameID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("project game favorite: %w", err)
 	}
@@ -237,7 +237,7 @@ func (server *Server) gameAssociations(
 // session log, so one game always occupies one row regardless of play count.
 func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	games, err := server.homeService.RecentGames(request.Context(), principal.ProfileID, true)
+	games, err := server.libraryDeps.Home.RecentGames(request.Context(), principal.ProfileID, true)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

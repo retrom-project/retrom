@@ -47,12 +47,18 @@ func (service *ReviewBulk) launchLocked(id string) {
 }
 
 func (service *ReviewBulk) Close() {
+	service.Stop()
+	service.Wait()
+}
+
+func (service *ReviewBulk) Stop() {
 	service.mu.Lock()
 	service.closed = true
 	service.cancel()
 	service.mu.Unlock()
-	service.workers.Wait()
 }
+
+func (service *ReviewBulk) Wait() { service.workers.Wait() }
 
 func (service *ReviewBulk) Create(ctx context.Context) (ReviewBulkSummary, error) {
 	service.mu.Lock()

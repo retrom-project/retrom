@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-type creationTarget = application.ImportTarget
+type creationTarget = libraryservice.ImportTarget
 
 type creationOptions struct {
 	sourceCreation *ownedSourceCreation
@@ -17,7 +17,7 @@ type creationOptions struct {
 func normalizeTargetCreateRequest(
 	request CreateRequest, contentMode, purpose, sourceType string, files []importSourceFile, target creationTarget,
 ) (CreateRequest, string, error) {
-	normalized, mode, err := application.NormalizeTargetImport(
+	normalized, mode, err := libraryservice.NormalizeTargetImport(
 		request, contentMode, purpose, sourceType, importFileFacts(files), importTargetFacts(target),
 	)
 	if err != nil {
@@ -27,11 +27,11 @@ func normalizeTargetCreateRequest(
 }
 
 func normalizeTargetContentMode(platformID, contentMode string) string {
-	return application.NormalizeTargetImportMode(platformID, contentMode)
+	return libraryservice.NormalizeTargetImportMode(platformID, contentMode)
 }
 
 func (service *Service) loadCreationTarget(ctx context.Context, instanceID string) (creationTarget, error) {
-	target, err := application.ReadImportTarget(ctx, repository.BindImportFacts(service.database), instanceID)
+	target, err := libraryservice.ReadImportTarget(ctx, repository.BindImportFacts(service.database), instanceID)
 	if err != nil {
 		return creationTarget{}, fmt.Errorf("read creation target: %w", err)
 	}

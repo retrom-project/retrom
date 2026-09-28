@@ -43,7 +43,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 `).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
-	created, err := importfixture.New(t, server.database, server.blobs, importfixture.Options{Now: time.Now}).Create(
+	created, err := importfixture.New(t, server.database, server.contentDeps.Files, importfixture.Options{Now: time.Now}).Create(
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID: uploadID, TargetPlatformInstanceID: platformInstanceID,
@@ -103,8 +103,7 @@ func rpgMakerHTTPFixture(t *testing.T, generation string) []rpgMakerHTTPFixtureF
 func completeRPGMakerHTTPUpload(
 	t *testing.T,
 	ctx context.Context,
-	server *Server,
-	files []rpgMakerHTTPFixtureFile,
+	server *testServer, files []rpgMakerHTTPFixtureFile,
 ) string {
 	t.Helper()
 	declarations := make([]uploads.FileDeclaration, 0, len(files))
@@ -114,7 +113,7 @@ func completeRPGMakerHTTPUpload(
 			SizeBytes: int64(len(file.contents)),
 		})
 	}
-	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{
+	upload, err := server.importDeps.Uploads.Create(ctx, uploads.CreateRequest{
 		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
@@ -122,7 +121,7 @@ func completeRPGMakerHTTPUpload(
 		for start, part := 0, 0; start < len(file.contents); start, part = start+int(uploads.PartSize), part+1 {
 			end := min(start+int(uploads.PartSize), len(file.contents))
 			digest := sha256.Sum256(file.contents[start:end])
-			if err := server.uploads.PutPart(
+			if err := server.importDeps.Uploads.PutPart(
 				ctx, upload.ID, upload.Files[index].ID, part,
 				fmt.Sprintf("bytes %d-%d/%d", start, end-1, len(file.contents)),
 				"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
@@ -132,9 +131,9 @@ func completeRPGMakerHTTPUpload(
 			}
 		}
 	}
-	current, err := server.uploads.Get(ctx, upload.ID)
+	current, err := server.importDeps.Uploads.Get(ctx, upload.ID)
 	testassert.False(t, err != nil, err)
-	jobID, _, err := server.uploads.Complete(ctx, upload.ID, current.Version)
+	jobID, _, err := server.importDeps.Uploads.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
 	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
 	return upload.ID

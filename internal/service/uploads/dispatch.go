@@ -74,11 +74,17 @@ func (service *Service) Start(parent context.Context) {
 }
 
 func (service *Service) Close() {
+	service.Stop()
+	service.Wait()
+}
+
+func (service *Service) Stop() {
 	service.mutex.Lock()
 	service.closed = true
 	for _, cancel := range service.active {
 		cancel(ErrWorkerClosed)
 	}
 	service.mutex.Unlock()
-	service.group.Wait()
 }
+
+func (service *Service) Wait() { service.group.Wait() }

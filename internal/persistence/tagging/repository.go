@@ -34,9 +34,9 @@ func writeScope(database dbapi.Executor) tagging.WriteScope {
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(tagging.WriteScope) error) error {
-	transaction, err := repository.database.BeginImmediate(ctx)
+	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("tagging: begin immediate: %w", err)
+		return fmt.Errorf("tagging: begin write: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
 	if err := work(writeScope(transaction)); err != nil {

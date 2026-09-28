@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type OwnedSources struct{ executor dbapi.Executor }
@@ -18,13 +18,13 @@ func BindOwnedSources(executor dbapi.Executor) *OwnedSources {
 
 func (records *OwnedSources) Lookup(
 	ctx context.Context,
-	intent application.SourceCreationIntent,
-) (application.OwnedSourceLookup, bool, error) {
+	intent libraryservice.SourceCreationIntent,
+) (libraryservice.OwnedSourceLookup, bool, error) {
 	table, err := sourceOwnerTable(intent.Kind)
 	if err != nil {
-		return application.OwnedSourceLookup{}, false, err
+		return libraryservice.OwnedSourceLookup{}, false, err
 	}
-	var result application.OwnedSourceLookup
+	var result libraryservice.OwnedSourceLookup
 	var linkedJob, linkedItem, importID string
 	err = dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
@@ -47,28 +47,28 @@ WHERE source.id=? AND source.import_id=?`, string(intent.Kind), intent.ItemID, i
 		&result.Result.Created.ItemCount,
 		&result.TargetPlatformInstanceID, &result.ContentMode, &result.ManifestDigest)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.OwnedSourceLookup{}, false, application.ErrInvalid
+		return libraryservice.OwnedSourceLookup{}, false, libraryservice.ErrInvalid
 	}
 	if err != nil {
-		return application.OwnedSourceLookup{}, false, fmt.Errorf("lookup bound server source: %w", err)
+		return libraryservice.OwnedSourceLookup{}, false, fmt.Errorf("lookup bound server source: %w", err)
 	}
 	if linkedJob == "" && linkedItem == "" && importID == "" {
-		return application.OwnedSourceLookup{}, false, nil
+		return libraryservice.OwnedSourceLookup{}, false, nil
 	}
 	if linkedJob == "" || linkedItem == "" || linkedJob != importID || result.Result.Created.JobID == "" {
-		return application.OwnedSourceLookup{}, false, application.ErrVersionConflict
+		return libraryservice.OwnedSourceLookup{}, false, libraryservice.ErrVersionConflict
 	}
 	result.Result.Created.ImportJobID = importID
 	result.Result, err = BindSourceResults(records.executor).ReadItem(ctx, result.Result.Created, linkedItem)
 	if err != nil {
-		return application.OwnedSourceLookup{}, false, err
+		return libraryservice.OwnedSourceLookup{}, false, err
 	}
 	if len(result.Result.Items) != 1 {
-		return application.OwnedSourceLookup{}, false, application.ErrVersionConflict
+		return libraryservice.OwnedSourceLookup{}, false, libraryservice.ErrVersionConflict
 	}
 	result.PrimaryPaths, err = (sourceOwnership{executor: records.executor}).sourcePaths(ctx, intent.Kind, intent.ItemID)
 	if err != nil {
-		return application.OwnedSourceLookup{}, false, err
+		return libraryservice.OwnedSourceLookup{}, false, err
 	}
 	return result, true, nil
 }

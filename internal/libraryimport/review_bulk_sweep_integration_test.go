@@ -11,7 +11,7 @@ import (
 	librarycomposition "retrom/internal/composition/libraryimport"
 	dbapi "retrom/internal/database"
 	librarypersistence "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
@@ -51,9 +51,9 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	}
 	ctx := authn.WithPrincipal(fixture.ctx, authn.Principal{UserID: actorID, ProfileID: profileID, Role: "ADMIN"})
 	approve := func(worker string) error {
-		_, err := fixture.service.approvals.Approve(ctx, application.ReviewApprovalRequest{
+		_, err := fixture.service.approvals.Approve(ctx, libraryservice.ReviewApprovalRequest{
 			ItemID: itemID, ExpectedVersion: version,
-			Bulk: &application.BulkPublicationIntent{
+			Bulk: &libraryservice.BulkPublicationIntent{
 				BulkID: bulkID, JobID: jobID, WorkerID: worker,
 				ValidationID: validationID, SourceSnapshotID: snapshotID,
 			},

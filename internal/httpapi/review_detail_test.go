@@ -101,7 +101,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	coverPayload,
 		err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 	testassert.False(t, err != nil, err)
-	coverMetadata, err := server.blobs.Put(bytes.NewReader(coverPayload))
+	coverMetadata, err := server.contentDeps.Files.Put(bytes.NewReader(coverPayload))
 	testassert.False(t, err != nil, err)
 	coverFileRecord := coverMetadata.Record
 	transaction, err := server.database.BeginTx(context.Background(), nil)
@@ -201,8 +201,7 @@ WHERE provider_id=?
 
 func assertRuntimeValidationCurrent(
 	t *testing.T,
-	server *Server,
-	request *http.Request,
+	server *testServer, request *http.Request,
 	itemID, providerID, targetID string,
 ) {
 	t.Helper()
@@ -224,7 +223,7 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 	), "current runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
-func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID string) string {
+func createReviewCoverFixture(t *testing.T, server *testServer, itemID, uploadFileID string) string {
 	t.Helper()
 	response := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
@@ -247,8 +246,7 @@ func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID
 
 func assertSourceReviewSources(
 	t *testing.T,
-	server *Server,
-	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverFileRecord string,
+	server *testServer, itemID, importID string, target testsupport.RuntimeTargetIdentity, coverFileRecord string,
 	manifest, digest string,
 	timestamp int64,
 	coverMetadata filestore.Metadata,
@@ -259,7 +257,7 @@ func assertSourceReviewSources(
 	pegasusCollectionID := "01980000-0000-7000-8000-000000000141"
 	pegasusItemID := "01980000-0000-7000-8000-000000000142"
 	videoPayload := []byte("source review video fixture")
-	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
+	videoMetadata, err := server.contentDeps.Files.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
 	pegasusVideoFileRecord := videoMetadata.Record
 	mustExecHTTPTest(t, server.database, `

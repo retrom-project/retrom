@@ -13,15 +13,15 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )
 
 type (
-	MetadataPatch  = application.MetadataPatch
-	SelectedAssets = application.SelectedAssets
-	DraftPatch     = application.DraftPatch
-	DraftResult    = application.DraftResult
+	MetadataPatch  = libraryservice.MetadataPatch
+	SelectedAssets = libraryservice.SelectedAssets
+	DraftPatch     = libraryservice.DraftPatch
+	DraftResult    = libraryservice.DraftResult
 )
 
 // DraftValidationRefresher is supplied by the legacy validation subsystem
@@ -64,14 +64,14 @@ func NewReviewDraftPatches(database dbapi.DB, options ReviewDraftPatchOptions) *
 
 // Contract branches stay contiguous for a single auditable decision.
 func (repository *ReviewDraftPatches) Patch(
-	ctx context.Context, request application.ReviewDraftPatchRequest,
-) (application.DraftResult, error) {
-	if err := application.ValidateDraftPatch(request.Patch); err != nil {
-		return application.DraftResult{}, fmt.Errorf("validate review draft patch: %w", err)
+	ctx context.Context, request libraryservice.ReviewDraftPatchRequest,
+) (libraryservice.DraftResult, error) {
+	if err := libraryservice.ValidateDraftPatch(request.Patch); err != nil {
+		return libraryservice.DraftResult{}, fmt.Errorf("validate review draft patch: %w", err)
 	}
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return application.DraftResult{}, fmt.Errorf("begin review draft patch: %w", err)
+		return libraryservice.DraftResult{}, fmt.Errorf("begin review draft patch: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
 	run := draftPatchRun{
@@ -80,10 +80,10 @@ func (repository *ReviewDraftPatches) Patch(
 		actor: request.Actor,
 	}
 	if err := run.load(); err != nil {
-		return application.DraftResult{}, err
+		return libraryservice.DraftResult{}, err
 	}
 	if err := run.applyChanges(); err != nil {
-		return application.DraftResult{}, err
+		return libraryservice.DraftResult{}, err
 	}
 	return run.persist()
 }
@@ -94,7 +94,7 @@ type draftPatchRun struct {
 	transaction         dbapi.Tx
 	itemID              string
 	expectedVersion     int64
-	patch               application.DraftPatch
+	patch               libraryservice.DraftPatch
 	actor               authn.Actor
 	draftID             string
 	targetID            string
@@ -128,10 +128,10 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.isRPG,
 	)
 	if err != nil {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if currentVersion != run.expectedVersion {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	if err := json.Unmarshal([]byte(run.metadataJSON), &run.metadata); err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
@@ -152,7 +152,7 @@ func (run *draftPatchRun) applyChanges() error {
 		}
 	}
 	if run.targetOrDOSChanged && run.validationID == "" {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
@@ -174,8 +174,8 @@ func (run *draftPatchRun) applyMetadata() error {
 func (run *draftPatchRun) validatedMetadataUpdates(patch MetadataPatch) (map[string]any, error) {
 	updates := make(map[string]any)
 	if patch.Title != nil {
-		if !application.ValidReviewField(*patch.Title, 200, false) || *patch.Title == "" {
-			return nil, application.ErrInvalid
+		if !libraryservice.ValidReviewField(*patch.Title, 200, false) || *patch.Title == "" {
+			return nil, libraryservice.ErrInvalid
 		}
 		updates["title"] = *patch.Title
 	}
@@ -191,8 +191,8 @@ func (run *draftPatchRun) validatedMetadataUpdates(patch MetadataPatch) (map[str
 		{key: "genre", value: patch.Genre, maximum: 200},
 	}
 	for _, field := range fields {
-		if field.value != nil && !application.ValidReviewField(*field.value, field.maximum, field.multiline) {
-			return nil, application.ErrInvalid
+		if field.value != nil && !libraryservice.ValidReviewField(*field.value, field.maximum, field.multiline) {
+			return nil, libraryservice.ErrInvalid
 		}
 		if field.value != nil {
 			updates[field.key] = *field.value
@@ -205,12 +205,12 @@ func (run *draftPatchRun) validatedMetadataUpdates(patch MetadataPatch) (map[str
 }
 
 func validateMetadataNumbers(
-	repository *ReviewDraftPatches, patch application.MetadataPatch, updates map[string]any,
+	repository *ReviewDraftPatches, patch libraryservice.MetadataPatch, updates map[string]any,
 ) error {
 	playersPresent, players := patch.Players.Optional()
 	if playersPresent {
 		if players != nil && (*players < 1 || *players > 64) {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 		updates["players"] = nullablePatchInt(players)
 	}
@@ -218,7 +218,7 @@ func validateMetadataNumbers(
 	if releaseYearPresent {
 		maximumYear := int64(repository.now().UTC().Year() + 1)
 		if releaseYear != nil && (*releaseYear < 1950 || *releaseYear > maximumYear) {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 		updates["releaseYear"] = nullablePatchInt(releaseYear)
 	}
@@ -233,16 +233,16 @@ func (run *draftPatchRun) applyTarget() error {
 	if err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT platform_id FROM platform_instances WHERE id=?
 `, run.targetID).Scan(&currentPlatform); err != nil {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT platform_id FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 `, *run.patch.TargetPlatformInstanceID).Scan(&targetPlatform); err != nil {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if currentPlatform != targetPlatform {
-		return application.ErrReimportRequiredPlatformChange
+		return libraryservice.ErrReimportRequiredPlatformChange
 	}
 	run.targetOrDOSChanged = run.targetID != *run.patch.TargetPlatformInstanceID
 	run.targetID = *run.patch.TargetPlatformInstanceID
@@ -254,7 +254,7 @@ func (run *draftPatchRun) applySelectedValidation() error {
 		return nil
 	}
 	if run.isRPG {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	var targetID, snapshotID, status string
 	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
@@ -263,7 +263,7 @@ FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
 `, *run.patch.SelectedValidationID, run.itemID).Scan(&targetID, &snapshotID, &status)
 	if err != nil || targetID != run.targetID || snapshotID != run.effectiveSnapshotID || status != "READY" {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	run.validationID = *run.patch.SelectedValidationID
 	return nil
@@ -286,7 +286,7 @@ JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE c.id=? AND r.import_item_id=? AND r.state='COMPLETED'
 	`, *selectedCandidate, run.itemID).Scan(&count)
 	if err != nil || count != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	run.candidateID = sql.NullString{String: *selectedCandidate, Valid: true}
 	return nil
@@ -307,7 +307,7 @@ SELECT count(*) FROM import_item_dos_entries
 WHERE import_item_id=? AND normalized_path=? AND enabled=1
 	`, run.itemID, *defaultEntry).Scan(&count)
 		if err != nil || count != 1 {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 		run.dosEntry = sql.NullString{String: *defaultEntry, Valid: true}
 	}
@@ -320,7 +320,7 @@ func (run *draftPatchRun) refreshValidation() error {
 		return nil
 	}
 	if run.repository.refreshValidation == nil {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	validationID, err := run.repository.refreshValidation(
 		run.ctx, run.transaction, run.itemID, run.targetID, run.dosEntry,
@@ -344,16 +344,16 @@ func (run *draftPatchRun) applySelectedAssets() error {
 	run.uploadedCoverID = nullableCandidate(assets.CoverUploadedAssetID)
 	run.backgroundID = nullableCandidate(assets.BackgroundCandidateAssetID)
 	if run.coverID.Valid && run.uploadedCoverID.Valid {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if run.uploadedCoverID.Valid &&
 		!run.repository.validUploadedAsset(run.ctx, run.transaction, run.itemID, run.uploadedCoverID.String) {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	for _, assetID := range []sql.NullString{run.coverID, run.backgroundID} {
 		if assetID.Valid &&
 			!run.repository.validCandidateAsset(run.ctx, run.transaction, run.itemID, assetID.String) {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 	}
 	return run.replaceScreenshots(assets.ScreenshotCandidateAssetIDs)
@@ -361,13 +361,13 @@ func (run *draftPatchRun) applySelectedAssets() error {
 
 func (run *draftPatchRun) validateSelectedAssets(assets SelectedAssets) error {
 	if len(assets.ScreenshotCandidateAssetIDs) > 32 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	selected := make(map[string]struct{}, len(assets.ScreenshotCandidateAssetIDs))
 	for _, assetID := range assets.ScreenshotCandidateAssetIDs {
 		_, duplicate := selected[assetID]
 		if duplicate || !run.repository.validCandidateAsset(run.ctx, run.transaction, run.itemID, assetID) {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 		selected[assetID] = struct{}{}
 	}
@@ -396,14 +396,14 @@ SELECT id,?,?,? FROM import_items WHERE id=?
 	return nil
 }
 
-func (run *draftPatchRun) persist() (application.DraftResult, error) {
+func (run *draftPatchRun) persist() (libraryservice.DraftResult, error) {
 	encoded, err := json.Marshal(run.metadata)
 	if err != nil {
-		return application.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
+		return libraryservice.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	searchParts, err := run.searchParts()
 	if err != nil {
-		return application.DraftResult{}, err
+		return libraryservice.DraftResult{}, err
 	}
 	now := run.repository.now().UnixMilli()
 	actor := run.actor
@@ -412,15 +412,15 @@ func (run *draftPatchRun) persist() (application.DraftResult, error) {
 		run.ctx, tagpersistence.Bind(run.transaction), run.draftID, run.patch.TagIDs, actorUserID, now,
 	)
 	if err != nil {
-		return application.DraftResult{}, fmt.Errorf("libraryimport/review: replace draft tags: %w", err)
+		return libraryservice.DraftResult{}, fmt.Errorf("libraryimport/review: replace draft tags: %w", err)
 	}
 	if err := run.updateDraft(encoded, searchParts, now); err != nil {
-		return application.DraftResult{}, err
+		return libraryservice.DraftResult{}, err
 	}
 	if err := run.transaction.Commit(); err != nil {
-		return application.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
+		return libraryservice.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	return application.DraftResult{
+	return libraryservice.DraftResult{
 		ItemID: run.itemID, Version: run.expectedVersion + 1,
 		Metadata: run.metadata, Tags: afterTags, UpdatedAtMS: now,
 	}, nil
@@ -483,7 +483,7 @@ target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	_, err = recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{
 		Set: `search_text=?`,
@@ -541,4 +541,4 @@ func (repository *ReviewDraftPatches) validUploadedAsset(
 	return err == nil && valid
 }
 
-var _ application.ReviewDraftPatchRepository = (*ReviewDraftPatches)(nil)
+var _ libraryservice.ReviewDraftPatchRepository = (*ReviewDraftPatches)(nil)

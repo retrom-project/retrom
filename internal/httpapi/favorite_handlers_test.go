@@ -50,7 +50,7 @@ const (
 	favoriteHTTPProfileB = "01980000-0000-7000-8000-00000000a402"
 )
 
-func seedFavoriteHTTPPrincipal(t *testing.T, server *Server, profileID, userID, username string) authn.Principal {
+func seedFavoriteHTTPPrincipal(t *testing.T, server *testServer, profileID, userID, username string) authn.Principal {
 	t.Helper()
 	if _, err := server.database.ExecContext(context.Background(),
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Favorite player',1000)`, profileID,
@@ -69,7 +69,7 @@ VALUES(?,?,?,'Favorite player','USER','ENABLED',1,1,1000,1000)
 	}
 }
 
-func seedFavoriteHTTPGame(t *testing.T, server *Server, gameID, _, title string) {
+func seedFavoriteHTTPGame(t *testing.T, server *testServer, gameID, _, title string) {
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
@@ -126,7 +126,7 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 	principalA := seedFavoriteHTTPPrincipal(t, server, favoriteHTTPProfileA, favoriteHTTPUserA, "favorite.owner")
 	principalB := seedFavoriteHTTPPrincipal(t, server, favoriteHTTPProfileB, favoriteHTTPUserB, "favorite.other")
 	cookie, csrf, sessionToken := favoriteHTTPCredentials()
-	server.authenticator = favoriteHTTPAuthenticator{principal: principalA, token: sessionToken}
+	server.accountDeps.Authenticator = favoriteHTTPAuthenticator{principal: principalA, token: sessionToken}
 	handler := server.Handler()
 
 	for _, gameID := range []string{favoriteHTTPGameA, favoriteHTTPGameB} {
@@ -192,7 +192,7 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 		map[string]string{"Idempotency-Key": uuid.NewString(), "If-Match": `"v1"`})
 	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusPreconditionFailed }, func() bool { return !strings.Contains(stale.Body.String(), `"code":"RESOURCE_VERSION_CONFLICT"`) }), "stale folder = %d %s", stale.Code, stale.Body.String())
 
-	server.authenticator = favoriteHTTPAuthenticator{principal: principalB, token: sessionToken}
+	server.accountDeps.Authenticator = favoriteHTTPAuthenticator{principal: principalB, token: sessionToken}
 	foreignCursor := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodGet,
 		"/api/v1/favorites?sort=FAVORITED_DESC&limit=1&cursor="+*page.NextCursor, "", nil)
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignCursor.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(foreignCursor.Body.String(), `"code":"INVALID_CURSOR"`) }), "foreign cursor = %d %s", foreignCursor.Code, foreignCursor.Body.String())
@@ -208,7 +208,7 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignFolder.Code != http.StatusNotFound }, func() bool {
 		return !strings.Contains(foreignFolder.Body.String(), `"code":"FAVORITE_FOLDER_NOT_FOUND"`)
 	}), "foreign folder = %d %s", foreignFolder.Code, foreignFolder.Body.String())
-	server.authenticator = favoriteHTTPAuthenticator{principal: principalA, token: sessionToken}
+	server.accountDeps.Authenticator = favoriteHTTPAuthenticator{principal: principalA, token: sessionToken}
 
 	removeKey := uuid.NewString()
 	unfavorite := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPost, "/api/v1/favorites/unfavorite",
@@ -246,13 +246,13 @@ func TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests(t *testing.T) {
 	seedFavoriteHTTPGame(t, server, favoriteHTTPGameA, "01", "Favorite Alpha")
 	principal := seedFavoriteHTTPPrincipal(t, server, favoriteHTTPProfileA, favoriteHTTPUserA, "favorite.validation")
 	cookie, csrf, sessionToken := favoriteHTTPCredentials()
-	server.authenticator = favoriteHTTPAuthenticator{principal: principal, token: sessionToken}
+	server.accountDeps.Authenticator = favoriteHTTPAuthenticator{principal: principal, token: sessionToken}
 	handler := server.Handler()
 
-	server.authenticator = nil
+	server.accountDeps.Authenticator = nil
 	anonymous := favoriteHTTPRequest(t, handler, nil, "", http.MethodGet, "/api/v1/favorites", "", nil)
 	testassert.Falsef(t, testassert.Any(func() bool { return anonymous.Code != http.StatusUnauthorized }, func() bool { return !strings.Contains(anonymous.Body.String(), `"code":"AUTHENTICATION_REQUIRED"`) }), "anonymous favorites = %d %s", anonymous.Code, anonymous.Body.String())
-	server.authenticator = favoriteHTTPAuthenticator{principal: principal, token: sessionToken}
+	server.accountDeps.Authenticator = favoriteHTTPAuthenticator{principal: principal, token: sessionToken}
 	unknownField := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPut,
 		"/api/v1/favorites/"+favoriteHTTPGameA, `{"unknown":true}`, nil)
 	testassert.Falsef(t, testassert.Any(func() bool { return unknownField.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(unknownField.Body.String(), `"code":"INVALID_REQUEST"`) }), "unknown favorite field = %d %s", unknownField.Code, unknownField.Body.String())

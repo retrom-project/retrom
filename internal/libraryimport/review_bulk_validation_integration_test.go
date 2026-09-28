@@ -13,7 +13,7 @@ import (
 	"retrom/internal/authn"
 	librarycomposition "retrom/internal/composition/libraryimport"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func TestBulkApprovalUsesTheSameValidationAsIndividualApproval(t *testing.T) {
@@ -51,9 +51,9 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 			title, itemID)
 	}
 	approvals := fixture.service.approvals
-	if _, err := approvals.Approve(ctx, application.ReviewApprovalRequest{
+	if _, err := approvals.Approve(ctx, libraryservice.ReviewApprovalRequest{
 		ItemID: itemID, ExpectedVersion: version,
-	}); !errors.Is(err, application.ErrInvalid) {
+	}); !errors.Is(err, libraryservice.ErrInvalid) {
 		t.Fatalf("individual approval accepted %s: %v", reason, err)
 	}
 	bulk := librarycomposition.NewReviewBulk(fixture.database, approvals, time.Now)

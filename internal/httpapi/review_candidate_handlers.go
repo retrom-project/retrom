@@ -11,7 +11,7 @@ func (server *Server) reviewCandidateAssets(
 	request *http.Request,
 	candidateID string,
 ) ([]metadatascrape.CandidateAssetView, error) {
-	assets, err := server.metadataEvidence.Assets(request.Context(), []string{candidateID})
+	assets, err := server.reviewDeps.Evidence.Assets(request.Context(), []string{candidateID})
 	if err != nil {
 		return nil, fmt.Errorf("read review candidate assets: %w", err)
 	}

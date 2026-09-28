@@ -84,7 +84,7 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	created, err := server.platformDirectories.Create(request.Context(), platforminstance.AuditActor{
+	created, err := server.libraryDeps.Directories.Create(request.Context(), platforminstance.AuditActor{
 		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
 	}, platforminstance.CreateInput{
 		PlatformID: body.PlatformID, DefaultCoreID: body.DefaultCoreID,
@@ -115,7 +115,7 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 }
 
 func (server *Server) platformInstanceRecommendations(writer http.ResponseWriter, request *http.Request) {
-	result, err := server.platformDirectories.Recommendations(request.Context())
+	result, err := server.libraryDeps.Directories.Recommendations(request.Context())
 	if errors.Is(err, platforminstance.ErrCatalogInvalid) {
 		writeError(
 			writer, request, http.StatusInternalServerError, "PLATFORM_CATALOG_INVALID",
@@ -147,7 +147,7 @@ func (server *Server) applyPlatformInstanceRecommendations(writer http.ResponseW
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	response, err := server.platformDirectories.Apply(
+	response, err := server.libraryDeps.Directories.Apply(
 		request.Context(),
 		platforminstance.AuditActor{
 			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
@@ -199,7 +199,7 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
-	instance, err := server.platformDirectories.Read(request.Context(), id, server.config.MultiDiscImportEnabled)
+	instance, err := server.libraryDeps.Directories.Read(request.Context(), id, server.config.MultiDiscImportEnabled)
 	if errors.Is(err, platforminstance.ErrNotFound) {
 		return nil, sql.ErrNoRows
 	}
@@ -247,7 +247,7 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 	for _, item := range body.Items {
 		items = append(items, platforminstance.PlatformInstanceOrderItem{ID: item.ID, Version: item.Version})
 	}
-	result, err := server.platformDirectories.Reorder(request.Context(), platforminstance.AuditActor{
+	result, err := server.libraryDeps.Directories.Reorder(request.Context(), platforminstance.AuditActor{
 		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label,
 		RequestID: requestID,
 	}, items)
@@ -293,7 +293,7 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := server.platformDirectories.Patch(request.Context(), platforminstance.PlatformInstancePatch{
+	result, err := server.libraryDeps.Directories.Patch(request.Context(), platforminstance.PlatformInstancePatch{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
 		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder, Enabled: body.Enabled,
 		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
@@ -334,7 +334,7 @@ func (server *Server) deletePlatformInstance(writer http.ResponseWriter, request
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	err = server.platformDirectories.Delete(request.Context(), platforminstance.PlatformInstanceDelete{
+	err = server.libraryDeps.Directories.Delete(request.Context(), platforminstance.PlatformInstanceDelete{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
 		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
 	})

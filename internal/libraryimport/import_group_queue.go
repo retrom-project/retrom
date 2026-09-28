@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // QueueCreate admits work using the same queue and worker as the HTTP entry point.
@@ -16,6 +16,6 @@ func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) 
 	return result, nil
 }
 
-func targetGuard(target creationTarget) application.ImportTargetGuard {
-	return application.TargetImportGuard(importTargetFacts(target))
+func targetGuard(target creationTarget) libraryservice.ImportTargetGuard {
+	return libraryservice.TargetImportGuard(importTargetFacts(target))
 }

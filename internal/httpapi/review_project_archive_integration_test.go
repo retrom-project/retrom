@@ -73,14 +73,14 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 	}
 }
 
-func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Server, string) {
+func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*testServer, string) {
 	t.Helper()
 	server := newTestServer(t)
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, rpgMakerHTTPFixture(t, generation))
-	created, err := server.importer.Create(t.Context(), libraryimport.CreateRequest{
+	created, err := server.importDeps.Importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 	})
@@ -95,7 +95,7 @@ func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Serve
 	return server, itemID
 }
 
-func assertReviewArchiveHTTP(t *testing.T, server *Server, archiveURL string, cookie *http.Cookie, resource map[string]any) {
+func assertReviewArchiveHTTP(t *testing.T, server *testServer, archiveURL string, cookie *http.Cookie, resource map[string]any) {
 	t.Helper()
 	head := requestReviewArchiveHTTP(t, server, archiveURL, "HEAD", cookie, "")
 	if head.Code != http.StatusOK || head.Body.Len() != 0 || head.Header().Get("Content-Length") != fmt.Sprint(resource["sizeBytes"]) ||
@@ -114,7 +114,7 @@ func assertReviewArchiveHTTP(t *testing.T, server *Server, archiveURL string, co
 	}
 }
 
-func requestReviewArchiveHTTP(t *testing.T, server *Server, archiveURL, method string, cookie *http.Cookie, byteRange string) *httptest.ResponseRecorder {
+func requestReviewArchiveHTTP(t *testing.T, server *testServer, archiveURL, method string, cookie *http.Cookie, byteRange string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), method, archiveURL, nil)
 	if cookie != nil {

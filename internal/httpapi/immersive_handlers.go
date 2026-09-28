@@ -76,7 +76,7 @@ func immersiveGameProjection(game immersive.Game) map[string]any {
 
 func (server *Server) immersivePlatforms(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	platforms, err := server.immersive.Platforms(request.Context(), principal.ProfileID)
+	platforms, err := server.libraryDeps.Immersive.Platforms(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -165,7 +165,7 @@ func (server *Server) immersivePlatformGames(writer http.ResponseWriter, request
 		}
 		pageCursor = &decoded
 	}
-	page, err := server.immersive.Games(request.Context(), principal.ProfileID, platformID, limit, pageCursor)
+	page, err := server.libraryDeps.Immersive.Games(request.Context(), principal.ProfileID, platformID, limit, pageCursor)
 	if errors.Is(err, immersive.ErrPlatformNotFound) {
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "游戏平台不存在", map[string]any{})
 		return

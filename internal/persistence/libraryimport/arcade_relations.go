@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ArcadeRelations struct{ executor dbapi.Executor }
@@ -19,8 +19,8 @@ func BindArcadeRelations(executor dbapi.Executor) *ArcadeRelations {
 func (records *ArcadeRelations) MachineRelation(
 	ctx context.Context,
 	datID, machine string,
-) (application.ArcadeMachineRelation, bool, error) {
-	var result application.ArcadeMachineRelation
+) (libraryservice.ArcadeMachineRelation, bool, error) {
+	var result libraryservice.ArcadeMachineRelation
 	err := dbapi.QueryRowContext(ctx, records.executor,
 		`SELECT COALESCE(cloneof,
 ''),
@@ -33,7 +33,7 @@ COALESCE(romof,
 		return result, false, nil
 	}
 	if err != nil {
-		return application.ArcadeMachineRelation{}, false, fmt.Errorf("read arcade machine: %w", err)
+		return libraryservice.ArcadeMachineRelation{}, false, fmt.Errorf("read arcade machine: %w", err)
 	}
 	return result, true, nil
 }

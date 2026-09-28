@@ -68,19 +68,19 @@ func TestServerFilesystemImportWithoutConfiguration(t *testing.T) {
 			}
 		})
 	}
-	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+	server.accountDeps.Authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: uuid.NewString(), ProfileID: uuid.NewString(), Username: "member", Role: "USER",
 	}}
 	if response := get(directoriesURL); response.Code != http.StatusForbidden {
 		t.Fatalf("member browsed filesystem: %d", response.Code)
 	}
-	server.authenticator = serverImportRejectAuthenticator{}
+	server.accountDeps.Authenticator = serverImportRejectAuthenticator{}
 	if response := get(directoriesURL); response.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous user browsed filesystem: %d", response.Code)
 	}
 }
 
-func seedFilesystemImportCatalog(t *testing.T, server *Server) {
+func seedFilesystemImportCatalog(t *testing.T, server *testServer) {
 	t.Helper()
 	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")

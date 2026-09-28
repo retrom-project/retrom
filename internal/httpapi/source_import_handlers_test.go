@@ -22,7 +22,7 @@ import (
 
 func TestSourceImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	server := newTestServer(t)
-	server.sourceImports.Close()
+	server.importDeps.Source.Close()
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "library"), 0o700); err != nil {
 		t.Fatal(err)
@@ -34,12 +34,12 @@ func TestSourceImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "library", "fixture.nes"), []byte("fixture-rom"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.sourceImports = composition.NewSourceImport(
-		server.database, server.blobs, server.importer, server.credentials,
+	server.importDeps.Source = composition.NewSourceImport(
+		server.database, server.contentDeps.Files, server.importDeps.Importer, server.contentDeps.Credentials,
 		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now,
 	)
-	t.Cleanup(server.sourceImports.Close)
-	server.sourceImports.Start()
+	t.Cleanup(server.importDeps.Source.Close)
+	server.importDeps.Source.Start()
 	requireHTTPTestRuntimeTarget(t, server.database, "fceumm")
 	handler := server.Handler()
 	cookie, csrf := testSessionCredentials()

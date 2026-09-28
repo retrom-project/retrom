@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 var errArcadeParentSourceArchiveBlobMissing = errors.New("arcade parent source archive blob is missing")
@@ -20,7 +20,7 @@ var errArcadeParentSourceArchiveBlobMissing = errors.New("arcade parent source a
 // parsing and source-manifest construction remain in the application facade.
 type ArcadeParentAttachmentWorker struct{ database dbapi.DB }
 
-var _ application.ArcadeParentAttachmentWorkerRepository = (*ArcadeParentAttachmentWorker)(nil)
+var _ libraryservice.ArcadeParentAttachmentWorkerRepository = (*ArcadeParentAttachmentWorker)(nil)
 
 func NewArcadeParentAttachmentWorker(database dbapi.DB) *ArcadeParentAttachmentWorker {
 	return &ArcadeParentAttachmentWorker{database: database}
@@ -28,7 +28,7 @@ func NewArcadeParentAttachmentWorker(database dbapi.DB) *ArcadeParentAttachmentW
 
 func (repository *ArcadeParentAttachmentWorker) Claim(
 	ctx context.Context, jobID, workerID string, now int64,
-) (application.ArcadeParentAttachmentWorkerClaim, error) {
+) (libraryservice.ArcadeParentAttachmentWorkerClaim, error) {
 	return runWorkerClaim(
 		ctx, repository.database, jobID, workerID, now, "arcade parent",
 		claimArcadeParentAttachmentRecords, readClaimedArcadeParentAttachment,
@@ -43,13 +43,13 @@ UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,worker_id=?,
 execution_started_at_ms=COALESCE(execution_started_at_ms,?),execution_deadline_at_ms=?,
 leased_until_ms=?,heartbeat_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND kind='REVIEW_ARCADE_PARENT_VALIDATE' AND state='QUEUED' AND available_at_ms<=?
-`, workerID, now, now+application.ArcadeParentAttachmentDeadline.Milliseconds(),
-		now+application.ArcadeParentAttachmentDeadline.Milliseconds(), now, now, jobID, now)
+`, workerID, now, now+libraryservice.ArcadeParentAttachmentDeadline.Milliseconds(),
+		now+libraryservice.ArcadeParentAttachmentDeadline.Milliseconds(), now, now, jobID, now)
 	if err != nil {
 		return fmt.Errorf("claim arcade parent job: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	result, err = tx.ExecContext(ctx, `
 UPDATE review_arcade_parent_attachments
@@ -60,7 +60,7 @@ WHERE job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
 		return fmt.Errorf("mark arcade parent attachment running: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
@@ -73,8 +73,8 @@ SELECT id,scope_type,scope_id,'STARTED','{}',? FROM jobs WHERE id=?
 
 func readClaimedArcadeParentAttachment(
 	ctx context.Context, tx dbapi.Tx, jobID, workerID string,
-) (application.ArcadeParentAttachmentWorkerClaim, error) {
-	var result application.ArcadeParentAttachmentWorkerClaim
+) (libraryservice.ArcadeParentAttachmentWorkerClaim, error) {
+	var result libraryservice.ArcadeParentAttachmentWorkerClaim
 	result.JobID, result.WorkerID = jobID, workerID
 	var inputJSON string
 	if err := dbapi.QueryRowContext(ctx, tx, `
@@ -83,13 +83,13 @@ FROM job_input_snapshots input
 JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
 WHERE input.job_id=?
 `, jobID).Scan(&inputJSON, &result.ExecutionStartedAtMS); err != nil {
-		return application.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf("read arcade parent input: %w", err)
+		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf("read arcade parent input: %w", err)
 	}
 	if err := json.Unmarshal([]byte(inputJSON), &result.Input); err != nil ||
-		!application.ValidArcadeParentAttachmentInput(result.Input) {
-		return application.ArcadeParentAttachmentWorkerClaim{}, application.ErrInvalid
+		!libraryservice.ValidArcadeParentAttachmentInput(result.Input) {
+		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, libraryservice.ErrInvalid
 	}
-	var candidate application.ArcadeParentAttachmentCandidate
+	var candidate libraryservice.ArcadeParentAttachmentCandidate
 	if err := dbapi.QueryRowContext(ctx, tx, `
 SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
@@ -107,7 +107,7 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 		&candidate.DATID, &candidate.UploadFileID, &candidate.UploadSessionID, &candidate.OriginalName,
 		&candidate.FileRecord, &candidate.BlobSHA, &candidate.BlobSize,
 	); err != nil {
-		return application.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf(
+		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf(
 			"read claimed arcade parent attachment: %w",
 			err,
 		)
@@ -117,7 +117,7 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 		candidate.Machine != result.Input.DependencyMachine || candidate.ProviderID != result.Input.ProviderID ||
 		candidate.TargetID != result.Input.TargetID || candidate.DATID != result.Input.DATVersionID ||
 		candidate.UploadFileID != result.Input.UploadFileID {
-		return application.ArcadeParentAttachmentWorkerClaim{}, application.ErrInvalid
+		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, libraryservice.ErrInvalid
 	}
 	candidate.ContentPolicyDigest = result.Input.ContentPolicyDigest
 	result.Candidate = candidate
@@ -125,7 +125,7 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 }
 
 func (repository *ArcadeParentAttachmentWorker) RootValidation(
-	ctx context.Context, candidate application.ArcadeParentAttachmentCandidate,
+	ctx context.Context, candidate libraryservice.ArcadeParentAttachmentCandidate,
 ) (string, error) {
 	var raw string
 	if err := dbapi.QueryRowContext(ctx, repository.database, `
@@ -142,7 +142,7 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 
 func (repository *ArcadeParentAttachmentWorker) SourceSnapshot(
 	ctx context.Context, snapshotID string,
-) ([]application.ArcadeParentSourceSnapshotFile, error) {
+) ([]libraryservice.ArcadeParentSourceSnapshotFile, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
 '$.sha256'),json_extract(blob.value, '$.size_bytes'),
@@ -158,9 +158,9 @@ ORDER BY file.role,file.logical_name
 		return nil, fmt.Errorf("read arcade parent source snapshot: %w", err)
 	}
 	defer func() { cleanup.Error("close arcade parent source snapshot", rows.Close()) }()
-	files := make([]application.ArcadeParentSourceSnapshotFile, 0)
+	files := make([]libraryservice.ArcadeParentSourceSnapshotFile, 0)
 	for rows.Next() {
-		var file application.ArcadeParentSourceSnapshotFile
+		var file libraryservice.ArcadeParentSourceSnapshotFile
 		var archiveID sql.NullString
 		var archiveOrdinal sql.NullInt64
 		if err := rows.Scan(

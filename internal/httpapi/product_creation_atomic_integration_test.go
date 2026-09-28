@@ -23,14 +23,14 @@ import (
 
 const productCreateHTTPKey = "01980000-0000-7000-8000-000000000082"
 
-func productCreateHTTP(t *testing.T, server *Server, gameID string) *httptest.ResponseRecorder {
+func productCreateHTTP(t *testing.T, server *testServer, gameID string) *httptest.ResponseRecorder {
 	t.Helper()
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "01980000-0000-7000-8000-000000009999", ProfileID: "local"})
 	body := fmt.Sprintf(`{"gameId":%q,"returnTo":"/library","clientCapabilities":{"secureContext":true,"crossOriginIsolated":true,"sharedArrayBuffer":true}}`, gameID)
 	return productCreateHTTPBody(ctx, server, body)
 }
 
-func productCreateHTTPBody(ctx context.Context, server *Server, body string) *httptest.ResponseRecorder {
+func productCreateHTTPBody(ctx context.Context, server *testServer, body string) *httptest.ResponseRecorder {
 	request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/launches", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", productCreateHTTPKey)
@@ -91,7 +91,7 @@ func TestProductCreateHTTPReplaysPendingBytesAfterReady(t *testing.T) {
 	}
 }
 
-func productCreateHTTPCounts(t *testing.T, server *Server) (int, int) {
+func productCreateHTTPCounts(t *testing.T, server *testServer) (int, int) {
 	t.Helper()
 	var launches, receipts int
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT (SELECT count(*) FROM launch_sessions),(SELECT count(*) FROM idempotency_records WHERE operation_id='postLaunch')`).Scan(&launches, &receipts); err != nil {
@@ -133,10 +133,28 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := launchcomposition.New(server.database, launch.NewSources(server.blobs, server.credentials).WithRuntimeProvider(builder), "", clock, server.variants.Dispatch)
-	servers := []*Server{
-		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},
-		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},
+	launcher := launchcomposition.New(server.database, launch.NewSources(server.contentDeps.Files, server.contentDeps.Credentials).WithRuntimeProvider(builder), "", clock, server.playDeps.Variants.Dispatch)
+	servers := []*testServer{
+		{database: server.database, Server: &Server{
+			contentDeps: ContentDependencies{
+				Credentials: server.contentDeps.Credentials,
+			},
+			config: server.config,
+			playDeps: PlayDependencies{
+				Launcher: launcher,
+			},
+			now: func() time.Time { return now },
+		}},
+		{database: server.database, Server: &Server{
+			contentDeps: ContentDependencies{
+				Credentials: server.contentDeps.Credentials,
+			},
+			config: server.config,
+			playDeps: PlayDependencies{
+				Launcher: launcher,
+			},
+			now: func() time.Time { return now },
+		}},
 	}
 	outcomes := make(chan *httptest.ResponseRecorder, 2)
 	for _, current := range servers {

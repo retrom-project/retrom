@@ -40,6 +40,11 @@ func (service *Service) Start(parent context.Context) {
 }
 
 func (service *Service) Close() {
+	service.Stop()
+	service.Wait()
+}
+
+func (service *Service) Stop() {
 	service.lifecycleMu.Lock()
 	if !service.closed {
 		service.closed = true
@@ -49,8 +54,9 @@ func (service *Service) Close() {
 		}
 	}
 	service.lifecycleMu.Unlock()
-	service.wait.Wait()
 }
+
+func (service *Service) Wait() { service.wait.Wait() }
 
 func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 	var request Request

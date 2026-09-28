@@ -8,13 +8,13 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-var _ application.MultiDiscAttachmentTerminalRepository = (*MultiDiscAttachmentFinalization)(nil)
+var _ libraryservice.MultiDiscAttachmentTerminalRepository = (*MultiDiscAttachmentFinalization)(nil)
 
 func (repository *MultiDiscAttachmentFinalization) Reject(
-	ctx context.Context, write application.MultiDiscAttachmentRejectWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentRejectWrite,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -55,11 +55,11 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 }
 
 func (repository *MultiDiscAttachmentFinalization) TryRetry(
-	ctx context.Context, write application.MultiDiscAttachmentRetryWrite,
-) (application.MultiDiscAttachmentRetryResult, error) {
+	ctx context.Context, write libraryservice.MultiDiscAttachmentRetryWrite,
+) (libraryservice.MultiDiscAttachmentRetryResult, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, fmt.Errorf("begin multi-disc retry: %w", err)
+		return libraryservice.MultiDiscAttachmentRetryResult{}, fmt.Errorf("begin multi-disc retry: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
 	var attemptCount, maxAttempts, deadline int64
@@ -67,12 +67,12 @@ func (repository *MultiDiscAttachmentFinalization) TryRetry(
 SELECT attempt_count,max_attempts,execution_deadline_at_ms
 FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?
 `, write.Target.JobID, write.Target.WorkerID).Scan(&attemptCount, &maxAttempts, &deadline); err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, fmt.Errorf("read multi-disc retry job: %w", err)
+		return libraryservice.MultiDiscAttachmentRetryResult{}, fmt.Errorf("read multi-disc retry job: %w", err)
 	}
 	delay := multiDiscAttachmentRetryDelay(attemptCount)
 	availableAt := write.NowMS + delay.Milliseconds()
 	if attemptCount >= maxAttempts || availableAt >= deadline {
-		return application.MultiDiscAttachmentRetryResult{}, nil
+		return libraryservice.MultiDiscAttachmentRetryResult{}, nil
 	}
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set:    `state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
@@ -80,7 +80,7 @@ FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?
 		Values: []any{write.Code, write.DiagnosticsJSON, write.NowMS, write.NowMS},
 	})
 	if err := requireMultiDiscChange(result, err, "schedule retry attachment"); err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, err
+		return libraryservice.MultiDiscAttachmentRetryResult{}, err
 	}
 	result, err = transaction.ExecContext(ctx, `
 UPDATE jobs SET state='QUEUED',available_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
@@ -88,7 +88,7 @@ worker_id=NULL,error_code=NULL,error_retryable=NULL,finished_at_ms=NULL,version=
 WHERE id=? AND state='RUNNING' AND worker_id=?
 `, availableAt, write.NowMS, write.Target.JobID, write.Target.WorkerID)
 	if err := requireMultiDiscChange(result, err, "queue multi-disc retry job"); err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, err
+		return libraryservice.MultiDiscAttachmentRetryResult{}, err
 	}
 	eventJSON, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "attempt": attemptCount, "retryAtMs": availableAt,
@@ -99,16 +99,16 @@ WHERE id=? AND state='RUNNING' AND worker_id=?
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 VALUES(?,'IMPORT_ITEM',?,'RETRY_SCHEDULED',?,?)
 `, write.Target.JobID, write.Target.ItemID, string(eventJSON), write.NowMS); err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, fmt.Errorf("record multi-disc retry event: %w", err)
+		return libraryservice.MultiDiscAttachmentRetryResult{}, fmt.Errorf("record multi-disc retry event: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
-		return application.MultiDiscAttachmentRetryResult{}, fmt.Errorf("commit multi-disc retry: %w", err)
+		return libraryservice.MultiDiscAttachmentRetryResult{}, fmt.Errorf("commit multi-disc retry: %w", err)
 	}
-	return application.MultiDiscAttachmentRetryResult{Scheduled: true, Delay: delay}, nil
+	return libraryservice.MultiDiscAttachmentRetryResult{Scheduled: true, Delay: delay}, nil
 }
 
 func (repository *MultiDiscAttachmentFinalization) FailRetryable(
-	ctx context.Context, write application.MultiDiscAttachmentRetryWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentRetryWrite,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -161,7 +161,7 @@ AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')`, Args: []any{jo
 }
 
 func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
-	ctx context.Context, write application.MultiDiscAttachmentCancellationWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCancellationWrite,
 ) (bool, error) {
 	var state string
 	if err := dbapi.QueryRowContext(ctx, repository.database,

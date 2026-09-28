@@ -23,7 +23,7 @@ type sourceFaultConnector struct {
 
 func (connector sourceFaultConnector) Driver() driver.Driver { return &sqlite.Driver{} }
 func (connector sourceFaultConnector) Connect(context.Context) (driver.Conn, error) {
-	conn, err := connector.Driver().Open(connector.path)
+	conn, err := connector.Driver().Open(connector.path + "?_txlock=immediate")
 	if err != nil {
 		return nil, err
 	}

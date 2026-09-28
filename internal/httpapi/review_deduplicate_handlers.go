@@ -17,7 +17,7 @@ func (server *Server) deduplicateReviews(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "去重请求无效", map[string]any{})
 		return
 	}
-	result, err := server.importer.DeduplicateReviews(request.Context(), body)
+	result, err := server.importDeps.Importer.DeduplicateReviews(request.Context(), body)
 	if errors.Is(err, libraryimport.ErrReviewBulkInvalidScope) {
 		writeError(writer, request, http.StatusBadRequest, "REVIEW_BULK_INVALID_SCOPE", "审核筛选范围或去重游标无效", map[string]any{})
 		return

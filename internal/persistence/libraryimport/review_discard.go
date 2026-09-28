@@ -10,7 +10,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -21,7 +21,7 @@ type (
 func NewReviewDiscards(database dbapi.DB) *ReviewDiscards { return &ReviewDiscards{database: database} }
 
 func (repository *ReviewDiscards) WithDiscard(
-	ctx context.Context, work func(application.ReviewDiscardScope) error,
+	ctx context.Context, work func(libraryservice.ReviewDiscardScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -38,9 +38,9 @@ func (repository *ReviewDiscards) WithDiscard(
 }
 
 // BindReviewDiscard joins an existing transaction without committing it.
-func BindReviewDiscard(executor dbapi.Executor) application.ReviewDiscardScope {
+func BindReviewDiscard(executor dbapi.Executor) libraryservice.ReviewDiscardScope {
 	records := reviewDiscardRecords{executor: executor}
-	return application.ReviewDiscardScope{
+	return libraryservice.ReviewDiscardScope{
 		Payload: payloadpersistence.BindScheduling(executor),
 		Reader:  records, Writer: records, Tags: tagpersistence.BindExecutor(executor).Relations,
 	}
@@ -48,8 +48,8 @@ func BindReviewDiscard(executor dbapi.Executor) application.ReviewDiscardScope {
 
 func (records reviewDiscardRecords) Snapshot(
 	ctx context.Context, itemID string,
-) (application.ReviewDiscardSnapshot, bool, error) {
-	var result application.ReviewDiscardSnapshot
+) (libraryservice.ReviewDiscardSnapshot, bool, error) {
+	var result libraryservice.ReviewDiscardSnapshot
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.id,i.import_job_id,d.metadata_json,d.review_version,i.state,
 d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
@@ -74,16 +74,16 @@ WHERE i.id=?`, itemID).Scan(&result.DraftID, &result.ImportID, &result.MetadataJ
 		&result.Aggregate.Progress.Counts.ResolvedRejected,
 		&result.Aggregate.Progress.CancelRequestedAtMS, &result.Aggregate.Progress.CompletedAtMS)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewDiscardSnapshot{}, false, nil
+		return libraryservice.ReviewDiscardSnapshot{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewDiscardSnapshot{}, false, fmt.Errorf("query discard snapshot: %w", err)
+		return libraryservice.ReviewDiscardSnapshot{}, false, fmt.Errorf("query discard snapshot: %w", err)
 	}
 	return result, true, nil
 }
 
 func (records reviewDiscardRecords) TransitionOwner(
-	ctx context.Context, change application.ReviewOwnerTransition,
+	ctx context.Context, change libraryservice.ReviewOwnerTransition,
 ) error {
 	return TransitionReviewOwners(ctx, records.executor, change)
 }

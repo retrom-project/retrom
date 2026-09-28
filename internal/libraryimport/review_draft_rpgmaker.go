@@ -7,13 +7,13 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // The validation compatibility facade still reads the RPG profile while its
 // broader refresh workflow is migrated. It accepts the shared executor so
 // callers do not need to expose a concrete transaction type.
-type rpgReviewAnalysis = application.RPGReviewAnalysis
+type rpgReviewAnalysis = libraryservice.RPGReviewAnalysis
 
 type rpgReviewBinding struct {
 	generation       string
@@ -40,7 +40,7 @@ func loadRPGReviewBinding(
 	}, nil
 }
 
-func profileAnalysis(profile application.RPGReviewProfile) (rpgReviewAnalysis, error) {
+func profileAnalysis(profile libraryservice.RPGReviewProfile) (rpgReviewAnalysis, error) {
 	var analysis rpgReviewAnalysis
 	if err := json.Unmarshal([]byte(profile.AnalysisJSON), &analysis); err != nil {
 		// RPGProfile validates the same payload before returning. Keep this

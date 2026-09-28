@@ -13,7 +13,7 @@ import (
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 	"retrom/internal/composition/importworkflow"
 	librarycomposition "retrom/internal/composition/libraryimport"
 
@@ -35,7 +35,6 @@ import (
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/core/scummvm"
-	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
@@ -63,8 +62,8 @@ import (
 
 type Inputs struct {
 	Config                      config.Config
+	IndexCatalogs               func(context.Context) error
 	Database, ReadinessDatabase dbapi.DB
-	Dependencies                *dependencies.Set
 	Files                       *filestore.Store
 	Credentials                 *retromruntime.Credentials
 	Accounts                    *accounts.Service
@@ -76,16 +75,16 @@ type Inputs struct {
 var ErrInvalidInputs = errors.New("application requires database, files, credentials and public origin")
 
 // New assembles services without starting background work.
-func New(input Inputs) (*Services, error) {
+func New(ctx context.Context, input Inputs) (*Services, error) {
 	if input.Database == nil || input.Files == nil || input.Credentials == nil || input.Config.PublicOrigin == nil {
 		return nil, ErrInvalidInputs
 	}
-	config, database, dependencySet := input.Config, input.Database, input.Dependencies
+	config, database := input.Config, input.Database
 	blobs, credentials, accountService, now := input.Files, input.Credentials, input.Accounts, input.Now
 	if now == nil {
 		now = time.Now
 	}
-	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now)
+	cleanupService, err := cleanupcomposition.New(ctx, database, blobs, now)
 	if err != nil {
 		return nil, fmt.Errorf("initialize cleanup jobs: %w", err)
 	}
@@ -103,7 +102,7 @@ func New(input Inputs) (*Services, error) {
 	})
 
 	firmwareService := firmwareservice.New(firmwareservice.Dependencies{
-		Repository: firmwarepersistence.New(database), Files: blobs, Cleanup: payloadReleaseService,
+		Repository: firmwarepersistence.New(database), Files: blobs, Cleanup: cleanupService,
 	}, now)
 	serverImportService := composition.NewServerImports(
 		database,
@@ -119,12 +118,11 @@ func New(input Inputs) (*Services, error) {
 	)
 
 	server := &Services{
-		Database:          database,
-		ReadinessDatabase: database,
-		ReadinessService:  composition.NewReadiness(database),
-		Dependencies:      dependencySet,
-		Blobs:             blobs,
-		Credentials:       credentials,
+		ImportReads:      librarycomposition.NewImportReads(database),
+		GameMove:         composition.NewGameMove(database),
+		ReadinessService: composition.NewReadiness(database),
+		Blobs:            blobs,
+		Credentials:      credentials,
 
 		Accounts: accountService,
 
@@ -140,18 +138,18 @@ func New(input Inputs) (*Services, error) {
 		CatalogService:      composition.NewCatalog(database),
 		ServerImports:       serverImportService,
 		SourceImports:       sourceImportService,
-		CleanupJobs:         payloadReleaseService,
+		CleanupJobs:         cleanupService,
 		DiagnosticsService:  composition.NewDiagnostics(database),
 		PlatformDirectories: platforminstance.New(platformpersistence.New(database), now),
 		Metadata:            scraper,
 		GameContent: gamecontent.New(gamecontent.Dependencies{
-			Repository: gamecontentpersistence.New(database), Files: blobs, Cleanup: payloadReleaseService,
+			Repository: gamecontentpersistence.New(database), Files: blobs, Cleanup: cleanupService,
 		}, gamecontent.Options{Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled}),
 		GameImpact:      gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
 		GameListService: composition.NewGameList(database),
 		HomeService:     composition.NewHome(database, tagService),
-		GameAssets:      composition.NewGameAssets(database, blobs, now, payloadReleaseService),
-		GameMetadata:    composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
+		GameAssets:      composition.NewGameAssets(database, blobs, now, cleanupService),
+		GameMetadata:    composition.NewGameMetadata(database, blobs, cleanupService, now),
 		SaveService:     saves.New(savepersistence.New(database), blobs, now),
 		RpgIsolation:    isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
 		FavoriteService: favorites.New(favoritepersistence.New(database), now),
@@ -180,8 +178,9 @@ func New(input Inputs) (*Services, error) {
 	)
 
 	if input.ReadinessDatabase != nil {
-		server.ReadinessDatabase = input.ReadinessDatabase
 		server.ReadinessService = composition.NewReadiness(input.ReadinessDatabase)
 	}
+	server.catalogs = newCatalogTask(input.IndexCatalogs)
+	server.shutdown = newShutdownGroup(server.workers(), server.CleanupJobs.Close)
 	return server, nil
 }

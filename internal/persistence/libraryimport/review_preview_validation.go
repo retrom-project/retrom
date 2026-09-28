@@ -7,7 +7,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewPreviewValidationDraft struct {
@@ -37,7 +37,7 @@ func (repository *ReviewPreviewValidationRepository) Refresh(
 	ctx context.Context, itemID string, nowMS int64,
 ) error {
 	if repository == nil || repository.refresh == nil {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return NewTransactions(repository.database).Write(ctx, func(executor dbapi.Executor) error {
 		draft, err := BindReviewPreviewValidations(executor).Draft(ctx, itemID)
@@ -91,4 +91,4 @@ func (records ReviewPreviewValidations) Select(
 	return nil
 }
 
-var _ application.ReviewPreviewValidationRepository = (*ReviewPreviewValidationRepository)(nil)
+var _ libraryservice.ReviewPreviewValidationRepository = (*ReviewPreviewValidationRepository)(nil)

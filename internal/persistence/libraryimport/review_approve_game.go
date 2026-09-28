@@ -7,10 +7,10 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records reviewApprovalRecords) CreateGame(ctx context.Context, game application.ApprovalGame) error {
+func (records reviewApprovalRecords) CreateGame(ctx context.Context, game libraryservice.ApprovalGame) error {
 	m := game.Metadata
 	result, err := records.transaction.ExecContext(ctx, `
 INSERT INTO games(
@@ -28,7 +28,7 @@ updated_at_ms
 }
 
 func (records reviewApprovalRecords) CopySourceFiles(
-	ctx context.Context, source application.ApprovalContentCopy,
+	ctx context.Context, source libraryservice.ApprovalContentCopy,
 ) error {
 	result, err := recordstore.CreateGameFiles(ctx, records.transaction, `
 INSERT INTO game_files(game_id,role,logical_name,file_record,source_archive_file_record,
@@ -47,7 +47,7 @@ role,logical_name`,
 
 func (records reviewApprovalRecords) CopyRPGProfile(
 	ctx context.Context,
-	source application.ApprovalContentCopy,
+	source libraryservice.ApprovalContentCopy,
 ) error {
 	var raw string
 	if err := dbapi.QueryRowContext(ctx, records.transaction, `
@@ -77,7 +77,7 @@ UPDATE games SET content_profile_json=? WHERE id=? AND content_kind='RPG_MAKER_P
 	return approvalMutation(result, err, "copy approved RPG profile", true)
 }
 
-func (records reviewApprovalRecords) CreateAsset(ctx context.Context, asset application.ApprovalAsset) error {
+func (records reviewApprovalRecords) CreateAsset(ctx context.Context, asset libraryservice.ApprovalAsset) error {
 	result, err := recordstore.CreateGameAssets(ctx, records.transaction, `
 INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,
 created_at_ms)
@@ -89,7 +89,7 @@ VALUES(?,?,?,?,?,?,?,?,?)`,
 
 func (records reviewApprovalRecords) CopyDOSEntries(
 	ctx context.Context,
-	source application.ApprovalContentCopy,
+	source libraryservice.ApprovalContentCopy,
 ) error {
 	result, err := records.transaction.ExecContext(ctx, `
 INSERT INTO dos_entries(game_id,normalized_path,original_relative_path,kind,rank,enabled,

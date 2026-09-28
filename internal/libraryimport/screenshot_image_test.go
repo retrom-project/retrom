@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/filestore"
 	"retrom/internal/mediaasset"
@@ -32,7 +32,7 @@ func TestScreenshotImagesBoundsStreamAndDiscardsInvalidCandidate(t *testing.T) {
 	}
 	source := &screenshotUnlimitedBytes{}
 	result, err := (screenshotImages{blobs: blobs}).Read(t.Context(), "018fbe68-0000-7000-8000-000000000001", source)
-	if !errors.Is(err, application.ErrReviewScreenshotInvalid) || result.SHA256 != "" || source.count != mediaasset.MaxImageBytes+1 {
+	if !errors.Is(err, libraryservice.ErrReviewScreenshotInvalid) || result.SHA256 != "" || source.count != mediaasset.MaxImageBytes+1 {
 		t.Fatalf("image=%+v error=%v bytes read=%d", result, err, source.count)
 	}
 	files, err := os.ReadDir(filepath.Join(root, "staging", "writes"))
@@ -48,7 +48,7 @@ func TestScreenshotImagesRejectsEmptyAndMalformedMedia(t *testing.T) {
 	}
 	for _, source := range []io.Reader{nil, bytes.NewReader(nil), bytes.NewReader([]byte("not an image"))} {
 		result, err := (screenshotImages{blobs: blobs}).Read(t.Context(), "018fbe68-0000-7000-8000-000000000001", source)
-		if !errors.Is(err, application.ErrReviewScreenshotInvalid) || result.SHA256 != "" {
+		if !errors.Is(err, libraryservice.ErrReviewScreenshotInvalid) || result.SHA256 != "" {
 			t.Fatalf("invalid media result=%+v error=%v", result, err)
 		}
 	}
@@ -79,7 +79,7 @@ func TestScreenshotImagesPreservesStagingAndPublishingCauses(t *testing.T) {
 			result, err := (screenshotImages{blobs: blobs}).Read(t.Context(), "018fbe68-0000-7000-8000-000000000001", &contents)
 			var storage *os.PathError
 			if (!errors.As(err, &storage) && !errors.Is(err, filestore.ErrRecordInvalid)) ||
-				errors.Is(err, application.ErrReviewScreenshotInvalid) || result.SHA256 != "" {
+				errors.Is(err, libraryservice.ErrReviewScreenshotInvalid) || result.SHA256 != "" {
 				t.Fatalf("filesystem failure result=%+v error=%v", result, err)
 			}
 		})
@@ -88,7 +88,7 @@ func TestScreenshotImagesPreservesStagingAndPublishingCauses(t *testing.T) {
 
 func TestInspectScreenshotFilePreservesOpenCause(t *testing.T) {
 	_, err := inspectScreenshotFile(filestore.Metadata{Path: filepath.Join(t.TempDir(), "missing"), Size: 100})
-	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, application.ErrReviewScreenshotInvalid) {
+	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, libraryservice.ErrReviewScreenshotInvalid) {
 		t.Fatal(err)
 	}
 }

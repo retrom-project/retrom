@@ -19,7 +19,7 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 		return
 	}
 	body := http.MaxBytesReader(writer, request.Body, mediaasset.MaxImageBytes+1)
-	result, err := server.reviewScreenshots.Store(
+	result, err := server.reviewDeps.Screenshots.Store(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request), body,
 	)
 	if err != nil {

@@ -168,9 +168,15 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 		t.Fatal(err)
 	}
 	now := func() time.Time { return time.UnixMilli(*nowMS) }
-	server := &Server{
-		database: database, rpgIsolation: isolationService,
-		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now, nil), now: now,
+	server := &testServer{
+		database: database,
+		Server: &Server{
+			playDeps: PlayDependencies{
+				Isolation: isolationService,
+				Launcher:  launchcomposition.New(database, launch.NewSources(nil, nil), "", now, nil),
+			},
+			now: now,
+		},
 	}
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodHead,
@@ -291,9 +297,15 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{
-		config: config.Config{PublicOrigin: publicOrigin}, database: database,
-		rpgIsolation: service, now: func() time.Time { return time.UnixMilli(*nowMS) },
+	server := &testServer{
+		database: database,
+		Server: &Server{
+			config: config.Config{PublicOrigin: publicOrigin},
+			playDeps: PlayDependencies{
+				Isolation: service,
+			},
+			now: func() time.Time { return time.UnixMilli(*nowMS) },
+		},
 	}
 	access := isolation.Access{LaunchID: launchID, Origin: origin}
 
@@ -332,8 +344,7 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 
 func bootstrapPageRequest(
 	t *testing.T,
-	server *Server,
-	access isolation.Access,
+	server *testServer, access isolation.Access,
 	credential string,
 ) *httptest.ResponseRecorder {
 	t.Helper()

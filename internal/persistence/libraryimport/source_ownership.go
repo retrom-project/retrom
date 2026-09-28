@@ -9,23 +9,23 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type sourceOwnership struct{ executor dbapi.Executor }
 
-func BindSourceOwnership(executor dbapi.Executor) application.SourceOwnershipRecords {
+func BindSourceOwnership(executor dbapi.Executor) libraryservice.SourceOwnershipRecords {
 	return sourceOwnership{executor: executor}
 }
 
 func (records sourceOwnership) ReadSource(
 	ctx context.Context,
-	intent application.SourceCreationIntent,
-) (application.SourceCreationSnapshot, error) {
-	if intent.Kind != application.SourceOwnerSource {
-		return application.SourceCreationSnapshot{}, application.ErrInvalid
+	intent libraryservice.SourceCreationIntent,
+) (libraryservice.SourceCreationSnapshot, error) {
+	if intent.Kind != libraryservice.SourceOwnerSource {
+		return libraryservice.SourceCreationSnapshot{}, libraryservice.ErrInvalid
 	}
-	var value application.SourceCreationSnapshot
+	var value libraryservice.SourceCreationSnapshot
 	value.Kind = intent.Kind
 	err := dbapi.QueryRowContext(
 		ctx, records.executor, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
@@ -68,14 +68,14 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 		&value.LibraryJobID,
 		&value.LibraryItemID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.SourceCreationSnapshot{}, application.ErrVersionConflict
+		return libraryservice.SourceCreationSnapshot{}, libraryservice.ErrVersionConflict
 	}
 	if err != nil {
-		return application.SourceCreationSnapshot{}, fmt.Errorf("read source creation fence: %w", err)
+		return libraryservice.SourceCreationSnapshot{}, fmt.Errorf("read source creation fence: %w", err)
 	}
 	value.Files, err = records.sourceFiles(ctx, intent.Kind, intent.ItemID)
 	if err != nil {
-		return application.SourceCreationSnapshot{}, err
+		return libraryservice.SourceCreationSnapshot{}, err
 	}
 	for _, file := range value.Files {
 		value.PrimaryPaths = append(value.PrimaryPaths, file.File.RelativePath)
@@ -84,7 +84,7 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 }
 
 func (records sourceOwnership) sourcePaths(
-	ctx context.Context, kind application.SourceOwnerKind, itemID string,
+	ctx context.Context, kind libraryservice.SourceOwnerKind, itemID string,
 ) ([]string, error) {
 	table, err := sourceOwnerFilesTable(kind)
 	if err != nil {
@@ -113,10 +113,10 @@ SELECT relative_path FROM `+table+` WHERE item_id=? ORDER BY ordinal`, itemID)
 	return result, nil
 }
 
-func (records sourceOwnership) BindSource(ctx context.Context, change application.SourceBindingChange) error {
+func (records sourceOwnership) BindSource(ctx context.Context, change libraryservice.SourceBindingChange) error {
 	before := change.Before
-	if before.Kind != application.SourceOwnerSource {
-		return application.ErrInvalid
+	if before.Kind != libraryservice.SourceOwnerSource {
+		return libraryservice.ErrInvalid
 	}
 	result, err := recordstore.UpdateSourceImportItems(ctx, records.executor, recordstore.Update{
 		Set: `execution_state='VALIDATING',content_kind=?,source_manifest_json=?,source_manifest_digest=?,
@@ -168,14 +168,14 @@ AND EXISTS(SELECT 1 FROM server_import_upload_owners owner
 		return fmt.Errorf("read source creation affected rows: %w", err)
 	}
 	if count != 1 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	return nil
 }
 
 func (records sourceOwnership) sourceFiles(
-	ctx context.Context, kind application.SourceOwnerKind, itemID string,
-) ([]application.SourceCreationFile, error) {
+	ctx context.Context, kind libraryservice.SourceOwnerKind, itemID string,
+) ([]libraryservice.SourceCreationFile, error) {
 	table, err := sourceOwnerFilesTable(kind)
 	if err != nil {
 		return nil, err
@@ -187,9 +187,9 @@ COALESCE(source_facts_digest,'') FROM `+table+` WHERE item_id=? ORDER BY ordinal
 		return nil, fmt.Errorf("query copied source files: %w", err)
 	}
 	defer func() { cleanup.Error("close copied source files", rows.Close()) }()
-	result := []application.SourceCreationFile{}
+	result := []libraryservice.SourceCreationFile{}
 	for rows.Next() {
-		var file application.SourceCreationFile
+		var file libraryservice.SourceCreationFile
 		if err := rows.Scan(
 			&file.File.RelativePath, &file.File.FileRecord, &file.File.SizeBytes, &file.State, &file.FactsDigest,
 		); err != nil {

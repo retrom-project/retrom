@@ -9,7 +9,9 @@ import (
 )
 
 func (server *Server) getImportBatchDiscard(writer http.ResponseWriter, request *http.Request) {
-	status, err := server.importDiscards.Get(request.Context(), request.PathValue("kind"), request.PathValue("importId"))
+	status, err := server.importDeps.Discards.Get(
+		request.Context(), request.PathValue("kind"), request.PathValue("importId"),
+	)
 	if err != nil {
 		writeImportDiscardError(writer, request, err)
 		return
@@ -28,7 +30,7 @@ func (server *Server) discardImportBatch(writer http.ResponseWriter, request *ht
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	status, err := server.importDiscards.Request(
+	status, err := server.importDeps.Discards.Request(
 		request.Context(), request.PathValue("kind"), request.PathValue("importId"), principal.UserID,
 	)
 	if err != nil {

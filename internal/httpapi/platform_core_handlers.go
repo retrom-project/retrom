@@ -32,7 +32,7 @@ func (server *Server) calculateCoreImpact(
 	instanceID, coreID string,
 	expected int64,
 ) (coreImpact, map[string]int64, []map[string]any, error) {
-	result, err := server.platformDirectories.CoreImpact(request.Context(), instanceID, coreID, expected)
+	result, err := server.libraryDeps.Directories.CoreImpact(request.Context(), instanceID, coreID, expected)
 	if errors.Is(err, platforminstance.ErrImpactStale) {
 		return coreImpact{}, nil, nil, errStaleImpact
 	}
@@ -234,7 +234,7 @@ func (server *Server) changeDefaultCore(writer http.ResponseWriter, request *htt
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	change, err := server.platformDirectories.ChangeDefaultCore(
+	change, err := server.libraryDeps.Directories.ChangeDefaultCore(
 		request.Context(), request.PathValue("platformInstanceId"), body.CoreID, expected,
 		body.ImpactDigest, body.ConfirmBlocked,
 		platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},

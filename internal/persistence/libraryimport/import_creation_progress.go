@@ -6,10 +6,10 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records creationRecords) Aggregate(ctx context.Context, change application.CreationAggregate) error {
+func (records creationRecords) Aggregate(ctx context.Context, change libraryservice.CreationAggregate) error {
 	result, err := records.transaction.ExecContext(
 		ctx,
 		`
@@ -31,7 +31,7 @@ WHERE id=? AND version=? AND review_pending_item_count=?`,
 	return creationMutation(result, err, "project creation aggregate", 1)
 }
 
-func (records creationRecords) FinishJob(ctx context.Context, change application.CreationJobFinish) error {
+func (records creationRecords) FinishJob(ctx context.Context, change libraryservice.CreationJobFinish) error {
 	before := change.Before
 	work := before.Execution
 	result, err := records.transaction.ExecContext(
@@ -63,8 +63,8 @@ AND execution_deadline_at_ms=? AND execution_deadline_at_ms>? AND leased_until_m
 func (records creationRecords) Reconfiguration(
 	ctx context.Context,
 	id string,
-) (application.CreationReconfigurationHead, error) {
-	result := application.CreationReconfigurationHead{ImportID: id}
+) (libraryservice.CreationReconfigurationHead, error) {
+	result := libraryservice.CreationReconfigurationHead{ImportID: id}
 	result.Progress.Started = true
 	counts := &result.Progress.Counts
 	err := dbapi.QueryRowContext(
@@ -90,7 +90,7 @@ rejected_file_count,resolved_rejected_file_count,cancel_requested_at_ms,complete
 		&result.Progress.CompletedAtMS,
 	)
 	if err != nil {
-		return application.CreationReconfigurationHead{}, fmt.Errorf("query reconfiguration parent: %w", err)
+		return libraryservice.CreationReconfigurationHead{}, fmt.Errorf("query reconfiguration parent: %w", err)
 	}
 	rows, err := records.transaction.QueryContext(
 		ctx,
@@ -103,25 +103,25 @@ WHERE f.import_job_id=? AND f.disposition='REJECTED' AND resolution.upload_file_
 		id,
 	)
 	if err != nil {
-		return application.CreationReconfigurationHead{}, fmt.Errorf("query reconfiguration files: %w", err)
+		return libraryservice.CreationReconfigurationHead{}, fmt.Errorf("query reconfiguration files: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var value string
 		if err := rows.Scan(&value); err != nil {
-			return application.CreationReconfigurationHead{}, fmt.Errorf("scan reconfiguration file: %w", err)
+			return libraryservice.CreationReconfigurationHead{}, fmt.Errorf("scan reconfiguration file: %w", err)
 		}
 		result.Files = append(result.Files, value)
 	}
 	if err := rows.Err(); err != nil {
-		return application.CreationReconfigurationHead{}, fmt.Errorf("iterate reconfiguration files: %w", err)
+		return libraryservice.CreationReconfigurationHead{}, fmt.Errorf("iterate reconfiguration files: %w", err)
 	}
 	return result, nil
 }
 
 func (records creationRecords) ResolveFiles(
 	ctx context.Context,
-	change application.CreationFileResolution,
+	change libraryservice.CreationFileResolution,
 ) error {
 	for _, id := range change.FileIDs {
 		result, err := records.transaction.ExecContext(

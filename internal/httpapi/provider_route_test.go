@@ -9,10 +9,11 @@ import (
 )
 
 func TestProviderRouteDelegatesOnlyNewContentAddressedBoundary(t *testing.T) {
-	server := newTestServer(t).WithRuntimeProviderHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := newTestServer(t)
+	server.playDeps.Provider = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Provider-Path", request.URL.Path)
 		writer.WriteHeader(http.StatusNoContent)
-	}))
+	})
 	server.startupReady.Store(true)
 	bundle := strings.Repeat("a", 64)
 	path := "/runtime/providers/fixture/" + bundle + "/assets/core.wasm"

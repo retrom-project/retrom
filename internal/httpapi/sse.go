@@ -14,26 +14,26 @@ import (
 )
 
 func (server *Server) streamJobEvents(writer http.ResponseWriter, request *http.Request, jobID string) {
-	snapshot, maximum, err := server.jobService.JobStreamSnapshot(request.Context(), jobID)
+	snapshot, maximum, err := server.systemDeps.Jobs.JobStreamSnapshot(request.Context(), jobID)
 	if !server.streamSnapshotResult(writer, request, err) {
 		return
 	}
 	encoded, _ := json.Marshal(snapshot)
 	server.startEventStream(writer, request, maximum, encoded,
 		func(ctx context.Context, after int64) (jobs.EventBatch, error) {
-			return server.jobService.JobEvents(ctx, jobID, after)
+			return server.systemDeps.Jobs.JobEvents(ctx, jobID, after)
 		})
 }
 
 func (server *Server) streamAggregateEvents(writer http.ResponseWriter, request *http.Request, importJobID string) {
-	snapshot, maximum, err := server.jobService.ImportStreamSnapshot(request.Context(), importJobID)
+	snapshot, maximum, err := server.systemDeps.Jobs.ImportStreamSnapshot(request.Context(), importJobID)
 	if !server.streamSnapshotResult(writer, request, err) {
 		return
 	}
 	encoded, _ := json.Marshal(snapshot)
 	server.startEventStream(writer, request, maximum, encoded,
 		func(ctx context.Context, after int64) (jobs.EventBatch, error) {
-			return server.jobService.ImportEvents(ctx, importJobID, after)
+			return server.systemDeps.Jobs.ImportEvents(ctx, importJobID, after)
 		})
 }
 

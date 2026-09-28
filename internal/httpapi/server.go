@@ -8,49 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"retrom/internal/application"
-
-	gamevariant "retrom/internal/service/gamevariant"
-
-	dbapi "retrom/internal/database"
-
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
-
-	firmwareservice "retrom/internal/service/firmware"
-
 	"retrom/internal/config"
 	"retrom/internal/cursor"
-	"retrom/internal/dependencies"
-	"retrom/internal/filestore"
-	"retrom/internal/launch"
-	"retrom/internal/libraryimport"
-	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/accounts"
-	biosservice "retrom/internal/service/bios"
-	catalogservice "retrom/internal/service/catalog"
-	diagnosticsservice "retrom/internal/service/diagnostics"
-	"retrom/internal/service/favorites"
-	gameassetsservice "retrom/internal/service/gameassets"
-	"retrom/internal/service/gamecontent"
-	gamelistservice "retrom/internal/service/gamelist"
-	gamemetadataservice "retrom/internal/service/gamemetadata"
-	homeservice "retrom/internal/service/home"
-	idempotencyservice "retrom/internal/service/idempotency"
-	"retrom/internal/service/immersive"
-	"retrom/internal/service/importdiscard"
-	"retrom/internal/service/isolation"
-	"retrom/internal/service/jobs"
-	launchservice "retrom/internal/service/launch"
-	libraryservice "retrom/internal/service/libraryimport"
-	"retrom/internal/service/mediaaccess"
-	"retrom/internal/service/metadatascrape"
-	"retrom/internal/service/platforminstance"
-	readinessservice "retrom/internal/service/readiness"
-	"retrom/internal/service/saves"
-	"retrom/internal/service/serverimport"
-	"retrom/internal/service/sourceimport"
-	"retrom/internal/service/tagging"
-	"retrom/internal/service/uploads"
 )
 
 var (
@@ -80,128 +40,45 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
+	deferredWork            sync.WaitGroup
 	config                  config.Config
-	database                dbapi.DB
-	readinessDatabase       dbapi.DB
-	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
-	dependencies            *dependencies.Set
-	blobs                   *filestore.Store
-	credentials             *retromruntime.Credentials
 	cursors                 *cursor.Codec
-	uploads                 *uploads.Service
-	importer                *libraryimport.Service
-	importDiscards          *importdiscard.Service
-	launcher                *launchservice.Service
-	variants                *gamevariant.Service
-	reviewScreenshots       *libraryservice.ScreenshotSaver
-	launchSources           *launch.Sources
-	jobService              *jobs.Service
-	immersive               *immersive.Service
-	firmware                *firmwareservice.Service
-	biosService             *biosservice.Service
-	catalogService          *catalogservice.Service
-	mediaAccess             *mediaaccess.Service
-	metadata                *metadatascrape.Service
-	gameContent             *gamecontent.Service
-	gameImpact              *gamecontent.ImpactQueries
-	gameListService         *gamelistservice.Service
-	homeService             *homeservice.Service
-	gameAssets              *gameassetsservice.Service
-	gameMetadata            *gamemetadataservice.Service
-	saveService             *saves.Service
-	rpgIsolation            *isolation.Service
-	favoriteService         *favorites.Service
-	tagService              *tagging.Service
-	reviewQueue             *libraryservice.ReviewQueue
-	reviewDetails           *libraryservice.ReviewDetails
-	reviewCoverUploads      *libraryservice.ReviewCoverUploads
-	reviewDiscards          *libraryservice.ReviewDiscards
-	reviewApprovals         *libraryservice.ReviewApprovals
-	reviewBulkApprovals     *libraryservice.ReviewBulk
-	importAdmissions        *libraryservice.ImportAdmissions
-	metadataEvidence        *metadatascrape.EvidenceQueries
-	serverImports           *serverimport.Service
-	sourceImports           *sourceimport.Service
-	cleanupJobs             *payloadcomposition.Service
-	platformDirectories     *platforminstance.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration
 	idempotency             sync.Mutex
 	idempotencyQueueMu      sync.Mutex
 	idempotencyQueueWaiters int
 	idempotencyQueueDrained *sync.Cond
-	authenticator           Authenticator
-	accounts                *accounts.Service
-	diagnosticsService      *diagnosticsservice.Service
-	idempotencyService      *idempotencyservice.Service
-	runtimeProvider         http.Handler
-}
-
-func (server *Server) WithRuntimeProviderHandler(handler http.Handler) *Server {
-	if handler != nil {
-		server.runtimeProvider = handler
-	}
-	return server
+	accountDeps             AccountDependencies
+	libraryDeps             LibraryDependencies
+	importDeps              ImportDependencies
+	reviewDeps              ReviewDependencies
+	playDeps                PlayDependencies
+	systemDeps              SystemDependencies
+	contentDeps             ContentDependencies
 }
 
 type Authenticator interface {
 	Authenticate(context.Context, string) (accounts.Session, error)
 }
 
-func New(settings config.Config, services *application.Services,
-	authenticator Authenticator, now func() time.Time,
-) *Server {
+func New(settings config.Config, deps Dependencies, now func() time.Time) *Server {
 	server := &Server{
-		config: settings, authenticator: authenticator, now: now,
-		cursors:      cursor.New(services.Credentials.CursorKey(), now),
-		sseHeartbeat: 15 * time.Second, runtimeProvider: http.NotFoundHandler(),
-		database:            services.Database,
-		readinessDatabase:   services.ReadinessDatabase,
-		readinessService:    services.ReadinessService,
-		dependencies:        services.Dependencies,
-		blobs:               services.Blobs,
-		credentials:         services.Credentials,
-		uploads:             services.Uploads,
-		importer:            services.Importer,
-		importDiscards:      services.ImportDiscards,
-		launcher:            services.Launcher,
-		variants:            services.Variants,
-		reviewScreenshots:   services.ReviewScreenshots,
-		launchSources:       services.LaunchSources,
-		jobService:          services.JobService,
-		immersive:           services.Immersive,
-		firmware:            services.Firmware,
-		biosService:         services.BiosService,
-		catalogService:      services.CatalogService,
-		mediaAccess:         services.MediaAccess,
-		metadata:            services.Metadata,
-		gameContent:         services.GameContent,
-		gameImpact:          services.GameImpact,
-		gameListService:     services.GameListService,
-		homeService:         services.HomeService,
-		gameAssets:          services.GameAssets,
-		gameMetadata:        services.GameMetadata,
-		saveService:         services.SaveService,
-		rpgIsolation:        services.RpgIsolation,
-		favoriteService:     services.FavoriteService,
-		tagService:          services.TagService,
-		reviewQueue:         services.ReviewQueue,
-		reviewDetails:       services.ReviewDetails,
-		reviewCoverUploads:  services.ReviewCoverUploads,
-		reviewDiscards:      services.ReviewDiscards,
-		reviewApprovals:     services.ReviewApprovals,
-		reviewBulkApprovals: services.ReviewBulkApprovals,
-		importAdmissions:    services.ImportAdmissions,
-		metadataEvidence:    services.MetadataEvidence,
-		serverImports:       services.ServerImports,
-		sourceImports:       services.SourceImports,
-		cleanupJobs:         services.CleanupJobs,
-		platformDirectories: services.PlatformDirectories,
-		accounts:            services.Accounts,
-		diagnosticsService:  services.DiagnosticsService,
-		idempotencyService:  services.IdempotencyService,
+		config: settings, now: now,
+		cursors:      cursor.New(deps.Content.Credentials.CursorKey(), now),
+		sseHeartbeat: 15 * time.Second,
+		accountDeps:  deps.Account,
+		libraryDeps:  deps.Library,
+		importDeps:   deps.Import,
+		reviewDeps:   deps.Review,
+		playDeps:     deps.Play,
+		systemDeps:   deps.System,
+		contentDeps:  deps.Content,
+	}
+	if server.playDeps.Provider == nil {
+		server.playDeps.Provider = http.NotFoundHandler()
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	return server
@@ -401,8 +278,8 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("HEAD /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("GET /api/v1/admin/diagnostics", server.diagnostics)
-	mux.Handle("GET /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.runtimeProvider)
-	mux.Handle("HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.runtimeProvider)
+	mux.Handle("GET /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.playDeps.Provider)
+	mux.Handle("HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.playDeps.Provider)
 }
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
@@ -426,3 +303,6 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/review-screenshot", server.storeReviewScreenshot)
 }
+
+// Wait joins work scheduled by completed HTTP handlers. Stop and drain HTTP before calling it.
+func (server *Server) Wait() { server.deferredWork.Wait() }

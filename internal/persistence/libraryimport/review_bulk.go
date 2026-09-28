@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewBulk struct {
@@ -17,13 +17,13 @@ func NewReviewBulk(database dbapi.DB) *ReviewBulk {
 	return &ReviewBulk{ReviewBulkQueries: NewReviewBulkQueries(database), database: database}
 }
 
-func (repository *ReviewBulk) WithStep(ctx context.Context, run func(application.ReviewBulkStep) error) error {
+func (repository *ReviewBulk) WithStep(ctx context.Context, run func(libraryservice.ReviewBulkStep) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin bulk review: %w", err)
 	}
 	defer dbapi.Rollback(tx)
-	if err := run(application.ReviewBulkStep{
+	if err := run(libraryservice.ReviewBulkStep{
 		Worker: BindReviewBulkWorker(tx), Recovery: BindReviewBulkWorker(tx), Writes: BindReviewBulkWrites(tx),
 		Candidates: BindReviewBulkQueries(tx), Approval: BindReviewApproval(tx),
 	}); err != nil {

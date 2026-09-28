@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) application.MultiDiscAttachmentFile {
-	return application.MultiDiscAttachmentFile{
+func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) libraryservice.MultiDiscAttachmentFile {
+	return libraryservice.MultiDiscAttachmentFile{
 		Role: file.role, LogicalName: file.logicalName, UploadFileID: file.uploadFileID,
 		FileRecord: file.fileRecord, BlobSHA: file.blobSHA, BlobSize: file.blobSize, SortOrder: file.sortOrder,
 	}
@@ -16,8 +16,8 @@ func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) application.
 
 func applicationMultiDiscAttachmentTarget(
 	candidate multiDiscAttachmentCandidate,
-) application.MultiDiscAttachmentTerminalTarget {
-	return application.MultiDiscAttachmentTerminalTarget{
+) libraryservice.MultiDiscAttachmentTerminalTarget {
+	return libraryservice.MultiDiscAttachmentTerminalTarget{
 		AttachmentID: candidate.input.AttachmentID, ItemID: candidate.input.ImportItemID,
 		JobID: candidate.jobID, WorkerID: candidate.workerID,
 		RequestedByUserID:    candidate.input.RequestedByUserID,
@@ -32,20 +32,20 @@ func (service *Service) commitAcceptedMultiDiscAttachment(
 	if err := service.prepareMultiDiscDirectory(ctx, candidate); err != nil {
 		return err
 	}
-	baseFiles := make([]application.MultiDiscAttachmentFile, 0, len(candidate.baseFiles))
+	baseFiles := make([]libraryservice.MultiDiscAttachmentFile, 0, len(candidate.baseFiles))
 	for _, file := range candidate.baseFiles {
 		baseFiles = append(baseFiles, applicationMultiDiscAttachmentFile(file))
 	}
 	err := service.attachmentCommits.CommitAccepted(
 		ctx,
-		application.MultiDiscAttachmentCommitRequest{
+		libraryservice.MultiDiscAttachmentCommitRequest{
 			Input: candidate.input, JobID: candidate.jobID, WorkerID: candidate.workerID,
 			ExecutionStartedAtMS: candidate.executionStartedAtMS, BaseFiles: baseFiles,
 			ResultEntries: candidate.resultEntries, CanonicalPlaylist: candidate.canonicalPlaylist,
 			ResultManifestJSON: candidate.resultManifestJSON, ResultManifestDigest: candidate.resultManifestDigest,
 		},
 	)
-	if errors.Is(err, application.ErrInvalid) {
+	if errors.Is(err, libraryservice.ErrInvalid) {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, err)
 	}
 	if err != nil {
@@ -94,11 +94,11 @@ func (service *Service) runMultiDiscAttachment(parent context.Context, jobID str
 	}
 }
 
-func multiDiscAttachmentActor(ctx context.Context) application.MultiDiscAttachmentActor {
+func multiDiscAttachmentActor(ctx context.Context) libraryservice.MultiDiscAttachmentActor {
 	actor := reviewActor(ctx)
 	userID, _ := actor.UserID.(string)
 	label, _ := actor.Label.(string)
-	return application.MultiDiscAttachmentActor{Kind: actor.Kind, UserID: userID, Label: label}
+	return libraryservice.MultiDiscAttachmentActor{Kind: actor.Kind, UserID: userID, Label: label}
 }
 
 func (service *Service) finishRejectedMultiDiscAttachment(
@@ -109,7 +109,7 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 ) {
 	_ = service.attachmentTerminals.Reject(
 		ctx,
-		application.MultiDiscAttachmentRejectRequest{
+		libraryservice.MultiDiscAttachmentRejectRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Actor: multiDiscAttachmentActor(ctx),
 			Code: code, Cause: MultiDiscAttachmentErrorCode(cause),
 		},
@@ -124,7 +124,7 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 ) {
 	result, err := service.attachmentTerminals.Retry(
 		ctx,
-		application.MultiDiscAttachmentRetryRequest{
+		libraryservice.MultiDiscAttachmentRetryRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Code: code,
 		},
 	)
@@ -143,7 +143,7 @@ func (service *Service) finishMultiDiscAttachmentCancellation(
 ) bool {
 	result, err := service.attachmentTerminals.FinishCancellation(
 		ctx,
-		application.MultiDiscAttachmentCancellationRequest{
+		libraryservice.MultiDiscAttachmentCancellationRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate),
 		},
 	)

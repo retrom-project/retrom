@@ -41,6 +41,11 @@ func (runs *validationWorkerRuns) register(cancel context.CancelCauseFunc) (func
 }
 
 func (runs *validationWorkerRuns) Close() {
+	runs.Stop()
+	runs.Wait()
+}
+
+func (runs *validationWorkerRuns) Stop() {
 	runs.mutex.Lock()
 	runs.closed = true
 	pending := make([]*validationWorkerRun, 0, len(runs.active))
@@ -51,5 +56,6 @@ func (runs *validationWorkerRuns) Close() {
 	for _, run := range pending {
 		run.cancel(ErrValidationWorkerClosed)
 	}
-	runs.wait.Wait()
 }
+
+func (runs *validationWorkerRuns) Wait() { runs.wait.Wait() }

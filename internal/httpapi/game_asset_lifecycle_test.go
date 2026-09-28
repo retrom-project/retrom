@@ -55,7 +55,7 @@ func TestGameCoverReplacementRetiresOldPayload(t *testing.T) {
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
 	)
 	testassert.False(t, err != nil, err)
-	metadata, err := server.blobs.Put(bytes.NewReader(png))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader(png))
 	testassert.False(t, err != nil, err)
 	newFileRecord, err := filestore.FileRecord(metadata, "image/png")
 	testassert.False(t, err != nil, err)
@@ -107,7 +107,7 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	testassert.Falsef(t, !bytes.Equal(newAsset.Body.Bytes(), png), "replacement bytes changed")
 }
 
-func assertRetiredGameAssetUnavailable(t *testing.T, server *Server, assetID string) {
+func assertRetiredGameAssetUnavailable(t *testing.T, server *testServer, assetID string) {
 	t.Helper()
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, httptest.NewRequestWithContext(

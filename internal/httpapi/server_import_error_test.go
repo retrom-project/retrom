@@ -19,7 +19,9 @@ func TestServerImportErrorUsesDomainMissingRecord(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/server-imports/missing", nil)
 			response := httptest.NewRecorder()
-			(&Server{}).writeServerImportError(response, request, test.err)
+			(&testServer{
+				Server: &Server{},
+			}).writeServerImportError(response, request, test.err)
 			if response.Code != test.status {
 				t.Fatalf("error status=%d want=%d body=%s", response.Code, test.status, response.Body.String())
 			}

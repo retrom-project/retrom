@@ -101,7 +101,7 @@ func (server *Server) reviews(writer http.ResponseWriter, request *http.Request)
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "待审核筛选无效", map[string]any{})
 		return
 	}
-	page, err := server.reviewQueue.List(request.Context(), spec.filter, spec.after)
+	page, err := server.reviewDeps.Queue.List(request.Context(), spec.filter, spec.after)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

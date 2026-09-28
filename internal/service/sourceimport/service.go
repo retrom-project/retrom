@@ -23,6 +23,8 @@ type (
 	ServiceWorker interface {
 		Start()
 		Close()
+		Stop()
+		Wait()
 		Signal()
 	}
 	ServiceDependencies struct {
@@ -118,3 +120,6 @@ func (service *Service) Retry(ctx context.Context, id string, version int64, act
 	service.dependencies.Worker.Signal()
 	return result, nil
 }
+
+func (service *Service) Stop() { service.dependencies.Worker.Stop() }
+func (service *Service) Wait() { service.dependencies.Worker.Wait() }

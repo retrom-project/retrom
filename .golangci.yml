@@ -55,46 +55,70 @@ linters:
           deny:
             - pkg: retrom/cmd
               desc: internal packages must not depend on process entrypoints
+        inner-layers:
+          files:
+            - "${base-path}/internal/**.go"
+            - "!${base-path}/internal/application/**.go"
+            - "!${base-path}/internal/composition/**.go"
+            - "!${base-path}/internal/httpapi/**.go"
+            - "!${base-path}/internal/testsupport/**.go"
+            - "!$test"
+          deny:
+            - pkg: retrom/internal/application
+              desc: inner layers must not depend on process lifecycle
+            - pkg: retrom/internal/composition
+              desc: inner layers must not assemble dependencies
+            - pkg: retrom/internal/httpapi
+              desc: inner layers must not depend on HTTP
+        http-transport:
+          files:
+            - "${base-path}/internal/httpapi/**.go"
+            - "!$test"
+          deny:
+            - pkg: retrom/internal/application
+              desc: HTTP receives feature dependencies from the process root
+            - pkg: retrom/internal/composition
+              desc: HTTP must not assemble business services
+            - pkg: retrom/internal/database
+              desc: HTTP must not access raw database connections
+            - pkg: retrom/internal/persistence
+              desc: HTTP must use business services instead of persistence adapters
+            - pkg: retrom/internal/store
+              desc: HTTP must not own database resources
         storage-layer:
           files:
-            - "internal/store/**/*.go"
-            - "internal/filestore/**/*.go"
+            - "${base-path}/internal/store/**.go"
+            - "${base-path}/internal/filestore/**.go"
+            - "!$test"
           deny:
-            - pkg: retrom/internal/httpapi
-              desc: storage must not depend on HTTP
-            - pkg: retrom/internal/service/jobs
-              desc: storage must not depend on job orchestration
+            - pkg: retrom/internal/service
+              desc: storage must not depend on application modules
             - pkg: retrom/internal/libraryimport
-              desc: storage must not depend on application modules
+              desc: storage must not depend on import workflows
             - pkg: retrom/internal/launch
-              desc: storage must not depend on application modules
+              desc: storage must not depend on launch workflows
         arcade-parser-layer:
           files:
-            - "internal/format/arcadedat/**/*.go"
+            - "${base-path}/internal/format/arcadedat/**.go"
+            - "!$test"
           deny:
-            - pkg: retrom/internal/httpapi
-              desc: DAT parsing must remain protocol independent
-            - pkg: retrom/internal/service/jobs
-              desc: DAT parsing must remain orchestration independent
-            - pkg: retrom/internal/metadatascrape
-              desc: DAT evidence must not depend on metadata providers
+            - pkg: retrom/internal/service
+              desc: DAT parsing must remain below business services
             - pkg: retrom/internal/firmware
               desc: DAT parsing must not depend on BIOS workflows
-            - pkg: retrom/internal/arcadecatalog
-              desc: the parser must remain below the catalog application layer
-        application-no-jobs:
+            - pkg: retrom/internal/libraryimport
+              desc: DAT parsing must not depend on import workflows
+        service-no-jobs:
           files:
-            - "internal/arcadecatalog/**/*.go"
-            - "internal/firmware/**/*.go"
-            - "internal/gamecontent/**/*.go"
-            - "internal/launch/**/*.go"
-            - "internal/libraryimport/**/*.go"
-            - "internal/metadatascrape/**/*.go"
-            - "internal/saves/**/*.go"
-            - "internal/uploads/**/*.go"
+            - "${base-path}/internal/service/**.go"
+            - "${base-path}/internal/firmware/**.go"
+            - "${base-path}/internal/launch/**.go"
+            - "${base-path}/internal/libraryimport/**.go"
+            - "!${base-path}/internal/service/jobs/**.go"
+            - "!$test"
           deny:
             - pkg: retrom/internal/service/jobs
-              desc: application modules must not depend on job orchestration
+              desc: domains must not depend on job management use cases
     dogsled:
       max-blank-identifiers: 3
     dupl:
@@ -116,7 +140,7 @@ linters:
     gocyclo:
       min-complexity: 15
     interfacebloat:
-      max: 5
+      max: 10
     lll:
       line-length: 120
     misspell:

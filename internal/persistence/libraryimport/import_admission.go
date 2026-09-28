@@ -7,7 +7,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -20,14 +20,14 @@ func NewImportAdmissions(database dbapi.DB) *ImportAdmissions {
 }
 
 func (repository *ImportAdmissions) WithAdmission(
-	ctx context.Context, work func(application.ImportAdmissionScope) error,
+	ctx context.Context, work func(libraryservice.ImportAdmissionScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
+	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import admission: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
-	scope := application.ImportAdmissionScope{
+	scope := libraryservice.ImportAdmissionScope{
 		Facts: BindImportFacts(transaction), Tags: tagpersistence.Bind(transaction), Writer: admissionRecords{transaction},
 	}
 	if err := work(scope); err != nil {
@@ -39,7 +39,7 @@ func (repository *ImportAdmissions) WithAdmission(
 	return nil
 }
 
-func (records admissionRecords) Create(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) Create(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	if err := records.fence(ctx, change); err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (records admissionRecords) Create(ctx context.Context, change application.I
 	return records.event(ctx, change)
 }
 
-func (records admissionRecords) fence(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) fence(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	upload := change.Upload
 	result, err := records.transaction.ExecContext(ctx, `
 UPDATE upload_sessions SET version=version
@@ -84,7 +84,7 @@ func admissionFenceResult(result sql.Result, err error) error {
 		return fmt.Errorf("read import admission affected rows: %w", err)
 	}
 	if count != 1 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	return nil
 }

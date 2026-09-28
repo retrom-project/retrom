@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewQueue struct{ database dbapi.DB }
@@ -14,15 +14,15 @@ type ReviewQueue struct{ database dbapi.DB }
 func NewReviewQueue(database dbapi.DB) *ReviewQueue { return &ReviewQueue{database: database} }
 
 func (repository *ReviewQueue) List(
-	ctx context.Context, query application.ReviewQueueQuery,
-) ([]application.ReviewQueueRecord, error) {
+	ctx context.Context, query libraryservice.ReviewQueueQuery,
+) ([]libraryservice.ReviewQueueRecord, error) {
 	statement, args := reviewQueueStatement(query)
 	rows, err := repository.database.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query review queue: %w", err)
 	}
 	defer func() { cleanup.Error("close review queue", rows.Close()) }()
-	result := make([]application.ReviewQueueRecord, 0, query.Limit)
+	result := make([]libraryservice.ReviewQueueRecord, 0, query.Limit)
 	for rows.Next() {
 		record, err := scanReviewQueueRecord(rows)
 		if err != nil {
@@ -39,7 +39,7 @@ func (repository *ReviewQueue) List(
 	return result, nil
 }
 
-func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
+func reviewQueueStatement(query libraryservice.ReviewQueueQuery) (string, []any) {
 	statement := reviewQueueSelect
 	args := make([]any, 0, 12)
 	for _, filter := range []struct{ value, condition string }{
@@ -82,8 +82,8 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 	return statement, args
 }
 
-func scanReviewQueueRecord(scanner dbapi.Scanner) (application.ReviewQueueRecord, error) {
-	var result application.ReviewQueueRecord
+func scanReviewQueueRecord(scanner dbapi.Scanner) (libraryservice.ReviewQueueRecord, error) {
+	var result libraryservice.ReviewQueueRecord
 	var sourceID, sourceImportID, sourceLabel *string
 	var sourceCover bool
 	err := scanner.Scan(
@@ -93,10 +93,10 @@ func scanReviewQueueRecord(scanner dbapi.Scanner) (application.ReviewQueueRecord
 		&sourceID, &sourceImportID, &sourceLabel, &sourceCover,
 	)
 	if err != nil {
-		return application.ReviewQueueRecord{}, fmt.Errorf("scan review queue item: %w", err)
+		return libraryservice.ReviewQueueRecord{}, fmt.Errorf("scan review queue item: %w", err)
 	}
 	if sourceID != nil && sourceImportID != nil {
-		result.Source = &application.ReviewQueueSource{
+		result.Source = &libraryservice.ReviewQueueSource{
 			ItemID: *sourceID, ImportID: *sourceImportID, Label: sourceLabel, HasCover: sourceCover,
 		}
 	}

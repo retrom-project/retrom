@@ -6,9 +6,9 @@ import (
 	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func NewReviewDiscards(database dbapi.DB, now func() time.Time) *application.ReviewDiscards {
-	return application.NewReviewDiscards(repository.NewReviewDiscards(database), now)
+func NewReviewDiscards(database dbapi.DB, now func() time.Time) *libraryservice.ReviewDiscards {
+	return libraryservice.NewReviewDiscards(repository.NewReviewDiscards(database), now)
 }

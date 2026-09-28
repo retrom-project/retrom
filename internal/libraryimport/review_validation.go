@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
@@ -98,7 +98,7 @@ func (state *draftValidationRefresh) loadInputs() error {
 
 func (state *draftValidationRefresh) loadExactValidation() (string, bool, error) {
 	record, found, err := repository.BindReviewValidation(state.transaction).Exact(state.ctx,
-		application.ReviewValidationRefreshLookup{
+		libraryservice.ReviewValidationRefreshLookup{
 			ItemID: state.itemID, SourceSnapshotID: state.effectiveSnapshotID,
 			TargetPlatformInstanceID: state.targetID, CoreID: state.coreID,
 			ProviderID: state.providerID, TargetID: state.runtimeTargetID,
@@ -156,7 +156,7 @@ func (state *draftValidationRefresh) loadFallbackValidation() error {
 		return nil
 	}
 	record, found, err := repository.BindReviewValidation(state.transaction).Fallback(state.ctx,
-		application.ReviewValidationRefreshLookup{
+		libraryservice.ReviewValidationRefreshLookup{
 			ItemID: state.itemID, SourceSnapshotID: state.effectiveSnapshotID,
 			CoreID: state.coreID, ProviderID: state.providerID, TargetID: state.runtimeTargetID,
 			DATVersionID: nullStringPointer(state.datID),
@@ -207,7 +207,7 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	now := state.validator.now().UnixMilli()
 	digest := prepublishDigest(state.digestInput())
 	repository := repository.BindReviewValidation(state.transaction)
-	err := repository.Create(state.ctx, application.ReviewValidationRefreshCreate{
+	err := repository.Create(state.ctx, libraryservice.ReviewValidationRefreshCreate{
 		ID: createdID.String(), ItemID: state.itemID, TargetPlatformInstanceID: state.targetID,
 		PlatformInstanceVersion: state.platformVersion, CoreID: state.coreID,
 		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
@@ -220,7 +220,7 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if err := repository.CopyFiles(state.ctx, application.ReviewValidationRefreshFileCopy{
+	if err := repository.CopyFiles(state.ctx, libraryservice.ReviewValidationRefreshFileCopy{
 		ValidationID: createdID.String(), SourceValidationID: state.sourceID, CreatedAtMS: now,
 		ReplaceBIOSBundle: state.dependencyState.replaceBundle,
 		Dependencies:      state.dependencyState.dependencies,
@@ -312,8 +312,8 @@ func snapshotContentLogicalName(
 }
 
 type (
-	arcadeDraftDependency = application.ArcadeDraftDependency
-	arcadeDraftSnapshot   = application.ArcadeDraftSnapshot
+	arcadeDraftDependency = libraryservice.ArcadeDraftDependency
+	arcadeDraftSnapshot   = libraryservice.ArcadeDraftSnapshot
 )
 
 func resolveArcadeDraftBIOSState(
@@ -321,7 +321,7 @@ func resolveArcadeDraftBIOSState(
 	transaction dbapi.Executor,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
-	resolved, err := application.ResolveCreationArcade(ctx, repository.BindCreationArcade(transaction),
+	resolved, err := libraryservice.ResolveCreationArcade(ctx, repository.BindCreationArcade(transaction),
 		providerID, targetID, previousSnapshot, previousStatus, previousCode)
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("resolve arcade BIOS: %w", err)
@@ -333,7 +333,7 @@ func resolveArcadeDraftBIOSState(
 }
 
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
-	return application.ParseArcadeDraftSnapshot(raw)
+	return libraryservice.ParseArcadeDraftSnapshot(raw)
 }
 
 func isStaticBIOSSnapshot(raw string) bool {

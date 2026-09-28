@@ -9,7 +9,7 @@ import (
 	"retrom/internal/filestore"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ServerSourceUploads struct{ database dbapi.DB }
@@ -29,7 +29,7 @@ func (repository *ServerSourceUploads) BlobSize(_ context.Context, fileRecord st
 func (repository *ServerSourceUploads) Insert(
 	ctx context.Context,
 	uploadID, sourceType string,
-	files []application.PreparedReusableUploadFile,
+	files []libraryservice.PreparedReusableUploadFile,
 	digest string,
 	now int64,
 	ownerKind, ownerItemID string,
@@ -76,7 +76,7 @@ FROM upload_sessions WHERE id=?
 	}
 	if state != "COMPLETE" || storedSourceType != sourceType || storedFiles != totalFiles ||
 		storedBytes != totalBytes || storedDigest != manifestDigest {
-		return false, application.ErrInvalid
+		return false, libraryservice.ErrInvalid
 	}
 	return true, nil
 }
@@ -84,8 +84,8 @@ FROM upload_sessions WHERE id=?
 func (repository *ServerSourceUploads) Creation(
 	ctx context.Context,
 	uploadID, targetPlatformInstanceID, contentMode string,
-) (application.ServerCreated, bool, error) {
-	var created application.ServerCreated
+) (libraryservice.ServerCreated, bool, error) {
+	var created libraryservice.ServerCreated
 	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT import_job.id,job.id,import_job.state,import_job.total_item_count
 FROM import_jobs import_job
@@ -101,15 +101,15 @@ WHERE import_job.upload_session_id=?
 		if err := dbapi.QueryRowContext(ctx, repository.database,
 			`SELECT count(*) FROM import_jobs WHERE upload_session_id=?`, uploadID,
 		).Scan(&count); err != nil {
-			return application.ServerCreated{}, false, fmt.Errorf("query server source creations: %w", err)
+			return libraryservice.ServerCreated{}, false, fmt.Errorf("query server source creations: %w", err)
 		}
 		if count != 0 {
-			return application.ServerCreated{}, false, application.ErrInvalid
+			return libraryservice.ServerCreated{}, false, libraryservice.ErrInvalid
 		}
-		return application.ServerCreated{}, false, nil
+		return libraryservice.ServerCreated{}, false, nil
 	}
 	if err != nil {
-		return application.ServerCreated{}, false, fmt.Errorf("query server source creation: %w", err)
+		return libraryservice.ServerCreated{}, false, fmt.Errorf("query server source creation: %w", err)
 	}
 	return created, true, nil
 }

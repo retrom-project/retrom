@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records *ContentDuplicates) PublishedMatches(
 	ctx context.Context,
-	query application.DuplicateQuery,
-) ([]application.DuplicateGame, error) {
+	query libraryservice.DuplicateQuery,
+) ([]libraryservice.DuplicateGame, error) {
 	statement := unorderedDuplicateQuery
 	if query.ContentKind == "MULTI_DISC" {
 		statement = orderedDuplicateQuery
@@ -21,9 +21,9 @@ func (records *ContentDuplicates) PublishedMatches(
 		return nil, fmt.Errorf("query published duplicates: %w", err)
 	}
 	defer func() { cleanup.Error("close published duplicates", rows.Close()) }()
-	result := make([]application.DuplicateGame, 0)
+	result := make([]libraryservice.DuplicateGame, 0)
 	for rows.Next() {
-		var game application.DuplicateGame
+		var game libraryservice.DuplicateGame
 		if err := rows.Scan(&game.GameID, &game.Title, &game.PlatformInstanceID, &game.PlatformInstanceName); err != nil {
 			return nil, fmt.Errorf("scan published duplicate: %w", err)
 		}

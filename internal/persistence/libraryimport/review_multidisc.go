@@ -7,14 +7,14 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/multidisc"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records *ReviewDependencies) MultiDiscSource(
 	ctx context.Context,
 	snapshotID string,
-) (application.MultiDiscSource, error) {
-	var result application.MultiDiscSource
+) (libraryservice.MultiDiscSource, error) {
+	var result libraryservice.MultiDiscSource
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT file.logical_name,json_extract(blob.value, '$.size_bytes'),json_extract(blob.value, '$.sha256'),
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
@@ -32,7 +32,7 @@ WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
 		&result.MaxDiscs,
 		&result.MaxTotalBytes)
 	if err != nil {
-		return application.MultiDiscSource{}, fmt.Errorf("read review playlist: %w", err)
+		return libraryservice.MultiDiscSource{}, fmt.Errorf("read review playlist: %w", err)
 	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.ordinal,entry.source_reference,entry.canonical_name,entry.state,
@@ -43,12 +43,12 @@ LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NUL
 entry.source_snapshot_id=?
 ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
-		return application.MultiDiscSource{}, fmt.Errorf("query review discs: %w", err)
+		return libraryservice.MultiDiscSource{}, fmt.Errorf("query review discs: %w", err)
 	}
 	defer func() { cleanup.Error("close review discs", rows.Close()) }()
-	result.Entries = make([]application.MultiDiscEntry, 0)
+	result.Entries = make([]libraryservice.MultiDiscEntry, 0)
 	for rows.Next() {
-		var row application.MultiDiscEntry
+		var row libraryservice.MultiDiscEntry
 		if err := rows.Scan(&row.Index,
 			&row.SourceReference,
 			&row.CanonicalName,
@@ -56,12 +56,12 @@ ORDER BY entry.ordinal`, snapshotID)
 			&row.LogicalName,
 			&row.SizeBytes,
 			&row.SHA256); err != nil {
-			return application.MultiDiscSource{}, fmt.Errorf("scan review disc: %w", err)
+			return libraryservice.MultiDiscSource{}, fmt.Errorf("scan review disc: %w", err)
 		}
 		result.Entries = append(result.Entries, row)
 	}
 	if err := rows.Err(); err != nil {
-		return application.MultiDiscSource{}, fmt.Errorf("iterate review discs: %w", err)
+		return libraryservice.MultiDiscSource{}, fmt.Errorf("iterate review discs: %w", err)
 	}
 	return result, nil
 }
@@ -69,7 +69,7 @@ ORDER BY entry.ordinal`, snapshotID)
 func (records *ReviewDependencies) MultiDiscAttachments(
 	ctx context.Context,
 	itemID string,
-) ([]application.MultiDiscAttachment, error) {
+) ([]libraryservice.MultiDiscAttachment, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT attachment.id,attachment.state,attachment.error_code,attachment.diagnostics_json,
 attachment.job_id,job.state,job.error_retryable,job.version,
@@ -81,9 +81,9 @@ DESC`, itemID)
 		return nil, fmt.Errorf("query multi-disc attachments: %w", err)
 	}
 	defer func() { cleanup.Error("close multi-disc attachments", rows.Close()) }()
-	result := make([]application.MultiDiscAttachment, 0)
+	result := make([]libraryservice.MultiDiscAttachment, 0)
 	for rows.Next() {
-		var row application.MultiDiscAttachment
+		var row libraryservice.MultiDiscAttachment
 		var diagnostics []byte
 		if err := rows.Scan(&row.ID,
 			&row.State,

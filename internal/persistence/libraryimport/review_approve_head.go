@@ -9,13 +9,13 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/storequery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) Head(
 	ctx context.Context, itemID string,
-) (application.ReviewApprovalHead, bool, error) {
-	var h application.ReviewApprovalHead
+) (libraryservice.ReviewApprovalHead, bool, error) {
+	var h libraryservice.ReviewApprovalHead
 	err := dbapi.QueryRowContext(ctx, records.transaction, approvalHeadQuery, itemID).Scan(
 		&h.DraftID, &h.State, &h.ImportID, &h.PlatformID, &h.PlatformInstanceID, &h.ValidationID,
 		&h.ValidationStatus, &h.MetadataJSON,
@@ -30,10 +30,10 @@ func (records reviewApprovalRecords) Head(
 		&h.Progress.Counts.ResolvedRejected,
 		&h.Progress.CancelRequestedAtMS, &h.Progress.CompletedAtMS, &h.SourceBusy)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewApprovalHead{}, false, nil
+		return libraryservice.ReviewApprovalHead{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewApprovalHead{}, false, fmt.Errorf("query approval headline: %w", err)
+		return libraryservice.ReviewApprovalHead{}, false, fmt.Errorf("query approval headline: %w", err)
 	}
 	return h, true, nil
 }

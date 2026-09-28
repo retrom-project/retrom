@@ -23,7 +23,7 @@ import (
 
 	variantcomposition "retrom/internal/composition/gamevariant"
 	librarypersistence "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -414,7 +414,7 @@ SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	`, itemID).Scan(&baseSnapshotID); err != nil {
 		t.Fatal(err)
 	}
-	initialDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	initialDetail, err := libraryservice.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
 	testassert.False(t, err != nil, err)
 	initialReview := initialDetail.MultiDisc
 	testassert.True(t, initialReview != nil, "multi-disc detail missing")
@@ -488,7 +488,7 @@ WHERE attachment.id=?
 		testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" },
 			func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s",
 		requestedBy, attachmentState)
-	acceptedDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	acceptedDetail, err := libraryservice.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
 	testassert.False(t, err != nil, err)
 	acceptedReview := acceptedDetail.MultiDisc
 	testassert.True(t, acceptedReview != nil, "multi-disc detail missing")

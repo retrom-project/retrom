@@ -35,7 +35,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	isMultiDisc := content.Format == "RETROM_MULTIDISC_M3U_V1" && content.DiscCount >= 2
-	file, err := server.blobs.OpenRecord(content.FileRecord)
+	file, err := server.contentDeps.Files.OpenRecord(content.FileRecord)
 	if err != nil {
 		if isMultiDisc {
 			logMultiDiscContentResponse(
@@ -116,7 +116,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	}
 	launchID := grant.LaunchID
 	if logicalName == "index.json" {
-		index, err := server.launcher.ProjectIndex(request.Context(), launchID, grant.Capability)
+		index, err := server.playDeps.Launcher.ProjectIndex(request.Context(), launchID, grant.Capability)
 		if server.writeGeneratedProjectIndex(writer, request, index, err) {
 			return
 		}
@@ -132,7 +132,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
-	file, err := server.blobs.OpenRecord(content.FileRecord)
+	file, err := server.contentDeps.Files.OpenRecord(content.FileRecord)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "项目内容不可用", map[string]any{})
 		return
@@ -158,22 +158,24 @@ func (server *Server) projectContent(
 	if logicalName == "game.mkxpz" {
 		contentLogicalName = "__retrom__/game.mkxpz"
 	}
-	content, err := server.launcher.Content(request.Context(), launchID, capability, contentLogicalName)
+	content, err := server.playDeps.Launcher.Content(request.Context(), launchID, capability, contentLogicalName)
 	if err != nil && contentLogicalName != logicalName {
-		content, err = server.launcher.Content(request.Context(), launchID, capability, logicalName)
+		content, err = server.playDeps.Launcher.Content(request.Context(), launchID, capability, logicalName)
 	}
 	if err == nil {
 		return content, nil
 	}
 	// Both session types freeze generated archives under the same reserved name.
-	content, err = server.launcher.ReviewPreviewProjectContent(
+	content, err = server.playDeps.Launcher.ReviewPreviewProjectContent(
 		request.Context(),
 		launchID,
 		capability,
 		contentLogicalName,
 	)
 	if err != nil && contentLogicalName != logicalName {
-		content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, logicalName)
+		content, err = server.playDeps.Launcher.ReviewPreviewProjectContent(
+			request.Context(), launchID, capability, logicalName,
+		)
 	}
 	if err != nil {
 		return launch.ContentView{}, fmt.Errorf("load preview project content: %w", err)
@@ -190,7 +192,7 @@ func (server *Server) runtimeProjectContentGrant(
 		return runtimeContentGrant{}, false
 	}
 	for _, grant := range grants {
-		identity, err := server.launcher.ProjectContentIdentity(
+		identity, err := server.playDeps.Launcher.ProjectContentIdentity(
 			request.Context(), grant.LaunchID, grant.Capability,
 		)
 		if err == nil && identity == requestedIdentity {
@@ -242,9 +244,9 @@ func (server *Server) runtimeContent(request *http.Request) (launch.ContentView,
 		return launch.ContentView{}, "", launch.ErrCredential
 	}
 	for _, grant := range grants {
-		content, err := server.launcher.Content(request.Context(), grant.LaunchID, grant.Capability, logicalName)
+		content, err := server.playDeps.Launcher.Content(request.Context(), grant.LaunchID, grant.Capability, logicalName)
 		if err != nil {
-			content, err = server.launcher.ReviewPreviewContent(
+			content, err = server.playDeps.Launcher.ReviewPreviewContent(
 				request.Context(), grant.LaunchID, grant.Capability, logicalName,
 			)
 		}
@@ -323,7 +325,7 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
 	}
-	file, err := server.blobs.OpenRecord(content.FileRecord)
+	file, err := server.contentDeps.Files.OpenRecord(content.FileRecord)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
@@ -369,9 +371,9 @@ func (server *Server) runtimeExternal(request *http.Request) (launch.ExternalVie
 		return launch.ExternalView{}, "", launch.ErrCredential
 	}
 	for _, grant := range grants {
-		content, err := server.launcher.External(request.Context(), grant.LaunchID, grant.Capability, logicalName)
+		content, err := server.playDeps.Launcher.External(request.Context(), grant.LaunchID, grant.Capability, logicalName)
 		if err != nil {
-			content, err = server.launcher.ReviewPreviewExternal(
+			content, err = server.playDeps.Launcher.ReviewPreviewExternal(
 				request.Context(), grant.LaunchID, grant.Capability, logicalName,
 			)
 		}
@@ -404,7 +406,7 @@ func (server *Server) populateLaunchBundle(archiveWriter *zip.Writer, files []la
 		if err != nil {
 			return "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖"
 		}
-		source, err := server.blobs.OpenRecord(entry.FileRecord)
+		source, err := server.contentDeps.Files.OpenRecord(entry.FileRecord)
 		if err != nil {
 			return "FILE_STORAGE_UNAVAILABLE", "启动依赖不可用"
 		}
@@ -494,9 +496,9 @@ func (server *Server) runtimeBundleFiles(request *http.Request, kind string) ([]
 		return nil, launch.ErrCredential
 	}
 	for _, grant := range grants {
-		files, err := server.launcher.BundleFiles(request.Context(), grant.LaunchID, grant.Capability, kind)
+		files, err := server.playDeps.Launcher.BundleFiles(request.Context(), grant.LaunchID, grant.Capability, kind)
 		if err != nil {
-			files, err = server.launcher.ReviewPreviewBundleFiles(
+			files, err = server.playDeps.Launcher.ReviewPreviewBundleFiles(
 				request.Context(), grant.LaunchID, grant.Capability, kind,
 			)
 		}

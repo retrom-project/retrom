@@ -48,7 +48,13 @@ func TestMediaAccessPreservesStorageFailureBoundary(t *testing.T) {
 					return nil
 				},
 			})
-			server := &Server{mediaAccess: mediaaccess.New(mediarepo.New(fault))}
+			server := &testServer{
+				Server: &Server{
+					contentDeps: ContentDependencies{
+						Access: mediaaccess.New(mediarepo.New(fault)),
+					},
+				},
+			}
 			handler := map[string]http.HandlerFunc{
 				"game": server.contentAsset, "save": server.saveStateScreenshot,
 				"review": server.reviewCandidateAsset, "review-source": server.reviewCandidateAsset,

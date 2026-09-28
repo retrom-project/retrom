@@ -59,7 +59,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 			return nil
 		},
 	})
-	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
+	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -74,7 +74,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 		t.Fatalf("receipt failure invoked dispatch: %s/%d", state, attempt)
 	}
 	// The mutation has its own committed transaction. A later durable recovery is still allowed.
-	if err := fixture.server.metadata.Recover(t.Context()); err != nil {
+	if err := fixture.server.reviewDeps.Metadata.Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	state, _, attempt = waitValidationRetry(t, fixture)
@@ -96,8 +96,8 @@ func TestMediaRetrySurvivesResponseCancellationAndStopsAfterClose(t *testing.T) 
 	if ctx.Err() == nil || state != "SUCCEEDED" || execution != 2 || attempt != 1 {
 		t.Fatalf("cancelled response start=%s/%d/%d", state, execution, attempt)
 	}
-	fixture.server.metadata.Close()
-	if fixture.server.metadata.ResumeMediaJob(t.Context(), fixture.jobID) {
+	fixture.server.reviewDeps.Metadata.Close()
+	if fixture.server.reviewDeps.Metadata.ResumeMediaJob(t.Context(), fixture.jobID) {
 		t.Fatal("media registered after Close")
 	}
 }

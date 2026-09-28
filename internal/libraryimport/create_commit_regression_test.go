@@ -12,7 +12,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -50,8 +50,8 @@ func TestImportCreationRejectsStaleQueuedExecution(t *testing.T) {
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			service, plan := preparedCommitFixture(t)
-			admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil,
-				service.tags, application.ImportAdmissionOptions{Now: service.now})
+			admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil,
+				service.tags, libraryservice.ImportAdmissionOptions{Now: service.now})
 			created, err := admissions.Queue(t.Context(), plan.Request)
 			if err != nil {
 				t.Fatal(err)
@@ -96,7 +96,7 @@ func preparedCommitFixture(t *testing.T) (*Service, creationPlan) {
 func commitPreparedFixture(
 	ctx context.Context, service *Service, plan creationPlan, work *queuedCreationWork,
 ) (Created, error) {
-	options := application.ImportCreationOptions{}
+	options := libraryservice.ImportCreationOptions{}
 	if work != nil {
 		options.Queued = work.creationIntent()
 	}

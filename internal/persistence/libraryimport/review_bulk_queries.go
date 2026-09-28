@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewBulkQueries struct{ executor dbapi.Executor }
@@ -22,25 +22,20 @@ func BindReviewBulkQueries(executor dbapi.Executor) *ReviewBulkQueries {
 }
 
 // LatestReviewItemID returns the immutable upper bound used by bounded review
-// scans. Keeping this projection next to the candidate query prevents callers
-// from reaching into the database for cursor fencing.
-func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error) {
-	var value sql.NullString
+// scans, or an empty string when no pending items exist.
+func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (string, error) {
+	var value string
 	if err := dbapi.QueryRowContext(ctx, repository.executor,
-		`SELECT max(id) FROM import_items WHERE state='REVIEW_PENDING'`,
+		`SELECT COALESCE(max(id),'') FROM import_items WHERE state='REVIEW_PENDING'`,
 	).Scan(&value); err != nil {
-		return nil, fmt.Errorf("query review item upper bound: %w", err)
+		return "", fmt.Errorf("query review item upper bound: %w", err)
 	}
-	if !value.Valid {
-		//nolint:nilnil // a nil upper bound explicitly represents an empty review queue
-		return nil, nil
-	}
-	return &value.String, nil
+	return value, nil
 }
 
 func (repository *ReviewBulkQueries) Candidates(
-	ctx context.Context, query application.ReviewBulkCandidateQuery,
-) ([]application.ReviewBulkCandidate, error) {
+	ctx context.Context, query libraryservice.ReviewBulkCandidateQuery,
+) ([]libraryservice.ReviewBulkCandidate, error) {
 	statement, arguments, err := reviewBulkCandidateStatement(query)
 	if err != nil {
 		return nil, err
@@ -50,7 +45,7 @@ func (repository *ReviewBulkQueries) Candidates(
 		return nil, fmt.Errorf("query review bulk candidates: %w", err)
 	}
 	defer func() { cleanup.Error("close review bulk candidates", rows.Close()) }()
-	result := make([]application.ReviewBulkCandidate, 0, query.Limit)
+	result := make([]libraryservice.ReviewBulkCandidate, 0, query.Limit)
 	for rows.Next() {
 		candidate, err := scanReviewBulkCandidate(rows)
 		if err != nil {
@@ -64,9 +59,9 @@ func (repository *ReviewBulkQueries) Candidates(
 	return result, nil
 }
 
-func reviewBulkCandidateStatement(query application.ReviewBulkCandidateQuery) (string, []any, error) {
-	if query.Limit < 1 || query.Limit > application.ReviewBulkQueryLimit {
-		return "", nil, application.ErrReviewBulkQuery
+func reviewBulkCandidateStatement(query libraryservice.ReviewBulkCandidateQuery) (string, []any, error) {
+	if query.Limit < 1 || query.Limit > libraryservice.ReviewBulkQueryLimit {
+		return "", nil, libraryservice.ErrReviewBulkQuery
 	}
 	statement := reviewBulkCandidateSelect
 	arguments := make([]any, 0, 12)
@@ -135,13 +130,13 @@ LEFT JOIN source_import_items source_owner ON source_owner.library_import_item_i
 WHERE item.state='REVIEW_PENDING'
 AND (source_owner.id IS NULL OR source_owner.execution_state='REVIEW_PENDING')`
 
-func scanReviewBulkCandidate(scanner dbapi.Scanner) (application.ReviewBulkCandidate, error) {
-	var candidate application.ReviewBulkCandidate
+func scanReviewBulkCandidate(scanner dbapi.Scanner) (libraryservice.ReviewBulkCandidate, error) {
+	var candidate libraryservice.ReviewBulkCandidate
 	if err := scanner.Scan(&candidate.ItemID, &candidate.ReviewVersion, &candidate.SourceSnapshotID,
 		&candidate.PlatformID, &candidate.ValidationID, &candidate.ValidationStatus,
 		&candidate.AttachmentActive, &candidate.SourceFlagged,
 	); err != nil {
-		return application.ReviewBulkCandidate{}, fmt.Errorf("scan review bulk candidate: %w", err)
+		return libraryservice.ReviewBulkCandidate{}, fmt.Errorf("scan review bulk candidate: %w", err)
 	}
 	return candidate, nil
 }
@@ -164,13 +159,13 @@ func nullableReviewBulkInt(value sql.NullInt64) *int64 {
 
 func (repository *ReviewBulkQueries) CandidateByID(
 	ctx context.Context, itemID string,
-) (application.ReviewBulkCandidate, bool, error) {
+) (libraryservice.ReviewBulkCandidate, bool, error) {
 	result, err := scanReviewBulkCandidate(dbapi.QueryRowContext(
 		ctx, repository.executor,
 		reviewBulkCandidateSelect+" AND item.id=?", itemID,
 	))
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewBulkCandidate{}, false, nil
+		return libraryservice.ReviewBulkCandidate{}, false, nil
 	}
 	return result, err == nil, err
 }
@@ -183,7 +178,7 @@ FROM review_bulk_approvals`
 
 func (repository *ReviewBulkQueries) Summary(
 	ctx context.Context, bulkID string,
-) (application.ReviewBulkSummary, error) {
+) (libraryservice.ReviewBulkSummary, error) {
 	return scanReviewBulkSummary(dbapi.QueryRowContext(
 		ctx, repository.executor,
 		reviewBulkSummarySelect+" WHERE id=?", bulkID,
@@ -192,19 +187,19 @@ func (repository *ReviewBulkQueries) Summary(
 
 func (repository *ReviewBulkQueries) ActiveSummary(
 	ctx context.Context,
-) (application.ReviewBulkSummary, bool, error) {
+) (libraryservice.ReviewBulkSummary, bool, error) {
 	result, err := scanReviewBulkSummary(dbapi.QueryRowContext(
 		ctx, repository.executor,
 		reviewBulkSummarySelect+" WHERE state IN ('QUEUED','RUNNING') LIMIT 1",
 	))
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewBulkSummary{}, false, nil
+		return libraryservice.ReviewBulkSummary{}, false, nil
 	}
 	return result, err == nil, err
 }
 
-func scanReviewBulkSummary(scanner dbapi.Scanner) (application.ReviewBulkSummary, error) {
-	var result application.ReviewBulkSummary
+func scanReviewBulkSummary(scanner dbapi.Scanner) (libraryservice.ReviewBulkSummary, error) {
+	var result libraryservice.ReviewBulkSummary
 	var cursor, lastError sql.NullString
 	var started, completed sql.NullInt64
 	if err := scanner.Scan(
@@ -214,7 +209,7 @@ func scanReviewBulkSummary(scanner dbapi.Scanner) (application.ReviewBulkSummary
 		&result.SkippedNotReadyCount, &result.CreatedAtMS, &result.UpdatedAtMS,
 		&started, &completed, &lastError,
 	); err != nil {
-		return application.ReviewBulkSummary{}, fmt.Errorf("scan review bulk summary: %w", err)
+		return libraryservice.ReviewBulkSummary{}, fmt.Errorf("scan review bulk summary: %w", err)
 	}
 	result.CursorItemID = nullableReviewBulkString(cursor)
 	result.StartedAtMS = nullableReviewBulkInt(started)

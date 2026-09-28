@@ -6,11 +6,11 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func transitionServerReviewOwner(
-	ctx context.Context, transaction dbapi.Executor, table string, change application.ReviewOwnerTransition,
+	ctx context.Context, transaction dbapi.Executor, table string, change libraryservice.ReviewOwnerTransition,
 ) (int64, error) {
 	importItemID, state, gameID, now := change.ItemID, string(change.State), change.GameID, change.NowMS
 
@@ -18,13 +18,13 @@ func transitionServerReviewOwner(
 	switch table {
 	case "source_import_items":
 	default:
-		return 0, application.ErrInvalid
+		return 0, libraryservice.ErrInvalid
 	}
 	result, err := update(ctx, transaction, recordstore.Update{
 		Set: "execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?", Values: []any{state, gameID, now},
 		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
  OR ? AND ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
-`, Args: []any{importItemID, change.Mode == application.ReviewDiscardBatch, state}},
+`, Args: []any{importItemID, change.Mode == libraryservice.ReviewDiscardBatch, state}},
 	})
 	if err != nil {
 		return 0, fmt.Errorf("libraryimport/server review transition: %w", err)
@@ -42,7 +42,7 @@ func transitionServerReviewOwner(
 			return 0, fmt.Errorf("libraryimport/server review link: %w", err)
 		}
 		if linked > 0 {
-			return 0, application.ErrInvalid
+			return 0, libraryservice.ErrInvalid
 		}
 		return 0, nil
 	}

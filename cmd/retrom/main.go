@@ -5,15 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
-
-	dbapi "retrom/internal/database"
 
 	"retrom/internal/composition"
 
@@ -47,7 +42,11 @@ var (
 )
 
 func main() {
-	if err := execute(os.Args[1:]); err != nil {
+	exitOnFailure(execute(os.Args[1:]))
+}
+
+func exitOnFailure(err error) {
+	if err != nil {
 		slog.Error("retrom stopped", "error", err)
 		os.Exit(1)
 	}
@@ -80,39 +79,53 @@ func run(mode config.Mode) error {
 	if err != nil {
 		return err
 	}
-	startupContext, cancelStartup := context.WithTimeout(
-		context.Background(), configuration.StartupCheckTimeout,
-	)
+	return superviseServer(configuration)
+}
+
+func runServer(lifetime context.Context, configuration config.Config,
+	beginShutdown func(), progress *shutdownProgress,
+) error {
+	var resources serverResources
+	var services *application.Services
+	defer func() {
+		beginShutdown()
+		if services != nil {
+			progress.set("application workers", services.PendingShutdown)
+			services.Close()
+		}
+		progress.set("resources", nil)
+		resources.close()
+	}()
+	startupContext, cancelStartup := context.WithTimeout(lifetime, configuration.StartupCheckTimeout)
 	defer cancelStartup()
-	resources, err := bootstrapServerResources(startupContext, configuration)
+	if err := bootstrapServerResources(startupContext, configuration, &resources); err != nil {
+		return err
+	}
+	accountService, err := initializeAccountService(startupContext, configuration, resources)
 	if err != nil {
 		return err
 	}
-	defer resources.close()
-	accountService, err := initializeAccountService(
-		startupContext, configuration, resources,
-	)
-	if err != nil {
-		return err
-	}
-	cancelCatalogs := startCatalogBootstrap(resources)
-	defer cancelCatalogs()
-	services, err := application.New(application.Inputs{
+	catalogs := dependencyservice.New(resources.dependencies, dependencypersistence.New(resources.database.SQL))
+	services, err = application.New(startupContext, application.Inputs{
 		Config: configuration, Database: resources.database.SQL, ReadinessDatabase: resources.database.ReadOnly,
-		Dependencies: resources.dependencies, Files: resources.blobs, Credentials: resources.credentials,
+		Files: resources.blobs, Credentials: resources.credentials,
 		Accounts: accountService, Now: time.Now, ScummVMDetector: resources.scummVMDetector,
 		RuntimeProvider: resources.runtimeProviders.Builder,
+		IndexCatalogs:   catalogBootstrap(catalogs),
 	})
 	if err != nil {
 		return fmt.Errorf("compose application: %w", err)
 	}
-	defer services.Close()
 	if err := services.Start(startupContext); err != nil {
 		return fmt.Errorf("start application: %w", err)
 	}
-	apiServer := httpapi.New(configuration, services, accountService, time.Now).
-		WithRuntimeProviderHandler(resources.runtimeProviders.Handler)
-	return serveHTTP(configuration, apiServer)
+	cancelStartup()
+	dependencies := httpDependencies(services, accountService, resources.runtimeProviders.Handler)
+	apiServer := httpapi.New(configuration, dependencies, time.Now)
+	err = serveHTTP(lifetime, configuration, apiServer.Handler(), beginShutdown, progress)
+	progress.set("HTTP deferred work", nil)
+	apiServer.Wait()
+	return err
 }
 
 func loadServerConfiguration(mode config.Mode) (config.Config, error) {
@@ -154,17 +167,11 @@ func (resources *serverResources) close() {
 func bootstrapServerResources(
 	ctx context.Context,
 	configuration config.Config,
-) (serverResources, error) {
-	var result serverResources
-	succeeded := false
-	defer func() {
-		if !succeeded {
-			result.close()
-		}
-	}()
+	result *serverResources,
+) error {
 	lock, err := processlock.Acquire(configuration.DataDir)
 	if err != nil {
-		return result, fmt.Errorf("retrom/main: %w", err)
+		return fmt.Errorf("retrom/main: %w", err)
 	}
 	result.lock = lock
 	result.dependencies, err = dependencies.Load(
@@ -173,38 +180,37 @@ func bootstrapServerResources(
 		configuration.ActiveEJSVersion,
 	)
 	if err != nil {
-		return result, fmt.Errorf("verify dependencies: %w", err)
+		return fmt.Errorf("verify dependencies: %w", err)
 	}
 	result.runtimeProviders, err = runtimeprovider.LoadInstallation(runtimeprovider.Paths{
 		ActivePath: configuration.ProviderActivePath, InstalledRoot: configuration.ProviderInstalledRoot,
 		CatalogPath: configuration.RuntimeTargetCatalogPath, DevRoot: configuration.ProviderDevRoot,
 	})
 	if err != nil {
-		return result, fmt.Errorf("verify runtime provider installation: %w", err)
+		return fmt.Errorf("verify runtime provider installation: %w", err)
 	}
 	if err := validateRuntimeProviderSource(configuration, result.runtimeProviders); err != nil {
-		return result, fmt.Errorf("verify runtime provider installation: %w", err)
+		return fmt.Errorf("verify runtime provider installation: %w", err)
 	}
 	result.scummVMDetector, err = result.runtimeProviders.ScummVMDetector(
 		filepath.Join(configuration.DataDir, "runtime-tools", "scummvm"),
 	)
 	if err != nil && !errors.Is(err, runtimeprovider.ErrScummVMNotInstalled) {
-		return result, fmt.Errorf("prepare ScummVM detector: %w", err)
+		return fmt.Errorf("prepare ScummVM detector: %w", err)
 	}
-	if err := openAndBootstrapDatabase(ctx, configuration, &result); err != nil {
-		return result, err
+	if err := openAndBootstrapDatabase(ctx, configuration, result); err != nil {
+		return err
 	}
 	result.blobs, err = filestore.Open(configuration.DataDir)
 	if err != nil {
-		return result, fmt.Errorf("open blob store: %w", err)
+		return fmt.Errorf("open blob store: %w", err)
 	}
 	result.credentials, err = retromruntime.LoadOrCreateCredentials(configuration.DataDir)
 	if err != nil {
-		return result, fmt.Errorf("load launch credentials: %w", err)
+		return fmt.Errorf("load launch credentials: %w", err)
 	}
 
-	succeeded = true
-	return result, nil
+	return nil
 }
 
 func validateRuntimeProviderSource(configuration config.Config, installation runtimeprovider.Installation) error {
@@ -263,52 +269,6 @@ func initializeAccountService(
 	return accountService, nil
 }
 
-func startCatalogBootstrap(resources serverResources) context.CancelFunc {
-	catalogContext, cancel := context.WithCancel(context.Background())
-	go bootstrapCatalogs(catalogContext, resources.dependencies, resources.database.SQL)
-	return cancel
-}
-
-func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database dbapi.DB) {
-	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
-	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
-		slog.Error("background DAT indexing failed", "error", err)
-		return
-	}
-	slog.Info("background DAT indexing complete")
-}
-
-func serveHTTP(configuration config.Config, apiServer *httpapi.Server) error {
-	server := &http.Server{
-		Addr: configuration.HTTPAddr, Handler: apiServer.Handler(),
-		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 2 * time.Minute,
-		WriteTimeout: 2 * time.Minute, IdleTimeout: 75 * time.Second, MaxHeaderBytes: 64 << 10,
-	}
-	serveErrors := make(chan error, 1)
-	go func() {
-		slog.Info("retrom HTTP listening")
-		serveErrors <- server.ListenAndServe()
-	}()
-	stopSignals := make(chan os.Signal, 1)
-	signal.Notify(stopSignals, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(stopSignals)
-	select {
-	case err := <-serveErrors:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return fmt.Errorf("serve HTTP: %w", err)
-	case signalName := <-stopSignals:
-		slog.Info("shutdown requested", "signal", signalName.String())
-	}
-	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancelShutdown()
-	if err := server.Shutdown(shutdownContext); err != nil {
-		return fmt.Errorf("shutdown HTTP: %w", err)
-	}
-	return nil
-}
-
 func parseServeMode(arguments []string) (config.Mode, error) {
 	var value string
 	switch {
@@ -324,4 +284,8 @@ func parseServeMode(arguments []string) (config.Mode, error) {
 		return "", errCommand
 	}
 	return mode, nil
+}
+
+func catalogBootstrap(catalogs *dependencyservice.Service) func(context.Context) error {
+	return func(ctx context.Context) error { return catalogs.BootstrapCatalogs(ctx, time.Now()) }
 }

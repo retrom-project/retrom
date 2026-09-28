@@ -12,7 +12,7 @@ import (
 	"time"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 
@@ -82,7 +82,7 @@ func (service *Service) readAttachedMultiDiscBase(
 	return nil
 }
 
-func attachedMultiDiscFileFromApplication(file application.MultiDiscAttachmentFile) attachedMultiDiscFile {
+func attachedMultiDiscFileFromApplication(file libraryservice.MultiDiscAttachmentFile) attachedMultiDiscFile {
 	return attachedMultiDiscFile{
 		role:         file.Role,
 		logicalName:  file.LogicalName,

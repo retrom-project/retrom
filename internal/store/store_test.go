@@ -230,8 +230,13 @@ func TestOpenProvidesIndependentConfiguredReadPool(t *testing.T) {
 	defer dbapi.Rollback(writer)
 	readContext, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
+	reader, err := database.ReadOnly.BeginTx(readContext, &dbapi.TxOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbapi.Rollback(reader)
 	var foreignKeys, busyTimeout, tableCount int
-	if err := dbapi.QueryRowContext(readContext, database.ReadOnly, `
+	if err := dbapi.QueryRowContext(readContext, reader, `
 SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
        (SELECT timeout FROM pragma_busy_timeout),
        (SELECT count(*) FROM sqlite_schema WHERE type='table')

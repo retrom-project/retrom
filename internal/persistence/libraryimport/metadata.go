@@ -8,14 +8,14 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type Metadata struct{ database dbapi.DB }
 
 func NewMetadata(database dbapi.DB) *Metadata { return &Metadata{database: database} }
 
-func (repository *Metadata) WithMetadata(ctx context.Context, work func(application.MetadataScope) error) error {
+func (repository *Metadata) WithMetadata(ctx context.Context, work func(libraryservice.MetadataScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin server review metadata: %w", err)
@@ -34,27 +34,29 @@ type metadataRecords struct{ executor dbapi.Executor }
 
 // BindMetadata joins a caller-owned transaction; the caller commits or rolls
 // back the complete business operation, including any source handoff.
-func BindMetadata(executor dbapi.Executor) application.MetadataScope {
+func BindMetadata(executor dbapi.Executor) libraryservice.MetadataScope {
 	return metadataRecords{executor: executor}
 }
 
-func (records metadataRecords) CurrentMetadata(ctx context.Context, itemID string) (application.MetadataDraft, error) {
-	var result application.MetadataDraft
+func (records metadataRecords) CurrentMetadata(
+	ctx context.Context, itemID string,
+) (libraryservice.MetadataDraft, error) {
+	var result libraryservice.MetadataDraft
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.metadata_json,draft.review_version FROM import_items draft
 JOIN import_items item ON item.id=draft.id
 WHERE draft.id=? AND item.state='REVIEW_PENDING'`, itemID).
 		Scan(&result.MetadataJSON, &result.Version)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.MetadataDraft{}, application.ErrInvalid
+		return libraryservice.MetadataDraft{}, libraryservice.ErrInvalid
 	}
 	if err != nil {
-		return application.MetadataDraft{}, fmt.Errorf("read review metadata draft: %w", err)
+		return libraryservice.MetadataDraft{}, fmt.Errorf("read review metadata draft: %w", err)
 	}
 	return result, nil
 }
 
-func (records metadataRecords) SaveMetadata(ctx context.Context, change application.MetadataChange) error {
+func (records metadataRecords) SaveMetadata(ctx context.Context, change libraryservice.MetadataChange) error {
 	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
 		Set: `metadata_json=?,review_version=review_version+1,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -87,7 +89,7 @@ func requireMetadataChange(result sql.Result, err error) error {
 		return fmt.Errorf("count server review metadata changes: %w", err)
 	}
 	if affected != 1 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	return nil
 }

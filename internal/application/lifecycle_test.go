@@ -35,7 +35,7 @@ func newLifecycleFixture(t *testing.T) *Services {
 	if err != nil {
 		t.Fatal(err)
 	}
-	services, err := New(Inputs{
+	services, err := New(t.Context(), Inputs{
 		Config:   config.Config{DataDir: dir, PublicOrigin: &url.URL{Scheme: "http", Host: "localhost"}},
 		Database: db, Files: files, Credentials: credentials, Now: time.Now,
 	})
@@ -51,10 +51,11 @@ func TestConstructionDoesNotRecoverAndStartupReportsRecoveryFailure(t *testing.T
 	if err := services.Start(t.Context()); err == nil {
 		t.Fatal("startup concealed missing worker tables")
 	}
+	services.Close()
 	if err := services.Metadata.Recover(t.Context()); !errors.Is(err, metadatascrape.ErrWorkerClosed) {
 		t.Fatalf("metadata worker survived failed startup: %v", err)
 	}
-	if !services.closed {
+	if !services.stopping.Load() {
 		t.Fatal("failed startup did not close services")
 	}
 	if err := services.Start(t.Context()); !errors.Is(err, ErrClosed) {
@@ -70,10 +71,11 @@ func TestCancelledStartupPreservesTheCauseAndCanClose(t *testing.T) {
 	if err := services.Start(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled startup=%v", err)
 	}
+	services.Close()
 	if err := services.Metadata.Recover(t.Context()); !errors.Is(err, metadatascrape.ErrWorkerClosed) {
 		t.Fatalf("metadata worker survived failed startup: %v", err)
 	}
-	if !services.closed {
+	if !services.stopping.Load() {
 		t.Fatal("failed startup did not close services")
 	}
 	if err := services.Start(t.Context()); !errors.Is(err, ErrClosed) {
@@ -91,7 +93,7 @@ func TestCloseBeforeStartPreventsBackgroundWork(t *testing.T) {
 }
 
 func TestMissingApplicationDependenciesReturnConstructionError(t *testing.T) {
-	if services, err := New(Inputs{}); err == nil || services != nil {
+	if services, err := New(t.Context(), Inputs{}); err == nil || services != nil {
 		t.Fatalf("missing inputs accepted: %v", err)
 	}
 }

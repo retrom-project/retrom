@@ -7,25 +7,25 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type rpgReviewBinding struct {
 	generation       string
 	override         bool
 	dependencySHA256 string
-	analysis         application.RPGReviewAnalysis
+	analysis         libraryservice.RPGReviewAnalysis
 }
 
 func (run *draftPatchRun) applyRPGMakerBinding() error {
 	if !run.isRPG {
 		if run.patch.RPGSelfContainedOverride != nil {
-			return application.ErrInvalid
+			return libraryservice.ErrInvalid
 		}
 		return nil
 	}
 	if run.targetOrDOSChanged {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if run.patch.RPGSelfContainedOverride == nil {
 		return nil
@@ -36,7 +36,7 @@ func (run *draftPatchRun) applyRPGMakerBinding() error {
 	}
 	override := *run.patch.RPGSelfContainedOverride
 	if override && (profile.generation == "RPGMV" || profile.generation == "RPGMZ") {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	_, err = run.transaction.ExecContext(run.ctx, `
 UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.selfContainedOverride',?)
@@ -53,14 +53,14 @@ func loadRPGReviewBinding(
 ) (rpgReviewBinding, error) {
 	profile, err := readRPGReviewProfile(ctx, transaction, draftID)
 	if err != nil {
-		return rpgReviewBinding{}, application.ErrInvalid
+		return rpgReviewBinding{}, libraryservice.ErrInvalid
 	}
 	result := rpgReviewBinding{
 		generation: profile.Generation, override: profile.SelfContainedOverride != 0,
 		dependencySHA256: profile.DependencySnapshotSHA256,
 	}
 	if err := json.Unmarshal(profile.Analysis, &result.analysis); err != nil {
-		return rpgReviewBinding{}, application.ErrInvalid
+		return rpgReviewBinding{}, libraryservice.ErrInvalid
 	}
 	return result, nil
 }

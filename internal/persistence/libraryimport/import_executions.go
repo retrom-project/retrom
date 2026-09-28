@@ -7,7 +7,7 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	payload "retrom/internal/persistence/libraryimport/itemrelease"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -21,14 +21,14 @@ func NewImportExecutions(database dbapi.DB) *ImportExecutions {
 
 func (repository *ImportExecutions) WithExecution(
 	ctx context.Context,
-	work func(application.ImportExecutionScope) error,
+	work func(libraryservice.ImportExecutionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import execution: %w", err)
 	}
 	defer dbapi.Rollback(tx)
-	scope := application.ImportExecutionScope{
+	scope := libraryservice.ImportExecutionScope{
 		Records: importExecutionRecords{executor: tx},
 		Facts:   BindImportFacts(tx),
 		Payload: payload.BindScheduling(tx),

@@ -6,18 +6,22 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 var errInjectedApproval = errors.New("injected approval repository")
 
 type injectedApprovalRepository struct{ calls int }
 
-func (*injectedApprovalRepository) PendingPublications(context.Context) ([]application.ReviewApprovalRequest, error) {
+func (*injectedApprovalRepository) PendingPublications(
+	context.Context,
+) ([]libraryservice.ReviewApprovalRequest, error) {
 	return nil, errInjectedApproval
 }
 
-func (repository *injectedApprovalRepository) WithApproval(context.Context, func(application.ReviewApprovalScope) error) error {
+func (repository *injectedApprovalRepository) WithApproval(
+	context.Context, func(libraryservice.ReviewApprovalScope) error,
+) error {
 	repository.calls++
 	return errInjectedApproval
 }
@@ -28,7 +32,7 @@ func TestImporterUsesSuppliedApprovalAcrossRequests(t *testing.T) {
 		Database: fixture.database, Files: fixture.blobs, Tags: fixture.tags, Now: time.Now,
 	})
 	repository := &injectedApprovalRepository{}
-	deps.Approvals = application.NewReviewApprovals(repository, fixture.tags, time.Now, fixture.blobs)
+	deps.Approvals = libraryservice.NewReviewApprovals(repository, fixture.tags, time.Now, fixture.blobs)
 	importer := New(deps, Options{})
 	t.Cleanup(importer.Close)
 	for range 2 {

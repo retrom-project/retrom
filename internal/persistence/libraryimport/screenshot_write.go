@@ -6,10 +6,10 @@ import (
 
 	"retrom/internal/filestore"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records screenshotRecords) Replace(ctx context.Context, plan application.ScreenshotWrite) error {
+func (records screenshotRecords) Replace(ctx context.Context, plan libraryservice.ScreenshotWrite) error {
 	image, source, now := plan.Image, plan.Source, plan.AtMS
 	fileRecord, err := filestore.FileRecord(filestore.Metadata{
 		Record: image.FileRecord, Path: image.StoragePath,

@@ -1,12 +1,13 @@
 package libraryimport
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func TestReviewBulkConcurrentCreationCommitsOnlyOneJob(t *testing.T) {
@@ -115,14 +116,32 @@ func assertReviewBulkResume(t *testing.T, db dbapi.DB, worker *ReviewBulkWorker,
 	if err != nil || summary.State != "COMPLETED" || summary.ScannedCount != 1 || summary.SkippedChangedCount != 1 {
 		t.Fatalf("summary=%#v err=%v", summary, err)
 	}
-	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-3", 16); !errors.Is(err, application.ErrReviewBulkNotRunnable) {
+	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-3", 16); !errors.Is(err, libraryservice.ErrReviewBulkNotRunnable) {
 		t.Fatalf("reclaim=%v", err)
 	}
 }
 
 func TestReviewBulkCandidateQueryRequiresLimit(t *testing.T) {
-	_, _, err := reviewBulkCandidateStatement(application.ReviewBulkCandidateQuery{})
-	if !errors.Is(err, application.ErrReviewBulkQuery) {
+	_, _, err := reviewBulkCandidateStatement(libraryservice.ReviewBulkCandidateQuery{})
+	if !errors.Is(err, libraryservice.ErrReviewBulkQuery) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestLatestReviewItemIDDistinguishesEmptyQueueFromQueryFailure(t *testing.T) {
+	t.Parallel()
+	database := metadataDatabase(t)
+	queries := BindReviewBulkQueries(database)
+	if value, err := queries.LatestReviewItemID(t.Context()); err != nil || value != "item" {
+		t.Fatalf("pending upper bound=%q err=%v", value, err)
+	}
+	metadataExec(t, database, "UPDATE import_items SET state='DISCARDED' WHERE id='item'")
+	if value, err := queries.LatestReviewItemID(t.Context()); err != nil || value != "" {
+		t.Fatalf("empty upper bound=%q err=%v", value, err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if value, err := queries.LatestReviewItemID(ctx); value != "" || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled upper bound=%q err=%v", value, err)
 	}
 }

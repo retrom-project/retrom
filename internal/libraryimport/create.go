@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Created, error) {
@@ -20,9 +20,9 @@ func (service *Service) create(
 	if len(options) > 1 {
 		return Created{}, ErrInvalid
 	}
-	intent := application.ImportCreationOptions{}
+	intent := libraryservice.ImportCreationOptions{}
 	if reconfiguration != nil {
-		intent.Reconfiguration = &application.ImportReconfiguration{
+		intent.Reconfiguration = &libraryservice.ImportReconfiguration{
 			ImportID: reconfiguration.sourceImportJobID,
 			Version:  reconfiguration.sourceVersion,
 			FileIDs:  reconfiguration.sourceFileIDs,
@@ -32,7 +32,7 @@ func (service *Service) create(
 	if len(options) == 1 {
 		binding = options[0].sourceCreation
 		if binding != nil {
-			intent.Source = &application.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
+			intent.Source = &libraryservice.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
 		}
 	}
 	result, err := service.creations.Create(ctx, request, intent)

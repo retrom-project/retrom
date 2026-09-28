@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // ArcadeParentAttachments owns the transaction used while an uploaded parent
@@ -20,7 +20,7 @@ type ArcadeParentAttachments struct{ database dbapi.DB }
 
 type arcadeParentAttachmentAdmissionRecords struct{ executor dbapi.Executor }
 
-var _ application.ArcadeParentAttachmentAdmissionRepository = (*ArcadeParentAttachments)(nil)
+var _ libraryservice.ArcadeParentAttachmentAdmissionRepository = (*ArcadeParentAttachments)(nil)
 
 func NewArcadeParentAttachments(database dbapi.DB) *ArcadeParentAttachments {
 	return &ArcadeParentAttachments{database: database}
@@ -28,7 +28,7 @@ func NewArcadeParentAttachments(database dbapi.DB) *ArcadeParentAttachments {
 
 func (repository *ArcadeParentAttachments) WithAdmission(
 	ctx context.Context,
-	work func(application.ArcadeParentAttachmentAdmissionScope) error,
+	work func(libraryservice.ArcadeParentAttachmentAdmissionScope) error,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -36,7 +36,7 @@ func (repository *ArcadeParentAttachments) WithAdmission(
 	}
 	defer dbapi.Rollback(tx)
 	records := arcadeParentAttachmentAdmissionRecords{executor: tx}
-	if err := work(application.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
+	if err := work(libraryservice.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -47,8 +47,8 @@ func (repository *ArcadeParentAttachments) WithAdmission(
 
 func (records arcadeParentAttachmentAdmissionRecords) Draft(
 	ctx context.Context, itemID string,
-) (application.ArcadeParentAttachmentDraft, bool, error) {
-	var result application.ArcadeParentAttachmentDraft
+) (libraryservice.ArcadeParentAttachmentDraft, bool, error) {
+	var result libraryservice.ArcadeParentAttachmentDraft
 	var datID sql.NullString
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.id,item.state,draft.review_version,draft.target_platform_instance_id,
@@ -75,10 +75,10 @@ WHERE item.id=?
 		contentquery.ScanPolicy(&result.ContentPolicy), &datID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ArcadeParentAttachmentDraft{}, false, nil
+		return libraryservice.ArcadeParentAttachmentDraft{}, false, nil
 	}
 	if err != nil {
-		return application.ArcadeParentAttachmentDraft{}, false, fmt.Errorf("read arcade parent draft: %w", err)
+		return libraryservice.ArcadeParentAttachmentDraft{}, false, fmt.Errorf("read arcade parent draft: %w", err)
 	}
 	result.ActiveDATVersionID, result.HasActiveDAT = nullableString(datID)
 	return result, true, nil
@@ -86,8 +86,8 @@ WHERE item.id=?
 
 func (records arcadeParentAttachmentAdmissionRecords) Validation(
 	ctx context.Context, validationID, itemID string,
-) (application.ArcadeParentAttachmentValidation, bool, error) {
-	var result application.ArcadeParentAttachmentValidation
+) (libraryservice.ArcadeParentAttachmentValidation, bool, error) {
+	var result libraryservice.ArcadeParentAttachmentValidation
 	var datID sql.NullString
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT target_platform_instance_id,core_id,provider_id,target_id,
@@ -100,10 +100,10 @@ WHERE id=? AND import_item_id=?
 		&datID, &result.SourceSnapshotID, &result.DependencySnapshotJSON,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ArcadeParentAttachmentValidation{}, false, nil
+		return libraryservice.ArcadeParentAttachmentValidation{}, false, nil
 	}
 	if err != nil {
-		return application.ArcadeParentAttachmentValidation{}, false, fmt.Errorf(
+		return libraryservice.ArcadeParentAttachmentValidation{}, false, fmt.Errorf(
 			"read arcade parent validation: %w",
 			err,
 		)
@@ -114,8 +114,8 @@ WHERE id=? AND import_item_id=?
 
 func (records arcadeParentAttachmentAdmissionRecords) Upload(
 	ctx context.Context, uploadFileID string,
-) (application.ArcadeParentAttachmentUpload, bool, error) {
-	var result application.ArcadeParentAttachmentUpload
+) (libraryservice.ArcadeParentAttachmentUpload, bool, error) {
+	var result libraryservice.ArcadeParentAttachmentUpload
 	var wholeSessionConsumed int64
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT session.id,session.state,'COMPLETE',file.relative_path,file.file_record,
@@ -131,10 +131,10 @@ WHERE file.id=?
 		&result.FileRecord, &result.BlobSHA, &result.BlobSize, &wholeSessionConsumed,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ArcadeParentAttachmentUpload{}, false, nil
+		return libraryservice.ArcadeParentAttachmentUpload{}, false, nil
 	}
 	if err != nil {
-		return application.ArcadeParentAttachmentUpload{}, false, fmt.Errorf("read arcade parent upload: %w", err)
+		return libraryservice.ArcadeParentAttachmentUpload{}, false, fmt.Errorf("read arcade parent upload: %w", err)
 	}
 	result.WholeSessionConsumed = wholeSessionConsumed != 0
 	return result, true, nil
@@ -153,12 +153,12 @@ WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
 
 func (records arcadeParentAttachmentAdmissionRecords) MachineRelation(
 	ctx context.Context, datID, machine string,
-) (application.ArcadeMachineRelation, bool, error) {
+) (libraryservice.ArcadeMachineRelation, bool, error) {
 	return BindArcadeRelations(records.executor).MachineRelation(ctx, datID, machine)
 }
 
 func (records arcadeParentAttachmentAdmissionRecords) Create(
-	ctx context.Context, write application.ArcadeParentAttachmentWrite,
+	ctx context.Context, write libraryservice.ArcadeParentAttachmentWrite,
 ) error {
 	if _, err := records.executor.ExecContext(ctx, `
 INSERT INTO jobs(
@@ -186,7 +186,7 @@ INSERT INTO review_arcade_parent_attachments(
 		write.OriginalFilename, write.JobID, write.NowMS, write.NowMS)
 	if err != nil {
 		if strings.Contains(err.Error(), "review_arcade_parent_active") {
-			return fmt.Errorf("%w: %w", application.ErrArcadeParentAttachmentActive, err)
+			return fmt.Errorf("%w: %w", libraryservice.ErrArcadeParentAttachmentActive, err)
 		}
 		return fmt.Errorf("create arcade parent attachment: %w", err)
 	}
@@ -212,7 +212,7 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 		return fmt.Errorf("count arcade parent draft update: %w", err)
 	}
 	if changed != 1 {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 
 	return nil
