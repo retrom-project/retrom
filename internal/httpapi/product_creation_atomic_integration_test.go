@@ -25,7 +25,7 @@ const productCreateHTTPKey = "01980000-0000-7000-8000-000000000082"
 
 func productCreateHTTP(t *testing.T, server *testServer, gameID string) *httptest.ResponseRecorder {
 	t.Helper()
-	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "01980000-0000-7000-8000-000000009999", ProfileID: "local"})
+	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "01980000-0000-7000-8000-000000009999", ProfileID: "local", SessionID: "01980000-0000-7000-8000-000000009998"})
 	body := fmt.Sprintf(`{"gameId":%q,"returnTo":"/library","clientCapabilities":{"secureContext":true,"crossOriginIsolated":true,"sharedArrayBuffer":true}}`, gameID)
 	return productCreateHTTPBody(ctx, server, body)
 }
@@ -141,7 +141,8 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 			},
 			config: server.config,
 			playDeps: PlayDependencies{
-				Launcher: launcher,
+				Launcher:        launcher,
+				RuntimeSessions: server.playDeps.RuntimeSessions,
 			},
 			now: func() time.Time { return now },
 		}},
@@ -151,7 +152,8 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 			},
 			config: server.config,
 			playDeps: PlayDependencies{
-				Launcher: launcher,
+				Launcher:        launcher,
+				RuntimeSessions: server.playDeps.RuntimeSessions,
 			},
 			now: func() time.Time { return now },
 		}},
@@ -175,9 +177,12 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 	if first.Code != http.StatusCreated || second.Code != http.StatusCreated || launches != 1 || receipts != 1 || first.Body.String() != second.Body.String() {
 		t.Fatalf("concurrent status=%d/%d launches=%d receipts=%d sameBody=%v", first.Code, second.Code, launches, receipts, first.Body.String() == second.Body.String())
 	}
+	if first.Result().Cookies()[0].Value != second.Result().Cookies()[0].Value {
+		t.Fatal("concurrent launch replays must share runtime token")
+	}
 	firstReplayed := first.Header().Get("X-Retrom-Idempotent-Replay") == "true"
 	secondReplayed := second.Header().Get("X-Retrom-Idempotent-Replay") == "true"
-	if firstReplayed == secondReplayed || len(first.Result().Cookies()) != 2 || len(second.Result().Cookies()) != 2 {
+	if firstReplayed == secondReplayed || len(first.Result().Cookies()) != 1 || len(second.Result().Cookies()) != 1 {
 		t.Fatalf("concurrent replay headers=%v/%v cookies=%d/%d", firstReplayed, secondReplayed, len(first.Result().Cookies()), len(second.Result().Cookies()))
 	}
 }

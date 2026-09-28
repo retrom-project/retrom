@@ -1,55 +1,55 @@
 package httpapi
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestLaunchContentGrantCookieHasRestrictedBrowserScope(t *testing.T) {
+func testRuntimeCookie(t *testing.T, server *testServer) *http.Cookie {
+	t.Helper()
+	session, err := server.playDeps.RuntimeSessions.Ensure(t.Context(), "01980000-0000-7000-8000-000000009998")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &http.Cookie{Name: runtimeCookieName, Value: session.Token, Path: "/"}
+}
+
+func TestSharedRuntimeCookieHasControlledDomainAndFixedName(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	server.config.PublicOrigin.Scheme = "https"
-	const launchID = "01980000-0000-7000-8000-000000000001"
+	session, err := server.playDeps.RuntimeSessions.Ensure(t.Context(), "01980000-0000-7000-8000-000000009998")
+	if err != nil {
+		t.Fatal(err)
+	}
 	recorder := httptest.NewRecorder()
-	server.setLaunchContentGrant(recorder, launchID, "capability", 86400)
+	if err := server.setRuntimeCookie(recorder, session); err != nil {
+		t.Fatal(err)
+	}
 	cookies := recorder.Result().Cookies()
 	if len(cookies) != 1 {
-		t.Fatalf("cookies = %#v", cookies)
+		t.Fatalf("cookie count=%d", len(cookies))
 	}
 	cookie := cookies[0]
-	if cookie.Name != runtimeContentGrantPrefix+launchID || cookie.Value != "capability" ||
-		cookie.Path != "/runtime/content/" || cookie.MaxAge != 86400 || !cookie.HttpOnly ||
-		!cookie.Secure || cookie.SameSite != http.SameSiteStrictMode {
-		t.Fatalf("content grant cookie = %#v", cookie)
+	if cookie.Name != runtimeCookieName || cookie.Path != "/" || cookie.Domain != "localhost" ||
+		!cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteStrictMode || cookie.MaxAge < 86399 {
+		t.Fatal("shared runtime cookie scope or expiry is incorrect")
 	}
 }
 
-func TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies(t *testing.T) {
+func TestSharedRuntimeRejectsMissingForgedAndDuplicateCredentials(t *testing.T) {
 	t.Parallel()
-	const launchID = "01980000-0000-7000-8000-000000000001"
-	valid := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/content/game/identity/game.zip", nil)
-	valid.AddCookie(&http.Cookie{Name: runtimeContentGrantPrefix + launchID, Value: "capability"})
-	grants, ok := runtimeContentGrants(valid)
-	if !ok || len(grants) != 1 || grants[0].LaunchID != launchID || grants[0].Capability != "capability" {
-		t.Fatalf("valid grants = %#v, ok=%t", grants, ok)
-	}
-
-	duplicate := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/content/game/identity/game.zip", nil)
-	duplicate.Header.Add("Cookie", runtimeContentGrantPrefix+launchID+"=first")
-	duplicate.Header.Add("Cookie", runtimeContentGrantPrefix+launchID+"=second")
-	if grants, ok := runtimeContentGrants(duplicate); ok || grants != nil {
-		t.Fatalf("duplicate grants = %#v, ok=%t", grants, ok)
-	}
-
-	tooMany := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/content/game/identity/game.zip", nil)
-	for index := 0; index <= maxRuntimeContentGrants; index++ {
-		launchID := fmt.Sprintf("01980000-0000-7000-8000-%012d", index)
-		tooMany.AddCookie(&http.Cookie{Name: runtimeContentGrantPrefix + launchID, Value: "capability"})
-	}
-	if grants, ok := runtimeContentGrants(tooMany); ok || grants != nil {
-		t.Fatalf("unbounded grants = %#v, ok=%t", grants, ok)
+	server := newTestServer(t)
+	valid := testRuntimeCookie(t, server)
+	for _, cookies := range [][]*http.Cookie{nil, {{Name: runtimeCookieName, Value: "forged"}}, {valid, valid}} {
+		request := httptest.NewRequestWithContext(t.Context(), "GET", "/runtime/content/game/identity/game.zip", nil)
+		for _, cookie := range cookies {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		if _, ok := server.authenticateRuntimeRequest(response, request); ok || response.Code != http.StatusUnauthorized {
+			t.Fatalf("invalid shared runtime credential accepted: %d", response.Code)
+		}
 	}
 }

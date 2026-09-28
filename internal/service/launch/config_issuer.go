@@ -99,6 +99,9 @@ func validConfigLifetime(source ConfigSource, now int64) bool {
 }
 
 func validConfigRevision(before, after ConfigSource) bool {
+	if after.HardEnd < before.HardEnd {
+		return false
+	}
 	if before.State == "ACTIVE" {
 		return after.State == "ACTIVE" && after.Version >= before.Version
 	}
@@ -109,6 +112,7 @@ func validConfigRevision(before, after ConfigSource) bool {
 func sameConfigInput(before, after ConfigAuthority) bool {
 	left, right := before.Source, after.Source
 	left.State, right.State = "", ""
+	left.HardEnd, right.HardEnd = 0, 0
 	left.Version, right.Version = 0, 0
 	return reflect.DeepEqual(left, right) && before.Restore == after.Restore
 }

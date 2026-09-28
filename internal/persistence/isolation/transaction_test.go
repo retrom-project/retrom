@@ -32,7 +32,7 @@ func TestFailedCapabilityIssueDoesNotConsumeTicket(t *testing.T) {
 	if _, err := fixture.service.InspectBootstrap(t.Context(), fixture.launchID, fixture.origin); err != nil {
 		t.Fatalf("failed issue consumed ticket: %v", err)
 	}
-	if _, _, err := fixture.service.ConsumeTicket(t.Context(), fixture.launchID, fixture.origin, fixture.ticket); err != nil {
+	if _, _, err := fixture.service.ConsumeTicket(t.Context(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile"); err != nil {
 		t.Fatalf("valid retry failed: %v", err)
 	}
 }

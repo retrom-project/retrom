@@ -556,9 +556,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		t.Fatal(err)
 	}
 	handler, cookie, csrf := httpSession(t, server)
-	runtimeGrant := &http.Cookie{
-		Name: runtimeContentGrantPrefix + created.LaunchID, Value: created.Capability, Path: "/runtime/content/",
-	}
+	runtimeGrant := testRuntimeCookieForProfile(t, server, historyProfileID)
 	beforeDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, gameURL, nil)
 	beforeDeleteRequest.AddCookie(runtimeGrant)
 	beforeDelete := httptest.NewRecorder()

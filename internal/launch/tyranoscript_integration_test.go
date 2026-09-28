@@ -111,7 +111,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		isolationpersistence.New(database.SQL), "https://{launchId}.rpg-runtime.example", now,
 	)
 	previewCredential, previewAccess, err := isolationService.ConsumeTicket(
-		ctx, preview.PreviewID, previewOrigin, previewTicket,
+		ctx, preview.PreviewID, previewOrigin, previewTicket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "tyrano-preview-profile",
 	)
 	if err != nil || !previewAccess.Preview || previewAccess.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("consume TyranoScript preview ticket=%#v, %v", previewAccess, err)
@@ -173,7 +173,7 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 		t.Fatalf("TyranoScript product envelope=%#v", productEnvelope)
 	}
 	productCredential, productAccess, err := isolationService.ConsumeTicket(
-		ctx, created.LaunchID, productOrigin, productTicket,
+		ctx, created.LaunchID, productOrigin, productTicket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "tyrano-preview-profile",
 	)
 	if err != nil || productAccess.Preview || productAccess.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("consume TyranoScript product ticket=%#v, %v", productAccess, err)

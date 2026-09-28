@@ -117,8 +117,13 @@ func (server *Server) rpgBootstrapConsume(
 		)
 		return
 	}
-	credential, consumed, err := server.playDeps.Isolation.ConsumeTicket(
-		request.Context(), access.LaunchID, access.Origin, body.Ticket,
+	session, ok := runtimeSessionFromRequest(request)
+	if !ok {
+		http.NotFound(writer, request)
+		return
+	}
+	_, consumed, err := server.playDeps.Isolation.ConsumeTicket(
+		request.Context(), access.LaunchID, access.Origin, body.Ticket, session.Token, session.ProfileID,
 	)
 	if err != nil || consumed.ContentFormat != "RPG_MAKER_PROJECT" {
 		writeError(
@@ -131,18 +136,9 @@ func (server *Server) rpgBootstrapConsume(
 		)
 		return
 	}
-	setIsolatedRuntimeCookie(writer, consumed, credential)
 	writer.Header().Set("Clear-Site-Data", `"storage"`)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.WriteHeader(http.StatusNoContent)
-}
-
-func setIsolatedRuntimeCookie(writer http.ResponseWriter, access isolation.Access, credential string) {
-	http.SetCookie(writer, &http.Cookie{
-		Name: rpgRuntimeCookieName, Value: credential, Path: "/__retrom/", HttpOnly: true,
-		Secure: strings.HasPrefix(access.Origin, "https://"), SameSite: http.SameSiteStrictMode,
-		Expires: time.UnixMilli(access.Expires), MaxAge: int(time.Until(time.UnixMilli(access.Expires)).Seconds()),
-	})
 }
 
 func (server *Server) rpgRuntimeCleanup(
@@ -152,15 +148,10 @@ func (server *Server) rpgRuntimeCleanup(
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil || !validRPGRuntimeWrite(request, access.Origin) ||
-		server.playDeps.Isolation.Revoke(request.Context(), authorized) != nil {
+		(authorized.Preview && server.playDeps.Isolation.Revoke(request.Context(), authorized) != nil) {
 		http.NotFound(writer, request)
 		return
 	}
-	http.SetCookie(writer, &http.Cookie{
-		Name: rpgRuntimeCookieName, Path: "/__retrom/", HttpOnly: true,
-		Secure: strings.HasPrefix(access.Origin, "https://"), SameSite: http.SameSiteStrictMode,
-		Expires: time.Unix(1, 0), MaxAge: -1,
-	})
 	writer.Header().Set("Clear-Site-Data", `"storage"`)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.WriteHeader(http.StatusNoContent)

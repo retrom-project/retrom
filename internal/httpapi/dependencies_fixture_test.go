@@ -61,11 +61,12 @@ func testHTTPDependencies(services *application.Services, auth Authenticator, pr
 			Evidence:      services.MetadataEvidence,
 		},
 		Play: PlayDependencies{
-			Launcher:  services.Launcher,
-			Variants:  services.Variants,
-			Saves:     services.SaveService,
-			Isolation: services.RpgIsolation,
-			Provider:  provider,
+			Launcher:        services.Launcher,
+			Variants:        services.Variants,
+			Saves:           services.SaveService,
+			Isolation:       services.RpgIsolation,
+			RuntimeSessions: services.RuntimeSessions,
+			Provider:        provider,
 		},
 		System: SystemDependencies{
 			Readiness:   services.ReadinessService,

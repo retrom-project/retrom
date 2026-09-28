@@ -114,8 +114,8 @@ flowchart LR
 
 1. 原始点击事件立即请求浏览器全屏。
 2. 同一 Player Shell 显示预检/加载状态，不出现第二个 Start/Play 按钮。
-3. 后端完成启动预检；已 READY 时返回可记录的非秘密 `launchId` 并以限定路径的 HttpOnly cookie 下发短时 capability。若用户所选备用 Core 尚需物化依赖，同一加载壳先等待可观察验证 Job，完成后自动重调创建 Launch；不要求用户再点开始。秘密不进入 URL 或 JSON。
-4. 前端导航到 `/play/:launchId`，用 cookie 读取严格的 Launch Envelope；唯一 Provider dispatcher 按 `providerId` 加载已激活 Provider Module，将 Envelope 交给对应 Provider，并在资源就绪后自动运行。
+3. 后端完成启动预检；已 READY 时返回可记录的非秘密 `launchId` 并复用登录会话的共享 HttpOnly 运行 Cookie。若用户所选备用 Core 尚需物化依赖，同一加载壳先等待可观察验证 Job，完成后自动重调创建 Launch；不要求用户再点开始。秘密不进入 URL 或 JSON。
+4. 前端导航到 `/play/:launchId`，用共享运行 cookie 读取严格的 Launch Envelope；唯一 Provider dispatcher 按 `providerId` 加载已激活 Provider Module，将 Envelope 交给对应 Provider，并在资源就绪后自动运行。
 5. 若存在阻断项，退出全屏并在来源上下文展示可修复错误；普通警告不增加确认步骤。
 
 存档快速启动锁定 Game 和 checkpoint format；恢复使用当前 READY GameVariant，并要求其 Target 明确声明可读取该格式，不让目录默认 Core 静默回退到不兼容实现。同一浏览器携带 launch cookie 刷新深链时因缺少用户激活而无法自动进入全屏，允许显示一次“进入全屏”恢复控件但仍自动运行；把 URL 复制到没有 cookie 的 context 只能显示“启动会话不可用”。
@@ -233,7 +233,7 @@ flowchart LR
 
 - 所有页面经同源认证入口；匿名用户只能访问初始化、登录、邀请注册和密码重置页面，普通用户不能访问管理 API。
 - 两个应用只监听明文 HTTP；生产环境只向受信容器/主机网络开放，由前置 NG 终结 TLS 并提供 HTTPS。
-- ROM、BIOS、parent 与多盘文件只通过短时 Launch content grant 授权的同源 `/runtime/content/` 端点提供；
+- ROM、BIOS、parent 与多盘文件只通过共享运行会话及逐 Launch 冻结资源授权 授权的同源 `/runtime/content/` 端点提供；
   URL 携带不可变内容身份，替换任一输入必须换 URL，但不暴露宿主路径或内部文件记录。SaveState 与截图继续
   通过 Profile/Launch 限定的逻辑 ID 私有 no-store 端点提供。
 - NG 必须让页面、EmulatorJS 与受控内容端点保持同源，并保留/设置正确的 COOP/COEP/CORP 响应头；DOSBox Pure 等线程模式依赖该安全上下文。

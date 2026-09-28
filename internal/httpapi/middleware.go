@@ -16,13 +16,15 @@ import (
 )
 
 // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.
-func (server *Server) baseMiddleware(next http.Handler) http.Handler {
+func (server *Server) baseMiddleware(next http.Handler, routes *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		server.serveBaseMiddleware(next, writer, request)
+		server.serveBaseMiddleware(next, routes, writer, request)
 	})
 }
 
-func (server *Server) serveBaseMiddleware(next http.Handler, writer http.ResponseWriter, request *http.Request) {
+func (server *Server) serveBaseMiddleware(
+	next http.Handler, routes *http.ServeMux, writer http.ResponseWriter, request *http.Request,
+) {
 	requestID, err := uuid.NewV7()
 	if err != nil {
 		http.Error(writer, "request id unavailable", http.StatusInternalServerError)
@@ -34,7 +36,18 @@ func (server *Server) serveBaseMiddleware(next http.Handler, writer http.Respons
 	if !server.requestReady(requestContext, writer, request) || !server.validRequest(writer, request) {
 		return
 	}
-	if publicHTTPRoute(request) || launchHTTPRoute(request.URL.Path) {
+	if launchHTTPRoute(request.URL.Path) {
+		if _, pattern := routes.Handler(request); pattern == "/" {
+			next.ServeHTTP(writer, request)
+			return
+		}
+		authenticated, ok := server.authenticateRuntimeRequest(writer, request)
+		if ok {
+			next.ServeHTTP(writer, authenticated)
+		}
+		return
+	}
+	if publicHTTPRoute(request) {
 		next.ServeHTTP(writer, request)
 		return
 	}

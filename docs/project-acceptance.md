@@ -363,7 +363,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→014，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
+- 流程：使用全新数据根执行当前 001→015，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
 - 通过标准：全新库到 014 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
@@ -399,12 +399,12 @@ make acceptance-case CASE=<case-id>
 - 通过标准：恶意输入在写出授权目录或创建 BIOS Installation 前以稳定 code 拒绝；服务器扫描命中任一门禁时零安装，API/日志不含绝对 root、basename、hash 或底层 `os.PathError`。没有外部实体访问、DNS、宿主文件读取或目标外文件，返回稳定 4xx 而非进程崩溃。真实 FBNeo PUBLIC DOCTYPE 和 MAME 内部 DTD 均被安全 scanner 跳过且统计命中 manifest；实现没有联网 DTD parser、正则删 DTD 或预置专用解析旁路。
 - 证据：每个夹具的错误码、临时目录前后清单和无外连记录。
 
-### ACC-SEC-002：Launch capability、内容范围与缓存
+### ACC-SEC-002：共享运行凭据、内容范围与缓存
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-002`。
-- 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/GameVariant 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 后重试原 capability。
-- 通过标准：既有 capability 生成、cookie、TTL、范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/progress/save 全部失败且不新增私有数据。
+- 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/GameVariant 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵；连续创建超过 32 次运行，确认主域和独立运行域复用同一个 `retrom_runtime` Cookie。并行运行两个游戏，结束一个后另一个仍可读取内容和保存；在新 Launch 加载本人的兼容存档。使用 fake clock 验证 24 小时有效期、严格超过 12 小时续期、并发续期值不变、账户自然过期后继续续期，以及运行 Token 已过期和主动退出后的拒绝。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 后重试原 capability。
+- 通过标准：共享 Token 不随游戏结束撤销，固定一个 Cookie，不向浏览器暴露服务端内部的逐 Launch capability；续期同步维护运行资源回收期限。范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/progress/save 全部失败且不新增私有数据。
 - 证据：cookie/数据库摘要（capability 只记录不可逆 hash）、请求矩阵、缓存/Range 响应头、新 context trace 和脱敏扫描。
 
 ### ACC-SEC-003：认证写请求的同源与 CSRF 边界
@@ -930,7 +930,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-003`。
-- 流程：模拟 Fullscreen 拒绝后从正常入口启动；保留 cookie 刷新 `/play/{launchId}`；再把同一 URL 复制到没有 launch cookie 的新 browser context。
+- 流程：模拟 Fullscreen 拒绝后从正常入口启动；保留 cookie 刷新 `/play/{launchId}`；再把同一 URL 复制到没有共享运行 cookie 的新 browser context。
 - 通过标准：正常入口拒绝全屏时游戏仍自动运行并显示可恢复“进入全屏”控件；同 context 刷新因无用户激活不伪造全屏，但仍自动加载且只有全屏恢复控件、没有第二个游戏 Start；新 context 显示“启动会话不可用”且不能取得 config/content。
 - 证据：两条 trace、错误/恢复 UI 和运行帧状态。
 
@@ -1250,7 +1250,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-004`。
-- 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一 Launch cookie 和过期 cookie。
+- 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一账户的共享运行 cookie 和过期 cookie。
 - 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 内部文件记录、原始路径或 capability。
 - 证据：发布 GameVariant/validation snapshot、Launch/config、内容响应摘要、授权负向和独立文件存储 hash 对照。
 
