@@ -362,7 +362,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-IMM-012": (
         180,
         "go test ./internal/launch ./internal/httpapi "
-        "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestLaunchContentGrantCookieHasRestrictedBrowserScope|TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies|TestGameCoverReplacementRetiresOldPayload|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
+        "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestSharedRuntimeCookieHasControlledDomainAndFixedName|TestSharedRuntimeRejectsMissingForgedAndDuplicateCredentials|TestGameCoverReplacementRetiresOldPayload|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
         "go test -tags=integration ./internal/httpapi -run '^TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes$' -count=1",
     ),
     "ACC-MOB-001": (120, "scripts/acceptance/ui-case.sh ACC-MOB-001 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/mobile/mobile-app-frame.test.tsx"),

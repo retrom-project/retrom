@@ -46,13 +46,13 @@ esac
 evidence_root="$repository_root/.cache/retrom/acceptance"
 mkdir -p "$evidence_root"
 evidence="$(mktemp -d "$evidence_root/arcade-${fixture_id}-flow-XXXXXX")"
-backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
 origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:4000}"
+# Keep the browser-facing host so domain-scoped runtime cookies are accepted and sent.
 
 new_id() { python3 -c 'import uuid; print(uuid.uuid4())'; }
 
 common=(-b "$evidence/cookies" -c "$evidence/cookies")
-login="$(curl --fail --silent --show-error "${common[@]}" -H "Origin: $origin" -H "Content-Type: application/json" -d '{"username":"test","password":"test"}' "$backend/api/v1/auth/login")"
+login="$(curl --fail --silent --show-error "${common[@]}" -H "Origin: $origin" -H "Content-Type: application/json" -d '{"username":"test","password":"test"}' "$origin/api/v1/auth/login")"
 csrf="$(jq -r .csrfToken <<<"$login")"
 write=(-H "Origin: $origin" -H "X-Retrom-Csrf: $csrf")
 
@@ -70,7 +70,7 @@ upload_files() {
   local request_body
   request_body="$(jq -nc --argjson files "$files_json" '{sourceType:"FILES",files:$files}')"
   local upload
-  upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$request_body" "$backend/api/v1/admin/uploads")"
+  upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$request_body" "$origin/api/v1/admin/uploads")"
   local upload_id
   upload_id="$(jq -r .uploadId <<<"$upload")"
   local chunk_size
@@ -98,22 +98,22 @@ upload_files() {
         -H "Content-Range: bytes $offset-$part_end/$size" \
         -H "Content-Digest: sha-256=:$digest:" \
         --data-binary "@$chunk_path" \
-        "$backend/api/v1/admin/uploads/$upload_id/files/$file_id/parts/$part_number" -o /dev/null
+        "$origin/api/v1/admin/uploads/$upload_id/files/$file_id/parts/$part_number" -o /dev/null
       rm -f -- "$chunk_path"
       offset=$((part_end + 1))
       part_number=$((part_number + 1))
     done
     index=$((index + 1))
   done
-  curl --fail --silent --show-error "${common[@]}" -D "$evidence/$response_name-upload-headers" -o "$evidence/$response_name-upload.json" "$backend/api/v1/admin/uploads/$upload_id"
+  curl --fail --silent --show-error "${common[@]}" -D "$evidence/$response_name-upload-headers" -o "$evidence/$response_name-upload.json" "$origin/api/v1/admin/uploads/$upload_id"
   local etag complete job_id state
   etag="$(awk 'tolower($1) == "etag:" {gsub("\r",""); print $2}' "$evidence/$response_name-upload-headers")"
-  complete="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H "If-Match: $etag" -H "Idempotency-Key: $(new_id)" "$backend/api/v1/admin/uploads/$upload_id/complete")"
+  complete="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H "If-Match: $etag" -H "Idempotency-Key: $(new_id)" "$origin/api/v1/admin/uploads/$upload_id/complete")"
   job_id="$(jq -r .jobId <<<"$complete")"
   state="QUEUED"
   for _ in $(seq 1 200); do
     local job
-    job="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/jobs/$job_id")"
+    job="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/jobs/$job_id")"
     state="$(jq -r .state <<<"$job")"
     [[ "$state" == "SUCCEEDED" ]] && break
     [[ "$state" == "FAILED" || "$state" == "CANCELLED" ]] && { jq . <<<"$job" >&2; return 1; }
@@ -139,7 +139,7 @@ python3 "$fixture_builder_root/build.py" --check
 fixture_sha256="$(openssl dgst -sha256 "$fixture_root/$game_archive" | awk '{print $2}')"
 printf 'arcade_flow=fixtures_verified\n'
 
-runtime_targets="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/runtime-targets")"
+runtime_targets="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/runtime-targets")"
 provider_id="$(jq -er --arg coreId "$core_id" '
   .items[]
   | select(
@@ -154,15 +154,15 @@ target_id="$(jq -er --arg coreId "$core_id" '
 if [[ "$dependency_mode" == "mame" ]]; then
   upload_files bios "$fixture_root/retrombios.zip"
   bios_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/bios-result.json")"
-  bios_catalog="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/bios?scope=FULL_CATALOG&providerId=$provider_id&targetId=$target_id&q=retrombios.zip")"
+  bios_catalog="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/bios?scope=FULL_CATALOG&providerId=$provider_id&targetId=$target_id&q=retrombios.zip")"
   bios_requirement_id="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .id' <<<"$bios_catalog")"
   bios_requirement_version="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .version' <<<"$bios_catalog")"
-  bios_installation="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "If-Match: \"v$bios_requirement_version\"" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadFileId "$bios_upload_file_id" '{uploadFileId:$uploadFileId}')" "$backend/api/v1/admin/bios/$bios_requirement_id/installations")"
+  bios_installation="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "If-Match: \"v$bios_requirement_version\"" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadFileId "$bios_upload_file_id" '{uploadFileId:$uploadFileId}')" "$origin/api/v1/admin/bios/$bios_requirement_id/installations")"
   printf '%s\n' "$bios_installation" >"$evidence/bios-installation.json"
   [[ "$(jq -r .status <<<"$bios_installation")" == "MATCHED" ]]
   printf 'arcade_flow=bios_installed\n'
 fi
-platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
+platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/platform-instances")"
 printf '%s\n' "$platform_instances" >"$evidence/platform-instances.json"
 platform_instance_id="$(jq -r --arg coreId "$core_id" '[.items[] | select(.defaultCoreId == $coreId) | .id][0] // empty' <<<"$platform_instances")"
 if [[ -z "$platform_instance_id" ]]; then
@@ -170,7 +170,7 @@ if [[ -z "$platform_instance_id" ]]; then
     -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" \
     -d "$(jq -nc --arg coreId "$core_id" --arg name "$core_id acceptance games" \
       '{platformId:"arcade",defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory",sortOrder:10000}')" \
-    "$backend/api/v1/admin/platform-instances")"
+    "$origin/api/v1/admin/platform-instances")"
   platform_instance_id="$(jq -er .id <<<"$platform_instance")"
   printf '%s\n' "$platform_instance" >"$evidence/platform-instance-created.json"
 fi
@@ -182,14 +182,14 @@ else
   upload_files arcade "$fixture_root/$game_archive"
 fi
 arcade_upload_id="$(jq -r .uploadId "$evidence/arcade-result.json")"
-imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadId "$arcade_upload_id" --arg target "$platform_instance_id" '{uploadId:$uploadId,targetPlatformInstanceId:$target,metadataProvider:"NONE",tagIds:[]}')" "$backend/api/v1/admin/imports")"
+imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadId "$arcade_upload_id" --arg target "$platform_instance_id" '{uploadId:$uploadId,targetPlatformInstanceId:$target,metadataProvider:"NONE",tagIds:[]}')" "$origin/api/v1/admin/imports")"
 printf '%s\n' "$imported" >"$evidence/import.json"
 import_id="$(jq -r .importJobId <<<"$imported")"
 printf 'arcade_flow=import_created\n'
 
 item_id=""
 for _ in $(seq 1 200); do
-  reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"
+  reviews="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/reviews?importJobId=$import_id")"
   printf '%s\n' "$reviews" >"$evidence/reviews.json"
   item_id="$(jq -r '.items[0].itemId // empty' <<<"$reviews")"
   [[ -n "$item_id" ]] && break
@@ -198,7 +198,7 @@ done
 [[ -n "$item_id" ]]
 [[ "$(jq -r '.items | length' <<<"$reviews")" == "1" ]]
 [[ "$(jq -r '.items[0].validationStatus' <<<"$reviews")" == "READY" ]]
-review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+review_detail="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/reviews/$item_id")"
 review_payload="$(jq -c '{
   metadata,
   selectedCandidateId,
@@ -213,8 +213,8 @@ review_payload="$(jq -c '{
 }' <<<"$review_detail")"
 patched_review="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X PATCH \
   -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" \
-  -d "$review_payload" "$backend/api/v1/admin/reviews/$item_id")"
-review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+  -d "$review_payload" "$origin/api/v1/admin/reviews/$item_id")"
+review_detail="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/reviews/$item_id")"
 [[ "$(jq -r .version <<<"$review_detail")" == "$(jq -r .version <<<"$patched_review")" ]]
 printf '%s\n' "$review_detail" >"$evidence/review-detail.json"
 dat_version_id="$(jq -er '.validation.dependencySnapshot.datVersionId' <<<"$review_detail")"
@@ -252,7 +252,7 @@ approval_body="$(jq -c '
   else {reason:null}
   end
 ' <<<"$review_detail")"
-approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" -H "Idempotency-Key: $(new_id)" -d "$approval_body" "$backend/api/v1/admin/reviews/$item_id/approve")"
+approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" -H "Idempotency-Key: $(new_id)" -d "$approval_body" "$origin/api/v1/admin/reviews/$item_id/approve")"
 printf '%s\n' "$approved" >"$evidence/approved.json"
 game_id="$(jq -r .gameId <<<"$approved")"
 printf 'arcade_flow=review_approved\n'
@@ -267,13 +267,13 @@ attach_acceptance_cover() {
   upload_files cover "$cover_path"
   cover_upload_file_id="$(jq -er '.files[0].fileId' "$evidence/cover-result.json")"
   curl --fail --silent --show-error "${common[@]}" -D "$evidence/game-headers" -o /dev/null \
-    "$backend/api/v1/admin/games/$game_id"
+    "$origin/api/v1/admin/games/$game_id"
   game_etag="$(awk 'tolower($1) == "etag:" {gsub("\r",""); print $2}' "$evidence/game-headers")"
   curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
     -H 'Content-Type: application/json' -H "If-Match: $game_etag" -H "Idempotency-Key: $(new_id)" \
     -d "$(jq -nc --arg uploadFileId "$cover_upload_file_id" \
       '{uploadFileId:$uploadFileId,kind:"COVER",ordinal:0}')" \
-    "$backend/api/v1/admin/games/$game_id/assets" -o /dev/null
+    "$origin/api/v1/admin/games/$game_id/assets" -o /dev/null
   printf 'arcade_flow=cover_attached\n'
 }
 
@@ -285,10 +285,10 @@ assert_game_detail_uses_arcade_snapshot() {
   local response_name="$1"
   local snapshot_family="$2"
   local game_detail admin_game
-  game_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/games/$game_id")"
+  game_detail="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/games/$game_id")"
   printf '%s\n' "$game_detail" >"$evidence/$response_name-game-detail.json"
   jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '.coreOptions[] | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)' <<<"$game_detail" >/dev/null
-  admin_game="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/games/$game_id")"
+  admin_game="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/games/$game_id")"
   printf '%s\n' "$admin_game" >"$evidence/$response_name-admin-game.json"
   if [[ "$snapshot_family" == "ARCADE_V2" && "$dependency_mode" == "mame" ]]; then
     jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
@@ -325,39 +325,39 @@ assert_game_detail_uses_arcade_snapshot before-launch ARCADE_V2
 printf 'arcade_flow=game_detail_uses_arcade_schema_v2\n'
 
 launch_body="$(jq -nc --arg game "$game_id" --arg coreId "$core_id" '{gameId:$game,coreId:$coreId,saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
-launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
+launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$origin/api/v1/launches")"
 initial_launch_status="$(jq -r '.status // "READY"' <<<"$launch")"
 if [[ "$(jq -r .status <<<"$launch")" == "VALIDATION_PENDING" ]]; then
   validation_job_id="$(jq -r .jobId <<<"$launch")"
   validation_state="QUEUED"
   for _ in $(seq 1 200); do
-    validation_job="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/jobs/$validation_job_id")"
+    validation_job="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/jobs/$validation_job_id")"
     validation_state="$(jq -r .state <<<"$validation_job")"
     [[ "$validation_state" == "SUCCEEDED" ]] && break
     [[ "$validation_state" == "FAILED" || "$validation_state" == "CANCELLED" ]] && { jq . <<<"$validation_job" >&2; exit 1; }
     sleep 0.1
   done
   [[ "$validation_state" == "SUCCEEDED" ]]
-  launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
+  launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$origin/api/v1/launches")"
 fi
 printf '%s\n' "$launch" >"$evidence/launch.json"
 launch_id="$(jq -r .launchId <<<"$launch")"
 [[ -n "$launch_id" && "$launch_id" != "null" ]]
 printf 'arcade_flow=launch_created\n'
 assert_game_detail_uses_arcade_snapshot after-launch ARCADE_V2
-configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" -c "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
+configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" -c "$evidence/cookies" "$origin/runtime/launches/$launch_id/config")"
 printf '%s\n' "$configuration" >"$evidence/configuration.json"
 printf 'arcade_flow=config_loaded\n'
 jq -e --arg providerId "$provider_id" --arg targetId "$target_id" \
   'select(.runtime.providerId==$providerId and .runtime.targetId==$targetId)' <<<"$configuration" >/dev/null
 game_url="$(jq -er '.resources[] | select(.role=="game" and .ordinal==0) | .url' <<<"$configuration")"
-curl --fail --silent --show-error -b "$evidence/cookies" "$backend$game_url" -o "$evidence/game.zip"
+curl --fail --silent --show-error -b "$evidence/cookies" "$origin$game_url" -o "$evidence/game.zip"
 cmp "$fixture_root/$game_archive" "$evidence/game.zip"
 if [[ "$dependency_mode" == "mame" ]]; then
   parent_url="$(jq -er '.resources[] | select(.role=="parent" and .ordinal==0) | .url' <<<"$configuration")"
   bios_url="$(jq -er '.resources[] | select(.role=="bios" and .ordinal==0) | .files[0].url' <<<"$configuration")"
-  curl --fail --silent --show-error -b "$evidence/cookies" "$backend$parent_url" -o "$evidence/parent-bundle.zip"
-  curl --fail --silent --show-error -b "$evidence/cookies" "$backend$bios_url" -o "$evidence/bios-bundle.zip"
+  curl --fail --silent --show-error -b "$evidence/cookies" "$origin$parent_url" -o "$evidence/parent-bundle.zip"
+  curl --fail --silent --show-error -b "$evidence/cookies" "$origin$bios_url" -o "$evidence/bios-bundle.zip"
   [[ "$(unzip -Z1 "$evidence/parent-bundle.zip")" == "puckman.zip" ]]
   [[ "$(unzip -Z1 "$evidence/bios-bundle.zip")" == "retrombios.zip" ]]
   unzip -p "$evidence/parent-bundle.zip" puckman.zip | cmp "$fixture_root/puckman.zip" -
@@ -365,7 +365,7 @@ if [[ "$dependency_mode" == "mame" ]]; then
 elif [[ "$dependency_mode" == "cps2-parent" ]]; then
   parent_url="$(jq -er '.resources[] | select(.role=="parent" and .ordinal==0) | .url' <<<"$configuration")"
   jq -e 'select(([.resources[] | select(.role=="bios")] | length)==0)' <<<"$configuration" >/dev/null
-  curl --fail --silent --show-error -b "$evidence/cookies" "$backend$parent_url" -o "$evidence/parent-bundle.zip"
+  curl --fail --silent --show-error -b "$evidence/cookies" "$origin$parent_url" -o "$evidence/parent-bundle.zip"
   [[ "$(unzip -Z1 "$evidence/parent-bundle.zip")" == "spf2t.zip" ]]
   unzip -p "$evidence/parent-bundle.zip" spf2t.zip | cmp "$fixture_root/spf2t.zip" -
 else

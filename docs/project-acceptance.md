@@ -61,6 +61,7 @@
 
 - Linux 开发/CI 环境，仓库根目录为当前目录；
 - 启动或切换隔离验收实例后，先从实际 `RETROM_ACCEPTANCE_BASE_URL` 请求 `GET /health/ready`，确认 `200` 和 `status=ready` 后再开始产品 Case；监听端口或 Next 页面可访问不能替代 DAT/Provider 初始化完成。未就绪不应开始登录、导入或消耗 Case 输入；实例启动前置失败须保留原记录，不重置 PFB 数据。
+- Shell HTTP 验收流程使用 `RETROM_ACCEPTANCE_ORIGIN` 作为登录、业务 API、运行配置和内容请求的共同地址，使 cookie jar 按实际应用域名接收和发送共享运行 cookie。后端监听地址只用于服务启动与健康检查。
 - 仓库锁定的 Go、Node.js/npm、golangci-lint 和依赖；
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
@@ -1517,8 +1518,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：同一不可变输入得到同一 identity/强 ETag；媒体替换创建新 Asset ID/URL，ROM、多盘外部文件、
   BIOS 或 parent 任一有效 bytes/输出选项变化都产生新 `/runtime/content/` URL，任何已发 URL 的 bytes 不得
   原地变化。媒体为 public immutable，运行内容为受 grant 保护的 private immutable；旧/错误 identity 与
-  无 grant 请求不泄露内容；同一内容的第二个 Launch 复用 URL，条件请求返回 304。Finish/撤销/硬删除后
-  强制网络请求失败。SaveState state/screenshot 始终使用逻辑 ID、`private, no-store` 和 Profile/Launch
+  无 grant 请求不泄露内容；同一内容的第二个 Launch 复用 URL，条件请求返回 304。结束或撤销一个 Launch
+  不影响另一有效所属 Launch 对相同内容的访问；全部匹配授权结束、撤销或到期，或资源硬删除后，强制网络
+  请求失败。普通游戏退出保留共享运行 Token。SaveState state/screenshot 始终使用逻辑 ID、`private, no-store` 和 Profile/Launch
   限定授权，不因内容寻址进入共享缓存。
 - 证据：替换前后 config/URL/ETag/cache header、相同与不同 bytes 对照、旧授权负向请求、双 Profile 存档
   trace。
