@@ -83,6 +83,7 @@ func TestComputerProductsIncludeExternalBIOS(t *testing.T) {
 		{"bbc-jsbeeb", "Welcome.ssd", "os.rom", "/roms/os.rom"},
 		{"samcoupe", "SafariSam.dsk", "samcoupe.rom", "/Resource/samcoupe.rom"},
 		{"apple2-apple2js", "Donkey Kong.dsk", "AppleIIe.rom", "/roms/AppleIIe.rom"},
+		{"mame-apple2", "Donkey Kong.dsk", "341-0011.d0", "/content/apple2p/341-0011.d0"},
 	} {
 		t.Run(test.target, func(t *testing.T) {
 			status, blob := "MATCHED", "bios-blob"

@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 102)
+        self.assertEqual(len(catalog["bindings"]), 103)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -115,6 +115,16 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             {item["coreId"] for item in catalog["bindings"] if item["providerId"] == "retrom-runtime" and item["targetId"].startswith("rpgmaker-")},
             {"rpgmaker"},
         )
+
+    def test_mame_apple2_is_an_independent_single_file_target(self):
+        catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")
+        bindings = [item for item in catalog["bindings"] if item["coreId"] == "mame_apple2"]
+        self.assertEqual(len(bindings), 1)
+        self.assertEqual(bindings[0]["providerId"], "retrom-runtime")
+        self.assertEqual(bindings[0]["targetId"], "mame-apple2")
+        self.assertEqual(bindings[0]["platformIds"], ["apple2"])
+        self.assertEqual(bindings[0]["acceptedContentKinds"], ["SINGLE_FILE"])
+        self.assertEqual(bindings[0]["detectorProfile"], "RUNTIME_SINGLE_FILE")
 
     def test_psp_uses_independent_runtime_with_closed_product_options(self):
         catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")

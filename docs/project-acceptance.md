@@ -2743,3 +2743,15 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 持有租约的完整 Blob，损坏完整代后须隔离该代并撤销对象，不能就地重写租约仍引用的文件；
 这一步单独验证共享缓存契约，不改变 DOS 核心的 RANGE 输入策略。所有场景必须留下原始报告，
 严格 proof 校验全部 16 个场景后才能给出完整矩阵 PASS。
+
+### ACC-MAME-001：MAME Apple II 双 WASM 产品验证
+
+前置：同一命名 PFB 中已经验证并安装 MAME 动态链接核心候选及完整 Provider；管理员提供 Apple II+ 的九个 BIOS 文件和一张 143360 bytes、DOS 顺序的 `.dsk/.do` 磁盘。素材必须由操作者授权，不进入仓库。首轮输入样本为《Donkey Kong》；结论只覆盖该样本及只读单盘。完整复验需要尚未发布相同内容的测试库；有 `progress.json` 时可继续本轮，复用已发布游戏必须单独标为跳过审核预览。
+
+等价执行入口：设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、`RETROM_CHROME_EXECUTABLE`、`RETROM_MAME_APPLE2_BIOS_DIR`、`RETROM_MAME_APPLE2_DISK`、`RETROM_ACCEPTANCE_CASE_DIR`，执行 `timeout 300s node scripts/acceptance/mame_apple2_product.mjs`。单次硬超时 300 秒。
+
+1. 经 BIOS 安装、普通上传导入、Review Preview 和批准，创建新的 Product Launch；Envelope 必须选择 `retrom-runtime/mame-apple2`。
+2. 等待标题进入人数选择后，标准手柄 Start 单独发送键盘 `1`，选择单人并等待关卡完全出现。方向只改变摇杆轴，A/B 分别对应原生按钮，键盘保持独立。记录按键前后画面并逐图确认进入可玩状态、玩家向右移动及 A 键跳跃，动画变化不能替代玩家位置证据。记录非静音 PCM 被 Web Audio 调度。
+3. 核对 560×192 帧缓冲按原生 4:3 比例显示，窗口缩放后仍无溢出或拉伸；通过 Player 暂停后画面冻结，继续后手柄有效。创建非空即时存档及 560×420 截图；公共 gzip 解压一次后为 `RTMAME01` 封包。使用不同 Launch 恢复，核对关卡内角色位置一致，并继续用手柄向左移动。
+4. 在关闭 HTTP 缓存的独立页面间复用 Content I/O 持久缓存；公共 WASM 只发生一次网络请求，响应为 Brotli，接收字节与 Provider 声明一致；游戏盘和九份固件也各只请求一次。损坏、截断或构建身份不匹配必须拒绝，不得回退新游戏。
+5. 保存当次截图、Provider/Target 身份、压缩字节数、checkpoint 大小和 console 记录；任何错误或未解释的 warning 均需修复复测。注入手柄自动化不代替实体手柄验收。

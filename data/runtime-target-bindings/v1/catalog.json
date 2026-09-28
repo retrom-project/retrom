@@ -431,8 +431,12 @@
       "coreId": "genesis_plus_gx",
       "providerId": "emulatorjs",
       "targetId": "genesis-plus-gx-cd",
-      "platformIds": ["segacd"],
-      "acceptedContentKinds": ["SINGLE_FILE"],
+      "platformIds": [
+        "segacd"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
@@ -1157,6 +1161,20 @@
         "KIRIKIRI_PROJECT"
       ],
       "detectorProfile": "KIRIKIRI_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-mame-apple2",
+      "coreId": "mame_apple2",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-apple2",
+      "platformIds": [
+        "apple2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -2215,6 +2233,11 @@
       {
         "id": "mame2003_plus",
         "name": "MAME 2003 Plus",
+        "enabled": true
+      },
+      {
+        "id": "mame_apple2",
+        "name": "MAME Apple II+",
         "enabled": true
       },
       {

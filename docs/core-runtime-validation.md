@@ -313,3 +313,9 @@ WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主�
 PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完整候选 Provider，不能将候选
 路径、摘要或未发布版本写入 production release tag。发布顺序为 core fork → retrom-runtime → Retrom
 正式 runtime tag，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。
+
+### MAME 设备族动态链接
+
+开发候选 `retrom-runtime/mame-apple2` 使用 `mame_apple2` 产品核心，提供 Apple II+ 单张 140 KiB DOS 顺序 `.dsk/.do` 磁盘的只读运行。既有 Apple2JS 继续作为独立选择。MAME 公共模块与 Apple 设备族分别由 Content I/O 完整校验、持久缓存后加载，原生层校验同一构建身份；不支持跨构建混用 side module。
+
+即时存档按游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。设备族中的其他机型、其他磁盘格式、写盘及其他家族目前没有产品准入。候选验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)。

@@ -115,6 +115,9 @@ func validationContentStatus(facts ValidationFacts) (string, string) {
 	); status != "READY" {
 		return status, code
 	}
+	if source.ProviderID == "retrom-runtime" && source.TargetID == "mame-apple2" && !mameAppleDisk(facts.Content) {
+		return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
+	}
 	if arcadedat.SupportsCore(source.CoreID) {
 		if source.DATVersionID == nil || !strings.EqualFold(filepath.Ext(source.ValidationLogicalName), ".zip") {
 			return "INCOMPATIBLE", "ARCADE_CONTENT_NOT_ROMSET"
@@ -205,4 +208,17 @@ func validationScummVMOutcome(
 		status, code = "INCOMPATIBLE", "CORE_PLATFORM_UNSUPPORTED"
 	}
 	return ValidationOutcome{Status: status, Code: code, DependencyJSON: source.DependencySnapshot, BIOS: bios}, nil
+}
+
+func mameAppleDisk(content Snapshot) bool {
+	extension := strings.ToLower(filepath.Ext(content.Source.ValidationLogicalName))
+	if extension != ".dsk" && extension != ".do" {
+		return false
+	}
+	for _, file := range content.GameFiles {
+		if file.LogicalName == content.Source.ValidationLogicalName {
+			return file.SizeBytes == 143360
+		}
+	}
+	return false
 }

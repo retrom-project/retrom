@@ -224,6 +224,7 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 		return
 	}
+	file = handler.compressedFile(writer, request, key, file, development)
 	if development {
 		writer.Header().Set("Cache-Control", "no-store, no-transform")
 	} else {

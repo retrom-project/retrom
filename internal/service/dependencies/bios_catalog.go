@@ -30,7 +30,7 @@ type staticBIOS struct {
 	targetID     string
 }
 
-var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
+var staticBIOSCatalog = append(append(pc88BIOSCatalog(), mameAppleBIOSCatalog()...), []staticBIOS{
 	{
 		coreID: "apple2js", logical: "AppleIIe.rom", mode: "REQUIRED", size: 16384,
 		md5: "38063e08c778503fc03ecebb979769e9", sha256: "aab38a03ca8deabbb2f868733148c2efd6f655a59cd9c5d058ef3e0b7aa86a1a",
