@@ -18,6 +18,7 @@ type runtimeProjectIndex struct {
 
 type runtimeProjectIndexFile struct {
 	Path      string `json:"path"`
+	MediaType string `json:"mediaType,omitempty"`
 	SizeBytes int64  `json:"sizeBytes"`
 	URL       string `json:"url"`
 }

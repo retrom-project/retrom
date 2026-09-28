@@ -36,8 +36,9 @@ l.provider_id,l.target_id,l.bundle_sha256,
 COALESCE(platform.id,'rpgmaker'),
 l.dos_entry_path,
 (SELECT count(*) FROM launch_external_files file
- WHERE file.launch_session_id=l.id AND file.kind='DISC')
+ WHERE file.launch_session_id=l.id AND file.kind='DISC'),binding.delivery_profile
 FROM launch_sessions l
+JOIN runtime_target_bindings binding ON binding.provider_id=l.provider_id AND binding.target_id=l.target_id
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
 JOIN json_each(json_array(lc.file_record)) b ON b.value IS NOT NULL
 LEFT JOIN games game ON game.id=l.game_id
@@ -72,7 +73,8 @@ SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.v
 json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
-(SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
+(SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC'),
+binding.delivery_profile
 FROM review_preview_sessions preview
 JOIN json_each(json_array(preview.content_file_record)) blob ON blob.value IS NOT NULL
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
@@ -99,7 +101,7 @@ WITH preview_files AS (
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
 json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
-preview.bundle_sha256,platform.id,NULL,0
+preview.bundle_sha256,platform.id,NULL,0,binding.delivery_profile
 FROM review_preview_sessions preview
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
 binding.target_id=preview.target_id
@@ -122,7 +124,7 @@ func scanContent(row dbapi.Scanner) (application.ContentRecord, bool, error) {
 	session, content := &result.Session, &result.Content
 	err := row.Scan(&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
 		&content.FileRecord, &content.Digest, &content.Format, &content.CoreID, &content.ProviderID, &content.TargetID,
-		&content.BundleSHA256, &content.PlatformKey, &dosEntry, &content.DiscCount)
+		&content.BundleSHA256, &content.PlatformKey, &dosEntry, &content.DiscCount, &content.DeliveryProfile)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ContentRecord{}, false, nil
 	}

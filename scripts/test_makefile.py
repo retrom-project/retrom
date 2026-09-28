@@ -15,6 +15,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MakefileDependencyTests(unittest.TestCase):
+    def test_runtime_resource_change_regenerates_openapi_bundle(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".yaml") as bundle:
+            output = subprocess.run(
+                ["make", "--no-print-directory", "--dry-run", "--what-if=api/runtime-provider/v1/runtime-resource.schema.json",
+                 f"API_BUNDLE={bundle.name}", "api-bundle"],
+                cwd=REPOSITORY_ROOT, check=True, text=True, capture_output=True,
+            ).stdout
+        self.assertIn("go run ./scripts/openapi-bundle", output)
+
     def test_provider_manifest_change_regenerates_openapi_bundle(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".yaml") as bundle:
             output = subprocess.run(

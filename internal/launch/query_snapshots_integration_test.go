@@ -64,7 +64,7 @@ func TestPreviewProjectRepositoryKeepsExactAndUniqueFoldedPaths(t *testing.T) {
 	repository := persistence.NewContentQueries(fixture.database)
 	exact, found, err := repository.PreviewProject(t.Context(), preview.PreviewID, "RPG_RT.ldb", false)
 	if err != nil || !found || exact.Content.Format != "RPG_MAKER_PROJECT" ||
-		exact.Content.TargetID != "rpgmaker-2000" || exact.Content.DOSEntry != nil {
+		exact.Content.TargetID != "rpgmaker-2000" || exact.Content.DOSEntry != nil || exact.Content.DeliveryProfile != "FILE_TREE_PROJECT" {
 		t.Fatalf("exact=%#v found=%t error=%v", exact, found, err)
 	}
 	folded, found, err := repository.PreviewProject(t.Context(), preview.PreviewID, "rpg_rt.LDB", true)

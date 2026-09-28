@@ -77,7 +77,7 @@ describe("RuntimeHostV1", () => {
     const input = envelope();
     input.runtime.capabilities.frameMode = "ISOLATED_ORIGIN_RESOURCE";
     input.resources = [{
-      bootstrapTicket: "t".repeat(48), cleanupUrl: "https://runtime.example.test/cleanup",
+      indexUrl: "/runtime/content/web/identity/index.json", bootstrapTicket: "t".repeat(48), cleanupUrl: "https://runtime.example.test/cleanup",
       contentDigest: "c".repeat(64), entryUrl: "https://runtime.example.test/entry",
       kind: "ISOLATED_WEB", ordinal: 0, origin: "https://runtime.example.test", role: "game",
     }];
@@ -116,7 +116,7 @@ describe("RuntimeHostV1", () => {
     const input = envelope();
     input.runtime.capabilities.frameMode = "ISOLATED_ORIGIN_RESOURCE";
     input.resources = [{
-      bootstrapTicket: "t".repeat(48), cleanupUrl: null,
+      indexUrl: "/runtime/content/web/identity/index.json", bootstrapTicket: "t".repeat(48), cleanupUrl: null,
       contentDigest: "c".repeat(64), entryUrl: "https://runtime.example.test/entry",
       kind: "NATIVE_WEB", ordinal: 0, origin: "https://runtime.example.test", role: "game",
     }];

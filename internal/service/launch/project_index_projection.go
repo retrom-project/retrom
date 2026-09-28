@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"retrom/internal/core/rpgmaker/nativeweb"
+	"retrom/internal/core/tyranoscript"
 )
 
 func projectIndexProjection(snapshot ProjectIndexSnapshot) ([]runtimeProjectIndexFile, string, string, error) {
@@ -28,12 +31,24 @@ func projectIndexProjection(snapshot ProjectIndexSnapshot) ([]runtimeProjectInde
 		if preview && !file.Primary && file.Content.Role == "RUNTIME_FILE" && format != "ONS_PROJECT" {
 			continue
 		}
-		files = append(files, runtimeProjectIndexFile{Path: file.Content.LogicalName, SizeBytes: file.Content.Size})
+		if entry, allowed := projectIndexEntry(file.Content, snapshot.Source.Delivery, format); allowed {
+			files = append(files, entry)
+		}
 	}
 	if preview && format == "ONS_PROJECT" && !ordered[0].Primary {
 		return nil, "", "", ErrCredential
 	}
 	return files, root, format, nil
+}
+
+func projectIndexEntry(file ConfigFile, delivery, format string) (runtimeProjectIndexFile, bool) {
+	entry := runtimeProjectIndexFile{Path: file.LogicalName, SizeBytes: file.Size}
+	if delivery != "ISOLATED_WEB_PROJECT" {
+		return entry, true
+	}
+	mediaType, allowed := nativeIndexMediaType(format, entry.Path)
+	entry.MediaType = mediaType
+	return entry, allowed
 }
 
 func projectIndexRoot(snapshot ProjectIndexSnapshot) (string, string, error) {
@@ -52,6 +67,9 @@ func projectIndexRoot(snapshot ProjectIndexSnapshot) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("%w: project root: %w", ErrCredential, err)
 	}
+	if snapshot.Source.Delivery == "ISOLATED_WEB_PROJECT" {
+		root = RuntimeWebContentRoot(identity) + "files/"
+	}
 	return root, identityFiles[0].Format, nil
 }
 
@@ -66,4 +84,17 @@ func comparePreviewIndexFiles(left, right ProjectIndexRecord) int {
 		return order
 	}
 	return strings.Compare(left.Content.LogicalName, right.Content.LogicalName)
+}
+
+func nativeIndexMediaType(format, name string) (string, bool) {
+	if name == "index.html" {
+		return "text/html; charset=utf-8", true
+	}
+	if format == "RPG_MAKER_PROJECT" {
+		return nativeweb.ProjectMediaType(name)
+	}
+	if format == "TYRANOSCRIPT_PROJECT" {
+		return tyranoscript.ProjectMediaType(name)
+	}
+	return "", false
 }

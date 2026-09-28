@@ -136,6 +136,7 @@ func resourcesForTarget(target runtimebundle.Target) []map[string]any {
 		case "FILE_TREE":
 			base["contentDigest"], base["indexUrl"] = strings.Repeat("e", 64), "/runtime/content/"+input.Role+"/index"
 		case "NATIVE_WEB", "ISOLATED_WEB":
+			base["indexUrl"] = "/runtime/content/web/" + strings.Repeat("a", 64) + "/index.json"
 			base["bootstrapTicket"], base["cleanupUrl"] = strings.Repeat("t", 48), "https://runtime.example.test/cleanup"
 			base["contentDigest"], base["entryUrl"] = strings.Repeat("e", 64), "https://runtime.example.test/entry"
 			base["origin"] = "https://runtime.example.test"

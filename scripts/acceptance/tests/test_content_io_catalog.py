@@ -14,10 +14,13 @@ class ContentIOCatalogTests(unittest.TestCase):
         self.assertEqual(TARGET_MODES["flycast"], "RANGE")
         self.assertEqual(TARGET_DECLARATIONS["daphne"]["checkpointSemantics"], "NO_SAVE")
         self.assertNotIn("save-restore-input", next(case for case in cases if case["targetId"] == "daphne")["requiredScenarios"])
+        for target in ["rpgmaker-mv", "rpgmaker-mz", "tyranoscript"]:
+            self.assertEqual(TARGET_MODES[target], "RANGE")
+            self.assertNotIn("retired-rtp-boundary", next(case for case in cases if case["targetId"] == target)["requiredScenarios"])
         ranges = [case for case in cases if case["networkPolicy"]["mode"] == "RANGE"]
         self.assertEqual(len(ranges), sum(mode == "RANGE" for mode in TARGET_MODES.values()))
         self.assertTrue(all("trace-10000" in case["requiredScenarios"] for case in ranges))
-        rpg = [case for case in ranges if case["targetId"].startswith("rpgmaker")]
+        rpg = [case for case in ranges if case["targetId"] in {"rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"}]
         self.assertTrue(all("retired-rtp-boundary" in case["requiredScenarios"] for case in rpg))
         self.assertTrue(all(case["inputRoles"] == ["game"] for case in rpg))
         self.assertTrue(all(not any(ref.startswith("operator:") for ref in case["fixtureRef"]) for case in rpg))

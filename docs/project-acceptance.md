@@ -1605,8 +1605,7 @@ archive 总大小。EasyRPG 第二个 Launch 至少命中一个固定 runtime as
 观测请求；冷启动必须下载两个核心资产，并逐条校验游戏 Range 的 206、长度、强 ETag 和符合当次配置的窗口边界与缺失区间。
 第二个 Launch 必须独立声明相同项目与核心资产身份，在实际 Player 可创建存档且帧继续推进时，游戏内容和两个核心资产
 均为零 HTTP 请求，以证明公共持久缓存复用。不得把零请求伪记为浏览器 HTTP 缓存命中，也不得从第一次配置复制第二次身份。
-MV/MZ 保持 unique runtime origin，
-两次首屏的 native project 响应数都必须大于零且严格小于导入文件总数，不得枚举或下载整个项目。结构化证据只记录
+MV/MZ 保持 unique runtime origin。默认按需时，首屏实际读取的 native project 文件数大于零且小于完整运行投影文件数；允许枚举元数据，不得因此下载整个项目。跨 Launch 复用 Content I/O 缓存；记录浏览器资源请求是否由 Service Worker 返回，并与主站内容字节下载分别计数。结构化证据只记录
 Launch ID、计数和 byte，不记录 content identity、项目路径或资源名。
 
 002 至 008 的 fresh 产品记录统一由
@@ -2753,3 +2752,12 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 - 先真实导入、审核预览并发布；默认按需启动下载量小于完整 ZIP。新浏览器 context 在详情选择“下载完成后开始”，刷新及手机启动选项保持偏好。4K 150% 与 390px 手机截图记录实际控件。
 - 正式 Launch 必须完整覆盖 ZIP，所有内容响应为 206；启动后断网，按键触发读取 4 MiB 位置，画面从蓝变绿且没有新内容请求。重新联网创建真实即时存档，退出后在不同 Launch 恢复，原生存档摘要完全一致；再次断网按键画面变青，重复启动内容请求为零，退出后 Worker 被释放。
 - 证据：`content-preload-product.json`、真实详情/手机/断网截图，保留失败阶段，不能以协议 fixture 代替真实产品链。Runtime 浏览器回归另覆盖取消后的分块复用、存储拒绝、写满、缓存租约和退出 GC。
+
+### ACC-CONTENT-002：Native Web 全量缓存与按需复用
+
+- 附加前置：与 ACC-CONTENT-001 相同的隔离 PFB、账号和 Chrome；MV 使用项目自有 fixture，MZ/TyranoScript 使用操作者明确授权的合法项目，不将私有内容提交到仓库。
+- 执行：每个 Target 单独运行 `make acceptance-case CASE=ACC-CONTENT-002`，上限 1200 秒。`RETROM_NATIVE_CACHE_INPUT` 指向本地 JSON，包含已完成当次 Import/Review Preview 的 `gameId`、`targetId` 与 `start` / `advance` 输入动作数组。每个动作可含 `key` 或隔离 frame 内 `selector`，以及 `0..10000` 的 `waitMs`；可附 `state` 等待引擎只读快照匹配指定字段（最多 180 秒），避免片头时长影响按键时序。不得提交私有游戏的输入文件。`start` 到达可操作场景，`advance` 必须改变可观测游戏状态。
+- 首次全量启动下载字节必须覆盖 Native Web 索引的全部文件，缓存完整提交后才允许进入游戏；空文件不要求网络正文。禁用普通 HTTP 缓存并保持 Content I/O 持久存储。
+- 沿用公共预下载窗口：不超过 1 MiB 的文件允许单次完整 200，大文件必须使用最大 2 MiB 的 206 分段；逐文件验证下载量与完整缓存收据，禁止把大文件整包拉入内存。
+- 启动后断网，以真实输入推进可观察游戏状态。恢复网络并切为按需，在不同 Launch 继续游玩：稳定内容端点下载为零，隔离入口与项目资源由 Service Worker 返回；再次断网仍可推进。媒体的单 Range 与 worker 重启后的重连必须保留证据。各 Target 的存档/不同 Launch 恢复及恢复后输入仍由 ACC-RPG-007/008、ACC-TYRANOSCRIPT-001 分别验证。
+- 隔离回归覆盖错误 frame/origin、跨游戏/越界文件读取、恶意项目 worker、主站代码执行与退出关闭通道。证据保留失败阶段、Target、Launch ID、完整缓存字节、请求统计和输入前后状态；不得只用首帧截图判定可游玩。

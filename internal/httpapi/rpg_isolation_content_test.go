@@ -312,7 +312,7 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 	access := isolation.Access{LaunchID: launchID, Origin: origin}
 
 	authorized := bootstrapPageRequest(t, server, access, credential)
-	if authorized.Code != http.StatusSeeOther || authorized.Header().Get("Location") != "/__retrom/entry" ||
+	if authorized.Code != http.StatusSeeOther || authorized.Header().Get("Location") != webContentBootstrapPath ||
 		authorized.Header().Get("Cache-Control") != "private, no-store" ||
 		authorized.Header().Get("Cross-Origin-Resource-Policy") != "cross-origin" {
 		t.Fatalf("authorized reload = %d headers=%v body=%s", authorized.Code, authorized.Header(), authorized.Body.String())

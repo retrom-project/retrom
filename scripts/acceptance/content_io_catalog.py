@@ -66,7 +66,7 @@ def validate_case(case: dict, root: Path) -> None:
     require(policy["mode"] == TARGET_MODES[case["targetId"]], "TARGET_MODE")
     require(case["performance"] == {"repetitions": 5, "states": ["cold", "warm"], "inputReadyRatio": 1.15, "firstFrameRatio": 1.15, "slackMs": 100}, "PERFORMANCE_INVALID")
     require(case["expectedObservations"] == {"firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE", "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE", "checkpointSemantics": case["checkpointSemantics"], "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"}, "OBSERVATIONS_INVALID")
-    if case["targetId"].startswith("rpgmaker-"):
+    if "retired-rtp-boundary" in scenarios:
         require(case["inputRoles"] == ["game"] and all(ref.startswith("owned:") for ref in case["fixtureRef"]), "RETIRED_RTP_BOUNDARY")
     require(case["checkpointSemantics"] == TARGET_DECLARATIONS[case["targetId"]]["checkpointSemantics"], "CHECKPOINT_DECLARATION")
     validate_entry(case["existingAcceptanceEntry"], root)

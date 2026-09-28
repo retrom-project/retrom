@@ -219,6 +219,7 @@ export type RuntimeFileTreeResourceV1 = RuntimeResourceIdentityV1 & {
 };
 export type RuntimeWebResourceV1 = RuntimeResourceIdentityV1 & {
   kind: "NATIVE_WEB" | "ISOLATED_WEB";
+  indexUrl: string;
   origin: string;
   entryUrl: string;
   bootstrapTicket: string;

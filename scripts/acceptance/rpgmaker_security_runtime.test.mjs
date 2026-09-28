@@ -17,6 +17,7 @@ const runtimeOrigin = "http://01980000-0000-7000-8000-000000000001.rpg.localhost
 
 test("runtime bootstrap and entry stay on the isolated Go origin", () => {
   assert.equal(runtimeFrameRoute(`${runtimeOrigin}/__retrom/bootstrap`, runtimeOrigin), "RUNTIME");
+  assert.equal(runtimeFrameRoute(`${runtimeOrigin}/__retrom/content-bootstrap`, runtimeOrigin), "RUNTIME");
   assert.equal(runtimeFrameRoute(`${runtimeOrigin}/__retrom/entry`, runtimeOrigin), "RUNTIME");
   assert.equal(runtimeFrameRoute("about:blank", runtimeOrigin), "WAIT");
   assert.equal(runtimeFrameRoute("http://localhost:13004/login", runtimeOrigin), "WAIT");

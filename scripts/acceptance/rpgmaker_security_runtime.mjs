@@ -1,6 +1,6 @@
 import { SecurityInputBlocked } from "./rpgmaker_security_upload.mjs";
 
-const runtimePaths = new Set(["/__retrom/bootstrap", "/__retrom/entry"]);
+const runtimePaths = new Set(["/__retrom/bootstrap", "/__retrom/content-bootstrap", "/__retrom/entry"]);
 
 export function requireLocalRuntimeSite(applicationOrigin, runtimeOrigin) {
   if (typeof runtimeOrigin !== "string" || !runtimeOrigin) { return; }

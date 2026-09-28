@@ -53,6 +53,10 @@ func buildProjectIndex(snapshot ProjectIndexSnapshot) (ProjectIndexView, error) 
 		return ProjectIndexView{}, err
 	}
 	policy, err := projectIndexPolicyFor(format, snapshot.Source.DependencyJSON)
+	if snapshot.Source.Delivery == "ISOLATED_WEB_PROJECT" &&
+		(format == "RPG_MAKER_PROJECT" || format == "TYRANOSCRIPT_PROJECT") {
+		policy, err = projectIndexPolicy{minimum: 1, maximum: 100_000, marker: "index.html", allowEmpty: true}, nil
+	}
 	if err != nil {
 		return ProjectIndexView{}, err
 	}

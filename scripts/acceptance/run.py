@@ -465,6 +465,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     },
     "ACC-WASM4-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/wasm4_product.mjs"),
     "ACC-CONTENT-001": (300, "node scripts/acceptance/content_preload_product.mjs"),
+    "ACC-CONTENT-002": (1200, "node scripts/acceptance/native_web_cache_product.mjs"),
     "ACC-DOSBOX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/dosbox_product.mjs"),
     "ACC-BBC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/bbc_product.mjs"),
     "ACC-SAMCOUPE-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/samcoupe_product.mjs"),

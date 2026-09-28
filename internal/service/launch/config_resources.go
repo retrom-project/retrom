@@ -129,6 +129,6 @@ func providerWebResource(
 	}
 	return map[string]any{
 		"kind": kind, "origin": ticket.Origin, "entryUrl": entry, "bootstrapTicket": ticket.Ticket,
-		"cleanupUrl": cleanupURL, "contentDigest": identity,
+		"cleanupUrl": cleanupURL, "contentDigest": identity, "indexUrl": RuntimeWebContentRoot(identity) + "index.json",
 	}, nil
 }

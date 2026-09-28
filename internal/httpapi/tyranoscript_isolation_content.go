@@ -6,9 +6,9 @@ import (
 	"html"
 	"io"
 	"net/http"
-	"path"
 	"strings"
 
+	"retrom/internal/core/tyranoscript"
 	"retrom/internal/service/isolation"
 )
 
@@ -29,7 +29,7 @@ addEventListener("message",async e=>{
     const r=await fetch("/__retrom/tyranoscript/bootstrap",{method:"POST",credentials:"same-origin",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:d.ticket})});
     if(!r.ok)throw new Error();
-    location.replace("/__retrom/tyranoscript/entry");
+    location.replace("/__retrom/content-bootstrap");
   }catch(_){
     parent.postMessage({type:"GAME_RUNTIME_TYRANOSCRIPT_BOOTSTRAP_FAILED",protocolVersion:1},p);
   }
@@ -46,7 +46,7 @@ func (server *Server) tyranoScriptBootstrapPage(
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
 		authorized.ContentFormat == "TYRANOSCRIPT_PROJECT" {
 		writer.Header().Set("Cache-Control", "private, no-store")
-		http.Redirect(writer, request, "/__retrom/tyranoscript/entry", http.StatusSeeOther)
+		http.Redirect(writer, request, webContentBootstrapPath, http.StatusSeeOther)
 		return
 	}
 	inspected, err := server.playDeps.Isolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
@@ -230,22 +230,7 @@ func tyranoScriptEngineOwnedPath(logicalName string) bool {
 }
 
 func tyranoScriptProjectMIME(logicalName string) (string, bool) {
-	mediaTypes := map[string]string{
-		".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
-		".js": "application/javascript; charset=utf-8", ".mjs": "application/javascript; charset=utf-8",
-		".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
-		".ks": "text/plain; charset=utf-8", ".tjs": "text/plain; charset=utf-8",
-		".txt": "text/plain; charset=utf-8", ".csv": "text/csv; charset=utf-8",
-		".xml": "application/xml; charset=utf-8", ".svg": "image/svg+xml",
-		".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-		".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp", ".ico": "image/x-icon",
-		".ogg": "audio/ogg", ".opus": "audio/ogg", ".m4a": "audio/mp4",
-		".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm",
-		".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
-		".otf": "font/otf", ".eot": "application/vnd.ms-fontobject", ".bin": "application/octet-stream",
-	}
-	mediaType, exists := mediaTypes[strings.ToLower(path.Ext(logicalName))]
-	return mediaType, exists
+	return tyranoscript.ProjectMediaType(logicalName)
 }
 
 func setTyranoScriptEntryCSP(writer http.ResponseWriter, parentOrigin string) {
