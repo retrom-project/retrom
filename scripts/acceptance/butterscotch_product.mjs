@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {withProjectRunArchive} from "./project_run_archive.mjs";
+import {trackProjectResponses, projectReadEvidence} from "./butterscotch_content_evidence.mjs";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -108,6 +109,7 @@ async function runProductCase(activeBrowser) {
     const approved = await approveReview(client, review.itemId);
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
+    const originalResponses = trackProjectResponses(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForCheckpoint(originalPage);
@@ -155,9 +157,7 @@ async function runProductCase(activeBrowser) {
       checkpoint: { format: saved.checkpointFormat, sizeBytes: Number(stateResponse.headers()["content-length"]) },
       cache: {
         contentDigest,
-        firstDataWinResponseCount: countProjectFile(previewResponses.urls, "data.win"),
-        restoreDataWinResponseCount: countProjectFile(restoreResponses.urls, "data.win"),
-        restoreIndexResponseCount: countProjectFile(restoreResponses.urls, "index.json"),
+        ...projectReadEvidence(previewResponses, restoreResponses, {entries: [...previewResponses.entries, ...originalResponses.entries]}),
       },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
@@ -238,17 +238,6 @@ async function trackedPage(context, browserErrors) {
   page.on("console", (message) => {if (message.type() === "error") {browserErrors.consoleErrorCount += 1;}});
   page.on("dialog", async (dialog) => {browserErrors.dialogCount += 1; await dialog.dismiss();});
   return page;
-}
-
-function trackProjectResponses(page) {
-  const urls = [];
-  page.on("response", (response) => {
-    if (response.request().method() === "GET" && response.status() === 200 &&
-        new URL(response.url()).pathname.startsWith("/runtime/content/project/")) {
-      urls.push(response.url());
-    }
-  });
-  return { urls };
 }
 
 async function runtimeCanvas(page) {
@@ -359,10 +348,6 @@ function projectIdentity(urls) {
   )?.[1]).filter(Boolean));
   if (values.size !== 1) {throw new Error("BUTTERSCOTCH_ACCEPTANCE_CONTENT_IDENTITY_INVALID");}
   return [...values][0];
-}
-
-function countProjectFile(urls, filename) {
-  return urls.filter((value) => new URL(value).pathname.endsWith(`/${filename}`)).length;
 }
 
 function requireChanged(before, after, code) {
