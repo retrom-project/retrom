@@ -45,8 +45,8 @@ submodule/shallow 选项和依赖边；`path` 相对于所选 workspace 根，�
 清单中的 `mame` 用于公共 WASM 与设备族动态链接实验，源码准备后通过
 `pfb-core-build CORE=mame` 显式构建；构建与本地验证说明位于该核心仓库的
 `scripts/retrom/README.md`。该来源输出带 ABI、来源摘要和逐文件身份的核心候选；完整 Provider 候选声明
-`retrom-runtime/mame-apple2`，产品验收执行 `ACC-MAME-001`。静态基线和其他设备族
-仍保留在核心仓库的 PoC 输出中，不能据此认定这些设备族已有产品支持。
+`retrom-runtime/mame-apple2`、`mame-atom` 和 `mame-pv1000`，产品验收分别执行
+`ACC-MAME-001`、`ACC-MAME-002` 和 `ACC-MAME-003`。静态对照及诊断程序只保留在核心仓库的 PoC 输出中。
 
 `retrom-project` 根 `manifest.yaml` 只引导 Retrom。根 `make init` 先克隆 Retrom，再读取
 该 checkout 的清单。`make init PFB=<name> REPOS="retrom-runtime <core-id>"` 先准备 Retrom

@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 103)
+        self.assertEqual(len(catalog["bindings"]), 105)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -42,6 +42,13 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         by_target = {(item["providerId"], item["targetId"]): item for item in catalog["bindings"]}
         for target_id in ["bbc-jsbeeb", "samcoupe"]:
             self.assertEqual(by_target[("retrom-runtime", target_id)]["detectorProfile"], "RUNTIME_SINGLE_FILE")
+        for target, core, platform in [("mame-atom", "mame_atom", "atom"), ("mame-pv1000", "mame_pv1000", "pv1000")]:
+            binding = by_target[("retrom-runtime", target)]
+            self.assertEqual(binding["coreId"], core)
+            self.assertEqual(binding["platformIds"], [platform])
+            self.assertEqual(binding["acceptedContentKinds"], ["SINGLE_FILE"])
+            self.assertEqual(binding["detectorProfile"], "RUNTIME_SINGLE_FILE")
+            self.assertEqual(binding["launchPolicy"], "SUPPORTED")
         openbor = by_target[("retrom-runtime", "openbor")]
         self.assertEqual(openbor["platformIds"], ["openbor"])
         self.assertEqual(openbor["detectorProfile"], "OPENBOR_PAK")

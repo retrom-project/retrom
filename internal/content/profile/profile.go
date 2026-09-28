@@ -54,6 +54,8 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"atom":        single("atom", ".atm"),
+	"pv1000":      single("pv1000", ".bin", ".rom"),
 	"gamegear":    single("gamegear", ".gg"),
 	"arduboy":     single("arduboy", ".hex"),
 	"atari800":    single("atari800", ".atr", ".atx", ".xex", ".car", ".rom", ".bin"),

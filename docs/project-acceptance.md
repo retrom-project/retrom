@@ -2755,3 +2755,27 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 3. 核对 560×192 帧缓冲按原生 4:3 比例显示，窗口缩放后仍无溢出或拉伸；通过 Player 暂停后画面冻结，继续后手柄有效。创建非空即时存档及 560×420 截图；公共 gzip 解压一次后为 `RTMAME01` 封包。使用不同 Launch 恢复，核对关卡内角色位置一致，并继续用手柄向左移动。
 4. 在关闭 HTTP 缓存的独立页面间复用 Content I/O 持久缓存；公共 WASM 只发生一次网络请求，响应为 Brotli，接收字节与 Provider 声明一致；游戏盘和九份固件也各只请求一次。损坏、截断或构建身份不匹配必须拒绝，不得回退新游戏。
 5. 保存当次截图、Provider/Target 身份、压缩字节数、checkpoint 大小和 console 记录；任何错误或未解释的 warning 均需修复复测。注入手柄自动化不代替实体手柄验收。
+
+
+### ACC-MAME-002：Acorn Atom 快速装载产品验证
+
+前置：同一 PFB 已安装包含 `mame-atom` 的完整候选，提供与锁定源码一致的 `abasic.ic20`、`afloat.ic21` 和真实《GUNTUS》ATM 程序。游戏和 BIOS 不进入 Git。作者公开 UEF 可按作者的格式说明提取原始程序负载，保留字节不变封装为 ATM；保留原文件、来源 URL、转换配方和摘要。完整执行需要没有发布相同内容的测试库，继续本轮或复用发布内容必须在记录中明确。
+
+入口：设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、`RETROM_CHROME_EXECUTABLE`、`RETROM_MAME_FAMILY_INPUT_DIR` 和 `RETROM_ACCEPTANCE_CASE_DIR`，执行 `timeout 300s node scripts/acceptance/mame_families_product.mjs atom`。输入目录包含两份 BIOS 和 `Guntus-atom.atm`；硬超时 300 秒。
+
+1. 安装两份精确 BIOS，正常上传、导入 Acorn Atom 目录、审核预览并发布；Envelope 使用 `retrom-runtime/mame-atom`，只加载公共模块和 Acorn 模块。
+2. 预览必须出现游戏标题，不能把 BASIC 提示符视为游戏启动。用标准手柄 A 确认进入游戏，等待游戏开场音乐后向右移动；核对屏幕中的飞机位置变化，随后射击并记录非静音音频。暂停冻结、恢复后继续输入。
+3. 核对原生 372×243 缓冲以 MAME 4:3 比例显示，缩放窗口无溢出；创建非空有界即时存档及按显示比例生成的截图。公共 gzip 只解压一次，结果是 `RTMAME01`；不同 Launch 恢复后位置一致，快速装载计时器不得再次重启游戏，随后手柄向左移动有效。
+4. 关闭 HTTP 缓存，三个独立页面的公共 WASM、Acorn WASM、游戏与 BIOS 各下载一次。保留当次身份、网络、截图和 console，逐图复核。所有错误及未解释的 warning 都必须处理。
+
+### ACC-MAME-003：PV-1000 卡带产品验证
+
+前置及通用步骤同 ACC-MAME-002，样本为作者公开《GUNTUS》PV-1000 版。只允许将作者文件末尾按软件目录规范补零到 16 KiB，并校验结果与锁定 MAME 软件目录的 SHA-1 完全一致；保留原始来源与配方。输入目录使用 `Guntus-pv1000.rom`，无 BIOS。
+
+入口：`timeout 300s node scripts/acceptance/mame_families_product.mjs pv1000`，每次硬超时 300 秒。
+
+1. 正常上传、导入 PV-1000 目录、审核预览并发布；Envelope 使用 `retrom-runtime/mame-pv1000`，只加载公共模块和 vintage 模块，没有 external 资源。
+2. 标准手柄 A 从标题进入游戏。开场音乐结束后，方向必须移动可见的蓝色驾驶舱，A 射击并产生声音；支持暂停、截图和非空即时存档。原生缓冲 224×244 按 MAME 4:3 显示，窗口缩放仍正确。
+3. 不同 Launch 恢复同一位置后继续向左移动，存档格式、压缩层数、资源复用及 console 要求与 ACC-MAME-002 相同；保留独立 Case 结果与当次逐图复核。
+
+跨设备族缓存补充：不传平台参数执行同一脚本，顺序运行两个独立 Case，每个仍有自己的 300 秒硬超时、结果和截图；随后新建 Atom Launch。整个 Atom → PV-1000 → Atom 序列中公共 WASM 只请求一次，两个设备族各一次。该补充不能替代任一平台的操作、存档或恢复断言。

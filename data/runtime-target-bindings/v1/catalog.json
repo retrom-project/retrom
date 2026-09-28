@@ -1178,6 +1178,34 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-mame-atom",
+      "coreId": "mame_atom",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-atom",
+      "platformIds": [
+        "atom"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-mame-pv1000",
+      "coreId": "mame_pv1000",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-pv1000",
+      "platformIds": [
+        "pv1000"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-msx-webmsx",
       "coreId": "webmsx",
       "providerId": "retrom-runtime",
@@ -1539,6 +1567,12 @@
         "enabled": true
       },
       {
+        "id": "atom",
+        "name": "Acorn Atom",
+        "sortOrder": 713,
+        "enabled": true
+      },
+      {
         "id": "atomiswave",
         "name": "Sammy Atomiswave",
         "sortOrder": 188,
@@ -1866,6 +1900,12 @@
         "id": "psx",
         "name": "PlayStation",
         "sortOrder": 170,
+        "enabled": true
+      },
+      {
+        "id": "pv1000",
+        "name": "Casio PV-1000",
+        "sortOrder": 714,
         "enabled": true
       },
       {
@@ -2238,6 +2278,16 @@
       {
         "id": "mame_apple2",
         "name": "MAME Apple II+",
+        "enabled": true
+      },
+      {
+        "id": "mame_atom",
+        "name": "MAME Acorn Atom",
+        "enabled": true
+      },
+      {
+        "id": "mame_pv1000",
+        "name": "MAME Casio PV-1000",
         "enabled": true
       },
       {

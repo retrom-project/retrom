@@ -9,7 +9,7 @@ import (
 	contentprofile "retrom/internal/content/profile"
 )
 
-const Version = 39
+const Version = 40
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -265,6 +265,14 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "atarist/hatarib", PlatformID: "atarist", DefaultCoreID: "hatarib", Name: "Atari ST 游戏", CatalogOrder: 800},
 	{Key: "bbc/jsbeeb", PlatformID: "bbc", DefaultCoreID: "jsbeeb", Name: "BBC Micro 游戏", CatalogOrder: 810},
+	{
+		Key: "atom/mame_atom", PlatformID: "atom", DefaultCoreID: "mame_atom", Name: "Acorn Atom 游戏",
+		Description: "单个 .atm 快速装载文件。", CatalogOrder: 813,
+	},
+	{
+		Key: "pv1000/mame_pv1000", PlatformID: "pv1000", DefaultCoreID: "mame_pv1000", Name: "PV-1000 游戏",
+		Description: "单张 8/16/32 KiB .bin/.rom 卡带。", CatalogOrder: 814,
+	},
 	{Key: "apple2/apple2js", PlatformID: "apple2", DefaultCoreID: "apple2js", Name: "Apple II 游戏", CatalogOrder: 815},
 	{
 		Key: "apple2/mame_apple2", PlatformID: "apple2", DefaultCoreID: "mame_apple2",

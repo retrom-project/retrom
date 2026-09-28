@@ -12,6 +12,7 @@ const platformArtwork: Readonly<Record<string, string>> = {
   "atari800": "atari800",
   "atarijaguar": "atarijaguar",
   "atarist": "home-computer",
+  "atom": "bbc", // Acorn computer family illustration.
   "atomiswave": "atomiswave",
   "bbc": "bbc",
   "bbkrpg": "bbkrpg",
@@ -67,6 +68,7 @@ const platformArtwork: Readonly<Record<string, string>> = {
   "ps2": "ps2",
   "psp": "psp",
   "psx": "psx",
+  "pv1000": "pv1000",
   "rpgmaker": "rpgmaker",
   "samcoupe": "samcoupe",
   "satellaview": "snes",

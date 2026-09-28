@@ -316,6 +316,10 @@ PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完�
 
 ### MAME 设备族动态链接
 
-开发候选 `retrom-runtime/mame-apple2` 使用 `mame_apple2` 产品核心，提供 Apple II+ 单张 140 KiB DOS 顺序 `.dsk/.do` 磁盘的只读运行。既有 Apple2JS 继续作为独立选择。MAME 公共模块与 Apple 设备族分别由 Content I/O 完整校验、持久缓存后加载，原生层校验同一构建身份；不支持跨构建混用 side module。
+开发候选提供三个独立 Target：`mame-apple2` / `mame_apple2` 接收 Apple II+ 单张 140 KiB DOS 顺序只读 `.dsk/.do`；`mame-atom` / `mame_atom` 接收 Acorn Atom 单个 `.atm` 快速装载程序；`mame-pv1000` / `mame_pv1000` 接收 Casio PV-1000 单张 8/16/32 KiB `.bin/.rom` 卡带。既有 Apple2JS 继续作为独立选择。
 
-即时存档按游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。设备族中的其他机型、其他磁盘格式、写盘及其他家族目前没有产品准入。候选验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)。
+三个 Target 复用同一个公共模块，分别按需加载 Apple、Acorn、vintage 设备族。公共 Content I/O 完整校验并持久缓存所有代码、游戏及 BIOS；原生层要求公共模块和设备族具有同一构建身份。Atom 需要 `abasic.ic20` 和 `afloat.ic21`，默认扩展内存启用、磁盘扩展禁用；PV-1000 无 BIOS。ATM 的 22-byte 文件头、负载长度和 16-bit 地址范围均须有效。机器码按执行地址启动；BASIC 程序可能需要实体键盘输入 `RUN`，当前没有磁带 UEF 或磁盘启动支持。
+
+Atom 手柄方向映射 `;`、`.`、`Z`、`X`，A→Space、B/Start→Return、Select→Escape；适用于使用这些标准键位的游戏，真实键盘独立可用。PV-1000 方向及 A/B 使用原生摇杆和两个按键，单个按钮只发送一个目标输入。
+
+即时存档按机型、游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。其他机型、格式及写盘尚未准入。候选验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)、ACC-MAME-002 和 ACC-MAME-003。
