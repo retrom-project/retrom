@@ -173,10 +173,14 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 模块路径确定后必须用 `depguard` 把以下方向写入 `.golangci.yml`，不能只靠代码评审记忆：
 
 1. `internal/**` 不得导入 `cmd/**`；
-2. `internal/store/**` 与 `internal/filestore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
-3. `internal/format/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
-4. `internal/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
-5. `internal/service/jobs/**` 管理通用取消与重试；领域 Service 不得反向依赖该管理用例，领域 Worker 仍维护自身领取和执行协议。
+2. 除 `application`、`composition`、`httpapi` 装配/传输层外，生产包不得反向导入这三个上层；
+3. `internal/store/**` 与 `internal/filestore/**` 不得导入 `service/**`、导入/Launch 工作流；`persistence/**` 可以实现 `service/**` 定义的业务接口；
+4. `internal/format/arcadedat/**` 不得导入业务服务或 BIOS/导入工作流；
+5. `internal/service/**`（通用 jobs 管理包自身除外）及导入/Launch 工作流不得依赖 `service/jobs`，领域 Worker 维护自己的领取和执行协议；
+6. `archcheck` 的全业务包扫描同时拒绝数据库实现、application、composition、httpapi 和进程入口依赖。
+
+生产分层规则不限制 `*_test.go` 与 `internal/testsupport/**` 测试夹具的跨层装配，但测试仍受其余质量门禁约束。`make lint-go` 必须运行
+`scripts/test_architecture_rules.py`，使用当前 `.golangci.yml` 和实际 depguard 在隔离 Go 模块中验证真实目录、直接文件、嵌套目录的违规导入与合法持久化接口依赖。文件规则使用 `${base-path}` 锚定模块根，并覆盖目录直接文件与后代，避免迁包或 glob 语义造成静默漏检。
 
 如果后续目录布局有经过评审的变化，应先更新架构专题和本节，再修改 `depguard`；不得为了修复循环依赖直接删掉规则。
 

@@ -36,8 +36,8 @@ func AssertBusinessImportsIn(t testing.TB, directory string) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if databaseImplementationImport(value) {
-				t.Errorf("%s imports database implementation %s; depend on a business port", name, value)
+			if forbiddenBusinessImport(value) {
+				t.Errorf("%s imports forbidden dependency %s; depend on a business port", name, value)
 			}
 		}
 	}
@@ -90,10 +90,11 @@ func productionSources(t testing.TB) []sourceFile {
 	return result
 }
 
-func databaseImplementationImport(value string) bool {
+func forbiddenBusinessImport(value string) bool {
 	for _, prefix := range []string{
 		"database/sql", "modernc.org/sqlite", "retrom/internal/persistence",
 		"retrom/internal/database", "retrom/internal/store",
+		"retrom/internal/application", "retrom/internal/composition", "retrom/internal/httpapi", "retrom/cmd",
 	} {
 		if value == prefix || strings.HasPrefix(value, prefix+"/") {
 			return true

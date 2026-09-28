@@ -113,6 +113,7 @@ test: prepare-go api-generate-go
 	@go test $(GO_PACKAGES)
 
 lint-go: api-generate-go install-golangci-lint
+	@python3 scripts/test_architecture_rules.py
 	@bin/golangci-lint run $(GO_PACKAGES)
 
 backend-check: quality-structure-check fmt-check build test lint-go
