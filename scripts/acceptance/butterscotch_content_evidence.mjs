@@ -26,7 +26,8 @@ export function projectReadEvidence(first, restored, previous = first) {
     firstDataWinResponseCount: data.length,
     firstRangeResponseCount: rangeEntries.length,
     largestRangeBytes: Math.max(0, ...all.filter(entry => entry.status === 206).map(entry => entry.bytes)),
-    largeWholeResponseCount: all.filter(entry => entry.status === 200 && entry.bytes > 1024 * 1024).length,
+    largeWholeResponseCount: all.filter(entry => entry.status === 200 && entry.bytes > 1024 * 1024 &&
+      !new URL(entry.url).pathname.endsWith("/index.json")).length,
     restoreDataWinResponseCount: restored.entries.filter(entry => new URL(entry.url).pathname.toLowerCase().endsWith("/data.win")).length,
     restoreIndexResponseCount: restored.entries.filter(entry => new URL(entry.url).pathname.endsWith("/index.json")).length,
     restoreRepeatedBytes: repeatedBytes(previous.entries, restored.entries),
