@@ -24,7 +24,8 @@ type ReviewDeduplicateScope struct {
 }
 
 type ReviewDeduplicateReader interface {
-	LatestReviewItemID(context.Context) (*string, error)
+	// LatestReviewItemID returns an empty string when no pending items exist.
+	LatestReviewItemID(context.Context) (string, error)
 	Candidates(context.Context, ReviewBulkCandidateQuery) ([]ReviewBulkCandidate, error)
 }
 
@@ -128,10 +129,7 @@ func reviewDeduplicateThrough(
 	if err != nil {
 		return "", fmt.Errorf("read deduplication upper bound: %w", err)
 	}
-	if value == nil {
-		return "", nil
-	}
-	return *value, nil
+	return value, nil
 }
 
 func (service *ReviewDeduplicator) discardDuplicate(

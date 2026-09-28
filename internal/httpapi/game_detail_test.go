@@ -605,6 +605,13 @@ INSERT INTO games(
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(secondPage.Items) != 1 }, func() bool { return secondPage.Items[0].GameID != gameIDs[0] }, func() bool { return secondPage.NextCursor != nil }, func() bool { return strings.Contains(second.Body.String(), `"facets"`) }, func() bool { return strings.Contains(second.Body.String(), `"filteredCount"`) }), "second page = %#v body=%s", secondPage, second.Body.String())
+	invalid := httptest.NewRecorder()
+	server.Handler().ServeHTTP(invalid, httptest.NewRequestWithContext(t.Context(),
+		http.MethodGet, "/api/v1/games?sort=ADDED_DESC&platformId=dos&cursor=invalid", nil,
+	))
+	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), `"code":"INVALID_CURSOR"`) {
+		t.Fatalf("invalid cursor=%d %s", invalid.Code, invalid.Body.String())
+	}
 }
 
 func seedCompletedGameScrape(

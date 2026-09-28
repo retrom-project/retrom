@@ -22,20 +22,15 @@ func BindReviewBulkQueries(executor dbapi.Executor) *ReviewBulkQueries {
 }
 
 // LatestReviewItemID returns the immutable upper bound used by bounded review
-// scans. Keeping this projection next to the candidate query prevents callers
-// from reaching into the database for cursor fencing.
-func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error) {
-	var value sql.NullString
+// scans, or an empty string when no pending items exist.
+func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (string, error) {
+	var value string
 	if err := dbapi.QueryRowContext(ctx, repository.executor,
-		`SELECT max(id) FROM import_items WHERE state='REVIEW_PENDING'`,
+		`SELECT COALESCE(max(id),'') FROM import_items WHERE state='REVIEW_PENDING'`,
 	).Scan(&value); err != nil {
-		return nil, fmt.Errorf("query review item upper bound: %w", err)
+		return "", fmt.Errorf("query review item upper bound: %w", err)
 	}
-	if !value.Valid {
-		//nolint:nilnil // a nil upper bound explicitly represents an empty review queue
-		return nil, nil
-	}
-	return &value.String, nil
+	return value, nil
 }
 
 func (repository *ReviewBulkQueries) Candidates(

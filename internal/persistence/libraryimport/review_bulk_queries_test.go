@@ -1,6 +1,7 @@
 package libraryimport
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -124,5 +125,23 @@ func TestReviewBulkCandidateQueryRequiresLimit(t *testing.T) {
 	_, _, err := reviewBulkCandidateStatement(libraryservice.ReviewBulkCandidateQuery{})
 	if !errors.Is(err, libraryservice.ErrReviewBulkQuery) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestLatestReviewItemIDDistinguishesEmptyQueueFromQueryFailure(t *testing.T) {
+	t.Parallel()
+	database := metadataDatabase(t)
+	queries := BindReviewBulkQueries(database)
+	if value, err := queries.LatestReviewItemID(t.Context()); err != nil || value != "item" {
+		t.Fatalf("pending upper bound=%q err=%v", value, err)
+	}
+	metadataExec(t, database, "UPDATE import_items SET state='DISCARDED' WHERE id='item'")
+	if value, err := queries.LatestReviewItemID(t.Context()); err != nil || value != "" {
+		t.Fatalf("empty upper bound=%q err=%v", value, err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if value, err := queries.LatestReviewItemID(ctx); value != "" || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled upper bound=%q err=%v", value, err)
 	}
 }

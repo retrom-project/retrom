@@ -211,46 +211,42 @@ func gameListSortCode(raw string, includeDeleted bool) (string, error) {
 	return "", errUnknownQuery
 }
 
-func (server *Server) applyGameListCursor(
+func (server *Server) decodeGameListCursor(
 	token string,
 	operationID string,
 	filterDigest string,
 	sortCode string,
-) (*gamelistservice.Cursor, error) {
-	if token == "" {
-		//nolint:nilnil // an absent cursor is a valid unbounded first page
-		return nil, nil
-	}
+) (gamelistservice.Cursor, error) {
 	payload, err := server.cursors.Decode(token, operationID, filterDigest, sortCode)
 	if err != nil {
-		return nil, errInvalidCursorPayload
+		return gamelistservice.Cursor{}, errInvalidCursorPayload
 	}
 	switch sortCode {
 	case gamelistservice.SortTitleAsc:
 		if len(payload.SortValues) != 1 {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 	case gamelistservice.SortAddedDesc, gamelistservice.SortUpdatedDesc:
 		if len(payload.SortValues) != 2 {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 		if _, err := strconv.ParseInt(payload.SortValues[0], 10, 64); err != nil {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 	case gamelistservice.SortRecentDesc:
 		if len(payload.SortValues) != 3 {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 		if _, err := strconv.ParseInt(payload.SortValues[0], 10, 64); err != nil {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 		if _, err := strconv.ParseInt(payload.SortValues[1], 10, 64); err != nil {
-			return nil, errInvalidCursorPayload
+			return gamelistservice.Cursor{}, errInvalidCursorPayload
 		}
 	default:
-		return nil, errInvalidCursorPayload
+		return gamelistservice.Cursor{}, errInvalidCursorPayload
 	}
-	return &gamelistservice.Cursor{SortValues: payload.SortValues, ID: payload.ID}, nil
+	return gamelistservice.Cursor{SortValues: payload.SortValues, ID: payload.ID}, nil
 }
 
 func projectGameListItem(item gamelistservice.GameItem, includeAdminProjection bool) map[string]any {
@@ -318,12 +314,14 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 		"status":             values.Get("status"),
 		"sort":               sortCode,
 	})
-	pageCursor, err := server.applyGameListCursor(
-		values.Get("cursor"), operationID, filterDigest, sortCode,
-	)
-	if err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
-		return
+	var pageCursor *gamelistservice.Cursor
+	if token := values.Get("cursor"); token != "" {
+		decoded, err := server.decodeGameListCursor(token, operationID, filterDigest, sortCode)
+		if err != nil {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
+			return
+		}
+		pageCursor = &decoded
 	}
 	limit := 50
 	if raw := values.Get("limit"); raw != "" {
@@ -333,10 +331,11 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 			return
 		}
 	}
+	includeFacets := !includeDeleted && pageCursor == nil
 	result, err := server.libraryDeps.List.List(request.Context(), gamelistservice.ListRequest{
 		ProfileID: principal.ProfileID, IncludeDeleted: includeDeleted,
 		Filters: filters.Filters, Sort: sortCode, Cursor: pageCursor, Limit: limit,
-		IncludeFacets: !includeDeleted && values.Get("cursor") == "",
+		IncludeFacets: includeFacets,
 	})
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -366,7 +365,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 	response := map[string]any{
 		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
 	}
-	if !includeDeleted && values.Get("cursor") == "" {
+	if includeFacets {
 		response["filteredCount"] = result.FilteredCount
 		response["facets"] = projectGameListFacets(result.Facets)
 	}

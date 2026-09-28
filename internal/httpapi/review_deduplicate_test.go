@@ -31,6 +31,11 @@ func TestReviewDeduplicateHTTPContractAndReplay(t *testing.T) {
 	if first.Code != http.StatusOK || !strings.Contains(first.Body.String(), `"discardedCount":0`) {
 		t.Fatalf("empty = %d %s", first.Code, first.Body.String())
 	}
+	for _, field := range []string{`"scannedCount":0`, `"throughItemId":null`, `"nextAfterItemId":null`} {
+		if !strings.Contains(first.Body.String(), field) {
+			t.Fatalf("empty queue missing %s: %s", field, first.Body.String())
+		}
+	}
 	replay := send(`{"scope":{}}`, csrf, key)
 	if replay.Code != http.StatusOK || replay.Body.String() != first.Body.String() {
 		t.Fatalf("replay = %d %s", replay.Code, replay.Body.String())

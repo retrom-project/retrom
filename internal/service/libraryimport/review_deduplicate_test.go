@@ -19,18 +19,21 @@ func (repository *reviewDeduplicateRepositoryStub) WithDeduplicate(
 }
 
 type reviewDeduplicateReaderStub struct {
-	through    *string
-	candidates []ReviewBulkCandidate
-	query      ReviewBulkCandidateQuery
+	through        string
+	upperBoundErr  error
+	candidateCalls int
+	candidates     []ReviewBulkCandidate
+	query          ReviewBulkCandidateQuery
 }
 
-func (reader *reviewDeduplicateReaderStub) LatestReviewItemID(context.Context) (*string, error) {
-	return reader.through, nil
+func (reader *reviewDeduplicateReaderStub) LatestReviewItemID(context.Context) (string, error) {
+	return reader.through, reader.upperBoundErr
 }
 
 func (reader *reviewDeduplicateReaderStub) Candidates(
 	_ context.Context, query ReviewBulkCandidateQuery,
 ) ([]ReviewBulkCandidate, error) {
+	reader.candidateCalls++
 	reader.query = query
 	return reader.candidates, nil
 }
@@ -83,7 +86,7 @@ func (discarder *reviewDeduplicateDiscarderStub) DiscardInScope(
 func TestReviewDeduplicatorUsesFrozenPageAndDiscardsPublishedMatches(t *testing.T) {
 	through := "01990000-0000-7000-8000-000000000099"
 	reader := &reviewDeduplicateReaderStub{
-		through: &through,
+		through: through,
 		candidates: []ReviewBulkCandidate{
 			{ItemID: "01990000-0000-7000-8000-000000000001", PlatformID: "gba", ReviewVersion: 3},
 			{ItemID: "01990000-0000-7000-8000-000000000002", PlatformID: "gba", ReviewVersion: 4, AttachmentActive: true},
@@ -125,7 +128,7 @@ func TestReviewDeduplicatorPropagatesDiscardFailureWithoutResult(t *testing.T) {
 	want := errors.New("discard failed")
 	discarder := &reviewDeduplicateDiscarderStub{err: want}
 	repository := &reviewDeduplicateRepositoryStub{scope: ReviewDeduplicateScope{
-		Reader: &reviewDeduplicateReaderStub{through: &through, candidates: []ReviewBulkCandidate{{
+		Reader: &reviewDeduplicateReaderStub{through: through, candidates: []ReviewBulkCandidate{{
 			ItemID: "01990000-0000-7000-8000-000000000001", PlatformID: "gba", ReviewVersion: 1,
 		}}},
 		Duplicates: &reviewDeduplicateDuplicatesStub{gamesByItem: map[string][]DuplicateGame{
@@ -141,5 +144,39 @@ func TestReviewDeduplicatorPropagatesDiscardFailureWithoutResult(t *testing.T) {
 	}
 	if result != (ReviewDeduplicateResult{}) {
 		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestReviewDeduplicatorResolvesUpperBoundBeforeScanning(t *testing.T) {
+	const bound = "01990000-0000-7000-8000-000000000099"
+	lookupFailure := errors.New("upper bound query failed")
+	for _, test := range []struct {
+		name, provided, latest, wantBound string
+		lookupErr, wantErr                error
+		wantScans                         int
+	}{
+		{name: "empty queue"},
+		{name: "query failure", lookupErr: lookupFailure, wantErr: lookupFailure},
+		{name: "current queue", latest: bound, wantBound: bound, wantScans: 1},
+		{name: "frozen bound", provided: bound, lookupErr: lookupFailure, wantBound: bound, wantScans: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			reader := &reviewDeduplicateReaderStub{through: test.latest, upperBoundErr: test.lookupErr}
+			repository := &reviewDeduplicateRepositoryStub{scope: ReviewDeduplicateScope{Reader: reader}}
+			result, err := NewReviewDeduplicator(repository, nil).Deduplicate(t.Context(), ReviewDeduplicateRequest{
+				ThroughItemID: test.provided,
+			})
+			if !errors.Is(err, test.wantErr) || reader.candidateCalls != test.wantScans {
+				t.Fatalf("error=%v candidate calls=%d", err, reader.candidateCalls)
+			}
+			if test.wantBound == "" {
+				if result.ThroughItemID != nil || result.NextAfterItemID != nil || result.ScannedCount != 0 {
+					t.Fatalf("empty or failed scan returned progress: %+v", result)
+				}
+			} else if result.ThroughItemID == nil || *result.ThroughItemID != test.wantBound ||
+				reader.query.ThroughItemID != test.wantBound {
+				t.Fatalf("query=%+v result=%+v", reader.query, result)
+			}
+		})
 	}
 }

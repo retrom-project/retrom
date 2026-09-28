@@ -29,15 +29,6 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/httpapi/game_list_handlers.go",
-      "line": 221,
-      "symbol": "func (server *Server) applyGameListCursor(token string, operationID string, filterDigest string, sortCode string) (*gamelistservice.Cursor, error)",
-      "linter": "nilnil",
-      "reason": "An absent pagination cursor is the documented representation of an unbounded first page.",
-      "invariant": "Empty cursor input must produce a nil cursor without an error so the first page query remains unbounded.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
       "path": "internal/persistence/auditevents/audit.go",
       "line": 45,
       "symbol": "func nullableJSON(value any) (any, error)",
@@ -53,15 +44,6 @@
       "linter": "nilnil",
       "reason": "Games without a DOS default entry are represented by a nil optional projection.",
       "invariant": "Missing DOS defaults must remain distinguishable from query failures and map to a nil pointer.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
-      "path": "internal/persistence/libraryimport/review_bulk_queries.go",
-      "line": 35,
-      "symbol": "func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error)",
-      "linter": "nilnil",
-      "reason": "An empty review queue has no upper-bound cursor and is represented by a nil value.",
-      "invariant": "No pending review item must return a nil upper bound without an error.",
       "reviewAfter": "2027-08-22"
     },
     {
