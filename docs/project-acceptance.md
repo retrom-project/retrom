@@ -2745,3 +2745,11 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 持有租约的完整 Blob，损坏完整代后须隔离该代并撤销对象，不能就地重写租约仍引用的文件；
 这一步单独验证共享缓存契约，不改变 DOS 核心的 RANGE 输入策略。所有场景必须留下原始报告，
 严格 proof 校验全部 16 个场景后才能给出完整矩阵 PASS。
+
+### ACC-CONTENT-001：完整缓存后开始与断网继续
+
+- 附加前置：运行同一 PFB 的 Retrom/Runtime；设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号及固定 Chrome 路径。使用仓库自有 `testdata/public-roms/dos-cache/dos-cache.zip`，不读取私有 ROM。
+- 执行：`make acceptance-case CASE=ACC-CONTENT-001`。
+- 先真实导入、审核预览并发布；默认按需启动下载量小于完整 ZIP。新浏览器 context 在详情选择“下载完成后开始”，刷新及手机启动选项保持偏好。4K 150% 与 390px 手机截图记录实际控件。
+- 正式 Launch 必须完整覆盖 ZIP，所有内容响应为 206；启动后断网，按键触发读取 4 MiB 位置，画面从蓝变绿且没有新内容请求。重新联网创建真实即时存档，退出后在不同 Launch 恢复，原生存档摘要完全一致；再次断网按键画面变青，重复启动内容请求为零，退出后 Worker 被释放。
+- 证据：`content-preload-product.json`、真实详情/手机/断网截图，保留失败阶段，不能以协议 fixture 代替真实产品链。Runtime 浏览器回归另覆盖取消后的分块复用、存储拒绝、写满、缓存租约和退出 GC。

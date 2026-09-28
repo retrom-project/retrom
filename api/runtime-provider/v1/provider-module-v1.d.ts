@@ -196,6 +196,8 @@ export interface RuntimeFrameV1 {
 
 export interface RuntimeHostV1 {
   signal: AbortSignal;
+  /** Device preference for managed content; omitted means ON_DEMAND. */
+  contentLoading?: "ON_DEMAND" | "PRELOAD";
   mountFrame(target: HTMLElement, input: { resourceRole: string | null }): Promise<RuntimeFrameV1>;
   loadRestore(descriptor: RestoreDescriptorV1 | null): Promise<Uint8Array | null>;
   reportDiagnostic(input: { code: string; message: string }): void;

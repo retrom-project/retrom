@@ -1,11 +1,20 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PlayerLoading } from "./player-loading";
+
+vi.mock("@/features/auth/auth-provider", () => ({useAuth: () => ({context: {user: {userId: "test"}}})}));
 
 afterEach(cleanup);
 
 describe("PlayerLoading", () => {
+  it.each(["CACHE_UNAVAILABLE", "WORKSPACE_UNAVAILABLE", "NETWORK_FAILED", "TIMEOUT"])("offers explicit retry and streaming fallback after %s", code => {
+    render(<PlayerLoading immersive={false} message={`CONTENT_IO_${code}`} progress={null} returnTo="/library" state="error" />);
+    expect(screen.getByRole("button", {name: "重试下载"})).toBeVisible();
+    expect(screen.getByRole("button", {name: "改为按需加载"})).toBeVisible();
+    expect(screen.getByText("已下载的有效内容会在重试时复用。")).toBeVisible();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
   it("shows aggregate byte progress while uncached runtime content is loading", () => {
     render(<PlayerLoading
       immersive={false}

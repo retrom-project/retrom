@@ -6,6 +6,11 @@ import {createRuntimeHost} from "./runtime-host";
 afterEach(() => {document.body.replaceChildren(); vi.unstubAllGlobals();});
 
 describe("RuntimeHostV1", () => {
+  it("passes the explicit device preload choice and defaults to on-demand loading", () => {
+    const signal = new AbortController().signal;
+    expect(createRuntimeHost(envelope(), signal).contentLoading).toBe("ON_DEMAND");
+    expect(createRuntimeHost(envelope(), signal, {contentLoading: "PRELOAD"}).contentLoading).toBe("PRELOAD");
+  });
   it("mounts the exact host-owned frame mode and removes it on abort", async () => {
     const controller = new AbortController();
     const host = createRuntimeHost(envelope(), controller.signal);

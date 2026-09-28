@@ -226,6 +226,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
   });
   const bootstrapParams = useMemo(() => ({
+    userId,
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
     returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
     pausedRef, started, finishing, progressTimer, progressClock, toastTimer,
@@ -237,7 +238,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
     onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
     onExitRequested: handleRuntimeExitRequested, reportProgress,
-  }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
+  }), [userId, experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
     immersive.requestMenu, initializeCursor, launchId, reportPlayerEvent, reportProgress, revealControlsAtTopEdge, showControls]);
   usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({

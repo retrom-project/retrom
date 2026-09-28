@@ -96,6 +96,14 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审核预览与正式启动只冻结项目自身文件及其派生索引/归档。Provider 的通用 RTP 可选输入与已发布声明仍属于其独立 SDK 契约，Retrom 不再向它提供资源，且不再把声明投影为可安装的产品目录。
 
+### 开始前完整缓存
+
+游戏详情的“内容加载”提供默认“按需加载”和“下载完成后开始”。偏好按当前用户保存在当前设备；正式启动、恢复存档和快速启动读取同一偏好，审核预览维持默认按需行为。Host 通过可选 `RuntimeHostV1.contentLoading` 传递 `ON_DEMAND` / `PRELOAD`，不改变 Launch Envelope、内容授权或数据库。
+
+PRELOAD 由 Provider 在核心启动前枚举所有受 Content I/O 管理的内容，包括完整文件树、多盘、parent、所需系统文件和显式声明的延迟核心数据。下载复用现有持久分块缓存，保持有界内存并校验完整提交；通过 `LOAD_PROGRESS` 展示已完成/总字节。整个游戏期间保持缓存租约，包括尚未打开的文件。取消保留有效分块，再次启动复用缓存；退出释放租约。ONS 视频在此模式下使用本地 Blob。
+
+持久存储不可用或空间不足时不得假装下载完成或静默改回按需，Player 提供“重试下载”和“改为按需加载”。此模式适用于受 Content I/O 管理的资源；原生 Web 和其他外部加载器保持其自身加载策略。完整缓存不等于离线启动：页面、Launch 授权、元数据和存档服务仍可能需要网络。此阶段不提供永久固定缓存、下载管理器或后台下载。
+
 ## 6. Checkpoint 与存档
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。

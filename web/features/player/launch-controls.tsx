@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
 import { LaunchButton } from "./launch-button";
+import { ContentLoadingField } from "./content-loading-field";
 
 export type CoreOption = {
   coreId: string;
@@ -109,6 +110,7 @@ type LaunchViewProps = {
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
   return <aside className="launch-panel" aria-label="启动游戏">
+    <ContentLoadingField />
     {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
     <div className="launch-actions">
       {props.latestSave ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" /> : null}
@@ -138,6 +140,7 @@ function MobileLaunchDock(props: LaunchViewProps) {
     </div>
     <ResponsiveSheet open={open} title="启动选项" placement="bottom" onClose={() => setOpen(false)} returnFocusRef={trigger} className="phone-launch-options">
       <div className="phone-launch-fields">
+        <ContentLoadingField />
         <label><span>运行方式</span><select aria-label="运行方式" value={props.coreId} onChange={(event) => props.onCoreSelect(event.target.value)}>
           {props.coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
         </select></label>

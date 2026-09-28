@@ -1,6 +1,7 @@
 "use client";
 
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
+import {readContentLoading} from "./content-loading";
 
 import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
@@ -23,6 +24,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type Mutable<T> = {current: T};
 
 export type PlayerBootstrapParams = {
+  userId?: string;
   launchId: string;
   experience: "standard" | "immersive";
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
@@ -105,6 +107,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   if (!params.stage.current) {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
 
   const mounted = await mountProviderRuntime(envelope, params.stage.current, {
+    host: {contentLoading: envelope.session.purpose === "PRODUCT" ? readContentLoading(params.userId) : "ON_DEMAND"},
     signal: abort.signal,
     onExitRequested: params.onExitRequested,
     onFatalError: (code) => {
