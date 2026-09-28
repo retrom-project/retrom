@@ -53,9 +53,9 @@ export async function assertLaunchConfigAvailable(
 ) {
   const configURL = new URL(`/runtime/launches/${launch.launchId}/config`, origin).href;
   const launchCookie = (await context.cookies(configURL))
-    .find((cookie) => cookie.name === `retrom_launch_${launch.launchId}`);
-  expect(launchCookie, `${label} launch response headers: ${JSON.stringify(response.headersArray())}`)
-    .toMatchObject({path: `/runtime/launches/${launch.launchId}/`, httpOnly: true});
+    .find((cookie) => cookie.name === "retrom_runtime");
+  expect(launchCookie, `${label} launch response headers: ${response.status()}`)
+    .toMatchObject({path: "/", httpOnly: true, sameSite: "Strict"});
   const configProbe = await context.request.get(configURL);
   expect(configProbe.status(), `${label} launch config: ${await configProbe.text()}`).toBe(200);
 }

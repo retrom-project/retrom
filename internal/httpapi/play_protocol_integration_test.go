@@ -53,7 +53,7 @@ func TestProductProgressKeepsAccessAndRejectsPreviewFinish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cookie := &http.Cookie{Name: "retrom_launch_" + created.LaunchID, Value: created.Capability}
+	cookie := testRuntimeCookie(t, server)
 	configuration := requestReviewCheckpointHTTP(t, server, created.LaunchID, cookie, "GET", "config", nil, "")
 	if configuration.Code != http.StatusOK {
 		t.Fatalf("config status=%d", configuration.Code)

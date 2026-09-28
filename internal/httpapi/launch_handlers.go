@@ -42,13 +42,13 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 		server.productCreationError(writer, request, err)
 		return
 	}
+	if receipt.Status == http.StatusCreated && !server.ensureRuntimeSession(writer, request) {
+		return
+	}
 	server.writeStoredLaunchResponse(writer, receipt)
 }
 
 func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, receipt launchservice.ProductReceipt) {
-	if receipt.Status == http.StatusCreated {
-		server.setLaunchCookieValue(writer, receipt.Created.LaunchID, receipt.Created.Capability)
-	}
 	writer.Header().Set("Content-Type", "application/json")
 	if receipt.Replayed {
 		writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
@@ -77,34 +77,6 @@ func (server *Server) productCreationError(writer http.ResponseWriter, request *
 	}
 	writeError(writer, request, http.StatusUnprocessableEntity, "LAUNCH_BLOCKED", "当前游戏或核心无法启动",
 		map[string]any{"blockers": []map[string]any{{"code": code, "level": "BLOCKING"}}})
-}
-
-func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID string) {
-	parsed, err := uuid.Parse(launchID)
-	if err != nil || parsed.Version() != 7 {
-		return
-	}
-	capability := server.contentDeps.Credentials.Capability(parsed)
-	server.setLaunchCookieValue(writer, launchID, retromruntime.EncodeCapability(capability))
-}
-
-func (server *Server) setLaunchCookieValue(
-	writer http.ResponseWriter,
-	launchID, encodedCapability string,
-) {
-	http.SetCookie(
-		writer,
-		&http.Cookie{
-			Name:     "retrom_launch_" + launchID,
-			Value:    encodedCapability,
-			Path:     "/runtime/launches/" + launchID + "/",
-			MaxAge:   86400,
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			Secure:   server.config.PublicOrigin.Scheme == "https",
-		},
-	)
-	server.setLaunchContentGrant(writer, launchID, encodedCapability, 86400)
 }
 
 func (server *Server) createReviewPreview(writer http.ResponseWriter, request *http.Request) {
@@ -142,16 +114,21 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 		})
 		return
 	}
-	server.setLaunchCookie(writer, created.PreviewID)
+	if !server.ensureRuntimeSession(writer, request) {
+		return
+	}
 	writeJSON(writer, http.StatusCreated, created)
 }
 
 func (server *Server) launchCapability(request *http.Request) string {
-	cookie, err := request.Cookie("retrom_launch_" + request.PathValue("launchId"))
+	if _, ok := runtimeSessionFromRequest(request); !ok {
+		return ""
+	}
+	id, err := uuid.Parse(request.PathValue("launchId"))
 	if err != nil {
 		return ""
 	}
-	return cookie.Value
+	return retromruntime.EncodeCapability(server.contentDeps.Credentials.Capability(id))
 }
 
 func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Request) {
@@ -186,9 +163,6 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 			"kind", "launch", "resultCode", "OK",
 		)
 	}
-	server.setLaunchContentGrant(
-		writer, request.PathValue("launchId"), capability, 86400,
-	)
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
 }
@@ -234,11 +208,6 @@ func (server *Server) launchFinish(writer http.ResponseWriter, request *http.Req
 		server.databaseError(writer, request, err)
 		return
 	}
-	http.SetCookie(writer, &http.Cookie{
-		Name: "retrom_launch_" + id, Value: "", Path: "/runtime/launches/" + id + "/", MaxAge: -1,
-		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: server.config.PublicOrigin.Scheme == "https",
-	})
-	server.setLaunchContentGrant(writer, id, "", -1)
 	writer.WriteHeader(http.StatusNoContent)
 }
 

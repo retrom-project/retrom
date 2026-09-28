@@ -92,7 +92,7 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 `retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
-独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
+独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 与共享 HttpOnly 运行 Cookie 建立当前 Launch/origin 的服务端授权；项目脚本不能取得账户 Cookie、普通 API 或其他 Launch 内容。普通 cleanup 只清理对应存储，预览结束仅撤销该预览授权，均保留共享运行 Cookie。
 
 Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审核预览与正式启动只冻结项目自身文件及其派生索引/归档。Provider 的通用 RTP 可选输入与已发布声明仍属于其独立 SDK 契约，Retrom 不再向它提供资源，且不再把声明投影为可安装的产品目录。
 

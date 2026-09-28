@@ -41,15 +41,7 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 			if !ok || resource["kind"] != "SEEKABLE_BLOB" || !strings.HasSuffix(archiveURL, "/game.mkxpz") {
 				t.Fatalf("declared archive = %#v", resource)
 			}
-			var contentCookie *http.Cookie
-			for _, cookie := range configuration.Result().Cookies() {
-				if cookie.Name == runtimeContentGrantPrefix+preview.PreviewID {
-					contentCookie = cookie
-				}
-			}
-			if contentCookie == nil {
-				t.Fatal("configuration did not grant project content access")
-			}
+			contentCookie := launchCookie
 			assertReviewArchiveHTTP(t, server, archiveURL, contentCookie, resource)
 			wrong := *contentCookie
 			wrong.Value = "invalid-capability"

@@ -30,6 +30,7 @@ import (
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/platforminstance"
 	readinessservice "retrom/internal/service/readiness"
+	"retrom/internal/service/runtimesession"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
 	"retrom/internal/service/sourceimport"
@@ -96,11 +97,12 @@ type ReviewDependencies struct {
 }
 
 type PlayDependencies struct {
-	Launcher  *launchservice.Service
-	Variants  *gamevariant.Service
-	Saves     *saves.Service
-	Isolation *isolation.Service
-	Provider  http.Handler
+	Launcher        *launchservice.Service
+	Variants        *gamevariant.Service
+	Saves           *saves.Service
+	Isolation       *isolation.Service
+	RuntimeSessions *runtimesession.Service
+	Provider        http.Handler
 }
 
 type SystemDependencies struct {

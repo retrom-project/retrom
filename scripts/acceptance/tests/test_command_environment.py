@@ -24,7 +24,7 @@ class CommandEnvironmentTests(unittest.TestCase):
             log = root / "command.log"
             environment = dict(os.environ)
             code, timed_out = runner.run_command(
-                "node --version", 10, log, {"NODE_HOME": str(binary.parent)},
+                ".cache/tools/node-v24.18.0-linux-x64/bin/node --version", 10, log, {"NODE_HOME": str(binary.parent)},
             )
             self.assertEqual(0, code)
             self.assertFalse(timed_out)

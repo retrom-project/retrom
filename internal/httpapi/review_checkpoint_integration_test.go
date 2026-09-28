@@ -103,7 +103,7 @@ func createCheckpointPreviewHTTP(t *testing.T, server *testServer, itemID string
 		t.Fatalf("create ordinary HTTP preview = %d %s", response.Code, response.Body.String())
 	}
 	for _, launchCookie := range (&http.Response{Header: response.Header()}).Cookies() {
-		if launchCookie.Name != "retrom_launch_"+preview.PreviewID {
+		if launchCookie.Name != runtimeCookieName {
 			continue
 		}
 		configuration := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "GET", "config", nil, "")
@@ -112,7 +112,7 @@ func createCheckpointPreviewHTTP(t *testing.T, server *testServer, itemID string
 		}
 		return preview, launchCookie
 	}
-	t.Fatal("ordinary preview did not issue its scoped launch cookie")
+	t.Fatal("ordinary preview did not issue its shared runtime cookie")
 	return launch.ReviewPreviewCreated{}, nil
 }
 
@@ -161,7 +161,10 @@ func assertReviewCheckpointHTTPAuthorization(t *testing.T, server *testServer, p
 	cookie, otherCookie *http.Cookie,
 ) {
 	t.Helper()
-	wrong := *otherCookie
+	if cookie.Value != otherCookie.Value {
+		t.Fatal("same account previews must share their runtime credential")
+	}
+	wrong := *testOtherRuntimeCookie(t, server)
 	wrong.Name = cookie.Name
 	for _, endpoint := range []string{"checkpoint-status", "save-states", "state"} {
 		method := "GET"

@@ -278,6 +278,12 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 `); err != nil {
 		t.Fatalf("seed service fixture user: %v", err)
 	}
+	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,
+ created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms)
+ VALUES('01980000-0000-7000-8000-000000009998','01980000-0000-7000-8000-000000009999',zeroblob(32),1,0,0,?,?)`,
+		time.Now().Add(24*time.Hour).UnixMilli(), time.Now().Add(24*time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), versions, "4.2.3")
 	testassert.Falsef(t, err != nil, "load dependencies: %v", err)
 	if err := testsupport.SeedRuntimeProviders(context.Background(), database.SQL, dependencySet.RuntimeCatalog); err != nil {

@@ -1953,6 +1953,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Authenticates the shared runtime cookie and an owned active Launch. After more than 12 hours, renews the same credential for 24 hours independently of login idle/absolute expiry. Explicit logout or revocation denies renewal. Extends an active product Launch without affecting other games. */
+        post: operations["renewRuntimeSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/config": {
         parameters: {
             query?: never;
@@ -7602,6 +7621,27 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
             401: components["responses"]["JSONResponse"];
             500: components["responses"]["JSONResponse"];
+        };
+    };
+    renewRuntimeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime credential remains valid. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["JSONResponse"];
         };
     };
     getRuntimeLaunchConfig: {

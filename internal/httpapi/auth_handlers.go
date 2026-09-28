@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/service/accounts"
+	"retrom/internal/service/runtimesession"
 )
 
 type newAccountCredentialRequest struct {
@@ -79,6 +80,9 @@ func (server *Server) writeAuthenticatedSession(
 		server.databaseError(writer, request, errNewAuthenticatedSessionUnavailable)
 		return
 	}
+	if !server.clearRuntimeAfterAccountSwitch(writer, request, session.Principal) {
+		return
+	}
 	server.setAuthCookie(writer, session)
 	server.writeAuthContext(writer, status, contextView)
 }
@@ -105,6 +109,19 @@ func (server *Server) authLogin(writer http.ResponseWriter, request *http.Reques
 func (server *Server) authLogout(writer http.ResponseWriter, request *http.Request) {
 	token := server.authCookieToken(request)
 	if token != "" && !server.revokeLogoutSession(writer, request, token) {
+		return
+	}
+	if runtimeSession, err := server.readRuntimeSession(request); err == nil {
+		if err := server.accountDeps.Accounts.Logout(request.Context(), runtimeSession.AuthSessionID); err != nil {
+			server.writeAccountError(writer, request, err)
+			return
+		}
+	} else if !errors.Is(err, runtimesession.ErrCredential) {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := server.clearRuntimeCookie(writer); err != nil {
+		server.databaseError(writer, request, err)
 		return
 	}
 	server.clearAuthCookies(writer)

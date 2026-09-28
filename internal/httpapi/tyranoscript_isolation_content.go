@@ -84,14 +84,18 @@ func (server *Server) tyranoScriptBootstrapConsume(
 		http.NotFound(writer, request)
 		return
 	}
-	credential, consumed, err := server.playDeps.Isolation.ConsumeTicket(
-		request.Context(), access.LaunchID, access.Origin, body.Ticket,
+	session, ok := runtimeSessionFromRequest(request)
+	if !ok {
+		http.NotFound(writer, request)
+		return
+	}
+	_, consumed, err := server.playDeps.Isolation.ConsumeTicket(
+		request.Context(), access.LaunchID, access.Origin, body.Ticket, session.Token, session.ProfileID,
 	)
 	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
-	setIsolatedRuntimeCookie(writer, consumed, credential)
 	writer.Header().Set("Clear-Site-Data", `"storage"`)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.WriteHeader(http.StatusNoContent)

@@ -215,10 +215,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	handler := server.Handler()
 	configRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
 		"/runtime/launches/"+created.LaunchID+"/config", nil)
-	configRequest.AddCookie(&http.Cookie{
-		Name: "retrom_launch_" + created.LaunchID, Value: created.Capability,
-		Path: "/runtime/launches/" + created.LaunchID + "/",
-	})
+	configRequest.AddCookie(testRuntimeCookie(t, server))
 	configResponse := httptest.NewRecorder()
 	handler.ServeHTTP(configResponse, configRequest)
 	var configuration map[string]any
@@ -238,13 +235,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	biosURL, biosOK := biosFiles[0]["url"].(string)
 	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
 	parentURL, parentOK := parentResource["url"].(string)
-	var grant *http.Cookie
-	for _, candidate := range configResponse.Result().Cookies() {
-		if candidate.Name == runtimeContentGrantPrefix+created.LaunchID {
-			grant = candidate
-			break
-		}
-	}
+	grant := testRuntimeCookie(t, server)
 	testassert.Falsef(t, configResponse.Code != http.StatusOK || grant == nil,
 		"launch config = %d headers=%v body=%s", configResponse.Code, configResponse.Header(), configResponse.Body.String())
 	requestContent := func(method, contentURL string, configure func(*http.Request)) *httptest.ResponseRecorder {
@@ -335,6 +326,12 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`,
 		time.Now().UnixMilli(), time.Now().UnixMilli(), created.LaunchID,
 	); err != nil {
+		t.Fatal(err)
+	}
+	if response := requestContent(http.MethodGet, gameURL, nil); response.Code != http.StatusOK {
+		t.Fatal("revoking one Launch interrupted another owned Launch")
+	}
+	if _, err := server.database.ExecContext(t.Context(), `UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`, time.Now().UnixMilli(), time.Now().UnixMilli(), second.LaunchID); err != nil {
 		t.Fatal(err)
 	}
 	revoked := requestContent(http.MethodGet, gameURL, func(request *http.Request) {
@@ -511,10 +508,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := server.Handler()
-	launchCookie := &http.Cookie{
-		Name: "retrom_launch_" + createdLaunch.LaunchID, Value: createdLaunch.Capability,
-		Path: "/runtime/launches/" + createdLaunch.LaunchID + "/",
-	}
+	launchCookie := testRuntimeCookie(t, server)
 	send := func(body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodPost, "/runtime/launches/"+createdLaunch.LaunchID+"/player-events", strings.NewReader(body),

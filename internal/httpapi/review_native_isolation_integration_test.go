@@ -220,6 +220,7 @@ func bootstrapNativeReviewHTTP(t *testing.T, server *testServer, previewID strin
 	}
 	body, _ := json.Marshal(map[string]any{"ticket": resource["bootstrapTicket"]})
 	request := httptest.NewRequestWithContext(t.Context(), "POST", origin+"/__retrom/bootstrap", bytes.NewReader(body))
+	request.AddCookie(cookie)
 	request.Header.Set("Origin", origin)
 	request.Header.Set("Sec-Fetch-Site", "same-origin")
 	request.Header.Set("Content-Type", "application/json")
@@ -228,19 +229,16 @@ func bootstrapNativeReviewHTTP(t *testing.T, server *testServer, previewID strin
 	if response.Code != 204 {
 		t.Fatalf("native bootstrap = %d %s", response.Code, response.Body.String())
 	}
-	for _, issued := range response.Result().Cookies() {
-		if issued.Name == rpgRuntimeCookieName {
-			return origin, issued
-		}
-	}
-	t.Fatal("missing isolated preview credential")
-	return "", nil
+	return origin, cookie
 }
 
 func assertNativeReviewIsolationDenied(t *testing.T, server *testServer, origin string, paths []string, cookie, otherCookie *http.Cookie) {
 	t.Helper()
+	if cookie.Value != otherCookie.Value {
+		t.Fatal("same-profile previews must share runtime token")
+	}
 	for _, path := range paths {
-		for _, supplied := range []*http.Cookie{nil, otherCookie} {
+		for _, supplied := range []*http.Cookie{nil, testOtherRuntimeCookie(t, server)} {
 			if response := requestReviewArchiveHTTP(t, server, origin+path, "GET", supplied, ""); response.Code != 404 {
 				t.Fatalf("unowned native resource %s = %d", path, response.Code)
 			}

@@ -233,6 +233,9 @@ func parseRPGRuntimeOriginTemplate(value string, publicOrigin *url.URL, allowIns
 	if err != nil || !validRPGRuntimeTemplateURL(parsed, concrete, marker, publicOrigin, allowInsecure) {
 		return "", fmt.Errorf("%w: RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE", errInvalidConfig)
 	}
+	if _, err := RuntimeCookieDomain(publicOrigin, value); err != nil {
+		return "", fmt.Errorf("%w: %w", errInvalidConfig, err)
+	}
 	return value, nil
 }
 
