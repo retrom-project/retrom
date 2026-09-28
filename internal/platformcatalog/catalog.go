@@ -9,7 +9,7 @@ import (
 	contentprofile "retrom/internal/content/profile"
 )
 
-const Version = 40
+const Version = 41
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -274,11 +274,6 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Description: "单张 8/16/32 KiB .bin/.rom 卡带。", CatalogOrder: 814,
 	},
 	{Key: "apple2/apple2js", PlatformID: "apple2", DefaultCoreID: "apple2js", Name: "Apple II 游戏", CatalogOrder: 815},
-	{
-		Key: "apple2/mame_apple2", PlatformID: "apple2", DefaultCoreID: "mame_apple2",
-		Name: "Apple II+ 游戏 (MAME)", Description: "单张 140 KiB DOS 顺序 .dsk/.do 磁盘，只读运行。",
-		CatalogOrder: 816,
-	},
 	{Key: "lutro/lutro", PlatformID: "lutro", DefaultCoreID: "lutro", Name: "Lutro 游戏", CatalogOrder: 817},
 	{Key: "daphne/daphne", PlatformID: "daphne", DefaultCoreID: "daphne", Name: "Daphne 游戏", CatalogOrder: 818},
 	{Key: "channelf/freechaf", PlatformID: "channelf", DefaultCoreID: "freechaf", Name: "Channel F 游戏", CatalogOrder: 820},

@@ -2746,7 +2746,7 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 
 ### ACC-MAME-001：MAME Apple II 双 WASM 产品验证
 
-前置：同一命名 PFB 中已经验证并安装 MAME 动态链接核心候选及完整 Provider；管理员提供 Apple II+ 的九个 BIOS 文件和一张 143360 bytes、DOS 顺序的 `.dsk/.do` 磁盘。素材必须由操作者授权，不进入仓库。首轮输入样本为《Donkey Kong》；结论只覆盖该样本及只读单盘。完整复验需要尚未发布相同内容的测试库；有 `progress.json` 时可继续本轮，复用已发布游戏必须单独标为跳过审核预览。
+前置：同一命名 PFB 中已经验证并安装 MAME 动态链接核心候选及完整 Provider；使用原有“Apple II 游戏”目录，通过默认核心影响预览与确认将其核心设为 `mame_apple2`，不为本用例另建 MAME 推荐目录；管理员提供 Apple II+ 的九个 BIOS 文件和一张 143360 bytes、DOS 顺序的 `.dsk/.do` 磁盘。素材必须由操作者授权，不进入仓库。首轮输入样本为《Donkey Kong》；结论只覆盖该样本及只读单盘。完整复验需要尚未发布相同内容的测试库；有 `progress.json` 时可继续本轮，复用已发布游戏必须单独标为跳过审核预览。
 
 等价执行入口：设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、`RETROM_CHROME_EXECUTABLE`、`RETROM_MAME_APPLE2_BIOS_DIR`、`RETROM_MAME_APPLE2_DISK`、`RETROM_ACCEPTANCE_CASE_DIR`，执行 `timeout 300s node scripts/acceptance/mame_apple2_product.mjs`。单次硬超时 300 秒。
 

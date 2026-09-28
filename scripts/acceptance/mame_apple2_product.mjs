@@ -66,7 +66,7 @@ try {
     });
     const instances = await client.json("GET", "/api/v1/admin/platform-instances?platformId=apple2&limit=100");
     const instance = instances.items.find(item => item.enabled && item.defaultCoreId === "mame_apple2");
-    assert.ok(instance, "MAME_APPLE2_PLATFORM_MISSING");
+    assert.ok(instance, "MAME_APPLE2_DIRECTORY_DEFAULT_CORE_REQUIRED");
     const uploadId = await client.upload(singleFile(diskPath), "FILES", "GENERAL");
     const imported = await client.json("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), expected: 202,
