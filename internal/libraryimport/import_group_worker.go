@@ -8,15 +8,25 @@ import (
 
 func (service *Service) Start() { service.worker.Start() }
 func (service *Service) Close() {
+	service.Stop()
+	service.Wait()
+}
+
+func (service *Service) Stop() {
 	service.workerMu.Lock()
 	service.workerClosed = true
-	worker := service.worker
 	for _, cancel := range service.attachmentCancels {
 		cancel()
 	}
 	service.workerMu.Unlock()
-	if worker != nil {
-		worker.Close()
+	if service.worker != nil {
+		service.worker.Stop()
+	}
+}
+
+func (service *Service) Wait() {
+	if service.worker != nil {
+		service.worker.Wait()
 	}
 	service.attachments.Wait()
 }

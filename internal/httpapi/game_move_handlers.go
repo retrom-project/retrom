@@ -119,7 +119,7 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 }
 
 func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, jobID string) {
-	go func() {
+	server.deferredWork.Go(func() {
 		// Move preview responses are persisted while this mutex is held. Let
 		// requests already queued for that mutex observe the queued Job before a
 		// very small validation can become READY.
@@ -130,7 +130,7 @@ func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, 
 		if err == nil && state == "QUEUED" {
 			server.variants.Resume(ctx, jobID)
 		}
-	}()
+	})
 }
 
 // Contract branches stay contiguous for a single auditable decision.

@@ -63,6 +63,7 @@ import (
 
 type Inputs struct {
 	Config                      config.Config
+	IndexCatalogs               func(context.Context) error
 	Database, ReadinessDatabase dbapi.DB
 	Dependencies                *dependencies.Set
 	Files                       *filestore.Store
@@ -76,7 +77,7 @@ type Inputs struct {
 var ErrInvalidInputs = errors.New("application requires database, files, credentials and public origin")
 
 // New assembles services without starting background work.
-func New(input Inputs) (*Services, error) {
+func New(ctx context.Context, input Inputs) (*Services, error) {
 	if input.Database == nil || input.Files == nil || input.Credentials == nil || input.Config.PublicOrigin == nil {
 		return nil, ErrInvalidInputs
 	}
@@ -85,7 +86,7 @@ func New(input Inputs) (*Services, error) {
 	if now == nil {
 		now = time.Now
 	}
-	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now)
+	payloadReleaseService, err := payloadcomposition.New(ctx, database, blobs, now)
 	if err != nil {
 		return nil, fmt.Errorf("initialize cleanup jobs: %w", err)
 	}
@@ -183,5 +184,7 @@ func New(input Inputs) (*Services, error) {
 		server.ReadinessDatabase = input.ReadinessDatabase
 		server.ReadinessService = composition.NewReadiness(input.ReadinessDatabase)
 	}
+	server.catalogs = newCatalogTask(input.IndexCatalogs)
+	server.shutdown = newShutdownGroup(server.workers(), server.CleanupJobs.Close)
 	return server, nil
 }

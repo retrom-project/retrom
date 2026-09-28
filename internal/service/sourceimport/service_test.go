@@ -59,3 +59,6 @@ func TestServiceSignalsOnlyCommittedNewWork(t *testing.T) {
 type serviceWake struct{ *serviceCommands }
 
 func (fake serviceWake) Start() { fake.calls = append(fake.calls, "worker start") }
+
+func (fake *serviceCommands) Stop() { fake.calls = append(fake.calls, "stop") }
+func (fake *serviceCommands) Wait() { fake.calls = append(fake.calls, "wait") }

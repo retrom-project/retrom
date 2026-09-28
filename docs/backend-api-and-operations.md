@@ -31,6 +31,12 @@ flowchart LR
 
 选择该形态是为了让浏览器始终看到同一 HTTPS origin，同时保持后端自托管和故障排查简单。Go 与 Next.js 应用只处理 HTTP；证书生命周期和 TLS 策略完全留在 NG。
 
+### 进程退出协议
+
+收到 SIGINT/SIGTERM，或启动失败、HTTP 异常开始清理时，进程使用同一个 30 秒总关闭预算，包含 HTTP、后台任务和资源释放。HTTP 先停止接收新请求，最多排空 15 秒；超时后关闭连接并取消请求上下文，但仍显式等待 Handler 及其登记的响应后任务返回。DAT 与其他任务由 application 取消并等待；所有生产任务退出后才关闭清理 Worker，随后关闭数据库、释放数据目录锁。取消、HTTP Shutdown 返回或 `Services.Shutdown(ctx)` 超时都不是任务已结束的证明。
+
+独立进程监督器持续跟踪关闭阶段及未结束任务。超过总预算时，入口记录诊断并以非零状态直接退出；资源清理留在原有任务链中，不在超时分支并发关闭数据库或提前解锁。无法协作退出的 goroutine 由进程终止结束。开发脚本为后端保留 35 秒等待，PFB 容器保留 45 秒 grace period；部署端的停止期限也应大于进程预算。
+
 ## 2. 进程与模块边界
 
 Go module 路径一期固定为 `retrom`，HTTP server 使用标准库 `net/http`；不得另引入 Web framework 或 ORM。目录布局固定为：

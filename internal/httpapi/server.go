@@ -80,6 +80,7 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
+	deferredWork            sync.WaitGroup
 	config                  config.Config
 	database                dbapi.DB
 	readinessDatabase       dbapi.DB
@@ -426,3 +427,6 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/review-screenshot", server.storeReviewScreenshot)
 }
+
+// Wait joins work scheduled by completed HTTP handlers. Stop and drain HTTP before calling it.
+func (server *Server) Wait() { server.deferredWork.Wait() }

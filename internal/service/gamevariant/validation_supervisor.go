@@ -74,3 +74,6 @@ func (supervisor *ValidationSupervisor) failed(err error) {
 }
 
 func (supervisor *ValidationSupervisor) Close() { supervisor.runs.Close() }
+
+func (supervisor *ValidationSupervisor) Stop() { supervisor.runs.Stop() }
+func (supervisor *ValidationSupervisor) Wait() { supervisor.runs.Wait() }

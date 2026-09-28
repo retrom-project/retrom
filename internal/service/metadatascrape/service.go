@@ -81,9 +81,17 @@ func (service *Service) Start(ctx context.Context) {
 }
 
 func (service *Service) Close() {
+	service.Stop()
+	service.Wait()
+}
+
+func (service *Service) Stop() {
 	service.stopping.Store(true)
 	service.scrapes.stop()
 	service.media.stop()
+}
+
+func (service *Service) Wait() {
 	service.scrapes.group.Wait()
 	service.media.group.Wait()
 }

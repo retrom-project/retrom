@@ -250,6 +250,7 @@ func newRecommendationTestServer(t *testing.T) *Server {
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatalf("bootstrap recommendation dependencies: %v", err)
 	}
+	t.Cleanup(server.Wait)
 	server.startupReady.Store(true)
 	return server
 }
@@ -291,7 +292,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
 	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir, MultiDiscImportEnabled: multiDisc}
-	services, err := application.New(application.Inputs{
+	services, err := application.New(t.Context(), application.Inputs{
 		Config: settings, Database: database.SQL, ReadinessDatabase: database.ReadOnly,
 		Dependencies: dependencySet, Files: blobs, Credentials: credentials, Now: time.Now,
 		RuntimeProvider: runtimeBuilder,
@@ -304,6 +305,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	server := New(settings, services, testAuthenticator{}, time.Now)
 	// General HTTP contract tests exercise handlers, not the asynchronous DAT
 	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
+	t.Cleanup(server.Wait)
 	server.startupReady.Store(true)
 	return server
 }

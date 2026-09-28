@@ -53,13 +53,14 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) *Server {
 	testassert.False(t, err != nil, err)
 	origin, _ := url.Parse("http://localhost:3000")
 	settings := config.Config{Mode: mode, PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: root}
-	services, err := application.New(application.Inputs{
+	services, err := application.New(t.Context(), application.Inputs{
 		Config: settings, Database: database.SQL, Dependencies: dependencySet, Files: blobs,
 		Credentials: credentials, Accounts: accountService, Now: now,
 	})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(services.Close)
 	server := New(settings, services, accountService, now)
+	t.Cleanup(server.Wait)
 	server.startupReady.Store(true)
 	return server
 }

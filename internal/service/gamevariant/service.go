@@ -85,3 +85,6 @@ func (s *Service) Dispatch(ctx context.Context, id string) { s.supervisor.Dispat
 func (s *Service) Resume(ctx context.Context, id string)   { s.supervisor.Resume(ctx, id) }
 func (s *Service) Recover(ctx context.Context) error       { return s.supervisor.Recover(ctx) }
 func (s *Service) Close()                                  { s.supervisor.Close() }
+
+func (s *Service) Stop() { s.supervisor.Stop() }
+func (s *Service) Wait() { s.supervisor.Wait() }

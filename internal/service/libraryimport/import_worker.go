@@ -104,14 +104,20 @@ func (worker *ImportWorker) Cancel(id string) {
 }
 
 func (worker *ImportWorker) Close() {
+	worker.Stop()
+	worker.Wait()
+}
+
+func (worker *ImportWorker) Stop() {
 	worker.mutex.Lock()
 	worker.closed = true
 	for _, cancel := range worker.active {
 		cancel(ErrImportWorkerClosed)
 	}
 	worker.mutex.Unlock()
-	worker.wait.Wait()
 }
+
+func (worker *ImportWorker) Wait() { worker.wait.Wait() }
 
 func (worker *ImportWorker) Recover(parent context.Context) error {
 	ctx, done, err := worker.register(parent, "import-explicit-recovery")
