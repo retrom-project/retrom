@@ -3,7 +3,7 @@ const digestPattern = /^[0-9a-f]{64}$/u;
 
 export const butterscotchProductStages = [
   "imported", "preview-visible", "preview-captured", "published", "gamepad-input",
-  "checkpoint-created", "different-launch-restored", "post-restore-input", "project-cache-reused",
+  "checkpoint-created", "original-exited", "different-launch-restored", "post-restore-input", "restored-exited", "project-cache-reused",
 ];
 
 export function assertButterscotchProductEvidence(value) {

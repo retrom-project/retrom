@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {withProjectRunArchive} from "./project_run_archive.mjs";
 import {trackProjectResponses, projectReadEvidence} from "./butterscotch_content_evidence.mjs";
+import {exitContentIOPlayer} from "./content_io_player_exit.mjs";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -118,6 +119,7 @@ async function runProductCase(activeBrowser) {
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "BUTTERSCOTCH_ACCEPTANCE_GAMEPAD_INPUT_UNOBSERVED");
     const saved = await createCheckpoint(originalPage, original.launchId);
+    await exitContentIOPlayer(originalPage, baseUrl, {...original, returnTo: `/games/${approved.gameId}`});
     await originalPage.close();
 
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
@@ -136,6 +138,7 @@ async function runProductCase(activeBrowser) {
     await sendGamepadInput(restoredCanvas);
     const postRestoreFrame = await screenshotEvidence(restoredCanvas, "post-restore-input.png");
     requireChanged(restoredFrame, postRestoreFrame, "BUTTERSCOTCH_ACCEPTANCE_RESTORE_INPUT_UNOBSERVED");
+    await exitContentIOPlayer(restoredPage, baseUrl, {...restored, returnTo: `/games/${approved.gameId}`});
     await restoredPage.close();
     if (Object.values(browserErrors).some((count) => count !== 0)) {
       throw new Error("BUTTERSCOTCH_ACCEPTANCE_BROWSER_ERROR");
