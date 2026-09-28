@@ -12,7 +12,7 @@ type Repository interface {
 	WithWrite(context.Context, func(WriteScope) error) error
 }
 
-//nolint:interfacebloat // platform lifecycle and impact commands share one consistent read snapshot
+// Reader supplies platform lifecycle and impact data from one consistent read snapshot.
 type Reader interface {
 	CatalogReferences(context.Context, platformcatalog.Catalog) (map[string]CatalogReference, error)
 	Directories(context.Context) ([]Directory, error)
@@ -28,7 +28,7 @@ type WriteScope struct {
 	Idempotency IdempotencyRecords
 }
 
-//nolint:interfacebloat // directory mutations and their audit records share one atomic write scope
+// DirectoryWrites keeps directory mutations and their audit records in one transaction.
 type DirectoryWrites interface {
 	Insert(context.Context, NewDirectory) error
 	RecordCreation(context.Context, CreationAudit) error

@@ -6,7 +6,7 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-//nolint:interfacebloat // the dashboard reads share one cohesive projection boundary
+// Repository supplies the dashboard projections through one read boundary.
 type Repository interface {
 	Summary(context.Context, string) (Summary, error)
 	RecentSaves(context.Context, string) ([]RecentSave, error)

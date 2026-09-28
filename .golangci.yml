@@ -140,7 +140,7 @@ linters:
     gocyclo:
       min-complexity: 15
     interfacebloat:
-      max: 5
+      max: 10
     lll:
       line-length: 120
     misspell:

@@ -23,7 +23,7 @@ type Executor interface {
 }
 
 // DB owns a connection pool. Transactions expose only the database contract.
-type DB interface { //nolint:interfacebloat // Pool, transaction, and lifecycle capabilities are one resource contract.
+type DB interface {
 	Executor
 	BeginTx(context.Context, *TxOptions) (Tx, error)
 	BeginImmediate(context.Context) (Tx, error)

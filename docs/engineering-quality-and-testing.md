@@ -151,7 +151,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - `funlen.lines = 150`、`funlen.statements = 100`；
 - `gocognit.min-complexity = 25`；
 - `gocyclo.min-complexity = 15`；
-- `interfacebloat.max = 5`；
+- `interfacebloat.max = 10`；
 - `lll.line-length = 120`；
 - `nestif.min-complexity = 4`；
 - `misspell.locale = US`。

@@ -72,8 +72,6 @@ type ReviewValidationRefreshFileCopy struct {
 // needed while a review draft chooses or rebuilds a validation. The caller
 // supplies a transaction-bound implementation, preserving the draft patch's
 // atomicity without leaking storage details into the business package.
-//
-//nolint:interfacebloat // one refresh transaction needs this cohesive read/write port
 type ReviewValidationRefreshRepository interface {
 	Inputs(context.Context, string, string) (ReviewValidationRefreshInputs, error)
 	Exact(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)

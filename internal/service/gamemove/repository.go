@@ -8,8 +8,6 @@ import (
 
 // Repository exposes the reads and atomic writes needed by the game move
 // application service. Concrete SQL access belongs in persistence.
-//
-//nolint:interfacebloat // the game move use case intentionally shares one read/write boundary
 type Repository interface {
 	ImpactSubject(context.Context, string, string) (ImpactSubject, error)
 	Variant(context.Context, VariantQuery) (VariantState, bool, error)

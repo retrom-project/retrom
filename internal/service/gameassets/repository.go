@@ -10,8 +10,6 @@ type Repository interface {
 
 // WriteScope contains the storage operations that must commit atomically with
 // a game asset replacement.
-//
-//nolint:interfacebloat // the asset mutation is one atomic transaction scope
 type WriteScope interface {
 	GameVersion(context.Context, string) (int64, error)
 	AssetExists(context.Context, string, string) (bool, error)
