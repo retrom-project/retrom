@@ -41,7 +41,7 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 			t.Errorf("close blocking database: %v", closeErr)
 		}
 	})
-	transaction, err := blocker.BeginImmediate(ctx)
+	transaction, err := blocker.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatalf("begin blocking write: %v", err)
 	}

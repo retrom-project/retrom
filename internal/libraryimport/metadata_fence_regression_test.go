@@ -21,7 +21,7 @@ type metadataFaultConnector struct {
 }
 
 func (connector metadataFaultConnector) Connect(context.Context) (driver.Conn, error) {
-	conn, err := connector.Driver().Open(connector.path)
+	conn, err := connector.Driver().Open(connector.path + "?_txlock=immediate")
 	if err != nil {
 		return nil, err
 	}

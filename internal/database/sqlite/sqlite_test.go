@@ -9,7 +9,7 @@ import (
 	"retrom/internal/database/sqlite"
 )
 
-func TestImmediateTransactionCommitRollbackAndRelease(t *testing.T) {
+func TestTransactionCommitRollbackAndRelease(t *testing.T) {
 	ctx := context.Background()
 	db, err := sqlite.Open(":memory:", sqlite.Options{MaxOpenConns: 1})
 	if err != nil {
@@ -20,7 +20,7 @@ func TestImmediateTransactionCommitRollbackAndRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	cause := errors.New("abort")
-	err = dbapi.InImmediateTransaction(ctx, db, func(tx dbapi.Tx) error {
+	err = dbapi.InTransaction(ctx, db, nil, func(tx dbapi.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO items(value) VALUES (3)")
 		if err != nil {
 			return err
@@ -30,7 +30,7 @@ func TestImmediateTransactionCommitRollbackAndRelease(t *testing.T) {
 	if !errors.Is(err, cause) {
 		t.Fatalf("rollback error=%v", err)
 	}
-	err = dbapi.InImmediateTransaction(ctx, db, func(tx dbapi.Tx) error {
+	err = dbapi.InTransaction(ctx, db, nil, func(tx dbapi.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO items(value) VALUES (5)")
 		return err
 	})

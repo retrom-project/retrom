@@ -25,8 +25,8 @@ type Executor interface {
 // DB owns a connection pool. Transactions expose only the database contract.
 type DB interface {
 	Executor
+	// BeginTx starts a write transaction unless ReadOnly is explicitly set.
 	BeginTx(context.Context, *TxOptions) (Tx, error)
-	BeginImmediate(context.Context) (Tx, error)
 	PingContext(context.Context) error
 	SetMaxOpenConns(int)
 	Stats() Stats

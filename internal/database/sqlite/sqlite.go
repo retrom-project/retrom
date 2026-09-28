@@ -7,6 +7,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // Register SQLite for sql.Open in this adapter.
@@ -31,23 +33,22 @@ type (
 	}
 )
 
-type immediateTransaction struct {
-	connection *sql.Conn
-	ctx        context.Context
-	done       bool
-	now        func() time.Time
-}
-
 var errUnsupportedIsolation = errors.New("unsupported transaction isolation")
 
 var (
 	_ database.DB = (*handle)(nil)
 	_ database.Tx = (*transaction)(nil)
-	_ database.Tx = (*immediateTransaction)(nil)
 )
 
 func Open(dsn string, options Options) (database.DB, error) {
-	raw, err := sql.Open("sqlite", dsn)
+	name, rawQuery, _ := strings.Cut(dsn, "?")
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("parse sqlite connection options: %w", err)
+	}
+	// The driver reserves the writer at BeginTx; ReadOnly transactions keep BEGIN.
+	query.Set("_txlock", "immediate")
+	raw, err := sql.Open("sqlite", name+"?"+query.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
@@ -56,6 +57,7 @@ func Open(dsn string, options Options) (database.DB, error) {
 }
 
 // OpenConnector supports driver-boundary fault injection without exposing a SQL pool.
+// The connector must configure the same _txlock=immediate policy as Open.
 func OpenConnector(connector driver.Connector, options Options) database.DB {
 	raw := sql.OpenDB(connector)
 	configure(raw, options)
@@ -69,8 +71,7 @@ func clock(options Options) func() time.Time {
 	return time.Now
 }
 
-func (tx *transaction) NowMS() int64          { return tx.now().UnixMilli() }
-func (tx *immediateTransaction) NowMS() int64 { return tx.now().UnixMilli() }
+func (tx *transaction) NowMS() int64 { return tx.now().UnixMilli() }
 
 func configure(raw *sql.DB, options Options) {
 	if options.MaxOpenConns > 0 {
@@ -131,17 +132,6 @@ func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (dat
 	return &transaction{raw: raw, now: db.now}, nil
 }
 
-func (db *handle) BeginImmediate(ctx context.Context) (database.Tx, error) {
-	connection, err := db.raw.Conn(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("acquire sqlite connection: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return nil, errors.Join(fmt.Errorf("begin immediate sqlite transaction: %w", err), connection.Close())
-	}
-	return &immediateTransaction{connection: connection, ctx: ctx, now: db.now}, nil
-}
-
 func (tx *transaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	result, err := tx.raw.ExecContext(ctx, query, args...)
 	return wrapResult("execute sqlite transaction query", result, err)
@@ -169,47 +159,6 @@ func (tx *transaction) Rollback() error {
 		return fmt.Errorf("rollback sqlite transaction: %w", err)
 	}
 	return nil
-}
-
-func (tx *immediateTransaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	result, err := tx.connection.ExecContext(ctx, query, args...)
-	return wrapResult("execute immediate sqlite transaction query", result, err)
-}
-
-func (tx *immediateTransaction) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	rows, err := tx.connection.QueryContext(ctx, query, args...)
-	return wrapRows("query immediate sqlite transaction", rows, err)
-}
-
-func (tx *immediateTransaction) PrepareContext(ctx context.Context, query string) (database.Stmt, error) {
-	statement, err := tx.connection.PrepareContext(ctx, query)
-	return wrapStmt("prepare immediate sqlite transaction query", statement, err)
-}
-
-func (tx *immediateTransaction) Commit() error {
-	if tx.done {
-		return sql.ErrTxDone
-	}
-	if _, err := tx.connection.ExecContext(tx.ctx, "COMMIT"); err != nil {
-		return fmt.Errorf("commit immediate sqlite transaction: %w", err)
-	}
-	tx.done = true
-	if err := tx.connection.Close(); err != nil {
-		return fmt.Errorf("release immediate sqlite connection: %w", err)
-	}
-	return nil
-}
-
-func (tx *immediateTransaction) Rollback() error {
-	if tx.done {
-		return sql.ErrTxDone
-	}
-	tx.done = true
-	_, err := tx.connection.ExecContext(context.WithoutCancel(tx.ctx), "ROLLBACK")
-	if err != nil {
-		err = fmt.Errorf("rollback immediate sqlite transaction: %w", err)
-	}
-	return errors.Join(err, tx.connection.Close())
 }
 
 func wrapResult(operation string, result sql.Result, err error) (sql.Result, error) {

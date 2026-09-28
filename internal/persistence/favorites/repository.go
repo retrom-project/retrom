@@ -13,9 +13,9 @@ type Repository struct{ database dbapi.DB }
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (service *Repository) WithWrite(ctx context.Context, work func(favorites.WriteScope) error) error {
-	transaction, err := service.database.BeginImmediate(ctx)
+	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("favorites: begin immediate: %w", err)
+		return fmt.Errorf("favorites: begin write: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
 	if err := work(writeScope(transaction)); err != nil {

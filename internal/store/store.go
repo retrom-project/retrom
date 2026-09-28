@@ -386,7 +386,7 @@ func runMigration(
 	source migrationSource,
 	now func() time.Time,
 ) error {
-	transaction, err := database.BeginImmediate(ctx)
+	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin migration %s: %w", source.name, err)
 	}

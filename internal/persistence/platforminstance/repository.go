@@ -31,9 +31,9 @@ func (repository *Repository) WithRead(ctx context.Context, work func(platformin
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(platforminstance.WriteScope) error) error {
-	transaction, err := repository.database.BeginImmediate(ctx)
+	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("platforminstance: begin immediate: %w", err)
+		return fmt.Errorf("platforminstance: begin write: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
 	bound := records{transaction}

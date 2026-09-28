@@ -38,7 +38,9 @@ func OpenSQLFaultDatabase(t testing.TB, source dbapi.DB, hooks SQLFaultHooks) db
 		t.Fatal("SQL fault injection requires a file-backed test database")
 	}
 	connector := sqlFaultConnector{
-		base: &moderncsqlite.Driver{}, dsn: filename + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", hooks: hooks,
+		base:  &moderncsqlite.Driver{},
+		dsn:   filename + "?_txlock=immediate&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)",
+		hooks: hooks,
 	}
 	database := dbsqlite.OpenConnector(connector, dbsqlite.Options{MaxOpenConns: 1})
 	t.Cleanup(func() {
