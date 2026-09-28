@@ -7,10 +7,10 @@ import (
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records reviewApprovalRecords) RecordPublished(ctx context.Context, change application.BulkPublication) error {
+func (records reviewApprovalRecords) RecordPublished(ctx context.Context, change libraryservice.BulkPublication) error {
 	intent := change.Intent
 	result, err := recordstore.UpdateReviewBulkApprovals(ctx, records.transaction, recordstore.Update{
 		Set: `cursor_item_id=?,scanned_count=scanned_count+1,published_count=published_count+1,
@@ -40,7 +40,7 @@ WHERE id=? AND state='RUNNING' AND worker_id=?`,
 }
 
 func (records reviewApprovalRecords) CheckRequest(ctx context.Context,
-	request application.ReviewApprovalRequest, now int64,
+	request libraryservice.ReviewApprovalRequest, now int64,
 ) error {
 	intent := request.Bulk
 	var valid bool
@@ -54,7 +54,7 @@ job.leased_until_ms>?
 		return fmt.Errorf("check request: %w", err)
 	}
 	if !valid {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }

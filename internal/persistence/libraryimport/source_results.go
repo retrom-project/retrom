@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type SourceResults struct{ executor dbapi.Executor }
@@ -18,17 +18,17 @@ func BindSourceResults(executor dbapi.Executor) *SourceResults {
 
 func (records *SourceResults) Read(
 	ctx context.Context,
-	created application.ServerCreated,
-) (application.ServerImportResult, error) {
+	created libraryservice.ServerCreated,
+) (libraryservice.ServerImportResult, error) {
 	return records.ReadItem(ctx, created, "")
 }
 
 func (records *SourceResults) ReadItem(
 	ctx context.Context,
-	created application.ServerCreated,
+	created libraryservice.ServerCreated,
 	itemID string,
-) (application.ServerImportResult, error) {
-	result := application.ServerImportResult{Created: created}
+) (libraryservice.ServerImportResult, error) {
+	result := libraryservice.ServerImportResult{Created: created}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT item.id,item.state,COALESCE(validation.status,''),COALESCE(validation.compatibility_code,''),
 COALESCE(validation.core_id,''),COALESCE(core.name,''),COALESCE(validation.dependency_snapshot_json,''),
@@ -57,27 +57,27 @@ WHERE item.import_job_id=? AND (?='' OR item.id=?)
 ORDER BY item.id,duplicate.existing_game_id
 `, created.ImportJobID, itemID, itemID)
 	if err != nil {
-		return application.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
+		return libraryservice.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	itemIndexes := map[string]int{}
 	for rows.Next() {
-		var item application.ServerImportItem
+		var item libraryservice.ServerImportItem
 		var sourcePaths string
 		if err := rows.Scan(&item.ItemID, &item.State, &item.ValidationStatus, &item.CompatibilityCode,
 			&item.CoreID, &item.CoreName, &item.DependencySnapshotJSON,
 			&item.ContentKind, &item.SourceManifestJSON, &item.SourceManifestDigest,
 			&item.ExistingGameID, &sourcePaths); err != nil {
-			return application.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
+			return libraryservice.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
 		}
 		if err := json.Unmarshal([]byte(sourcePaths), &item.SourceRelativePaths); err != nil {
-			return application.ServerImportResult{}, fmt.Errorf("decode server source paths: %w", err)
+			return libraryservice.ServerImportResult{}, fmt.Errorf("decode server source paths: %w", err)
 		}
 		if index, exists := itemIndexes[item.ItemID]; exists {
 			if item.ExistingGameID != "" {
 				result.Items[index].ExistingMatches = append(
 					result.Items[index].ExistingMatches,
-					application.ServerDuplicateMatch{GameID: item.ExistingGameID},
+					libraryservice.ServerDuplicateMatch{GameID: item.ExistingGameID},
 				)
 			}
 			continue
@@ -85,21 +85,21 @@ ORDER BY item.id,duplicate.existing_game_id
 		if item.ExistingGameID != "" {
 			item.ExistingMatches = append(
 				item.ExistingMatches,
-				application.ServerDuplicateMatch{GameID: item.ExistingGameID},
+				libraryservice.ServerDuplicateMatch{GameID: item.ExistingGameID},
 			)
 		}
 		itemIndexes[item.ItemID] = len(result.Items)
 		result.Items = append(result.Items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return application.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
+		return libraryservice.ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
 	}
 	if err := rows.Close(); err != nil {
-		return application.ServerImportResult{}, fmt.Errorf("close server source results: %w", err)
+		return libraryservice.ServerImportResult{}, fmt.Errorf("close server source results: %w", err)
 	}
 	result.RejectedCodes, err = records.rejectedCodes(ctx, created.ImportJobID)
 	if err != nil {
-		return application.ServerImportResult{}, err
+		return libraryservice.ServerImportResult{}, err
 	}
 	return result, nil
 }

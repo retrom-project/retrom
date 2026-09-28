@@ -13,7 +13,7 @@ import (
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 	"retrom/internal/composition/importworkflow"
 	librarycomposition "retrom/internal/composition/libraryimport"
 
@@ -86,7 +86,7 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	if now == nil {
 		now = time.Now
 	}
-	payloadReleaseService, err := payloadcomposition.New(ctx, database, blobs, now)
+	payloadReleaseService, err := cleanupcomposition.New(ctx, database, blobs, now)
 	if err != nil {
 		return nil, fmt.Errorf("initialize cleanup jobs: %w", err)
 	}

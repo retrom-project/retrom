@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // QueuedJobs reads the scheduling rows used to resume workers after startup.
@@ -14,13 +14,13 @@ import (
 // physical jobs table.
 type QueuedJobs struct{ executor dbapi.Executor }
 
-var _ application.QueuedJobReader = (*QueuedJobs)(nil)
+var _ libraryservice.QueuedJobReader = (*QueuedJobs)(nil)
 
 func NewQueuedJobs(executor dbapi.Executor) *QueuedJobs {
 	return &QueuedJobs{executor: executor}
 }
 
-func (records *QueuedJobs) Queued(ctx context.Context, kind string) ([]application.QueuedJob, error) {
+func (records *QueuedJobs) Queued(ctx context.Context, kind string) ([]libraryservice.QueuedJob, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT id,available_at_ms FROM jobs
 WHERE kind=? AND state='QUEUED'

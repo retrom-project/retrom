@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ImportReads struct {
@@ -65,8 +65,8 @@ SELECT
   WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)
 `
 
-func (repository *ImportReads) Summary(ctx context.Context) (application.ImportOverviewSummary, error) {
-	var result application.ImportOverviewSummary
+func (repository *ImportReads) Summary(ctx context.Context) (libraryservice.ImportOverviewSummary, error) {
+	var result libraryservice.ImportOverviewSummary
 	err := dbapi.QueryRowContext(ctx, repository.executor, importOverviewSummarySQL).Scan(
 		&result.Running,
 		&result.ReviewPending,
@@ -79,7 +79,7 @@ func (repository *ImportReads) Summary(ctx context.Context) (application.ImportO
 		&result.IssueItems,
 	)
 	if err != nil {
-		return application.ImportOverviewSummary{}, fmt.Errorf("query import overview: %w", err)
+		return libraryservice.ImportOverviewSummary{}, fmt.Errorf("query import overview: %w", err)
 	}
 	return result, nil
 }
@@ -117,8 +117,8 @@ LIMIT ?
 
 func (repository *ImportReads) List(
 	ctx context.Context,
-	query application.ImportListQuery,
-) ([]application.ImportListItem, error) {
+	query libraryservice.ImportListQuery,
+) ([]libraryservice.ImportListItem, error) {
 	arguments := []any{
 		query.QueryText, query.QueryText, query.QueryText,
 		query.State, query.State,
@@ -134,9 +134,9 @@ func (repository *ImportReads) List(
 		return nil, fmt.Errorf("query imports: %w", err)
 	}
 	defer func() { cleanup.Error("close import list", rows.Close()) }()
-	items := make([]application.ImportListItem, 0, query.Limit)
+	items := make([]libraryservice.ImportListItem, 0, query.Limit)
 	for rows.Next() {
-		var item application.ImportListItem
+		var item libraryservice.ImportListItem
 		var resolvedRejected int64
 		var lastErrorCode sql.NullString
 		if err := rows.Scan(
@@ -215,8 +215,8 @@ WHERE i.id=?
 func (repository *ImportReads) Detail(
 	ctx context.Context,
 	importJobID string,
-) (application.ImportDetail, error) {
-	var result application.ImportDetail
+) (libraryservice.ImportDetail, error) {
+	var result libraryservice.ImportDetail
 	var configJSON string
 	var datID, payloadReleaseJobID, errorCode, cancelReason, reconfiguredFrom sql.NullString
 	var rejected, resolvedRejected int64
@@ -256,27 +256,27 @@ func (repository *ImportReads) Detail(
 		&result.UpdatedAtMS,
 	)
 	if err != nil {
-		return application.ImportDetail{}, fmt.Errorf("query import detail: %w", err)
+		return libraryservice.ImportDetail{}, fmt.Errorf("query import detail: %w", err)
 	}
 	result.DatVersionID = importReadString(datID)
 	result.PayloadReleaseJobID = importReadString(payloadReleaseJobID)
 	result.ErrorCode = importReadString(errorCode)
 	result.CancelReason = importReadString(cancelReason)
 	result.ReconfiguredFromImportJobID = importReadString(reconfiguredFrom)
-	result.ConfigSnapshot = application.DecodeImportDocument(configJSON)
+	result.ConfigSnapshot = libraryservice.DecodeImportDocument(configJSON)
 	result.Counts.RejectedFiles = rejected
 	result.Counts.UnresolvedRejectedFiles = rejected - resolvedRejected
 	result.FileOutcomes, err = repository.fileOutcomes(ctx, importJobID)
 	if err != nil {
-		return application.ImportDetail{}, err
+		return libraryservice.ImportDetail{}, err
 	}
 	result.AlreadyImportedMatches, err = repository.duplicateMatches(ctx, importJobID)
 	if err != nil {
-		return application.ImportDetail{}, err
+		return libraryservice.ImportDetail{}, err
 	}
 	result.ItemSummaries, err = repository.MultiDiscItemSummaries(ctx, importJobID)
 	if err != nil {
-		return application.ImportDetail{}, err
+		return libraryservice.ImportDetail{}, err
 	}
 	return result, nil
 }
@@ -284,7 +284,7 @@ func (repository *ImportReads) Detail(
 func (repository *ImportReads) MultiDiscItemSummaries(
 	ctx context.Context,
 	importJobID string,
-) ([]application.ImportMultiDiscItemSummary, error) {
+) ([]libraryservice.ImportMultiDiscItemSummary, error) {
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
 count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
@@ -307,9 +307,9 @@ ORDER BY upload.relative_path,item.id
 		return nil, fmt.Errorf("query multi-disc item summaries: %w", err)
 	}
 	defer func() { cleanup.Error("close multi-disc item summaries", rows.Close()) }()
-	summaries := make([]application.ImportMultiDiscItemSummary, 0)
+	summaries := make([]libraryservice.ImportMultiDiscItemSummary, 0)
 	for rows.Next() {
-		var summary application.ImportMultiDiscItemSummary
+		var summary libraryservice.ImportMultiDiscItemSummary
 		if err := rows.Scan(
 			&summary.ItemID,
 			&summary.State,
@@ -365,7 +365,7 @@ ORDER BY upload.relative_path,upload.id
 func (repository *ImportReads) fileOutcomes(
 	ctx context.Context,
 	importJobID string,
-) ([]application.ImportFileOutcome, error) {
+) ([]libraryservice.ImportFileOutcome, error) {
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT u.id,
 u.relative_path,
@@ -406,9 +406,9 @@ ORDER BY u.relative_path,u.id
 		return nil, fmt.Errorf("query import file outcomes: %w", err)
 	}
 	defer func() { cleanup.Error("close import file outcomes", rows.Close()) }()
-	result := make([]application.ImportFileOutcome, 0)
+	result := make([]libraryservice.ImportFileOutcome, 0)
 	for rows.Next() {
-		var outcome application.ImportFileOutcome
+		var outcome libraryservice.ImportFileOutcome
 		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
 		var resolvedAtMS sql.NullInt64
 		var alreadyImported int64
@@ -432,7 +432,7 @@ ORDER BY u.relative_path,u.id
 			outcome.ReasonCode = &value
 		}
 		if resolutionAction.Valid && replacementImportJobID.Valid && resolvedAtMS.Valid {
-			outcome.Resolution = &application.ImportFileResolution{
+			outcome.Resolution = &libraryservice.ImportFileResolution{
 				Action:                 resolutionAction.String,
 				ReplacementImportJobID: replacementImportJobID.String,
 				ResolvedAtMS:           resolvedAtMS.Int64,
@@ -449,7 +449,7 @@ ORDER BY u.relative_path,u.id
 func (repository *ImportReads) duplicateMatches(
 	ctx context.Context,
 	importJobID string,
-) ([]application.ImportDuplicateMatch, error) {
+) ([]libraryservice.ImportDuplicateMatch, error) {
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT match.import_item_id,
 match.content_identity_digest,
@@ -469,9 +469,9 @@ ORDER BY item.created_at_ms,item.id,game.created_at_ms,game.id
 		return nil, fmt.Errorf("query import duplicate matches: %w", err)
 	}
 	defer func() { cleanup.Error("close import duplicate matches", rows.Close()) }()
-	result := make([]application.ImportDuplicateMatch, 0)
+	result := make([]libraryservice.ImportDuplicateMatch, 0)
 	for rows.Next() {
-		var match application.ImportDuplicateMatch
+		var match libraryservice.ImportDuplicateMatch
 		if err := rows.Scan(
 			&match.ImportItemID,
 			&match.ContentIdentityDigest,
@@ -498,4 +498,4 @@ func importReadString(value sql.NullString) *string {
 	return &result
 }
 
-var _ application.ImportReadRepository = (*ImportReads)(nil)
+var _ libraryservice.ImportReadRepository = (*ImportReads)(nil)

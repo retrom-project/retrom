@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -18,13 +18,13 @@ func NewMultiDiscAttachments(database dbapi.DB) *MultiDiscAttachments {
 	return &MultiDiscAttachments{database}
 }
 
-func BindMultiDiscAdmission(executor dbapi.Executor) application.MultiDiscAttachmentReader {
+func BindMultiDiscAdmission(executor dbapi.Executor) libraryservice.MultiDiscAttachmentReader {
 	return multidiscAdmissionRecords{executor}
 }
 
 func (repository *MultiDiscAttachments) WithAttachmentAdmission(
 	ctx context.Context,
-	run func(application.MultiDiscAttachmentScope) error,
+	run func(libraryservice.MultiDiscAttachmentScope) error,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -32,7 +32,7 @@ func (repository *MultiDiscAttachments) WithAttachmentAdmission(
 	}
 	defer dbapi.Rollback(tx)
 	records := multidiscAdmissionRecords{tx}
-	if err := run(application.MultiDiscAttachmentScope{Read: records, Queue: records, Review: records}); err != nil {
+	if err := run(libraryservice.MultiDiscAttachmentScope{Read: records, Queue: records, Review: records}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -50,7 +50,7 @@ func attachmentAdmissionCount(result sql.Result, err error, code string) error {
 		return fmt.Errorf("count multi-disc attachment admission: %w", err)
 	}
 	if count != 1 {
-		return &application.MultiDiscAttachmentError{Code: code, Cause: application.ErrInvalid}
+		return &libraryservice.MultiDiscAttachmentError{Code: code, Cause: libraryservice.ErrInvalid}
 	}
 	return nil
 }

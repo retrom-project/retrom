@@ -7,10 +7,10 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records creationRecords) Validation(ctx context.Context, change application.CreationValidation) error {
+func (records creationRecords) Validation(ctx context.Context, change libraryservice.CreationValidation) error {
 	target := change.Target
 	result, err := recordstore.CreateImportItemCoreValidations(
 		ctx,
@@ -76,9 +76,9 @@ VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.FileRecord, f
 	return nil
 }
 
-func (records creationRecords) Draft(ctx context.Context, change application.CreationDraft) error {
+func (records creationRecords) Draft(ctx context.Context, change libraryservice.CreationDraft) error {
 	if change.ID != change.ItemID {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	result, err := recordstore.UpdateReviewItems(ctx, records.transaction, recordstore.Update{
 		Set: `search_text=?,target_platform_instance_id=?,selected_validation_id=?,
@@ -93,7 +93,7 @@ review_created_at_ms=?,review_updated_at_ms=?`,
 	return creationMutation(result, err, "initialize creation review", 1)
 }
 
-func (records creationRecords) RPG(ctx context.Context, change application.CreationRPGProfile) error {
+func (records creationRecords) RPG(ctx context.Context, change libraryservice.CreationRPGProfile) error {
 	profile, err := profilemodel.Encode(
 		profilemodel.Review,
 		profilemodel.RPGMakerProject,
@@ -125,7 +125,7 @@ WHERE id=? AND review_profile_json IS NULL AND EXISTS(
 	return creationMutation(result, err, "write creation RPG profile", 1)
 }
 
-func (records creationRecords) Events(ctx context.Context, events []application.CreationEvent) error {
+func (records creationRecords) Events(ctx context.Context, events []libraryservice.CreationEvent) error {
 	for _, event := range events {
 		result, err := records.transaction.ExecContext(
 			ctx,

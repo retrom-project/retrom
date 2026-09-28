@@ -9,44 +9,44 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ImportFacts struct{ executor dbapi.Executor }
 
 func BindImportFacts(executor dbapi.Executor) ImportFacts { return ImportFacts{executor: executor} }
 
-func (records ImportFacts) Upload(ctx context.Context, id string) (application.ImportUpload, bool, error) {
-	var result application.ImportUpload
+func (records ImportFacts) Upload(ctx context.Context, id string) (libraryservice.ImportUpload, bool, error) {
+	var result libraryservice.ImportUpload
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,purpose,source_type,state,version,manifest_digest,total_files
 FROM upload_sessions WHERE id=?`, id).Scan(&result.ID, &result.Purpose, &result.SourceType,
 		&result.State, &result.Version, &result.ManifestDigest, &result.FileCount)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ImportUpload{}, false, nil
+		return libraryservice.ImportUpload{}, false, nil
 	}
 	if err != nil {
-		return application.ImportUpload{}, false, fmt.Errorf("query import upload: %w", err)
+		return libraryservice.ImportUpload{}, false, fmt.Errorf("query import upload: %w", err)
 	}
 	return result, true, nil
 }
 
-func (records ImportFacts) Target(ctx context.Context, id string) (application.ImportTarget, bool, error) {
-	var result application.ImportTarget
+func (records ImportFacts) Target(ctx context.Context, id string) (libraryservice.ImportTarget, bool, error) {
+	var result libraryservice.ImportTarget
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT pi.id,pi.platform_id,pi.default_core_id,pi.version
 FROM platform_instances pi WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL`, id).
 		Scan(&result.ID, &result.PlatformID, &result.DefaultCoreID, &result.Version)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ImportTarget{}, false, nil
+		return libraryservice.ImportTarget{}, false, nil
 	}
 	if err != nil {
-		return application.ImportTarget{}, false, fmt.Errorf("query import platform instance: %w", err)
+		return libraryservice.ImportTarget{}, false, fmt.Errorf("query import platform instance: %w", err)
 	}
 	return result, true, nil
 }
 
-func (records ImportFacts) Files(ctx context.Context, uploadID string) ([]application.ImportFile, error) {
+func (records ImportFacts) Files(ctx context.Context, uploadID string) ([]libraryservice.ImportFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT f.id,f.relative_path,f.file_record,json_extract(b.value, '$.sha256'),json_extract(b.value,
 '$.size_bytes')
@@ -56,9 +56,9 @@ WHERE f.upload_session_id=? AND f.released_at_ms IS NULL ORDER BY f.relative_pat
 		return nil, fmt.Errorf("query import source files: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := []application.ImportFile{}
+	result := []libraryservice.ImportFile{}
 	for rows.Next() {
-		var file application.ImportFile
+		var file libraryservice.ImportFile
 		if err := rows.Scan(&file.ID, &file.Path, &file.FileRecord, &file.SHA256, &file.Size); err != nil {
 			return nil, fmt.Errorf("scan import source file: %w", err)
 		}
@@ -71,8 +71,8 @@ WHERE f.upload_session_id=? AND f.released_at_ms IS NULL ORDER BY f.relative_pat
 }
 
 func (records ImportFacts) Bindings(
-	ctx context.Context, filter application.ImportBindingQuery,
-) ([]application.ImportBinding, error) {
+	ctx context.Context, filter libraryservice.ImportBindingQuery,
+) ([]libraryservice.ImportBinding, error) {
 	query := `
 SELECT binding.binding_id,binding.core_id,binding.provider_id,binding.target_id,
  binding.delivery_profile,binding.detector_profile,` + contentquery.BindingPolicySQL + `
@@ -91,9 +91,9 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
 		return nil, fmt.Errorf("query import runtime bindings: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := []application.ImportBinding{}
+	result := []libraryservice.ImportBinding{}
 	for rows.Next() {
-		var binding application.ImportBinding
+		var binding libraryservice.ImportBinding
 		var profile sql.NullString
 		if err := rows.Scan(&binding.BindingID, &binding.CoreID, &binding.ProviderID, &binding.TargetID,
 			&binding.DeliveryProfile, &profile, contentquery.ScanPolicy(&binding.Policy)); err != nil {

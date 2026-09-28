@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records creationRecords) Header(ctx context.Context, change application.CreationHeader) error {
+func (records creationRecords) Header(ctx context.Context, change libraryservice.CreationHeader) error {
 	if change.Queued != nil {
 		if err := records.queuedHeader(ctx, change); err != nil {
 			return err
@@ -47,7 +47,7 @@ WHERE import_job_id=? AND upload_file_id=? AND disposition='PENDING'`,
 	return nil
 }
 
-func (records creationRecords) newHeader(ctx context.Context, change application.CreationHeader) error {
+func (records creationRecords) newHeader(ctx context.Context, change libraryservice.CreationHeader) error {
 	result, err := records.transaction.ExecContext(
 		ctx,
 		`
@@ -115,7 +115,7 @@ VALUES(?,?,NULL,'IMPORT_JOB',?,?)`, change.ConsumptionID, change.Plan.Upload.ID,
 	return creationMutation(result, err, "insert creation consumption", 1)
 }
 
-func (records creationRecords) queuedHeader(ctx context.Context, change application.CreationHeader) error {
+func (records creationRecords) queuedHeader(ctx context.Context, change libraryservice.CreationHeader) error {
 	target := change.Plan.Target
 	result, err := records.transaction.ExecContext(
 		ctx,

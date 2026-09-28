@@ -11,12 +11,12 @@ import (
 
 	"retrom/internal/authn"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ownedSourceCreation struct {
-	intent application.SourceCreationIntent
-	before application.SourceCreationSnapshot
+	intent libraryservice.SourceCreationIntent
+	before libraryservice.SourceCreationSnapshot
 	result ServerImportResult
 }
 
@@ -24,7 +24,7 @@ type ownedSourceCreation struct {
 // It does not authorize subsequent writes by the requesting worker.
 func (service *Service) LookupOwnedServerSource(
 	ctx context.Context,
-	intent application.SourceCreationIntent,
+	intent libraryservice.SourceCreationIntent,
 ) (ServerImportResult, bool, error) {
 	if !intent.Kind.Valid() || intent.ImportID == "" || intent.ItemID == "" {
 		return ServerImportResult{}, false, ErrInvalid
@@ -39,7 +39,7 @@ func (service *Service) LookupOwnedServerSource(
 // CreateOwnedServerSource commits the import and its server source binding together.
 func (service *Service) CreateOwnedServerSource(
 	ctx context.Context,
-	request application.OwnedServerSourceRequest,
+	request libraryservice.OwnedServerSourceRequest,
 ) (ServerImportResult, error) {
 	request.Intent.PrimaryPaths = slices.Clone(request.Intent.PrimaryPaths)
 	request.Files = slices.Clone(request.Files)
@@ -51,7 +51,7 @@ func (service *Service) CreateOwnedServerSource(
 	if found {
 		return validateOwnedSourceReplay(request, replayed)
 	}
-	ownership := application.NewSourceOwnership(service.now)
+	ownership := libraryservice.NewSourceOwnership(service.now)
 	before, err := ownership.Prepare(
 		ctx, repository.BindSourceOwnership(service.database), request.Intent, request.TargetPlatformInstanceID,
 	)
@@ -59,7 +59,7 @@ func (service *Service) CreateOwnedServerSource(
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
 	}
 
-	if err := application.ValidateOwnedSourceFiles(before, request.Files); err != nil {
+	if err := libraryservice.ValidateOwnedSourceFiles(before, request.Files); err != nil {
 		return ServerImportResult{}, fmt.Errorf("validate copied source files: %w", err)
 	}
 	prepared, err := service.prepareServerSource(
@@ -96,10 +96,10 @@ func (service *Service) CreateOwnedServerSource(
 }
 
 func validateOwnedSourceReplay(
-	request application.OwnedServerSourceRequest,
-	replayed application.OwnedSourceLookup,
+	request libraryservice.OwnedServerSourceRequest,
+	replayed libraryservice.OwnedSourceLookup,
 ) (ServerImportResult, error) {
-	if err := application.ValidateOwnedSourceReplayPaths(
+	if err := libraryservice.ValidateOwnedSourceReplayPaths(
 		request.Intent.PrimaryPaths, replayed.PrimaryPaths,
 	); err != nil {
 		return ServerImportResult{}, fmt.Errorf("validate replay source paths: %w", err)

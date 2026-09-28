@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) ClaimIdentity(ctx context.Context, platformID, digest string, now int64) error {
@@ -14,7 +14,7 @@ VALUES(?,?,?) ON CONFLICT(platform_id,content_identity_digest) DO NOTHING`, plat
 	return approvalMutation(result, err, "claim approval identity", false)
 }
 
-func (records reviewApprovalRecords) PublishItem(ctx context.Context, change application.ApprovalPublication) error {
+func (records reviewApprovalRecords) PublishItem(ctx context.Context, change libraryservice.ApprovalPublication) error {
 	result, err := recordstore.UpdateImportItems(ctx, records.transaction, recordstore.Update{
 		Set: `state='PUBLISHED',publication_json=NULL,version=version+1,updated_at_ms=?,completed_at_ms=?`,
 		Scope: recordstore.Scope{

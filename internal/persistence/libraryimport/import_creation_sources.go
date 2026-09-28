@@ -7,10 +7,10 @@ import (
 	"retrom/internal/filestore"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records creationRecords) Source(ctx context.Context, change application.CreationSource) error {
+func (records creationRecords) Source(ctx context.Context, change libraryservice.CreationSource) error {
 	result, err := records.transaction.ExecContext(
 		ctx,
 		`
@@ -95,7 +95,7 @@ normalized_reference,
 	return nil
 }
 
-func (records creationRecords) sourceSnapshot(ctx context.Context, change application.CreationSource) error {
+func (records creationRecords) sourceSnapshot(ctx context.Context, change libraryservice.CreationSource) error {
 	result, err := records.transaction.ExecContext(
 		ctx,
 		`
@@ -122,7 +122,7 @@ FROM import_item_source_files WHERE import_item_id=?`, change.SnapshotID, change
 	return creationMutation(result, err, "copy creation snapshot files", int64(len(change.Files)))
 }
 
-func (records creationRecords) Duplicate(ctx context.Context, change application.CreationDuplicate) error {
+func (records creationRecords) Duplicate(ctx context.Context, change libraryservice.CreationDuplicate) error {
 	for _, game := range change.Matches {
 		result, err := records.transaction.ExecContext(
 			ctx,

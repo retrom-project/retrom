@@ -10,13 +10,13 @@ import (
 
 	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func NewReviewCoverUploads(
 	database dbapi.DB, blobs *filestore.Store, now func() time.Time,
-) *application.ReviewCoverUploads {
-	return application.NewReviewCoverUploads(repository.NewReviewCoverUploads(database), reviewCoverBlobs{blobs}, now)
+) *libraryservice.ReviewCoverUploads {
+	return libraryservice.NewReviewCoverUploads(repository.NewReviewCoverUploads(database), reviewCoverBlobs{blobs}, now)
 }
 
 type reviewCoverBlobs struct{ store *filestore.Store }

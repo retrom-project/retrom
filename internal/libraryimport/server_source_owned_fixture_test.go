@@ -11,11 +11,11 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 	sourcepersistence "retrom/internal/persistence/sourceimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	source "retrom/internal/service/sourceimport"
 )
 
-func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {
+func ownedSourceFixture(t *testing.T) (deduplicateFixture, libraryservice.OwnedServerSourceRequest) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
 	fixture.service = newTestImporter(t, fixture.service.database, fixture.service.blobs, testImportOptions{Now: ownedSourceNow, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
@@ -29,8 +29,8 @@ func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServ
 	}
 	file := ServerSourceFile{RelativePath: "games/owned.gba", FileRecord: fileRecord, SizeBytes: metadata.Size}
 	seedOwnedSourceSource(t, fixture, file)
-	request := application.OwnedServerSourceRequest{
-		Intent:                   application.SourceCreationIntent{Kind: application.SourceOwnerSource, ImportID: "owner-plan", ItemID: "018fbe68-0000-7000-8000-000000000021", JobID: "owner-work", WorkerID: "owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
+	request := libraryservice.OwnedServerSourceRequest{
+		Intent:                   libraryservice.SourceCreationIntent{Kind: libraryservice.SourceOwnerSource, ImportID: "owner-plan", ItemID: "018fbe68-0000-7000-8000-000000000021", JobID: "owner-work", WorkerID: "owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
 		TargetPlatformInstanceID: fixture.platform, ContentMode: "STANDARD",
 		Files: []ServerSourceFile{file}, AssignedByUserID: "owner-actor",
 	}
@@ -76,7 +76,7 @@ VALUES('018fbe68-0000-7000-8000-000000000021',0,'FILE',?,?,?,?,'CONTENT',?,'COPI
 	}
 }
 
-func finishOwnedReviewHandoff(t *testing.T, fixture deduplicateFixture, request application.OwnedServerSourceRequest) {
+func finishOwnedReviewHandoff(t *testing.T, fixture deduplicateFixture, request libraryservice.OwnedServerSourceRequest) {
 	t.Helper()
 	fixture.execute(t, `UPDATE source_import_items SET execution_state='VALIDATING' WHERE id=?`, request.Intent.ItemID)
 	repository := sourcepersistence.NewReviewHandoff(fixture.database)

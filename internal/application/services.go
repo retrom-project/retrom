@@ -8,7 +8,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -92,7 +92,7 @@ type Services struct {
 	MetadataEvidence    *metadatascrape.EvidenceQueries
 	ServerImports       *serverimport.Service
 	SourceImports       *sourceimport.Service
-	CleanupJobs         *payloadcomposition.Service
+	CleanupJobs         *cleanupcomposition.Service
 	PlatformDirectories *platforminstance.Service
 	Accounts            *accounts.Service
 	DiagnosticsService  *diagnosticsservice.Service

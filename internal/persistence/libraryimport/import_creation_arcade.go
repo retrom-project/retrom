@@ -8,12 +8,12 @@ import (
 
 	corevalidation "retrom/internal/core/validation"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type creationArcadeRecords struct{ executor dbapi.Executor }
 
-func BindCreationArcade(executor dbapi.Executor) application.CreationArcadeReader {
+func BindCreationArcade(executor dbapi.Executor) libraryservice.CreationArcadeReader {
 	return creationArcadeRecords{executor: executor}
 }
 

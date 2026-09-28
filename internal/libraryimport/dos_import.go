@@ -3,20 +3,20 @@ package libraryimport
 import (
 	"context"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func archiveReason(err error) string { return application.ArchiveReason(err) }
+func archiveReason(err error) string { return libraryservice.ArchiveReason(err) }
 func dosProgram(path string) (string, bool) {
-	return application.DOSProgram(path)
+	return libraryservice.DOSProgram(path)
 }
 
 func rankDOSEntries(entries []preparedDOSEntry) {
-	application.RankDOSEntries(entries)
+	libraryservice.RankDOSEntries(entries)
 }
 
 func directDOSPathSafe(path string) bool {
-	return application.DirectDOSPathSafe(path)
+	return libraryservice.DirectDOSPathSafe(path)
 }
 
 func (service *Service) prepareDOSFiles(
@@ -28,14 +28,14 @@ func (service *Service) prepareDOSFiles(
 }
 
 var (
-	ErrInvalid                        = application.ErrInvalid
-	ErrVersionConflict                = application.ErrVersionConflict
-	ErrReimportRequiredPlatformChange = application.ErrReimportRequiredPlatformChange
-	ErrMultiDiscModeUnavailable       = application.ErrMultiDiscModeUnavailable
-	ErrMultiDiscPlaylistMissing       = application.ErrMultiDiscPlaylistMissing
+	ErrInvalid                        = libraryservice.ErrInvalid
+	ErrVersionConflict                = libraryservice.ErrVersionConflict
+	ErrReimportRequiredPlatformChange = libraryservice.ErrReimportRequiredPlatformChange
+	ErrMultiDiscModeUnavailable       = libraryservice.ErrMultiDiscModeUnavailable
+	ErrMultiDiscPlaylistMissing       = libraryservice.ErrMultiDiscPlaylistMissing
 )
 
-type CreateRequest = application.ImportRequest
+type CreateRequest = libraryservice.ImportRequest
 
 type ReconfigureRequest struct {
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
@@ -43,7 +43,7 @@ type ReconfigureRequest struct {
 	TagIDs                   []string `json:"tagIds"`
 }
 
-type Created = application.ServerCreated
+type Created = libraryservice.ServerCreated
 
 type initialImportProgress struct {
 	state              string
@@ -74,19 +74,19 @@ func newInitialImportProgress(metadataProvider string, itemCount, rejectedFileCo
 	}
 }
 
-type importSourceFile = application.ImportFile
+type importSourceFile = libraryservice.ImportFile
 
-type preparedDisposition = application.PreparedDisposition
+type preparedDisposition = libraryservice.PreparedDisposition
 
-type preparedSource = application.PreparedSource
+type preparedSource = libraryservice.PreparedSource
 
-type preparedArchive = application.PreparedArchive
+type preparedArchive = libraryservice.PreparedArchive
 
-type preparedGroup = application.PreparedGroup
+type preparedGroup = libraryservice.PreparedGroup
 
-type preparedValidationFile = application.PreparedValidationFile
+type preparedValidationFile = libraryservice.PreparedValidationFile
 
-type preparedDOSEntry = application.PreparedDOSEntry
+type preparedDOSEntry = libraryservice.PreparedDOSEntry
 
 type reconfigurationInput struct {
 	sourceImportJobID string
@@ -94,6 +94,6 @@ type reconfigurationInput struct {
 	sourceFileIDs     []string
 }
 
-type reusableUploadFile = application.PreparedReusableUploadFile
+type reusableUploadFile = libraryservice.PreparedReusableUploadFile
 
-const maxDOSBatchInspectionBytes = application.MaxDOSBatchInspectionBytes
+const maxDOSBatchInspectionBytes = libraryservice.MaxDOSBatchInspectionBytes

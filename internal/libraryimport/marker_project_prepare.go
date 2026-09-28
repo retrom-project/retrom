@@ -5,7 +5,7 @@ import (
 
 	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/filestore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) prepareButterscotchProject(ctx context.Context, sourceType string,
@@ -39,6 +39,6 @@ func archiveProjectPaths(
 	files []fileset.SourceFile,
 	metadata map[int]filestore.Metadata,
 ) (map[int]string, error) {
-	paths, err := application.ArchiveProjectPaths(files, metadata)
+	paths, err := libraryservice.ArchiveProjectPaths(files, metadata)
 	return paths, legacyPreparationError(err)
 }

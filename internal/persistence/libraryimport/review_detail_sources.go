@@ -6,12 +6,14 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewSources struct{ executor dbapi.Executor }
 
-func (records ReviewSources) Files(ctx context.Context, snapshotID string) ([]application.ReviewSourceRecord, error) {
+func (records ReviewSources) Files(
+	ctx context.Context, snapshotID string,
+) ([]libraryservice.ReviewSourceRecord, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT f.id,f.relative_path,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.sha256'),
 json_extract(b.value, '$.md5'),json_extract(b.value, '$.crc32'),
@@ -36,9 +38,9 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 		return nil, fmt.Errorf("query review source files: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]application.ReviewSourceRecord, 0)
+	result := make([]libraryservice.ReviewSourceRecord, 0)
 	for rows.Next() {
-		var row application.ReviewSourceRecord
+		var row libraryservice.ReviewSourceRecord
 		if err := rows.Scan(&row.ID,
 			&row.Name,
 			&row.SizeBytes,
@@ -60,7 +62,7 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 func (records ReviewSources) ArchiveEntries(
 	ctx context.Context,
 	archiveFileRecord string,
-) (application.ReviewArchive, error) {
+) (libraryservice.ReviewArchive, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT original_relative_path,uncompressed_size_bytes,crc32,archive_format
 FROM archive_entries
@@ -68,21 +70,21 @@ WHERE archive_file_record=?
 ORDER BY ordinal
 `, archiveFileRecord)
 	if err != nil {
-		return application.ReviewArchive{}, fmt.Errorf("query review archive entries: %w", err)
+		return libraryservice.ReviewArchive{}, fmt.Errorf("query review archive entries: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := application.ReviewArchive{Entries: []application.ReviewArchiveEntry{}}
+	result := libraryservice.ReviewArchive{Entries: []libraryservice.ReviewArchiveEntry{}}
 	for rows.Next() {
-		var row application.ReviewArchiveEntry
+		var row libraryservice.ReviewArchiveEntry
 		var format string
 		if err := rows.Scan(&row.Name, &row.SizeBytes, &row.CRC32, &format); err != nil {
-			return application.ReviewArchive{}, fmt.Errorf("scan review archive entry: %w", err)
+			return libraryservice.ReviewArchive{}, fmt.Errorf("scan review archive entry: %w", err)
 		}
 		result.Format = &format
 		result.Entries = append(result.Entries, row)
 	}
 	if err := rows.Err(); err != nil {
-		return application.ReviewArchive{}, fmt.Errorf("iterate review archive entries: %w", err)
+		return libraryservice.ReviewArchive{}, fmt.Errorf("iterate review archive entries: %w", err)
 	}
 	return result, nil
 }

@@ -10,7 +10,7 @@ import (
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	tagpersistence "retrom/internal/persistence/tagging"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -24,7 +24,7 @@ func NewImportCreations(database dbapi.DB) *ImportCreations {
 
 func (repository *ImportCreations) WithCreation(
 	ctx context.Context,
-	work func(application.ImportCreationScope) error,
+	work func(libraryservice.ImportCreationScope) error,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
 	if err != nil {
@@ -40,9 +40,9 @@ func (repository *ImportCreations) WithCreation(
 	return nil
 }
 
-func BindImportCreation(tx dbapi.Tx) application.ImportCreationScope {
+func BindImportCreation(tx dbapi.Tx) libraryservice.ImportCreationScope {
 	records := creationRecords{transaction: tx}
-	return application.ImportCreationScope{
+	return libraryservice.ImportCreationScope{
 		Facts:      BindImportFacts(tx),
 		Headers:    records,
 		Sources:    records,
@@ -69,7 +69,7 @@ func creationMutation(result sql.Result, err error, action string, count int64) 
 		return fmt.Errorf("%s count: %w", action, err)
 	}
 	if changed != count {
-		return fmt.Errorf("%s: %w", action, application.ErrVersionConflict)
+		return fmt.Errorf("%s: %w", action, libraryservice.ErrVersionConflict)
 	}
 	return nil
 }

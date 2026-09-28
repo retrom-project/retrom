@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records importExecutionRecords) Current(
 	ctx context.Context,
 	id string,
-) (application.ImportWorkerSnapshot, bool, error) {
-	var result application.ImportWorkerSnapshot
+) (libraryservice.ImportWorkerSnapshot, bool, error) {
+	var result libraryservice.ImportWorkerSnapshot
 	c := &result.Creation
 	e := &c.Execution
 	counts := &result.Counts
@@ -89,10 +89,10 @@ WHERE job.id=? AND job.kind='IMPORT_GROUP' AND job.scope_type='IMPORT_GROUP'`,
 		&result.ResolvedFiles,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ImportWorkerSnapshot{}, false, nil
+		return libraryservice.ImportWorkerSnapshot{}, false, nil
 	}
 	if err != nil {
-		return application.ImportWorkerSnapshot{}, false, fmt.Errorf("query import execution snapshot: %w", err)
+		return libraryservice.ImportWorkerSnapshot{}, false, fmt.Errorf("query import execution snapshot: %w", err)
 	}
 	if result.StartedAtMS != nil {
 		e.StartedAtMS = *result.StartedAtMS

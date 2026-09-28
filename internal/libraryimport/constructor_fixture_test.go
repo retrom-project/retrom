@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	commands "retrom/internal/composition/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/core/scummvm"
 	dbapi "retrom/internal/database"
@@ -71,13 +71,13 @@ func assembleTestDependencies(input testImportOptions) Dependencies {
 	discards := commands.NewReviewDiscards(database, now)
 	executions := commands.NewExecutions(database, now)
 	validator := NewDraftValidator(now)
-	worker := application.NewImportWorker(application.ImportWorkerDependencies{
+	worker := libraryservice.NewImportWorker(libraryservice.ImportWorkerDependencies{
 		Queue: executions, Control: executions, Recovery: executions, Preparation: preparation, Creations: creations,
-	}, application.ImportWorkerSettings{
+	}, libraryservice.ImportWorkerSettings{
 		Now: now, Report: func(err error) { cleanup.Error("ordinary import worker", err) },
 		RecoverPublications: approvals.Recover,
 	})
-	admissions := commands.NewImportAdmissions(database, worker, tags, application.ImportAdmissionOptions{
+	admissions := commands.NewImportAdmissions(database, worker, tags, libraryservice.ImportAdmissionOptions{
 		Now: now, MultiDiscEnabled: input.MultiDiscEnabled, MetadataScraperAvailable: input.Scraper != nil,
 	})
 	return Dependencies{

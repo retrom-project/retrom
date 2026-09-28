@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	biopersistence "retrom/internal/persistence/corevalidation"
 	tagpersistence "retrom/internal/persistence/tagging"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -24,7 +24,7 @@ func NewReviewApprovals(database dbapi.DB) *ReviewApprovals {
 }
 
 func (repository *ReviewApprovals) WithApproval(
-	ctx context.Context, work func(application.ReviewApprovalScope) error,
+	ctx context.Context, work func(libraryservice.ReviewApprovalScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -40,9 +40,9 @@ func (repository *ReviewApprovals) WithApproval(
 	return nil
 }
 
-func BindReviewApproval(transaction dbapi.Tx) application.ReviewApprovalScope {
+func BindReviewApproval(transaction dbapi.Tx) libraryservice.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
-	return application.ReviewApprovalScope{
+	return libraryservice.ReviewApprovalScope{
 		Publications: records, Payload: payloadpersistence.BindScheduling(transaction),
 		Reader: records, Media: records, Validation: BindReviewValidation(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
@@ -51,8 +51,8 @@ func BindReviewApproval(transaction dbapi.Tx) application.ReviewApprovalScope {
 	}
 }
 
-func BindApprovalDependencies(executor dbapi.Executor) application.ApprovalDependencyScope {
-	return application.ApprovalDependencyScope{
+func BindApprovalDependencies(executor dbapi.Executor) libraryservice.ApprovalDependencyScope {
+	return libraryservice.ApprovalDependencyScope{
 		Reader: approvalDependencyRecords{executor: executor}, BIOS: biopersistence.New(executor),
 		Arcade: BindArcadeRelations(executor),
 	}
@@ -67,13 +67,13 @@ func approvalMutation(result sql.Result, err error, action string, exactlyOne bo
 		return fmt.Errorf("%s result: %w", action, err)
 	}
 	if exactlyOne && changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
 
 func (records reviewApprovalRecords) TransitionOwner(
-	ctx context.Context, change application.ReviewOwnerTransition,
+	ctx context.Context, change libraryservice.ReviewOwnerTransition,
 ) error {
 	return TransitionReviewOwners(ctx, records.transaction, change)
 }

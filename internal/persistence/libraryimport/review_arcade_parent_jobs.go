@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // ReviewArcadeParentJobs reads the queue used to resume arcade parent
@@ -14,7 +14,7 @@ import (
 // persistence layer leaves the worker lifecycle in the application package.
 type ReviewArcadeParentJobs struct{ executor dbapi.Executor }
 
-var _ application.ArcadeParentJobQueue = (*ReviewArcadeParentJobs)(nil)
+var _ libraryservice.ArcadeParentJobQueue = (*ReviewArcadeParentJobs)(nil)
 
 func NewReviewArcadeParentJobs(executor dbapi.Executor) *ReviewArcadeParentJobs {
 	return &ReviewArcadeParentJobs{executor: executor}

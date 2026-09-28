@@ -10,13 +10,13 @@ import (
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/service/importprogress"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) ReadPublication(ctx context.Context,
 	id string,
-) (application.PublicationState, error) {
-	var result application.PublicationState
+) (libraryservice.PublicationState, error) {
+	var result libraryservice.PublicationState
 	var encoded sql.NullString
 	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT state,COALESCE(publication_game_id,''),publication_json FROM import_items WHERE id=?
@@ -29,7 +29,7 @@ SELECT state,COALESCE(publication_game_id,''),publication_json FROM import_items
 	}
 	result.Found = true
 	if encoded.Valid {
-		var intent application.Publication
+		var intent libraryservice.Publication
 		if err := json.Unmarshal([]byte(encoded.String), &intent); err != nil {
 			return result, fmt.Errorf("decode publication: %w", err)
 		}
@@ -39,7 +39,7 @@ SELECT state,COALESCE(publication_game_id,''),publication_json FROM import_items
 }
 
 func (records reviewApprovalRecords) BeginPublication(ctx context.Context,
-	intent application.Publication, now int64,
+	intent libraryservice.Publication, now int64,
 ) error {
 	encoded, err := json.Marshal(intent)
 	if err != nil {
@@ -54,7 +54,7 @@ json_extract(publication_json,'$.IdentityDigest')=? AND id<>?)`,
 			return fmt.Errorf("read concurrent publication: %w", err)
 		}
 		if pending {
-			return application.ErrVersionConflict
+			return libraryservice.ErrVersionConflict
 		}
 	}
 	var bulkID any
@@ -88,7 +88,7 @@ resolved_rejected_file_count,
 
 func (repository *ReviewApprovals) PendingPublications(
 	ctx context.Context,
-) ([]application.ReviewApprovalRequest, error) {
+) ([]libraryservice.ReviewApprovalRequest, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT publication_json FROM import_items WHERE state='PUBLISHING' ORDER BY id
 `)
@@ -96,13 +96,13 @@ SELECT publication_json FROM import_items WHERE state='PUBLISHING' ORDER BY id
 		return nil, fmt.Errorf("read pending publications: %w", err)
 	}
 	defer func() { cleanup.Error("close pending publications", rows.Close()) }()
-	var requests []application.ReviewApprovalRequest
+	var requests []libraryservice.ReviewApprovalRequest
 	for rows.Next() {
 		var encoded string
 		if err := rows.Scan(&encoded); err != nil {
 			return nil, fmt.Errorf("read publication intent: %w", err)
 		}
-		var intent application.Publication
+		var intent libraryservice.Publication
 		if err := json.Unmarshal([]byte(encoded), &intent); err != nil {
 			return nil, fmt.Errorf("decode pending publication: %w", err)
 		}

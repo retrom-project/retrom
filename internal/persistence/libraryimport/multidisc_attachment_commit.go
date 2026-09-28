@@ -15,12 +15,12 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	"retrom/internal/persistence/recordstore"
 	validationservice "retrom/internal/service/corevalidation"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type MultiDiscAttachmentFinalization struct{ database dbapi.DB }
 
-var _ application.MultiDiscAttachmentCommitRepository = (*MultiDiscAttachmentFinalization)(nil)
+var _ libraryservice.MultiDiscAttachmentCommitRepository = (*MultiDiscAttachmentFinalization)(nil)
 
 func NewMultiDiscAttachmentFinalization(database dbapi.DB) *MultiDiscAttachmentFinalization {
 	return &MultiDiscAttachmentFinalization{database: database}
@@ -28,10 +28,10 @@ func NewMultiDiscAttachmentFinalization(database dbapi.DB) *MultiDiscAttachmentF
 
 type multiDiscAttachmentCommitScope struct{ transaction dbapi.Tx }
 
-var _ application.MultiDiscAttachmentCommitScope = multiDiscAttachmentCommitScope{}
+var _ libraryservice.MultiDiscAttachmentCommitScope = multiDiscAttachmentCommitScope{}
 
 func (repository *MultiDiscAttachmentFinalization) WithCommit(
-	ctx context.Context, work func(application.MultiDiscAttachmentCommitScope) error,
+	ctx context.Context, work func(libraryservice.MultiDiscAttachmentCommitScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -58,7 +58,7 @@ func (scope multiDiscAttachmentCommitScope) BIOS(
 }
 
 func (scope multiDiscAttachmentCommitScope) CommitAccepted(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
 	if err := scope.validateCurrentInput(ctx, write.Input); err != nil {
 		return err
@@ -159,7 +159,7 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING' AND worker_id=?
 }
 
 func (scope multiDiscAttachmentCommitScope) validateCurrentInput(
-	ctx context.Context, input application.MultiDiscAttachmentInput,
+	ctx context.Context, input libraryservice.MultiDiscAttachmentInput,
 ) error {
 	var state, snapshotID, platformID, platformInstanceID, coreID string
 	var providerID, targetID string
@@ -192,24 +192,24 @@ WHERE item.id=?
 		platformVersion != input.PlatformVersion || coreID != input.CoreID ||
 		providerID != input.ProviderID || targetID != input.TargetID ||
 		policy.DigestFor("MULTI_DISC") != input.ContentPolicyDigest {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(platformID, true, true, policy)
 	if capabilities.MultiDisc == nil || capabilities.MultiDisc.MaxDiscs != input.MaxDiscs ||
 		capabilities.MultiDisc.MaxTotalBytes != input.MaxTotalBytes {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
 
 func (scope multiDiscAttachmentCommitScope) validateOwnership(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
 	var state, workerID string
 	if err := dbapi.QueryRowContext(ctx, scope.transaction,
 		`SELECT state,worker_id FROM jobs WHERE id=?`, write.JobID).Scan(&state, &workerID); err != nil ||
 		state != "RUNNING" || workerID != write.WorkerID {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	var consumed int
 	if err := dbapi.QueryRowContext(ctx, scope.transaction, `
@@ -218,7 +218,7 @@ SELECT EXISTS(
   WHERE upload_session_id=? AND upload_file_id IS NULL
 )
 `, write.Input.UploadSessionID).Scan(&consumed); err != nil || consumed != 0 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	entries, err := BindMultiDiscAdmission(scope.transaction).Entries(ctx, write.Input.BaseSourceSnapshotID)
 	if err != nil {
@@ -226,13 +226,13 @@ SELECT EXISTS(
 	}
 	digest, err := multidisc.ExpectedSetDigest(entries)
 	if err != nil || digest != write.Input.ExpectedSetDigest {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
 
 func (scope multiDiscAttachmentCommitScope) insertSourceSnapshot(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
 	if _, err := scope.transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(id,import_item_id,content_kind,
@@ -291,14 +291,14 @@ VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
 }
 
 func (scope multiDiscAttachmentCommitScope) insertValidation(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
 	canonicalFileRecord, err := filestore.FileRecord(write.CanonicalPlaylist, "application/vnd.retrom.m3u")
 	if err != nil {
 		return fmt.Errorf("register multi-disc canonical playlist: %w", err)
 	}
 
-	inputDigest := application.PrepublishDigest(application.PrepublishDigestInput{
+	inputDigest := libraryservice.PrepublishDigest(libraryservice.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: write.SourceSnapshotID,
 		SourceManifestDigest: write.ResultManifestDigest, ContentKind: multidisc.ContentKind,
 		TargetPlatformInstanceID: write.Input.PlatformInstanceID, ProviderID: write.Input.ProviderID,
@@ -307,7 +307,7 @@ func (scope multiDiscAttachmentCommitScope) insertValidation(
 		Status:             write.Validation.Status, CompatibilityCode: write.Validation.CompatibilityCode,
 	})
 	if inputDigest == "" {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if _, err := recordstore.CreateImportItemCoreValidations(ctx, scope.transaction, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
@@ -321,8 +321,8 @@ VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 		write.Validation.CompatibilityCode, write.Validation.DependencySnapshotJSON, write.NowMS); err != nil {
 		return fmt.Errorf("insert multi-disc validation: %w", err)
 	}
-	validationFiles := append([]application.PreparedValidationFile(nil), write.Validation.Files...)
-	validationFiles = append(validationFiles, application.PreparedValidationFile{
+	validationFiles := append([]libraryservice.PreparedValidationFile(nil), write.Validation.Files...)
+	validationFiles = append(validationFiles, libraryservice.PreparedValidationFile{
 		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", FileRecord: canonicalFileRecord, SortOrder: 0,
 	})
 	for _, file := range validationFiles {
@@ -337,9 +337,9 @@ sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
 }
 
 func (scope multiDiscAttachmentCommitScope) recordDuplicateEvidence(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
-	duplicates := application.NewContentDuplicates(BindContentDuplicates(scope.transaction))
+	duplicates := libraryservice.NewContentDuplicates(BindContentDuplicates(scope.transaction))
 	identity, err := duplicates.Identity(ctx, write.Input.ImportItemID)
 	if err != nil {
 		return fmt.Errorf("read multi-disc content identity: %w", err)
@@ -366,7 +366,7 @@ INSERT INTO import_item_duplicate_matches(
 }
 
 func (scope multiDiscAttachmentCommitScope) recordAcceptedJobEvents(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
+	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
 	parserData, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "parserResultCode": "MATCHED", "discCount": len(write.ResultEntries),
@@ -426,7 +426,7 @@ func requireMultiDiscChange(result sql.Result, err error, action string) error {
 		return fmt.Errorf("%s result: %w", action, err)
 	}
 	if changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }

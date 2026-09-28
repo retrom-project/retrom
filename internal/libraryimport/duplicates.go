@@ -5,20 +5,20 @@ import (
 	"fmt"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-var ErrDuplicateContent = application.ErrDuplicateContent
+var ErrDuplicateContent = libraryservice.ErrDuplicateContent
 
-type DuplicateGame = application.DuplicateGame
+type DuplicateGame = libraryservice.DuplicateGame
 
-type DuplicateConflict = application.DuplicateConflict
+type DuplicateConflict = libraryservice.DuplicateConflict
 
 func (service *Service) DuplicateGames(
 	ctx context.Context,
 	itemID string,
 ) ([]DuplicateGame, string, error) {
-	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(service.database))
+	duplicates := libraryservice.NewContentDuplicates(repository.BindContentDuplicates(service.database))
 	games, digest, err := duplicates.Review(ctx, itemID)
 	if err != nil {
 		return nil, "", fmt.Errorf("read review duplicates: %w", err)

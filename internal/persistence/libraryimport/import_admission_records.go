@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records admissionRecords) job(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) job(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	_, err := records.transaction.ExecContext(ctx, `
 INSERT INTO jobs(
  id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
@@ -42,7 +42,7 @@ INSERT INTO import_jobs(
 	return nil
 }
 
-func (records admissionRecords) request(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) request(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	var actor *string
 	if change.ActorUserID != "" {
 		actor = &change.ActorUserID
@@ -60,7 +60,7 @@ INSERT INTO import_group_requests(
 	return nil
 }
 
-func (records admissionRecords) sources(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) sources(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	_, err := recordstore.CreateUploadConsumptions(ctx, records.transaction, `
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,NULL,'IMPORT_JOB',?,?)`, change.ConsumptionID, change.Request.UploadID, change.ImportID, change.NowMS)
@@ -78,7 +78,7 @@ VALUES(?,?,'PENDING',NULL,?,?)`, change.ImportID, file.ID, change.NowMS, change.
 	return nil
 }
 
-func (records admissionRecords) event(ctx context.Context, change application.ImportAdmissionChange) error {
+func (records admissionRecords) event(ctx context.Context, change libraryservice.ImportAdmissionChange) error {
 	_, err := records.transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 VALUES(?,'IMPORT_GROUP',?,'QUEUED',

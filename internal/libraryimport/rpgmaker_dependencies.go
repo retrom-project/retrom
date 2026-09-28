@@ -6,14 +6,14 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // Import, review refresh and approval evaluate the same project-owned resource
 // policy. An explicit administrator confirmation can override external RTP declarations;
 // installed packs and trial sessions never contribute resources or compatibility.
 func resolveRPGDependencies(profile rpgReviewBinding) (draftDependencyState, string) {
-	resolved := application.ResolveRPGResourcePolicy(profile.generation, profile.override, profile.analysis)
+	resolved := libraryservice.ResolveRPGResourcePolicy(profile.generation, profile.override, profile.analysis)
 	state := draftDependencyState{
 		tracked:      true,
 		status:       resolved.Status,

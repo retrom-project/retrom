@@ -10,7 +10,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 // Inputs resolves the source snapshot and the selected runtime target in the
@@ -18,8 +18,8 @@ import (
 // refresh rules can work with a stable application value object.
 func (records *ReviewValidation) Inputs(
 	ctx context.Context, itemID, targetID string,
-) (application.ReviewValidationRefreshInputs, error) {
-	var result application.ReviewValidationRefreshInputs
+) (libraryservice.ReviewValidationRefreshInputs, error) {
+	var result libraryservice.ReviewValidationRefreshInputs
 	var platformID, defaultCoreID string
 	var datVersionID sql.NullString
 	if err := dbapi.QueryRowContext(ctx, records.executor, `
@@ -30,14 +30,14 @@ WHERE draft.id=?
 `, itemID).Scan(
 		&result.DraftID, &result.EffectiveSnapshotID, &result.EffectiveManifestDigest, &result.ContentKind,
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return libraryservice.ReviewValidationRefreshInputs{}, libraryservice.ErrInvalid
 	}
 	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT version,platform_id,default_core_id
 FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 `, targetID).Scan(&result.PlatformVersion, &platformID, &defaultCoreID); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return libraryservice.ReviewValidationRefreshInputs{}, libraryservice.ErrInvalid
 	}
 	if platformID == "rpgmaker" {
 		return records.rpgInputs(ctx, itemID, targetID, result)
@@ -67,7 +67,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 
 		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return libraryservice.ReviewValidationRefreshInputs{}, libraryservice.ErrInvalid
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
 	return result, nil
@@ -76,11 +76,11 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 func (records *ReviewValidation) rpgInputs(
 	ctx context.Context,
 	itemID, targetID string,
-	result application.ReviewValidationRefreshInputs,
-) (application.ReviewValidationRefreshInputs, error) {
+	result libraryservice.ReviewValidationRefreshInputs,
+) (libraryservice.ReviewValidationRefreshInputs, error) {
 	profile, err := readRPGReviewProfile(ctx, records.executor, itemID)
 	if err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return libraryservice.ReviewValidationRefreshInputs{}, libraryservice.ErrInvalid
 	}
 	var datVersionID sql.NullString
 	if err := dbapi.QueryRowContext(
@@ -110,7 +110,7 @@ WHERE draft.id=? AND draft.target_platform_instance_id=?
 		&datVersionID,
 		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return libraryservice.ReviewValidationRefreshInputs{}, libraryservice.ErrInvalid
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
 	return result, nil
@@ -125,9 +125,9 @@ func nullableReviewValidationString(value sql.NullString) *string {
 }
 
 func (records *ReviewValidation) Exact(
-	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
-) (application.ReviewValidationRefreshRecord, bool, error) {
-	var result application.ReviewValidationRefreshRecord
+	ctx context.Context, lookup libraryservice.ReviewValidationRefreshLookup,
+) (libraryservice.ReviewValidationRefreshRecord, bool, error) {
+	var result libraryservice.ReviewValidationRefreshRecord
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,source_manifest_digest,prepublish_input_digest,status,
   compatibility_code,dependency_snapshot_json
@@ -143,18 +143,18 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 		&result.Status, &result.CompatibilityCode, &result.DependencySnapshot,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewValidationRefreshRecord{}, false, nil
+		return libraryservice.ReviewValidationRefreshRecord{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf("query exact review validation: %w", err)
+		return libraryservice.ReviewValidationRefreshRecord{}, false, fmt.Errorf("query exact review validation: %w", err)
 	}
 	return result, true, nil
 }
 
 func (records *ReviewValidation) Fallback(
-	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
-) (application.ReviewValidationRefreshRecord, bool, error) {
-	var result application.ReviewValidationRefreshRecord
+	ctx context.Context, lookup libraryservice.ReviewValidationRefreshLookup,
+) (libraryservice.ReviewValidationRefreshRecord, bool, error) {
+	var result libraryservice.ReviewValidationRefreshRecord
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT validation.id,validation.source_manifest_digest,validation.prepublish_input_digest,
   validation.status,validation.compatibility_code,validation.dependency_snapshot_json
@@ -168,10 +168,10 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 		&result.Status, &result.CompatibilityCode, &result.DependencySnapshot,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewValidationRefreshRecord{}, false, nil
+		return libraryservice.ReviewValidationRefreshRecord{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf(
+		return libraryservice.ReviewValidationRefreshRecord{}, false, fmt.Errorf(
 			"query fallback review validation: %w",
 			err,
 		)
@@ -180,7 +180,7 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 }
 
 func (records *ReviewValidation) Create(
-	ctx context.Context, value application.ReviewValidationRefreshCreate,
+	ctx context.Context, value libraryservice.ReviewValidationRefreshCreate,
 ) error {
 	_, err := recordstore.CreateImportItemCoreValidations(ctx, records.executor, `
 INSERT INTO import_item_core_validations(
@@ -201,7 +201,7 @@ INSERT INTO import_item_core_validations(
 }
 
 func (records *ReviewValidation) CopyFiles(
-	ctx context.Context, value application.ReviewValidationRefreshFileCopy,
+	ctx context.Context, value libraryservice.ReviewValidationRefreshFileCopy,
 ) error {
 	_, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
@@ -266,25 +266,25 @@ ORDER BY CASE role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 ELSE 2 END,
 LIMIT 1
 `, snapshotID).Scan(&logicalName)
 	if err != nil || logicalName == "" {
-		return "", fmt.Errorf("read review validation content identity: %w", application.ErrInvalid)
+		return "", fmt.Errorf("read review validation content identity: %w", libraryservice.ErrInvalid)
 	}
 	return logicalName, nil
 }
 
 func (records *ReviewValidation) RPGProfile(
 	ctx context.Context, draftID string,
-) (application.RPGReviewProfile, error) {
+) (libraryservice.RPGReviewProfile, error) {
 	profile, err := readRPGReviewProfile(ctx, records.executor, draftID)
 	if err != nil {
-		return application.RPGReviewProfile{}, application.ErrInvalid
+		return libraryservice.RPGReviewProfile{}, libraryservice.ErrInvalid
 	}
-	result := application.RPGReviewProfile{
+	result := libraryservice.RPGReviewProfile{
 		Generation: profile.Generation, SelfContainedOverride: profile.SelfContainedOverride != 0,
 		DependencySHA256: profile.DependencySnapshotSHA256, AnalysisJSON: string(profile.Analysis),
 	}
-	var analysis application.RPGReviewAnalysis
+	var analysis libraryservice.RPGReviewAnalysis
 	if err := json.Unmarshal([]byte(result.AnalysisJSON), &analysis); err != nil {
-		return application.RPGReviewProfile{}, fmt.Errorf("decode RPG review profile: %w", application.ErrInvalid)
+		return libraryservice.RPGReviewProfile{}, fmt.Errorf("decode RPG review profile: %w", libraryservice.ErrInvalid)
 	}
 	return result, nil
 }
@@ -303,4 +303,4 @@ WHERE id=? AND review_profile_json IS NOT NULL
 	return nil
 }
 
-var _ application.ReviewValidationRefreshRepository = (*ReviewValidation)(nil)
+var _ libraryservice.ReviewValidationRefreshRepository = (*ReviewValidation)(nil)

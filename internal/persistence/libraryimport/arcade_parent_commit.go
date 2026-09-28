@@ -11,7 +11,7 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
@@ -22,7 +22,7 @@ import (
 // separate while retaining atomic state transitions.
 type ArcadeParentCommitRepository struct{ database dbapi.DB }
 
-var _ application.ArcadeParentCommitRepository = (*ArcadeParentCommitRepository)(nil)
+var _ libraryservice.ArcadeParentCommitRepository = (*ArcadeParentCommitRepository)(nil)
 
 func NewArcadeParentCommitRepository(database dbapi.DB) *ArcadeParentCommitRepository {
 	return &ArcadeParentCommitRepository{database: database}
@@ -30,7 +30,7 @@ func NewArcadeParentCommitRepository(database dbapi.DB) *ArcadeParentCommitRepos
 
 func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	ctx context.Context,
-	request application.ArcadeParentAcceptedCommit,
+	request libraryservice.ArcadeParentAcceptedCommit,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -172,7 +172,7 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING' AND worker_id=?
 
 func (repository *ArcadeParentCommitRepository) FinishRejected(
 	ctx context.Context,
-	request application.ArcadeParentRejectedCommit,
+	request libraryservice.ArcadeParentRejectedCommit,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -228,7 +228,7 @@ VALUES(?,'IMPORT_ITEM',?,'PARENT_REJECTED',?,?),(?,'IMPORT_ITEM',?,'FAILED',?,?)
 
 func (repository *ArcadeParentCommitRepository) FinishRetryable(
 	ctx context.Context,
-	request application.ArcadeParentRetryableCommit,
+	request libraryservice.ArcadeParentRetryableCommit,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -283,7 +283,7 @@ VALUES(?,'IMPORT_ITEM',?,'FAILED',?,?)
 
 func (repository *ArcadeParentCommitRepository) SyncCancellation(
 	ctx context.Context,
-	request application.ArcadeParentCancellationSync,
+	request libraryservice.ArcadeParentCancellationSync,
 ) error {
 	_, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, repository.database, recordstore.Update{
 		Set: `
@@ -308,7 +308,7 @@ AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')
 
 func (repository *ArcadeParentCommitRepository) FinishCancellation(
 	ctx context.Context,
-	request application.ArcadeParentAttachmentCancellation,
+	request libraryservice.ArcadeParentAttachmentCancellation,
 ) (bool, error) {
 	var state string
 	if err := dbapi.QueryRowContext(ctx, repository.database,
@@ -385,11 +385,11 @@ type arcadeParentCommitTarget struct {
 func insertArcadeParentCommitArtifacts(
 	ctx context.Context,
 	transaction dbapi.Tx,
-	candidate application.ArcadeParentCommitCandidate,
+	candidate libraryservice.ArcadeParentCommitCandidate,
 	entries []importing.ArchiveEntry,
-	files []application.ArcadeParentSourceFile,
+	files []libraryservice.ArcadeParentSourceFile,
 	manifestJSON, manifestDigest string,
-	validation application.ArcadeParentValidation,
+	validation libraryservice.ArcadeParentValidation,
 	target arcadeParentCommitTarget,
 	now int64,
 ) (arcadeParentCommitArtifacts, error) {
@@ -423,14 +423,14 @@ INSERT INTO import_item_source_snapshots(
 func insertArcadeParentCoreValidation(
 	ctx context.Context,
 	transaction dbapi.Tx,
-	candidate application.ArcadeParentCommitCandidate,
+	candidate libraryservice.ArcadeParentCommitCandidate,
 	snapshotID, validationID, manifestDigest string,
-	validation application.ArcadeParentValidation,
+	validation libraryservice.ArcadeParentValidation,
 	target arcadeParentCommitTarget,
 	now int64,
 ) error {
 	datID := optionalArcadeParentString(candidate.DATID)
-	digest := application.PrepublishDigest(application.PrepublishDigestInput{
+	digest := libraryservice.PrepublishDigest(libraryservice.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: snapshotID,
 		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
 		TargetPlatformInstanceID: target.targetID,
@@ -470,7 +470,7 @@ INSERT INTO import_item_validation_files(
 func loadArcadeParentCommitTarget(
 	ctx context.Context,
 	transaction dbapi.Tx,
-	candidate application.ArcadeParentCommitCandidate,
+	candidate libraryservice.ArcadeParentCommitCandidate,
 ) (arcadeParentCommitTarget, error) {
 	var target arcadeParentCommitTarget
 	var itemState, currentSnapshotID string
@@ -520,7 +520,7 @@ WHERE item.id=?
 		target.contentPolicy.DigestFor(target.contentKind) == candidate.ContentPolicyDigest &&
 		activeDATID.Valid && activeDATID.String == candidate.DATID
 	if !valid {
-		return arcadeParentCommitTarget{}, application.ErrInvalid
+		return arcadeParentCommitTarget{}, libraryservice.ErrInvalid
 	}
 	return target, nil
 }
@@ -534,7 +534,7 @@ func validateArcadeParentCommitJob(
 	err := dbapi.QueryRowContext(ctx, transaction, `SELECT state,worker_id FROM jobs WHERE id=?`, jobID).
 		Scan(&state, &currentWorker)
 	if err != nil || state != "RUNNING" || currentWorker != workerID {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
@@ -543,7 +543,7 @@ func insertArcadeParentSnapshotFiles(
 	ctx context.Context,
 	transaction dbapi.Tx,
 	snapshotID string,
-	files []application.ArcadeParentSourceFile,
+	files []libraryservice.ArcadeParentSourceFile,
 	now int64,
 ) error {
 	for _, file := range files {
@@ -628,7 +628,7 @@ func requireArcadeParentCommitChange(result sql.Result, err error, action string
 		return arcadeParentCommitStoreError(action+" result", err)
 	}
 	if changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }

@@ -11,49 +11,49 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 	"retrom/internal/mediaasset"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type screenshotImages struct{ blobs *filestore.Store }
 
 func (images screenshotImages) Read(ctx context.Context, itemID string,
 	reader io.Reader,
-) (application.ScreenshotImage, error) {
+) (libraryservice.ScreenshotImage, error) {
 	if images.blobs == nil || reader == nil {
-		return application.ScreenshotImage{}, application.ErrReviewScreenshotInvalid
+		return libraryservice.ScreenshotImage{}, libraryservice.ErrReviewScreenshotInvalid
 	}
 	if err := ctx.Err(); err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("read screenshot bytes: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("read screenshot bytes: %w", err)
 	}
 	candidate, err := images.blobs.Stage(
 		io.LimitReader(screenshotContextReader{context: ctx, source: reader}, mediaasset.MaxImageBytes+1),
 	)
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("stage screenshot: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("stage screenshot: %w", err)
 	}
 	defer func() { cleanup.Error("discard screenshot candidate", candidate.Discard()) }()
 	metadata := candidate.Metadata()
 	image, err := inspectScreenshotFile(metadata)
 	if err != nil {
-		return application.ScreenshotImage{}, err
+		return libraryservice.ScreenshotImage{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("finish screenshot read: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("finish screenshot read: %w", err)
 	}
 	metadata, err = candidate.Commit()
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
 	}
 	record, err := filestore.ParseRecord(metadata.Record)
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("read: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("read: %w", err)
 	}
 	metadata, err = images.blobs.CopyTo(ctx, metadata.Record,
 		filestore.ItemDirectory(itemID)+"/scratch/screenshots/"+path.Base(record.Path), "image")
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("read: %w", err)
+		return libraryservice.ScreenshotImage{}, fmt.Errorf("read: %w", err)
 	}
-	return application.ScreenshotImage{
+	return libraryservice.ScreenshotImage{
 		FileRecord: metadata.Record, StoragePath: metadata.Path,
 		SHA256: metadata.SHA256,
 		MD5:    metadata.MD5,
@@ -69,7 +69,7 @@ func (images screenshotImages) Read(ctx context.Context, itemID string,
 
 func inspectScreenshotFile(metadata filestore.Metadata) (mediaasset.Image, error) {
 	if metadata.Size < 1 || metadata.Size > mediaasset.MaxImageBytes {
-		return mediaasset.Image{}, application.ErrReviewScreenshotInvalid
+		return mediaasset.Image{}, libraryservice.ErrReviewScreenshotInvalid
 	}
 	file, err := os.Open(metadata.Path)
 	if err != nil {
@@ -78,7 +78,7 @@ func inspectScreenshotFile(metadata filestore.Metadata) (mediaasset.Image, error
 	defer func() { cleanup.Error("close screenshot candidate", file.Close()) }()
 	image, err := mediaasset.InspectImage(file, metadata.Size)
 	if err != nil || image.MediaType != "image/png" && image.MediaType != "image/jpeg" {
-		return mediaasset.Image{}, application.ErrReviewScreenshotInvalid
+		return mediaasset.Image{}, libraryservice.ErrReviewScreenshotInvalid
 	}
 	return image, nil
 }
@@ -105,6 +105,6 @@ func (reader screenshotContextReader) Read(output []byte) (int, error) {
 	return count, nil
 }
 
-func NewReviewScreenshotImages(files *filestore.Store) application.ScreenshotImages {
+func NewReviewScreenshotImages(files *filestore.Store) libraryservice.ScreenshotImages {
 	return screenshotImages{blobs: files}
 }

@@ -14,18 +14,18 @@ import (
 	jobpersistence "retrom/internal/persistence/jobs"
 	repository "retrom/internal/persistence/libraryimport"
 	"retrom/internal/service/jobs"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
 func queuedCancellationFixture(t *testing.T) (*Service, Created) {
 	t.Helper()
 	service, plan := preparedCommitFixture(t)
-	admission := application.NewImportAdmissions(
+	admission := libraryservice.NewImportAdmissions(
 		repository.NewImportAdmissions(service.database),
 		nil,
 		service.tags,
-		application.ImportAdmissionOptions{Now: service.now},
+		libraryservice.ImportAdmissionOptions{Now: service.now},
 	)
 	created, err := admission.Queue(t.Context(), plan.Request)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestImportWorkerDomainCancelKeepsOwnerUntilExecutionStops(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("claim found=%t error=%v", found, err)
 	}
-	result, err := executions.CancelJob(t.Context(), application.ImportJobCancellation{
+	result, err := executions.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
 		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 2, Reason: "operator stop",
 	})
 	if err != nil || !result.Pending || result.State != "CANCEL_REQUESTED" {
@@ -156,7 +156,7 @@ SELECT job.state,parent.state,parent.payload_state,job.version FROM jobs job JOI
 
 func TestImportWorkerQueuedCancellationPreservesAbsentExecutionTimes(t *testing.T) {
 	service, created := queuedCancellationFixture(t)
-	_, err := service.testExecutions().CancelJob(t.Context(), application.ImportJobCancellation{
+	_, err := service.testExecutions().CancelJob(t.Context(), libraryservice.ImportJobCancellation{
 		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 1, Reason: "operator stop",
 	})
 	if err != nil {

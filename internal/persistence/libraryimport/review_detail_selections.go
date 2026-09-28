@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records ReviewDrafts) ScreenshotIDs(ctx context.Context, itemID string) ([]string, error) {
@@ -35,7 +35,7 @@ ORDER BY s.ordinal
 	return result, nil
 }
 
-func (records ReviewDrafts) DOSEntries(ctx context.Context, itemID string) ([]application.ReviewDOSEntry, error) {
+func (records ReviewDrafts) DOSEntries(ctx context.Context, itemID string) ([]libraryservice.ReviewDOSEntry, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT normalized_path,
 original_relative_path,
@@ -51,9 +51,9 @@ ORDER BY rank,normalized_path
 		return nil, fmt.Errorf("query review DOS entries: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]application.ReviewDOSEntry, 0)
+	result := make([]libraryservice.ReviewDOSEntry, 0)
 	for rows.Next() {
-		var row application.ReviewDOSEntry
+		var row libraryservice.ReviewDOSEntry
 		if err := scanReviewDOSEntry(rows, &row); err != nil {
 			return nil, fmt.Errorf("scan review DOS entry: %w", err)
 		}
@@ -65,7 +65,7 @@ ORDER BY rank,normalized_path
 	return result, nil
 }
 
-func scanReviewDOSEntry(scanner dbapi.Scanner, row *application.ReviewDOSEntry) error {
+func scanReviewDOSEntry(scanner dbapi.Scanner, row *libraryservice.ReviewDOSEntry) error {
 	if err := scanner.Scan(
 		&row.Path, &row.OriginalPath, &row.Kind, &row.Rank, &row.Enabled, &row.DirectLaunchSafe,
 	); err != nil {

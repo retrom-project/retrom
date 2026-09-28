@@ -5,9 +5,9 @@ import (
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func NewExecutions(database dbapi.DB, now func() time.Time) *application.ImportExecutions {
-	return application.NewImportExecutions(repository.NewImportExecutions(database), now)
+func NewExecutions(database dbapi.DB, now func() time.Time) *libraryservice.ImportExecutions {
+	return libraryservice.NewImportExecutions(repository.NewImportExecutions(database), now)
 }

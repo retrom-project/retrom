@@ -7,7 +7,7 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) NextEmulatorID(ctx context.Context) (int64, error) {
@@ -19,7 +19,7 @@ func (records reviewApprovalRecords) NextEmulatorID(ctx context.Context) (int64,
 	return id, nil
 }
 
-func (records reviewApprovalRecords) CreateVariant(ctx context.Context, v application.ApprovalVariant) error {
+func (records reviewApprovalRecords) CreateVariant(ctx context.Context, v libraryservice.ApprovalVariant) error {
 	result, err := recordstore.CreateGameVariants(ctx, records.transaction, `
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
@@ -32,7 +32,7 @@ updated_at_ms
 }
 
 func (records reviewApprovalRecords) CopyValidationFiles(
-	ctx context.Context, source application.ApprovalValidationCopy,
+	ctx context.Context, source libraryservice.ApprovalValidationCopy,
 ) error {
 	result, err := recordstore.CreateVariantFiles(ctx, records.transaction, `
 INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
@@ -45,7 +45,7 @@ FROM import_item_validation_files WHERE import_item_core_validation_id=?
 }
 
 func (records reviewApprovalRecords) CreateDependency(
-	ctx context.Context, dep application.ApprovalVariantDependency,
+	ctx context.Context, dep libraryservice.ApprovalVariantDependency,
 ) error {
 	result, err := records.transaction.ExecContext(
 		ctx,
@@ -67,7 +67,7 @@ state,created_at_ms
 }
 
 func (records reviewApprovalRecords) CreateRPGVariant(
-	ctx context.Context, profile application.ApprovalRPGVariant,
+	ctx context.Context, profile libraryservice.ApprovalRPGVariant,
 ) error {
 	encoded, err := profilemodel.Encode(
 		profilemodel.Variant,

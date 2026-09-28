@@ -11,12 +11,12 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Artifact(
 	_ context.Context,
-	change application.CreationArtifact,
+	change libraryservice.CreationArtifact,
 ) (string, error) {
 	id, err := filestore.FileRecord(change.Metadata, change.MediaType)
 	if err != nil {
@@ -27,7 +27,7 @@ func (records creationRecords) Artifact(
 
 func (records creationRecords) Archive(
 	ctx context.Context,
-	archive application.PreparedArchive,
+	archive libraryservice.PreparedArchive,
 	now int64,
 ) (map[int]string, error) {
 	materialized := make(map[int]string, len(archive.Materialized))
@@ -72,7 +72,7 @@ FROM archive_entries WHERE archive_file_record=? AND ordinal=?`, id, entry.Ordin
 	}
 	current.Ordinal, current.NestedArchive = entry.Ordinal, entry.NestedArchive
 	if current != entry {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	return nil
 }

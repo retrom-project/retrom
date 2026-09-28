@@ -8,7 +8,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewBulkWorker struct{ executor dbapi.Executor }
@@ -24,7 +24,7 @@ SELECT bulk.job_id,bulk.created_by_user_id FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id
 WHERE bulk.id=? AND bulk.state='QUEUED' AND job.state='QUEUED'`, bulkID).Scan(&jobID, &userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", application.ErrReviewBulkNotRunnable
+		return "", "", libraryservice.ErrReviewBulkNotRunnable
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("read bulk claim: %w", err)
@@ -50,8 +50,8 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
 
 func (worker *ReviewBulkWorker) Next(ctx context.Context, bulkID,
 	workerID string,
-) (application.ReviewBulkScanItem, bool, error) {
-	var item application.ReviewBulkScanItem
+) (libraryservice.ReviewBulkScanItem, bool, error) {
+	var item libraryservice.ReviewBulkScanItem
 	err := dbapi.QueryRowContext(ctx, worker.executor, `
 SELECT item.id,item.review_version,item.review_updated_at_ms,item.updated_at_ms,bulk.created_at_ms
 FROM review_bulk_approvals bulk
@@ -66,10 +66,10 @@ ORDER BY item.id LIMIT 1`, bulkID, workerID).Scan(
 		&item.ID, &item.ReviewVersion, &item.ReviewUpdatedAtMS, &item.ItemUpdatedAtMS, &item.CreatedAtMS,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewBulkScanItem{}, false, nil
+		return libraryservice.ReviewBulkScanItem{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewBulkScanItem{}, false, fmt.Errorf("read next review bulk item: %w", err)
+		return libraryservice.ReviewBulkScanItem{}, false, fmt.Errorf("read next review bulk item: %w", err)
 	}
 	return item, true, nil
 }
@@ -78,7 +78,7 @@ func (worker *ReviewBulkWorker) Skip(
 	ctx context.Context, bulkID, jobID, workerID, itemID, outcome string, now int64,
 ) error {
 	if outcome != "CHANGED" && outcome != "DUPLICATE" && outcome != "NOT_READY" {
-		return application.ErrReviewBulkNotRunnable
+		return libraryservice.ErrReviewBulkNotRunnable
 	}
 	result, err := recordstore.UpdateReviewBulkApprovals(ctx, worker.executor, recordstore.Update{
 		Set: `cursor_item_id=?,scanned_count=scanned_count+1,
@@ -192,7 +192,7 @@ func bulkMutation(result sql.Result, err error, action string) error {
 		return fmt.Errorf("%s rows: %w", action, err)
 	}
 	if changed != 1 {
-		return application.ErrReviewBulkNotRunnable
+		return libraryservice.ErrReviewBulkNotRunnable
 	}
 	return nil
 }

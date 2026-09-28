@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records ReviewMedia) SourceMedia(
 	ctx context.Context,
 	itemID string,
-) (application.ReviewSourceMedia, bool, error) {
-	var result application.ReviewSourceMedia
+) (libraryservice.ReviewSourceMedia, bool, error) {
+	var result libraryservice.ReviewSourceMedia
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT source.id,source.import_id,'SOURCE',COALESCE(collection.name,''),
 COALESCE(json_extract(source.source_flags_json,'$.hidden'),0),
@@ -56,10 +56,10 @@ WHERE source.library_import_item_id=?
 		&result.CoverHeightPX,
 		&result.HasVideo)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewSourceMedia{}, false, nil
+		return libraryservice.ReviewSourceMedia{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewSourceMedia{}, false, fmt.Errorf("query review source media: %w", err)
+		return libraryservice.ReviewSourceMedia{}, false, fmt.Errorf("query review source media: %w", err)
 	}
 	return result, true, nil
 }

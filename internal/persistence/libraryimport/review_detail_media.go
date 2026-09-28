@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewMedia struct{ executor dbapi.Executor }
@@ -16,7 +16,7 @@ type ReviewMedia struct{ executor dbapi.Executor }
 func (records ReviewMedia) UploadedAssets(
 	ctx context.Context,
 	itemID string,
-) ([]application.ReviewUploadedAsset, error) {
+) ([]libraryservice.ReviewUploadedAsset, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT id,kind,width_px,height_px,media_type,created_at_ms
 FROM review_uploaded_assets
@@ -27,9 +27,9 @@ ORDER BY created_at_ms,id
 		return nil, fmt.Errorf("query uploaded review assets: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]application.ReviewUploadedAsset, 0)
+	result := make([]libraryservice.ReviewUploadedAsset, 0)
 	for rows.Next() {
-		var row application.ReviewUploadedAsset
+		var row libraryservice.ReviewUploadedAsset
 		if err := rows.Scan(&row.ID, &row.Kind, &row.WidthPX, &row.HeightPX, &row.MediaType, &row.CreatedAtMS); err != nil {
 			return nil, fmt.Errorf("scan uploaded review asset: %w", err)
 		}
@@ -44,8 +44,8 @@ ORDER BY created_at_ms,id
 func (records ReviewMedia) RuntimeScreenshot(
 	ctx context.Context,
 	itemID, validationID string,
-) (application.ReviewRuntimeScreenshot, bool, error) {
-	result := application.ReviewRuntimeScreenshot{ValidationID: validationID}
+) (libraryservice.ReviewRuntimeScreenshot, bool, error) {
+	result := libraryservice.ReviewRuntimeScreenshot{ValidationID: validationID}
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
 screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
@@ -56,10 +56,10 @@ AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 `, itemID, validationID).Scan(
 		&result.ID, &result.ProviderID, &result.TargetID, &result.WidthPX, &result.HeightPX, &result.CapturedAtMS)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewRuntimeScreenshot{}, false, nil
+		return libraryservice.ReviewRuntimeScreenshot{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewRuntimeScreenshot{}, false, fmt.Errorf("query review runtime screenshot: %w", err)
+		return libraryservice.ReviewRuntimeScreenshot{}, false, fmt.Errorf("query review runtime screenshot: %w", err)
 	}
 	return result, true, nil
 }

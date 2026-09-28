@@ -14,7 +14,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -125,7 +125,7 @@ type Server struct {
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	sourceImports           *sourceimport.Service
-	cleanupJobs             *payloadcomposition.Service
+	cleanupJobs             *cleanupcomposition.Service
 	platformDirectories     *platforminstance.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration

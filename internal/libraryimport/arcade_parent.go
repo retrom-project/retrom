@@ -13,12 +13,12 @@ import (
 
 	contentcapability "retrom/internal/content/capability"
 	librarypersistence "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
 
-const parentAttachmentDeadline = application.ArcadeParentAttachmentDeadline
+const parentAttachmentDeadline = libraryservice.ArcadeParentAttachmentDeadline
 
 const (
 	ParentErrorInvalid       = "REVIEW_PARENT_UPLOAD_INVALID"
@@ -77,7 +77,7 @@ type ParentAttachmentCreated struct {
 	Version      int64  `json:"-"`
 }
 
-type parentAttachmentInput = application.ArcadeParentAttachmentInput
+type parentAttachmentInput = libraryservice.ArcadeParentAttachmentInput
 
 type parentAttachmentCandidate struct {
 	attachmentID, itemID, draftID, baseSnapshotID    string
@@ -101,7 +101,7 @@ func (service *Service) CreateArcadeParentAttachment(
 	}
 	var result ParentAttachmentCreated
 	repository := librarypersistence.NewArcadeParentAttachments(service.database)
-	err := repository.WithAdmission(ctx, func(scope application.ArcadeParentAttachmentAdmissionScope) error {
+	err := repository.WithAdmission(ctx, func(scope libraryservice.ArcadeParentAttachmentAdmissionScope) error {
 		setup := parentAttachmentSetup{
 			service: service, ctx: ctx, scope: scope,
 			itemID: itemID, expectedVersion: expectedVersion, request: request,
@@ -119,10 +119,10 @@ func (service *Service) CreateArcadeParentAttachment(
 		if errors.As(err, &known) {
 			return ParentAttachmentCreated{}, err
 		}
-		if errors.Is(err, application.ErrArcadeParentAttachmentActive) {
+		if errors.Is(err, libraryservice.ErrArcadeParentAttachmentActive) {
 			return ParentAttachmentCreated{}, parentError(ParentErrorInProgress, err)
 		}
-		if errors.Is(err, application.ErrVersionConflict) {
+		if errors.Is(err, libraryservice.ErrVersionConflict) {
 			return ParentAttachmentCreated{}, parentError(ParentErrorVersion, err)
 		}
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
@@ -145,7 +145,7 @@ func invalidParentAttachmentRequest(
 type parentAttachmentSetup struct {
 	service             *Service
 	ctx                 context.Context
-	scope               application.ArcadeParentAttachmentAdmissionScope
+	scope               libraryservice.ArcadeParentAttachmentAdmissionScope
 	itemID              string
 	expectedVersion     int64
 	request             ParentAttachmentRequest
@@ -187,7 +187,7 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 		return parentError(ParentErrorUnavailable, err)
 	}
 	if !found {
-		return parentError(ParentErrorNotFound, application.ErrInvalid)
+		return parentError(ParentErrorNotFound, libraryservice.ErrInvalid)
 	}
 	setup.draftID, setup.targetID, setup.effectiveSnapshotID = draft.DraftID, draft.TargetID, draft.EffectiveSnapshotID
 	setup.platformID, setup.platformVersion = draft.PlatformID, draft.PlatformVersion
@@ -290,7 +290,7 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
 		setup.blobSHA, setup.request.ValidationID,
 	}, "\x00")))
-	err := setup.scope.Write.Create(setup.ctx, application.ArcadeParentAttachmentWrite{
+	err := setup.scope.Write.Create(setup.ctx, libraryservice.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
 		InputDigest: hex.EncodeToString(inputDigest[:]), DedupeKey: hex.EncodeToString(dedupe[:]),
 		AttachmentID: attachmentID.String(), JobID: jobID.String(), ItemID: setup.itemID,
@@ -302,10 +302,10 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		NowMS: now, Actor: reviewActor(setup.ctx),
 	})
 	if err != nil {
-		if errors.Is(err, application.ErrArcadeParentAttachmentActive) {
+		if errors.Is(err, libraryservice.ErrArcadeParentAttachmentActive) {
 			return ParentAttachmentCreated{}, parentError(ParentErrorInProgress, err)
 		}
-		if errors.Is(err, application.ErrVersionConflict) {
+		if errors.Is(err, libraryservice.ErrVersionConflict) {
 			return ParentAttachmentCreated{}, parentError(ParentErrorVersion, err)
 		}
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
@@ -341,10 +341,10 @@ func attachmentDependency(snapshot arcadeDraftSnapshot, machine string) (arcadeD
 
 func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	ctx context.Context,
-	reader application.ArcadeRelationReader,
+	reader libraryservice.ArcadeRelationReader,
 	raw string,
 ) (arcadeDraftSnapshot, error) {
-	snapshot, err := application.CanonicalArcadeSnapshot(ctx, reader, raw)
+	snapshot, err := libraryservice.CanonicalArcadeSnapshot(ctx, reader, raw)
 	if err != nil {
 		return arcadeDraftSnapshot{}, fmt.Errorf("read canonical arcade snapshot: %w", err)
 	}

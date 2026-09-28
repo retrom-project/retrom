@@ -8,10 +8,10 @@ import (
 
 	"retrom/internal/cleanup"
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-const importGroupLease = application.ImportExecutionLease
+const importGroupLease = libraryservice.ImportExecutionLease
 
 type queuedCreationWork struct {
 	importID, jobID, workerID, actorUserID             string
@@ -21,8 +21,8 @@ type queuedCreationWork struct {
 	attempt                                            int
 }
 
-func (work queuedCreationWork) creationIntent() *application.QueuedImportExecution {
-	return &application.QueuedImportExecution{
+func (work queuedCreationWork) creationIntent() *libraryservice.QueuedImportExecution {
+	return &libraryservice.QueuedImportExecution{
 		ImportID:    work.importID,
 		JobID:       work.jobID,
 		WorkerID:    work.workerID,
@@ -35,8 +35,8 @@ func (work queuedCreationWork) creationIntent() *application.QueuedImportExecuti
 	}
 }
 
-func (service *Service) testExecutions() *application.ImportExecutions {
-	return application.NewImportExecutions(repository.NewImportExecutions(service.database), service.now)
+func (service *Service) testExecutions() *libraryservice.ImportExecutions {
+	return libraryservice.NewImportExecutions(repository.NewImportExecutions(service.database), service.now)
 }
 
 func (service *Service) claimImportGroup(ctx context.Context, id string) (queuedCreationWork, error) {
@@ -76,8 +76,8 @@ func (service *Service) finishImportGroupFailure(ctx context.Context, work queue
 }
 
 type (
-	creationPlan              = application.PreparedImport
-	importGroupTargetSnapshot = application.ImportTargetSnapshot
+	creationPlan              = libraryservice.PreparedImport
+	importGroupTargetSnapshot = libraryservice.ImportTargetSnapshot
 )
 
 func (service *Service) prepareCreation(ctx context.Context, request CreateRequest) (creationPlan, error) {

@@ -11,7 +11,7 @@ import (
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
 	payloadservice "retrom/internal/service/cleanupjobs"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ImportBatchCancellations struct{ database dbapi.DB }
@@ -27,16 +27,16 @@ type importCancellationEvidence struct {
 }
 
 func (repository *ImportBatchCancellations) Cancel(
-	ctx context.Context, request application.ImportBatchCancellationRequest, now int64,
-) (application.ImportBatchCancellationResult, error) {
+	ctx context.Context, request libraryservice.ImportBatchCancellationRequest, now int64,
+) (libraryservice.ImportBatchCancellationResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return application.ImportBatchCancellationResult{}, fmt.Errorf("begin import cancellation: %w", err)
+		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("begin import cancellation: %w", err)
 	}
 	defer dbapi.Rollback(tx)
 	evidence, err := loadImportCancellationEvidence(ctx, tx, request.ImportID, request.ExpectedVersion)
 	if err != nil {
-		return application.ImportBatchCancellationResult{}, err
+		return libraryservice.ImportBatchCancellationResult{}, err
 	}
 	if request.PreserveReviews {
 		evidence.reviewPending = 0
@@ -53,7 +53,7 @@ func (repository *ImportBatchCancellations) Cancel(
 AND (state<>'REVIEW_PENDING' OR ?=0)`, Args: []any{request.ImportID, request.PreserveReviews}},
 		Values: []any{now, now},
 	}); err != nil {
-		return application.ImportBatchCancellationResult{}, fmt.Errorf("cancel import items: %w", err)
+		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("cancel import items: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 UPDATE import_jobs SET state=?,cancel_requested_at_ms=?,cancel_reason=?,
@@ -63,18 +63,18 @@ version=version+1,updated_at_ms=?,completed_at_ms=CASE WHEN ?='CANCELLED' THEN ?
 WHERE id=?
 `, state, now, request.Reason, evidence.queued, evidence.reviewPending, evidence.failed,
 		evidence.queued, evidence.reviewPending, evidence.failed, now, state, now, request.ImportID); err != nil {
-		return application.ImportBatchCancellationResult{}, fmt.Errorf("cancel import aggregate: %w", err)
+		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("cancel import aggregate: %w", err)
 	}
 	if err := transitionImportGroupCancellation(ctx, tx, evidence, request.Reason, now); err != nil {
-		return application.ImportBatchCancellationResult{}, err
+		return libraryservice.ImportBatchCancellationResult{}, err
 	}
 	if err := scheduleCancelledImportPayloads(ctx, tx, request.ImportID, now); err != nil {
-		return application.ImportBatchCancellationResult{}, err
+		return libraryservice.ImportBatchCancellationResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return application.ImportBatchCancellationResult{}, fmt.Errorf("commit import cancellation: %w", err)
+		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("commit import cancellation: %w", err)
 	}
-	return application.ImportBatchCancellationResult{
+	return libraryservice.ImportBatchCancellationResult{
 		ImportID: request.ImportID, GroupJobID: evidence.groupJobID.String,
 		State: state, Version: evidence.version + 1, Pending: pending,
 	}, nil
@@ -96,10 +96,10 @@ FROM import_jobs WHERE id=?
 `, importID).Scan(&evidence.state, &evidence.version, &evidence.running, &evidence.queued,
 		&evidence.reviewPending, &evidence.failed, &evidence.groupJobID, &evidence.groupState)
 	if err != nil || evidence.version != expectedVersion {
-		return importCancellationEvidence{}, application.ErrInvalid
+		return importCancellationEvidence{}, libraryservice.ErrInvalid
 	}
 	if evidence.state == "COMPLETED" || evidence.state == "CANCELLED" || evidence.state == "FAILED" {
-		return importCancellationEvidence{}, application.ErrInvalid
+		return importCancellationEvidence{}, libraryservice.ErrInvalid
 	}
 	return evidence, nil
 }
@@ -164,4 +164,4 @@ ORDER BY id`, importID)
 	return nil
 }
 
-var _ application.ImportBatchCancellationRepository = (*ImportBatchCancellations)(nil)
+var _ libraryservice.ImportBatchCancellationRepository = (*ImportBatchCancellations)(nil)

@@ -7,12 +7,12 @@ import (
 	"retrom/internal/filestore"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func NewReconfigurations(database dbapi.DB, now func() time.Time,
-	files *filestore.Store, creations *application.ImportCreations,
-) *application.Reconfigurations {
-	return application.NewReconfigurations(repository.NewReconfigurations(database),
+	files *filestore.Store, creations *libraryservice.ImportCreations,
+) *libraryservice.Reconfigurations {
+	return libraryservice.NewReconfigurations(repository.NewReconfigurations(database),
 		creations.Create, files.CopyTo, files.RemovePath, now)
 }

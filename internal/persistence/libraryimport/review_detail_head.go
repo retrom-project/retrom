@@ -8,7 +8,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 const reviewDetailQuery = `
@@ -74,8 +74,8 @@ AND NOT EXISTS(
 
 type ReviewDrafts struct{ executor dbapi.Executor }
 
-func (records ReviewDrafts) Head(ctx context.Context, itemID string) (application.ReviewHead, error) {
-	var result application.ReviewHead
+func (records ReviewDrafts) Head(ctx context.Context, itemID string) (libraryservice.ReviewHead, error) {
+	var result libraryservice.ReviewHead
 	err := dbapi.QueryRowContext(ctx, records.executor, reviewDetailQuery, itemID).Scan(
 		&result.ItemID, &result.ImportJobID, &result.MetadataJSON, &result.Version, &result.UpdatedAtMS,
 		&result.PlatformInstance.ID, &result.PlatformInstance.Name, contentquery.ScanPolicy(&result.Policy),
@@ -90,10 +90,10 @@ func (records ReviewDrafts) Head(ctx context.Context, itemID string) (applicatio
 		&result.DraftID, &result.PlatformID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ReviewHead{}, application.ErrReviewNotFound
+		return libraryservice.ReviewHead{}, libraryservice.ErrReviewNotFound
 	}
 	if err != nil {
-		return application.ReviewHead{}, fmt.Errorf("query review headline: %w", err)
+		return libraryservice.ReviewHead{}, fmt.Errorf("query review headline: %w", err)
 	}
 	return result, nil
 }

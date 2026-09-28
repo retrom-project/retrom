@@ -8,24 +8,24 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Queued(
 	ctx context.Context,
 	id string,
-) (application.CreationQueuedSnapshot, error) {
+) (libraryservice.CreationQueuedSnapshot, error) {
 	result, found, err := (importExecutionRecords{executor: records.transaction}).Current(ctx, id)
 	if err != nil {
-		return application.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", err)
+		return libraryservice.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", err)
 	}
 	if !found {
-		return application.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", sql.ErrNoRows)
+		return libraryservice.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", sql.ErrNoRows)
 	}
 	return result.Creation, nil
 }
 
-func (records creationRecords) FenceInputs(ctx context.Context, plan application.PreparedImport) error {
+func (records creationRecords) FenceInputs(ctx context.Context, plan libraryservice.PreparedImport) error {
 	upload := plan.Upload
 	result, err := records.transaction.ExecContext(
 		ctx,
@@ -75,7 +75,7 @@ AND relative_path=? AND file_record=? AND json_extract(file_record,'$.sha256')=?
 	return nil
 }
 
-func (records creationRecords) fenceBinding(ctx context.Context, plan application.PreparedImport) error {
+func (records creationRecords) fenceBinding(ctx context.Context, plan libraryservice.PreparedImport) error {
 	target := plan.Target
 	result, err := records.transaction.ExecContext(
 		ctx,
@@ -104,7 +104,7 @@ SELECT COALESCE((SELECT id FROM dat_versions WHERE provider_id=? AND target_id=?
 		return fmt.Errorf("read prepared DAT fence: %w", err)
 	}
 	if active != plan.DATVersionID {
-		return application.ErrVersionConflict
+		return libraryservice.ErrVersionConflict
 	}
 	return nil
 }

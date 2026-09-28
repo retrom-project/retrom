@@ -6,9 +6,9 @@ import (
 	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func NewReviewDeduplicator(database dbapi.DB, now func() time.Time) *application.ReviewDeduplicator {
-	return application.NewReviewDeduplicator(repository.NewReviewDeduplicates(database), now)
+func NewReviewDeduplicator(database dbapi.DB, now func() time.Time) *libraryservice.ReviewDeduplicator {
+	return libraryservice.NewReviewDeduplicator(repository.NewReviewDeduplicates(database), now)
 }

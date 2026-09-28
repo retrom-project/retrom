@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	gameassetspersistence "retrom/internal/persistence/gameassets"
@@ -24,7 +24,7 @@ func NewGameAssets(
 	database dbapi.DB,
 	blobs *filestore.Store,
 	now func() time.Time,
-	cleanupJobs *payloadcomposition.Service,
+	cleanupJobs *cleanupcomposition.Service,
 ) *gameassetsservice.Service {
 	return gameassetsservice.New(
 		gameassetspersistence.New(database, gameAssetPayloadReleases{service: cleanupJobs}),
@@ -34,7 +34,7 @@ func NewGameAssets(
 }
 
 type gameAssetPayloadReleases struct {
-	service *payloadcomposition.Service
+	service *cleanupcomposition.Service
 }
 
 func (releases gameAssetPayloadReleases) transaction(

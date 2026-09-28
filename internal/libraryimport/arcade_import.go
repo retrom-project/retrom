@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"retrom/internal/importing"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) arcadeRequirements(ctx context.Context, datID, machine string,
@@ -18,7 +18,7 @@ func matchArcadeRequirements(
 	entries map[string]importing.ArchiveEntry,
 	requirements []arcadeROMRequirement,
 ) ([]string, []string, []string) {
-	return application.MatchArcadeRequirements(entries, requirements)
+	return libraryservice.MatchArcadeRequirements(entries, requirements)
 }
 
 func (service *Service) prepareArcadeFiles(
@@ -30,4 +30,4 @@ func (service *Service) prepareArcadeFiles(
 	return dispositions, groups, archives, legacyPreparationError(err)
 }
 
-type arcadeROMRequirement = application.ArcadeROMRequirement
+type arcadeROMRequirement = libraryservice.ArcadeROMRequirement

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (server *Server) discardReview(writer http.ResponseWriter, request *http.Request) {
@@ -27,11 +27,11 @@ func (server *Server) discardReview(writer http.ResponseWriter, request *http.Re
 	if body.Reason != nil {
 		reason = *body.Reason
 	}
-	result, err := server.reviewDiscards.Discard(request.Context(), application.ReviewDiscardRequest{
+	result, err := server.reviewDiscards.Discard(request.Context(), libraryservice.ReviewDiscardRequest{
 		ItemID: request.PathValue("importItemId"), ExpectedVersion: version,
-		Reason: reason, Mode: application.ReviewDiscardSingle,
+		Reason: reason, Mode: libraryservice.ReviewDiscardSingle,
 	})
-	if err != nil && !errors.Is(err, application.ErrInvalid) {
+	if err != nil && !errors.Is(err, libraryservice.ErrInvalid) {
 		server.databaseError(writer, request, err)
 		return
 	}

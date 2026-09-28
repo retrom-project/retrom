@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ImportItemRetries struct{ database dbapi.DB }
@@ -17,7 +17,7 @@ func NewImportItemRetries(database dbapi.DB) *ImportItemRetries {
 }
 
 func (repository *ImportItemRetries) WithRetry(
-	ctx context.Context, work func(application.ImportItemRetryScope) error,
+	ctx context.Context, work func(libraryservice.ImportItemRetryScope) error,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -37,23 +37,23 @@ type importItemRetryScope struct{ executor dbapi.Executor }
 
 func (scope importItemRetryScope) Current(
 	ctx context.Context, itemID string,
-) (application.ImportItemRetrySnapshot, bool, error) {
-	var result application.ImportItemRetrySnapshot
+) (libraryservice.ImportItemRetrySnapshot, bool, error) {
+	var result libraryservice.ImportItemRetrySnapshot
 	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT import_job_id,failed_stage,source_manifest_digest,version,state
 FROM import_items WHERE id=?
 `, itemID).Scan(&result.ImportID, &result.Stage, &result.ManifestDigest, &result.Version, &result.State)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.ImportItemRetrySnapshot{}, false, nil
+		return libraryservice.ImportItemRetrySnapshot{}, false, nil
 	}
 	if err != nil {
-		return application.ImportItemRetrySnapshot{}, false, fmt.Errorf("query import item retry: %w", err)
+		return libraryservice.ImportItemRetrySnapshot{}, false, fmt.Errorf("query import item retry: %w", err)
 	}
 	return result, true, nil
 }
 
 func (scope importItemRetryScope) Retry(
-	ctx context.Context, write application.ImportItemRetryWrite,
+	ctx context.Context, write libraryservice.ImportItemRetryWrite,
 ) error {
 	if _, err := scope.executor.ExecContext(ctx, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
@@ -73,7 +73,7 @@ WHERE id=? AND state='FAILED_RETRYABLE' AND version=?
 	if changed, err := result.RowsAffected(); err != nil {
 		return fmt.Errorf("queue import item retry result: %w", err)
 	} else if changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	result, err = scope.executor.ExecContext(ctx, `
 UPDATE import_jobs SET failed_item_count=failed_item_count-1,queued_item_count=queued_item_count+1,
@@ -86,7 +86,7 @@ WHERE id=? AND failed_item_count>0
 	if changed, err := result.RowsAffected(); err != nil {
 		return fmt.Errorf("queue import retry aggregate result: %w", err)
 	} else if changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	if _, err := scope.executor.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
@@ -97,4 +97,4 @@ VALUES(?,'IMPORT_ITEM',?,'MANUAL_RETRY','{}',?)
 	return nil
 }
 
-var _ application.ImportItemRetryRepository = (*ImportItemRetries)(nil)
+var _ libraryservice.ImportItemRetryRepository = (*ImportItemRetries)(nil)

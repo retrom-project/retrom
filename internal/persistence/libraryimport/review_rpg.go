@@ -7,21 +7,21 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records *ReviewValidation) Profile(
 	ctx context.Context,
 	draftID string,
-) (application.RPGReviewProfile, bool, error) {
+) (libraryservice.RPGReviewProfile, bool, error) {
 	profile, err := readRPGReviewProfile(ctx, records.executor, draftID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return application.RPGReviewProfile{}, false, nil
+		return libraryservice.RPGReviewProfile{}, false, nil
 	}
 	if err != nil {
-		return application.RPGReviewProfile{}, false, fmt.Errorf("read RPG review profile: %w", err)
+		return libraryservice.RPGReviewProfile{}, false, fmt.Errorf("read RPG review profile: %w", err)
 	}
-	result := application.RPGReviewProfile{
+	result := libraryservice.RPGReviewProfile{
 		Generation: profile.Generation, EvidenceGeneration: profile.EvidenceGeneration,
 		EvidenceConfidence:    profile.EvidenceConfidence,
 		SelfContainedOverride: profile.SelfContainedOverride != 0,
@@ -31,7 +31,7 @@ func (records *ReviewValidation) Profile(
 SELECT core_id FROM runtime_target_bindings WHERE provider_id=? AND target_id=?`,
 		profile.ProviderID, profile.TargetID).Scan(&result.SelectedCoreID)
 	if err != nil {
-		return application.RPGReviewProfile{}, false, fmt.Errorf("read RPG review target binding: %w", err)
+		return libraryservice.RPGReviewProfile{}, false, fmt.Errorf("read RPG review target binding: %w", err)
 	}
 	return result, true, nil
 }

@@ -6,7 +6,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type ReviewValidation struct{ executor dbapi.Executor }
@@ -18,8 +18,8 @@ func BindReviewValidation(executor dbapi.Executor) *ReviewValidation {
 func (records *ReviewValidation) Evidence(
 	ctx context.Context,
 	validationID string,
-) (application.ReviewValidationEvidence, error) {
-	var value application.ReviewValidationEvidence
+) (libraryservice.ReviewValidationEvidence, error) {
+	var value libraryservice.ReviewValidationEvidence
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT validation.platform_instance_version,
 validation.source_snapshot_id,
@@ -55,7 +55,7 @@ WHERE validation.id=?
 		&value.CurrentPlatformVersion, contentquery.ScanPolicy(&value.ContentPolicy), &value.DraftID,
 	)
 	if err != nil {
-		return application.ReviewValidationEvidence{}, fmt.Errorf("libraryimport/review validation evidence: %w", err)
+		return libraryservice.ReviewValidationEvidence{}, fmt.Errorf("libraryimport/review validation evidence: %w", err)
 	}
 	return value, nil
 }

@@ -9,12 +9,12 @@ import (
 
 	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 
 	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
 	payloadservice "retrom/internal/service/cleanupjobs"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) {
@@ -73,7 +73,7 @@ func TestOwnedServerSourceRejectsAdditionalIndependentReviewGroups(t *testing.T)
 	extra.RelativePath = "games/extra.gba"
 	request.Files = append(request.Files, extra)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) ||
+	if !errors.Is(err, ErrInvalid) || !errors.Is(err, libraryservice.ErrSourceGrouping) ||
 		result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("unowned review committed: %#v %v", result, err)
 	}
@@ -126,7 +126,7 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 
 func releaseOwnedSourceFixture(t *testing.T, fixture deduplicateFixture) {
 	t.Helper()
-	releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow)
+	releases, err := cleanupcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,8 +152,8 @@ func TestOwnedSourceRejectsExistingUnboundCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx,
-		application.SourceCreationIntent{
-			Kind:     application.SourceOwnerSource,
+		libraryservice.SourceCreationIntent{
+			Kind:     libraryservice.SourceOwnerSource,
 			ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID,
 		})
 	if !errors.Is(err, ErrVersionConflict) || found || result.Created.ImportJobID != "" {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func requireDiscardMutation(result sql.Result, err error, action string) error {
@@ -18,12 +18,12 @@ func requireDiscardMutation(result sql.Result, err error, action string) error {
 		return fmt.Errorf("libraryimport/review: %s result: %w", action, err)
 	}
 	if changed != 1 {
-		return application.ErrInvalid
+		return libraryservice.ErrInvalid
 	}
 	return nil
 }
 
-func (records reviewDiscardRecords) DiscardItem(ctx context.Context, change application.ReviewDiscardChange) error {
+func (records reviewDiscardRecords) DiscardItem(ctx context.Context, change libraryservice.ReviewDiscardChange) error {
 	transaction := records.executor
 	itemID, importID, now := change.ItemID, change.ImportID, change.NowMS
 	itemResult, itemErr := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{

@@ -6,33 +6,33 @@ import (
 
 	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 const (
-	multiDiscAttachmentDeadline  = application.MultiDiscAttachmentDeadline
-	multiDiscAttachmentReadChunk = application.MultiDiscAttachmentReadChunk
+	multiDiscAttachmentDeadline  = libraryservice.MultiDiscAttachmentDeadline
+	multiDiscAttachmentReadChunk = libraryservice.MultiDiscAttachmentReadChunk
 )
 
 const (
-	MultiDiscAttachmentErrorInvalid         = application.MultiDiscAttachmentErrorInvalid
-	MultiDiscAttachmentErrorNotFound        = application.MultiDiscAttachmentErrorNotFound
-	MultiDiscAttachmentErrorVersion         = application.MultiDiscAttachmentErrorVersion
-	MultiDiscAttachmentErrorInProgress      = application.MultiDiscAttachmentErrorInProgress
-	MultiDiscAttachmentErrorRetryRequired   = application.MultiDiscAttachmentErrorRetryRequired
-	MultiDiscAttachmentErrorInputStale      = application.MultiDiscAttachmentErrorInputStale
-	MultiDiscAttachmentErrorFinalized       = application.MultiDiscAttachmentErrorFinalized
-	MultiDiscAttachmentErrorContentInvalid  = application.MultiDiscAttachmentErrorContentInvalid
-	MultiDiscAttachmentErrorSetMismatch     = application.MultiDiscAttachmentErrorSetMismatch
-	MultiDiscAttachmentErrorModeUnavailable = application.MultiDiscAttachmentErrorModeUnavailable
-	MultiDiscAttachmentErrorUnavailable     = application.MultiDiscAttachmentErrorUnavailable
+	MultiDiscAttachmentErrorInvalid         = libraryservice.MultiDiscAttachmentErrorInvalid
+	MultiDiscAttachmentErrorNotFound        = libraryservice.MultiDiscAttachmentErrorNotFound
+	MultiDiscAttachmentErrorVersion         = libraryservice.MultiDiscAttachmentErrorVersion
+	MultiDiscAttachmentErrorInProgress      = libraryservice.MultiDiscAttachmentErrorInProgress
+	MultiDiscAttachmentErrorRetryRequired   = libraryservice.MultiDiscAttachmentErrorRetryRequired
+	MultiDiscAttachmentErrorInputStale      = libraryservice.MultiDiscAttachmentErrorInputStale
+	MultiDiscAttachmentErrorFinalized       = libraryservice.MultiDiscAttachmentErrorFinalized
+	MultiDiscAttachmentErrorContentInvalid  = libraryservice.MultiDiscAttachmentErrorContentInvalid
+	MultiDiscAttachmentErrorSetMismatch     = libraryservice.MultiDiscAttachmentErrorSetMismatch
+	MultiDiscAttachmentErrorModeUnavailable = libraryservice.MultiDiscAttachmentErrorModeUnavailable
+	MultiDiscAttachmentErrorUnavailable     = libraryservice.MultiDiscAttachmentErrorUnavailable
 )
 
 type (
-	MultiDiscAttachmentError   = application.MultiDiscAttachmentError
-	MultiDiscAttachmentRequest = application.MultiDiscAttachmentRequest
-	MultiDiscAttachmentCreated = application.MultiDiscAttachmentCreated
-	multiDiscAttachmentInput   = application.MultiDiscAttachmentInput
+	MultiDiscAttachmentError   = libraryservice.MultiDiscAttachmentError
+	MultiDiscAttachmentRequest = libraryservice.MultiDiscAttachmentRequest
+	MultiDiscAttachmentCreated = libraryservice.MultiDiscAttachmentCreated
+	multiDiscAttachmentInput   = libraryservice.MultiDiscAttachmentInput
 )
 
 func multiDiscAttachmentError(code string, cause error) error {
@@ -40,7 +40,7 @@ func multiDiscAttachmentError(code string, cause error) error {
 }
 
 func MultiDiscAttachmentErrorCode(err error) string {
-	return application.MultiDiscAttachmentErrorCode(err)
+	return libraryservice.MultiDiscAttachmentErrorCode(err)
 }
 
 func multiDiscAttachmentStoreError(operation string, err error) error {

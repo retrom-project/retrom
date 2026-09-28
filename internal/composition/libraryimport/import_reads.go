@@ -4,9 +4,9 @@ import (
 	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func NewImportReads(database dbapi.DB) *application.ImportReads {
-	return application.NewImportReads(repository.NewImportReads(database))
+func NewImportReads(database dbapi.DB) *libraryservice.ImportReads {
+	return libraryservice.NewImportReads(repository.NewImportReads(database))
 }

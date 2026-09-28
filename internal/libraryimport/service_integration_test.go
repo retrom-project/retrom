@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -523,7 +523,7 @@ WHERE job.id=? AND item.id=?
 		func() bool { return discardedItemState != "DISCARDED" }),
 		"discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState,
 		discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
-	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now)
+	releases, err := cleanupcomposition.New(ctx, database.SQL, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

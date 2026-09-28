@@ -10,21 +10,23 @@ import (
 
 	repository "retrom/internal/persistence/libraryimport"
 	"retrom/internal/service/jobs"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func WithJobCancellation(service *jobs.Service, executions *application.ImportExecutions) *jobs.Service {
+func WithJobCancellation(service *jobs.Service, executions *libraryservice.ImportExecutions) *jobs.Service {
 	return service.WithDomainCancellation(map[string]jobs.DomainCanceller{"IMPORT_GROUP": importCancellation{
 		executions: executions,
 	}})
 }
 
 // NewImportBatchCancellations binds the aggregate cancellation use case.
-func NewImportBatchCancellations(database dbapi.DB, now func() time.Time) *application.ImportBatchCancellations {
-	return application.NewImportBatchCancellations(repository.NewImportBatchCancellations(database), now)
+func NewImportBatchCancellations(database dbapi.DB, now func() time.Time) *libraryservice.ImportBatchCancellations {
+	return libraryservice.NewImportBatchCancellations(repository.NewImportBatchCancellations(database), now)
 }
 
-type importCancellation struct{ executions *application.ImportExecutions }
+type importCancellation struct {
+	executions *libraryservice.ImportExecutions
+}
 
 func (handler importCancellation) CancelJob(
 	ctx context.Context,
@@ -35,13 +37,13 @@ func (handler importCancellation) CancelJob(
 	}
 	result, err := handler.executions.CancelJob(
 		ctx,
-		application.ImportJobCancellation{
+		libraryservice.ImportJobCancellation{
 			JobID: request.JobID, ImportID: request.ScopeID,
 			ExpectedVersion: request.ExpectedVersion, Reason: request.Reason,
 		},
 	)
 	if err != nil {
-		if errors.Is(err, application.ErrInvalid) || errors.Is(err, application.ErrVersionConflict) {
+		if errors.Is(err, libraryservice.ErrInvalid) || errors.Is(err, libraryservice.ErrVersionConflict) {
 			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobs.ErrConflict, err)
 		}
 		return jobs.Result{}, false, fmt.Errorf("cancel ordinary import job: %w", err)

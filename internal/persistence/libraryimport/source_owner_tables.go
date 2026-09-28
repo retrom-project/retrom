@@ -1,23 +1,23 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import libraryservice "retrom/internal/service/libraryimport"
 
-func sourceOwnerTable(kind application.SourceOwnerKind) (string, error) {
+func sourceOwnerTable(kind libraryservice.SourceOwnerKind) (string, error) {
 	switch kind {
-	case application.SourceOwnerSource:
+	case libraryservice.SourceOwnerSource:
 		return "source_import_items", nil
 
 	default:
-		return "", application.ErrInvalid
+		return "", libraryservice.ErrInvalid
 	}
 }
 
-func sourceOwnerFilesTable(kind application.SourceOwnerKind) (string, error) {
+func sourceOwnerFilesTable(kind libraryservice.SourceOwnerKind) (string, error) {
 	switch kind {
-	case application.SourceOwnerSource:
+	case libraryservice.SourceOwnerSource:
 		return "source_import_item_files", nil
 
 	default:
-		return "", application.ErrInvalid
+		return "", libraryservice.ErrInvalid
 	}
 }

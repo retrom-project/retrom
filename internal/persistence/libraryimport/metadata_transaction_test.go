@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/authn"
 	dbapi "retrom/internal/database"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -71,10 +71,10 @@ func readMetadataState(t *testing.T, db dbapi.DB) metadataState {
 func TestMetadataTransactionCommitsDraftAndSearchOnce(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	service := application.NewMetadataSeeder(NewMetadata(db), metadataNow)
+	service := libraryservice.NewMetadataSeeder(NewMetadata(db), metadataNow)
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "actor"})
 	for range 2 {
-		version, warnings, err := service.Seed(ctx, "item", application.ServerMetadata{Title: "新 Title"}, 2027)
+		version, warnings, err := service.Seed(ctx, "item", libraryservice.ServerMetadata{Title: "新 Title"}, 2027)
 		if err != nil || version != 8 || warnings == nil || len(warnings) != 0 {
 			t.Fatalf("seed=%d %#v %v", version, warnings, err)
 		}
@@ -90,8 +90,8 @@ type metadataLateFailure struct {
 	cause      error
 }
 
-func (r metadataLateFailure) WithMetadata(ctx context.Context, work func(application.MetadataScope) error) error {
-	return r.repository.WithMetadata(ctx, func(scope application.MetadataScope) error {
+func (r metadataLateFailure) WithMetadata(ctx context.Context, work func(libraryservice.MetadataScope) error) error {
+	return r.repository.WithMetadata(ctx, func(scope libraryservice.MetadataScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -104,8 +104,8 @@ func TestMetadataTransactionRollsBackLateFailureWithoutSuccessResult(t *testing.
 	db := metadataDatabase(t)
 	before := readMetadataState(t, db)
 	cause := errors.New("handoff projection failed")
-	service := application.NewMetadataSeeder(metadataLateFailure{NewMetadata(db), cause}, metadataNow)
-	version, warnings, err := service.Seed(t.Context(), "item", application.ServerMetadata{Title: "Changed"}, 2027)
+	service := libraryservice.NewMetadataSeeder(metadataLateFailure{NewMetadata(db), cause}, metadataNow)
+	version, warnings, err := service.Seed(t.Context(), "item", libraryservice.ServerMetadata{Title: "Changed"}, 2027)
 	if !errors.Is(err, cause) || version != 0 || warnings != nil {
 		t.Fatalf("late failure result=%d %#v %v", version, warnings, err)
 	}
@@ -115,18 +115,18 @@ func TestMetadataTransactionRollsBackLateFailureWithoutSuccessResult(t *testing.
 }
 
 type metadataDrift struct {
-	application.MetadataScope
+	libraryservice.MetadataScope
 	executor  dbapi.Executor
 	statement string
 }
 
-func (scope metadataDrift) CurrentMetadata(ctx context.Context, id string) (application.MetadataDraft, error) {
+func (scope metadataDrift) CurrentMetadata(ctx context.Context, id string) (libraryservice.MetadataDraft, error) {
 	before, err := scope.MetadataScope.CurrentMetadata(ctx, id)
 	if err != nil {
-		return application.MetadataDraft{}, err
+		return libraryservice.MetadataDraft{}, err
 	}
 	if _, err := scope.executor.ExecContext(ctx, scope.statement); err != nil {
-		return application.MetadataDraft{}, err
+		return libraryservice.MetadataDraft{}, err
 	}
 	return before, nil
 }
@@ -152,8 +152,8 @@ func assertMetadataFence(t *testing.T, statement string) {
 	}
 	defer dbapi.Rollback(tx)
 	scope := metadataDrift{MetadataScope: BindMetadata(tx), executor: tx, statement: statement}
-	version, _, err := application.NewMetadataSeeder(nil, metadataNow).SeedInScope(t.Context(), scope, "item", application.ServerMetadata{Title: "Changed"}, 2027)
-	if !errors.Is(err, application.ErrVersionConflict) || version != 0 {
+	version, _, err := libraryservice.NewMetadataSeeder(nil, metadataNow).SeedInScope(t.Context(), scope, "item", libraryservice.ServerMetadata{Title: "Changed"}, 2027)
+	if !errors.Is(err, libraryservice.ErrVersionConflict) || version != 0 {
 		t.Fatalf("stale metadata accepted: %d %v", version, err)
 	}
 	if err := tx.Rollback(); err != nil {
@@ -167,13 +167,13 @@ func assertMetadataFence(t *testing.T, statement string) {
 func TestMetadataTransactionRejectsMissingAndFinalizedItems(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	service := application.NewMetadataSeeder(NewMetadata(db), metadataNow)
+	service := libraryservice.NewMetadataSeeder(NewMetadata(db), metadataNow)
 	for _, id := range []string{"missing", "item"} {
 		if id == "item" {
 			metadataExec(t, db, `UPDATE import_items SET state='DISCARDED' WHERE id='item'`)
 		}
-		version, _, err := service.Seed(t.Context(), id, application.ServerMetadata{Title: "Changed"}, 2027)
-		if !errors.Is(err, application.ErrInvalid) || version != 0 {
+		version, _, err := service.Seed(t.Context(), id, libraryservice.ServerMetadata{Title: "Changed"}, 2027)
+		if !errors.Is(err, libraryservice.ErrInvalid) || version != 0 {
 			t.Fatalf("item %s result: %d %v", id, version, err)
 		}
 	}

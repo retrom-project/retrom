@@ -21,7 +21,7 @@ import (
 	variantcomposition "retrom/internal/composition/gamevariant"
 	librarycomposition "retrom/internal/composition/libraryimport"
 	librarypersistence "retrom/internal/persistence/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -98,7 +98,7 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 	bulk, err := bulkService.Create(ctx)
 	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(5 * time.Second)
-	var summary application.ReviewBulkSummary
+	var summary libraryservice.ReviewBulkSummary
 	for {
 		summary, err = bulkService.Get(ctx, bulk.BulkApprovalID)
 		testassert.False(t, err != nil, err)
@@ -154,7 +154,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	if source {
 		linkReviewToSourceOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
-	detail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	detail, err := libraryservice.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
 	testassert.False(t, err != nil, err)
 	view := detail.ArcadeDependencies
 	testassert.True(t, view != nil, "arcade dependencies were not projected")
