@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
-import { formatTime } from "@/lib/backend";
 import { featuredLaunchDOSEntry, type FeaturedGame } from "./home-data";
 import { HomeFeaturedMedia } from "./home-featured-media";
+import { HomeTime } from "./home-time";
 
 function EmptyFeatured({ gameCount }: { gameCount: number }) {
     return <article className="panel home-featured-panel home-featured-empty">
@@ -37,6 +37,5 @@ export function HomeFeatured({ game, gameCount = 0, phone = false }: { game: Fea
 
 function FeaturedMetadata({ game }: { game: FeaturedGame }) {
   const save = game.lastSessionSave;
-  const time = save ? `手动存档 · ${formatTime(save.createdAtMs)}` : `${formatTime(game.lastPlayedAtMs)} 玩过`;
-  return <div className="home-featured-meta"><span className="home-featured-platform">{game.platform.name}</span><span>{time}{save?.discLabel ? ` · ${save.discLabel}` : ""}</span></div>;
+  return <div className="home-featured-meta"><span className="home-featured-platform">{game.platform.name}</span><span>{save ? <>手动存档 · <HomeTime value={save.createdAtMs} /></> : <><HomeTime value={game.lastPlayedAtMs} /> 玩过</>}{save?.discLabel ? ` · ${save.discLabel}` : ""}</span></div>;
 }

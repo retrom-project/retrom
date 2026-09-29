@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { expectPaletteContrast, expectServerImportStatsContrast } from "./palette-contrast-support";
 import { expectChineseGlyphs, expectStatusTextCentered } from "./status-alignment-support";
@@ -209,4 +210,25 @@ test("ACC-UI-011 status glyphs are centered without resizing the capsule", async
   await page.goto("/admin/games");
   await expect(page.locator(".admin-game-table .status").first()).toBeVisible();
   await expectStatusTextCentered(page);
+});
+
+test("ACC-UI-011 missing cover keeps descending title letters visible", async ({ page }, testInfo) => {
+  const tokens = readFileSync(new URL("../styles/tokens.css", import.meta.url), "utf8");
+  const library = readFileSync(new URL("../features/library/library.css", import.meta.url), "utf8");
+  const mobile = readFileSync(new URL("../styles/mobile.css", import.meta.url), "utf8");
+  await page.setContent(`<style>${tokens}\n${library}\n${mobile}</style><article class="library-game-card" style="width:280px"><div class="library-game-cover"><a><span class="library-poster"><small>RETROM CLASSICS</small><strong>gyp</strong><span>mGBA</span></span></a></div></article>`);
+  const title = page.locator(".library-poster strong");
+  const spacing = await title.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { fontSize: Number.parseFloat(style.fontSize), lineHeight: Number.parseFloat(style.lineHeight), overflow: style.overflow };
+  });
+  expect(spacing.lineHeight).toBeGreaterThanOrEqual(spacing.fontSize * 1.2);
+  expect(spacing.overflow).toBe("hidden");
+  await page.locator(".library-game-card").screenshot({ path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp.png") });
+  if (testInfo.project.name === "chrome-1280") {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator(".library-game-card").evaluate((element) => { element.setAttribute("style", "width:180px"); });
+    await expect(title).toHaveCSS("-webkit-line-clamp", "2");
+    await page.locator(".library-game-card").screenshot({ path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp-mobile.png") });
+  }
 });
