@@ -8,6 +8,7 @@ import {nativeWebSlowProxy} from "./native_web_slow_proxy.mjs";
 import {nativeActions, nativeSnapshot, chooseNativeLoading} from "./native_web_cache_browser.mjs";
 import {assertNativeInput} from "./native_web_cache_contract.mjs";
 import {exitContentIOPlayer} from "./content_io_player_exit.mjs";
+import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const output = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/native-web-slow");
@@ -67,7 +68,8 @@ async function phase(plan, mode) {
     }
     await page.screenshot({path: join(output, `${mode}.png`)});
     const exiting = performance.now();
-    await exitContentIOPlayer(page, base, launch, "GAME_SAVE");
+    if (mode === "PRELOAD") await cancelPreload(page, launch);
+    else await exitContentIOPlayer(page, base, launch, "GAME_SAVE");
     result.exitMs = performance.now() - exiting;
     assert.ok(result.exitMs < 5000, "NATIVE_SLOW_EXIT_WAITED_FOR_DOWNLOAD");
     assert.ok(proxy.requests.some(row => row.complete && row.bytes >= 262144 && row.elapsedMs >= row.bytes / proxy.bytesPerSecond * 1000), "NATIVE_SLOW_THROTTLE_NOT_OBSERVED");
@@ -78,4 +80,15 @@ async function phase(plan, mode) {
     await page?.screenshot({path: join(output, `${mode}-failure.png`)}).catch(() => {});
     throw error;
   } finally {await context.close(); await proxy.close();}
+}
+async function cancelPreload(page, launch) {
+  // An unstarted game finishes its session without reporting play progress.
+  const finished = page.waitForResponse(response => response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/runtime/launches/${launch.launchId}/finish`);
+  await revealPreviewToolbar(page);
+  await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
+  await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
+  await page.waitForURL(base + launch.returnTo);
+  assert.equal((await finished).status(), 204);
+  assert.equal(page.frames().length, 1); assert.equal(page.workers().length, 0);
 }
