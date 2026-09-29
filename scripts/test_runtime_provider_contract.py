@@ -257,6 +257,18 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             validate_provider_manifest(unsorted)
 
+    def test_content_loading_capability_is_optional_and_closed(self) -> None:
+        validate_provider_manifest(valid_manifest())
+        for mode in ("PRELOAD_ONLY", "ON_DEMAND_AND_PRELOAD", "ON_DEMAND", None, True, []):
+            with self.subTest(mode=mode):
+                candidate = deepcopy(valid_manifest())
+                candidate["targets"][0]["capabilities"]["contentLoading"] = mode
+                if mode in ("PRELOAD_ONLY", "ON_DEMAND_AND_PRELOAD"):
+                    validate_provider_manifest(candidate)
+                else:
+                    with self.assertRaises(ContractError):
+                        validate_provider_manifest(candidate)
+
     def test_checkpoint_capability_and_formats_are_atomic(self) -> None:
         no_checkpoint = deepcopy(valid_manifest())
         no_checkpoint["targets"][0]["capabilities"]["checkpoint"] = False  # type: ignore[index]

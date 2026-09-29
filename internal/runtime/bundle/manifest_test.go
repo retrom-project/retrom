@@ -138,3 +138,26 @@ const fixtureManifest = `{
     "assetPaths":["assets/core.wasm"]
   }]
 }`
+
+func TestManifestContentLoadingCapability(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{`"ON_DEMAND_AND_PRELOAD"`, `"PRELOAD_ONLY"`, `"ON_DEMAND"`, `null`, `true`, `[]`} {
+		t.Run(value, func(t *testing.T) {
+			raw := strings.Replace(fixtureManifest, `"capabilities":{`, `"capabilities":{"contentLoading":`+value+`,`, 1)
+			manifest, err := ParseManifest([]byte(raw))
+			supported := value == `"ON_DEMAND_AND_PRELOAD"` || value == `"PRELOAD_ONLY"`
+			if !supported {
+				if !errors.Is(err, ErrManifestInvalid) {
+					t.Fatalf("invalid capability accepted: %s, %v", value, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if manifest.Targets[0].Capabilities.ContentLoading != strings.Trim(value, `"`) {
+				t.Fatalf("capability lost: %#v", manifest.Targets[0].Capabilities)
+			}
+		})
+	}
+}

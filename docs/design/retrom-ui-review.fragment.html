@@ -2834,7 +2834,7 @@
 
       <section class="rt-page" data-page="detail">
         <div class="rt-phone-launch"><button type="button" data-phone-options=""><i data-lucide="settings"></i><span>启动选项</span></button><button type="button" class="rt-button rt-button-primary" data-start-current-save="">从存档继续</button></div>
-        <dialog class="rt-phone-option-dialog" data-phone-option-dialog="" aria-label="启动选项"><h2>启动选项</h2><label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>适用于支持本地内容缓存的游戏，偏好保存在当前设备。</small></label><label>运行方式<select class="rt-select" data-phone-core=""><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><p>从头开始不会删除已有存档。</p><div class="rt-dialog-actions"><button type="button" class="rt-button" data-phone-close-options="">关闭</button><button type="button" class="rt-button rt-button-primary" data-start-game="">从头开始</button></div></dialog>
+        <dialog class="rt-phone-option-dialog" data-phone-option-dialog="" aria-label="启动选项"><h2>启动选项</h2><label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label><label>运行方式<select class="rt-select" data-phone-core=""><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><p>从头开始不会删除已有存档。</p><div class="rt-dialog-actions"><button type="button" class="rt-button" data-phone-close-options="">关闭</button><button type="button" class="rt-button rt-button-primary" data-start-game="">从头开始</button></div></dialog>
         <div class="rt-detail-content"><button type="button" class="rt-detail-breadcrumb" data-page-link="library">返回游戏库</button><div class="rt-detail-hero has-preview">
           <div class="rt-detail-poster-shell"><div class="rt-cover rt-cover-b rt-detail-cover" id="rt-detail-cover"><span class="rt-cover-title" id="rt-detail-cover-title">METAL SLUG</span></div></div>
           <div class="rt-detail-copy">
@@ -2845,7 +2845,7 @@
 
             <div class="rt-detail-playtime"><strong>累计游玩</strong><span id="rt-detail-hours">2 小时 24 分钟</span></div>
           <aside class="rt-launch-panel" aria-label="启动游戏">
-<label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>适用于支持本地内容缓存的游戏，偏好保存在当前设备。</small></label>
+<label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
 
             <label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
             <span id="rt-launch-check" hidden=""><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></span>
@@ -2869,6 +2869,11 @@
       </section>
 
       <section class="rt-page" data-page="play">
+        <details class="rt-card" aria-label="内容加载能力状态评审"><summary>内容加载的三种状态</summary>
+          <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
+          <div class="rt-field" role="group" aria-label="整文件缓存"><span class="rt-label">内容加载</span><strong>下载完成后开始</strong><small>此运行方式需要完整下载游戏内容。</small></div>
+          <p>未接入统一缓存的运行方式不显示内容加载区域；切换核心不改写已保存的偏好。恢复存档与重新开始能力不同则分别标注。</p>
+        </details>
         <details class="rt-card" aria-label="本地内容缓存状态评审"><summary>下载完成后开始</summary><p>正在下载游戏内容… 384 MiB / 768 MiB · 50%</p><p>无法完成本地缓存，请检查浏览器存储权限和可用空间。</p><button class="rt-button rt-button-primary">重试下载</button><button class="rt-button">改为按需加载</button><p>已下载的有效内容会在重试时复用。</p></details>
         <details class="rt-card" aria-label="原生存档交互状态评审">
           <summary>原生游戏存档与本地草稿</summary>
@@ -3985,6 +3990,7 @@
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
+        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.dos;});
         const coreSelect = root.querySelector('#rt-core-select');
         coreSelect.innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
         if (corePreferences[currentGame] && game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];

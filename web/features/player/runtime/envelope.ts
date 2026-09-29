@@ -58,9 +58,12 @@ function validSession(value: unknown) {
 
 function validCapabilities(value: unknown): value is RuntimeCapabilitiesV1 {
   if (!record(value) || !exactKeys(value, [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+    "checkpoint", ...(Object.hasOwn(value, "contentLoading") ? ["contentLoading"] : []),
+    "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
+  if (Object.hasOwn(value, "contentLoading") && value.contentLoading !== "ON_DEMAND_AND_PRELOAD" &&
+    value.contentLoading !== "PRELOAD_ONLY") {return false;}
   for (const key of [
     "checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "pause",
     "requiresThreads", "screenshot", "standardGamepad", "volume",

@@ -820,3 +820,10 @@ RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下
 状态为 ACTIVE、FINISHED 或 EXPIRED；拒绝 REVOKED、Review、即时快照以及其他账号会话。它不需要已失效的运行时 capability。
 目标存档和预期数据版本取自服务端原 Launch 绑定，不能由客户端指定或替换。完整性、幂等、防并发覆盖、删除冲突和名称保留规则复用
 save-states；成功返回 201。此端点只在用户明确选择保存本地草稿时调用，不构成服务端草稿或自动上传流程。
+
+### 游戏内容加载能力
+
+游戏详情 `coreOptions[].contentLoading` 投影实际绑定的 Provider Target 公共能力：
+`ON_DEMAND_AND_PRELOAD`、`PRELOAD_ONLY` 或 null。未绑定 Target 和未声明能力均为 null；
+不得从产品 Core 名称推断 RPG Maker 世代或缓存行为。Launch Envelope 中的同名能力由冻结的
+Target 提供，启动与存档恢复以该次 Envelope 为准。枚举和可选性以 Runtime Provider schema 为事实源。

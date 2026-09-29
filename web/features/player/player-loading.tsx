@@ -10,13 +10,14 @@ export type PlayerLoadProgress = {
 
 type PlayerLoadingProps = {
   immersive: boolean;
+  canLoadOnDemand?: boolean;
   message: string;
   progress: PlayerLoadProgress | null;
   returnTo: string;
   state: "loading" | "error";
 };
 
-export function PlayerLoading({ state, message, progress, returnTo, immersive }: PlayerLoadingProps) {
+export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand }: PlayerLoadingProps) {
   const percentage = progressPercentage(progress);
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
@@ -25,7 +26,7 @@ export function PlayerLoading({ state, message, progress, returnTo, immersive }:
     {state === "loading" ? <i aria-hidden="true" /> : null}
     <strong>{cacheFailure ? "无法完成本地缓存，请检查浏览器存储权限和可用空间。"
       : downloadFailure ? "内容下载未完成，请检查网络后重试。" : message}</strong>
-    {retryable ? <ContentPreloadRetry /> : null}
+    {retryable ? <ContentPreloadRetry canLoadOnDemand={canLoadOnDemand === true} /> : null}
     {state === "loading" && progress && percentage !== null ? <div className="player-loading-progress">
       <div
         className="player-loading-progress-track"

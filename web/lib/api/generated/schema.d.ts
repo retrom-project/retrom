@@ -2839,6 +2839,11 @@ export interface components {
                     requiresThreads: boolean;
                     /** @enum {unknown} */
                     frameMode: "NONE" | "SAME_ORIGIN_BLANK" | "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE";
+                    /**
+                     * @description Supported game content loading modes. Omitted for unmanaged loaders.
+                     * @enum {unknown}
+                     */
+                    contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY";
                 };
                 checkpoint: {
                     /**
@@ -4234,6 +4239,11 @@ export interface components {
             requirementId?: unknown;
             requirementMode?: unknown;
             requires?: unknown;
+            /**
+             * @description Public loading capability of the resolved game Target; null when unavailable.
+             * @enum {string|null}
+             */
+            contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY" | null;
             requiresThreads?: unknown;
             retained?: unknown;
             retryAfterMs?: unknown;

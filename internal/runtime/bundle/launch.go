@@ -113,10 +113,7 @@ func validLaunchRuntimeIdentity(value map[string]any) bool {
 }
 
 func validLaunchCapabilities(value map[string]any) bool {
-	if !exactMap(
-		value,
-		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
-		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume") {
+	if !validManifestRawCapabilities(value) {
 		return false
 	}
 	for _, key := range []string{

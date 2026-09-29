@@ -69,6 +69,7 @@ type Input struct {
 }
 
 type Capabilities struct {
+	ContentLoading  string   `json:"contentLoading,omitempty"`
 	Pause           bool     `json:"pause"`
 	Screenshot      bool     `json:"screenshot"`
 	Checkpoint      bool     `json:"checkpoint"`
@@ -234,9 +235,7 @@ func validManifestRawTarget(value any) bool {
 		return false
 	}
 	capabilities, ok := target["capabilities"].(map[string]any)
-	if !ok || !exactMap(capabilities,
-		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
-		"nativeSettings", "inputFilter", "videoModes", "requiresThreads", "frameMode") {
+	if !ok || !validManifestRawCapabilities(capabilities) {
 		return false
 	}
 	inputs, ok := target["inputs"].([]any)
@@ -248,6 +247,20 @@ func validManifestRawTarget(value any) bool {
 	}
 	checkpoint, ok := target["checkpoint"].(map[string]any)
 	return ok && validCheckpointShape(checkpoint)
+}
+
+func validManifestRawCapabilities(capabilities map[string]any) bool {
+	keys := []string{
+		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
+		"nativeSettings", "inputFilter", "videoModes", "requiresThreads", "frameMode",
+	}
+	if loading, exists := capabilities["contentLoading"]; exists {
+		if loading != "ON_DEMAND_AND_PRELOAD" && loading != "PRELOAD_ONLY" {
+			return false
+		}
+		keys = append(keys, "contentLoading")
+	}
+	return exactMap(capabilities, keys...)
 }
 
 func validManifestRawInputs(inputs []any) bool {
@@ -275,7 +288,8 @@ func validCapabilities(value Capabilities) bool {
 		value.FrameMode != "SAME_ORIGIN_RESOURCE" && value.FrameMode != "ISOLATED_ORIGIN_RESOURCE" {
 		return false
 	}
-	return sortedEnum(value.VideoModes, videoModes)
+	return (value.ContentLoading == "" || value.ContentLoading == "ON_DEMAND_AND_PRELOAD" ||
+		value.ContentLoading == "PRELOAD_ONLY") && sortedEnum(value.VideoModes, videoModes)
 }
 
 func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, error) {

@@ -200,8 +200,9 @@ def _validate_launch_capabilities(value: object) -> Mapping[str, object]:
         "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
         "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
     }
+    keys |= _content_loading_keys(capabilities, "runtime.capabilities")
     _launch_keys(capabilities, keys, "runtime.capabilities")
-    for key in keys - {"frameMode", "videoModes"}:
+    for key in keys - {"frameMode", "videoModes", "contentLoading"}:
         if not isinstance(capabilities[key], bool):
             _fail(f"runtime.capabilities.{key} must be boolean")
     if capabilities["frameMode"] not in {
@@ -637,9 +638,17 @@ def _non_negative_safe_integer(value: object, label: str) -> int:
     return result
 
 
+def _content_loading_keys(capabilities: Mapping[str, object], label: str) -> set[str]:
+    if "contentLoading" not in capabilities:
+        return set()
+    if capabilities["contentLoading"] not in ("ON_DEMAND_AND_PRELOAD", "PRELOAD_ONLY"):
+        _fail(f"{label}.contentLoading is unsupported")
+    return {"contentLoading"}
+
+
 def _validate_capabilities(capabilities: Mapping[str, object], target_label: str) -> None:
     label = f"{target_label}.capabilities"
-    _exact_keys(capabilities, _CAPABILITY_KEYS, label)
+    _exact_keys(capabilities, _CAPABILITY_KEYS | _content_loading_keys(capabilities, label), label)
     for key in _CAPABILITY_KEYS - {"frameMode", "videoModes"}:
         if not isinstance(capabilities[key], bool):
             _fail(f"{label}.{key} must be a boolean")

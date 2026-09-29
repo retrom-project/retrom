@@ -3,7 +3,8 @@ import {targetProtocol} from "./content_io_browser_memory.mjs";
 
 // Pause the already verified production Worker before its first statement and deny
 // optional platform APIs through CDP. Provider/module/Worker response bytes stay intact.
-export async function denyContentWorkerStorage(context, page) {
+export async function denyContentWorkerStorage(context, page, {workerName = "retrom-content-io-v1"} = {}) {
+  assert.ok(["retrom-content-io-v1", "retrom-content-preload"].includes(workerName), "CONTENT_IO_STORAGE_DENIAL_UNKNOWN_WORKER");
   const pageConnection = await context.newCDPSession(page);
   const {targetInfo: pageTarget} = await pageConnection.send("Target.getTargetInfo"); await pageConnection.detach();
   const connection = await context.browser().newBrowserCDPSession(), protocol = targetProtocol(connection);
@@ -18,7 +19,7 @@ export async function denyContentWorkerStorage(context, page) {
       sessions.push(sessionId);
       try {
         const result = await protocol.send(sessionId, "Runtime.evaluate", {returnByValue: true, awaitPromise: true, expression: `(async () => {
-          if (self.name !== "retrom-content-io-v1") return {injected: false};
+          if (self.name !== ${JSON.stringify(workerName)}) return {injected: false};
           const denied = async () => { throw new DOMException("Owned acceptance storage denial", "NotAllowedError"); };
           Object.defineProperty(navigator.storage, "getDirectory", {value: denied, configurable: true});
           Object.defineProperty(self, "caches", {value: {open: denied}, configurable: true});

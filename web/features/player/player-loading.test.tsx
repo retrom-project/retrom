@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 describe("PlayerLoading", () => {
   it.each(["CACHE_UNAVAILABLE", "WORKSPACE_UNAVAILABLE", "NETWORK_FAILED", "TIMEOUT"])("offers explicit retry and streaming fallback after %s", code => {
-    render(<PlayerLoading immersive={false} message={`CONTENT_IO_${code}`} progress={null} returnTo="/library" state="error" />);
+    render(<PlayerLoading canLoadOnDemand immersive={false} message={`CONTENT_IO_${code}`} progress={null} returnTo="/library" state="error" />);
     expect(screen.getByRole("button", {name: "重试下载"})).toBeVisible();
     expect(screen.getByRole("button", {name: "改为按需加载"})).toBeVisible();
     expect(screen.getByText("已下载的有效内容会在重试时复用。")).toBeVisible();
@@ -41,4 +41,10 @@ describe("PlayerLoading", () => {
 
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
+});
+
+it("does not offer a demand fallback for full-download-only or unmanaged targets", () => {
+  render(<PlayerLoading canLoadOnDemand={false} immersive={false} message="CONTENT_IO_CACHE_UNAVAILABLE" progress={null} returnTo="/library" state="error" />);
+  expect(screen.getByRole("button", {name: "重试下载"})).toBeVisible();
+  expect(screen.queryByRole("button", {name: "改为按需加载"})).toBeNull();
 });

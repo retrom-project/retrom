@@ -98,11 +98,13 @@ Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审�
 
 ### 开始前完整缓存
 
-游戏详情的“内容加载”提供默认“按需加载”和“下载完成后开始”。偏好按当前用户保存在当前设备；正式启动、恢复存档和快速启动读取同一偏好，审核预览维持默认按需行为。Host 通过可选 `RuntimeHostV1.contentLoading` 传递 `ON_DEMAND` / `PRELOAD`，不改变 Launch Envelope、内容授权或数据库。
+Provider 从私有游戏内容策略投影可选公共 `capabilities.contentLoading`：RANGE / ON_OPEN 为 `ON_DEMAND_AND_PRELOAD`，EAGER 为 `PRELOAD_ONLY`，上游或浏览器原生加载器不声明。该能力随已校验的 Provider manifest、当前 Target 投影和 Launch Envelope 传递；游戏详情 `coreOptions[].contentLoading` 只读取游戏实际绑定 Target，未解析或未声明时为 null，不按虚拟 Core 名称猜测。
+
+Host 在正式启动、恢复存档、快速启动和沉浸启动时，以当次 Envelope 的实际能力解析模式：双模式读取用户在当前设备保存的偏好；整文件缓存模式固定传 `PRELOAD`；未声明时不传模式，保留原加载方式。审核预览继续传 `ON_DEMAND`。固定或隐藏的加载模式不覆盖设备偏好。界面呈现见 UI 规范“内容加载偏好”；Host 不暴露 Provider 私有策略，不改动内容授权、checkpoint 或数据库 schema。
 
 PRELOAD 由 Provider 在核心启动前枚举所有受 Content I/O 管理的内容，包括完整文件树、多盘、parent、所需系统文件和显式声明的延迟核心数据。下载复用现有持久分块缓存，保持有界内存并校验完整提交；通过 `LOAD_PROGRESS` 展示已完成/总字节。整个游戏期间保持缓存租约，包括尚未打开的文件。取消保留有效分块，再次启动复用缓存；退出释放租约。ONS 视频在此模式下使用本地 Blob。
 
-持久存储不可用或空间不足时不得假装下载完成或静默改回按需，Player 提供“重试下载”和“改为按需加载”。MV/MZ、TyranoScript 的 Native Web 运行投影也由 Content I/O 管理；全量缓存只包含可运行的 Web 文件，不包含桌面可执行文件等导入来源附件。隔离运行域的宿主 Service Worker 通过受限 MessagePort 读取主站持久缓存，脚本、图片、音频与视频分段请求共用同一内容身份。切回按需模式或创建新 Launch 时复用仍然有效的缓存，不重新下载已有完整文件。未接入 Content I/O 的其他外部加载器保持自身策略。完整缓存不等于离线启动：页面、Launch 授权、元数据和存档服务仍可能需要网络。此阶段不提供永久固定缓存、下载管理器或后台下载。
+持久存储不可用或空间不足时不得假装下载完成或静默改回按需，Player 提供“重试下载”，且仅对双模式 Product Launch 提供“改为按需加载”。MV/MZ、TyranoScript 的 Native Web 运行投影也由 Content I/O 管理；全量缓存只包含可运行的 Web 文件，不包含桌面可执行文件等导入来源附件。隔离运行域的宿主 Service Worker 通过受限 MessagePort 读取主站持久缓存，脚本、图片、音频与视频分段请求共用同一内容身份。切回按需模式或创建新 Launch 时复用仍然有效的缓存，不重新下载已有完整文件。未接入 Content I/O 的其他外部加载器保持自身策略。完整缓存不等于离线启动：页面、Launch 授权、元数据和存档服务仍可能需要网络。此阶段不提供永久固定缓存、下载管理器或后台下载。
 
 ## 6. Checkpoint 与存档
 

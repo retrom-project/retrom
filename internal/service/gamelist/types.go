@@ -37,6 +37,7 @@ type CoreOption struct {
 	CoreID, Name                    string
 	IsDefault, RequiresThreads      bool
 	Status, RevalidationStatus      string
+	ContentLoading                  *string
 	VariantID, ProviderID, TargetID *string
 	DATVersionID, RevalidationJobID *string
 	Reasons                         []Reason

@@ -180,6 +180,13 @@
             "SAME_ORIGIN_RESOURCE",
             "ISOLATED_ORIGIN_RESOURCE"
           ]
+        },
+        "contentLoading": {
+          "description": "Supported game content loading modes. Omitted for unmanaged loaders.",
+          "enum": [
+            "ON_DEMAND_AND_PRELOAD",
+            "PRELOAD_ONLY"
+          ]
         }
       }
     },

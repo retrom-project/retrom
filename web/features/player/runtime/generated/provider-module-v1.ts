@@ -16,7 +16,11 @@ export type RuntimeVideoModeV1 =
   | "sharp-bilinear"
   | "adaptive-sharpen";
 
+export type RuntimeContentLoadingV1 = "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY";
+
 export type RuntimeCapabilitiesV1 = {
+  /** Omitted when game content is not managed by the persistent cache. */
+  contentLoading?: RuntimeContentLoadingV1;
   pause: boolean;
   screenshot: boolean;
   checkpoint: boolean;
