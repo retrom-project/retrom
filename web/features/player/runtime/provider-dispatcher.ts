@@ -146,14 +146,15 @@ function capabilitiesEqual(
   expected: LaunchEnvelopeV1["runtime"]["capabilities"],
 ) {
   if (!record(actual) || !exactKeys(actual, [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+    "checkpoint", ...(Object.hasOwn(actual, "contentLoading") ? ["contentLoading"] : []),
+    "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   const scalarKeys = [
     "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
   ] as const;
-  return scalarKeys.every((key) => actual[key] === expected[key]) &&
+  return actual.contentLoading === expected.contentLoading && scalarKeys.every((key) => actual[key] === expected[key]) &&
     stringArraysEqual(actual.videoModes, expected.videoModes);
 }
 

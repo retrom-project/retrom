@@ -58,9 +58,12 @@ function validSession(value: unknown) {
 
 function validCapabilities(value: unknown): value is RuntimeCapabilitiesV1 {
   if (!record(value) || !exactKeys(value, [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+    "checkpoint", ...(Object.hasOwn(value, "contentLoading") ? ["contentLoading"] : []),
+    "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
+  if (Object.hasOwn(value, "contentLoading") && value.contentLoading !== "ON_DEMAND_AND_PRELOAD" &&
+    value.contentLoading !== "PRELOAD_ONLY") {return false;}
   for (const key of [
     "checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "pause",
     "requiresThreads", "screenshot", "standardGamepad", "volume",
@@ -119,8 +122,8 @@ function validFileTreeResource(value: Record<string, unknown>) {
 
 function validWebResource(value: Record<string, unknown>) {
   return exactKeys(value, [
-    "bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "kind", "ordinal", "origin", "role",
-  ]) && validDigest(value.contentDigest) && validOrigin(value.origin) &&
+    "bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "indexUrl", "kind", "ordinal", "origin", "role",
+  ]) && validDigest(value.contentDigest) && relativeURL(value.indexUrl) && validOrigin(value.origin) &&
     sameOrigin(value.entryUrl, value.origin) && (value.cleanupUrl === null || sameOrigin(value.cleanupUrl, value.origin)) &&
     typeof value.bootstrapTicket === "string" && /^[A-Za-z0-9_-]{43,128}$/u.test(value.bootstrapTicket);
 }

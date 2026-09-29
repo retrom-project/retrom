@@ -14,6 +14,7 @@ var projectMediaTypes = map[string]string{
 	".mp4": "video/mp4", ".webm": "video/webm",
 	".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".otf": "font/otf",
 	".eot":    "application/vnd.ms-fontobject",
+	".efkefc": "application/octet-stream", ".efkmodel": "application/octet-stream",
 	".rpgmvp": "application/octet-stream", ".rpgmvo": "application/octet-stream", ".rpgmvm": "application/octet-stream",
 	".png_": "application/octet-stream", ".ogg_": "application/octet-stream", ".m4a_": "application/octet-stream",
 }

@@ -133,6 +133,9 @@ func (server *Server) serveRPGRuntimeGet(
 	access isolation.Access,
 ) {
 	switch {
+	case request.URL.Path == webContentBootstrapPath || request.URL.Path == webContentBridgePath ||
+		request.URL.Path == webContentWorkerPath:
+		server.serveWebContentTransport(writer, request, access)
 	case request.URL.Path == "/__retrom/bootstrap":
 		server.rpgBootstrapPage(writer, request, access)
 	case request.URL.Path == "/__retrom/entry":

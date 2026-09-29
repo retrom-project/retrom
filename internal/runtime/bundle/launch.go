@@ -113,10 +113,7 @@ func validLaunchRuntimeIdentity(value map[string]any) bool {
 }
 
 func validLaunchCapabilities(value map[string]any) bool {
-	if !exactMap(
-		value,
-		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
-		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume") {
+	if !validManifestRawCapabilities(value) {
 		return false
 	}
 	for _, key := range []string{
@@ -219,8 +216,9 @@ func validBlobResource(value map[string]any, kind string) bool {
 func validWebResource(value map[string]any) bool {
 	origin := stringValue(value["origin"])
 	return exactMap(value,
-		"bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "kind", "ordinal", "origin", "role") &&
-		launchDigestPattern.MatchString(stringValue(value["contentDigest"])) && validOrigin(origin) &&
+		"bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "indexUrl", "kind", "ordinal", "origin", "role") &&
+		relativeURLValue(value["indexUrl"]) && launchDigestPattern.MatchString(stringValue(value["contentDigest"])) &&
+		validOrigin(origin) &&
 		sameOriginURL(value["entryUrl"], origin) &&
 		(value["cleanupUrl"] == nil || sameOriginURL(value["cleanupUrl"], origin)) &&
 		bootstrapPattern.MatchString(stringValue(value["bootstrapTicket"]))

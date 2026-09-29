@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
@@ -30,7 +31,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	content, authorizedLaunchID, err := server.runtimeContent(request)
-	if err != nil {
+	if err != nil || content.DeliveryProfile == "ISOLATED_WEB_PROJECT" {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
 		return
 	}
@@ -106,7 +107,11 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	}
 	requestedIdentity := request.PathValue("contentIdentity")
 	logicalName := request.PathValue("projectPath")
-	grant, valid := server.runtimeProjectContentGrant(request, requestedIdentity)
+	grant, valid, err := server.runtimeProjectContentGrant(request, requestedIdentity)
+	if err != nil {
+		server.runtimeContentUnavailable(writer, request, err)
+		return
+	}
 	if !valid {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
@@ -125,7 +130,12 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		logicalName = "__retrom__/index.json"
 	}
 	content, err := server.projectContent(request, launchID, grant.Capability, logicalName)
-	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(content.Format)) {
+	if err != nil && !errors.Is(err, launch.ErrCredential) {
+		server.runtimeContentUnavailable(writer, request, err)
+		return
+	}
+	if err != nil || content.DeliveryProfile == "ISOLATED_WEB_PROJECT" ||
+		!contentprofile.IsProjectContentKind(contentprofile.ContentKind(content.Format)) {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
 			"项目内容不可用", map[string]any{},
@@ -159,11 +169,14 @@ func (server *Server) projectContent(
 		contentLogicalName = "__retrom__/game.mkxpz"
 	}
 	content, err := server.playDeps.Launcher.Content(request.Context(), launchID, capability, contentLogicalName)
-	if err != nil && contentLogicalName != logicalName {
+	if errors.Is(err, launch.ErrCredential) && contentLogicalName != logicalName {
 		content, err = server.playDeps.Launcher.Content(request.Context(), launchID, capability, logicalName)
 	}
 	if err == nil {
 		return content, nil
+	}
+	if !errors.Is(err, launch.ErrCredential) {
+		return launch.ContentView{}, fmt.Errorf("load project content: %w", err)
 	}
 	// Both session types freeze generated archives under the same reserved name.
 	content, err = server.playDeps.Launcher.ReviewPreviewProjectContent(
@@ -172,7 +185,7 @@ func (server *Server) projectContent(
 		capability,
 		contentLogicalName,
 	)
-	if err != nil && contentLogicalName != logicalName {
+	if errors.Is(err, launch.ErrCredential) && contentLogicalName != logicalName {
 		content, err = server.playDeps.Launcher.ReviewPreviewProjectContent(
 			request.Context(), launchID, capability, logicalName,
 		)
@@ -186,20 +199,23 @@ func (server *Server) projectContent(
 func (server *Server) runtimeProjectContentGrant(
 	request *http.Request,
 	requestedIdentity string,
-) (runtimeContentGrant, bool) {
+) (runtimeContentGrant, bool, error) {
 	grants, valid := runtimeContentGrants(request)
 	if !valid {
-		return runtimeContentGrant{}, false
+		return runtimeContentGrant{}, false, nil
 	}
 	for _, grant := range grants {
 		identity, err := server.playDeps.Launcher.ProjectContentIdentity(
 			request.Context(), grant.LaunchID, grant.Capability,
 		)
+		if err != nil && !errors.Is(err, launch.ErrCredential) {
+			return runtimeContentGrant{}, false, fmt.Errorf("authorize project content: %w", err)
+		}
 		if err == nil && identity == requestedIdentity {
-			return grant, true
+			return grant, true, nil
 		}
 	}
-	return runtimeContentGrant{}, false
+	return runtimeContentGrant{}, false, nil
 }
 
 func serveProjectIndex(writer http.ResponseWriter, request *http.Request, index launch.ProjectIndexView) {
@@ -508,4 +524,12 @@ func (server *Server) runtimeBundleFiles(request *http.Request, kind string) ([]
 		}
 	}
 	return nil, launch.ErrCredential
+}
+
+// Keep storage/query failures retryable instead of disguising them as absent content.
+func (server *Server) runtimeContentUnavailable(writer http.ResponseWriter, request *http.Request, err error) {
+	slog.ErrorContext(request.Context(), "runtime content read failed",
+		"requestId", request.Context().Value(requestIDKey), "error", err)
+	writer.Header().Set("Retry-After", "1")
+	writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "项目内容暂时不可用", map[string]any{})
 }

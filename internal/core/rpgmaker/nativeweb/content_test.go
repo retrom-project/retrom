@@ -5,6 +5,7 @@ import "testing"
 func TestRuntimeFileAllowsOnlyNativeWebProjectResources(t *testing.T) {
 	t.Parallel()
 	for _, logicalName := range []string{
+		"effects/Slash.efkefc", "effects/Model.efkmodel",
 		"index.html", "js/main.js", "data/System.json", "audio/bgm/theme.ogg", "img/encrypted.rpgmvp",
 	} {
 		if !RuntimeFile(logicalName) {

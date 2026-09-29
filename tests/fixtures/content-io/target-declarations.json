@@ -620,8 +620,8 @@
     {
       "providerId": "retrom-runtime",
       "targetId": "butterscotch-gamemaker",
-      "mode": "EAGER",
-      "delivery": "WORKSPACE_FILE",
+      "mode": "RANGE",
+      "delivery": "READER",
       "gameKind": "FILE_TREE",
       "checkpointSemantics": "INSTANT"
     },
@@ -748,16 +748,16 @@
     {
       "providerId": "retrom-runtime",
       "targetId": "rpgmaker-mv",
-      "mode": "BROWSER_NATIVE",
-      "delivery": null,
+      "mode": "RANGE",
+      "delivery": "READER",
       "gameKind": "NATIVE_WEB",
       "checkpointSemantics": "INSTANT"
     },
     {
       "providerId": "retrom-runtime",
       "targetId": "rpgmaker-mz",
-      "mode": "BROWSER_NATIVE",
-      "delivery": null,
+      "mode": "RANGE",
+      "delivery": "READER",
       "gameKind": "NATIVE_WEB",
       "checkpointSemantics": "INSTANT"
     },
@@ -812,8 +812,8 @@
     {
       "providerId": "retrom-runtime",
       "targetId": "tyranoscript",
-      "mode": "BROWSER_NATIVE",
-      "delivery": null,
+      "mode": "RANGE",
+      "delivery": "READER",
       "gameKind": "ISOLATED_WEB",
       "checkpointSemantics": "INSTANT"
     },

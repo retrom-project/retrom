@@ -27,6 +27,7 @@ import {GameEditorPanel} from "./game-editor-panel";
 import {useImmersivePlayer} from "./use-immersive-player";
 import {useGamepadCursor} from "./use-gamepad-cursor";
 import {usePlayerKeyboardPause} from "./use-player-keyboard-pause";
+import type {ContentLoadingCapability} from "./content-loading";
 import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
@@ -62,6 +63,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [playerReturnTo, setPlayerReturnTo] = useState(experience === "immersive" ? "/immersive" : "/library");
   const [message, setMessage] = useState("正在验证 Provider 启动信息…");
   const [loadProgress, setLoadProgress] = useState<PlayerLoadProgress | null>(null);
+  const [contentLoadingCapability, setContentLoadingCapability] = useState<ContentLoadingCapability>();
   const [warnings, setWarnings] = useState<string[]>([]);
   const [toast, setToast] = useState("");
   const [syncText, setSyncText] = useState("正在连接…");
@@ -226,10 +228,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
   });
   const bootstrapParams = useMemo(() => ({
+    userId,
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
     returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
     pausedRef, started, finishing, progressTimer, progressClock, toastTimer,
-    setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu,
+    setMessage, setLoadProgress, setContentLoadingCapability, setState, setManualSaveAvailable, setDosProgramMenu,
     setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,
     setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
@@ -237,7 +240,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
     onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
     onExitRequested: handleRuntimeExitRequested, reportProgress,
-  }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
+  }), [userId, experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
     immersive.requestMenu, initializeCursor, launchId, reportPlayerEvent, reportProgress, revealControlsAtTopEdge, showControls]);
   usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({
@@ -288,7 +291,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onToggleDebug: toggleDebug,
     onGameSurface: () => resumeFromSurface("pause-overlay"), onExit: () => void exitRuntime(),
   };
-  return <PlayerShellView nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
+  return <PlayerShellView canLoadOnDemand={contentLoadingCapability === "ON_DEMAND_AND_PRELOAD"} nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
     chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}
     returnTo={playerReturnTo} gameTitle={gameTitle}
     orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef}
@@ -299,7 +302,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
 
 type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
 
-function PlayerShellView({nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+function PlayerShellView({canLoadOnDemand, nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+  canLoadOnDemand: boolean;
   nativeExitDialog: ReactNode; experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
   orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>;
   state: ShellState; message: string; loadProgress: PlayerLoadProgress | null; returnTo: string; gameTitle: string;
@@ -314,7 +318,7 @@ function PlayerShellView({nativeExitDialog, experience, immersive, paused, orien
     onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
     {nativeExitDialog}
     {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
-    <PlayerStage blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
+    <PlayerStage canLoadOnDemand={canLoadOnDemand} blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
     <NativeSaveToast visible={!blocked && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
@@ -335,13 +339,14 @@ function ImmersiveGameEditorLayer({blocked, immersive, overlay, runtime, onClose
   return editor ? <GameEditorPanel editor={editor} immersive onClose={onClose} /> : null;
 }
 
-export function PlayerStage({blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
+export function PlayerStage({canLoadOnDemand = false, blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
+  canLoadOnDemand?: boolean;
   blocked: boolean; stage: RefObject<HTMLDivElement | null>; state: ShellState; message: string;
   loadProgress: PlayerLoadProgress | null; returnTo: string; immersive: boolean; onSurface: () => void;
 }) {
   return <div className="player-stage" inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
     <div className="player-runtime-mount" ref={stage} />
-    {state !== "running" ? <PlayerLoading state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
+    {state !== "running" ? <PlayerLoading canLoadOnDemand={canLoadOnDemand} state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
   </div>;
 }
 

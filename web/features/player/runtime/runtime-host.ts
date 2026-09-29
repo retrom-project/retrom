@@ -8,6 +8,7 @@ import type {
 import {playerRuntimeError} from "./errors";
 
 export type RuntimeHostOptions = {
+  contentLoading?: RuntimeHostV1["contentLoading"];
   fetcher?: typeof fetch;
   report?: (input: {code: string; message: string}) => void;
   sha256?: (bytes: Uint8Array) => Promise<string>;
@@ -45,6 +46,7 @@ export function createRuntimeHost(
 
   return {
     signal,
+    contentLoading: options.contentLoading ?? "ON_DEMAND",
     async mountFrame(target, input) {
       if (signal.aborted || !target.isConnected && target.ownerDocument !== document) {frameError();}
       const source = frameSource(envelope, input.resourceRole);

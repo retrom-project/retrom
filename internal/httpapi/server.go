@@ -287,6 +287,8 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /runtime/launches/{launchId}/renew", server.renewRuntimeSession)
 	mux.HandleFunc("GET /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
 	mux.HandleFunc("HEAD /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
+	mux.HandleFunc("GET /runtime/content/web/{contentIdentity}/{projectPath...}", server.launchWebContent)
+	mux.HandleFunc("HEAD /runtime/content/web/{contentIdentity}/{projectPath...}", server.launchWebContent)
 	mux.HandleFunc("GET /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/content/external/{contentIdentity}/{logicalName}", server.launchExternalFile)

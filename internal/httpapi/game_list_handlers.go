@@ -106,6 +106,7 @@ func projectGameCoreOptions(options []gamelistservice.CoreOption) []map[string]a
 			"datVersionId":      gameListString(option.DATVersionID),
 			"revalidationJobId": gameListString(option.RevalidationJobID),
 			"requiresThreads":   option.RequiresThreads, "reasons": reasons,
+			"contentLoading": gameListString(option.ContentLoading),
 		})
 	}
 	return result

@@ -1953,6 +1953,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/content/web/{contentIdentity}/{projectPath}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentIdentity: components["parameters"]["ContentIdentity"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        /** @description Serves the authorized frozen native-web index at index.json and non-executable byte downloads at files/{logicalPath}. Bodies use attachment and sandbox headers on the app origin. Supports exact lengths, strong ETags and single byte ranges. */
+        get: operations["getRuntimeWebContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head: operations["headRuntimeWebContent"];
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/renew": {
         parameters: {
             query?: never;
@@ -2819,6 +2839,11 @@ export interface components {
                     requiresThreads: boolean;
                     /** @enum {unknown} */
                     frameMode: "NONE" | "SAME_ORIGIN_BLANK" | "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE";
+                    /**
+                     * @description Supported game content loading modes. Omitted for unmanaged loaders.
+                     * @enum {unknown}
+                     */
+                    contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY";
                 };
                 checkpoint: {
                     /**
@@ -2855,6 +2880,7 @@ export interface components {
                 ordinal: number;
                 /** @enum {unknown} */
                 kind: "NATIVE_WEB" | "ISOLATED_WEB";
+                indexUrl: string;
                 origin: string;
                 entryUrl: string;
                 bootstrapTicket: string;
@@ -4213,6 +4239,11 @@ export interface components {
             requirementId?: unknown;
             requirementMode?: unknown;
             requires?: unknown;
+            /**
+             * @description Public loading capability of the resolved game Target; null when unavailable.
+             * @enum {string|null}
+             */
+            contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY" | null;
             requiresThreads?: unknown;
             retained?: unknown;
             retryAfterMs?: unknown;
@@ -7604,6 +7635,7 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
             401: components["responses"]["JSONResponse"];
             500: components["responses"]["JSONResponse"];
+            503: components["responses"]["JSONResponse"];
         };
     };
     headRuntimeProjectFile: {
@@ -7621,6 +7653,47 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
             401: components["responses"]["JSONResponse"];
             500: components["responses"]["JSONResponse"];
+            503: components["responses"]["JSONResponse"];
+        };
+    };
+    getRuntimeWebContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentIdentity: components["parameters"]["ContentIdentity"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+            206: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            404: components["responses"]["JSONResponse"];
+            416: components["responses"]["JSONResponse"];
+            503: components["responses"]["JSONResponse"];
+        };
+    };
+    headRuntimeWebContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentIdentity: components["parameters"]["ContentIdentity"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+            206: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            404: components["responses"]["JSONResponse"];
+            416: components["responses"]["JSONResponse"];
+            503: components["responses"]["JSONResponse"];
         };
     };
     renewRuntimeSession: {

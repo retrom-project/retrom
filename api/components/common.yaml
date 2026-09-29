@@ -646,6 +646,11 @@ components:
         requirementId: {}
         requirementMode: {}
         requires: {}
+        contentLoading:
+          type: string
+          nullable: true
+          enum: [ON_DEMAND_AND_PRELOAD, PRELOAD_ONLY, null]
+          description: Public loading capability of the resolved game Target; null when unavailable.
         requiresThreads: {}
         retained: {}
         retryAfterMs: {}

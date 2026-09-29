@@ -16,7 +16,11 @@ export type RuntimeVideoModeV1 =
   | "sharp-bilinear"
   | "adaptive-sharpen";
 
+export type RuntimeContentLoadingV1 = "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY";
+
 export type RuntimeCapabilitiesV1 = {
+  /** Omitted when game content is not managed by the persistent cache. */
+  contentLoading?: RuntimeContentLoadingV1;
   pause: boolean;
   screenshot: boolean;
   checkpoint: boolean;
@@ -196,6 +200,8 @@ export interface RuntimeFrameV1 {
 
 export interface RuntimeHostV1 {
   signal: AbortSignal;
+  /** Device preference for managed content; omitted means ON_DEMAND. */
+  contentLoading?: "ON_DEMAND" | "PRELOAD";
   mountFrame(target: HTMLElement, input: { resourceRole: string | null }): Promise<RuntimeFrameV1>;
   loadRestore(descriptor: RestoreDescriptorV1 | null): Promise<Uint8Array | null>;
   reportDiagnostic(input: { code: string; message: string }): void;
@@ -217,6 +223,7 @@ export type RuntimeFileTreeResourceV1 = RuntimeResourceIdentityV1 & {
 };
 export type RuntimeWebResourceV1 = RuntimeResourceIdentityV1 & {
   kind: "NATIVE_WEB" | "ISOLATED_WEB";
+  indexUrl: string;
   origin: string;
   entryUrl: string;
   bootstrapTicket: string;

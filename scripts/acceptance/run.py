@@ -464,6 +464,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         for case_id in RPG_CASES
     },
     "ACC-WASM4-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/wasm4_product.mjs"),
+    "ACC-CONTENT-001": (300, "node scripts/acceptance/content_preload_product.mjs"),
+    "ACC-CONTENT-002": (1200, "node scripts/acceptance/native_web_cache_product.mjs"),
+    "ACC-CONTENT-003": (300, "node scripts/acceptance/content_loading_capability_product.mjs"),
+    "ACC-CONTENT-004": (600, "node scripts/acceptance/native_web_slow_product.mjs"),
     "ACC-DOSBOX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/dosbox_product.mjs"),
     "ACC-BBC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/bbc_product.mjs"),
     "ACC-SAMCOUPE-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/samcoupe_product.mjs"),
@@ -723,6 +727,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
+        "content-preload-product.json", "content-loading-capability-product.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "wasm4-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
         "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
     ):

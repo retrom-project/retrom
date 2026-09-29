@@ -271,6 +271,7 @@ COALESCE(json_extract(bound_target.capabilities_json,'$.requiresThreads'),
   JOIN runtime_targets candidate_target ON candidate_target.provider_id=candidate.provider_id
    AND candidate_target.target_id=candidate.target_id
   WHERE candidate.core_id=c.id AND candidate.launch_policy<>'DISABLED'),0),
+json_extract(bound_target.capabilities_json,'$.contentLoading'),
 pi.default_core_id,
 v.id,
 v.provider_id,
@@ -300,12 +301,14 @@ c.id
 	for rows.Next() {
 		var coreID, coreName, defaultCoreID string
 		var requiresThreads int
+		var contentLoading sql.NullString
 		var variantID, providerID, targetID sql.NullString
 		var datVersionID, status, compatibility sql.NullString
 		if err := rows.Scan(
 			&coreID,
 			&coreName,
 			&requiresThreads,
+			&contentLoading,
 			&defaultCoreID,
 			&variantID,
 			&providerID,
@@ -321,6 +324,7 @@ c.id
 			Name:               coreName,
 			IsDefault:          coreID == defaultCoreID,
 			RequiresThreads:    requiresThreads == 1,
+			ContentLoading:     nullableStringPointer(contentLoading),
 			VariantID:          nullableStringPointer(variantID),
 			ProviderID:         nullableStringPointer(providerID),
 			TargetID:           nullableStringPointer(targetID),

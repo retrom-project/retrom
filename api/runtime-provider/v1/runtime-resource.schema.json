@@ -50,11 +50,12 @@
     "webResource": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "ordinal", "kind", "origin", "entryUrl", "bootstrapTicket", "cleanupUrl", "contentDigest"],
+      "required": ["role", "ordinal", "kind", "origin", "entryUrl", "bootstrapTicket", "cleanupUrl", "contentDigest", "indexUrl"],
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "kind": { "enum": ["NATIVE_WEB", "ISOLATED_WEB"] },
+        "indexUrl": { "$ref": "#/$defs/relativeUrl" },
         "origin": { "$ref": "#/$defs/httpUrl" },
         "entryUrl": { "$ref": "#/$defs/httpUrl" },
         "bootstrapTicket": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43,128}$" },

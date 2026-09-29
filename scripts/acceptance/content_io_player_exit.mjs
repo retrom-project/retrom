@@ -17,7 +17,7 @@ export async function exitContentIOPlayer(page, base, launch, semantics = "INSTA
   return performContentIOPlayerExit(page, base, launch, async () => {
     await revealPreviewToolbar(page);
     await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
-    const name = semantics === "GAME_SAVE" ? /^(直接退出|继续退出)$/u : "退出游戏";
+    const name = semantics === "GAME_SAVE" ? /^(直接退出|继续退出|退出游戏)$/u : "退出游戏";
     await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name, exact: true}).click();
   });
 }

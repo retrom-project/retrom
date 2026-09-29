@@ -9,6 +9,7 @@ import (
 var ErrCredential = errors.New("LAUNCH_CREDENTIAL_INVALID")
 
 type ContentView struct {
+	DeliveryProfile                                                        string
 	FileRecord, Digest, Format, CoreID, ProviderID, TargetID, BundleSHA256 string
 	DOSEntry                                                               *string
 	PlatformKey                                                            string

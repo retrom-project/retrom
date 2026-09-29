@@ -114,6 +114,8 @@ paths:
           $ref: '#/components/responses/BinaryResponse'
         '401':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '503':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
         '500':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     head:
@@ -124,7 +126,51 @@ paths:
           $ref: '#/components/responses/BinaryResponse'
         '401':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '503':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
         '500':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /runtime/content/web/{contentIdentity}/{projectPath}:
+    x-retrom-router-template: /runtime/content/web/{contentIdentity}/{projectPath:.+}
+    parameters:
+      - $ref: '#/components/parameters/ContentIdentity'
+      - name: projectPath
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      security: []
+      operationId: getRuntimeWebContent
+      description: Serves the authorized frozen native-web index at index.json and non-executable byte downloads at files/{logicalPath}. Bodies use attachment and sandbox headers on the app origin. Supports exact lengths, strong ETags and single byte ranges.
+      responses:
+        '200':
+          $ref: '#/components/responses/BinaryResponse'
+        '206':
+          $ref: '#/components/responses/BinaryResponse'
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '503':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '404':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '416':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    head:
+      security: []
+      operationId: headRuntimeWebContent
+      responses:
+        '200':
+          $ref: '#/components/responses/BinaryResponse'
+        '206':
+          $ref: '#/components/responses/BinaryResponse'
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '503':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '404':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '416':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/launches/{launchId}/config:
     parameters:

@@ -52,7 +52,7 @@ addEventListener("message",async e=>{
     const r=await fetch("/__retrom/bootstrap",{method:"POST",credentials:"same-origin",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:d.ticket})});
     if(!r.ok)throw new Error();
-    location.replace("/__retrom/entry");
+    location.replace("/__retrom/content-bootstrap");
   }catch(_){
     parent.postMessage({type:"RPG_RUNTIME_NATIVE_BOOTSTRAP_FAILED",protocolVersion:1},p);
   }
@@ -69,7 +69,7 @@ func (server *Server) rpgBootstrapPage(
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
 		authorized.ContentFormat == "RPG_MAKER_PROJECT" {
 		writer.Header().Set("Cache-Control", "private, no-store")
-		http.Redirect(writer, request, "/__retrom/entry", http.StatusSeeOther)
+		http.Redirect(writer, request, webContentBootstrapPath, http.StatusSeeOther)
 		return
 	}
 	inspected, err := server.playDeps.Isolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)

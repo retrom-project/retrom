@@ -1,6 +1,7 @@
 "use client";
 
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
+import {readContentLoading, resolveContentLoading, type ContentLoadingCapability} from "./content-loading";
 
 import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
@@ -23,6 +24,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type Mutable<T> = {current: T};
 
 export type PlayerBootstrapParams = {
+  userId?: string;
   launchId: string;
   experience: "standard" | "immersive";
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
@@ -43,6 +45,7 @@ export type PlayerBootstrapParams = {
   toastTimer: Mutable<number | null>;
   setMessage: Dispatch<SetStateAction<string>>;
   setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
+  setContentLoadingCapability: Dispatch<SetStateAction<ContentLoadingCapability | undefined>>;
   setState: Dispatch<SetStateAction<ShellState>>;
   setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
   setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
@@ -93,6 +96,7 @@ function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   params.setLoadProgress(null);
+  params.setContentLoadingCapability(undefined);
   params.setMessage("正在验证 Provider 启动信息…");
   const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
     credentials: "same-origin", cache: "no-store", signal: abort.signal,
@@ -105,6 +109,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   if (!params.stage.current) {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
 
   const mounted = await mountProviderRuntime(envelope, params.stage.current, {
+    host: {contentLoading: resolveContentLoading(envelope.runtime.capabilities.contentLoading, readContentLoading(params.userId), envelope.session.purpose)},
     signal: abort.signal,
     onExitRequested: params.onExitRequested,
     onFatalError: (code) => {
@@ -135,6 +140,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
 
 function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1) {
   params.envelope.current = envelope;
+  params.setContentLoadingCapability(envelope.session.purpose === "PRODUCT" ? envelope.runtime.capabilities.contentLoading : undefined);
   params.returnTo.current = envelope.session.returnTo;
   params.setPlayerReturnTo(envelope.session.returnTo);
   params.setReviewScreenshotAvailable(envelope.session.purpose === "REVIEW_PREVIEW" && envelope.runtime.capabilities.screenshot);

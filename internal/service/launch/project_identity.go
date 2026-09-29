@@ -47,3 +47,8 @@ func validProjectAuthority(policy accessPolicy, source ConfigSource, capability 
 		(source.Delivery == "FILE_TREE_PROJECT" || source.Delivery == "SEEKABLE_PROJECT_ARCHIVE" ||
 			source.Delivery == "ISOLATED_WEB_PROJECT")
 }
+
+// RuntimeWebContentRoot serves immutable native project bytes without making them executable on the app origin.
+func RuntimeWebContentRoot(identity string) string {
+	return "/runtime/content/web/" + identity + "/"
+}
