@@ -13,6 +13,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await retryOnceOnConnectionReset(() => page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } }));
   expect(response.ok()).toBe(true);
+  if (testInfo.title.includes("user desktop layouts")) {seedHomeState("populated");}
   if (testInfo.title.includes("sparse home rails")) {
     uiLayoutState("isolate");
     seedHomeState("populated");
