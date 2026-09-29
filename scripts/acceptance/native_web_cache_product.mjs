@@ -79,7 +79,7 @@ async function runPhase(mode) {
     } else assert.equal(network.requests.length, 0, "NATIVE_CACHE_WARM_DOWNLOAD");
     await proveOffline(page, phase, files);
     assertNativeLocalResponses(phase.localResponses); assert.equal(phase.pageErrors.length, 0);
-    await context.setOffline(false); await exitContentIOPlayer(page, base, launch);
+    await context.setOffline(false); await exitContentIOPlayer(page, base, launch, "GAME_SAVE");
     phase.exited = true;
   } catch (error) {
     phase.failure = {message: error.message, path: new URL(page.url()).pathname,

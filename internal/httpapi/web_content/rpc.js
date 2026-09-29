@@ -8,6 +8,17 @@ function bindConnection(port) {
   port.onmessage = ({data}) => {
     const request = pending.get(data?.id);
     if (!request) return;
+    if (data.type === "READ_STARTED" && request.type === "READ") {
+      if (!request.started) {request.started = true; request.renew();}
+      return;
+    }
+    if (request.type === "READ" && data.status === 200 && data.bytes instanceof Uint8Array &&
+        data.bytes.length > 0 && data.bytes.length === request.length) {
+      // Successful content delivery advances the bounded admission queue; metadata does not.
+      for (const waiting of pending.values()) {
+        if (waiting.type === "READ" && !waiting.started) waiting.renew();
+      }
+    }
     pending.delete(data.id); clearTimeout(request.timer);
     request.resolve(data);
   };
@@ -37,16 +48,18 @@ async function contentRequest(body) {
   const id = ++sequence;
   if (pending.size >= 128) throw new Error("CONTENT_IO_BUSY");
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const expired = () => {
       pending.delete(id); connection?.close(); connection = null;
       reject(new Error("CONTENT_IO_TIMEOUT"));
-    }, 15000);
-    pending.set(id, {resolve, reject, timer});
+    };
+    const request = {resolve, reject, type: body.type, length: body.length, started: false,
+      timer: null, renew() {clearTimeout(this.timer); this.timer = setTimeout(expired, 15000);}};
+    request.renew(); pending.set(id, request);
     connection.postMessage({...body, id});
   });
 }
 async function readBlock(path, offset, length) {
-  const reply = await contentRequest({type: "READ", path, offset, length});
+  const reply = await contentRequest({type: "READ", admission: true, path, offset, length});
   if (reply.status !== 200 || !(reply.bytes instanceof Uint8Array) || reply.bytes.length !== length) throw new Error("CONTENT_IO_READ_FAILED");
   return reply.bytes;
 }
