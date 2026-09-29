@@ -41,7 +41,7 @@
 - 所有通过 RuntimeHost 挂载的核心 iframe 共用 `1920×1080` CSS 运行视口上限；大屏幕由宿主等比放大到 Player 区域，窗口尺寸变化后重新计算，小于上限时保持原尺寸。Provider 可在此基础上声明更低的画布上限；4K 帧率证据必须同时记录 iframe 视口、核心画布尺寸和 GPU renderer。
 - checkpoint 只按 format/size/hash 处理，Host 不解析字节；恢复必须由 Target `readFormats` 明确允许。
 - content、BIOS、parent、多盘、pack、unique-origin 资源必须全部来自 envelope grant。
-- 所有测试必须证明退出/失败/卸载会清理 Provider、撤销 Launch 并停止输入与帧回调。
+- 所有测试必须证明退出/失败/卸载会清理 Provider、释放当前运行资源并停止输入与帧回调；共享运行 Token 保持有效，审核 Preview 通过 finish 结束当前预览授权。
 
 ## 4. EmulatorJS 特殊边界
 

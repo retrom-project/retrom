@@ -3,7 +3,7 @@ const digestPattern = /^[0-9a-f]{64}$/u;
 
 export const butterscotchProductStages = [
   "imported", "preview-visible", "preview-captured", "published", "gamepad-input",
-  "checkpoint-created", "different-launch-restored", "post-restore-input", "project-cache-reused",
+  "checkpoint-created", "original-exited", "different-launch-restored", "post-restore-input", "restored-exited", "project-cache-reused",
 ];
 
 export function assertButterscotchProductEvidence(value) {
@@ -45,11 +45,17 @@ function assertBrowser(value) {
 function assertCache(value) {
   if (!exactRecord(value, [
     "contentDigest", "firstDataWinResponseCount", "restoreDataWinResponseCount", "restoreIndexResponseCount",
-  ]) || !digestPattern.test(value.contentDigest) || !Number.isSafeInteger(value.firstDataWinResponseCount) ||
-      value.firstDataWinResponseCount !== 1 || !Number.isSafeInteger(value.restoreDataWinResponseCount) ||
-      value.restoreDataWinResponseCount !== 0 || !Number.isSafeInteger(value.restoreIndexResponseCount) ||
-      value.restoreIndexResponseCount !== 1) {
+    "dataWinSizeBytes", "firstDataWinBytes", "firstRangeResponseCount", "largestRangeBytes", "largeWholeResponseCount", "restoreRepeatedBytes",
+  ]) || !digestPattern.test(value.contentDigest) ||
+      !Object.entries(value).filter(([key]) => key !== "contentDigest").every(([,count]) => Number.isSafeInteger(count) && count >= 0) ||
+      value.firstDataWinResponseCount < 1 || value.firstDataWinBytes < 1 || value.dataWinSizeBytes < value.firstDataWinBytes ||
+      value.largeWholeResponseCount !== 0 || value.largestRangeBytes > 1024 * 1024 ||
+      value.restoreRepeatedBytes !== 0 || value.restoreIndexResponseCount !== 1) {
     throw new Error("BUTTERSCOTCH_ACCEPTANCE_CACHE_EVIDENCE_INVALID");
+  }
+  // Large acceptance samples must contain payloads not needed by the tested scene.
+  if (value.dataWinSizeBytes > 1024 * 1024 && (value.firstRangeResponseCount < 1 || value.firstDataWinBytes >= value.dataWinSizeBytes)) {
+    throw new Error("BUTTERSCOTCH_ACCEPTANCE_FULL_DOWNLOAD");
   }
 }
 

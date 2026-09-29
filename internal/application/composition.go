@@ -43,6 +43,7 @@ import (
 	idempotencypersistence "retrom/internal/persistence/idempotency"
 	mediapersistence "retrom/internal/persistence/mediaaccess"
 	platformpersistence "retrom/internal/persistence/platforminstance"
+	runtimesessionpersistence "retrom/internal/persistence/runtimesession"
 	retromruntime "retrom/internal/runtime"
 	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/serversource"
@@ -55,9 +56,12 @@ import (
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/mediaaccess"
 	"retrom/internal/service/platforminstance"
+	"retrom/internal/service/runtimesession"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
+
+	"github.com/google/uuid"
 )
 
 type Inputs struct {
@@ -154,6 +158,10 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 		GameAssets:      composition.NewGameAssets(database, blobs, now, cleanupService),
 		GameMetadata:    composition.NewGameMetadata(database, blobs, cleanupService, now),
 		SaveService:     saves.New(savepersistence.New(database), blobs, now),
+		RuntimeSessions: runtimesession.New(runtimesessionpersistence.New(database), runtimesession.Environment{
+			Now: now, Sign: credentials.RuntimeSession,
+			NewID: func() (string, error) { id, err := uuid.NewV7(); return id.String(), err },
+		}),
 		RpgIsolation:    isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
 		FavoriteService: favorites.New(favoritepersistence.New(database), now),
 		TagService:      tagService,

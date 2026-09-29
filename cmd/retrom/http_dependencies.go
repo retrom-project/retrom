@@ -52,11 +52,12 @@ func httpDependencies(
 			Evidence:      services.MetadataEvidence,
 		},
 		Play: httpapi.PlayDependencies{
-			Launcher:  services.Launcher,
-			Variants:  services.Variants,
-			Saves:     services.SaveService,
-			Isolation: services.RpgIsolation,
-			Provider:  provider,
+			Launcher:        services.Launcher,
+			Variants:        services.Variants,
+			Saves:           services.SaveService,
+			Isolation:       services.RpgIsolation,
+			RuntimeSessions: services.RuntimeSessions,
+			Provider:        provider,
 		},
 		System: httpapi.SystemDependencies{
 			Readiness:   services.ReadinessService,

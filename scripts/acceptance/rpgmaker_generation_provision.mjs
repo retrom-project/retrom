@@ -570,7 +570,7 @@ async function assertLaunchCookie(context, launchId) {
   const expectedPath = `/runtime/launches/${launchId}/`;
   const cookies = await context.cookies(`${baseUrl}${expectedPath}config`);
   const matches = cookies.filter((cookie) =>
-    cookie.name === `retrom_launch_${launchId}` && cookie.path === expectedPath
+    cookie.name === "retrom_runtime" && cookie.path === "/"
       && cookie.httpOnly && cookie.sameSite === "Strict",
   );
   if (matches.length !== 1) { throw new Error("RPG_PROVISION_LAUNCH_COOKIE_MISSING"); }

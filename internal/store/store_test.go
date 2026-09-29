@@ -38,7 +38,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 105, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 106, "fresh schema table count = %d", len(tables))
 	for _, retired := range []string{
 		"runtime_asset_pack_definitions", "runtime_asset_pack_installations", "runtime_asset_pack_files",
 		"play_session_events",
@@ -256,7 +256,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 14, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 15, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

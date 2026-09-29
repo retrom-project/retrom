@@ -24,7 +24,7 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 		t.Fatal(err)
 	}
 	credential, access, err := fixture.service.ConsumeTicket(
-		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+		context.Background(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile",
 	)
 	if err != nil || access.LaunchID != fixture.launchID || access.Origin != fixture.origin ||
 		access.ContentFormat != "RPG_MAKER_PROJECT" || access.Preview {
@@ -36,7 +36,7 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 		t.Fatalf("consumed bootstrap inspect error = %v", err)
 	}
 	if _, _, err := fixture.service.ConsumeTicket(
-		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+		context.Background(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile",
 	); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("ticket replay error = %v", err)
 	}
@@ -90,7 +90,7 @@ func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
 		t.Fatalf("inspect preview bootstrap = (%#v,%v)", access, err)
 	}
 	credential, consumed, err := fixture.service.ConsumeTicket(
-		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+		context.Background(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile",
 	)
 	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" || !consumed.Preview {
 		t.Fatalf("consume preview bootstrap = (%q,%#v,%v)", credential, consumed, err)
@@ -123,7 +123,7 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 			t.Fatalf("expired bootstrap inspect error = %v", err)
 		}
 		if _, _, err := fixture.service.ConsumeTicket(
-			context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+			context.Background(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile",
 		); !errors.Is(err, isolation.ErrCredential) {
 			t.Fatalf("expired bootstrap consumption error = %v", err)
 		}
@@ -131,7 +131,7 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 	t.Run("isolated capability", func(t *testing.T) {
 		fixture := newIsolationFixture(t)
 		credential, _, err := fixture.service.ConsumeTicket(
-			context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+			context.Background(), fixture.launchID, fixture.origin, fixture.ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile",
 		)
 		if err != nil {
 			t.Fatal(err)

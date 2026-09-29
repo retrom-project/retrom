@@ -51,3 +51,19 @@ func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigAllowsConcurrentLifetimeExtensionButRejectsReduction(t *testing.T) {
+	t.Parallel()
+	for _, delta := range []int64{-1, 1} {
+		issuer, repository, _ := configTestFixture()
+		repository.snapshot.Authority.Source.State = "ACTIVE"
+		repository.current.Source.State = "ACTIVE"
+		repository.current.Source.HardEnd = repository.snapshot.Authority.Source.HardEnd + delta
+		configuration, err := issuer.Issue(t.Context(), SessionRef{ID: "launch"}, "valid")
+		if delta < 0 {
+			assertConfigRejected(t, configuration, err, ErrCredential)
+		} else if err != nil {
+			t.Fatalf("concurrent renewal rejected: %v", err)
+		}
+	}
+}

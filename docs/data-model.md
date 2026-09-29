@@ -1,6 +1,6 @@
 # Retrom 数据模型
 
-字段、CHECK、FK 和索引的事实源是 `migrations/001_identity.sql` 至 `migrations/014_metadata_media_queue.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 和索引的事实源是 `migrations/001_identity.sql` 至 `migrations/015_shared_runtime_sessions.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
@@ -8,6 +8,10 @@
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
+
+### 共享运行会话
+
+`015_shared_runtime_sessions.sql` 是对当前 001–014 基线的兼容追加，已有游戏、存档、账户和 Launch 原地保留。`runtime_sessions` 每个 `auth_session_id` 至多一行，保存独立运行 ID、凭据摘要、创建/续期/到期毫秒时间；`expires_at_ms=renewed_at_ms+86400000`。续期更新同一行，超过 12 小时才延长，凭据值不轮换；已过期凭据必须凭有效账户会话重新签发并更换运行 ID/摘要。运行认证检查父 AuthSession 的显式撤销、User 状态与 session version，不使用父会话的自然 idle/absolute 到期作为运行期限。普通 Launch/资源授权仍按 Profile 隔离，凭据不绑定某个存档。
 
 ### 应用写入与数据库职责
 

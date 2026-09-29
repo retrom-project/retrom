@@ -112,7 +112,6 @@ until grep -q '"msg":"background DAT indexing complete"' "$temporary_root/server
 done
 
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 
 if [[ "$case_id" == "ACC-IMM-009" ]]; then
@@ -131,14 +130,12 @@ if [[ "$case_id" =~ ^ACC-RUN-0(08|09|10|11|12)$ ]]; then
   esac
   if [[ "$fixture_id" == "snes9x" || "$fixture_id" == "nestopia" ]]; then
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
       scripts/acceptance/console-flow.sh "$fixture_id"
   else
     go run scripts/acceptance/seed-public-arcade-dat.go \
       --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
       scripts/acceptance/arcade-flow.sh "$fixture_id"
   fi
@@ -148,7 +145,6 @@ if [[ "$case_id" == "ACC-RUN-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
   python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
@@ -165,7 +161,6 @@ if [[ "$case_id" == "ACC-IMM-002" ]]; then
     go run scripts/acceptance/seed-public-arcade-dat.go \
       --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     RETROM_ACCEPTANCE_COVER_PATH="$immersive_cover" \
     RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/$fixture_id.json" \
       scripts/acceptance/arcade-flow.sh "$fixture_id"
@@ -177,7 +172,6 @@ if [[ "$case_id" == "ACC-IMM-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
 fi
@@ -186,7 +180,6 @@ if [[ "$case_id" == "ACC-IMM-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
     scripts/acceptance/arcade-flow.sh fbneo
 fi
@@ -195,7 +188,6 @@ if [[ "$case_id" == "ACC-RUN-007" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
     scripts/acceptance/arcade-flow.sh fbneo
   python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo

@@ -114,32 +114,26 @@ until curl --fail --silent "$backend_origin/health/ready" >/dev/null 2>&1 &&
 done
 
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-fceumm.json" \
   scripts/acceptance/console-flow.sh fceumm
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-nestopia.json" \
   scripts/acceptance/console-flow.sh nestopia
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-snes9x.json" \
   scripts/acceptance/console-flow.sh snes9x
 go run scripts/acceptance/seed-public-arcade-dat.go \
   --database "$temporary_root/data/retrom.db" --fixture mame2003 \
   >"$temporary_root/mame2003-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
   scripts/acceptance/arcade-flow.sh mame2003
 go run scripts/acceptance/seed-public-arcade-dat.go \
   --database "$temporary_root/data/retrom.db" --fixture fbneo \
   >"$temporary_root/fbneo-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-fbneo.json" \
   scripts/acceptance/arcade-flow.sh fbneo
 for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
@@ -147,7 +141,6 @@ for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
     --database "$temporary_root/data/retrom.db" --fixture "$fixture_id" \
     >"$temporary_root/$fixture_id-smoke-dat.json"
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-$fixture_id.json" \
     scripts/acceptance/arcade-flow.sh "$fixture_id"
 done

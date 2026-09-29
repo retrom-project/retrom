@@ -36,6 +36,7 @@ import (
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/platforminstance"
 	readinessservice "retrom/internal/service/readiness"
+	"retrom/internal/service/runtimesession"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
 	"retrom/internal/service/sourceimport"
@@ -77,6 +78,7 @@ type Services struct {
 	GameMetadata        *gamemetadataservice.Service
 	SaveService         *saves.Service
 	RpgIsolation        *isolation.Service
+	RuntimeSessions     *runtimesession.Service
 	FavoriteService     *favorites.Service
 	TagService          *tagging.Service
 	ReviewQueue         *libraryservice.ReviewQueue

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import {withProjectRunArchive} from "./project_run_archive.mjs";
+import {trackProjectResponses, projectReadEvidence} from "./butterscotch_content_evidence.mjs";
+import {exitContentIOPlayer} from "./content_io_player_exit.mjs";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -17,6 +19,7 @@ import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import {installVirtualStandardGamepad, sendGamepadInput} from "./standard_gamepad.mjs";
+import {visibleButterscotchFrame} from "./butterscotch_frame.mjs";
 
 const caseId = "ACC-BUTTERSCOTCH-001";
 const requiredEnvironment = [
@@ -107,6 +110,7 @@ async function runProductCase(activeBrowser) {
     const approved = await approveReview(client, review.itemId);
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
+    const originalResponses = trackProjectResponses(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForCheckpoint(originalPage);
@@ -115,6 +119,7 @@ async function runProductCase(activeBrowser) {
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "BUTTERSCOTCH_ACCEPTANCE_GAMEPAD_INPUT_UNOBSERVED");
     const saved = await createCheckpoint(originalPage, original.launchId);
+    await exitContentIOPlayer(originalPage, baseUrl, {...original, returnTo: `/games/${approved.gameId}`});
     await originalPage.close();
 
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
@@ -133,6 +138,7 @@ async function runProductCase(activeBrowser) {
     await sendGamepadInput(restoredCanvas);
     const postRestoreFrame = await screenshotEvidence(restoredCanvas, "post-restore-input.png");
     requireChanged(restoredFrame, postRestoreFrame, "BUTTERSCOTCH_ACCEPTANCE_RESTORE_INPUT_UNOBSERVED");
+    await exitContentIOPlayer(restoredPage, baseUrl, {...restored, returnTo: `/games/${approved.gameId}`});
     await restoredPage.close();
     if (Object.values(browserErrors).some((count) => count !== 0)) {
       throw new Error("BUTTERSCOTCH_ACCEPTANCE_BROWSER_ERROR");
@@ -154,9 +160,7 @@ async function runProductCase(activeBrowser) {
       checkpoint: { format: saved.checkpointFormat, sizeBytes: Number(stateResponse.headers()["content-length"]) },
       cache: {
         contentDigest,
-        firstDataWinResponseCount: countProjectFile(previewResponses.urls, "data.win"),
-        restoreDataWinResponseCount: countProjectFile(restoreResponses.urls, "data.win"),
-        restoreIndexResponseCount: countProjectFile(restoreResponses.urls, "index.json"),
+        ...projectReadEvidence(previewResponses, restoreResponses, {entries: [...previewResponses.entries, ...originalResponses.entries]}),
       },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
@@ -239,17 +243,6 @@ async function trackedPage(context, browserErrors) {
   return page;
 }
 
-function trackProjectResponses(page) {
-  const urls = [];
-  page.on("response", (response) => {
-    if (response.request().method() === "GET" && response.status() === 200 &&
-        new URL(response.url()).pathname.startsWith("/runtime/content/project/")) {
-      urls.push(response.url());
-    }
-  });
-  return { urls };
-}
-
 async function runtimeCanvas(page) {
   const deadline = Date.now() + 120_000;
   let lastObservation = {canvasVisible: false};
@@ -276,6 +269,7 @@ async function waitForCheckpoint(page) {
 }
 
 async function createCheckpoint(page, launchId) {
+  await waitForCheckpoint(page);
   await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
   const responsePromise = page.waitForResponse((response) =>
@@ -288,6 +282,10 @@ async function createCheckpoint(page, launchId) {
 }
 
 async function screenshotEvidence(canvas, filename) {
+  return visibleButterscotchFrame(() => captureScreenshotEvidence(canvas, filename));
+}
+
+async function captureScreenshotEvidence(canvas, filename) {
   const layout = await canvasLayoutEvidence(canvas);
   if (!validCanvasLayout(layout)) {throw new Error("BUTTERSCOTCH_ACCEPTANCE_CANVAS_LAYOUT_INVALID");}
   const screenshot = await canvas.screenshot({ type: "png", path: join(screenshotsDirectory, filename) });
@@ -353,10 +351,6 @@ function projectIdentity(urls) {
   )?.[1]).filter(Boolean));
   if (values.size !== 1) {throw new Error("BUTTERSCOTCH_ACCEPTANCE_CONTENT_IDENTITY_INVALID");}
   return [...values][0];
-}
-
-function countProjectFile(urls, filename) {
-  return urls.filter((value) => new URL(value).pathname.endsWith(`/${filename}`)).length;
 }
 
 function requireChanged(before, after, code) {

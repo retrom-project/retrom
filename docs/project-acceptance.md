@@ -61,6 +61,7 @@
 
 - Linux 开发/CI 环境，仓库根目录为当前目录；
 - 启动或切换隔离验收实例后，先从实际 `RETROM_ACCEPTANCE_BASE_URL` 请求 `GET /health/ready`，确认 `200` 和 `status=ready` 后再开始产品 Case；监听端口或 Next 页面可访问不能替代 DAT/Provider 初始化完成。未就绪不应开始登录、导入或消耗 Case 输入；实例启动前置失败须保留原记录，不重置 PFB 数据。
+- Shell HTTP 验收流程使用 `RETROM_ACCEPTANCE_ORIGIN` 作为登录、业务 API、运行配置和内容请求的共同地址，使 cookie jar 按实际应用域名接收和发送共享运行 cookie。后端监听地址只用于服务启动与健康检查。
 - 仓库锁定的 Go、Node.js/npm、golangci-lint 和依赖；
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
@@ -363,7 +364,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→014，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
+- 流程：使用全新数据根执行当前 001→015，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
 - 通过标准：全新库到 014 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
@@ -399,12 +400,12 @@ make acceptance-case CASE=<case-id>
 - 通过标准：恶意输入在写出授权目录或创建 BIOS Installation 前以稳定 code 拒绝；服务器扫描命中任一门禁时零安装，API/日志不含绝对 root、basename、hash 或底层 `os.PathError`。没有外部实体访问、DNS、宿主文件读取或目标外文件，返回稳定 4xx 而非进程崩溃。真实 FBNeo PUBLIC DOCTYPE 和 MAME 内部 DTD 均被安全 scanner 跳过且统计命中 manifest；实现没有联网 DTD parser、正则删 DTD 或预置专用解析旁路。
 - 证据：每个夹具的错误码、临时目录前后清单和无外连记录。
 
-### ACC-SEC-002：Launch capability、内容范围与缓存
+### ACC-SEC-002：共享运行凭据、内容范围与缓存
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-002`。
-- 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/GameVariant 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 后重试原 capability。
-- 通过标准：既有 capability 生成、cookie、TTL、范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/progress/save 全部失败且不新增私有数据。
+- 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/GameVariant 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵；连续创建超过 32 次运行，确认主域和独立运行域复用同一个 `retrom_runtime` Cookie。并行运行两个游戏，结束一个后另一个仍可读取内容和保存；在新 Launch 加载本人的兼容存档。使用 fake clock 验证 24 小时有效期、严格超过 12 小时续期、并发续期值不变、账户自然过期后继续续期，以及运行 Token 已过期和主动退出后的拒绝。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 后重试原 capability。
+- 通过标准：共享 Token 不随游戏结束撤销，固定一个 Cookie，不向浏览器暴露服务端内部的逐 Launch capability；续期同步维护运行资源回收期限。范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者立即撤销未结束 Launch，原 capability 后续 config/progress/save 全部失败且不新增私有数据。
 - 证据：cookie/数据库摘要（capability 只记录不可逆 hash）、请求矩阵、缓存/Range 响应头、新 context trace 和脱敏扫描。
 
 ### ACC-SEC-003：认证写请求的同源与 CSRF 边界
@@ -930,7 +931,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-003`。
-- 流程：模拟 Fullscreen 拒绝后从正常入口启动；保留 cookie 刷新 `/play/{launchId}`；再把同一 URL 复制到没有 launch cookie 的新 browser context。
+- 流程：模拟 Fullscreen 拒绝后从正常入口启动；保留 cookie 刷新 `/play/{launchId}`；再把同一 URL 复制到没有共享运行 cookie 的新 browser context。
 - 通过标准：正常入口拒绝全屏时游戏仍自动运行并显示可恢复“进入全屏”控件；同 context 刷新因无用户激活不伪造全屏，但仍自动加载且只有全屏恢复控件、没有第二个游戏 Start；新 context 显示“启动会话不可用”且不能取得 config/content。
 - 证据：两条 trace、错误/恢复 UI 和运行帧状态。
 
@@ -1250,7 +1251,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-004`。
-- 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一 Launch cookie 和过期 cookie。
+- 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一账户的共享运行 cookie 和过期 cookie。
 - 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 内部文件记录、原始路径或 capability。
 - 证据：发布 GameVariant/validation snapshot、Launch/config、内容响应摘要、授权负向和独立文件存储 hash 对照。
 
@@ -1517,8 +1518,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：同一不可变输入得到同一 identity/强 ETag；媒体替换创建新 Asset ID/URL，ROM、多盘外部文件、
   BIOS 或 parent 任一有效 bytes/输出选项变化都产生新 `/runtime/content/` URL，任何已发 URL 的 bytes 不得
   原地变化。媒体为 public immutable，运行内容为受 grant 保护的 private immutable；旧/错误 identity 与
-  无 grant 请求不泄露内容；同一内容的第二个 Launch 复用 URL，条件请求返回 304。Finish/撤销/硬删除后
-  强制网络请求失败。SaveState state/screenshot 始终使用逻辑 ID、`private, no-store` 和 Profile/Launch
+  无 grant 请求不泄露内容；同一内容的第二个 Launch 复用 URL，条件请求返回 304。结束或撤销一个 Launch
+  不影响另一有效所属 Launch 对相同内容的访问；全部匹配授权结束、撤销或到期，或资源硬删除后，强制网络
+  请求失败。普通游戏退出保留共享运行 Token。SaveState state/screenshot 始终使用逻辑 ID、`private, no-store` 和 Profile/Launch
   限定授权，不因内容寻址进入共享缓存。
 - 证据：替换前后 config/URL/ETag/cache header、相同与不同 bytes 对照、旧授权负向请求、双 Profile 存档
   trace。
@@ -1810,8 +1812,8 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 
 - Fresh 前置：所选输入在当次隔离实例中尚未发布。同一内容已发布时，产品去重会正确跳过 Review，不能把空审核列表当成导入回归，也不得修改游戏 bytes、删除已发布游戏或重建共享 PFB 来规避去重；另用独立隔离验收实例执行本 Case，保留原实例的数据和已有失败证据。
 - 上限：300 秒。执行：`RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE=<absolute-licensed-project-archive> make acceptance-case CASE=ACC-BUTTERSCOTCH-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin 或 loopback 验收 origin。
-- 流程：经正式 Upload 创建 `BUTTERSCOTCH_PROJECT` Import，等待唯一 Review；打开 Review Preview，等待 `data.win` 下载、OPFS 写入、真实 `640×480` backing canvas、等比最大化的 display canvas 与按需截图；审核发布后创建 PRODUCT Launch，注入标准手柄并只用方向与 A 键证明画面变化，再创建 `RUNTIME_STATE` checkpoint；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state 和 core restore ready，再次用标准手柄证明恢复后输入。全过程不直接加载第三方示例页，也不把格式检测当成运行证明。
-- 通过标准：预览和两个 PRODUCT Launch 均运行当前 `BUTTERSCOTCH_GAMEMAKER/butterscotch-web`；canvas 相对 `data-butterscotch-runtime-surface` 横纵居中偏差各不超过 1 px、backing/display 宽高比误差不超过 `0.01` 且持有焦点，display 在 surface 内至少一条边的剩余空间不超过 1 px，不能保持固定 `640×480` 小窗。五张实际 canvas PNG 均为非黑有效画面，首次与恢复后标准手柄输入分别改变 RGBA digest；checkpoint 为 13 bytes 至 16 MiB 范围内的 `RUNTIME_STATE`，不同 Launch 成功读取。预览只下载一次 `data.win`，恢复 Launch 仍读取一次冻结 `index.json`，但不再请求 `data.win`，从而证明同内容身份的 OPFS 项目缓存复用；浏览器没有 page error、console error 或意外 dialog。
+- 流程：经正式 Upload 创建 `BUTTERSCOTCH_PROJECT` Import，等待唯一 Review；打开 Review Preview，等待按需内容读取、真实 `640×480` backing canvas、等比最大化的 display canvas 与按需截图；审核发布后创建 PRODUCT Launch，注入标准手柄并只用方向与 A 键证明画面变化，再创建 `RUNTIME_STATE` checkpoint；通过“返回并退出游戏”确认退出原 Launch，再以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state 和 core restore ready，再次用标准手柄证明恢复后输入并确认退出。全过程不直接加载第三方示例页，也不把格式检测当成运行证明。
+- 通过标准：预览和两个 PRODUCT Launch 均运行当前 `BUTTERSCOTCH_GAMEMAKER/butterscotch-web`；canvas 相对 `data-butterscotch-runtime-surface` 横纵居中偏差各不超过 1 px、backing/display 宽高比误差不超过 `0.01` 且持有焦点，display 在 surface 内至少一条边的剩余空间不超过 1 px，不能保持固定 `640×480` 小窗。五张实际 canvas PNG 均为非黑有效画面，首次与恢复后标准手柄输入分别改变 RGBA digest；checkpoint 为 13 bytes 至 16 MiB 范围内的 `RUNTIME_STATE`，不同 Launch 成功读取。大文件样本必须包含当前场景尚未使用的资源；预览通过不超过 1 MiB 的 HTTP 206 请求读取部分 `data.win`，累计字节少于文件总长，禁止大文件整包 HTTP 200。小于等于 1 MiB 的文件允许公共 Content I/O 在首次实际读取时完整获取。恢复 Launch 仍读取一次冻结 `index.json`，但不再请求该场景已经缓存的 `data.win`，证明同内容身份的持久块缓存跨实例复用；记录文件大小、读取字节、Range 数量和最大响应大小，不再要求整项目写入 OPFS；两次显式退出均返回游戏详情，iframe 与 Worker 清理完成；包含退出阶段的全过程没有 page error、console error 或意外 dialog。
 - 能力边界：Retrom 只根据根目录合法 GameMaker `FORM` 容器识别候选，具体 GameMaker 版本和扩展兼容性必须由这次锁定 Butterscotch runtime trial 证明。Case 只证明固定 `retrom-runtime` tag 与本次依法持有样本的最小兼容性，不扩大为全部 GameMaker 游戏；第三方项目 bytes、路径、账号、CSRF、cookie 和 Launch capability 不进入结构化证据。
 - 证据：当次 `result.json`、`butterscotch-product.json` 与五张 PNG；结构化证据仅保存非秘密产品 ID、payload kind/size、canvas 布局、非黑像素、RGBA digest、项目内容身份和缓存请求计数。
 

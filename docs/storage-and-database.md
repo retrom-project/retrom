@@ -119,7 +119,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
+当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`，`015_shared_runtime_sessions.sql` 兼容追加共享运行凭据，保留现有游戏、存档和会话；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 

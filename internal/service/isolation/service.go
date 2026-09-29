@@ -2,7 +2,6 @@ package isolation
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -91,17 +90,17 @@ func credentialDigest(encoded string) ([32]byte, error) {
 	return sha256.Sum256(raw), nil
 }
 
-func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, ticket string) (string, Access, error) {
+func (service *Service) ConsumeTicket(
+	ctx context.Context, launchID, origin, ticket, credential, profile string,
+) (string, Access, error) {
 	digest, err := credentialDigest(ticket)
 	if err != nil {
 		return "", Access{}, err
 	}
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", Access{}, fmt.Errorf("generate isolated credential: %w", err)
+	issuedDigest, err := runtimeGrantDigest(credential, launchID)
+	if err != nil {
+		return "", Access{}, err
 	}
-	credential := base64.RawURLEncoding.EncodeToString(raw)
-	issuedDigest := sha256.Sum256(raw)
 	now := service.now().UnixMilli()
 	var access Access
 	query := TicketQuery{LaunchID: launchID, Origin: origin, Digest: &digest}
@@ -110,7 +109,8 @@ func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, tic
 		if err != nil {
 			return fmt.Errorf("read isolated ticket: %w", err)
 		}
-		if bootstrap.Consumed || bootstrap.ExpiresAtMS <= now || !activeSession(bootstrap.Session, now) {
+		if bootstrap.Consumed || bootstrap.ExpiresAtMS <= now || !activeSession(bootstrap.Session, now) ||
+			bootstrap.Session.Profile != profile {
 			return ErrCredential
 		}
 		if err := records.Consume(ctx, query, now); err != nil {
@@ -129,7 +129,7 @@ func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, tic
 }
 
 func (service *Service) Authenticate(ctx context.Context, launchID, origin, credential string) (Access, error) {
-	digest, err := credentialDigest(credential)
+	digest, err := runtimeGrantDigest(credential, launchID)
 	if err != nil {
 		return Access{}, err
 	}
@@ -163,4 +163,11 @@ func sessionAccess(session RuntimeSession, launchID, origin string, expires int6
 		LaunchID: launchID, Origin: origin, Profile: session.Profile, ContentFormat: session.ContentFormat,
 		Preview: session.Preview, Expires: expires,
 	}
+}
+
+func runtimeGrantDigest(credential, launchID string) ([32]byte, error) {
+	if _, err := credentialDigest(credential); err != nil {
+		return [32]byte{}, err
+	}
+	return sha256.Sum256([]byte(credential + "\x00" + launchID)), nil
 }

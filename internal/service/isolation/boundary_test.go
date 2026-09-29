@@ -45,7 +45,7 @@ func TestInvalidCredentialsDoNotReachRepository(t *testing.T) {
 	memory := &isolationMemory{}
 	service := New(memory, "https://{launchId}.runtime.test", time.Now)
 	for _, token := range []string{"", "invalid", base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 31))} {
-		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile"); !errors.Is(err, ErrCredential) {
 			t.Fatal(err)
 		}
 		if _, err := service.Authenticate(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
@@ -74,7 +74,7 @@ func TestBootstrapEligibilityPrecedesConsumption(t *testing.T) {
 			t.Fatalf("inspect=%v bootstrap=%+v", err, bootstrap)
 		}
 		token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
-		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile"); !errors.Is(err, ErrCredential) {
 			t.Fatalf("consume=%v bootstrap=%+v", err, bootstrap)
 		}
 		if memory.consumed != 0 || memory.issued != 0 {

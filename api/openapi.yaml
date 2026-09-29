@@ -228,6 +228,8 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1providers~1{providerId}~1{bundleSha256}~1{runtimePath}
   /runtime/content/project/{contentIdentity}/{projectPath}:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
+  /runtime/launches/{launchId}/renew:
+    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1renew
   /runtime/launches/{launchId}/config:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1config
   /runtime/launches/{launchId}/progress:

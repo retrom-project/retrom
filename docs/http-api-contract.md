@@ -347,17 +347,23 @@ Idempotency-Key: <uuid>
 }
 ```
 
-响应 capability 是 32-byte HMAC-SHA-256 输出：`HMAC(launchKey, "retrom-launch-v1\x00" || UUIDv7 的 16 raw bytes)`。`launchKey` 是后端首次启动在数据根原子生成的独立 32-byte CSPRNG 本机密钥，精确存储规则见运维专题；不能使用兼容 session token、数据库 hash、公开配置或 UUID 文本本身作 key。输出以无 padding base64url 编码，数据库只保存 capability 原始 32 bytes 的 SHA-256，并设置动态 cookie `retrom_launch_<launchId>`：`Path=/runtime/launches/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，生产 HTTPS 增加 `Secure`。
+浏览器运行鉴权使用唯一共享 `retrom_runtime` Cookie，主应用和所有独立运行域使用同一值。每个登录会话拥有一个服务端 `runtime_sessions` 记录；运行会话 ID 使用 UUIDv7，凭据为 `HMAC(launchKey, "retrom-runtime-session-v1\x00" || runtimeSessionId raw bytes)`，以无 padding base64url 编码，数据库只保存 SHA-256。首次签发必须验证账户登录会话；同一账户重新登录时继续复用浏览器内尚有效的运行凭据；切换账户则撤销并清除前一账户的运行凭据。重复启动、幂等重放、多标签页和读档启动复用同一个有效凭据，不增加按 Launch 命名的 Cookie。
 
-相同 Idempotency-Key/body 取得原 launchId 后重新计算同一 capability 和 `Set-Cookie`，因此无需把 secret 放进 idempotency record，也不会让并发重放互相作废。不同 launchId 经过域隔离得到不同输出；服务端仍常量时间比较 request cookie 的 SHA-256 与 session 行。`finish`/撤销响应用相同 name/path 和 `Max-Age=0` 尽力清理 cookie；session 撤销状态始终是最终防线。`launchId` 是可记录、可出现在 URL 的非秘密 UUIDv7；cookie 才是凭据。日志、JSON、路由、query、Referer、诊断和数据库不得出现 capability 明文。
+运行凭据有效期为 24 小时。距上次签发或续期严格超过 12 小时后，下一次经过服务器的运行请求在事务内续期到当前时刻加 24 小时；Token 值保持不变，并刷新同一 Cookie 的到期时间。并发续期不能作废其他标签页或在途请求。账户 idle/absolute 自然到期不阻断运行凭据续期；明确退出、会话撤销、账户停用/删除、session version 变化立即拒绝运行请求。运行凭据自身过期后不能自行续期，必须由有效账户登录重新签发。
+
+Cookie 固定 `Path=/; HttpOnly; SameSite=Strict`，HTTPS 增加 `Secure`，Domain 是主应用与 runtime Host 的共同受控非公共父域；本机 localhost 为开发例外。部署必须提供可共享 Cookie 的同 scheme 域名布局，不接受无关域名或公共后缀作为共同 Domain。账户 Cookie 仍为主应用 host-only，运行 Cookie 只在运行端点作为凭据，不能调用账户、管理 API。既有 `retrom_launch_*`、`retrom_launch_content_*` 和 `retrom_rpg_runtime` Cookie 不再授权，请求携带时尽力发送同名同路径过期 Cookie。
+
+服务端逐请求验证所属 Profile、有效 Launch/Preview、冻结内容 identity、选中存档和核心兼容性；共享身份不赋予项目脚本跨游戏读取能力。Launch 仍有独立记录，运行凭据不包含持续增长的 Launch 列表。现有逐 Launch HMAC 仅作为服务端领域调用的内部校验，不再下发浏览器。凭据、Cookie 不进入 URL、Referer、JSON、诊断或访问日志。
 
 已有验证结果的预检阻断返回 `422 LAUNCH_BLOCKED`，`details.blockers` 和 `details.warnings` 使用稳定 code/level/message/details，不创建 credential。常用 code 统一加 `LAUNCH_` 前缀，例如 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`LAUNCH_SAVE_INCOMPATIBLE`、`LAUNCH_DOS_ENTRY_MISSING`、`LAUNCH_DOS_ENTRY_UNSAFE`、`LAUNCH_CORE_VALIDATION_UNAVAILABLE`、`LAUNCH_CORE_VALIDATION_TIMEOUT`、`LAUNCH_THREADS_UNAVAILABLE`；全屏拒绝是浏览器侧 Warning，不是假装后端错误。
 
-凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。PRODUCT 的内容读取与存档权限持续到创建后 24 小时 hard expiry，或明确撤销、游戏删除；游玩统计请求失败或缺失不缩短权限。ACTIVE Launch 的文件引用按 hard expiry 排期回收；明确撤销时立即到期。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
+凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。PRODUCT 的内容读取与存档权限初始到期为创建后 24 小时；已认证的运行请求可把仍 ACTIVE、未到期 Launch 延长到共享运行会话当前期限，并在同一事务更新文件回收排期和隔离授权期限。明确撤销、游戏删除仍立即失效；游玩统计请求失败或缺失不缩短权限。ACTIVE Launch 的文件引用按 hard expiry 排期回收；明确撤销时立即到期。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
 
-PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/launches/{launchId}/progress`，body 为 `{ "activeDurationMs": int64 }`。该数值是本次 Player 中可见、未暂停、正在运行时间的累计毫秒数，范围为 `0..2592000000`。服务端按 Launch 唯一 PlaySession 保存目前最大值；重复、乱序和丢失的样本不改变权限，也不要求先发送 start 或退出时发送 finish。首次成功上报创建 PlaySession；完全没有成功样本则不产生统计。上报失败不会阻断启动、运行、存档或退出。服务端仍验证限定 Path 的 launch cookie、PRODUCT ACTIVE 状态和 hard expiry。
+PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/launches/{launchId}/progress`，body 为 `{ "activeDurationMs": int64 }`。该数值是本次 Player 中可见、未暂停、正在运行时间的累计毫秒数，范围为 `0..2592000000`。服务端按 Launch 唯一 PlaySession 保存目前最大值；重复、乱序和丢失的样本不改变权限，也不要求先发送 start 或退出时发送 finish。首次成功上报创建 PlaySession；完全没有成功样本则不产生统计。上报失败不会阻断启动、运行、存档或退出。服务端仍验证共享运行凭据、所属 PRODUCT ACTIVE 状态和当前到期时间。
 
-审核 Preview 不计入游玩统计。`POST /runtime/launches/{launchId}/finish` 仅结束审核试玩，不接收请求体，成功返回 `204`。服务端校验对应 Preview 的 capability 和 hard expiry，在同一事务结束会话并撤销隔离授权；携带有效凭据的重复结束幂等。PRODUCT Launch 不接受此操作，旧 `start`、`heartbeat` 接口与事件序号协议已移除。
+`POST /runtime/launches/{launchId}/renew` 不接收请求体，认证共享运行凭据和所属有效 Launch，成功返回 204。Player 独立于游玩统计每小时尝试一次，并在重新可见或恢复联网时尝试；临时失败不停止核心。普通游戏退出不清除共享 Cookie、不撤销其他运行实例；用户下次启动仍复用凭据。
+
+审核 Preview 不计入游玩统计。`POST /runtime/launches/{launchId}/finish` 仅结束审核试玩，不接收请求体，成功返回 `204`。服务端校验共享运行凭据、对应 Preview 归属和 hard expiry，在同一事务结束会话并撤销隔离授权；携带有效凭据的重复结束幂等。PRODUCT Launch 不接受此操作，旧 `start`、`heartbeat` 接口与事件序号协议已移除。
 
 
 ## 8. 内容端点与缓存
@@ -368,12 +374,12 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 内部文件记录。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、来源媒体或审核运行截图；服务器来源 `assetId` 为统一 Source Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 内部文件记录 暴露给浏览器；终态工作流异步释放媒体。 |
-| `/runtime/launches/{launchId}/config` | 需要 launch cookie；只返回严格 `LaunchEnvelopeV1`。Host 只校验 envelope 并按 `runtime.moduleUrl` 动态加载 Provider Module V1，不按 Target、引擎或内容类型分支；`private, no-store`、`Vary: Cookie`。PRODUCT 与 REVIEW_PREVIEW 使用同一 envelope 形状。 |
-| `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Provider Target declaration、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable, no-transform`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
-| `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable, no-transform`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
+| `/runtime/launches/{launchId}/config` | 需要共享 runtime cookie 和所属 Launch；只返回严格 `LaunchEnvelopeV1`。Host 只校验 envelope 并按 `runtime.moduleUrl` 动态加载 Provider Module V1，不按 Target、引擎或内容类型分支；`private, no-store`、`Vary: Cookie`。PRODUCT 与 REVIEW_PREVIEW 使用同一 envelope 形状。 |
+| `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Provider Target declaration、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要共享 HttpOnly runtime cookie 和服务端冻结资源授权；`private, max-age=31536000, immutable, no-transform`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
+| `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效共享运行凭据及对应资源授权，`private, max-age=31536000, immutable, no-transform`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
 | `/runtime/content/parent/{contentIdentity}/bundle.zip` | 与 BIOS bundle 相同，但只服务确定性 parent bundle；任一成员变化产生新 identity/URL，`private, max-age=31536000, immutable, no-transform`。 |
 | `/runtime/content/external/{contentIdentity}/{logicalName}` | 只允许有效 content grant 锁定的多盘或外部文件；identity 由带领域分隔的实际文件 digest 派生，不直接暴露 Blob hash，文件替换产生新 URL。未锁定名、错误 identity、跨 Launch、错误/过期 grant 与 Blob 缺失不得泄露存在性；`private, max-age=31536000, immutable, no-transform`。 |
-| `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
+| `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要共享 runtime cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/review-screenshot` | 普通审核 Preview 共用的按需截图入口，接受 `image/png` 或 `image/jpeg`，先鉴权再有界流式读取 ≤10 MiB，按魔数与解码结果校验媒体。只接受仍有效、来源/目录/Provider Target 与当前预检一致的 preview capability；重复截图替换同一 Item/Validation 的当前截图并返回新 screenshotId。PRODUCT、已结束或过期的 Preview，以及来源/配置漂移均拒绝。没有固定等待时间、恢复前置或专用运行证明。 |
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回严格的 Launch Envelope V1。字段级唯一事实源是 `api/runtime-provider/v1/launch-envelope.schema.json`，可执行的完整正反例位于同目录 `fixtures/valid` 与 `fixtures/invalid`；本文不维护会漂移的缩写 JSON 副本。
@@ -387,7 +393,7 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 审核预览状态与 path identity。Finish、撤销、硬删除或到期后新的/强制网络请求必须失败；HTTP 无法追溯擦除
 浏览器先前已合法取得的 immutable 副本，这也是状态存档与存档截图继续 `private, no-store` 的原因。
 
-运行中写入要求正确 launch cookie：
+运行中写入要求共享 runtime cookie 及所属 Launch 授权：
 
 - `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，只允许 `metadata`、`payload` 与可选 `screenshot`。metadata 是严格 `{checkpointFormat,name?,discIndex?}`，普通手动存档 name trim 后为 1–120 Unicode code point；discIndex 只对多盘必填。格式必须等于当前 Target 的写格式，大小不能超过上限；Host 校验 format/size/hash，将 payload 作为不透明字节保存。PRODUCT 返回正式 SaveState；REVIEW_PREVIEW 替换当前会话的临时 checkpoint，返回 `{resourceKind:"REVIEW_PREVIEW_CHECKPOINT",previewId,checkpointFormat,createdAtMs}`，不会出现在 `/saves`。幂等重放必须绑定同一操作者、会话与请求内容，返回相同收据；跨会话复用幂等键拒绝。
 
@@ -764,7 +770,9 @@ GET|HEAD /__retrom/project/{safeLogicalPath}
 GET  /__retrom/restore-payload
 ```
 
-`GET /__retrom/bootstrap` 是唯一允许无凭据到达的 GET：首次启动仍校验 Host/Launch/expiry，只返回固定 nonce bootstrap，不读取项目内容。父页面以 exact-origin `postMessage` 发送 LaunchConfig 中的 60 秒一次性 ticket；bootstrap 同源 POST 后，服务端在一个事务消费 ticket 并设置 runtime host-only cookie，生产属性固定为 `HttpOnly; Secure; SameSite=Strict; Path=/__retrom/`，永不设置 Domain。同一 Launch 的父页面刷新时，config 只有在未消费 ticket 或同 Launch/exact origin 的未撤销、未过期 isolated capability 存在时才返回；runtime host 的 bootstrap GET 必须实际验证对应 HttpOnly cookie，成功后以 `303 Location: /__retrom/entry` 恢复，不能重新消费或更新 ticket/capability。无 cookie、伪造 cookie、错误 Host/origin、撤销或过期一律 `410 RPG_RUNTIME_BOOTSTRAP_EXPIRED`。其余 route 都要求该 capability；cleanup 撤销 credential、过期 cookie 并清空存储。ticket/capability 不得进入 URL、日志、错误或数据库明文。
+`GET /__retrom/bootstrap` 是唯一允许无凭据到达的 GET：首次启动仍校验 Host/Launch/expiry，只返回固定 nonce bootstrap，不读取项目内容。父页面以 exact-origin `postMessage` 发送 LaunchConfig 中的 60 秒一次性 ticket；bootstrap 同源 POST 必须同时携带已有共享 runtime Cookie。服务端验证账号归属后，在事务内消费 ticket，并记录共享会话对精确 Launch/origin 的隔离授权，不签发第二枚浏览器 Token/Cookie。授权记录的摘要按共享凭据与 Launch ID 派生，不能用某个游戏的记录授权另一个 Host。
+
+同一 Launch 刷新时，bootstrap 必须同时验证共享凭据和未撤销、未过期的精确 Host 授权，成功以 `303 Location: /__retrom/entry` 恢复，不重复消费 ticket。其他数据 route 继续限制当前 Host 对应 Launch 的资源；错误账号、Host、状态或凭据均拒绝。普通游戏 cleanup 清理该 origin 的 storage，不撤销共享 Token；审核预览 cleanup 可以撤销该 Preview 的隔离授权，仍不影响其他游戏。ticket、Token 不进入 URL、日志、错误或数据库明文。
 
 entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'nonce-<per-response>' 'unsafe-eval' blob:`；`style-src 'self' 'unsafe-inline'`；`img-src/media-src/font-src 'self' data: blob:`；`connect-src 'self'`；`worker-src 'self' blob:`；`frame-src/object-src 'none'`；`base-uri 'self'`；`form-action 'none'`；`frame-ancestors <exact app origin>`。worker 只允许项目同源脚本或项目脚本生成的 blob worker，以支持 MV/MZ 官方音频解码器；外网 worker 与外网 connect 仍被禁止，`Sec-Fetch-Dest: serviceworker` 的 project 请求固定 404，不能借此注册持久 service worker。不得直接允许项目 inline script；合法项目的 inline script 必须按文档顺序提取为同源、不可变派生 Blob，并把转换摘要计入 profile，不能放宽 CSP。bootstrap 使用 `default-src 'none'; script-src 'nonce-<per-response>'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors <exact app origin>`。bootstrap/entry 是应用 COEP 页面必须跨源嵌入的两个文档，固定 `Cross-Origin-Resource-Policy: cross-origin`，但仍由上述 exact `frame-ancestors` 限制嵌入者；bridge、project、restore、cleanup 与其他 runtime 响应继续固定 `Cross-Origin-Resource-Policy: same-origin`。两类文档响应同时固定 `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), clipboard-read=(), clipboard-write=()`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。iframe sandbox 恰为 `allow-scripts allow-same-origin allow-pointer-lock`。RPG Maker project 响应使用 `private, no-cache`、`Vary: Cookie` 和强 ETag，重复读取必须先重新验证授权，匹配时返回无正文的 304；restore 与 TyranoScript project 仍使用 `private, no-store`。项目内容响应保留准确长度、固定 MIME、nosniff 和单 Range；错误/多 Range/redirect fail closed。唯一 origin 的普通 `/api`、页面、认证和媒体管理 route 一律 404。
 
@@ -772,7 +780,7 @@ entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'non
 
 `GET /__retrom/bridge.js` 从 Launch 冻结的 `providerId/targetId/bundleSha256/moduleSha256` 定位 Provider Bundle 中声明的 native bridge，并执行本机完整性校验；不得硬编码版本、绕过 Target binding、保留并选择旧 Bundle 或在文件缺失时 fallback 到其他内容。升级是否可恢复旧存档只由当前 Target 的 `readFormats` 决定。
 
-bootstrap POST 成功必须设置 `Clear-Site-Data: "storage"` 后用 `location.replace('/__retrom/entry')`，cleanup 再清空 storage、撤销 capability 并过期 cookie。只有 entry 可返回 `text/html`；项目内其他 HTML 不服务。`.js/.mjs/.css/.json/.wasm` 和登记媒体/font 使用固定 MIME，profile 登记的加密/未知非执行资源才可用 `application/octet-stream`，用户 MIME/archive metadata 不参与决定。入口 HTML 直接引用 native executable 后缀属于确凿运行依赖并以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 拒绝；仅携带但未引用的同名文件仍保留在 source snapshot，却不会进入 Launch 投影或由该端点返回。
+bootstrap POST 成功必须设置 `Clear-Site-Data: "storage"` 后用 `location.replace('/__retrom/entry')`；cleanup 再清空当前 origin 的 storage，并按上述会话类型结束预览授权，保留共享运行 Cookie。只有 entry 可返回 `text/html`；项目内其他 HTML 不服务。`.js/.mjs/.css/.json/.wasm` 和登记媒体/font 使用固定 MIME，profile 登记的加密/未知非执行资源才可用 `application/octet-stream`，用户 MIME/archive metadata 不参与决定。入口 HTML 直接引用 native executable 后缀属于确凿运行依赖并以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 拒绝；仅携带但未引用的同名文件仍保留在 source snapshot，却不会进入 Launch 投影或由该端点返回。
 
 RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下；handler、后台 Job 与 Launch 预检必须使用同一码，客户端不得解析 message：
 

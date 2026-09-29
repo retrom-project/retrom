@@ -418,8 +418,8 @@ class EvidenceContractTests(unittest.TestCase):
     def test_generation_provision_fails_at_the_launch_credential_boundary(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertEqual(2, source.count("await assertLaunchCookie(context,"))
-        self.assertIn('cookie.name === `retrom_launch_${launchId}`', source)
-        self.assertIn('cookie.path === expectedPath', source)
+        self.assertIn('cookie.name === "retrom_runtime"', source)
+        self.assertIn('cookie.path === "/"', source)
         self.assertIn('cookie.httpOnly && cookie.sameSite === "Strict"', source)
         self.assertIn("const configResponse = page.waitForResponse", source)
         self.assertIn("if (config.status() !== 200)", source)

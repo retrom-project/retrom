@@ -1,4 +1,16 @@
 paths:
+  /runtime/launches/{launchId}/renew:
+    parameters:
+      - $ref: '#/components/parameters/LaunchID'
+    post:
+      security: []
+      operationId: renewRuntimeSession
+      description: Authenticates the shared runtime cookie and an owned active Launch. After more than 12 hours, renews the same credential for 24 hours independently of login idle/absolute expiry. Explicit logout or revocation denies renewal. Extends an active product Launch without affecting other games.
+      responses:
+        '204':
+          description: Runtime credential remains valid.
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /content/assets/{assetId}:
     parameters:
       - $ref: '#/components/parameters/AssetID'

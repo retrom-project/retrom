@@ -94,7 +94,7 @@ func (server *Server) Handler() http.Handler {
 	server.registerContentRoutes(mux)
 	server.registerRuntimeRoutes(mux)
 	mux.HandleFunc("/", server.notFound)
-	return server.routeByRuntimeHost(server.baseMiddleware(server.openAPIHandler(mux)))
+	return server.routeByRuntimeHost(server.baseMiddleware(server.openAPIHandler(mux), mux))
 }
 
 func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
@@ -284,6 +284,7 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
+	mux.HandleFunc("POST /runtime/launches/{launchId}/renew", server.renewRuntimeSession)
 	mux.HandleFunc("GET /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
 	mux.HandleFunc("HEAD /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
 	mux.HandleFunc("GET /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)

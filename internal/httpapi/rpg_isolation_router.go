@@ -13,7 +13,7 @@ import (
 	"retrom/internal/service/isolation"
 )
 
-const rpgRuntimeCookieName = "retrom_rpg_runtime"
+const rpgRuntimeCookieName = runtimeCookieName
 
 const rpgRuntimePermissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), " +
 	"serial=(), bluetooth=(), midi=(), clipboard-read=(), clipboard-write=()"
@@ -54,6 +54,12 @@ func (server *Server) serveRPGRuntimeHost(
 	if !server.requestReady(requestContext, writer, request) {
 		return
 	}
+	authorized, ok := server.authenticateIsolatedRuntimeRequest(writer, request, access)
+	if !ok {
+		return
+	}
+	request = authorized
+
 	server.serveRPGRuntimeRoute(writer, request, access)
 }
 
@@ -189,15 +195,18 @@ func (server *Server) authenticateRPGRuntime(
 	request *http.Request,
 	access isolation.Access,
 ) (isolation.Access, error) {
-	cookies := request.CookiesNamed(rpgRuntimeCookieName)
-	if len(cookies) != 1 || cookies[0].Value == "" {
+	session, ok := runtimeSessionFromRequest(request)
+	if !ok {
 		return isolation.Access{}, isolation.ErrCredential
 	}
 	authorized, err := server.playDeps.Isolation.Authenticate(
-		request.Context(), access.LaunchID, access.Origin, cookies[0].Value,
+		request.Context(), access.LaunchID, access.Origin, session.Token,
 	)
 	if err != nil {
 		return isolation.Access{}, fmt.Errorf("authenticate RPG runtime: %w", err)
+	}
+	if authorized.Profile != session.ProfileID {
+		return isolation.Access{}, isolation.ErrCredential
 	}
 	return authorized, nil
 }
@@ -206,4 +215,29 @@ func validRPGRuntimeWrite(request *http.Request, origin string) bool {
 	origins := request.Header.Values("Origin")
 	return len(origins) == 1 && origins[0] == origin &&
 		(request.Header.Get("Sec-Fetch-Site") == "" || request.Header.Get("Sec-Fetch-Site") == "same-origin")
+}
+
+func (server *Server) authenticateIsolatedRuntimeRequest(
+	writer http.ResponseWriter, request *http.Request, access isolation.Access,
+) (*http.Request, bool) {
+	if len(request.CookiesNamed(runtimeCookieName)) == 0 {
+		return request, true
+	}
+	server.clearLegacyRuntimeCookies(writer, request)
+	session, err := server.readRuntimeSession(request)
+	if err != nil {
+		http.NotFound(writer, request)
+		return request, false
+	}
+	if err := server.playDeps.RuntimeSessions.AuthorizeRun(request.Context(), session, access.LaunchID); err != nil {
+		http.NotFound(writer, request)
+		return request, false
+	}
+	if session.Refreshed {
+		if err := server.setRuntimeCookie(writer, session); err != nil {
+			server.databaseError(writer, request, err)
+			return request, false
+		}
+	}
+	return request.WithContext(context.WithValue(request.Context(), runtimeSessionKey{}, session)), true
 }

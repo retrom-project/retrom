@@ -24,6 +24,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/launch"
 	"retrom/internal/service/isolation"
+	"retrom/internal/service/runtimesession"
 )
 
 func TestRPGFrameDocumentsCanBeEmbeddedOnlyThroughTheirCSP(t *testing.T) {
@@ -163,7 +164,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 `); err != nil {
 		t.Fatal(err)
 	}
-	credential, _, err := isolationService.ConsumeTicket(t.Context(), launchID, origin, ticket)
+	credential, _, err := isolationService.ConsumeTicket(t.Context(), launchID, origin, ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,6 +184,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 		origin+"/__retrom/tyranoscript/project/data/bgimage/black.jpg", nil,
 	)
 	request.AddCookie(&http.Cookie{Name: rpgRuntimeCookieName, Value: credential})
+	request = request.WithContext(context.WithValue(request.Context(), runtimeSessionKey{}, runtimesession.Session{Token: credential, ProfileID: "profile"}))
 	response := httptest.NewRecorder()
 	server.serveRPGRuntimeRoute(response, request, isolation.Access{LaunchID: launchID, Origin: origin})
 
@@ -289,7 +291,7 @@ func TestNativeProjectServiceWorkerDestinationIsDenied(t *testing.T) {
 func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 	t.Parallel()
 	database, service, nowMS, launchID, origin, ticket := newBootstrapReloadFixture(t)
-	credential, _, err := service.ConsumeTicket(context.Background(), launchID, origin, ticket)
+	credential, _, err := service.ConsumeTicket(context.Background(), launchID, origin, ticket, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "profile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,6 +354,7 @@ func bootstrapPageRequest(
 		access.Origin+"/__retrom/bootstrap", nil)
 	if credential != "" {
 		request.AddCookie(&http.Cookie{Name: rpgRuntimeCookieName, Value: credential})
+		request = request.WithContext(context.WithValue(request.Context(), runtimeSessionKey{}, runtimesession.Session{Token: credential, ProfileID: "profile"}))
 	}
 	response := httptest.NewRecorder()
 	server.rpgBootstrapPage(response, request, access)

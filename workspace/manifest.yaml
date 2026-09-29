@@ -97,7 +97,7 @@
       "path": "project/retrom-core/Player",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/Player.git",
-      "defaultBranch": "retrom/0.8.1.1",
+      "defaultBranch": "retrom/ge68fff4a13a3",
       "submodules": true,
       "dependsOn": []
     },
@@ -134,7 +134,7 @@
       "path": "project/retrom-core/Butterscotch",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/Butterscotch.git",
-      "defaultBranch": "retrom/gae2602f1f83c",
+      "defaultBranch": "retrom/ge8294c9070a4",
       "submodules": false,
       "dependsOn": []
     },

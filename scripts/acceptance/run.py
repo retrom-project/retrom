@@ -120,7 +120,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/format/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
-        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch ./internal/service/gamevariant ./internal/persistence/gamevariant ./internal/service/libraryimport ./internal/persistence/libraryimport -count=1",
+        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch ./internal/service/gamevariant ./internal/persistence/gamevariant ./internal/service/libraryimport ./internal/persistence/libraryimport -count=1 && go test -tags=integration ./internal/service/runtimesession ./internal/persistence/runtimesession ./internal/httpapi -run 'TestSharedRuntime|TestRuntimeCredential|TestExpiredRuntime|TestRepeatedLaunchesReuseRuntimeCookie|TestRuntimeRenewalKeepsActiveLaunchAndPayloadAliveAcrossDays|TestNativeReviewIsolation' -count=1",
     ),
     "ACC-SEC-003": (
         120,
@@ -362,7 +362,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-IMM-012": (
         180,
         "go test ./internal/launch ./internal/httpapi "
-        "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestLaunchContentGrantCookieHasRestrictedBrowserScope|TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies|TestGameCoverReplacementRetiresOldPayload|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
+        "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestSharedRuntimeCookieHasControlledDomainAndFixedName|TestSharedRuntimeRejectsMissingForgedAndDuplicateCredentials|TestGameCoverReplacementRetiresOldPayload|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
         "go test -tags=integration ./internal/httpapi -run '^TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes$' -count=1",
     ),
     "ACC-MOB-001": (120, "scripts/acceptance/ui-case.sh ACC-MOB-001 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/mobile/mobile-app-frame.test.tsx"),
@@ -871,6 +871,7 @@ def run_command(
     node_home = environment.get("NODE_HOME", "")
     if node_home:
         environment["PATH"] = str(Path(node_home) / "bin") + os.pathsep + environment.get("PATH", "")
+        command = command.replace(".cache/tools/node-v24.18.0-linux-x64/bin/node ", "node ")
     process = subprocess.Popen(
         ["bash", "-c", command], cwd=ROOT, env=environment,
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

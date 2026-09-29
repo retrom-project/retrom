@@ -206,13 +206,9 @@ Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `inte
 
 ## 5. 内容端点与 LaunchSession capability
 
-浏览器不得获得宿主机路径、内部文件记录或摘要 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7
-`launchId`，同时通过 `retrom_launch_<launchId>` HttpOnly cookie 下发 32-byte capability；数据库只保存其
-SHA-256。Player URL 固定为 `/play/:launchId`；config、状态和事件保留在 `/runtime/launches/:launchId/**`，
-ROM/BIOS/parent/外部盘片以及 EasyRPG、mkxp、ONS、KiriKiri 项目文件使用不含 launch ID 的 `/runtime/content/**`，并由相同 capability 派生的
-`/runtime/content/` 路径限定 HttpOnly grant 授权。capability 不进入 URL、Referer、JSON 或访问日志。
+浏览器不得获得宿主机路径或内部文件记录。`POST /api/v1/launches` 返回非秘密 Launch ID，并复用当前登录会话的 `retrom_runtime` HttpOnly Cookie。主域与独立运行域共享同一凭据；有效期 24 小时，超过 12 小时后独立续期，明确退出或撤销账户会话则失效。Cookie Domain 必须是所有运行 Host 与应用 Host 的受控共同父域，账户 Cookie 仍 host-only；正式属性、端点和期限以 [HTTP 契约](./http-api-contract.md) 为准。
 
-MV/MZ 项目文件绝不从应用 origin 或上述 `/runtime/content/**` 公开。Player 只会将 sandbox iframe 导航到本 Launch 的 unique runtime origin；该 Host 只接受 HTTP 契约登记的 `/__retrom/*` allowlist。`GET /__retrom/bootstrap` 是唯一无凭据 GET，且仍要校验精确 Host、Launch 存在且未过期；它只返回固定 bootstrap，不返回游戏代码/状态。ticket 只在 request body 中由同源 `POST /__retrom/bootstrap` 一次消费，并换取 host-only、HttpOnly、`Path=/__retrom/` 的 capability cookie；其余 entry/bridge/project/restore/cleanup 端点全部要求该 cookie。项目 entry 注入的 `<base>` 固定为同源 `/__retrom/project/`，CSP 必须包含 `base-uri 'self'`。runtime Host 不接受普通 app session/API/页面 fallback，不设 Domain cookie，不在不同 Launch 间复用 origin。
+MV/MZ 项目继续使用每 Launch 唯一 origin 和闭合 `/__retrom/*` 路由。一次性 ticket 只建立该 Host/Launch 对共享运行会话的服务端授权，不产生逐游戏 Cookie。共享凭据不改变冻结资源、存档归属、CSP、sandbox 和禁止普通 API fallback 的边界。
 
 ### 5.1 为什么 MV/MZ 必须使用每 Launch 独立子域名
 

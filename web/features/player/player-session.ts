@@ -1,5 +1,7 @@
 "use client";
 
+import {useRuntimeSessionRenewal} from "./runtime-session-renewal";
+
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
@@ -29,6 +31,7 @@ export type PlayerSessionParams = {
 };
 
 export function usePlayerSession(params: PlayerSessionParams) {
+  useRuntimeSessionRenewal(params.launchId,params.started,params.finishing);
   const reportProgress = useCallback(() => sendPlayProgress(params), [params]);
 
   const reportSaveUploadProgress = useCallback((progress: SaveUploadProgress) => {
