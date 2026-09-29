@@ -2756,7 +2756,7 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 ### ACC-CONTENT-002：Native Web 全量缓存与按需复用
 
 - 附加前置：与 ACC-CONTENT-001 相同的隔离 PFB、账号和 Chrome；MV 使用项目自有 fixture，MZ/TyranoScript 使用操作者明确授权的合法项目，不将私有内容提交到仓库。
-- 执行：每个 Target 单独运行 `make acceptance-case CASE=ACC-CONTENT-002`，上限 1200 秒。`RETROM_NATIVE_CACHE_INPUT` 指向本地 JSON，包含已完成当次 Import/Review Preview 的 `gameId`、`targetId` 与 `start` / `advance` 输入动作数组。每个动作可含 `key` 或隔离 frame 内 `selector`，以及 `0..10000` 的 `waitMs`；可附 `state` 等待引擎只读快照匹配指定字段（最多 180 秒），避免片头时长影响按键时序。不得提交私有游戏的输入文件。`start` 到达可操作场景，`advance` 必须改变可观测游戏状态。
+- 执行：每个 Target 单独运行 `make acceptance-case CASE=ACC-CONTENT-002`，上限 1200 秒。`RETROM_NATIVE_CACHE_INPUT` 指向本地 JSON，包含已完成当次 Import/Review Preview 的 `gameId`、`targetId` 与 `start` / `advance` 输入动作数组。每个动作可含 `key` 或隔离 frame 内 `selector`，以及 `0..10000` 的 `waitMs`；可附 `state` 等待引擎只读快照匹配指定字段，或 `visible` 等待 frame 内元素可见（最多 180 秒），避免片头时长影响按键时序。不得提交私有游戏的输入文件。`start` 到达可操作场景，`advance` 必须改变可观测游戏状态。
 - 首次全量启动下载字节必须覆盖 Native Web 索引的全部文件，缓存完整提交后才允许进入游戏；空文件不要求网络正文。禁用普通 HTTP 缓存并保持 Content I/O 持久存储。
 - 沿用公共预下载窗口：不超过 1 MiB 的文件允许单次完整 200，大文件必须使用最大 2 MiB 的 206 分段；逐文件验证下载量与完整缓存收据，禁止把大文件整包拉入内存。
 - 启动后断网，以真实输入推进可观察游戏状态。恢复网络并切为按需，在不同 Launch 继续游玩：稳定内容端点下载为零，隔离入口与项目资源由 Service Worker 返回；再次断网仍可推进。媒体的单 Range 与 worker 重启后的重连必须保留证据。各 Target 的存档/不同 Launch 恢复及恢复后输入仍由 ACC-RPG-007/008、ACC-TYRANOSCRIPT-001 分别验证。

@@ -33,6 +33,7 @@ export async function nativeActions(page, actions) {
         "NATIVE_CACHE_STATE_INVALID");
       await expect.poll(() => nativeSnapshot(page), {timeout: 180000, intervals: [500]}).toMatchObject(action.state);
     }
+    if (action.visible) await frame.locator(action.visible).waitFor({state: "visible", timeout: 180000});
     if (action.key) await surface.press(action.key, {delay: 100});
     if (action.selector) await frame.locator(action.selector).click({delay: 100});
     await page.waitForTimeout(action.waitMs);
