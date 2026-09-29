@@ -55,3 +55,24 @@ func TestOptionsNeverInferAStrategyFromProviderPropertyNames(t *testing.T) {
 		t.Fatalf("invalid source evidence: %v", err)
 	}
 }
+
+func TestArcadeOptionsSelectMachineOnlyFromValidatedDependencySnapshot(t *testing.T) {
+	schema := runtimebundle.TargetOptionsSchema{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"machine": map[string]any{"type": "string", "minLength": 1, "maxLength": 32}},
+		"required":   []any{"machine"},
+	}
+	snapshot := `{"schemaVersion":1,"kind":"ARCADE","machine":"mspacman","datVersionId":"dat-v1","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`
+	got, err := Build(runtimecatalog.OptionsArcade, schema, Input{ContentKind: "SINGLE_FILE", DependencySnapshot: snapshot})
+	if err != nil || got["machine"] != "mspacman" {
+		t.Fatalf("arcade options: %#v %v", got, err)
+	}
+	for _, invalid := range []string{
+		`{"kind":"ARCADE","machine":"mspacman"}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"../escape","datVersionId":"dat-v1","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+	} {
+		if _, err := Build(runtimecatalog.OptionsArcade, schema, Input{ContentKind: "SINGLE_FILE", DependencySnapshot: invalid}); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("invalid Arcade snapshot accepted: %s %v", invalid, err)
+		}
+	}
+}

@@ -62,7 +62,85 @@ type Set struct {
 	Versions       map[string]*Version
 	Order          []string
 	Active         *Version
+	MAME           *Version
 	RuntimeCatalog runtimecatalog.Catalog
+}
+
+// LoadProduction adds the MAME Current DAT pinned to the published Runtime
+// Provider. Tests that need only an EmulatorJS fixture continue to use Load.
+func LoadProduction(root string, versions []string, active string) (*Set, error) {
+	result, err := Load(root, versions, active)
+	if err != nil {
+		return nil, err
+	}
+	result.MAME, err = loadMAMEVersion(root)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func loadMAMEVersion(root string) (*Version, error) {
+	datRoot := filepath.Join(root, "dat", "mame-current", "v0.55.0")
+	contents, err := os.ReadFile(filepath.Join(datRoot, "manifest.json"))
+	if err != nil {
+		return nil, fmt.Errorf("%w: MAME DAT manifest unavailable", ErrInvalid)
+	}
+	manifest, providerTag, err := parseMAMEManifest(contents)
+	if err != nil {
+		return nil, err
+	}
+	var release struct {
+		Tag string `json:"tag"`
+	}
+	releaseContents, err := os.ReadFile(filepath.Join(root, "runtime-providers", "release.json"))
+	if err != nil || json.Unmarshal(releaseContents, &release) != nil || release.Tag != providerTag {
+		return nil, fmt.Errorf("%w: MAME DAT Provider release mismatch", ErrInvalid)
+	}
+	digest := sha256.Sum256(contents)
+	version := &Version{Manifest: manifest, ManifestSHA256: hex.EncodeToString(digest[:]), DATRoot: datRoot}
+	if err := loadDATFiles(version); err != nil {
+		return nil, err
+	}
+	return version, nil
+}
+
+type mameReleaseIdentity struct {
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+	Commit     string `json:"commit"`
+	ProviderID string `json:"provider_id"`
+	TargetID   string `json:"target_id"`
+}
+
+func parseMAMEManifest(contents []byte) (Manifest, string, error) {
+	var identity struct {
+		SchemaVersion int                 `json:"schema_version"`
+		Provider      mameReleaseIdentity `json:"provider_release"`
+		Core          mameReleaseIdentity `json:"core_release"`
+	}
+	var manifest Manifest
+	if json.Unmarshal(contents, &identity) != nil || json.Unmarshal(contents, &manifest) != nil ||
+		identity.SchemaVersion != 1 || !validMAMEProvider(identity.Provider) ||
+		!validMAMECore(identity.Core, manifest) {
+		return Manifest{}, "", fmt.Errorf("%w: MAME DAT manifest identity", ErrInvalid)
+	}
+	return manifest, identity.Provider.Tag, nil
+}
+
+func validMAMEProvider(provider mameReleaseIdentity) bool {
+	return provider.Repository == "https://github.com/retrom-project/retrom-runtime" &&
+		provider.Tag == "v0.55.0" && provider.Commit == "436730fb42be492a1fade8ef753eba37df08f4ca" &&
+		provider.ProviderID == "retrom-runtime" && provider.TargetID == "mame-arcade"
+}
+
+func validMAMECore(core mameReleaseIdentity, manifest Manifest) bool {
+	return core.Repository == "https://github.com/retrom-project/mame" &&
+		core.Tag == "retrom-core-gf65d5ba9bc42-r2" &&
+		core.Commit == "919816e409260a759a82f65b10792f6938001894" &&
+		len(manifest.Cores) == 1 && manifest.Cores[0].CoreID == "mame_arcade" &&
+		manifest.Cores[0].CoreSource.Commit == core.Commit && manifest.Cores[0].DAT != nil &&
+		manifest.Cores[0].DAT.LocalPath == "mame-arcade.xml"
 }
 
 func Load(root string, versions []string, active string) (*Set, error) {

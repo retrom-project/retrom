@@ -55,6 +55,22 @@ func TestPreviewContentFreezesDOSAndOrderedDiscs(t *testing.T) {
 	}
 }
 
+func TestPreviewContentIncludesInstalledArcadeDeviceBIOS(t *testing.T) {
+	t.Parallel()
+	_, repository, _, _ := previewFixture(t)
+	snapshot := repository.snapshot
+	snapshot.Source.DATVersionID = new("mame-current-dat")
+	snapshot.ValidationFiles = []PreviewFile{{
+		Role: "EXTERNAL_FILE", LogicalName: "epr-18022.ic2", FileRecord: "segabill-blob",
+		VirtualPath: new("/content/roms/segabill/epr-18022.ic2"),
+	}}
+	content, err := previewContent(snapshot)
+	if err != nil || len(content.Files) != 1 || content.Files[0].FileRecord != "segabill-blob" ||
+		content.Files[0].Role != "EXTERNAL_FILE" {
+		t.Fatalf("arcade device BIOS: %+v %v", content, err)
+	}
+}
+
 func TestPreviewProjectsKeepTheirOwnPrimaryAndFileSet(t *testing.T) {
 	t.Parallel()
 	cases := []struct{ kind, profile, marker string }{

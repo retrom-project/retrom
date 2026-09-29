@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -21,6 +22,16 @@ class VersionTests(unittest.TestCase):
 
 
 class DATManifestTests(unittest.TestCase):
+    def test_mame_current_dat_is_bound_to_published_core_and_provider(self) -> None:
+        manifest = dependencies.load_mame_manifest()
+        self.assertEqual("v0.55.0", manifest["provider_release"]["tag"])
+        self.assertEqual("retrom-core-gf65d5ba9bc42-r2", manifest["core_release"]["tag"])
+        self.assertEqual("mame_arcade", manifest["cores"][0]["core_id"])
+        self.assertEqual(10049, manifest["cores"][0]["parse_stats"]["machine_count"])
+        entries = dependencies.image_export_entries([], [], dependencies.load_auth_manifest(), manifest)
+        self.assertIn("dat/mame-current/v0.55.0/mame-arcade.xml", entries)
+        self.assertIn("runtime-providers/release.json", entries)
+
     def test_repository_manifests_are_provider_neutral(self) -> None:
         for version in ("4.2.3", "4.3.0-pre"):
             manifest = dependencies.load_manifest(version)
@@ -48,6 +59,33 @@ class DATManifestTests(unittest.TestCase):
 
 
 class MaterializationTests(unittest.TestCase):
+    def test_mame_dat_extracts_only_verified_member(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = b"<mame/>"
+            archive = root / "source.zip"
+            with zipfile.ZipFile(archive, "w") as bundle:
+                bundle.writestr("mame-arcade.xml", payload)
+                bundle.writestr("other.txt", b"ignored")
+            manifest = {"core_release": {"archive": {"filename": "mame-current-assets.zip",
+                "url": "https://invalid.test/archive", "size_bytes": archive.stat().st_size,
+                "sha256": dependencies.hashlib.sha256(archive.read_bytes()).hexdigest()}},
+                "cores": [{"dat": {"local_path": "mame-arcade.xml", "archive_member": "mame-arcade.xml",
+                    "size_bytes": len(payload), "sha256": dependencies.hashlib.sha256(payload).hexdigest()}}]}
+            def copy_archive(url: str, target: Path, size: int, digest: str) -> None:
+                self.assertEqual(archive.stat().st_size, size)
+                self.assertEqual(dependencies.hashlib.sha256(archive.read_bytes()).hexdigest(), digest)
+                target.write_bytes(archive.read_bytes())
+            with mock.patch.object(dependencies, "MAME_DAT_ROOT", root), mock.patch.object(
+                dependencies, "download", side_effect=copy_archive,
+            ):
+                dependencies.prepare_mame_dat(manifest)
+                self.assertEqual(payload, (root / "mame-arcade.xml").read_bytes())
+                (root / "mame-arcade.xml").unlink()
+                manifest["cores"][0]["dat"]["sha256"] = "0" * 64
+                with self.assertRaisesRegex(dependencies.CheckError, "MAME_DAT_ARCHIVE_MEMBER_INVALID"):
+                    dependencies.prepare_mame_dat(manifest)
+
     def test_existing_auth_payload_is_normalized_to_private_mode(self) -> None:
         contents = b"fixture\n"
         digest = dependencies.hashlib.sha256(contents).hexdigest()

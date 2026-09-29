@@ -48,6 +48,12 @@ func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 				return err
 			}
 		}
+		if service.set.MAME != nil {
+			if err := service.bootstrapVersionDATs(ctx, scope, "mame-current/v0.55.0", service.set.MAME,
+				map[string]RuntimeTarget{}, preferred, now); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -62,6 +68,9 @@ func preferredCoreVersions(set *dependencies.Set) map[string]string {
 		for _, core := range set.Versions[versionName].Manifest.Cores {
 			result[core.CoreID] = versionName
 		}
+	}
+	if set.MAME != nil {
+		result["mame_arcade"] = "mame-current/v0.55.0"
 	}
 	return result
 }

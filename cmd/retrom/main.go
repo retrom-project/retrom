@@ -174,14 +174,6 @@ func bootstrapServerResources(
 		return fmt.Errorf("retrom/main: %w", err)
 	}
 	result.lock = lock
-	result.dependencies, err = dependencies.Load(
-		configuration.DependencyRoot,
-		configuration.DependencyVersions,
-		configuration.ActiveEJSVersion,
-	)
-	if err != nil {
-		return fmt.Errorf("verify dependencies: %w", err)
-	}
 	result.runtimeProviders, err = runtimeprovider.LoadInstallation(runtimeprovider.Paths{
 		ActivePath: configuration.ProviderActivePath, InstalledRoot: configuration.ProviderInstalledRoot,
 		CatalogPath: configuration.RuntimeTargetCatalogPath, DevRoot: configuration.ProviderDevRoot,
@@ -191,6 +183,15 @@ func bootstrapServerResources(
 	}
 	if err := validateRuntimeProviderSource(configuration, result.runtimeProviders); err != nil {
 		return fmt.Errorf("verify runtime provider installation: %w", err)
+	}
+	loadDependencies := dependencies.Load
+	if result.runtimeProviders.Active.Source == "production" {
+		loadDependencies = dependencies.LoadProduction
+	}
+	result.dependencies, err = loadDependencies(configuration.DependencyRoot,
+		configuration.DependencyVersions, configuration.ActiveEJSVersion)
+	if err != nil {
+		return fmt.Errorf("verify dependencies: %w", err)
 	}
 	result.scummVMDetector, err = result.runtimeProviders.ScummVMDetector(
 		filepath.Join(configuration.DataDir, "runtime-tools", "scummvm"),

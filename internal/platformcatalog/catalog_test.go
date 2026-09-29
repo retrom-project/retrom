@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 38 }, func() bool { return len(catalog.Templates) != 94 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 42 }, func() bool { return len(catalog.Templates) != 97 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -134,7 +134,7 @@ func TestCatalogConsolidatesFDSAndMAME2003(t *testing.T) {
 			testassert.Truef(t, slices.Equal(contentprofile.SupportedExtensions(template.PlatformID), []string{".zip"}), "Arcade extensions for %s are invalid", template.Key)
 		}
 	}
-	testassert.Falsef(t, arcadeCount != 4, "Arcade recommendation count = %d", arcadeCount)
+	testassert.Falsef(t, arcadeCount != 5, "Arcade recommendation count = %d", arcadeCount)
 }
 
 func TestValidateRejectsDuplicateAndMalformedTemplates(t *testing.T) {

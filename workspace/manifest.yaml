@@ -59,8 +59,19 @@
         "lutro",
         "daphne",
         "gearboy",
-        "dosbox-pure"
+        "dosbox-pure",
+        "mame"
       ]
+    },
+    {
+      "id": "mame",
+      "path": "project/retrom-core/mame",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/mame.git",
+      "defaultBranch": "retrom/gf65d5ba9bc42",
+      "submodules": false,
+      "shallowClone": true,
+      "dependsOn": []
     },
     {
       "id": "dosbox-pure",

@@ -13,7 +13,7 @@ export const directoryCategories: ReadonlyArray<{ id: DirectoryCategory; label: 
 const platformCategory: Record<string, DirectoryCategory> = {
   "3do": "console", amiga: "computer", amigacd32: "console", amstradcpc: "computer", apple2: "computer", arcade: "arcade", arduboy: "handheld",
   atari2600: "console", atari5200: "console", atari7800: "console", atari800: "computer",
-  atarijaguar: "console", atarist: "computer", atomiswave: "arcade", bbc: "computer", bbkrpg: "computer",
+  atarijaguar: "console", atarist: "computer", atom: "computer", atomiswave: "arcade", bbc: "computer", bbkrpg: "computer",
   butterscotch: "runtime", c128: "computer", c64: "computer", cavestory: "runtime",
   cdi: "console", channelf: "console", colecovision: "console", daphne: "arcade", doom: "runtime",
   dos: "computer", dreamcast: "console", fds: "console", flash: "runtime",
@@ -26,7 +26,7 @@ const platformCategory: Record<string, DirectoryCategory> = {
   pc88: "computer", pc98: "computer", pce: "console", pcecd: "console",
   pcfx: "console", pet: "computer", pico: "console", pico8: "runtime",
   plus4: "computer", pokemini: "handheld", ps2: "console", psp: "handheld",
-  psx: "console", rpgmaker: "runtime", samcoupe: "computer", satellaview: "console", saturn: "console", scummvm: "runtime",
+  psx: "console", pv1000: "console", rpgmaker: "runtime", samcoupe: "computer", satellaview: "console", saturn: "console", scummvm: "runtime",
   sega32x: "console", segacd: "console", sg1000: "console", sgb: "handheld", snes: "console", supergrafx: "console",
   supervision: "handheld", thomson: "computer", tic80: "runtime", tyranoscript: "runtime",
   uzebox: "console", vectrex: "console",

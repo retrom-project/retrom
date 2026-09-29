@@ -2745,3 +2745,65 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 持有租约的完整 Blob，损坏完整代后须隔离该代并撤销对象，不能就地重写租约仍引用的文件；
 这一步单独验证共享缓存契约，不改变 DOS 核心的 RANGE 输入策略。所有场景必须留下原始报告，
 严格 proof 校验全部 16 个场景后才能给出完整矩阵 PASS。
+
+### ACC-MAME-001：MAME Apple II 双 WASM 产品验证
+
+前置：同一命名 PFB 中已经验证并安装 MAME 动态链接核心候选及完整 Provider；使用原有“Apple II 游戏”目录，通过默认核心影响预览与确认将其核心设为 `mame_apple2`，不为本用例另建 MAME 推荐目录；管理员提供 Apple II+ 的九个 BIOS 文件和一张 143360 bytes、DOS 顺序的 `.dsk/.do` 磁盘。素材必须由操作者授权，不进入仓库。首轮输入样本为《Donkey Kong》；结论只覆盖该样本及只读单盘。完整复验需要尚未发布相同内容的测试库；有 `progress.json` 时可继续本轮，复用已发布游戏必须单独标为跳过审核预览。
+
+等价执行入口：设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、`RETROM_CHROME_EXECUTABLE`、`RETROM_MAME_APPLE2_BIOS_DIR`、`RETROM_MAME_APPLE2_DISK`、`RETROM_ACCEPTANCE_CASE_DIR`，执行 `timeout 300s node scripts/acceptance/mame_apple2_product.mjs`。单次硬超时 300 秒。
+
+1. 经 BIOS 安装、普通上传导入、Review Preview 和批准，创建新的 Product Launch；Envelope 必须选择 `retrom-runtime/mame-apple2`。
+2. 等待标题进入人数选择后，标准手柄 Start 单独发送键盘 `1`，选择单人并等待关卡完全出现。方向只改变摇杆轴，A/B 分别对应原生按钮，键盘保持独立。记录按键前后画面并逐图确认进入可玩状态、玩家向右移动及 A 键跳跃，动画变化不能替代玩家位置证据。记录非静音 PCM 被 Web Audio 调度。
+3. 核对 560×192 帧缓冲按原生 4:3 比例显示，窗口缩放后仍无溢出或拉伸；通过 Player 暂停后画面冻结，继续后手柄有效。创建非空即时存档及 560×420 截图；公共 gzip 解压一次后为 `RTMAME01` 封包。使用不同 Launch 恢复，核对关卡内角色位置一致，并继续用手柄向左移动。
+4. 在关闭 HTTP 缓存的独立页面间复用 Content I/O 持久缓存；公共 WASM 只发生一次网络请求，响应为 Brotli，接收字节与 Provider 声明一致；游戏盘和九份固件也各只请求一次。损坏、截断或构建身份不匹配必须拒绝，不得回退新游戏。
+5. 保存当次截图、Provider/Target 身份、压缩字节数、checkpoint 大小和 console 记录；任何错误或未解释的 warning 均需修复复测。注入手柄自动化不代替实体手柄验收。
+
+
+### ACC-MAME-002：Acorn Atom 快速装载产品验证
+
+前置：同一 PFB 已安装包含 `mame-atom` 的完整候选，提供与锁定源码一致的 `abasic.ic20`、`afloat.ic21` 和真实《GUNTUS》ATM 程序。游戏和 BIOS 不进入 Git。作者公开 UEF 可按作者的格式说明提取原始程序负载，保留字节不变封装为 ATM；保留原文件、来源 URL、转换配方和摘要。完整执行需要没有发布相同内容的测试库，继续本轮或复用发布内容必须在记录中明确。
+
+入口：设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、`RETROM_CHROME_EXECUTABLE`、`RETROM_MAME_FAMILY_INPUT_DIR` 和 `RETROM_ACCEPTANCE_CASE_DIR`，执行 `timeout 300s node scripts/acceptance/mame_families_product.mjs atom`。输入目录包含两份 BIOS 和 `Guntus-atom.atm`；硬超时 300 秒。
+
+1. 安装两份精确 BIOS，正常上传、导入 Acorn Atom 目录、审核预览并发布；Envelope 使用 `retrom-runtime/mame-atom`，只加载公共模块和 Acorn 模块。
+2. 预览必须出现游戏标题，不能把 BASIC 提示符视为游戏启动。用标准手柄 A 确认进入游戏，等待游戏开场音乐后向右移动；核对屏幕中的飞机位置变化，随后射击并记录非静音音频。暂停冻结、恢复后继续输入。
+3. 核对原生 372×243 缓冲以 MAME 4:3 比例显示，缩放窗口无溢出；创建非空有界即时存档及按显示比例生成的截图。公共 gzip 只解压一次，结果是 `RTMAME01`；不同 Launch 恢复后位置一致，快速装载计时器不得再次重启游戏，随后手柄向左移动有效。
+4. 关闭 HTTP 缓存，三个独立页面的公共 WASM、Acorn WASM、游戏与 BIOS 各下载一次。保留当次身份、网络、截图和 console，逐图复核。所有错误及未解释的 warning 都必须处理。
+
+### ACC-MAME-003：PV-1000 卡带产品验证
+
+前置及通用步骤同 ACC-MAME-002，样本为作者公开《GUNTUS》PV-1000 版。只允许将作者文件末尾按软件目录规范补零到 16 KiB，并校验结果与锁定 MAME 软件目录的 SHA-1 完全一致；保留原始来源与配方。输入目录使用 `Guntus-pv1000.rom`，无 BIOS。
+
+入口：`timeout 300s node scripts/acceptance/mame_families_product.mjs pv1000`，每次硬超时 300 秒。
+
+1. 正常上传、导入 PV-1000 目录、审核预览并发布；Envelope 使用 `retrom-runtime/mame-pv1000`，只加载公共模块和 vintage 模块，没有 external 资源。
+2. 标准手柄 A 从标题进入游戏。开场音乐结束后，方向必须移动可见的蓝色驾驶舱，A 射击并产生声音；支持暂停、截图和非空即时存档。原生缓冲 224×244 按 MAME 4:3 显示，窗口缩放仍正确。
+3. 不同 Launch 恢复同一位置后继续向左移动，存档格式、压缩层数、资源复用及 console 要求与 ACC-MAME-002 相同；保留独立 Case 结果与当次逐图复核。
+
+跨设备族缓存补充：不传平台参数执行同一脚本，顺序运行两个独立 Case，每个仍有自己的 300 秒硬超时、结果和截图；随后新建 Atom Launch。整个 Atom → PV-1000 → Atom 序列中公共 WASM 只请求一次，两个设备族各一次。该补充不能替代任一平台的操作、存档或恢复断言。
+
+### ACC-MAME-004：MAME Current Arcade 兼容旧族候选验证
+
+前置：在同一 PFB 中构建包含 `legacy_arcade_sources.json` 全部族的 MAME 候选，安装匹配的 Runtime Provider 候选。仅在验收数据库中，用 `go run scripts/acceptance/seed-public-arcade-dat.go --fixture mame_arcade --candidate-dir <MAME core candidate> --database <PFB database>` 登记该候选实际导出的 `mame-arcade.xml`；装置验证候选描述符、DAT 摘要、构建 ID 和各模块的机器清单。这不是正式 DAT 发布路径。游戏 ZIP 使用操作者授权的本地内容，不进入仓库、Provider 或镜像。
+
+1. 核对 `mame2003`、`mame2003_plus` 和 `mame_arcade` 三个 Core 及各自 Provider Target 均存在，2003/Plus 的推荐目录和 BIOS 安装不因 Current 候选改变。对同一游戏显式配置 Current 变体；其 ZIP 必须按 Current DAT 重新校验，旧变体和存档不自动迁移。
+2. 用通过 Current DAT 的真实街机 ZIP 走普通导入、Review Preview、审核发布和 Product Launch。Envelope 只引用 `retrom-runtime/mame-arcade`，运行时只下载公共 JS/WASM 与该机器的一个族 WASM。对 Clone/Split 样本，核对 Parent 和 BIOS 闭包分别从 Current 的 DatVersion 与 Current Target 安装装配，缺失时明确阻断，不借用 2003/Plus 的 BIOS。
+3. 在真实游戏画面分别验证投币、Start、方向和主要动作使游戏状态可观察地改变；暂停、截图与非空即时存档后，在另一个 Launch 恢复到同一进度并继续输入。浏览器 console 中的错误及未解释 warning 必须处理。
+4. 在关闭 HTTP 缓存的独立页面间启动两个不同 Arcade 族，再回到第一个族；公共 WASM 只发生一次网络传输，各族只首次传输自己的模块。记录压缩响应字节、WASM 原始大小、Provider/Build ID、DAT 摘要、三次截图及游戏输入前后证据。若所用 2003 ZIP 不符合 Current DAT，应记录为该样本不兼容，不得以同名或驱动存在判为通过。
+5. 用 `scripts/acceptance/mame_arcade_legacy_fallback.mjs` 将兼容的旧版 ZIP 发布在 MAME2003-Plus 推荐目录，再显式选择 `mame_arcade` 启动；确认同一游戏保留原变体，并创建按 Current DAT 校验的独立 READY 变体。对已安装到 Current Target 的 BIOS，允许游戏 ZIP 缺少 BIOS 条目，但必须由 Current 的 BIOS 安装满足依赖；缺 Parent 或主 ROM 仍阻断。设置 `RETROM_MAME_ARCADE_EXPECT_INCOMPATIBLE=1` 后用不兼容的旧版 ZIP 重跑脚本，预期 HTTP 422 `LAUNCH_BLOCKED`，且不得创建 Current 变体。
+
+### ACC-MAME-005：Apple IIe、SG-1000、ColecoVision 产品验证
+
+前置：安装包含 `apple`、`sg1000`、`coleco` 族的 MAME 候选；准备 Apple IIe 六份固件、ColecoVision 系统 ROM 和真实游戏文件。`RETROM_MAME_EXPANSION_INPUT_DIR` 指向验收专用输入目录，ROM/BIOS 不进入 Git。设置与 ACC-MAME-002 相同的站点、账号、Chrome 和结果目录环境变量，执行 `node scripts/acceptance/mame_expansion_product.mjs <apple2e|sg1000|colecovision>`；不传平台参数时依次检查三个平台共享公共 WASM 的缓存。
+
+1. 复用已有 Apple II、SG-1000、ColecoVision 各自唯一的启用目录，显式选择 MAME Core 启动；不得为同一平台增加推荐目录。Apple IIe 安装六份固件，ColecoVision 安装独立于 Gearcoleco 的系统 ROM，SG-1000 无 BIOS。
+2. 用真实游戏完成上传、审核和发布。Apple IIe 进入《Donkey Kong》关卡，SG-1000 从《Bank Panic》标题与选关进入实际关卡，ColecoVision 从《Lady Bug》选项进入迷宫；记录输入前后截图，不能以 BIOS、标题、选关或黑屏代替游戏画面。
+3. Apple IIe 和 SG-1000 创建即时存档，用新 Launch 恢复，继续输入并核对有效画面；检查存档 `RTMAME01` 内容、输入文件哈希、无 Player 错误，以及公共模块与对应设备族模块的下载次数。允许恢复首帧短暂空白，但之后必须恢复可见的游戏状态。ColecoVision 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记，必须显示当前场景不可存档，不得生成无法可靠恢复的存档。
+
+### ACC-MAME-006：Sega Model 2 独立设备 BIOS 与原始 ZIP
+
+前置：使用与 ACC-MAME-004 同一 Current DAT 和 Arcade Core 候选，提供未经合并的 `vf2.zip` 及从 `segabill.zip` 提取且摘要匹配的 `epr-18022.ic2`。设置 `RETROM_MAME_ARCADE_ROM`、`RETROM_MAME_ARCADE_DEVICE_BIOS` 和 `RETROM_ACCEPTANCE_CASE_DIR`，运行 `node scripts/acceptance/mame_arcade_product.mjs`。
+
+1. 在 `mame_arcade` 自己的静态 BIOS 槽安装设备 ROM；原始 `vf2.zip` 经 Current DAT 审核，预览与产品启动分别提供独立 external 资源。不得把芯片文件并入游戏 ZIP，也不得借用 MAME 2003/Plus 的安装。
+2. 进入真实 Model 2 三维画面，投两枚币、按 Start、选人并进入对战；记录方向与动作输入后的可见变化。核对浏览器只取得公共 WASM 和 `arcade_model2` WASM，并记录压缩响应字节。
+3. `vf2` 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记。对战中必须显示当前场景不可存档；不得创建表面成功但恢复后纹理缺失的存档。记录对战画面和 console；若仅到达选人画面或背景演示，不判为完整通过。

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "provider_release": {
+    "repository": "https://github.com/retrom-project/retrom-runtime",
+    "tag": "v0.55.0",
+    "commit": "436730fb42be492a1fade8ef753eba37df08f4ca",
+    "provider_id": "retrom-runtime",
+    "target_id": "mame-arcade"
+  },
+  "core_release": {
+    "repository": "https://github.com/retrom-project/mame",
+    "tag": "retrom-core-gf65d5ba9bc42-r2",
+    "commit": "919816e409260a759a82f65b10792f6938001894",
+    "archive": {
+      "filename": "mame-current-assets.zip",
+      "url": "https://github.com/retrom-project/mame/releases/download/retrom-core-gf65d5ba9bc42-r2/mame-current-assets.zip",
+      "size_bytes": 32997425,
+      "sha256": "7d363974cc0d8e9543d7463f56ff70181ce6e50966c7f032dddc31d6da4ec816"
+    }
+  },
+  "cores": [
+    {
+      "core_id": "mame_arcade",
+      "core_source": {
+        "commit": "919816e409260a759a82f65b10792f6938001894",
+        "association_status": "EXACT_RELEASE"
+      },
+      "dat": {
+        "local_path": "mame-arcade.xml",
+        "size_bytes": 27015149,
+        "sha256": "db3e67df32ba9becae005050a948e75222f37940c5754c3833ed38d617efc2c4",
+        "archive_member": "mame-arcade.xml"
+      },
+      "parse_stats": {
+        "machine_count": 10049,
+        "rom_entry_count": 167372,
+        "rom_entry_with_merge_count": 78515,
+        "rom_entry_with_bios_count": 15206,
+        "rom_nodump_count": 2297,
+        "rom_baddump_count": 1242,
+        "rom_missing_crc32_count": 2297,
+        "rom_missing_sha1_count": 2297,
+        "rom_missing_all_hash_count": 2297,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 12115,
+        "default_bios_set_count": 827,
+        "disk_entry_count": 141,
+        "disk_missing_sha1_count": 42,
+        "sample_entry_count": 1981,
+        "cloneof_relation_count": 6195,
+        "romof_relation_count": 6725,
+        "explicit_bios_machine_count": 21,
+        "base_dependency_target_count": 21,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      }
+    }
+  ]
+}

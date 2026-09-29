@@ -318,6 +318,12 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 		gameKind = "NATIVE_WEB"
 	}
 	result := []map[string]any{{"role": "game", "kind": gameKind, "cardinality": "ONE", "optional": false}}
+	if binding.TargetID == "mame-arcade" {
+		result = append(result,
+			map[string]any{"role": "parent", "kind": "PARENT_ARCHIVE", "cardinality": "ONE", "optional": true},
+			map[string]any{"role": "bios", "kind": "BIOS_BUNDLE", "cardinality": "ONE", "optional": true},
+		)
+	}
 	if strings.HasPrefix(binding.TargetID, "rpgmaker-") {
 		result = append(result, map[string]any{
 			"role": "rtp", "kind": gameKind, "cardinality": "ONE", "optional": true,
@@ -356,6 +362,10 @@ func fixtureTargetOptionsSchema(binding runtimecatalog.Binding) map[string]any {
 		return property(map[string]any{"startupXp3Path": map[string]any{
 			"type": []any{"string", "null"}, "format": "safe-path", "maxLength": int64(240),
 		}}, "startupXp3Path")
+	case runtimecatalog.OptionsArcade:
+		return property(map[string]any{"machine": map[string]any{
+			"type": "string", "minLength": int64(1), "maxLength": int64(32),
+		}}, "machine")
 	default:
 		return property(map[string]any{
 			"dosEntryPath": map[string]any{

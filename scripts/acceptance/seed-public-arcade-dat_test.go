@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,5 +98,49 @@ func TestSmokeFixtureAllowlistRejectsUnknownAndDrift(t *testing.T) {
 	fixture.Machines = []string{"other"}
 	if _, _, _, err := loadSmokeCatalog(context.Background(), fixture); err == nil {
 		t.Fatal("drifted fixture machine set accepted")
+	}
+}
+
+func TestMAMECandidateDATMustMatchItsLinkedFamilyRosterAndDigest(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	buildID := strings.Repeat("a", 64)
+	metadata, err := json.Marshal(map[string]any{
+		"schemaVersion": 1, "adapterAbi": "retrom-mame-dylink-v1", "buildId": buildID,
+		"families": map[string]any{"pacman": map[string]any{
+			"arcade": true, "module": "mame-pacman.wasm", "machines": []string{"___empty", "pacman"},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dat := []byte(`<?xml version="1.0"?><mame retromBuildId="` + buildID + `"><machine name="pacman"><description>Pac-Man</description></machine></mame>`)
+	files := []map[string]any{}
+	for name, data := range map[string][]byte{"mame-build.json": metadata, "mame-arcade.xml": dat, "mame-pacman.wasm": {0}} {
+		if err := os.WriteFile(filepath.Join(root, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(data)
+		files = append(files, map[string]any{"filename": name, "sizeBytes": len(data), "sha256": hex.EncodeToString(digest[:])})
+	}
+	descriptor, err := json.Marshal(map[string]any{
+		"schemaVersion": 1, "kind": "RETROM_CORE_CANDIDATE_V1", "coreId": "mame",
+		"adapterAbi": "retrom-mame-dylink-v1", "files": files,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "retrom-core-candidate.json"), descriptor, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	catalog, _, _, err := loadMAMECandidateCatalog(context.Background(), root)
+	if err != nil || len(catalog.Machines) != 1 || catalog.Machines[0].Name != "pacman" {
+		t.Fatalf("candidate catalog = %+v, error=%v", catalog, err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "mame-arcade.xml"), append(dat, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := loadMAMECandidateCatalog(context.Background(), root); !errors.Is(err, errSmokeFixtureDigestDrift) {
+		t.Fatalf("tampered candidate error = %v", err)
 	}
 }

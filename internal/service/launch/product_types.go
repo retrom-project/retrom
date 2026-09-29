@@ -113,6 +113,7 @@ type ProductEnvironment struct {
 	SignIsolation  func(string) (IsolationTicket, error)
 	// ResumeValidation dispatches work after the creation transaction commits.
 	ResumeValidation func(context.Context, string)
+	PrepareArcade    func(context.Context, gamevariant.Snapshot) (*gamevariant.ArcadePreparation, error)
 }
 
 func (snapshot ProductSnapshot) VariantSnapshot() gamevariant.Snapshot {

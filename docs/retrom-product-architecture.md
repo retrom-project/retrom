@@ -96,7 +96,7 @@ flowchart LR
 
 ### 3.2 DAT 与刮削是两条独立证据链
 
-- `fbneo`、`mame2003`、`mame2003_plus`、`fbalpha2012_cps1`、`fbalpha2012_cps2` 各自使用核心专属 DAT。
+- `fbneo`、`mame2003`、`mame2003_plus`、`mame_arcade`、`fbalpha2012_cps1`、`fbalpha2012_cps2` 各自使用核心专属 DAT。MAME Current 候选 DAT 从实际链接的 Arcade 模块导出；旧 ZIP 即使机器短名相同也必须重新匹配 Current 的 ROM 定义。
 - DAT 只负责 ROM entry、machine、clone/parent、BIOS 依赖及核心兼容性诊断。
 - Hasheous 只根据内容哈希提供标题、厂商、描述、封面等展示元信息候选。
 - 两者独立保存原始证据、版本和审核结果；一方未命中不能覆盖另一方的结论。
@@ -300,7 +300,7 @@ erDiagram
 | SNES (`snes`) | `snes9x`、`bsnes` | SNES 游戏 → `snes9x` | bsnes 为 4.3.0-pre 可选核心，不另建推荐目录；标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
-| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；Arcade 扩展名去重后仍为 `.zip`，每个核心继续使用独立 DAT |
+| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`mame_arcade`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；MAME Current 游戏 → `mame_arcade`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；2003/Plus 继续保留。Arcade 扩展名去重后仍为 `.zip`，每个核心使用独立 DAT、BIOS 与变体验证 |
 | MS-DOS (`dos`) | `dosbox_pure` | DOS 经典游戏 → `dosbox_pure` | 启动前可选程序；需要线程模式 |
 | Nintendo DS (`nds`) | `melonds`、`desmume2015`、`desmume` | Nintendo DS 游戏 → `desmume2015` | 指针输入；MelonDS 需要三个外部 BIOS 文件 |
 | Atari 2600 (`atari2600`) | `stella2014` | Atari 2600 游戏 → `stella2014` | `.a26`；允许 ZIP/7z 单成员来源 |

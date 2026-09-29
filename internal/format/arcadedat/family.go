@@ -15,6 +15,7 @@ var coreFamilies = map[string]Family{
 	"fbalpha2012_cps2": FamilyLogiqxDatafile,
 	"mame2003":         FamilyMAMEListXML,
 	"mame2003_plus":    FamilyMAMEListXML,
+	"mame_arcade":      FamilyMAMEListXML,
 }
 
 func FamilyForCore(coreID string) (Family, bool) {
