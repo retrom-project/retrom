@@ -3,8 +3,12 @@
 package runtimeoptions
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+
+	corevalidation "retrom/internal/core/validation"
 
 	"retrom/internal/core/kirikiri/detector"
 	onsdetection "retrom/internal/core/ons/detector"
@@ -36,6 +40,7 @@ var strategies = map[string]strategy{
 	},
 	runtimecatalog.OptionsNone:     {[]string{}, emptyOptions},
 	runtimecatalog.OptionsEmulator: {[]string{"dosEntryPath", "initialDiscIndex"}, emulatorOptions},
+	runtimecatalog.OptionsArcade:   {[]string{"machine"}, arcadeOptions},
 	runtimecatalog.OptionsONS:      {[]string{"scriptEncoding"}, onsOptions},
 	runtimecatalog.OptionsKiriKiri: {[]string{"startupXp3Path"}, kirikiriOptions},
 }
@@ -81,6 +86,26 @@ func emulatorOptions(input Input) (map[string]any, error) {
 		disc = input.InitialDiscIndex
 	}
 	return map[string]any{"dosEntryPath": dos, "initialDiscIndex": disc}, nil
+}
+
+var arcadeMachinePattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
+
+func arcadeOptions(input Input) (map[string]any, error) {
+	if input.ContentKind != "SINGLE_FILE" {
+		return nil, ErrInvalid
+	}
+	if _, err := corevalidation.ParseRuntimeBIOSDependencies(input.DependencySnapshot); err != nil {
+		return nil, ErrInvalid
+	}
+	var snapshot struct {
+		Kind    string `json:"kind"`
+		Machine string `json:"machine"`
+	}
+	if err := json.Unmarshal([]byte(input.DependencySnapshot), &snapshot); err != nil ||
+		snapshot.Kind != corevalidation.SnapshotKindArcade || !arcadeMachinePattern.MatchString(snapshot.Machine) {
+		return nil, ErrInvalid
+	}
+	return map[string]any{"machine": snapshot.Machine}, nil
 }
 
 func onsOptions(input Input) (map[string]any, error) {

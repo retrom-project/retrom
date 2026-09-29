@@ -40,7 +40,17 @@ type BIOSFacts struct {
 }
 type VariantWrite struct {
 	Source Source
+	Arcade *ArcadePreparation
 	NowMS  int64
+}
+type ArcadeDependency struct {
+	Kind, Machine, State string
+	RequiredEntriesJSON  string
+}
+type ArcadePreparation struct {
+	Snapshot     string
+	Files        []File
+	Dependencies []ArcadeDependency
 }
 type WriteScope interface {
 	ValidationJobRepository

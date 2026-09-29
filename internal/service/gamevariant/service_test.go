@@ -2,11 +2,13 @@ package gamevariant
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
 	contentcapability "retrom/internal/content/capability"
+	corevalidation "retrom/internal/core/validation"
 )
 
 type ensureMemory struct {
@@ -50,6 +52,53 @@ func TestEnsureCreatesOnlyVariantAndJobWithoutDispatch(t *testing.T) {
 	result, err := service.Ensure(t.Context(), "game", "core")
 	if err != nil || result.Ready || result.JobID == "" || memory.variants != 1 || memory.pending != 1 || len(memory.writes) != 1 {
 		t.Fatalf("result=%#v variants=%d pending=%d jobs=%d error=%v", result, memory.variants, memory.pending, len(memory.writes), err)
+	}
+}
+
+func TestScheduleReloadsNewArcadeBIOSBeforeQueuing(t *testing.T) {
+	_, memory := ensureFixture()
+	before := memory.before
+	dat, file, matched := "current-dat", "current-bios-blob", "MATCHED"
+	before.Source.CoreID = "mame_arcade"
+	before.Source.ProviderID = "retrom-runtime"
+	before.Source.TargetID = "mame-arcade"
+	before.Source.ActiveDATVersionID = &dat
+	before.Source.ValidationLogicalName = "sample.zip"
+	refreshed := before
+	refreshed.Source.VariantID = validationFixtureID
+	refreshed.Source.DATVersionID = &dat
+	refreshed.ValidationBIOS = BIOSFacts{Arcade: []ArcadeBIOS{{
+		State: "MISSING", CatalogPresent: true,
+		Dependency: corevalidation.BIOSDependency{
+			BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{
+				LogicalName: "bios.zip", DeliveryKind: "BIOS_BUNDLE", RequirementMode: "REQUIRED",
+			},
+			FileRecord: &file, InstallationStatus: &matched,
+		},
+	}}}
+	reloaded := false
+	_, err := Schedule(t.Context(), memory, before, 100,
+		func() (string, error) { return validationFixtureID, nil },
+		&ArcadePreparation{Snapshot: `{"schemaVersion":1,"kind":"ARCADE"}`},
+		func(context.Context, string, string) (Snapshot, error) {
+			reloaded = memory.variants == 1
+			return refreshed, nil
+		},
+	)
+	if err != nil || !reloaded || len(memory.writes) != 1 {
+		t.Fatalf("reload=%t jobs=%d error=%v", reloaded, len(memory.writes), err)
+	}
+	expected, err := Inputs(refreshed, validationFixtureID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var queued ValidationSnapshot
+	if err := json.Unmarshal([]byte(memory.writes[0].SnapshotJSON), &queued); err != nil {
+		t.Fatal(err)
+	}
+	if queued.Inputs.BIOSDependencyDigest != expected.BIOSDependencyDigest ||
+		queued.Inputs.ValidationInputDigest != expected.ValidationInputDigest {
+		t.Fatalf("queued validation used stale BIOS: %#v", queued.Inputs)
 	}
 }
 

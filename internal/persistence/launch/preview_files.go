@@ -2,12 +2,42 @@ package launch
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
+
+func previewMAMEDeviceBIOS(
+	ctx context.Context, executor dbapi.Executor, targetID string,
+) ([]application.PreviewFile, error) {
+	if targetID != "mame-arcade" {
+		return nil, nil
+	}
+	var fileRecord string
+	err := dbapi.QueryRowContext(ctx, executor, `
+SELECT installation.file_record
+FROM bios_requirements requirement
+JOIN bios_installations installation ON installation.requirement_id=requirement.id
+WHERE requirement.provider_id='retrom-runtime' AND requirement.target_id='mame-arcade'
+ AND requirement.source_kind='STATIC' AND requirement.logical_name='epr-18022.ic2'
+ AND requirement.enabled=1 AND installation.is_active=1 AND installation.status='MATCHED'
+LIMIT 1`).Scan(&fileRecord)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query MAME device BIOS: %w", err)
+	}
+	path := "/content/roms/segabill/epr-18022.ic2"
+	return []application.PreviewFile{{
+		Role: "EXTERNAL_FILE", LogicalName: "epr-18022.ic2",
+		FileRecord: fileRecord, VirtualPath: &path,
+	}}, nil
+}
 
 const previewSourceFilesSQL = `SELECT role,logical_name,file_record,NULL,sort_order
 FROM import_item_source_snapshot_files

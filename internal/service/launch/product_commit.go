@@ -34,7 +34,7 @@ func (service *ProductCreator) commit(
 		return productAttempt{}, ErrBlocked
 	}
 	if preparation.validation {
-		return service.commitValidation(ctx, scope, command, current, now)
+		return service.commitValidation(ctx, scope, command, current, now, preparation.arcade)
 	}
 	plan := preparation.plan
 	plan.NowMS, plan.BootstrapEnd, plan.HardEnd = now, now+300_000, now+86_400_000
@@ -65,9 +65,14 @@ func (service *ProductCreator) commitValidation(
 	command ProductCreateCommand,
 	current ProductSnapshot,
 	now int64,
+	arcade *gamevariant.ArcadePreparation,
 ) (productAttempt, error) {
 	readiness, err := gamevariant.Schedule(
-		ctx, scope.Validation(), current.VariantSnapshot(), now, service.environment.NewID,
+		ctx, scope.Validation(), current.VariantSnapshot(), now, service.environment.NewID, arcade,
+		func(ctx context.Context, _, _ string) (gamevariant.Snapshot, error) {
+			refreshed, err := scope.Snapshot(ctx, command)
+			return refreshed.VariantSnapshot(), err
+		},
 	)
 	if err != nil {
 		return productAttempt{}, fmt.Errorf("%w: %w", ErrBlocked, err)

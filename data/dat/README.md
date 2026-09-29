@@ -1,6 +1,8 @@
 # Arcade DAT 基线
 
-本目录随代码维护五份真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交 DAT payload，也不包含 ROM/BIOS。每份 DAT 精确绑定稳定的 EmulatorJS `providerId/targetId`；升级 Provider 时仍须重新确认 DAT 与 Target 的来源关系，不能沿用“最新版 DAT”。
+本目录随代码维护真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交 DAT payload，也不包含 ROM/BIOS。每份 DAT 精确绑定稳定的 Provider `providerId/targetId`；升级 Provider 时仍须重新确认 DAT 与 Target 的来源关系，不能沿用“最新版 DAT”。
+
+MAME Current 的 `dat/mame-current/v0.55.0/manifest.json` 绑定 Runtime Provider `v0.55.0` 与核心 r2 的完整归档摘要。`make prepare-deps` 只从该归档取出经过逐字节校验的 `mame-arcade.xml`；启动时校验本地 DAT，再为 `mame_arcade` 建索引并激活。升级 Runtime Provider 或核心时必须同步更新此锁定记录与统计。
 
 ## 文件映射
 

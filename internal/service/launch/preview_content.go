@@ -25,7 +25,7 @@ func previewContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 		return PreviewContent{}, err
 	}
 	for _, file := range snapshot.ValidationFiles {
-		if file.Role != "PARENT" && file.Role != "BIOS_BUNDLE" {
+		if file.Role != "PARENT" && file.Role != "BIOS_BUNDLE" && file.Role != "EXTERNAL_FILE" {
 			continue
 		}
 		if len(content.Files) >= 16 || !validPreviewLogicalName(file.LogicalName) {

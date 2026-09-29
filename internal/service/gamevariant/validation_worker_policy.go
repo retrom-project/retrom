@@ -115,6 +115,9 @@ func validationContentStatus(facts ValidationFacts) (string, string) {
 	); status != "READY" {
 		return status, code
 	}
+	if source.ProviderID == "retrom-runtime" && !mameContent(facts.Content) {
+		return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
+	}
 	if arcadedat.SupportsCore(source.CoreID) {
 		if source.DATVersionID == nil || !strings.EqualFold(filepath.Ext(source.ValidationLogicalName), ".zip") {
 			return "INCOMPATIBLE", "ARCADE_CONTENT_NOT_ROMSET"

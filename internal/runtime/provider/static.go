@@ -224,6 +224,7 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 		return
 	}
+	file = handler.compressedFile(writer, request, key, file, development)
 	if development {
 		writer.Header().Set("Cache-Control", "no-store, no-transform")
 	} else {
@@ -233,6 +234,9 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	writer.Header().Set("ETag", `"`+file.sha256+`"`)
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	if handler.serveMameCompressed(writer, request, providerID, path, file, development) {
+		return
+	}
 	if rangeMediaTypes[file.mediaType] {
 		writer.Header().Set("Accept-Ranges", "bytes")
 	}

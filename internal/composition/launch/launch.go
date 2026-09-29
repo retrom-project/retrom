@@ -8,6 +8,7 @@ import (
 	"retrom/internal/launch"
 	repository "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
+	gamevariant "retrom/internal/service/gamevariant"
 	application "retrom/internal/service/launch"
 )
 
@@ -15,7 +16,12 @@ import (
 func New(
 	database dbapi.DB, source *launch.Sources, publicOrigin string,
 	now func() time.Time, dispatch func(context.Context, string),
+	prepareArcade ...func(context.Context, gamevariant.Snapshot) (*gamevariant.ArcadePreparation, error),
 ) *application.Service {
+	var prepare func(context.Context, gamevariant.Snapshot) (*gamevariant.ArcadePreparation, error)
+	if len(prepareArcade) != 0 {
+		prepare = prepareArcade[0]
+	}
 	product := application.NewProductCreator(
 		repository.NewProductCreation(database),
 		source,
@@ -23,6 +29,7 @@ func New(
 		application.ProductEnvironment{
 			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
 			ResumeValidation: dispatch,
+			PrepareArcade:    prepare,
 		},
 	)
 	preview := application.NewPreviewCreator(

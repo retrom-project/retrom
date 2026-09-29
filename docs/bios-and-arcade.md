@@ -123,6 +123,12 @@ MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bun
 
 MAME 2003 和 MAME 2003-Plus 的旧 List XML 没有显式 `isbios` 属性；当前真实基线各有 17 个由 `romof != cloneof` 推导的 base dependency target。名称、entry 和 hash 必须从活动 DAT 解析，不能复制 FBNeo 列表。
 
+MAME Current Arcade 使用独立的 `mame_arcade` Core、`retrom-runtime/mame-arcade` Target 与该动态链接构建导出的 List XML。它的 `DAT_MACHINE` BIOS/base 槽与 FBNeo、MAME 2003、MAME 2003-Plus 完全分开；旧安装不会被标为 Current 已匹配。2003/Plus 的 DAT 和 BIOS 继续保留，已有游戏若选择 Current 必须生成自己的变体并按 Current DAT 重验 ZIP 与依赖。候选阶段的 DAT 只在 PFB 验收数据库中登记，不能冒充正式发布的固定 DAT。
+
+Sega Model 2 驱动编入同一个 Current Arcade Target 的 `arcade_model2` 设备族，沿用此 DAT 和 BIOS/base 槽，不创建第二个 Arcade Core。`vf2` 等游戏还会由 MAME 装载 `segabill` 设备 ROM `epr-18022.ic2`；当前 List XML 不将设备 ROM 归入游戏 ROM 条目，所以 Current Core 另外声明一个可选的静态 BIOS 槽。该芯片只有在安装为 `mame_arcade` 的匹配文件后，才随预览和产品启动作为独立 external 资源挂载到 `/content/roms/segabill/`；未安装时，依赖此设备的游戏会由 MAME 明确报缺文件。Apple IIe 使用自己的六个固件槽（四个系统 ROM、两个 Disk II 控制器 ROM）；ColecoVision 使用一个 8 KiB 系统 ROM 槽；SG-1000 不要求外部 BIOS。它们均不借用其他 Core 的安装状态。
+
+锁定的 2003/Plus DAT 并集有 5,294 个 machine 短名，其中 4,377 个也存在于此 MAME Current 源码并进入候选驱动族；其余 917 个已不存在或改名。即使短名相同，ROM 条目也可能变化，因此这不是旧 ZIP 的自动兼容承诺。迁移或回退应按两套 DAT 各自验证。
+
 数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.9 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
 Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时独立文件存储会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。

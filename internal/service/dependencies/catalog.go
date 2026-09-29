@@ -29,6 +29,9 @@ func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) er
 			}
 		}
 	}
+	if service.set.MAME != nil {
+		bootstrap.runCore(service.set.MAME, 0)
+	}
 	return bootstrap.firstFailure
 }
 

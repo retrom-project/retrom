@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -27,6 +28,7 @@ AUTH_MANIFEST_PATH = AUTH_ROOT / "manifest.json"
 TARGET_CATALOG_ROOT = DATA_ROOT / "runtime-target-bindings/v1"
 TARGET_CATALOG_PATH = TARGET_CATALOG_ROOT / "catalog.json"
 TARGET_CATALOG_SCHEMA_PATH = TARGET_CATALOG_ROOT / "schema.json"
+MAME_DAT_ROOT = DATA_ROOT / "dat/mame-current/v0.55.0"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PINNED_RAW = re.compile(
@@ -171,6 +173,47 @@ def load_manifest(version: str) -> dict[str, Any]:
             COMMIT.fullmatch(emulatorjs["tag_commit"]) is None:
         raise CheckError(f"DEPENDENCY_RELEASE_IDENTITY_INVALID:{version}")
     validate_dat_manifest(version, manifest)
+    return manifest
+
+
+def load_mame_manifest() -> dict[str, Any]:
+    manifest = load_json(MAME_DAT_ROOT / "manifest.json")
+    if set(manifest) != {"schema_version", "provider_release", "core_release", "cores"} or \
+            manifest["schema_version"] != 1 or not isinstance(manifest["cores"], list) or len(manifest["cores"]) != 1:
+        raise CheckError("MAME_DAT_MANIFEST_INVALID")
+    provider, source, core = manifest["provider_release"], manifest["core_release"], manifest["cores"][0]
+    if not isinstance(provider, dict) or set(provider) != {"repository", "tag", "commit", "provider_id", "target_id"} or \
+            provider["repository"] != "https://github.com/retrom-project/retrom-runtime" or \
+            provider["tag"] != "v0.55.0" or provider["commit"] != "436730fb42be492a1fade8ef753eba37df08f4ca" or \
+            provider["provider_id"] != "retrom-runtime" or provider["target_id"] != "mame-arcade":
+        raise CheckError("MAME_DAT_PROVIDER_INVALID")
+    release = load_json(DATA_ROOT / "runtime-providers/release.json")
+    if release != {"tag": provider["tag"]}:
+        raise CheckError("MAME_DAT_PROVIDER_PIN_MISMATCH")
+    if not isinstance(source, dict) or set(source) != {"repository", "tag", "commit", "archive"} or \
+            source["repository"] != "https://github.com/retrom-project/mame" or \
+            source["tag"] != "retrom-core-gf65d5ba9bc42-r2" or source["commit"] != "919816e409260a759a82f65b10792f6938001894":
+        raise CheckError("MAME_DAT_SOURCE_INVALID")
+    archive = source["archive"]
+    expected_url = f"{source['repository']}/releases/download/{source['tag']}/mame-current-assets.zip"
+    if not isinstance(archive, dict) or set(archive) != {"filename", "url", "size_bytes", "sha256"} or \
+            archive["filename"] != "mame-current-assets.zip" or archive["url"] != expected_url or \
+            not isinstance(archive["size_bytes"], int) or not 0 < archive["size_bytes"] <= 256 * 1024 * 1024:
+        raise CheckError("MAME_DAT_ARCHIVE_INVALID")
+    expect_digest(archive["sha256"], "MAME_DAT_ARCHIVE_INVALID")
+    if not isinstance(core, dict) or set(core) != {"core_id", "core_source", "dat", "parse_stats"} or \
+            core["core_id"] != "mame_arcade" or core["core_source"] != {"commit": source["commit"],
+                                                                         "association_status": "EXACT_RELEASE"}:
+        raise CheckError("MAME_DAT_CORE_INVALID")
+    dat = core["dat"]
+    if not isinstance(dat, dict) or set(dat) != {"local_path", "size_bytes", "sha256", "archive_member"} or \
+            dat["local_path"] != "mame-arcade.xml" or dat["archive_member"] != dat["local_path"] or \
+            not isinstance(dat["size_bytes"], int) or not 0 < dat["size_bytes"] <= 64 * 1024 * 1024:
+        raise CheckError("MAME_DAT_FILE_INVALID")
+    expect_digest(dat["sha256"], "MAME_DAT_FILE_INVALID")
+    validate_parse_stats(core["parse_stats"])
+    if load_sha256s(MAME_DAT_ROOT / "SHA256SUMS") != {dat["local_path"]: dat["sha256"]}:
+        raise CheckError("MAME_DAT_SHA256SUMS_INVALID")
     return manifest
 
 
@@ -323,6 +366,36 @@ def prepare_dat(version: str, manifest: dict[str, Any]) -> None:
         os.chmod(target, 0o600)
 
 
+def prepare_mame_dat(manifest: dict[str, Any]) -> None:
+    dat = manifest["cores"][0]["dat"]
+    target = MAME_DAT_ROOT / dat["local_path"]
+    try:
+        check_file(target, dat["size_bytes"], dat["sha256"])
+        os.chmod(target, 0o600)
+        return
+    except CheckError:
+        pass
+    archive = manifest["core_release"]["archive"]
+    with tempfile.TemporaryDirectory(prefix="retrom-mame-dat-", dir=MAME_DAT_ROOT) as directory:
+        downloaded = Path(directory) / archive["filename"]
+        download(archive["url"], downloaded, archive["size_bytes"], archive["sha256"])
+        try:
+            with zipfile.ZipFile(downloaded) as bundle:
+                entries = [info for info in bundle.infolist() if info.filename == dat["archive_member"]]
+                if len(entries) != 1 or entries[0].file_size != dat["size_bytes"]:
+                    raise CheckError("MAME_DAT_ARCHIVE_MEMBER_INVALID")
+                contents = bundle.read(entries[0])
+        except (zipfile.BadZipFile, OSError) as exc:
+            raise CheckError("MAME_DAT_ARCHIVE_INVALID") from exc
+        if len(contents) != dat["size_bytes"] or hashlib.sha256(contents).hexdigest() != dat["sha256"]:
+            raise CheckError("MAME_DAT_ARCHIVE_MEMBER_INVALID")
+        staged = Path(directory) / "mame-arcade.xml"
+        staged.write_bytes(contents)
+        os.chmod(staged, 0o600)
+        os.replace(staged, target)
+    check_file(target, dat["size_bytes"], dat["sha256"])
+
+
 def materialize_dat(root: Path, core: dict[str, Any], target: Path) -> None:
     dat = core["dat"]
     materialization = dat["materialization"]
@@ -371,6 +444,7 @@ def materialize_dat(root: Path, core: dict[str, Any], target: Path) -> None:
 
 def image_export_entries(
     versions: list[str], manifests: list[dict[str, Any]], auth_manifest: dict[str, Any],
+    mame_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     result: dict[str, Path] = {}
 
@@ -387,12 +461,17 @@ def image_export_entries(
         for core in manifest["cores"]:
             relative = safe_relative_path(core["dat"]["local_path"], "DEPENDENCY_DAT_PATH_INVALID")
             add(root / relative, f"dat/emulatorjs/{version}/{relative}")
+    if mame_manifest is not None:
+        for name in ("manifest.json", "SHA256SUMS", mame_manifest["cores"][0]["dat"]["local_path"]):
+            add(MAME_DAT_ROOT / name, f"dat/mame-current/v0.55.0/{name}")
     add(AUTH_MANIFEST_PATH, "auth/password-blocklists/v1/manifest.json")
     for key in ("passwords", "license"):
         relative = safe_relative_path(auth_manifest[key]["output_relative_path"], "AUTH_BLOCKLIST_PATH_INVALID")
         add(AUTH_ROOT / relative, f"auth/password-blocklists/v1/{relative}")
     add(TARGET_CATALOG_PATH, "runtime-target-bindings/v1/catalog.json")
     add(TARGET_CATALOG_SCHEMA_PATH, "runtime-target-bindings/v1/schema.json")
+    if mame_manifest is not None:
+        add(DATA_ROOT / "runtime-providers/release.json", "runtime-providers/release.json")
     return result
 
 
@@ -401,13 +480,14 @@ def export_image_dependencies(
     versions: list[str],
     manifests: list[dict[str, Any]],
     auth_manifest: dict[str, Any],
+    mame_manifest: dict[str, Any] | None = None,
 ) -> None:
     if not output_root.is_absolute() or output_root.exists() or output_root.is_symlink():
         raise CheckError("DEPENDENCY_IMAGE_EXPORT_TARGET_INVALID")
     output_root.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".retrom-image-dependencies-", dir=output_root.parent))
     try:
-        for relative, source in sorted(image_export_entries(versions, manifests, auth_manifest).items()):
+        for relative, source in sorted(image_export_entries(versions, manifests, auth_manifest, mame_manifest).items()):
             info = source.lstat()
             if not stat.S_ISREG(info.st_mode):
                 raise CheckError(f"DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID:{source.name}")
@@ -439,16 +519,20 @@ def main() -> int:
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
         auth_manifest = load_auth_manifest()
+        mame_manifest = load_mame_manifest()
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare_dat(version, manifest)
+            prepare_mame_dat(mame_manifest)
             prepare_auth(auth_manifest)
         if args.action in {"prepare", "deps-check", "image-export"}:
             for version, manifest in zip(versions, manifests, strict=True):
                 check_dat_payload(version, manifest)
+            dat = mame_manifest["cores"][0]["dat"]
+            check_file(MAME_DAT_ROOT / dat["local_path"], dat["size_bytes"], dat["sha256"])
             check_auth_payload(auth_manifest)
         if args.action == "image-export":
-            export_image_dependencies(Path(args.output), versions, manifests, auth_manifest)
+            export_image_dependencies(Path(args.output), versions, manifests, auth_manifest, mame_manifest)
         print(f"{args.action}: ok ({','.join(versions)})")
         return 0
     except (
