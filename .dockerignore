@@ -18,5 +18,6 @@ data/dat/emulatorjs/*/THIRD_PARTY_NOTICES.txt
 data/dat/emulatorjs/*/fbneo/*.dat
 data/dat/emulatorjs/*/mame2003/*.xml
 data/dat/emulatorjs/*/mame2003_plus/*.xml
+data/dat/mame-current/*/*.xml
 **/__pycache__
 **/*.pyc

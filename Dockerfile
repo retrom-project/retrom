@@ -9,6 +9,7 @@ COPY scripts/fbalpha2012-dat-enumerator.cpp scripts/fbalpha2012-dat-enumerator.c
 COPY data/dat data/dat
 COPY data/auth data/auth
 COPY data/runtime-target-bindings data/runtime-target-bindings
+COPY data/runtime-providers/release.json data/runtime-providers/release.json
 RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked \
   python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && python3 scripts/dependencies.py image-export \

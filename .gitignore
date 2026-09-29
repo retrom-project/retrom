@@ -54,6 +54,7 @@
 /data/dat/emulatorjs/*/mame2003_plus/
 /data/dat/emulatorjs/*/fbalpha2012_cps1/
 /data/dat/emulatorjs/*/fbalpha2012_cps2/
+/data/dat/mame-current/*/*.xml
 /data/auth/password-blocklists/*/payload/
 
 /sample

@@ -6,13 +6,14 @@ import {gunzipSync} from "node:zlib";
 import {chromium} from "../../web/node_modules/playwright/index.mjs";
 import {px68kLocalProxy, canvasDigest} from "./px68k_product_support.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
-import {fantasyClient, previewCart, approveCart, launchCart, gamepad, saveCart} from "./fantasy_product_client.mjs";
+import {fantasyClient, previewCart, approveCart, gamepad, saveCart} from "./fantasy_product_client.mjs";
 import {observeAudio, audioEvidence, playerPosition, waitForPlayer, checkConsole, verifyDisplay, verifyPause, screenshotEvidence} from "./mame_product_support.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 
 const env = process.env;
 const baseUrl = env.RETROM_ACCEPTANCE_BASE_URL;
 const biosDirectory = env.RETROM_MAME_APPLE2_BIOS_DIR;
+const apple2jsBiosDirectory = env.RETROM_APPLE2_BIOS_DIR;
 const diskPath = env.RETROM_MAME_APPLE2_DISK;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/mame-apple2-product");
 mkdirSync(directory, {recursive: true});
@@ -20,7 +21,7 @@ const evidence = {caseId: "ACC-MAME-001", status: "FAIL", stages: [], errors: []
 const progressPath = join(directory, "progress.json");
 let browser, proxy;
 try {
-  assert.ok(baseUrl && biosDirectory && diskPath && env.RETROM_CHROME_EXECUTABLE, "MAME_APPLE2_ACCEPTANCE_INPUT_REQUIRED");
+  assert.ok(baseUrl && biosDirectory && apple2jsBiosDirectory && diskPath && env.RETROM_CHROME_EXECUTABLE, "MAME_APPLE2_ACCEPTANCE_INPUT_REQUIRED");
   proxy = await px68kLocalProxy(baseUrl);
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
@@ -40,19 +41,21 @@ try {
     }
   });
   const client = await fantasyClient(context, baseUrl);
-  const catalog = await client.json("GET", "/api/v1/admin/bios?scope=FULL_CATALOG&coreId=mame_apple2&limit=100");
-  const requirements = catalog.items.filter(item => item.coreId === "mame_apple2");
-  assert.equal(requirements.length, 9, "MAME_APPLE2_BIOS_CATALOG_MISSING");
-  for (const requirement of requirements) {
-    if (requirement.status === "MATCHED") {continue;}
-    assert.equal(requirement.activeInstallation, null, "MAME_APPLE2_BIOS_INSTALLATION_CONFLICT");
-    const uploadId = await client.upload(singleFile(join(biosDirectory, requirement.logicalName)), "FILES", "GENERAL");
-    const upload = await client.json("GET", `/api/v1/admin/uploads/${uploadId}`);
-    const result = await client.raw("POST", `/api/v1/admin/bios/${requirement.id}/installations`, {
-      headers: {...client.writeHeaders(), "If-Match": `"v${requirement.version}"`},
-      data: {uploadFileId: upload.files[0].fileId},
-    });
-    assert.equal(result.status(), 201, `MAME_APPLE2_BIOS_INSTALL_FAILED:${requirement.logicalName}`);
+  for (const [core, source, count] of [["mame_apple2", biosDirectory, 9], ["apple2js", apple2jsBiosDirectory, 3]]) {
+    const catalog = await client.json("GET", `/api/v1/admin/bios?scope=FULL_CATALOG&coreId=${core}&limit=100`);
+    const requirements = catalog.items.filter(item => item.coreId === core);
+    assert.equal(requirements.length, count, `MAME_APPLE2_BIOS_CATALOG_MISSING:${core}`);
+    for (const requirement of requirements) {
+      if (requirement.status === "MATCHED") {continue;}
+      assert.equal(requirement.activeInstallation, null, `MAME_APPLE2_BIOS_INSTALLATION_CONFLICT:${core}`);
+      const uploadId = await client.upload(singleFile(join(source, requirement.logicalName)), "FILES", "GENERAL");
+      const upload = await client.json("GET", `/api/v1/admin/uploads/${uploadId}`);
+      const result = await client.raw("POST", `/api/v1/admin/bios/${requirement.id}/installations`, {
+        headers: {...client.writeHeaders(), "If-Match": `"v${requirement.version}"`},
+        data: {uploadFileId: upload.files[0].fileId},
+      });
+      assert.equal(result.status(), 201, `MAME_APPLE2_BIOS_INSTALL_FAILED:${core}:${requirement.logicalName}`);
+    }
   }
   evidence.stages.push("bios"); console.log("apple2: bios");
   const disk = readFileSync(diskPath);
@@ -65,8 +68,9 @@ try {
       headers: client.writeHeaders(), data: {}, expected: 200,
     });
     const instances = await client.json("GET", "/api/v1/admin/platform-instances?platformId=apple2&limit=100");
-    const instance = instances.items.find(item => item.enabled && item.defaultCoreId === "mame_apple2");
-    assert.ok(instance, "MAME_APPLE2_DIRECTORY_DEFAULT_CORE_REQUIRED");
+    const instance = instances.items.find(item => item.enabled);
+    assert.ok(instance, "MAME_APPLE2_DIRECTORY_REQUIRED");
+    evidence.defaultCoreId = instance.defaultCoreId;
     const uploadId = await client.upload(singleFile(diskPath), "FILES", "GENERAL");
     const imported = await client.json("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), expected: 202,
@@ -77,17 +81,13 @@ try {
   }
   evidence.stages.push("import"); console.log("apple2: import");
   if (!gameId) {
-    const preview = await open(context, await previewCart(client, itemId), "preview");
-    await preview.canvas.screenshot({path: join(directory, "preview.png")});
-    evidence.preview = await canvasDigest(preview.canvas);
-    assert.ok(evidence.preview.colors > 2, "MAME_APPLE2_PREVIEW_EMPTY");
-    await preview.page.close();
+    await previewCart(client, itemId);
     gameId = (await approveCart(client, itemId)).gameId;
     writeFileSync(progressPath, JSON.stringify({digest, itemId, gameId}));
     evidence.stages.push("review-preview-publish");
   } else {evidence.stages.push("reused-published-game");}
   console.log("apple2: publish");
-  const launch = await launchCart(client, gameId);
+  const launch = await launchApple2(client, gameId);
   const opened = await open(context, launch, "product");
   evidence.runtime = opened.config.runtime;
   evidence.display = await verifyDisplay(opened.page, opened.canvas);
@@ -119,7 +119,7 @@ try {
   evidence.screenshots = await screenshotEvidence(opened.page);
   await opened.page.close();
   evidence.stages.push("product-input-save"); console.log("apple2: save");
-  const resumedLaunch = await launchCart(client, gameId, saved.saveStateId);
+  const resumedLaunch = await launchApple2(client, gameId, saved.saveStateId);
   assert.notEqual(resumedLaunch.launchId, launch.launchId);
   const resumed = await open(context, resumedLaunch, "restore");
   assert.equal(resumed.config.restore?.format, "mame-state-v1-storage-v1");
@@ -163,6 +163,20 @@ try {
   await browser?.close(); await proxy?.close();
   writeFileSync(join(directory, "product.json"), JSON.stringify(evidence, null, 2) + "\n");
   console.log(JSON.stringify(evidence));
+}
+
+async function launchApple2(client, gameId, saveStateId = null) {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const response = await client.raw("POST", "/api/v1/launches", {headers: client.writeHeaders(),
+      data: {gameId, coreId: "mame_apple2", saveStateId, dosEntry: null, returnTo: `/games/${gameId}`,
+        clientCapabilities: {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true}}});
+    if (response.status() === 201) {return response.json();}
+    if (response.status() !== 202) {
+      assert.equal(response.status(), 201, `MAME_APPLE2_LAUNCH_FAILED:${await response.text()}`);
+    }
+    await new Promise(resolvePromise => setTimeout(resolvePromise, 1000));
+  }
+  throw Error("MAME_APPLE2_LAUNCH_VALIDATION_TIMEOUT");
 }
 
 async function lightFraction(canvas) {

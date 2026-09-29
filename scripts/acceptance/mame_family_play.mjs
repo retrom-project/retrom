@@ -16,6 +16,7 @@ export async function playFamily(client, context, input, evidence, gameId) {
   await opened.canvas.screenshot({path: join(directory, "before-input.png")});
   await gamepad(opened.page, 0, 250);
   await opened.page.waitForTimeout(4500); // The game's opening jingle blocks its input loop.
+  if (platform === "pv1000") {await gamepad(opened.page, 0, 250);}
   evidence.playerBefore = await waitForFighter(opened.canvas, platform);
   await opened.canvas.screenshot({path: join(directory, "after-confirm.png")});
   evidence.pause = await verifyPause(opened.page, opened.canvas);
