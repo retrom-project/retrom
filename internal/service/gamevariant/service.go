@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+
+	"retrom/internal/format/arcadedat"
+	libraryimport "retrom/internal/service/libraryimport"
 )
 
 type EnsureScope struct {
@@ -24,10 +27,17 @@ type Service struct {
 	provider   Provider
 	now        func() time.Time
 	supervisor *ValidationSupervisor
+	arcade     *libraryimport.ImportPreparation
 }
 
-func New(repository Repository, provider Provider, now func() time.Time, supervisor *ValidationSupervisor) *Service {
-	return &Service{repository: repository, provider: provider, now: now, supervisor: supervisor}
+func New(repository Repository, provider Provider, now func() time.Time, supervisor *ValidationSupervisor,
+	arcade ...*libraryimport.ImportPreparation,
+) *Service {
+	service := &Service{repository: repository, provider: provider, now: now, supervisor: supervisor}
+	if len(arcade) != 0 {
+		service.arcade = arcade[0]
+	}
+	return service
 }
 
 // Ensure prepares a game/core configuration. Its caller dispatches only after
@@ -44,6 +54,13 @@ func (s *Service) Ensure(ctx context.Context, gameID, coreID string) (Result, er
 	if !ok || bundle != before.Source.BundleSHA256 {
 		return Result{}, ErrBlocked
 	}
+	var prepared *ArcadePreparation
+	if before.Source.VariantID == "" && arcadedat.SupportsCore(before.Source.CoreID) {
+		prepared, err = s.PrepareArcade(ctx, before)
+		if err != nil {
+			return Result{}, err
+		}
+	}
 	var result Result
 	err = s.repository.WithEnsure(ctx, func(scope EnsureScope) error {
 		current, err := scope.Read(ctx, gameID, coreID)
@@ -57,7 +74,7 @@ func (s *Service) Ensure(ctx context.Context, gameID, coreID string) (Result, er
 		if now < 0 {
 			return ErrBlocked
 		}
-		result, err = Schedule(ctx, scope.Write, current, now, newVariantID)
+		result, err = Schedule(ctx, scope.Write, current, now, newVariantID, prepared, scope.Read)
 		return err
 	})
 	if err != nil {

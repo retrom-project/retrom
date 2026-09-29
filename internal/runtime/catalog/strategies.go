@@ -14,6 +14,7 @@ const (
 	OptionsEmulator = "EMULATOR_CONTENT"
 	OptionsONS      = "ONS_SCRIPT"
 	OptionsKiriKiri = "KIRIKIRI_STARTUP"
+	OptionsArcade   = "ARCADE_MACHINE"
 )
 
 var hostStrategies = map[string]HostStrategy{
@@ -31,6 +32,7 @@ var hostStrategies = map[string]HostStrategy{
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"EMULATORJS_DISC_CONTENT": {"EMULATORJS_CONTENT", OptionsEmulator, []string{"MULTI_DISC", "SINGLE_FILE"}},
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
+	"MAME_ARCADE_ROM_SET":     {"EMULATORJS_CONTENT", OptionsArcade, []string{"SINGLE_FILE"}},
 	"DOS_BUNDLE":              {"EMULATORJS_CONTENT", OptionsEmulator, []string{"DOS_BUNDLE"}},
 	"J2ME_JAR":                {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"FLASH_SWF":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},

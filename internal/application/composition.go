@@ -92,9 +92,12 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 
 	launchSources := launch.NewSources(blobs, credentials).
 		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate).WithRuntimeProvider(input.RuntimeProvider)
-	variants := variantcomposition.New(database, launchSources, now)
+	variants := variantcomposition.New(database, launchSources, now, blobs)
 
-	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now, variants.Dispatch)
+	launcher := launchcomposition.New(
+		database, launchSources, config.PublicOrigin.String(), now,
+		variants.Dispatch, variants.PrepareArcade,
+	)
 	tagService := tagging.New(tagpersistence.New(database), now)
 	importer, importDeps := importworkflow.New(importworkflow.Inputs{
 		Database: database, Files: blobs, Tags: tagService, Now: now, Scraper: scraper,

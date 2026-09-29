@@ -1178,6 +1178,34 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-mame-apple2e",
+      "coreId": "mame_apple2e",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-apple2e",
+      "platformIds": [
+        "apple2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-mame-arcade",
+      "coreId": "mame_arcade",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-arcade",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "MAME_ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-mame-atom",
       "coreId": "mame_atom",
       "providerId": "retrom-runtime",
@@ -1192,12 +1220,40 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-mame-coleco",
+      "coreId": "mame_coleco",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-coleco",
+      "platformIds": [
+        "colecovision"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-mame-pv1000",
       "coreId": "mame_pv1000",
       "providerId": "retrom-runtime",
       "targetId": "mame-pv1000",
       "platformIds": [
         "pv1000"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-mame-sg1000",
+      "coreId": "mame_sg1000",
+      "providerId": "retrom-runtime",
+      "targetId": "mame-sg1000",
+      "platformIds": [
+        "sg1000"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -2281,13 +2337,33 @@
         "enabled": true
       },
       {
+        "id": "mame_apple2e",
+        "name": "MAME Apple IIe",
+        "enabled": true
+      },
+      {
+        "id": "mame_arcade",
+        "name": "MAME Current Arcade",
+        "enabled": true
+      },
+      {
         "id": "mame_atom",
         "name": "MAME Acorn Atom",
         "enabled": true
       },
       {
+        "id": "mame_coleco",
+        "name": "MAME ColecoVision",
+        "enabled": true
+      },
+      {
         "id": "mame_pv1000",
         "name": "MAME Casio PV-1000",
+        "enabled": true
+      },
+      {
+        "id": "mame_sg1000",
+        "name": "MAME SG-1000",
         "enabled": true
       },
       {

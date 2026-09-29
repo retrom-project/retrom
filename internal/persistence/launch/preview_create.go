@@ -63,6 +63,11 @@ func (repository *PreviewCreation) Snapshot(
 	if err != nil {
 		return application.PreviewSnapshot{}, false, err
 	}
+	deviceBIOS, err := previewMAMEDeviceBIOS(ctx, tx, source.TargetID)
+	if err != nil {
+		return application.PreviewSnapshot{}, false, err
+	}
+	validationFiles = append(validationFiles, deviceBIOS...)
 	if err := tx.Commit(); err != nil {
 		return application.PreviewSnapshot{}, false, fmt.Errorf("commit preview snapshot: %w", err)
 	}

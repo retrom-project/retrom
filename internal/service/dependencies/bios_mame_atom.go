@@ -17,5 +17,8 @@ func mameAtomBIOSCatalog() []staticBIOS {
 }
 
 func mameBIOSCatalog() []staticBIOS {
-	return append(mameAppleBIOSCatalog(), mameAtomBIOSCatalog()...)
+	result := append(mameAppleBIOSCatalog(), mameApple2eBIOSCatalog()...)
+	result = append(result, mameAtomBIOSCatalog()...)
+	result = append(result, mameColecoBIOSCatalog()...)
+	return append(result, mameModel2DeviceBIOSCatalog()...)
 }

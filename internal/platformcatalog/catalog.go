@@ -9,7 +9,7 @@ import (
 	contentprofile "retrom/internal/content/profile"
 )
 
-const Version = 41
+const Version = 42
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -41,6 +41,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{
 		Key: "arcade/mame2003_plus", PlatformID: "arcade", DefaultCoreID: "mame2003_plus",
 		Name: "MAME 2003 Plus 游戏", CatalogOrder: 60,
+	},
+	{
+		Key: "arcade/mame_arcade", PlatformID: "arcade", DefaultCoreID: "mame_arcade",
+		Name: "MAME Current 游戏", Description: "使用 MAME Current 校验的街机 ROM，可作为旧核心的另一种运行方式。", CatalogOrder: 65,
 	},
 	{
 		Key: "arcade/fbalpha2012_cps1", PlatformID: "arcade", DefaultCoreID: "fbalpha2012_cps1",

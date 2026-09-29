@@ -2,9 +2,11 @@ package launch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"retrom/internal/format/arcadedat"
 	gamevariant "retrom/internal/service/gamevariant"
 )
 
@@ -35,6 +37,7 @@ type productPreparation struct {
 	plan       ProductCreatePlan
 	capability string
 	validation bool
+	arcade     *gamevariant.ArcadePreparation
 }
 type productAttempt struct {
 	receipt ProductReceipt
@@ -97,6 +100,12 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 		}
 	}
 	preparation := productPreparation{snapshot: snapshot, validation: !fresh}
+	if preparation.validation && snapshot.Source.VariantID == "" && arcadedat.SupportsCore(snapshot.Source.CoreID) {
+		preparation.arcade, err = service.prepareAlternateArcade(ctx, snapshot)
+		if err != nil {
+			return productPreparation{}, err
+		}
+	}
 	if fresh {
 		preparation.plan, preparation.capability, err = service.preparePlan(ctx, command, snapshot)
 		if err != nil {
@@ -106,6 +115,22 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 	// Provider, file storage, signing and the first clock invocation happen before a writer opens.
 	preparation.plan.NowMS = service.environment.Now().UnixMilli()
 	return preparation, nil
+}
+
+func (service *ProductCreator) prepareAlternateArcade(
+	ctx context.Context, snapshot ProductSnapshot,
+) (*gamevariant.ArcadePreparation, error) {
+	if service.environment.PrepareArcade == nil {
+		return nil, ErrBlocked
+	}
+	prepared, err := service.environment.PrepareArcade(ctx, snapshot.VariantSnapshot())
+	if errors.Is(err, gamevariant.ErrBlocked) {
+		return nil, ErrBlocked
+	}
+	if err != nil {
+		return nil, fmt.Errorf("prepare alternate arcade launch: %w", err)
+	}
+	return prepared, nil
 }
 
 func (service *ProductCreator) validateProvider(source gamevariant.Source, capabilities Capabilities) error {

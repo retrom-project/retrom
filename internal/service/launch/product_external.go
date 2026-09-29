@@ -21,11 +21,17 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 			},
 		)
 	}
-	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" ||
-		snapshot.Source.ProviderID == "retrom-runtime" &&
-			(snapshot.Source.TargetID == "bbc-jsbeeb" || snapshot.Source.TargetID == "samcoupe" ||
-				snapshot.Source.TargetID == "apple2-apple2js" ||
-				snapshot.Source.TargetID == "mame-apple2" || snapshot.Source.TargetID == "mame-atom") {
+	if snapshot.Source.ProviderID == "retrom-runtime" && snapshot.Source.TargetID == "mame-arcade" {
+		current, _, _, err := gamevariant.ResolveBIOS(snapshot.Source, snapshot.BIOS, snapshot.Source.ContentLogicalName)
+		if err != nil {
+			return nil, ErrBlocked
+		}
+		files, err = productExternalBIOS(content.Files[0].LogicalName, files, current.BIOS, false)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if needsProductExternalBIOS(snapshot) {
 		dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshot.Source.DependencySnapshot)
 		if err != nil {
 			return nil, ErrBlocked
@@ -36,6 +42,21 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 		}
 	}
 	return append(files, ProductBundleFiles(snapshot.VariantFiles)...), nil
+}
+
+func needsProductExternalBIOS(snapshot ProductSnapshot) bool {
+	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" {
+		return true
+	}
+	if snapshot.Source.ProviderID != "retrom-runtime" {
+		return false
+	}
+	switch snapshot.Source.TargetID {
+	case "bbc-jsbeeb", "samcoupe", "apple2-apple2js", "mame-apple2", "mame-apple2e", "mame-atom", "mame-coleco":
+		return true
+	default:
+		return false
+	}
 }
 
 func ProductBundleFiles(inputs []gamevariant.File) []ProductExternalFile {

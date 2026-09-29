@@ -16,23 +16,47 @@ type writeRecords struct {
 
 func (records writeRecords) CreateVariant(ctx context.Context, plan application.VariantWrite) error {
 	source := plan.Source
+	dependencySnapshot := "{}"
+	if plan.Arcade != nil {
+		dependencySnapshot = plan.Arcade.Snapshot
+	}
 	if _, err := recordstore.CreateGameVariants(
 		ctx,
 		records.executor,
 		`INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
  status,compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING','{}',NULL,1,?,?)`,
+VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING',?,NULL,1,?,?)`,
 		source.VariantID,
 		source.GameID,
 		source.CoreID,
 		source.ProviderID,
 		source.TargetID,
 		source.ActiveDATVersionID,
+		dependencySnapshot,
 		plan.NowMS,
 		plan.NowMS,
 	); err != nil {
 		return fmt.Errorf("create product variant: %w", err)
+	}
+	if plan.Arcade != nil {
+		for _, file := range plan.Arcade.Files {
+			if _, err := recordstore.CreateVariantFiles(ctx, records.executor, `
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+VALUES(?,?,?,?,?)`, source.VariantID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder); err != nil {
+				return fmt.Errorf("create alternate arcade file: %w", err)
+			}
+		}
+		for _, dependency := range plan.Arcade.Dependencies {
+			if _, err := records.executor.ExecContext(ctx, `
+INSERT INTO variant_dependencies(game_variant_id,kind,logical_archive,dat_version_id,
+source_machine_name,required_entries_json,state,created_at_ms)
+VALUES(?,?,?,?,?,?,?,?)`, source.VariantID, dependency.Kind, dependency.Machine+".zip",
+				source.ActiveDATVersionID, dependency.Machine, dependency.RequiredEntriesJSON,
+				dependency.State, plan.NowMS); err != nil {
+				return fmt.Errorf("create alternate arcade dependency: %w", err)
+			}
+		}
 	}
 	return nil
 }

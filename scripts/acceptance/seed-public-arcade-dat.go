@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"flag"
 	"fmt"
@@ -80,16 +81,173 @@ var smokeFixtures = map[string]smokeFixture{
 func main() {
 	arguments := flag.NewFlagSet("seed-public-arcade-dat", flag.ContinueOnError)
 	fixtureID := arguments.String("fixture", "", "allowlisted public fixture ID")
+	candidateDir := arguments.String("candidate-dir", "", "MAME Current PFB core candidate directory")
 	databasePath := arguments.String("database", "", "acceptance SQLite database")
 	parseErr := arguments.Parse(os.Args[1:])
-	invalidArguments := parseErr != nil || arguments.NArg() != 0 || *fixtureID == "" || *databasePath == ""
+	invalidArguments := parseErr != nil || arguments.NArg() != 0 || *fixtureID == "" || *databasePath == "" ||
+		((*fixtureID == "mame_arcade") != (*candidateDir != ""))
 	if invalidArguments {
 		fatalf("usage: seed-public-arcade-dat --database <database> --fixture " +
-			"<mame2003|fbneo|mame2003_plus|fbalpha2012_cps1|fbalpha2012_cps2>")
+			"<mame2003|fbneo|mame2003_plus|fbalpha2012_cps1|fbalpha2012_cps2|mame_arcade> " +
+			"[--candidate-dir <MAME core candidate>]")
 	}
-	if err := run(context.Background(), *databasePath, *fixtureID); err != nil {
+	var err error
+	if *fixtureID == "mame_arcade" {
+		err = runMAMECandidate(context.Background(), *databasePath, *candidateDir)
+	} else {
+		err = run(context.Background(), *databasePath, *fixtureID)
+	}
+	if err != nil {
 		fatalf("seed public Arcade DAT: %v", err)
 	}
+}
+
+// runMAMECandidate is deliberately acceptance-only. The release path must pin
+// the final MAME DAT alongside its exact core build before activating it.
+func runMAMECandidate(ctx context.Context, databasePath, directory string) error {
+	catalog, digestHex, datPath, err := loadMAMECandidateCatalog(ctx, directory)
+	if err != nil {
+		return err
+	}
+	database, err := openSmokeDatabase(ctx, databasePath)
+	if err != nil {
+		return err
+	}
+	defer func() { cleanup.Error("close acceptance database", database.Close()) }()
+	providerID, targetID, datID, err := installSmokeDAT(ctx, database, "mame_arcade", datPath, digestHex, catalog)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{
+		"coreId": "mame_arcade", "datVersionId": datID, "providerId": providerID,
+		"targetId": targetID, "sha256": digestHex, "source": "BUILTIN", "testOnly": true,
+	})
+}
+
+func loadMAMECandidateCatalog(ctx context.Context, directory string) (arcadedat.Catalog, string, string, error) {
+	type candidateFile struct {
+		Filename  string `json:"filename"`
+		SizeBytes int64  `json:"sizeBytes"`
+		SHA256    string `json:"sha256"`
+	}
+	var descriptor struct {
+		SchemaVersion int             `json:"schemaVersion"`
+		Kind          string          `json:"kind"`
+		CoreID        string          `json:"coreId"`
+		AdapterABI    string          `json:"adapterAbi"`
+		Files         []candidateFile `json:"files"`
+	}
+	root, err := filepath.Abs(directory)
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", err
+	}
+	contents, err := os.ReadFile(filepath.Join(root, "retrom-core-candidate.json"))
+	if err != nil || json.Unmarshal(contents, &descriptor) != nil || descriptor.SchemaVersion != 1 ||
+		descriptor.Kind != "RETROM_CORE_CANDIDATE_V1" || descriptor.CoreID != "mame" ||
+		descriptor.AdapterABI != "retrom-mame-dylink-v1" {
+		return arcadedat.Catalog{}, "", "", errUnsupportedSmokeFixture
+	}
+	readVerified := func(name string) ([]byte, error) {
+		var expected *candidateFile
+		for index := range descriptor.Files {
+			if descriptor.Files[index].Filename == name {
+				if expected != nil {
+					return nil, errSmokeFixtureDigestDrift
+				}
+				expected = &descriptor.Files[index]
+			}
+		}
+		if expected == nil || expected.SizeBytes <= 0 || expected.SizeBytes > 64<<20 {
+			return nil, errSmokeFixtureDigestDrift
+		}
+		bytes, readErr := os.ReadFile(filepath.Join(root, name))
+		if readErr != nil || int64(len(bytes)) != expected.SizeBytes {
+			return nil, errSmokeFixtureDigestDrift
+		}
+		digest := sha256.Sum256(bytes)
+		if hex.EncodeToString(digest[:]) != expected.SHA256 {
+			return nil, errSmokeFixtureDigestDrift
+		}
+		return bytes, nil
+	}
+	metadata, err := readVerified("mame-build.json")
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", err
+	}
+	var build struct {
+		SchemaVersion int    `json:"schemaVersion"`
+		AdapterABI    string `json:"adapterAbi"`
+		BuildID       string `json:"buildId"`
+		Families      map[string]struct {
+			Arcade   bool     `json:"arcade"`
+			Module   string   `json:"module"`
+			Machines []string `json:"machines"`
+		} `json:"families"`
+	}
+	if json.Unmarshal(metadata, &build) != nil || build.SchemaVersion != 1 ||
+		build.AdapterABI != descriptor.AdapterABI || len(build.BuildID) != 64 {
+		return arcadedat.Catalog{}, "", "", errUnsupportedSmokeFixture
+	}
+	buildID, buildIDErr := hex.DecodeString(build.BuildID)
+	if buildIDErr != nil || len(buildID) != 32 {
+		return arcadedat.Catalog{}, "", "", errUnsupportedSmokeFixture
+	}
+	expected := make(map[string]struct{})
+	for name, family := range build.Families {
+		if !family.Arcade {
+			continue
+		}
+		if family.Module != "mame-"+name+".wasm" {
+			return arcadedat.Catalog{}, "", "", errSmokeFixtureDigestDrift
+		}
+		var moduleDeclared bool
+		for _, file := range descriptor.Files {
+			if file.Filename == family.Module && file.SizeBytes > 0 && len(file.SHA256) == 64 {
+				moduleDeclared = true
+				break
+			}
+		}
+		if !moduleDeclared {
+			return arcadedat.Catalog{}, "", "", errSmokeFixtureDigestDrift
+		}
+		for _, machine := range family.Machines {
+			if machine == "___empty" {
+				continue
+			}
+			if _, duplicate := expected[machine]; duplicate {
+				return arcadedat.Catalog{}, "", "", errSmokeFixtureMachineDrift
+			}
+			expected[machine] = struct{}{}
+		}
+	}
+	if len(expected) == 0 {
+		return arcadedat.Catalog{}, "", "", errSmokeFixtureMachineDrift
+	}
+	data, err := readVerified("mame-arcade.xml")
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", err
+	}
+	var rootElement struct {
+		XMLName xml.Name `xml:"mame"`
+		BuildID string   `xml:"retromBuildId,attr"`
+	}
+	if xml.Unmarshal(data, &rootElement) != nil || rootElement.BuildID != build.BuildID {
+		return arcadedat.Catalog{}, "", "", errSmokeFixtureDigestDrift
+	}
+	catalog, err := arcadedat.ParseCatalog(ctx, bytes.NewReader(data), "mame_arcade")
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", err
+	}
+	if len(catalog.Machines) != len(expected) {
+		return arcadedat.Catalog{}, "", "", errSmokeFixtureMachineDrift
+	}
+	for _, machine := range catalog.Machines {
+		if _, exists := expected[machine.Name]; !exists {
+			return arcadedat.Catalog{}, "", "", errSmokeFixtureMachineDrift
+		}
+	}
+	digest := sha256.Sum256(data)
+	return catalog, hex.EncodeToString(digest[:]), filepath.Join(root, "mame-arcade.xml"), nil
 }
 
 func run(ctx context.Context, databasePath, fixtureID string) error {

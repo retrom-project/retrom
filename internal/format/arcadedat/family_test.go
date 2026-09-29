@@ -9,7 +9,7 @@ import (
 
 func TestCoreFamiliesAreClosedAndComplete(t *testing.T) {
 	t.Parallel()
-	want := []string{"fbalpha2012_cps1", "fbalpha2012_cps2", "fbneo", "mame2003", "mame2003_plus"}
+	want := []string{"fbalpha2012_cps1", "fbalpha2012_cps2", "fbneo", "mame2003", "mame2003_plus", "mame_arcade"}
 	if actual := CoreIDs(); !reflect.DeepEqual(actual, want) {
 		t.Fatalf("CoreIDs() = %#v, want %#v", actual, want)
 	}

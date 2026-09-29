@@ -2779,3 +2779,29 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 3. 不同 Launch 恢复同一位置后继续向左移动，存档格式、压缩层数、资源复用及 console 要求与 ACC-MAME-002 相同；保留独立 Case 结果与当次逐图复核。
 
 跨设备族缓存补充：不传平台参数执行同一脚本，顺序运行两个独立 Case，每个仍有自己的 300 秒硬超时、结果和截图；随后新建 Atom Launch。整个 Atom → PV-1000 → Atom 序列中公共 WASM 只请求一次，两个设备族各一次。该补充不能替代任一平台的操作、存档或恢复断言。
+
+### ACC-MAME-004：MAME Current Arcade 兼容旧族候选验证
+
+前置：在同一 PFB 中构建包含 `legacy_arcade_sources.json` 全部族的 MAME 候选，安装匹配的 Runtime Provider 候选。仅在验收数据库中，用 `go run scripts/acceptance/seed-public-arcade-dat.go --fixture mame_arcade --candidate-dir <MAME core candidate> --database <PFB database>` 登记该候选实际导出的 `mame-arcade.xml`；装置验证候选描述符、DAT 摘要、构建 ID 和各模块的机器清单。这不是正式 DAT 发布路径。游戏 ZIP 使用操作者授权的本地内容，不进入仓库、Provider 或镜像。
+
+1. 核对 `mame2003`、`mame2003_plus` 和 `mame_arcade` 三个 Core 及各自 Provider Target 均存在，2003/Plus 的推荐目录和 BIOS 安装不因 Current 候选改变。对同一游戏显式配置 Current 变体；其 ZIP 必须按 Current DAT 重新校验，旧变体和存档不自动迁移。
+2. 用通过 Current DAT 的真实街机 ZIP 走普通导入、Review Preview、审核发布和 Product Launch。Envelope 只引用 `retrom-runtime/mame-arcade`，运行时只下载公共 JS/WASM 与该机器的一个族 WASM。对 Clone/Split 样本，核对 Parent 和 BIOS 闭包分别从 Current 的 DatVersion 与 Current Target 安装装配，缺失时明确阻断，不借用 2003/Plus 的 BIOS。
+3. 在真实游戏画面分别验证投币、Start、方向和主要动作使游戏状态可观察地改变；暂停、截图与非空即时存档后，在另一个 Launch 恢复到同一进度并继续输入。浏览器 console 中的错误及未解释 warning 必须处理。
+4. 在关闭 HTTP 缓存的独立页面间启动两个不同 Arcade 族，再回到第一个族；公共 WASM 只发生一次网络传输，各族只首次传输自己的模块。记录压缩响应字节、WASM 原始大小、Provider/Build ID、DAT 摘要、三次截图及游戏输入前后证据。若所用 2003 ZIP 不符合 Current DAT，应记录为该样本不兼容，不得以同名或驱动存在判为通过。
+5. 用 `scripts/acceptance/mame_arcade_legacy_fallback.mjs` 将兼容的旧版 ZIP 发布在 MAME2003-Plus 推荐目录，再显式选择 `mame_arcade` 启动；确认同一游戏保留原变体，并创建按 Current DAT 校验的独立 READY 变体。对已安装到 Current Target 的 BIOS，允许游戏 ZIP 缺少 BIOS 条目，但必须由 Current 的 BIOS 安装满足依赖；缺 Parent 或主 ROM 仍阻断。设置 `RETROM_MAME_ARCADE_EXPECT_INCOMPATIBLE=1` 后用不兼容的旧版 ZIP 重跑脚本，预期 HTTP 422 `LAUNCH_BLOCKED`，且不得创建 Current 变体。
+
+### ACC-MAME-005：Apple IIe、SG-1000、ColecoVision 产品验证
+
+前置：安装包含 `apple`、`sg1000`、`coleco` 族的 MAME 候选；准备 Apple IIe 六份固件、ColecoVision 系统 ROM 和真实游戏文件。`RETROM_MAME_EXPANSION_INPUT_DIR` 指向验收专用输入目录，ROM/BIOS 不进入 Git。设置与 ACC-MAME-002 相同的站点、账号、Chrome 和结果目录环境变量，执行 `node scripts/acceptance/mame_expansion_product.mjs <apple2e|sg1000|colecovision>`；不传平台参数时依次检查三个平台共享公共 WASM 的缓存。
+
+1. 复用已有 Apple II、SG-1000、ColecoVision 各自唯一的启用目录，显式选择 MAME Core 启动；不得为同一平台增加推荐目录。Apple IIe 安装六份固件，ColecoVision 安装独立于 Gearcoleco 的系统 ROM，SG-1000 无 BIOS。
+2. 用真实游戏完成上传、审核和发布。Apple IIe 进入《Donkey Kong》关卡，SG-1000 从《Bank Panic》标题与选关进入实际关卡，ColecoVision 从《Lady Bug》选项进入迷宫；记录输入前后截图，不能以 BIOS、标题、选关或黑屏代替游戏画面。
+3. Apple IIe 和 SG-1000 创建即时存档，用新 Launch 恢复，继续输入并核对有效画面；检查存档 `RTMAME01` 内容、输入文件哈希、无 Player 错误，以及公共模块与对应设备族模块的下载次数。允许恢复首帧短暂空白，但之后必须恢复可见的游戏状态。ColecoVision 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记，必须显示当前场景不可存档，不得生成无法可靠恢复的存档。
+
+### ACC-MAME-006：Sega Model 2 独立设备 BIOS 与原始 ZIP
+
+前置：使用与 ACC-MAME-004 同一 Current DAT 和 Arcade Core 候选，提供未经合并的 `vf2.zip` 及从 `segabill.zip` 提取且摘要匹配的 `epr-18022.ic2`。设置 `RETROM_MAME_ARCADE_ROM`、`RETROM_MAME_ARCADE_DEVICE_BIOS` 和 `RETROM_ACCEPTANCE_CASE_DIR`，运行 `node scripts/acceptance/mame_arcade_product.mjs`。
+
+1. 在 `mame_arcade` 自己的静态 BIOS 槽安装设备 ROM；原始 `vf2.zip` 经 Current DAT 审核，预览与产品启动分别提供独立 external 资源。不得把芯片文件并入游戏 ZIP，也不得借用 MAME 2003/Plus 的安装。
+2. 进入真实 Model 2 三维画面，投两枚币、按 Start、选人并进入对战；记录方向与动作输入后的可见变化。核对浏览器只取得公共 WASM 和 `arcade_model2` WASM，并记录压缩响应字节。
+3. `vf2` 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记。对战中必须显示当前场景不可存档；不得创建表面成功但恢复后纹理缺失的存档。记录对战画面和 console；若仅到达选人画面或背景演示，不判为完整通过。
