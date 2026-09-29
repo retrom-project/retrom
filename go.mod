@@ -20,7 +20,7 @@ tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 require github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
 
 require (
-	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/andybalholm/brotli v1.2.2
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/sevenzip v1.6.5
