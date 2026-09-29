@@ -19,14 +19,15 @@ export async function nativeSnapshot(page) {
     return null;
   });
 }
-export async function nativeActions(page, actions) {
+export async function nativeActions(page, actions, observe = async () => {}) {
   assert.ok(Array.isArray(actions) && actions.length <= 100, "NATIVE_CACHE_ACTIONS_INVALID");
   await resumePreview(page);
   const frame = nativeFrame(page);
   assert.ok(frame, "NATIVE_CACHE_FRAME_MISSING");
   const surface = frame.locator("canvas, #tyrano_base").first();
   await surface.evaluate(element => {element.tabIndex = 0; element.focus();});
-  for (const action of actions) {
+  for (const [index, action] of actions.entries()) {
+    await observe(index, await nativeSnapshot(page));
     assert.ok(Number.isInteger(action.waitMs) && action.waitMs >= 0 && action.waitMs <= 10000, "NATIVE_CACHE_WAIT_INVALID");
     if (action.state) {
       assert.ok(typeof action.state === "object" && !Array.isArray(action.state) && Object.keys(action.state).length > 0,
@@ -38,6 +39,7 @@ export async function nativeActions(page, actions) {
     if (action.selector) await frame.locator(action.selector).click({delay: 100});
     await page.waitForTimeout(action.waitMs);
   }
+  await observe(actions.length, await nativeSnapshot(page));
 }
 export async function chooseNativeLoading(context, base, gameId, mode) {
   const page = await context.newPage();

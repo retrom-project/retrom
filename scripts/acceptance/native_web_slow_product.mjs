@@ -55,8 +55,11 @@ async function phase(plan, mode) {
       result.readyMs = performance.now() - started;
       result.ready = await nativeSnapshot(page); await flush();
       assert.ok(result.readyMs > 10000, "NATIVE_SLOW_DID_NOT_EXERCISE_STARTUP_DEADLINE");
-      await nativeActions(page, plan.start); result.before = await nativeSnapshot(page);
-      await nativeActions(page, plan.advance); result.after = await nativeSnapshot(page);
+      const actions = async name => nativeActions(page, plan[name], async (index, snapshot) => {
+        result.input = {phase: name, index, snapshot}; await flush();
+      });
+      await actions("start"); result.before = await nativeSnapshot(page);
+      await actions("advance"); result.after = await nativeSnapshot(page);
       assertNativeInput(result.before, result.after);
     } else {
       await expect.poll(() => proxy.requests.some(row => row.path.includes("/files/") && row.bytes > 0), {timeout: 30000}).toBe(true);
