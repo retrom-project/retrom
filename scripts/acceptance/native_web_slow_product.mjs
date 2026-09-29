@@ -75,6 +75,11 @@ async function phase(plan, mode) {
     else await exitContentIOPlayer(page, base, launch, "GAME_SAVE");
     result.exitMs = performance.now() - exiting;
     assert.ok(result.exitMs < 5000, "NATIVE_SLOW_EXIT_WAITED_FOR_DOWNLOAD");
+    if (mode === "PRELOAD") {
+      await expect.poll(() => proxy.requests.every(row => row.closed), {timeout: 1000}).toBe(true);
+      result.cancelledRequests = proxy.requests.filter(row => !row.complete).length;
+      assert.ok(result.cancelledRequests > 0, "NATIVE_SLOW_PRELOAD_READ_NOT_CANCELLED");
+    }
     assert.ok(proxy.requests.some(row => row.complete && row.bytes >= 262144 && row.elapsedMs >= row.bytes / proxy.bytesPerSecond * 1000), "NATIVE_SLOW_THROTTLE_NOT_OBSERVED");
     result.exited = true;
   } catch (error) {
@@ -85,13 +90,10 @@ async function phase(plan, mode) {
   } finally {await context.close(); await proxy.close();}
 }
 async function cancelPreload(page, launch) {
-  // An unstarted game finishes its session without reporting play progress.
-  const finished = page.waitForResponse(response => response.request().method() === "POST" &&
-    new URL(response.url()).pathname === `/runtime/launches/${launch.launchId}/finish`);
+  // Product launches send neither preview-finish nor play progress before gameplay starts.
   await revealPreviewToolbar(page);
   await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
   await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
   await page.waitForURL(base + launch.returnTo);
-  assert.equal((await finished).status(), 204);
   assert.equal(page.frames().length, 1); assert.equal(page.workers().length, 0);
 }

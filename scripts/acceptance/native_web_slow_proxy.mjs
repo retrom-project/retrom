@@ -29,7 +29,7 @@ export async function nativeWebSlowProxy(base, bytesPerSecond = 524288, latencyM
       if (!limited) {response.writeHead(incoming.statusCode, incoming.headers); incoming.pipe(response); return;}
       void forward(incoming, response, row).catch(() => response.destroy());
     });
-    response.once("close", () => upstream.destroy()); upstream.on("error", () => response.destroy());
+    response.once("close", () => {row.closed = true; upstream.destroy();}); upstream.on("error", () => response.destroy());
     request.pipe(upstream);
   });
   async function forward(incoming, response, row) {
