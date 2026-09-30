@@ -2394,7 +2394,22 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-5); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
-#retrom-ui-review [data-page="detail"] .rt-launch-panel > [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
+#retrom-ui-review .rt-launch-options { min-width: 0; column-gap: var(--space-3); }
+#retrom-ui-review .rt-launch-options:has(.rt-field:not([hidden])) { margin-bottom: var(--space-3); }
+#retrom-ui-review .rt-launch-option-panel { min-width: 0; }
+#retrom-ui-review .rt-launch-option-panel > .rt-field { margin-top: 0; gap: 7px; }
+#retrom-ui-review .rt-launch-options.is-paired { display: grid; grid-template-columns: minmax(0, var(--launch-control-width, 308px)) minmax(280px, 1fr); gap: 7px var(--space-3); align-items: start; }
+#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) > .rt-launch-option-panel,
+#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) .rt-field { display: contents; }
+#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) .rt-label { grid-row: 1; }
+#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) select { grid-row: 2; min-width: 0; }
+#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) small { grid-column: 1 / -1; grid-row: 3; }
+#retrom-ui-review .rt-launch-options.is-tabbed { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "panel"; row-gap: var(--space-2); }
+#retrom-ui-review .rt-launch-option-tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+#retrom-ui-review .rt-launch-options.is-tabbed > .rt-launch-option-panel { grid-area: panel; }
+#retrom-ui-review .rt-launch-options.is-tabbed .is-inactive { visibility: hidden; pointer-events: none; }
+#retrom-ui-review .rt-launch-options.is-tabbed #rt-dos-field select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .rt-button { min-width: 148px; }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .status { flex-basis: 100%; white-space: normal; }
@@ -2853,9 +2868,14 @@
 
             <div class="rt-detail-playtime"><strong>累计游玩</strong><span id="rt-detail-hours">2 小时 24 分钟</span></div>
           <aside class="rt-launch-panel" aria-label="启动游戏">
-<label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
-
-            <label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
+<div class="rt-launch-options">
+              <div class="rt-launch-option-tabs" role="tablist" aria-label="启动设置" hidden>
+                <button type="button" class="rt-button option-tab" id="rt-option-tab-0" role="tab" aria-selected="true" aria-controls="rt-option-panel-0"><span>内容加载</span><small>按需加载</small></button>
+                <button type="button" class="rt-button option-tab" id="rt-option-tab-1" role="tab" aria-selected="false" aria-controls="rt-option-panel-1" tabindex="-1"><span>启动程序</span><small>DOOM.EXE</small></button>
+              </div>
+              <div class="rt-launch-option-panel" id="rt-option-panel-0"><label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label></div>
+              <div class="rt-launch-option-panel" id="rt-option-panel-1"><label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option><option>显示 DOSBox Pure 程序菜单</option></select></label></div>
+            </div>
             <span id="rt-launch-check" hidden=""><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></span>
             <div class="rt-launch-actions"><button type="button" class="rt-button rt-button-primary" data-start-current-save="">从存档继续</button><button type="button" class="rt-button rt-detail-restart" data-start-game="">重新开始游戏</button></div>
             <p class="rt-launch-hint">恢复最近存档 · 使用保存时的 FBNeo</p>
@@ -3984,14 +4004,57 @@
       };
       const corePreferences = {};
 
+      let detailOptionTab = 0;
+      function syncDetailOptions() {
+        const options = root.querySelector('.rt-launch-options');
+        const loading = options.querySelector('[data-content-loading]');
+        const dos = root.querySelector('#rt-dos-field');
+        const paired = !loading.hidden && !dos.hidden;
+        const controlWidth = parseFloat(root.querySelector('.rt-launch-panel').style.getPropertyValue('--launch-control-width')) || 308;
+        const gap = parseFloat(getComputedStyle(options).columnGap) || 12;
+        const compact = paired && options.getBoundingClientRect().width > 0 && options.getBoundingClientRect().width < controlWidth + gap + 280;
+        options.classList.toggle('is-paired', paired);
+        options.classList.toggle('is-tabbed', compact);
+        options.querySelector('.rt-launch-option-tabs').hidden = !compact;
+        options.querySelectorAll('[role="tab"]').forEach((tab, index) => {
+          tab.setAttribute('aria-selected', String(index === detailOptionTab));
+          tab.tabIndex = index === detailOptionTab ? 0 : -1;
+          const field = index === 0 ? loading : dos;
+          const select = field.querySelector('select');
+          const text = select.selectedOptions[0]?.textContent || '';
+          const summary = index === 1 ? text.startsWith('显示 DOSBox') ? '程序菜单' : text.split(' · ')[0].split(/[\\/]/).pop() : text;
+          tab.querySelector('small').textContent = summary;
+          tab.querySelector('small').title = text;
+        });
+        options.querySelectorAll('.rt-launch-option-panel').forEach((panel, index) => {
+          const inactive = compact && index !== detailOptionTab;
+          panel.classList.toggle('is-inactive', inactive);
+          panel.inert = inactive;
+          if (compact) { panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `rt-option-tab-${index}`); }
+          else { panel.removeAttribute('role'); panel.removeAttribute('aria-labelledby'); }
+          if (inactive) panel.setAttribute('aria-hidden', 'true'); else panel.removeAttribute('aria-hidden');
+        });
+      }
+      root.querySelectorAll('.rt-launch-option-tabs button').forEach((tab, index) => {
+        tab.addEventListener('click', () => { detailOptionTab = index; syncDetailOptions(); });
+        tab.addEventListener('keydown', event => {
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          if (next < 0) return;
+          event.preventDefault(); detailOptionTab = next; syncDetailOptions();
+          root.querySelectorAll('.rt-launch-option-tabs button')[next].focus();
+        });
+      });
+      root.querySelectorAll('.rt-launch-options select').forEach(select => select.addEventListener('change', syncDetailOptions));
       function syncDetailLoadingWidth() {
         const actions = root.querySelector('.rt-launch-actions');
         const last = actions.querySelector('button:last-child');
         const width = last.getBoundingClientRect().right - actions.getBoundingClientRect().left;
         if (width > 0) root.querySelector('.rt-launch-panel').style.setProperty('--launch-control-width', `${width}px`);
+        syncDetailOptions();
       }
       const detailObserver = new ResizeObserver(syncDetailLoadingWidth);
       detailObserver.observe(root.querySelector('.rt-launch-actions'));
+      detailObserver.observe(root.querySelector('.rt-launch-options'));
       root.querySelectorAll('.rt-launch-actions button').forEach(button => detailObserver.observe(button));
       window.addEventListener('resize', syncDetailLoadingWidth);
 

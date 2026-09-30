@@ -18,6 +18,10 @@
 .button:hover { background: var(--purple-hover); color: white; }
 .button.secondary { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
 .button.secondary:hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }
+.button.secondary.option-tab { min-width: 0; display: grid; gap: 0; padding: var(--space-1) var(--space-3); text-align: left; }
+.button.secondary.option-tab[aria-selected="true"] { border-color: var(--purple); background: var(--purple-soft); }
+.button.option-tab > span, .button.option-tab small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.button.option-tab small { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-regular); }
 .button.danger { background: var(--danger-fill); color: white; }
 .button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .button svg { width: 18px; height: 18px; flex-shrink: 0; }
