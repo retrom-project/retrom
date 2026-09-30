@@ -41,6 +41,8 @@ def _write_bytes_atomic(path: Path, contents: bytes) -> None:
     try:
         with os.fdopen(descriptor, "wb") as output:
             output.write(contents)
+            # These are public release metadata and archives, not credentials.
+            os.fchmod(output.fileno(), 0o644)
             output.flush()
             os.fsync(output.fileno())
         os.replace(temporary, path)

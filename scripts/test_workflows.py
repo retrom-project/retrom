@@ -135,6 +135,15 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("DOCKER_PASSWORD", workflow)
         self.assertNotIn("xxxsen/retrom", workflow)
 
+    def test_both_image_pipelines_require_non_root_backend_startup_before_publish(self) -> None:
+        for filename, publish in (("branch-image.yml", "Publish branch images to GHCR"),
+                                  ("docker-image.yml", "Log in to Docker Hub")):
+            with self.subTest(workflow=filename):
+                workflow = (REPOSITORY_ROOT / ".github/workflows" / filename).read_text()
+                command = 'bash scripts/verify-backend-image.sh "$BACKEND_IMAGE:$IMAGE_TAG"'
+                self.assertIn(command, workflow)
+                self.assertLess(workflow.index(command), workflow.index(publish))
+
 
 if __name__ == "__main__":
     unittest.main()
