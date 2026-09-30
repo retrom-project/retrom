@@ -64,7 +64,7 @@ try{
   report.performance=await measureSymbian(game);
   report.processMemory=await measureBrowserRSS(browser);
   report.proportionalMemory=await symbianProcessMemory(browser);
-  report.debugPanel=await symbianDebugPanel(game);
+  report.debugPanel=await symbianDebugPanel(game,join(directory,"player-debug-fps-4k.png"));
   report.startup=game.startup;
   assert.ok(report.performance.fps>=30,"SYMBIAN_GAMEPLAY_BELOW_30_FPS");
   assert.equal(report.performance.longTasks.length,0,"SYMBIAN_BROWSER_LONG_TASK");
@@ -88,11 +88,12 @@ try{
   await context.setOffline(true);report.restoredInput=await moveMario(restored);await context.setOffline(false);
   report.restoredScreenshot=await pictureSymbian(restored,directory,"native-restored-input");
   report.viewports=[];
-  for(const viewport of [{width:1280,height:900},{width:2560,height:1440}]){
+  for(const viewport of [{width:390,height:844},{width:1280,height:900},{width:2560,height:1440}]){
     await restored.page.setViewportSize(viewport);await restored.page.waitForTimeout(300);
     const dimensions=await restored.canvas.evaluate(canvas=>({width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,cssHeight:canvas.getBoundingClientRect().height}));
     assert.equal(dimensions.width,320);assert.equal(dimensions.height,240);
     assert.ok(Math.abs(dimensions.cssWidth/dimensions.cssHeight-4/3)<0.01);
+    await restored.page.screenshot({path:join(directory,`player-${viewport.width}.png`)});
     report.viewports.push({viewport,dimensions});
   }
   await restored.network.flush();assert.equal(restored.network.requests.length,0,"SYMBIAN_RESTORED_CONTENT_REQUEST");

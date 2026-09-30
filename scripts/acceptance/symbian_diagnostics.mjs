@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 
-export async function symbianDebugPanel(opened) {
+export async function symbianDebugPanel(opened, screenshotPath) {
   await revealPreviewToolbar(opened.page);
   const toggle = opened.page.getByRole("button", {name: "调试信息", exact: true});
   await toggle.click();
@@ -17,6 +17,7 @@ export async function symbianDebugPanel(opened) {
   await opened.page.waitForTimeout(1_100);
   const after = await opened.page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount());
   assert.ok(after > before, "SYMBIAN_PUBLIC_FRAME_COUNT_STALLED");
+  if (screenshotPath) await opened.page.screenshot({path: screenshotPath});
   await toggle.click();
   return {fps: value, before, after};
 }
