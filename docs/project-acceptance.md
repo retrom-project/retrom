@@ -1241,7 +1241,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-002`。
 - 流程：导入缺 Disc 3 的三盘目录；记录 BLOCKED Review 后分别提交错误集合与精确缺失集合，等待 Attachment Job，重新读取 Review 并发布。
-- 通过标准：缺盘 entry 不引用假 Blob且 Approve 禁用；错误/意外 basename 不推进 effective snapshot；精确补传创建新不可变 snapshot 与 generation 4 READY validation，旧 snapshot/entry 保持不变，随后才可发布。网络重放不重复 Attachment，retryable failure 只能重试同一 Job。
+- 通过标准：缺盘 entry 不引用假 Blob且 Approve 禁用；错误/意外 basename 不推进 effective snapshot；精确补传创建新的不可变来源 snapshot，当前审核事实变为 READY；旧 snapshot/entry 在审核完成前保持不变，随后才可发布。网络重放不重复 Attachment，retryable failure 只能重试同一 Job。
 - 证据：前后 Review/ETag、Attachment/Job/event、两份 snapshot/entry、Blob 引用与发布结果。
 
 ### ACC-MDISC-003：解析、安全与容量负向
