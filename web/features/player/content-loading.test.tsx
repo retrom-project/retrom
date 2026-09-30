@@ -1,5 +1,7 @@
 import {afterEach, expect, it, vi} from "vitest";
-import {cleanup, render, screen, within} from "@testing-library/react";
+import {act, cleanup, render, screen, within} from "@testing-library/react";
+import {renderToString} from "react-dom/server";
+import {hydrateRoot, type Root} from "react-dom/client";
 import userEvent from "@testing-library/user-event";
 import {ContentLoadingField} from "./content-loading-field";
 import {readContentLoading, resolveContentLoading, writeContentLoading} from "./content-loading";
@@ -15,6 +17,25 @@ it("defaults to demand loading and remembers a device preference for the current
   expect(selector).toHaveValue("PRELOAD");
   expect(readContentLoading("user-1")).toBe("PRELOAD");
   expect(readContentLoading("user-2")).toBe("ON_DEMAND");
+});
+
+it("blocks native choices until hydration can persist user preferences", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  let root: Root | undefined;
+  try {
+    const field = <ContentLoadingField capability="ON_DEMAND_AND_PRELOAD" />;
+    host.innerHTML = renderToString(field);
+    const selector = within(host).getByRole("combobox", {name: "内容加载"});
+    expect(selector).toBeDisabled();
+    await act(async () => {root = hydrateRoot(host, field);});
+    expect(selector).toBeEnabled();
+    await userEvent.setup().selectOptions(selector, "PRELOAD");
+    expect(readContentLoading("user-1")).toBe("PRELOAD");
+  } finally {
+    await act(async () => {root?.unmount();});
+    host.remove();
+  }
 });
 
 it("keeps demand loading available when preference storage is blocked", () => {

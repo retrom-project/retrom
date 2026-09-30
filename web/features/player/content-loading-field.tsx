@@ -4,16 +4,19 @@ import {useId, useSyncExternalStore} from "react";
 import {useAuth} from "@/features/auth/auth-provider";
 import {readContentLoading, subscribeContentLoading, writeContentLoading, type ContentLoadingCapability} from "./content-loading";
 
+const subscribeHydration = () => () => undefined;
+
 export function ContentLoadingField({capability, label = "内容加载"}: {capability?: ContentLoadingCapability | null; label?: string}) {
   const {context} = useAuth();
   const userId = context.user?.userId;
   const id = useId();
   const mode = useSyncExternalStore(subscribeContentLoading, () => readContentLoading(userId), () => "ON_DEMAND");
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   if (!capability) {return null;}
   const preloadOnly = capability === "PRELOAD_ONLY";
   return <div className="field content-loading-field">
     <label htmlFor={id}>{label}</label>
-    <select id={id} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
+    <select id={id} disabled={!hydrated} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
       if (!preloadOnly) {writeContentLoading(userId, event.target.value === "PRELOAD" ? "PRELOAD" : "ON_DEMAND");}
     }}>
       {!preloadOnly ? <option value="ON_DEMAND">按需加载</option> : null}
