@@ -2936,7 +2936,7 @@
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks">任务进度</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>导入游戏</button></div>
         </div>
         <div class="rt-ingest-priority-grid">
-          <article class="rt-ingest-priority is-warning"><div><span class="rt-badge rt-badge-amber">需要处理</span><h2>待审核条目</h2><p class="rt-subtitle">运行检查已完成，等待管理员确认发布信息。</p></div><div><strong>4</strong><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></article>
+          <article class="rt-ingest-priority is-warning"><div><span class="rt-badge rt-badge-amber">需要处理</span><h2>待审核条目</h2><p class="rt-subtitle">页面读取当前运行依赖，等待管理员确认发布信息。</p></div><div><strong>4</strong><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></article>
           <article class="rt-ingest-priority is-danger"><div><span class="rt-badge rt-badge-red">阻塞进度</span><h2>异常任务</h2><p class="rt-subtitle">文件、依赖或运行检查存在问题，需要先处理。</p></div><div><strong>3</strong><button type="button" class="rt-button" data-page-link="admin-import-tasks">查看异常任务</button></div></article>
         </div>
         <div class="rt-ingest-stat-grid">
@@ -3122,7 +3122,7 @@
         <section class="rt-rpg-review-design" data-rpg-review-design hidden aria-label="RPG Maker 运行审核详情">
           <div class="rt-rpg-review-top">
             <article class="rt-rpg-card">
-              <div class="rt-section-head"><div><span class="rt-badge rt-badge-purple">RPG Maker 2000</span><h2>Lucky</h2><p>原始项目已冻结为当前来源快照；输入变化会原子切换当前校验，Provider/Target 身份保持稳定。</p></div><span class="rt-badge rt-badge-green">依赖已就绪</span></div>
+              <div class="rt-section-head"><div><span class="rt-badge rt-badge-purple">RPG Maker 2000</span><h2>Lucky</h2><p>原始项目已冻结为当前来源快照；页面读取当前来源与依赖事实，Provider/Target 身份保持稳定。</p></div><span class="rt-badge rt-badge-green">依赖已就绪</span></div>
               <div class="rt-rpg-binding"><div><span>所选版本</span><strong>RPG Maker 2000</strong></div><div><span>内容校验</span><strong>一致</strong></div><div><span>项目资源</span><strong>项目自包含</strong></div><div><span>试运行</span><strong>按需进行</strong></div></div>
               <label class="rt-check"><input type="checkbox" data-rpg-self-contained>确认项目自包含 RTP</label><p class="rt-subtitle">仅 2000/2003/XP/VX/VX Ace 提供此确认；忽略外部 RTP 声明并允许发布，不会补充缺失素材。</p>
             </article>

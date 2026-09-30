@@ -80,8 +80,6 @@ func (service *Service) ensureWritable(ctx context.Context, records LaunchReader
 		if current.GameStatus != "PUBLISHED" {
 			return ErrCredential
 		}
-	} else if current.ItemState != "REVIEW_PENDING" || current.PayloadState != "RETAINED" {
-		return ErrCredential
 	}
 	if payloadSize > min(current.Checkpoint.MaxBytes, maxStoredCheckpointBytes) {
 		return ErrTooLarge

@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	librarycomposition "retrom/internal/composition/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
+
 	"retrom/internal/testsupport/importfixture"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
@@ -42,6 +45,7 @@ type assemblyFixture struct {
 	database dbapi.DB
 	source   *launch.Sources
 	service  *application.Service
+	previews *libraryservice.ReviewPreviews
 	importer *libraryimport.Service
 	itemID   string
 	now      func() time.Time
@@ -87,12 +91,12 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 		t.Fatal(err)
 	}
 	source := launch.NewSources(blobs, credentials).WithRuntimeProvider(builder)
-	variants := variantcomposition.New(database.SQL, source, now)
+	variants := variantcomposition.New(database.SQL, source, now, blobs)
 	service := composition.New(database.SQL, source, "http://localhost:3000", now, variants.Dispatch)
 	t.Cleanup(variants.Close)
 	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now})
 	itemID := uploadAssemblyROM(t, database.SQL, blobs, dir, importer, now)
-	return assemblyFixture{database.SQL, source, service, importer, itemID, now}
+	return assemblyFixture{database: database.SQL, source: source, service: service, previews: librarycomposition.NewReviewPreviews(database.SQL, source, application.PreviewEnvironment{Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation}, blobs), importer: importer, itemID: itemID, now: now}
 }
 
 func uploadAssemblyROM(t *testing.T, database dbapi.DB, blobs *filestore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {

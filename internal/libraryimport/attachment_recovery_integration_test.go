@@ -78,14 +78,14 @@ func newAttachmentRecoveryFixture(t *testing.T, kind string) attachmentRecoveryF
 		if err != nil {
 			t.Fatal(err)
 		}
-		itemID, version, snapshot, validation := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+		itemID, version, snapshot := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 		uploadID = completeMultiDiscUpload(t, ctx, database, files, root, "FILES", []multiDiscUploadFile{{path: "b.zip", contents: arcadeZIP(t, "b.bin", []byte("parent"))}})
 		var fileID string
 		if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM upload_files WHERE upload_session_id=?`, uploadID).Scan(&fileID); err != nil {
 			t.Fatal(err)
 		}
 		importer.Close() // Suppress the volatile wakeup while exercising durable admission.
-		attached, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{ValidationID: validation, BaseSourceSnapshotID: snapshot, DependencyMachine: "b", UploadFileID: fileID})
+		attached, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{BaseSourceSnapshotID: snapshot, DependencyMachine: "b", UploadFileID: fileID})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ func newAttachmentRecoveryFixture(t *testing.T, kind string) attachmentRecoveryF
 		if err != nil {
 			t.Fatal(err)
 		}
-		itemID, version, _, _ := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+		itemID, version, _ := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 		uploadID = completeMultiDiscUpload(t, ctx, database, files, root, "FILES", []multiDiscUploadFile{{path: "two.chd", contents: fakeCHD("two")}})
 		importer.Close()
 		attached, err := importer.CreateMultiDiscAttachment(ctx, itemID, version, MultiDiscAttachmentRequest{UploadID: uploadID})

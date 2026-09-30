@@ -21,7 +21,8 @@ func transitionServerReviewOwner(
 		return 0, libraryservice.ErrInvalid
 	}
 	result, err := update(ctx, transaction, recordstore.Update{
-		Set: "execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?", Values: []any{state, gameID, now},
+		Set: `execution_state=?,published_game_id=?,library_import_item_id=NULL,library_import_job_id=NULL,
+version=version+1,updated_at_ms=?`, Values: []any{state, gameID, now},
 		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
  OR ? AND ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
 `, Args: []any{importItemID, change.Mode == libraryservice.ReviewDiscardBatch, state}},
@@ -50,7 +51,7 @@ func transitionServerReviewOwner(
 }
 
 func refreshSourceReviewCounts(
-	ctx context.Context, transaction dbapi.Executor, importItemID string, now int64,
+	ctx context.Context, transaction dbapi.Executor, sourceImportID string, now int64,
 ) error {
 	if _, err := recordstore.UpdateSourceImports(ctx, transaction, recordstore.Update{
 		Set: `
@@ -70,9 +71,9 @@ version=version+1,updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
 			Where: `
-id=(SELECT import_id FROM source_import_items WHERE library_import_item_id=? LIMIT 1)
+id=?
 `,
-			Args: []any{importItemID},
+			Args: []any{sourceImportID},
 		},
 		Values: []any{now},
 	}); err != nil {

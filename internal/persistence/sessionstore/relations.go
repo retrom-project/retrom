@@ -82,12 +82,12 @@ func revokePreviewCapability(ctx context.Context, tx dbapi.Executor, id string) 
 	if _, err := recordstore.UpdateIsolatedRuntimeCapabilities(ctx, tx, recordstore.Update{
 		Set: `
 revoked_at_ms=(
-SELECT finished_at_ms FROM review_preview_sessions WHERE id=?)
+SELECT finished_at_ms FROM runtime_preview_sessions WHERE id=?)
 `,
 		Scope: recordstore.Scope{
 			Where: `
 preview_id=? AND revoked_at_ms IS NULL AND EXISTS(
-SELECT 1 FROM review_preview_sessions preview WHERE preview.id=preview_id
+SELECT 1 FROM runtime_preview_sessions preview WHERE preview.id=preview_id
 AND preview.state IN ('FINISHED','EXPIRED','REVOKED'))
 `,
 			Args: []any{id},

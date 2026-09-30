@@ -42,11 +42,11 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 ) VALUES('current-snes','snes','snes9x','Current SNES','current-snes',2,1,1,1,1)`,
 		`INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
  'current-game','current-nes','Current game','C','','','','',1,NULL,
- 'ADMIN_EDIT',NULL,'SINGLE_FILE','ADMIN_REPLACE','current-game-source',
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',
  '{}','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','PUBLISHED','current game',1,1,1
 )`,
 	} {
@@ -143,14 +143,14 @@ manifest_fragment_json
 ) VALUES('current-platform','nes','fceumm','Current platform','current-platform',1,1,1,1,1)`,
 		`INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,created_at_ms,updated_at_ms
 ) VALUES
  ('current-game-a','current-platform','Current game A','C','','','','','ADMIN_EDIT','SINGLE_FILE',
-  'ADMIN_REPLACE','current-source-a','{}','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'ADMIN_REPLACE','{}','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   'PUBLISHED','current game a',1,1),
  ('current-game-b','current-platform','Current game B','C','','','','','ADMIN_EDIT','SINGLE_FILE',
-  'ADMIN_REPLACE','current-source-b','{}','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'ADMIN_REPLACE','{}','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   'PUBLISHED','current game b',1,1)`,
 		`INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,

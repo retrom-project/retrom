@@ -24,10 +24,10 @@ type ReviewPreviewCreated struct {
 	Capability string `json:"-"`
 }
 type PreviewSource struct {
-	SourceSnapshotID, PlatformInstanceID, PlatformName, PlatformKey        string
-	ProviderID, TargetID, BundleSHA256, CoreID, DeliveryProfile            string
-	Title, ContentKind, ValidationID, ValidationStatus, DependencySnapshot string
-	DefaultDOSEntry, SelectedValidationID, DATVersionID                    *string
+	SourceSnapshotID, PlatformInstanceID, PlatformName, PlatformKey string
+	ProviderID, TargetID, BundleSHA256, CoreID, DeliveryProfile     string
+	Title, ContentKind, ValidationStatus, DependencySnapshot        string
+	DefaultDOSEntry, DATVersionID                                   *string
 }
 type PreviewFile struct {
 	Role, LogicalName, FileRecord string
@@ -62,26 +62,24 @@ type PreviewCreatePlan struct {
 	CredentialHash                   []byte
 	NowMS, BootstrapEnd, HardEnd     int64
 	RestoreFileRecord, RestoreFormat *string
+	RestoreSourceFileRecord          string
 	Isolation                        *IsolationTicket
 }
-type PreviewCreationScope interface {
-	Replay(context.Context, string, string) (PreviewReceipt, bool, error)
-	Current(context.Context, ReviewPreviewRequest) (PreviewSource, string, bool, error)
+
+// PreviewSessionScope writes a session in the source owner's transaction.
+type PreviewSessionScope interface {
 	Restore(context.Context, string) (PreviewRestore, bool, error)
 	Create(context.Context, PreviewCreatePlan) error
-}
-type PreviewCreationRepository interface {
-	Replay(context.Context, string, string) (PreviewReceipt, bool, error)
-	Snapshot(context.Context, string) (PreviewSnapshot, bool, error)
-	WithCreation(context.Context, func(PreviewCreationScope) error) error
 }
 type PreviewProvider interface {
 	Target(string, string) (runtimebundle.Target, bool)
 	BundleSHA256(string, string) (string, bool)
 }
 type PreviewEnvironment struct {
-	Now            func() time.Time
-	NewID          func() (string, error)
-	SignCapability func(string) (string, []byte, error)
-	SignIsolation  func(string) (IsolationTicket, error)
+	Now                   func() time.Time
+	NewID                 func() (string, error)
+	SignCapability        func(string) (string, []byte, error)
+	SignIsolation         func(string) (IsolationTicket, error)
+	CopyRestorePayload    func(context.Context, string, string) (string, error)
+	DiscardPreviewPayload func(context.Context, string) error
 }

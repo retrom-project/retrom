@@ -697,7 +697,6 @@ components:
         selected: {}
         selectedAssets: {}
         selectedCandidateId: {}
-        selectedValidationId: {}
         sequence: {}
         sha1: {}
         sha256: {}
@@ -757,6 +756,8 @@ components:
         uploadPartCount: {}
         uploadSessionId: {}
         validatedRequirementVersion: {}
+        readiness:
+          $ref: ../domains/reviews.yaml#/components/schemas/ReviewReadiness
         validation: {}
         validationDetails: {}
         validationJobId: {}

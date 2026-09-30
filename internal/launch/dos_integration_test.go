@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/testsupport/importfixture"
 
 	variantrepository "retrom/internal/persistence/gamevariant"
@@ -122,16 +124,16 @@ WHERE import_job_id=?
 	var selectedDefault sql.NullString
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*)
-FROM import_item_core_validations
+FROM (`+contentquery.CurrentContentSQL+`)
 WHERE import_item_id=?),
 v.default_dos_entry
 FROM import_items d
-JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+JOIN (`+contentquery.CurrentContentSQL+`) v ON v.import_item_id=d.id
 WHERE d.id=?
 `, itemID, itemID).Scan(&validationCount, &selectedDefault); err != nil ||
-		validationCount != 2 ||
+		validationCount != 1 ||
 		selectedDefault.Valid {
-		t.Fatalf("DOS default validation clone = %d/%v, error=%v", validationCount, selectedDefault, err)
+		t.Fatalf("DOS current default = %d/%v, error=%v", validationCount, selectedDefault, err)
 	}
 	approved, err := importService.Approve(ctx, itemID, 2)
 	testassert.False(t, err != nil, err)

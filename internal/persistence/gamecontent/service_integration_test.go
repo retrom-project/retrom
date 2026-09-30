@@ -382,21 +382,19 @@ WHERE id=?
 		testassert.Any(func() bool { return replacementContent != originalContent },
 			func() bool { return replacedVersion != initialVersion+1 }),
 		"content/version = %s/%d, wanted stable/%d", replacementContent, replacedVersion, initialVersion+1)
-	var sourceKind, sourceRef, variantContent string
+	var sourceKind, variantContent string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT c.content_source_kind,
-c.content_source_ref_id,
 v.game_id
 FROM games c
 JOIN game_variants v ON v.game_id=c.id
 WHERE c.id=?
-`, replacementContent).Scan(&sourceKind, &sourceRef, &variantContent); err != nil {
+`, replacementContent).Scan(&sourceKind, &variantContent); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" },
-		func() bool { return sourceRef != scheduled.JobID },
-		func() bool { return variantContent != replacementContent }), "published content = %s/%s/%s",
-		sourceKind, sourceRef, variantContent)
+		func() bool { return variantContent != replacementContent }), "published content = %s/%s",
+		sourceKind, variantContent)
 	assertSupersededContentReleased(
 		t, ctx, database.SQL, published.GameID, originalContent, saveID, launchID, savePayloads,
 	)
@@ -435,7 +433,7 @@ WHERE id=?
 	}
 	var failedReplacementCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT count(*) FROM games WHERE content_source_ref_id=?
+SELECT count(*) FROM jobs WHERE id=? AND state='SUCCEEDED'
 `, failed.JobID).Scan(&failedReplacementCount); err != nil ||
 		failedReplacementCount != 0 {
 		t.Fatalf("failed replacement count = %d, error=%v", failedReplacementCount, err)

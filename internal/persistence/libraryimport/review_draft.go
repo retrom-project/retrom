@@ -24,31 +24,15 @@ type (
 	DraftResult    = libraryservice.DraftResult
 )
 
-// DraftValidationRefresher is supplied by the legacy validation subsystem
-// until that subsystem completes its own repository extraction. It receives
-// only the common executor contract, so this repository still owns the
-// transaction and all draft writes.
-type DraftValidationRefresher func(
-	context.Context, dbapi.Executor, string, string, sql.NullString,
-) (string, error)
-
-type ScummVMSelector func(
-	context.Context, dbapi.Executor, string, string, sql.NullString, string,
-) (string, error)
-
 type ReviewDraftPatchOptions struct {
-	Tags              *tagging.Service
-	Now               func() time.Time
-	RefreshValidation DraftValidationRefresher
-	SelectScummVM     ScummVMSelector
+	Tags *tagging.Service
+	Now  func() time.Time
 }
 
 type ReviewDraftPatches struct {
-	database          dbapi.DB
-	tags              *tagging.Service
-	now               func() time.Time
-	refreshValidation DraftValidationRefresher
-	selectScummVM     ScummVMSelector
+	database dbapi.DB
+	tags     *tagging.Service
+	now      func() time.Time
 }
 
 func NewReviewDraftPatches(database dbapi.DB, options ReviewDraftPatchOptions) *ReviewDraftPatches {
@@ -58,7 +42,6 @@ func NewReviewDraftPatches(database dbapi.DB, options ReviewDraftPatchOptions) *
 	}
 	return &ReviewDraftPatches{
 		database: database, tags: options.Tags, now: now,
-		refreshValidation: options.RefreshValidation, selectScummVM: options.SelectScummVM,
 	}
 }
 
@@ -98,7 +81,6 @@ type draftPatchRun struct {
 	actor               authn.Actor
 	draftID             string
 	targetID            string
-	validationID        string
 	effectiveSnapshotID string
 	metadataJSON        string
 	candidateID         sql.NullString
@@ -114,7 +96,7 @@ type draftPatchRun struct {
 func (run *draftPatchRun) load() error {
 	var currentVersion int64
 	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
-SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
+SELECT d.id,d.target_platform_instance_id,
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
   d.metadata_json,d.review_version,
@@ -123,7 +105,7 @@ FROM import_items i
 JOIN import_items d ON d.id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, run.itemID).Scan(
-		&run.draftID, &run.targetID, &run.validationID, &run.effectiveSnapshotID,
+		&run.draftID, &run.targetID, &run.effectiveSnapshotID,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
 		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.isRPG,
 	)
@@ -141,18 +123,15 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 
 func (run *draftPatchRun) applyChanges() error {
 	steps := []func() error{
-		run.applyMetadata, run.applyTarget, run.applySelectedValidation,
+		run.applyMetadata, run.applyTarget,
 		run.applySelectedCandidate, run.applyDefaultDOSEntry, run.applyRPGMakerBinding,
-		run.refreshValidation, run.applyScummVMSelection,
+		run.applyScummVMSelection,
 		run.applySelectedAssets,
 	}
 	for _, step := range steps {
 		if err := step(); err != nil {
 			return err
 		}
-	}
-	if run.targetOrDOSChanged && run.validationID == "" {
-		return libraryservice.ErrInvalid
 	}
 	return nil
 }
@@ -249,26 +228,6 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 	return nil
 }
 
-func (run *draftPatchRun) applySelectedValidation() error {
-	if run.patch.SelectedValidationID == nil {
-		return nil
-	}
-	if run.isRPG {
-		return libraryservice.ErrInvalid
-	}
-	var targetID, snapshotID, status string
-	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
-SELECT target_platform_instance_id,source_snapshot_id,status
-FROM import_item_core_validations
-WHERE id=? AND import_item_id=?
-`, *run.patch.SelectedValidationID, run.itemID).Scan(&targetID, &snapshotID, &status)
-	if err != nil || targetID != run.targetID || snapshotID != run.effectiveSnapshotID || status != "READY" {
-		return libraryservice.ErrInvalid
-	}
-	run.validationID = *run.patch.SelectedValidationID
-	return nil
-}
-
 func (run *draftPatchRun) applySelectedCandidate() error {
 	present, selectedCandidate := run.patch.SelectedCandidateID.Optional()
 	if !present {
@@ -312,23 +271,6 @@ WHERE import_item_id=? AND normalized_path=? AND enabled=1
 		run.dosEntry = sql.NullString{String: *defaultEntry, Valid: true}
 	}
 	run.targetOrDOSChanged = run.targetOrDOSChanged || previous != nullable(run.dosEntry)
-	return nil
-}
-
-func (run *draftPatchRun) refreshValidation() error {
-	if run.patch.SelectedValidationID != nil {
-		return nil
-	}
-	if run.repository.refreshValidation == nil {
-		return libraryservice.ErrInvalid
-	}
-	validationID, err := run.repository.refreshValidation(
-		run.ctx, run.transaction, run.itemID, run.targetID, run.dosEntry,
-	)
-	if err != nil {
-		return err
-	}
-	run.validationID = validationID
 	return nil
 }
 
@@ -458,7 +400,7 @@ ORDER BY s.sort_order,s.role,s.logical_name
 func (run *draftPatchRun) updateDraft(encoded []byte, searchParts []string, now int64) error {
 	result, err := recordstore.UpdateReviewItems(run.ctx, run.transaction, recordstore.Update{
 		Set: `
-target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
+target_platform_instance_id=?,
   selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
   review_version=review_version+1,review_updated_at_ms=?
@@ -469,7 +411,6 @@ target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
 		},
 		Values: []any{
 			run.targetID,
-			run.validationID,
 			nullable(run.candidateID),
 			nullable(run.coverID),
 			nullable(run.uploadedCoverID),

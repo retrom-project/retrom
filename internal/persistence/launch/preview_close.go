@@ -40,7 +40,7 @@ func (records previewCloseRecords) Preview(
 ) (application.PreviewCloseSource, bool, error) {
 	var source application.PreviewCloseSource
 	err := dbapi.QueryRowContext(ctx, records.transaction, `
-SELECT id,credential_sha256,state,hard_expires_at_ms,version FROM review_preview_sessions WHERE id=?`, id).
+SELECT id,credential_sha256,state,hard_expires_at_ms,version FROM runtime_preview_sessions WHERE id=?`, id).
 		Scan(&source.ID, &source.Session.CredentialHash, &source.Session.State,
 			&source.Session.HardExpiresAtMS, &source.Version)
 	if errors.Is(err, sql.ErrNoRows) {

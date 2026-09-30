@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/content/arcade"
 	"retrom/internal/jobinput"
 
 	contentcapability "retrom/internal/content/capability"
@@ -65,7 +66,6 @@ func ParentAttachmentErrorCode(err error) string {
 }
 
 type ParentAttachmentRequest struct {
-	ValidationID         string `json:"validationId"`
 	BaseSourceSnapshotID string `json:"baseSourceSnapshotId"`
 	DependencyMachine    string `json:"dependencyMachine"`
 	UploadFileID         string `json:"uploadFileId"`
@@ -139,7 +139,7 @@ func invalidParentAttachmentRequest(
 	expectedVersion int64,
 	request ParentAttachmentRequest,
 ) bool {
-	return expectedVersion < 1 || itemID == "" || request.ValidationID == "" ||
+	return expectedVersion < 1 || itemID == "" ||
 		request.BaseSourceSnapshotID == "" || request.UploadFileID == "" ||
 		!validArcadeMachine(request.DependencyMachine) || service.blobs == nil
 }
@@ -211,7 +211,7 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 }
 
 func (setup *parentAttachmentSetup) validateSelectedValidation() error {
-	validation, found, err := setup.scope.Read.Validation(setup.ctx, setup.request.ValidationID, setup.itemID)
+	validation, found, err := setup.scope.Read.Validation(setup.ctx, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
 	}
@@ -295,7 +295,7 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 	now := setup.service.now().UnixMilli()
 	dedupe := sha256.Sum256([]byte(strings.Join([]string{
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
-		setup.blobSHA, setup.request.ValidationID,
+		setup.blobSHA, setup.activeDATID,
 	}, "\x00")))
 	err = setup.scope.Write.Create(setup.ctx, libraryservice.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
@@ -348,11 +348,14 @@ func attachmentDependency(snapshot arcadeDraftSnapshot, machine string) (arcadeD
 
 func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	ctx context.Context,
-	reader libraryservice.ArcadeRelationReader,
+	reader arcade.RelationReader,
 	raw string,
 ) (arcadeDraftSnapshot, error) {
-	snapshot, err := libraryservice.CanonicalArcadeSnapshot(ctx, reader, raw)
+	snapshot, err := arcade.CanonicalSnapshot(ctx, reader, raw)
 	if err != nil {
+		if errors.Is(err, arcade.ErrInvalid) {
+			err = errors.Join(ErrInvalid, err)
+		}
 		return arcadeDraftSnapshot{}, fmt.Errorf("read canonical arcade snapshot: %w", err)
 	}
 	return snapshot, nil

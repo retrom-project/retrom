@@ -41,9 +41,9 @@ SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.v
 json_extract(blob.value, '$.sha256'),
 CASE WHEN file.role='DISC' THEN 'DISC' ELSE 'BIOS' END,
 platform.id,binding.core_id,preview.provider_id,preview.target_id,preview.bundle_sha256,
-(SELECT count(*) FROM review_preview_files disc WHERE disc.preview_session_id=preview.id AND disc.role='DISC')
-FROM review_preview_sessions preview
-JOIN review_preview_files file ON file.preview_session_id=preview.id AND file.role IN ('EXTERNAL_FILE','DISC')
+(SELECT count(*) FROM runtime_preview_files disc WHERE disc.preview_session_id=preview.id AND disc.role='DISC')
+FROM runtime_preview_sessions preview
+JOIN runtime_preview_files file ON file.preview_session_id=preview.id AND file.role IN ('EXTERNAL_FILE','DISC')
 JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
 binding.target_id=preview.target_id

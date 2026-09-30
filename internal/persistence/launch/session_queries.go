@@ -24,7 +24,7 @@ func (repository *SessionQueries) Session(
  FROM launch_sessions WHERE id=?`
 	if ref.Preview {
 		query = `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
- FROM review_preview_sessions WHERE id=?`
+ FROM runtime_preview_sessions WHERE id=?`
 	}
 	return scanSession(dbapi.QueryRowContext(ctx, repository.executor, query, ref.ID))
 }
@@ -35,7 +35,7 @@ func (repository *SessionQueries) SaveSession(ctx context.Context, id string) (a
  FROM launch_sessions WHERE id=?
  UNION ALL
  SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
- FROM review_preview_sessions WHERE id=?
+ FROM runtime_preview_sessions WHERE id=?
  `, id, id))
 }
 

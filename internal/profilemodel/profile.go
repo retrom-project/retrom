@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+
+	"retrom/internal/core/scummvm"
 )
 
 var (
@@ -14,7 +16,10 @@ var (
 	ErrInvalidData  = errors.New("invalid profile data")
 )
 
-const RPGMakerProject = "RPG_MAKER_PROJECT"
+const (
+	RPGMakerProject = "RPG_MAKER_PROJECT"
+	ScummVMProject  = "SCUMMVM_PROJECT"
+)
 
 type Scope string
 
@@ -32,7 +37,10 @@ type envelope struct {
 // Each owner has its own model for a kind. New content kinds register their
 // model here without changing the database schema or the envelope format.
 var models = map[Scope]map[string]func() any{
-	Review:  {RPGMakerProject: func() any { return new(RPGReview) }},
+	Review: {
+		ScummVMProject:  func() any { return new(scummvm.Snapshot) },
+		RPGMakerProject: func() any { return new(RPGReview) },
+	},
 	Game:    {RPGMakerProject: func() any { return new(RPGGame) }},
 	Variant: {RPGMakerProject: func() any { return new(RPGVariant) }},
 }

@@ -59,7 +59,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 		dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
-	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now)
+	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now, nil)
 	server := &testServer{
 		database: database.SQL,
 		Server: &Server{
@@ -94,10 +94,10 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	gameID, variantID := "01980000-0000-7000-8000-000000000191", "01980000-0000-7000-8000-000000000192"
 	// The worker only needs relational content evidence; no runtime Provider build runs here.
 	validationRetrySQL(t, database, `INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
-metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+metadata_source_kind,content_kind,content_source_kind,source_manifest_json,
 source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
  VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),'Worker fixture',
-'W','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,'PUBLISHED','worker fixture',
+'W','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','{}',?,'PUBLISHED','worker fixture',
 1,?,?)`, gameID, strings.Repeat("1", 64), now, now)
 	validationRetrySQL(t, database, `INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order) VALUES(?,'CONTENT','worker.gbc',?,0)`, gameID, testsupport.FileMetadata("worker").Record)
 	validationRetrySQL(t, database, `INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,status,compatibility_code,

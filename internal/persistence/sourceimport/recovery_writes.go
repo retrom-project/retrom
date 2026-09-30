@@ -120,9 +120,13 @@ func (records recoveryRecords) recoverItems(
 	}
 	_, err := recordstore.UpdateSourceImportItems(ctx, records.tx, recordstore.Update{
 		Set: `execution_state=?,error_code=?,error_details_json=NULL,retryable=0,completed_at_ms=?,
-version=version+1,updated_at_ms=?`,
-		Values: []any{change.ItemState, optionalText(change.ItemCode), finished, change.NowMS},
-		Scope:  recordstore.Scope{Where: scope, Args: []any{change.Before.ImportID}},
+version=version+1,updated_at_ms=?,
+library_import_job_id=CASE WHEN ?='PENDING' THEN library_import_job_id ELSE NULL END,
+library_import_item_id=CASE WHEN ?='PENDING' THEN library_import_item_id ELSE NULL END`,
+		Values: []any{
+			change.ItemState, optionalText(change.ItemCode), finished, change.NowMS, change.ItemState, change.ItemState,
+		},
+		Scope: recordstore.Scope{Where: scope, Args: []any{change.Before.ImportID}},
 	})
 	if err != nil {
 		return fmt.Errorf("recover unfinished Source items: %w", err)

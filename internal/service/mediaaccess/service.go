@@ -92,7 +92,7 @@ func sourceMedia(ctx context.Context, reader Reader, id, kind string) (Resource,
 }
 
 func visibleReview(asset ReviewAsset) bool {
-	owner := asset.ItemState == "REVIEW_PENDING" || asset.TerminalReview
+	owner := asset.ItemState == "REVIEW_PENDING"
 	switch asset.Kind {
 	case "CANDIDATE":
 		return asset.State == "READY" && (owner || asset.GameState == "PUBLISHED")

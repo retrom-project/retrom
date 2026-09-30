@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	librarypersistence "retrom/internal/persistence/libraryimport"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
@@ -74,16 +76,15 @@ func refreshRPGDraft(t *testing.T, importer *Service, itemID string, version int
 
 func assertRPGDependencyStatus(t *testing.T, database dbapi.DB, itemID, status, code string) string {
 	t.Helper()
-	var id, gotStatus, gotCode string
-	if err := dbapi.QueryRowContext(t.Context(), database, `
-SELECT id,status,compatibility_code FROM import_item_core_validations WHERE import_item_id=?
-ORDER BY created_at_ms DESC,id DESC LIMIT 1`, itemID).Scan(&id, &gotStatus, &gotCode); err != nil {
+	runtime, err := librarypersistence.ReadReviewRuntime(t.Context(), database, itemID)
+	if err != nil {
 		t.Fatal(err)
 	}
+	gotStatus, gotCode := runtime.Status, runtime.Code
 	if gotStatus != status || gotCode != code {
 		t.Fatalf("RPG dependency status=%s/%s want %s/%s", gotStatus, gotCode, status, code)
 	}
-	return id
+	return itemID
 }
 
 func requiredRPGPackArchive(t *testing.T) []byte {

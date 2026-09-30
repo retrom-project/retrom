@@ -37,7 +37,7 @@ try {
     assert.equal(ordinary.canApprove,true);
     const ordinaryPublished = await approve(client,ordinary,201);
     const external = await importReview(client,externalDeclaration(files,generation),platformId);
-    assert.equal(external.validation.compatibilityCode,"RPG_EXTERNAL_RTP_REQUIRED");
+    assert.equal(external.readiness.compatibilityCode,"RPG_EXTERNAL_RTP_REQUIRED");
     assert.equal(external.canApprove,false);
     const rejected = await approve(client,external,409);
     const confirmed = generation === "rpg2000"

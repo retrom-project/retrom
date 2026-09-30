@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	variantcomposition "retrom/internal/composition/gamevariant"
 	librarycomposition "retrom/internal/composition/libraryimport"
 	librarypersistence "retrom/internal/persistence/libraryimport"
@@ -85,11 +87,11 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 		MetadataProvider: "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "arcade import = %#v, error=%v", created, err)
-	itemID, _, _, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	itemID, _, _ := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	var validationStatus, dependencySnapshot string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE id=?
-`, validationID).Scan(&validationStatus, &dependencySnapshot); err != nil {
+SELECT status,dependency_snapshot_json FROM (`+contentquery.CurrentContentSQL+`) WHERE import_item_id=?
+`, itemID).Scan(&validationStatus, &dependencySnapshot); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
@@ -150,7 +152,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 		MetadataProvider: "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "child import = %#v, error=%v", created, err)
-	itemID, version, snapshotID, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	itemID, version, snapshotID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	if source {
 		linkReviewToSourceOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
@@ -161,12 +163,12 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	testassert.Falsef(t, testassert.Any(func() bool { return view.Machine != "a" }, func() bool { return len(view.Nodes) != 2 }), "initial dependency view = %#v", view)
 	parent := uploadCompleteFile(t, ctx, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
-		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
+		BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
 		UploadFileID: parent.fileID,
 	})
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
-	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	itemID, version, snapshotID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
 	var snapshotCount int
 	var validationStatus, validationCode, snapshotSource string
@@ -174,15 +176,15 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 SELECT snapshot.created_by,validation.status,validation.compatibility_code,
 (SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=snapshot.import_item_id)
 FROM import_item_source_snapshots snapshot
-JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
-WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.source_snapshot_id=snapshot.id
+WHERE snapshot.id=?
 `, snapshotID).Scan(&snapshotSource, &validationStatus, &validationCode, &snapshotCount); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
 	wrong := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
-		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
+		BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: wrong.fileID,
 	})
 	testassert.False(t, err != nil, err)
@@ -197,15 +199,15 @@ WHERE attachment.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return attachmentState != "REJECTED" }, func() bool { return attachmentCode != ParentErrorMismatch }, func() bool { return currentSnapshotID != snapshotID }), "wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
-	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	itemID, version, snapshotID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "renamed-root.zip", rootZIP)
 	acceptedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
-		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
+		BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: root.fileID,
 	})
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedC.JobID, "SUCCEEDED")
-	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	itemID, version, snapshotID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
@@ -213,8 +215,8 @@ SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
 		t.Fatalf("source evidence count = %d, error=%v", snapshotCount, err)
 	}
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?
-`, validationID).Scan(&validationStatus, &validationCode); err != nil ||
+SELECT status,compatibility_code FROM (`+contentquery.CurrentContentSQL+`) WHERE import_item_id=?
+`, itemID).Scan(&validationStatus, &validationCode); err != nil ||
 		validationStatus != "READY" || validationCode != "READY" {
 		t.Fatalf("final validation = %s/%s, error=%v", validationStatus, validationCode, err)
 	}
@@ -226,6 +228,7 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
 		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
 	}
+	changeDATBetweenPublicationTransactions(t, importer, database.SQL, itemID)
 	approved, err := importer.Approve(ctx, itemID, version)
 	testassert.False(t, err != nil, err)
 	if source {
@@ -258,7 +261,7 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
 	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
-	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now, blobs)
 	t.Cleanup(variants.Close)
 	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	coreID := "fbneo"
@@ -438,22 +441,17 @@ func arcadeZIPEntries(t *testing.T, entries map[string][]byte) []byte {
 	return result.Bytes()
 }
 
-func reviewAttachmentInputs(t *testing.T, database dbapi.DB, importID string) (string, int64, string, string) {
+func reviewAttachmentInputs(t *testing.T, database dbapi.DB, importID string) (string, int64, string) {
 	t.Helper()
-	var itemID, snapshotID, validationID string
+	var itemID, snapshotID string
 	var version int64
 	if err := dbapi.QueryRowContext(context.Background(), database, `
-SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,validation.id
-FROM import_items item JOIN import_items draft ON draft.id=item.id
-JOIN import_item_core_validations validation ON validation.id=COALESCE(
-draft.selected_validation_id,(SELECT candidate.id FROM import_item_core_validations candidate
-WHERE candidate.import_item_id=item.id AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1))
-WHERE item.import_job_id=?
-`, importID).Scan(&itemID, &version, &snapshotID, &validationID); err != nil {
+SELECT item.id,item.review_version,item.effective_source_snapshot_id
+FROM import_items item WHERE item.import_job_id=?
+`, importID).Scan(&itemID, &version, &snapshotID); err != nil {
 		t.Fatal(err)
 	}
-	return itemID, version, snapshotID, validationID
+	return itemID, version, snapshotID
 }
 
 func waitParentJob(t *testing.T, database dbapi.DB, jobID, wanted string) {

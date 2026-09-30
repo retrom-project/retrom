@@ -18,7 +18,7 @@ func (repository *creationRepositoryProbe) WithCreation(
 
 func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 	cause := errors.New("creation identity entropy unavailable")
-	for failure := 1; failure <= 5; failure++ {
+	for failure := 1; failure <= 4; failure++ {
 		repository := &creationRepositoryProbe{}
 		service := NewImportCreations(repository, nil, nil, nil, ImportCreationSettings{})
 		calls := 0

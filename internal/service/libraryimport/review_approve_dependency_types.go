@@ -3,20 +3,22 @@ package libraryimport
 import (
 	"context"
 
+	"retrom/internal/content/arcade"
+
 	contentcapability "retrom/internal/content/capability"
 	validation "retrom/internal/service/corevalidation"
 )
 
 type ApprovalDependencyInput struct {
-	SnapshotID, ValidationID, PlatformID, ProviderID, TargetID string
-	ContentKind, DependencyJSON                                string
-	Policy                                                     contentcapability.Policy
+	SnapshotID, ItemID, PlatformID, ProviderID, TargetID string
+	ContentKind, DependencyJSON                          string
+	Policy                                               contentcapability.Policy
 }
 
 type ApprovalDependencyScope struct {
 	Reader ApprovalDependencyReader
 	BIOS   validation.Repository
-	Arcade ArcadeRelationReader
+	Arcade arcade.RelationReader
 }
 
 type ApprovalDisc struct {
@@ -32,14 +34,9 @@ type ApprovalMultiDisc struct {
 	PlaylistCount, DiscCount, SourceCount, CanonicalCount int64
 }
 
-type (
-	ApprovalArcadeROM          = ArcadeROMRequirement
-	ApprovalArcadeRequirements = ArcadeCatalogRequirements
-)
-
 type ApprovalDependencyReader interface {
 	LogicalName(context.Context, string) (string, error)
 	MultiDisc(context.Context, string, string) (ApprovalMultiDisc, error)
-	ArcadeRequirements(context.Context, string, string) (ApprovalArcadeRequirements, error)
+	ArcadeRequirements(context.Context, string, string) (arcade.CatalogRequirements, error)
 	ExternalFileCount(context.Context, string, string, string) (int64, error)
 }

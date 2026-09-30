@@ -10,20 +10,20 @@ import (
 	"retrom/internal/persistence/recordstore"
 )
 
-func TestRPGReviewPreviewRuntimeFileBelongsToSelectedValidation(t *testing.T) {
+func TestRuntimePreviewResourcesAreFrozenAfterCreation(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
 	preview := fixture.preview(t, "runtime-files")
 	var count int
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
-SELECT count(*) FROM review_preview_files
+SELECT count(*) FROM runtime_preview_files
 WHERE preview_session_id=? AND role='RUNTIME_FILE' AND file_record='`+rpgFileRecord("rpg-index")+`'`, preview.PreviewID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("selected validation runtime file count=%d error=%v", count, err)
 	}
-	_, err := recordstore.CreateReviewPreviewFiles(t.Context(), fixture.database, `
-INSERT INTO review_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
+	_, err := recordstore.CreateRuntimePreviewFiles(t.Context(), fixture.database, `
+INSERT INTO runtime_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
 VALUES(?,'RUNTIME_FILE','unrelated.bin','`+rpgFileRecord("rpg-project-a")+`',99,?)`, preview.PreviewID, fixture.now.UnixMilli())
-	if err == nil || !strings.Contains(err.Error(), "invalid review preview runtime file") {
+	if err == nil || !strings.Contains(err.Error(), "invalid runtime resource owner") {
 		t.Fatalf("unrelated Blob accepted as runtime file: %v", err)
 	}
 }

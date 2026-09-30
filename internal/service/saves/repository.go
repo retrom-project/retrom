@@ -88,7 +88,6 @@ type GameSaveRecords interface {
 }
 
 type Launch struct {
-	ItemID                                  string
 	PrincipalID, ProfileID, Purpose, GameID string
 	ProviderID, TargetID                    string
 	DOSEntry                                *string
@@ -98,7 +97,7 @@ type Launch struct {
 	Checkpoint                              runtimebundle.Checkpoint
 	ContentFormat                           string
 	DiscCount, InitialDiscIndex             int
-	GameStatus, ItemState, PayloadState     string
+	GameStatus                              string
 	HasGameSaveBinding                      bool
 	localDraft                              bool
 }

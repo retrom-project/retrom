@@ -44,7 +44,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+	if _, err := recordstore.UpdateRuntimePreviewSessions(t.Context(), fixture.database, recordstore.Update{
 		Set: `restore_payload_file_record='` + rpgFileRecord("rpg-project-a") + `'`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,
@@ -56,7 +56,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 	if err := fixture.launcher.FinishReviewPreview(t.Context(), preview.PreviewID, preview.Capability); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+	if _, err := recordstore.UpdateRuntimePreviewSessions(t.Context(), fixture.database, recordstore.Update{
 		Set: `checkpoint_payload_file_record='` + rpgFileRecord("rpg-project-a") + `'`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,
@@ -65,7 +65,7 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 	}); err == nil {
 		t.Fatal("closed review accepted a checkpoint write")
 	}
-	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+	if _, err := recordstore.UpdateRuntimePreviewSessions(t.Context(), fixture.database, recordstore.Update{
 		Set: `restore_from_preview_id=?`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,

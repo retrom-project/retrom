@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
 )
@@ -16,13 +18,14 @@ func NewScreenshots(database dbapi.DB) *Screenshots { return &Screenshots{databa
 
 type screenshotRecords struct{ executor dbapi.Executor }
 
-const screenshotColumns = `preview.id,preview.import_item_id,preview.source_snapshot_id,
-preview.target_platform_instance_id,preview.validation_id,preview.provider_id,preview.target_id,
+const screenshotColumns = `preview.id,review_binding.import_item_id,review_binding.source_snapshot_id,
+preview.target_platform_instance_id,preview.provider_id,preview.target_id,
 preview.credential_sha256,preview.state,preview.hard_expires_at_ms`
 
 func (repository *Screenshots) Preview(ctx context.Context, id string) (libraryservice.ScreenshotSource, bool, error) {
 	return readScreenshotSource(dbapi.QueryRowContext(ctx, repository.database, `SELECT `+screenshotColumns+`
-FROM review_preview_sessions preview WHERE preview.id=?`, id))
+FROM runtime_preview_sessions preview
+JOIN review_preview_bindings review_binding ON review_binding.preview_session_id=preview.id WHERE preview.id=?`, id))
 }
 
 func (repository *Screenshots) WithScreenshot(
@@ -46,27 +49,17 @@ func (records screenshotRecords) Current(
 	ctx context.Context, id string,
 ) (libraryservice.ScreenshotSource, bool, error) {
 	return readScreenshotSource(dbapi.QueryRowContext(ctx, records.executor, `SELECT `+screenshotColumns+`
-FROM review_preview_sessions preview
-JOIN import_items item ON item.id=preview.import_item_id
+FROM runtime_preview_sessions preview
+JOIN review_preview_bindings review_binding ON review_binding.preview_session_id=preview.id
+JOIN import_items item ON item.id=review_binding.import_item_id
  AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED'
 JOIN import_items draft ON draft.id=item.id
- AND draft.effective_source_snapshot_id=preview.source_snapshot_id
+ AND draft.effective_source_snapshot_id=review_binding.source_snapshot_id
  AND draft.target_platform_instance_id=preview.target_platform_instance_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
-JOIN import_item_core_validations validation ON validation.id=preview.validation_id
- AND validation.import_item_id=preview.import_item_id
- AND validation.source_snapshot_id=preview.source_snapshot_id
- AND validation.target_platform_instance_id=preview.target_platform_instance_id
- AND validation.provider_id=preview.provider_id AND validation.target_id=preview.target_id
- AND validation.id=(
-  SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=preview.import_item_id
-   AND candidate.source_snapshot_id=preview.source_snapshot_id
-   AND candidate.target_platform_instance_id=preview.target_platform_instance_id
-   AND candidate.provider_id=preview.provider_id AND candidate.target_id=preview.target_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
- )
+JOIN (`+contentquery.CurrentContentSQL+`) content ON content.import_item_id=review_binding.import_item_id
+ AND content.provider_id=preview.provider_id AND content.target_id=preview.target_id
 WHERE preview.id=?`, id))
 }
 
@@ -77,7 +70,6 @@ func readScreenshotSource(row dbapi.Scanner) (libraryservice.ScreenshotSource, b
 		&source.ItemID,
 		&source.SourceSnapshotID,
 		&source.PlatformInstanceID,
-		&source.ValidationID,
 		&source.ProviderID,
 		&source.TargetID,
 		&source.CredentialHash,

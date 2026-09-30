@@ -198,17 +198,6 @@ func (service *Service) CreateProduct(
 	return result, nil
 }
 
-func (service *Service) CreateReviewPreview(
-	ctx context.Context,
-	request ReviewPreviewRequest,
-) (ReviewPreviewCreated, error) {
-	result, err := service.dependencies.Preview.Create(ctx, request)
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("review preview creation: %w", err)
-	}
-	return result, nil
-}
-
 func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
 	configuration, err := service.dependencies.Config.Issue(ctx, SessionRef{ID: id, Preview: true}, capability)
 	if err != nil {

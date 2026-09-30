@@ -13,7 +13,8 @@ func readRPGReviewProfile(
 ) (*profilemodel.RPGReview, error) {
 	var raw string
 	if err := dbapi.QueryRowContext(ctx, executor, `
-SELECT review_profile_json FROM import_items WHERE id=? AND review_profile_json IS NOT NULL`, itemID,
+SELECT review_profile_json FROM import_items WHERE id=? AND review_profile_json IS NOT NULL
+AND json_extract(review_profile_json,'$.kind')='RPG_MAKER_PROJECT'`, itemID,
 	).Scan(&raw); err != nil {
 		return nil, fmt.Errorf("read review profile: %w", err)
 	}

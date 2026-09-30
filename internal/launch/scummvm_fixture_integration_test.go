@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	reviewpersistence "retrom/internal/persistence/libraryimport"
+
 	"retrom/internal/testsupport/importfixture"
 
 	dbapi "retrom/internal/database"
@@ -157,10 +159,11 @@ func uploadScummVMFixture(t *testing.T, database dbapi.DB, blobs *filestore.Stor
 func (fixture scummVMFixture) snapshot(t *testing.T) (string, scummvm.Snapshot) {
 	t.Helper()
 	var id, raw string
-	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT validation.id,validation.dependency_snapshot_json FROM import_item_core_validations validation WHERE validation.import_item_id=? ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1`, fixture.itemID).Scan(&id, &raw)
+	runtime, err := reviewpersistence.ReadReviewRuntime(t.Context(), fixture.database, fixture.itemID)
 	if err != nil {
 		t.Fatal(err)
 	}
+	id, raw = runtime.ItemID, runtime.DependencyJSON
 	snapshot, err := scummvm.ParseSnapshot(raw)
 	if err != nil {
 		t.Fatal(err)

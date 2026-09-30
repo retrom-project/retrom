@@ -92,6 +92,7 @@ type ReviewDependencies struct {
 	Approvals     *libraryservice.ReviewApprovals
 	BulkApprovals *libraryservice.ReviewBulk
 	Screenshots   *libraryservice.ScreenshotSaver
+	Previews      *libraryservice.ReviewPreviews
 	Metadata      *metadatascrape.Service
 	Evidence      *metadatascrape.EvidenceQueries
 }

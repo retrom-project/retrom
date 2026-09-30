@@ -26,9 +26,12 @@ import.retryable,
 import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
 FROM source_imports import JOIN users user ON user.id=import.created_by_user_id`
 
-type Queries struct{ database dbapi.Executor }
+type Queries struct {
+	database dbapi.Executor
+	readDB   dbapi.DB
+}
 
-func NewQueries(database dbapi.DB) *Queries { return &Queries{database: database} }
+func NewQueries(database dbapi.DB) *Queries { return &Queries{database: database, readDB: database} }
 
 func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 	var result application.Summary

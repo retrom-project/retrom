@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -43,17 +45,20 @@ ORDER BY created_at_ms,id
 
 func (records ReviewMedia) RuntimeScreenshot(
 	ctx context.Context,
-	itemID, validationID string,
+	itemID string,
 ) (libraryservice.ReviewRuntimeScreenshot, bool, error) {
-	result := libraryservice.ReviewRuntimeScreenshot{ValidationID: validationID}
+	result := libraryservice.ReviewRuntimeScreenshot{}
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
 screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
 FROM review_runtime_screenshots screenshot
 JOIN import_items draft ON draft.id=screenshot.import_item_id
-WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
-AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
-`, itemID, validationID).Scan(
+JOIN runtime_preview_sessions captured ON captured.id=screenshot.preview_session_id
+ AND captured.target_platform_instance_id=draft.target_platform_instance_id
+JOIN (`+contentquery.CurrentContentSQL+`) content ON content.import_item_id=draft.id
+ AND content.provider_id=screenshot.provider_id AND content.target_id=screenshot.target_id
+WHERE screenshot.import_item_id=? AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
+`, itemID).Scan(
 		&result.ID, &result.ProviderID, &result.TargetID, &result.WidthPX, &result.HeightPX, &result.CapturedAtMS)
 	if errors.Is(err, sql.ErrNoRows) {
 		return libraryservice.ReviewRuntimeScreenshot{}, false, nil

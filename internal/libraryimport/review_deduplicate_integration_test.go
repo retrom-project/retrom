@@ -171,7 +171,7 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	if _, err := fixture.service.Approve(fixture.ctx, original.Items[0].ItemID, 1); err != nil {
 		t.Fatal(err)
 	}
-	fixture.execute(t, `UPDATE import_items SET target_platform_instance_id=?,selected_validation_id=NULL,version=version+1 WHERE id=?`,
+	fixture.execute(t, `UPDATE import_items SET target_platform_instance_id=?,version=version+1 WHERE id=?`,
 		testsupport.MustPlatformInstanceID(t, fixture.database, "nes/fceumm"), otherPlatform.Items[0].ItemID)
 	insertArcadeParentCatalog(t, fixture.database)
 	itemID := attachment.Items[0].ItemID

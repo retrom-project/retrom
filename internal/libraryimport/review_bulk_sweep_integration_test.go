@@ -43,10 +43,10 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		t.Fatal(err)
 	}
 	var version int64
-	var validationID, snapshotID string
+	var snapshotID string
 	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
-		`SELECT review_version,selected_validation_id,effective_source_snapshot_id FROM import_items WHERE id=?`, itemID).
-		Scan(&version, &validationID, &snapshotID); err != nil {
+		`SELECT review_version,effective_source_snapshot_id FROM import_items WHERE id=?`, itemID).
+		Scan(&version, &snapshotID); err != nil {
 		t.Fatal(err)
 	}
 	ctx := authn.WithPrincipal(fixture.ctx, authn.Principal{UserID: actorID, ProfileID: profileID, Role: "ADMIN"})
@@ -55,7 +55,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 			ItemID: itemID, ExpectedVersion: version,
 			Bulk: &libraryservice.BulkPublicationIntent{
 				BulkID: bulkID, JobID: jobID, WorkerID: worker,
-				ValidationID: validationID, SourceSnapshotID: snapshotID,
+				SourceSnapshotID: snapshotID,
 			},
 		})
 		return err

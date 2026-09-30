@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -85,7 +87,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	itemID := "01980000-0000-7000-8000-000000000121"
 	importID := "01980000-0000-7000-8000-000000000122"
 	uploadID := "01980000-0000-7000-8000-000000000123"
-	validationID := "01980000-0000-7000-8000-000000000124"
+	validationID := itemID
 	scrapeJobID := "01980000-0000-7000-8000-000000000126"
 	scrapeRunID := "01980000-0000-7000-8000-000000000127"
 	providerResponseID := "01980000-0000-7000-8000-000000000128"
@@ -119,7 +121,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	server.review(recorder, request)
-	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusOK }, func() bool { return !strings.Contains(recorder.Body.String(), `"status":"BLOCKED"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"current":false`) }, func() bool {
+	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusOK }, func() bool { return !strings.Contains(recorder.Body.String(), `"status":"BLOCKED"`) }, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`)
 	}, func() bool { return !strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"name":"blocked.zip"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"archive":true`) }, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`)
@@ -134,7 +136,7 @@ WHERE provider_id=?
 	server.review(upgradedRuntime, request)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return upgradedRuntime.Code != http.StatusOK },
-		func() bool { return !strings.Contains(upgradedRuntime.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return !strings.Contains(upgradedRuntime.Body.String(), `"readiness":`) },
 		func() bool { return strings.Contains(upgradedRuntime.Body.String(), `"validationStale"`) },
 	), "runtime upgrade review detail = %d %s", upgradedRuntime.Code, upgradedRuntime.Body.String())
 	uploadedCover := httptest.NewRecorder()
@@ -205,12 +207,11 @@ func assertRuntimeValidationCurrent(
 	itemID, providerID, targetID string,
 ) {
 	t.Helper()
-	var validationID, status string
+	var status string
 	if err := dbapi.QueryRowContext(context.Background(), server.database, `
-SELECT id,status FROM import_item_core_validations
+SELECT status FROM (`+contentquery.CurrentContentSQL+`)
 WHERE import_item_id=? AND provider_id=? AND target_id=?
-ORDER BY created_at_ms DESC,id DESC LIMIT 1
-`, itemID, providerID, targetID).Scan(&validationID, &status); err != nil {
+`, itemID, providerID, targetID).Scan(&status); err != nil {
 		t.Fatalf("read current runtime validation: %v", err)
 	}
 	response := httptest.NewRecorder()
@@ -218,7 +219,7 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return response.Code != http.StatusOK },
 		func() bool { return strings.Contains(response.Body.String(), `"validationStale"`) },
-		func() bool { return !strings.Contains(response.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return !strings.Contains(response.Body.String(), `"readiness":`) },
 		func() bool { return status != "BLOCKED" },
 	), "current runtime review detail = %d %s", response.Code, response.Body.String())
 }
@@ -496,43 +497,17 @@ VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 
 func seedReviewValidation(
 	t *testing.T, transaction dbapi.Tx,
-	validationID, itemID string, target testsupport.RuntimeTargetIdentity,
+	_, itemID string, _ testsupport.RuntimeTargetIdentity,
 	digest, sourceSnapshotID, scrapeJobID string,
 	timestamp int64,
 ) {
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO import_item_core_validations(id,
-import_item_id,
-target_platform_instance_id,
-platform_instance_version,
-core_id,
-provider_id,
-target_id,
-source_manifest_digest,
-source_snapshot_id,
-prepublish_input_digest,
-status,
-compatibility_code,
-dependency_snapshot_json,
-created_at_ms) VALUES(?,
-?,
-(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
-1,
-'mgba',
-?,
-?,
-?,
-?,
-?,
-'BLOCKED',
-'DEPENDENCY_MISSING',
-'{"dependencies":[]}',
-?)
-`, validationID, itemID, target.ProviderID, target.TargetID, digest, sourceSnapshotID, digest, timestamp)
+UPDATE import_items SET content_analysis_json='{"status":"BLOCKED","code":"DEPENDENCY_MISSING","details":{}}' WHERE id=?
+`, itemID)
 	mustExecHTTPTest(t, transaction, `
 UPDATE import_items SET target_platform_instance_id=(SELECT id FROM platform_instances WHERE
 catalog_template_key='gba/mgba'),
-selected_validation_id=NULL,effective_source_snapshot_id=?,
+effective_source_snapshot_id=?,
 metadata_json='{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',
 review_version=1,review_created_at_ms=?,review_updated_at_ms=? WHERE id=?
 `, sourceSnapshotID, timestamp, timestamp, itemID)

@@ -94,13 +94,7 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	itemID := request.PathValue("importItemId")
-	if err := server.importDeps.Importer.RefreshReviewPreviewValidation(request.Context(), itemID); err != nil {
-		writeError(writer, request, http.StatusUnprocessableEntity,
-			"REVIEW_PREVIEW_UNAVAILABLE", "无法刷新审核运行依赖", map[string]any{})
-		return
-	}
-	created, err := server.playDeps.Launcher.CreateReviewPreview(request.Context(), launch.ReviewPreviewRequest{
+	created, err := server.reviewDeps.Previews.Create(request.Context(), launch.ReviewPreviewRequest{
 		ImportItemID: request.PathValue("importItemId"), ActorUserID: principal.UserID,
 		IdempotencyKey: key, ClientCapabilities: body.ClientCapabilities, RestoreFromPreviewID: body.RestoreFromPreviewID,
 	})

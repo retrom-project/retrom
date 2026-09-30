@@ -26,7 +26,7 @@ type Review = ReviewWorkspace & {
   platformInstance: { id: string; name: string };
   sourceManifest: { files: Array<{ logicalName: string; role: string; sizeBytes?: number; blobSha256?: string; sourceArchiveSha256?: string | null }> };
   sourceFiles: Array<{ uploadFileId: string; name: string; sizeBytes: number; sha256: string; md5: string; crc32: string; archive: boolean; archiveFormat: "ZIP" | "SEVEN_Z" | "NWJS_EXECUTABLE" | "ELECTRON_ASAR" | null; archiveEntries: Array<{ name: string; sizeBytes: number; crc32: string }> }>;
-  validation: (NonNullable<ReviewWorkspace["validation"]> & { dependencySnapshot?: DependencySnapshot }) | null;
+  readiness: (NonNullable<ReviewWorkspace["readiness"]> & { dependencySnapshot?: DependencySnapshot }) | null;
 };
 
 const roleLabels: Record<string, string> = { CONTENT: "游戏文件", DOS_SOURCE: "DOS 游戏文件", COMPANION: "配套文件" };
@@ -108,9 +108,9 @@ function reviewSourceDisplayName(review: Review) {
 }
 
 function summarizeReview(review: Review): ReviewDetailSummary {
-  const validationStatus = review.validation?.status ?? "PENDING";
-  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
-  const dependencySnapshot = review.validation?.dependencySnapshot;
+  const validationStatus = review.readiness?.status ?? "PENDING";
+  const compatibilityCode = review.readiness?.compatibilityCode ?? validationStatus;
+  const dependencySnapshot = review.readiness?.dependencySnapshot;
   return {
     compatibilityCode,
     compatibilityLabel: reviewCompatibilityLabel(compatibilityCode, validationStatus),

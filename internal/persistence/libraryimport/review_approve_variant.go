@@ -3,6 +3,9 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"retrom/internal/filestore"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -31,17 +34,30 @@ updated_at_ms
 	return approvalMutation(result, err, "insert approved variant", true)
 }
 
-func (records reviewApprovalRecords) CopyValidationFiles(
-	ctx context.Context, source libraryservice.ApprovalValidationCopy,
+func (records reviewApprovalRecords) CopyRuntimeFiles(
+	ctx context.Context, source libraryservice.ApprovalRuntimeCopy,
 ) error {
-	result, err := recordstore.CreateVariantFiles(ctx, records.transaction, `
-INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
-SELECT ?,role,logical_name,CASE WHEN role='BIOS_BUNDLE' THEN file_record ELSE
- json_set(file_record,'$.path','files/' || substr(?,-2) || '/' || ? || '/' ||
- substr(json_extract(file_record,'$.path'),length('staging/items/' || ? || '/payload/')+1)) END,sort_order
-FROM import_item_validation_files WHERE import_item_core_validation_id=?
-`, source.VariantID, source.GameID, source.GameID, source.ItemID, source.ValidationID)
-	return approvalMutation(result, err, "copy approved validation files", false)
+	for _, file := range source.Files {
+		record := file.FileRecord
+		parsed, err := filestore.ParseRecord(record)
+		if err != nil {
+			return fmt.Errorf("read publication runtime file: %w", err)
+		}
+		if strings.HasPrefix(parsed.Path, filestore.ItemDirectory(source.ItemID)+"/payload/") {
+			record, err = filestore.PublishedRecord(record, source.ItemID, source.GameID)
+			if err != nil {
+				return fmt.Errorf("publish runtime file: %w", err)
+			}
+		}
+
+		result, err := recordstore.CreateVariantFiles(ctx, records.transaction, `
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order) VALUES(?,?,?,?,?)`,
+			source.VariantID, file.Role, file.LogicalName, record, file.SortOrder)
+		if err := approvalMutation(result, err, "publish runtime file", true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (records reviewApprovalRecords) CreateDependency(

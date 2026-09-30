@@ -17,7 +17,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) {
+func TestOwnedServerSourceCommitsUniquePrimaryAndActiveBinding(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
@@ -89,7 +89,7 @@ func TestOwnedServerSourceRejectsWorkerWithoutCreatingImport(t *testing.T) {
 	}
 }
 
-func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
+func TestUnfinishedSourceReplaysChildResultAfterChildPayloadCleanup(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
 	published, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", request.Files, nil, "")
@@ -104,7 +104,6 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 		t.Fatalf("owned duplicate: %#v %v", result, err)
 	}
 	assertOwnedSourceBinding(t, fixture, result)
-	finishOwnedDuplicateFixture(t, fixture, result.Items[0].ExistingGameID)
 	releaseOwnedSourceFixture(t, fixture)
 	replay, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, request.Intent)
 	if err != nil || !found || len(replay.Items) != 1 {
@@ -121,6 +120,22 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 	if err != nil || len(repeated.Items) != 1 ||
 		repeated.Items[0].ItemID != result.Items[0].ItemID || ownedImportCount(t, fixture) != 1 {
 		t.Fatalf("released create replay: %#v %v", repeated, err)
+	}
+	finishOwnedDuplicateFixture(t, fixture, result.Items[0].ExistingGameID)
+	releaseOwnedSourceFixture(t, fixture)
+	var bindings int
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT count(*) FROM source_import_items
+WHERE id=? AND (library_import_item_id IS NOT NULL OR library_import_job_id IS NOT NULL)`, request.Intent.ItemID).Scan(&bindings); err != nil {
+		t.Fatal(err)
+	}
+	if bindings != 0 {
+		t.Fatal("completed Source retained review binding")
+	}
+	if _, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, request.Intent); found || !errors.Is(err, ErrInvalid) {
+		t.Fatalf("completed Source replay: found=%v err=%v", found, err)
+	}
+	if _, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request); !errors.Is(err, ErrInvalid) || ownedImportCount(t, fixture) != 1 {
+		t.Fatalf("completed Source recreated workflow: %v", err)
 	}
 }
 
@@ -168,7 +183,7 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(tx)
-	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,
+	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',library_import_job_id=NULL,library_import_item_id=NULL,existing_game_id=?,completed_at_ms=?,
 version=version+1 WHERE id='018fbe68-0000-7000-8000-000000000021'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}

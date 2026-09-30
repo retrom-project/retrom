@@ -6,6 +6,9 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/content/arcade"
+	arcaderecords "retrom/internal/persistence/arcade"
+
 	dbapi "retrom/internal/database"
 	dbsqlite "retrom/internal/database/sqlite"
 	repository "retrom/internal/persistence/libraryimport"
@@ -38,7 +41,7 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 			return err
 		}},
 		{"arcade relations", func() error {
-			_, _, err := libraryservice.LoadArcadeClosure(t.Context(), repository.BindArcadeRelations(database), "dat", "machine")
+			_, _, err := arcade.LoadClosure(t.Context(), arcaderecords.New(database), "dat", "machine")
 			return err
 		}},
 	} {

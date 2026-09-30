@@ -207,14 +207,14 @@ WHERE game.metadata_source_kind='IMPORT_RECEIVE'`, mappedTag.TagID, externalTag.
 	testassert.Falsef(t, testassert.Any(func() bool { return gameID == "" }, func() bool { return title != "Published Fixture" }, func() bool { return assetCount != 2 }, func() bool { return gameMappedTags != 1 }, func() bool { return gameExternalTags != 0 }), "published game = %q/%q assets=%d tags=%d/%d", gameID, title, assetCount, gameMappedTags, gameExternalTags)
 	decided, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return decided.Counts.ReviewPending != 0 }, func() bool { return decided.Counts.Published != 1 }, func() bool { return decided.Counts.ReviewDiscarded != 1 }), "review decisions = %#v, error=%v", decided, err)
-	assertSourcePayloadReleased(t, database.SQL, blobs, created.ID, gameID)
+	assertSourcePayloadReleased(t, database.SQL, blobs, created.ID, gameID, reviewItemID, discardedItemID)
 }
 
 func assertSourcePayloadReleased(
 	t *testing.T,
 	database dbapi.DB,
 	blobs *filestore.Store,
-	importID, gameID string,
+	importID, gameID, publishedReviewID, discardedReviewID string,
 ) {
 	t.Helper()
 	ctx := t.Context()
@@ -235,8 +235,7 @@ func assertSourcePayloadReleased(
 	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database, `
 SELECT
  (SELECT count(*) FROM source_import_items WHERE import_id=? AND payload_state='RELEASED'),
- (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM source_import_items
-WHERE import_id=?) AND payload_state='RELEASED'),
+ (SELECT count(*) FROM import_items WHERE id IN (?,?) AND payload_state='RELEASED'),
  (SELECT count(*) FROM source_import_item_files file JOIN source_import_items item ON
 item.id=file.item_id WHERE item.import_id=? AND (file.file_record IS NOT NULL OR
 file.source_archive_file_record IS NOT NULL))+
@@ -244,7 +243,7 @@ file.source_archive_file_record IS NOT NULL))+
 item.id=asset.item_id WHERE item.import_id=? AND asset.file_record IS NOT NULL),
  (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
-`, importID, importID, importID, importID, gameID, gameID), &releasedSource, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
+`, importID, publishedReviewID, discardedReviewID, importID, importID, gameID, gameID), &releasedSource, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return releasedSource != 2 }, func() bool { return releasedImports != 2 },
 		func() bool { return pegasusBlobRefs != 0 }, func() bool { return gamePayloadRows != 3 },

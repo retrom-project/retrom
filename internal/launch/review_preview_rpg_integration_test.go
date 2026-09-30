@@ -41,7 +41,7 @@ VALUES('rpg-reviewer','local','rpg-reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	}
 	var games, previews int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM review_preview_sessions WHERE id=?)`,
+SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM runtime_preview_sessions WHERE id=?)`,
 		created.PreviewID).Scan(&games, &previews); err != nil {
 		t.Fatal(err)
 	}

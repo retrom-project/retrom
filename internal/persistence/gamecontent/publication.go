@@ -44,9 +44,9 @@ func (writes writes) game(ctx context.Context, value gamecontent.Publication) er
 			ctx,
 			writes.transaction,
 			recordstore.Update{
-				Set: `content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
+				Set: `content_kind=?,content_source_kind='ADMIN_REPLACE',
  source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?`,
-				Values: []any{prepared.ContentKind, value.JobID, string(prepared.Manifest), prepared.ManifestDigest, value.Now},
+				Values: []any{prepared.ContentKind, string(prepared.Manifest), prepared.ManifestDigest, value.Now},
 				Scope: recordstore.Scope{
 					Where: `id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'`,
 					Args:  []any{snapshot.GameID, snapshot.GameVersion, snapshot.BaseManifestDigest},

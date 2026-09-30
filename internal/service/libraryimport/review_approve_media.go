@@ -4,10 +4,10 @@ import "fmt"
 
 func (run *reviewApprovalRun) prepareOrigin() error {
 	decision := run.request.Decision
-	run.origin = ApprovalOrigin{Kind: "IMPORT_REVIEW", RefID: run.request.ItemID}
+	run.origin = ApprovalOrigin{Kind: "IMPORT_REVIEW"}
 	if decision.SourceKind != "" {
 		run.origin = ApprovalOrigin{
-			Kind: decision.SourceKind, RefID: decision.SourceRefID,
+			Kind:   decision.SourceKind,
 			Assets: decision.ExternalAssets,
 		}
 		return nil
@@ -49,7 +49,26 @@ func (run *reviewApprovalRun) prepareAssets() error {
 			return err
 		}
 	}
+	if err := run.appendRuntimeScreenshot(len(ids)); err != nil {
+		return err
+	}
 	return run.appendExternalAssets()
+}
+
+func (run *reviewApprovalRun) appendRuntimeScreenshot(ordinal int) error {
+	if run.head.ScreenshotID == nil {
+		return nil
+	}
+	asset, found, err := run.scope.Media.RuntimeScreenshot(run.ctx, run.request.ItemID, *run.head.ScreenshotID)
+	if err != nil {
+		return fmt.Errorf("read captured approval screenshot: %w", err)
+	}
+	if !found {
+		return ErrInvalid
+	}
+	asset.Kind = "SCREENSHOT"
+	run.assets = append(run.assets, ApprovalAsset{ApprovalExternalAsset: asset, Ordinal: ordinal})
+	return nil
 }
 
 func (run *reviewApprovalRun) appendSelectedAsset(id, kind string, ordinal int, uploaded bool) error {

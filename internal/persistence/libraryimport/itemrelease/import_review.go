@@ -6,6 +6,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
+	"retrom/internal/persistence/filedeletion"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/releaseops"
 	"retrom/internal/persistence/sessionstore"
@@ -14,18 +15,8 @@ import (
 type Records struct{ Executor dbapi.Executor }
 
 func (records Records) ClearReview(ctx context.Context, itemID string, now int64) error {
-	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "review_preview_sessions",
-		sessionstore.ChangePreview, recordstore.Update{
-			Set: `
-state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
-updated_at_ms=?,version=version+1
-`, Scope: recordstore.Scope{
-				Where: `import_item_id=? AND state IN ('CREATED','ACTIVE','FINISHED')`,
-				Args:  []any{itemID},
-			},
-			Values: []any{now, now},
-		}); err != nil {
-		return fmt.Errorf("cleanupjobs/revoke review preview: %w", err)
+	if err := records.RevokePreviews(ctx, itemID, now); err != nil {
+		return err
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(
 		ctx,
@@ -55,6 +46,35 @@ review_updated_at_ms=CASE WHEN review_version>0 THEN ? ELSE NULL END
 			Values: []any{now},
 		}); err != nil {
 		return fmt.Errorf("cleanupjobs/clear review draft: %w", err)
+	}
+	return nil
+}
+
+func (records Records) RevokePreviews(ctx context.Context, itemID string, now int64) error {
+	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "runtime_preview_sessions",
+		sessionstore.ChangePreview, recordstore.Update{
+			Set: `
+state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
+updated_at_ms=?,version=version+1
+`, Scope: recordstore.Scope{
+				Where: `id IN (SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?)
+ AND state IN ('CREATED','ACTIVE','FINISHED')`,
+				Args: []any{itemID},
+			},
+			Values: []any{now, now},
+		}); err != nil {
+		return fmt.Errorf("cleanupjobs/revoke review preview: %w", err)
+	}
+	ids, err := dbapi.QueryStrings(ctx, records.Executor, `SELECT session.id
+ FROM runtime_preview_sessions session JOIN review_preview_bindings binding ON binding.preview_session_id=session.id
+ WHERE binding.import_item_id=? AND session.state IN ('EXPIRED','REVOKED')`, itemID)
+	if err != nil {
+		return fmt.Errorf("read retired preview directories: %w", err)
+	}
+	for _, id := range ids {
+		if err := filedeletion.QueuePath(ctx, records.Executor, "previews/"+id, now); err != nil {
+			return fmt.Errorf("queue retired preview directory: %w", err)
+		}
 	}
 	return nil
 }

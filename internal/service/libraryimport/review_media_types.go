@@ -5,7 +5,7 @@ import "context"
 type ReviewMediaReader interface {
 	UploadedAssets(context.Context, string) ([]ReviewUploadedAsset, error)
 	SourceMedia(context.Context, string) (ReviewSourceMedia, bool, error)
-	RuntimeScreenshot(context.Context, string, string) (ReviewRuntimeScreenshot, bool, error)
+	RuntimeScreenshot(context.Context, string) (ReviewRuntimeScreenshot, bool, error)
 }
 type ReviewUploadedAsset struct {
 	ID          string `json:"assetId"`
@@ -38,7 +38,6 @@ type ReviewSourceMedia struct {
 }
 type ReviewRuntimeScreenshot struct {
 	ID           string `json:"screenshotId"`
-	ValidationID string `json:"validationId"`
 	ProviderID   string `json:"providerId"`
 	TargetID     string `json:"targetId"`
 	WidthPX      int64  `json:"widthPx"`

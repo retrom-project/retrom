@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"retrom/internal/content/arcade"
+
 	corevalidation "retrom/internal/core/validation"
 )
 
@@ -20,7 +22,7 @@ func ResolveCreationArcade(
 	reader CreationArcadeReader,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (CreationArcadeState, error) {
-	snapshot, valid := ParseArcadeDraftSnapshot(previousSnapshot)
+	snapshot, valid := arcade.ParseSnapshot(previousSnapshot)
 	if !valid {
 		return CreationArcadeState{}, nil
 	}

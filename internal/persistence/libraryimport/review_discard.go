@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 
 	dbapi "retrom/internal/database"
@@ -52,7 +54,7 @@ func (records reviewDiscardRecords) Snapshot(
 	var result libraryservice.ReviewDiscardSnapshot
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.id,i.import_job_id,d.metadata_json,d.review_version,i.state,
-d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
+v.dat_version_id,d.selected_candidate_id,
 (d.cover_candidate_asset_id IS NOT NULL OR d.cover_uploaded_asset_id IS NOT NULL),
 d.background_candidate_asset_id IS NOT NULL,
 (EXISTS(SELECT 1 FROM source_import_items source
@@ -63,9 +65,9 @@ j.cancel_requested_at_ms,j.completed_at_ms
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 JOIN import_items d ON d.id=i.id
-LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+LEFT JOIN (`+contentquery.CurrentContentSQL+`) v ON v.import_item_id=d.id
 WHERE i.id=?`, itemID).Scan(&result.DraftID, &result.ImportID, &result.MetadataJSON, &result.Version,
-		&result.State, &result.ValidationID, &result.DatID, &result.CandidateID,
+		&result.State, &result.DatID, &result.CandidateID,
 		&result.HasCover, &result.HasBackground, &result.SourceBusy,
 		&result.Aggregate.Version, &result.Aggregate.Progress.State,
 		&result.Aggregate.Progress.Counts.Queued, &result.Aggregate.Progress.Counts.Running,

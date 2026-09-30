@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -101,7 +103,7 @@ SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json
 job.metadata_provider
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
-JOIN import_item_core_validations validation ON validation.import_item_id=item.id
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=item.id
 JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
@@ -156,17 +158,15 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 		)
 	}
 
-	var itemID, validationID string
+	var itemID string
 	var draftVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.id,draft.review_version,json_extract(draft.review_profile_json,'$.data.providerId'),
- json_extract(draft.review_profile_json,'$.data.targetId'),
- (SELECT validation.id FROM import_item_core_validations validation
-  WHERE validation.import_item_id=item.id ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1)
+ json_extract(draft.review_profile_json,'$.data.targetId')
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&itemID, &draftVersion, &providerID, &targetID, &validationID); err != nil {
+`, created.ImportJobID).Scan(&itemID, &draftVersion, &providerID, &targetID); err != nil {
 		t.Fatal(err)
 	}
 	replacementBundle := fmt.Sprintf("%064x", 42)
@@ -175,10 +175,6 @@ UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_
 WHERE provider_id='retrom-runtime'
 `, replacementBundle); err != nil {
 		t.Fatal(err)
-	}
-	validationCurrent, err := newTestImporter(t, database.SQL, nil, testImportOptions{Now: time.Now}).ReviewValidationCurrent(ctx, validationID)
-	if err != nil || !validationCurrent {
-		t.Fatalf("review validation after provider bundle upgrade = %t, error=%v", validationCurrent, err)
 	}
 	var reboundProvider, reboundTarget string
 	var reboundVersion int64
@@ -195,15 +191,6 @@ WHERE draft.id=?
 			"stable runtime route version=%d route=%s/%s want=%d %s/%s",
 			reboundVersion, reboundProvider, reboundTarget, draftVersion, providerID, targetID,
 		)
-	}
-	var validationCount int
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-	SELECT COUNT(*) FROM import_item_core_validations WHERE import_item_id=?
-`, itemID).Scan(&validationCount); err != nil {
-		t.Fatal(err)
-	}
-	if validationCount != 1 {
-		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
 	}
 	approved, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Approve(ctx, itemID, draftVersion)
 	if err != nil || approved.GameID == "" {
@@ -222,7 +209,7 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN (
 	var reviewKind, gameKind, variantKind, gameFamily, variantGeneration string
 	var gameFileCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT json_extract(item.review_profile_json,'$.kind'),
+SELECT COALESCE(json_extract(item.review_profile_json,'$.kind'),''),
  json_extract(game.content_profile_json,'$.kind'),
  json_extract(variant.runtime_profile_json,'$.kind'),
  json_extract(game.content_profile_json,'$.data.evidenceFamily'),
@@ -235,7 +222,7 @@ WHERE game.id=?`, itemID, approved.GameID).Scan(
 	); err != nil {
 		t.Fatal(err)
 	}
-	if reviewKind != "RPG_MAKER_PROJECT" || gameKind != reviewKind || variantKind != reviewKind ||
+	if reviewKind != "" || gameKind != "RPG_MAKER_PROJECT" || variantKind != gameKind ||
 		gameFamily != "MV" || gameFileCount < 1 || variantGeneration != "RPGMV" {
 		t.Fatalf("published RPG profiles = %s/%s/%s %s/%d/%s",
 			reviewKind, gameKind, variantKind, gameFamily, gameFileCount, variantGeneration)

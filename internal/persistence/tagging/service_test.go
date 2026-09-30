@@ -41,12 +41,11 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES('`+testAdminID+`','01980000-0000-7000-8000-00000000a401','tag.admin','Tag Admin','ADMIN','ENABLED',1,1);
 INSERT INTO games(
   id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
+  metadata_source_kind,content_kind,content_source_kind,
   source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
   '`+testGameID+`',(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
-  'Tagged Game','T','','','','',NULL,2001,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',
-  'tag-fixture','[]','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'Tagged Game','T','','','','',NULL,2001,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','[]','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   'PUBLISHED','tagged game',1,1,1
 );
 COMMIT;

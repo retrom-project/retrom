@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	arcaderecords "retrom/internal/persistence/arcade"
+
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 
 	dbapi "retrom/internal/database"
@@ -44,7 +46,7 @@ func BindReviewApproval(transaction dbapi.Tx) libraryservice.ReviewApprovalScope
 	records := reviewApprovalRecords{transaction: transaction}
 	return libraryservice.ReviewApprovalScope{
 		Publications: records, Payload: payloadpersistence.BindScheduling(transaction),
-		Reader: records, Media: records, Validation: BindReviewValidation(transaction),
+		Reader: records, Media: records, Profiles: BindReviewInputs(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
 		Tags: tagpersistence.Bind(transaction), Games: records, Variants: records, Decisions: records,
 		Bulk: records,
@@ -54,7 +56,7 @@ func BindReviewApproval(transaction dbapi.Tx) libraryservice.ReviewApprovalScope
 func BindApprovalDependencies(executor dbapi.Executor) libraryservice.ApprovalDependencyScope {
 	return libraryservice.ApprovalDependencyScope{
 		Reader: approvalDependencyRecords{executor: executor}, BIOS: biopersistence.New(executor),
-		Arcade: BindArcadeRelations(executor),
+		Arcade: arcaderecords.New(executor),
 	}
 }
 

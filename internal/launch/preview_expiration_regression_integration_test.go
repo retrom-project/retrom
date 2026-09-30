@@ -35,7 +35,7 @@ func TestPreviewExpirationRollsBackUnconfirmedRelease(t *testing.T) {
 	var beforeState, checkpointID string
 	var beforeVersion int64
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_file_record
-FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, &beforeVersion, &checkpointID); err != nil {
+FROM runtime_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, &beforeVersion, &checkpointID); err != nil {
 		t.Fatal(err)
 	}
 	*fixture.now = fixture.now.Add(3 * time.Hour)
@@ -45,7 +45,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 		AfterExec: func(_ context.Context, query string, args []driver.NamedValue,
 			result driver.Result,
 		) (driver.Result, error) {
-			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "UPDATE review_preview_sessions SET") &&
+			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "UPDATE runtime_preview_sessions SET") &&
 				strings.Contains(query, "checkpoint_payload_file_record=NULL") {
 				for _, arg := range args {
 					if arg.Value == preview.PreviewID {
@@ -73,7 +73,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_file_record IS NOT NULL,
 (SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
 '$.inputs.relativePath') || '/%')
-FROM review_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
+FROM runtime_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||
 		retained != 1 || candidates != 0 {
 		t.Fatalf("preview expiry retained partial writes: state=%s version=%d payload=%d candidates=%d hits=%d err=%v read=%v",

@@ -93,10 +93,10 @@ type creationCommit struct {
 	parentVersion                 int64
 }
 type creationGroup struct {
-	group                                                                                   PreparedGroup
-	itemID, snapshotID, validationID, draftID, kind, groupKey, manifestJSON, manifestDigest string
-	searchParts                                                                             []string
-	uploadIDs                                                                               []string
+	group                                                                     PreparedGroup
+	itemID, snapshotID, draftID, kind, groupKey, manifestJSON, manifestDigest string
+	searchParts                                                               []string
+	uploadIDs                                                                 []string
 }
 
 func (service *ImportCreations) prepareCommit(

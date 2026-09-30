@@ -13,7 +13,21 @@ import (
 
 type PublicationFile struct{ Source, Staged string }
 
-func publicationFiles(values []string, itemID, validationID string) ([]PublicationFile, error) {
+func stagePublicationRuntimeFiles(files []PreparedValidationFile, staged []PublicationFile) []PreparedValidationFile {
+	bySource := make(map[string]string, len(staged))
+	for _, file := range staged {
+		bySource[file.Source] = file.Staged
+	}
+	result := append([]PreparedValidationFile(nil), files...)
+	for index := range result {
+		if record, found := bySource[result[index].FileRecord]; found {
+			result[index].FileRecord = record
+		}
+	}
+	return result
+}
+
+func publicationFiles(values []string, itemID, snapshotID string) ([]PublicationFile, error) {
 	prefix := filestore.ItemDirectory(itemID) + "/payload/"
 	files := make([]PublicationFile, 0, len(values))
 	for _, value := range values {
@@ -25,7 +39,7 @@ func publicationFiles(values []string, itemID, validationID string) ([]Publicati
 			continue
 		}
 		digest := sha256.Sum256([]byte(record.Path))
-		record.Path = prefix + "content/" + validationID + "/" + hex.EncodeToString(digest[:])
+		record.Path = prefix + "content/" + snapshotID + "/" + hex.EncodeToString(digest[:])
 		staged, err := record.Encode()
 		if err != nil {
 			return nil, fmt.Errorf("publication files: %w", err)

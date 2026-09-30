@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -115,39 +114,15 @@ SELECT id FROM import_items WHERE import_job_id=?
 	testassert.False(t, err != nil, err)
 	parentFileRecord, err := filestore.FileRecord(parentMetadata, "application/zip")
 	testassert.False(t, err != nil, err)
-	var baseValidationID, sourceSnapshotID, datVersionID string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions
-ORDER BY id LIMIT 1)
-FROM import_items draft WHERE draft.id=?
-`, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
+	var datVersionID string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM dat_versions ORDER BY id LIMIT 1`).Scan(&datVersionID); err != nil {
 		t.Fatal(err)
 	}
-	arcadeValidationID := newUUID()
-	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-?,default_dos_entry,source_manifest_digest,source_snapshot_id,
-?,status,compatibility_code,?,created_at_ms+1
-FROM import_item_core_validations WHERE id=?
-`, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE bios_requirements SET requirement_mode='REQUIRED' WHERE core_id='mgba' AND logical_name='gba_bios.bin'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.InsertRows(ctx, database.SQL, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
-sort_order,created_at_ms)
-VALUES(?,'PARENT','review-parent.zip',?,0,0)
-`, arcadeValidationID, parentFileRecord); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE import_items SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
-WHERE id=? AND effective_source_snapshot_id=?
-`, arcadeValidationID, readyItemID, sourceSnapshotID); err != nil {
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+SELECT 'preview-current-bios',id,?,'gba_bios.bin',?,?,?,?,version,'HASH_WARNING','{}',1,1,1,1 FROM bios_requirements WHERE core_id='mgba' AND logical_name='gba_bios.bin'`, parentFileRecord, parentMetadata.Size, parentMetadata.MD5, parentMetadata.SHA1, parentMetadata.SHA256); err != nil {
 		t.Fatal(err)
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
@@ -174,11 +149,32 @@ WHERE id=? AND effective_source_snapshot_id=?
 	testassert.False(t, err != nil, err)
 	readyEnvelope := testsupport.RuntimeEnvelope(t, configuration)
 	readySession := testsupport.RuntimeEnvelopeObject(t, readyEnvelope, "session")
-	parentResource := testsupport.RuntimeEnvelopeResource(t, readyEnvelope, "parent")
+	parentResource := testsupport.RuntimeEnvelopeResource(t, readyEnvelope, "bios")
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return readySession["purpose"] != "REVIEW_PREVIEW" },
 		func() bool { return parentResource["url"] == "" },
 	), "ready review envelope = %#v", readyEnvelope)
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE bios_installations SET is_active=0 WHERE id='preview-current-bios'`); err != nil {
+		t.Fatal(err)
+	}
+	frozenConfig, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(testsupport.RuntimeEnvelopeResources(t, testsupport.RuntimeEnvelope(t, frozenConfig), "bios")) != 1 {
+		t.Fatal("existing preview lost its frozen BIOS after installation was removed")
+	}
+	currentPreview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "current-bios-removed", ClientCapabilities: capabilities})
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentConfig, err := service.ReviewPreviewConfig(ctx, currentPreview.PreviewID, currentPreview.Capability)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(testsupport.RuntimeEnvelopeResources(t, testsupport.RuntimeEnvelope(t, currentConfig), "bios")) != 0 {
+		t.Fatal("new preview reused removed BIOS")
+	}
 	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return content.Digest == "" },
@@ -215,8 +211,10 @@ WHERE id=? AND effective_source_snapshot_id=?
 		func() bool { return blockedScreenshot.ImportItemID != blockedItemID }),
 		"blocked screenshot = %#v, error=%v", blockedScreenshot, err)
 	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, blockedScreenshot, pngBody)
-	approved, err := importService.Approve(ctx, blockedItemID, 1)
+	currentVersion := assertScreenshotFollowsCurrentDirectory(t, database.SQL, importService, blockedItemID)
+	approved, err := importService.Approve(ctx, blockedItemID, currentVersion)
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
+	assertCompletedReviewHandoff(t, database.SQL, service, blocked, approved.GameID)
 	var compatibilityCode string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.compatibility_code
@@ -265,6 +263,7 @@ VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 		func() bool { return publishedBIOS[0].LogicalName != "review-bios.zip" },
 		func() bool { return publishedBIOS[0].SHA256 != parentMetadata.SHA256 }),
 		"screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
+	assertPublishedMediaAfterProcessDeletion(t, database.SQL, blobs, blockedItemID, approved.GameID)
 }
 
 func ptr(value string) *string { return &value }

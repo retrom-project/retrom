@@ -61,7 +61,7 @@ func TestProjectIndexPreservesStorageCause(t *testing.T) {
 			hits := 0
 			table := "FROM launch_sessions launch"
 			if preview {
-				table = "FROM review_preview_sessions"
+				table = "FROM runtime_preview_sessions"
 			}
 			fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
@@ -102,7 +102,7 @@ func TestProjectIndexAuthorizesBeforeFilesAndPreservesFileFailure(t *testing.T) 
 			hits := 0
 			table := "FROM launch_content_files file"
 			if preview {
-				table = "FROM review_preview_files file"
+				table = "FROM runtime_preview_files file"
 			}
 			fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {

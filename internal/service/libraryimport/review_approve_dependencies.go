@@ -19,7 +19,7 @@ func ValidateApprovalDependencies(
 		if input.PlatformID != "arcade" || input.ContentKind != "SINGLE_FILE" {
 			return ErrInvalid
 		}
-		return validateApprovalArcade(ctx, scope, input.ValidationID, input.DependencyJSON)
+		return validateApprovalArcade(ctx, scope, input.ItemID, input.DependencyJSON)
 	}
 	name, err := scope.Reader.LogicalName(ctx, input.SnapshotID)
 	if err != nil {
@@ -54,7 +54,7 @@ func validateApprovalMultiDisc(
 	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil || len(snapshot.MultiDisc.MissingEntries) != 0 {
 		return ErrInvalid
 	}
-	facts, err := reader.MultiDisc(ctx, input.SnapshotID, input.ValidationID)
+	facts, err := reader.MultiDisc(ctx, input.SnapshotID, input.ItemID)
 	if err != nil {
 		return fmt.Errorf("read approval discs: %w", err)
 	}

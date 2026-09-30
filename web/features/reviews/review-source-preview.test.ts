@@ -14,7 +14,7 @@ describe("review source preview", () => {
     const workspace = reviewWorkspaceWithoutSourceEvidence({
       itemId: "item", importJobId: "job", version: 1, effectiveSourceSnapshotId: "snapshot",
       metadata: { title: "Game", description: "", developer: "", publisher: "", genre: "", players: 1, releaseYear: 2000 },
-      validation: null, candidates: [], selectedCandidateId: null,
+      readiness: null, candidates: [], selectedCandidateId: null,
       selectedAssets: { coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
       defaultDosEntry: null, dosEntries: [],
       sourceFiles: [{ archiveEntries: Array.from({ length: 4033 }, (_, index) => index) }],

@@ -13,13 +13,13 @@ import (
 var ErrReviewNotFound = errors.New("REVIEW_NOT_FOUND")
 
 type ReviewHead struct {
-	ItemID, ImportJobID, DraftID, SnapshotID, ContentKind, PlatformID                       string
-	PlatformInstance                                                                        ReviewPlatformInstance
-	MetadataJSON, SourceManifestJSON                                                        string
-	Version, UpdatedAtMS                                                                    int64
-	Policy                                                                                  contentcapability.Policy
-	ValidationID, ValidationStatus, CompatibilityCode, DependencyJSON, SelectedValidationID *string
-	SelectedCandidateID, CoverID, UploadedCoverID, BackgroundID, DefaultDOSEntry            *string
+	ItemID, ImportJobID, DraftID, SnapshotID, ContentKind, PlatformID            string
+	PlatformInstance                                                             ReviewPlatformInstance
+	MetadataJSON, SourceManifestJSON                                             string
+	Version, UpdatedAtMS                                                         int64
+	Policy                                                                       contentcapability.Policy
+	ValidationStatus, CompatibilityCode, DependencyJSON                          *string
+	SelectedCandidateID, CoverID, UploadedCoverID, BackgroundID, DefaultDOSEntry *string
 }
 
 type ReviewDetailRepository interface {
@@ -29,7 +29,7 @@ type ReviewReadScope struct {
 	Drafts       ReviewDraftReader
 	Media        ReviewMediaReader
 	Sources      ReviewSourceReader
-	Validation   ReviewValidationReader
+	Profiles     ReviewProfileReader
 	Duplicates   ContentDuplicateReader
 	Dependencies ReviewDependencyReader
 	Metadata     metadatascrape.ReviewEvidenceReader
@@ -49,7 +49,7 @@ type ReviewDetail struct {
 	PlatformInstance      ReviewPlatformInstance           `json:"platformInstance"`
 	Metadata              json.RawMessage                  `json:"metadata"`
 	SourceManifest        json.RawMessage                  `json:"sourceManifest"`
-	Validation            *ReviewValidationView            `json:"validation"`
+	Readiness             *ReviewReadinessView             `json:"readiness"`
 	Candidates            []metadatascrape.ReviewCandidate `json:"candidates"`
 	ScrapeRuns            []metadatascrape.ReviewRun       `json:"scrapeRuns"`
 	CanApprove            bool                             `json:"canApprove"`
@@ -72,10 +72,8 @@ type ReviewPlatformInstance struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
-type ReviewValidationView struct {
-	ID                 string          `json:"id"`
+type ReviewReadinessView struct {
 	Status             string          `json:"status"`
-	Current            bool            `json:"current"`
 	CompatibilityCode  string          `json:"compatibilityCode"`
 	DependencySnapshot json.RawMessage `json:"dependencySnapshot"`
 }

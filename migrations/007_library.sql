@@ -138,12 +138,10 @@ CREATE TABLE "games" (
   metadata_source_kind TEXT NOT NULL CHECK(metadata_source_kind IN (
     'IMPORT_REVIEW','ADMIN_EDIT','RESCRAPE_APPLY','IMPORT_RECEIVE'
   )),
-  metadata_source_ref_id TEXT,
   content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' REFERENCES content_kinds(id),
   content_source_kind TEXT NOT NULL CHECK(content_source_kind IN (
     'IMPORT_REVIEW','ADMIN_REPLACE','IMPORT_RECEIVE'
   )),
-  content_source_ref_id TEXT NOT NULL,
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
   content_profile_json TEXT CHECK(CASE WHEN content_profile_json IS NULL THEN 1 WHEN json_valid(content_profile_json) THEN COALESCE(json_type(content_profile_json,'$.kind')='text' AND json_type(content_profile_json,'$.data')='object',0) ELSE 0 END),
@@ -163,8 +161,7 @@ CREATE TABLE "games" (
     payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
     payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
     payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
-  ),
-  CHECK((metadata_source_kind='ADMIN_EDIT')=(metadata_source_ref_id IS NULL))
+  )
 );
 
 CREATE TABLE "variant_dependencies" (

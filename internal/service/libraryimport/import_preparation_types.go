@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	"retrom/internal/content/arcade"
+
 	"retrom/internal/core/scummvm"
 )
 
@@ -23,21 +25,6 @@ type PreparedImport struct {
 }
 
 type ImportPreparationCatalog interface {
+	arcade.Catalog
 	ActiveDAT(context.Context, string, string) (string, error)
-	MachineClassification(context.Context, string, string) (string, bool, error)
-	ArcadeRequirements(context.Context, string, string) (ArcadeCatalogRequirements, error)
-	MachineRelation(context.Context, string, string) (ArcadeMachineRelation, bool, error)
-}
-
-type ArcadeROMRequirement struct {
-	Size                   int64
-	CRC32, SHA1, MergeName *string
-	Name, Status           string
-	BIOSName               *string
-}
-
-type ArcadeCatalogRequirements struct {
-	DefaultBIOS *string
-	ROMs        []ArcadeROMRequirement
-	HasDisk     bool
 }

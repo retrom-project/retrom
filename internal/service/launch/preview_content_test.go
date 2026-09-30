@@ -8,8 +8,7 @@ import (
 
 func TestPreviewContentFreezesDOSAndOrderedDiscs(t *testing.T) {
 	t.Parallel()
-	_, repository, _, _ := previewFixture(t)
-	snapshot := repository.snapshot
+	snapshot := previewContentFixture()
 	snapshot.Source.ContentKind = "DOS_BUNDLE"
 	snapshot.ValidationFiles = []PreviewFile{{
 		Role: "DOS_LAUNCH_BUNDLE", LogicalName: "game.zip",
@@ -57,8 +56,7 @@ func TestPreviewContentFreezesDOSAndOrderedDiscs(t *testing.T) {
 
 func TestPreviewContentIncludesInstalledArcadeDeviceBIOS(t *testing.T) {
 	t.Parallel()
-	_, repository, _, _ := previewFixture(t)
-	snapshot := repository.snapshot
+	snapshot := previewContentFixture()
 	snapshot.Source.DATVersionID = new("mame-current-dat")
 	snapshot.ValidationFiles = []PreviewFile{{
 		Role: "EXTERNAL_FILE", LogicalName: "epr-18022.ic2", FileRecord: "segabill-blob",

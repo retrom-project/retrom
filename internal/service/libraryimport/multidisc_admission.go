@@ -118,7 +118,7 @@ func prepareMultiDiscInput(
 	}
 	return MultiDiscAttachmentInput{
 		SchemaVersion: 1, ImportItemID: itemID, ReviewDraftID: admission.DraftID, RequestedByUserID: userID,
-		BaseSourceSnapshotID: admission.SnapshotID, BaseValidationID: admission.ValidationID, UploadSessionID: uploadID,
+		BaseSourceSnapshotID: admission.SnapshotID, UploadSessionID: uploadID,
 		ExpectedSetDigest: digest, TargetPlatformID: admission.PlatformID, PlatformInstanceID: admission.PlatformInstanceID,
 		PlatformVersion: admission.PlatformVersion,
 		CoreID:          admission.CoreID, ProviderID: admission.ProviderID, TargetID: admission.TargetID,

@@ -213,12 +213,12 @@ func seedImmersiveGame(t *testing.T, server *testServer, seed immersiveGameSeed,
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ metadata_source_kind,content_kind,content_source_kind,source_manifest_json,
 source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,
 'Retrom Studio','','Action',1,1999,
- 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','immersive-test','[]',?,'PUBLISHED',lower(?),1,?,?)
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','[]',?,'PUBLISHED',lower(?),1,?,?)
 `, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description,
 		strings.Repeat(seed.GameID[len(seed.GameID)-1:], 64), seed.Title, now, now)
 	seedImmersiveAssets(t, server, transaction, seed, "cover-"+seed.GameID, "video-"+seed.GameID, now)
@@ -429,7 +429,7 @@ func replaceImmersiveMetadata(t *testing.T, server *testServer, game immersiveGa
 	seedImmersiveAssets(t, server, transaction, replacement, "replacement-cover", "replacement-video", 2000)
 	mustExecHTTPTest(t, transaction, `
 UPDATE games SET title=?,title_initial=?,description=?,developer='New Studio',publisher='',genre='Adventure',
- players=1,release_year=2001,metadata_source_kind='ADMIN_EDIT',metadata_source_ref_id=NULL,
+ players=1,release_year=2001,metadata_source_kind='ADMIN_EDIT',
  search_text=lower(?),version=version+1,updated_at_ms=2000 WHERE id=?
 `, replacement.Title, gametitle.Initial(replacement.Title), replacement.Description, replacement.Title, game.GameID)
 	mustCommitHTTPTest(t, transaction)

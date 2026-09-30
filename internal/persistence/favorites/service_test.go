@@ -30,16 +30,16 @@ const (
 	testGameC    = "01980000-0000-7000-8000-00000000f303"
 )
 
-func insertFavoriteTestGame(t *testing.T, transaction dbapi.Tx, gameID, suffix, title string, year int64) {
+func insertFavoriteTestGame(t *testing.T, transaction dbapi.Tx, gameID, title string, year int64) {
 	t.Helper()
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(
   id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
+  metadata_source_kind,content_kind,content_source_kind,
   source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,'','','','',NULL,
- NULLIF(?,0),'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',?,'[]',?,'PUBLISHED',lower(?),1,1000,1000)
-`, gameID, title, gametitle.Initial(title), year, "favorite-test-"+suffix,
+ NULLIF(?,0),'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','[]',?,'PUBLISHED',lower(?),1,1000,1000)
+`, gameID, title, gametitle.Initial(title), year,
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", title); err != nil {
 		t.Fatal(err)
 	}
@@ -78,9 +78,9 @@ VALUES(?,'fixture','ARGON2ID_V1',1000,1000),(?,'fixture','ARGON2ID_V1',1000,1000
 `, testUserA, testUserB); err != nil {
 		t.Fatal(err)
 	}
-	insertFavoriteTestGame(t, transaction, testGameA, "01", "Alpha", 1991)
-	insertFavoriteTestGame(t, transaction, testGameB, "02", "Beta", 1992)
-	insertFavoriteTestGame(t, transaction, testGameC, "03", "Gamma", 0)
+	insertFavoriteTestGame(t, transaction, testGameA, "Alpha", 1991)
+	insertFavoriteTestGame(t, transaction, testGameB, "Beta", 1992)
+	insertFavoriteTestGame(t, transaction, testGameC, "Gamma", 0)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}

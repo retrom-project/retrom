@@ -93,5 +93,5 @@ func clearPayload(ctx context.Context, executor dbapi.Executor, before applicati
 	if err := records.ClearEvidence(ctx, id, now); err != nil {
 		return wrapErr(err)
 	}
-	return nil
+	return records.ClearWorkingRecords(ctx, id, now)
 }

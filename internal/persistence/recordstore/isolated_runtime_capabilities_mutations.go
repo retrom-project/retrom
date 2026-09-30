@@ -54,7 +54,7 @@ WITH previous(credential_sha256,launch_id,preview_id) AS (VALUES(?,?,?))
 SELECT CASE
 -- isolated_runtime_capabilities_immutable_delete
 WHEN (previous.launch_id IS NOT NULL OR EXISTS(
-  SELECT 1 FROM review_preview_sessions preview
+  SELECT 1 FROM runtime_preview_sessions preview
   WHERE preview.id=previous.preview_id AND preview.state NOT IN ('EXPIRED','REVOKED')
 )) THEN 'isolated runtime capability is retained for audit'
 ELSE '' END

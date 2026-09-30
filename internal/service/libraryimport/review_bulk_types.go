@@ -28,7 +28,7 @@ type ReviewBulkCandidateQuery struct {
 type ReviewBulkCandidate struct {
 	ItemID, SourceSnapshotID, PlatformID string
 	ReviewVersion                        int64
-	ValidationID, ValidationStatus       *string
+	ValidationStatus                     *string
 	AttachmentActive, SourceFlagged      bool
 }
 

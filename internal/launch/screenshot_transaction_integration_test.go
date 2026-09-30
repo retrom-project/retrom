@@ -22,13 +22,13 @@ import (
 )
 
 type screenshotStored struct {
-	ID, PreviewID, ValidationID, FileRecord   string
+	ID, PreviewID, FileRecord                 string
 	Width, Height, Captured, Created, Updated int64
 }
 
 func screenshotRecords(t *testing.T, database dbapi.DB) []screenshotStored {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `SELECT id,preview_session_id,validation_id,file_record,
+	rows, err := database.QueryContext(t.Context(), `SELECT id,preview_session_id,file_record,
 width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms FROM review_runtime_screenshots ORDER BY id`)
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms FROM review_runtim
 	var records []screenshotStored
 	for rows.Next() {
 		var record screenshotStored
-		if err := rows.Scan(&record.ID, &record.PreviewID, &record.ValidationID, &record.FileRecord,
+		if err := rows.Scan(&record.ID, &record.PreviewID, &record.FileRecord,
 			&record.Width, &record.Height, &record.Captured, &record.Created, &record.Updated); err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +74,7 @@ func TestScreenshotReplacementPreservesCreationAndRetiresPriorValidation(t *test
 		t.Fatal(err)
 	}
 	after := screenshotRecords(t, fixture.database)
-	if len(after) != 1 || second.ID == first.ID || second.ValidationID != first.ValidationID {
+	if len(after) != 1 || second.ID == first.ID {
 		t.Fatalf("first=%+v second=%+v rows=%+v", first, second, after)
 	}
 	stored := after[0]
@@ -126,20 +126,20 @@ func TestScreenshotRechecksCurrentReviewEvidenceAfterImageRead(t *testing.T) {
 		}},
 		{"directory deleted", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
 			mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET deleted_at_ms=? WHERE id=(SELECT target_platform_instance_id FROM
-review_preview_sessions WHERE id=?)`, fixture.now.UnixMilli(), preview.PreviewID)
+runtime_preview_sessions WHERE id=?)`, fixture.now.UnixMilli(), preview.PreviewID)
 		}},
 		{"finished", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
-			mustRPGLaunchSQL(t, fixture.database, `UPDATE review_preview_sessions SET state='FINISHED',finished_at_ms=? WHERE id=?`, fixture.now.UnixMilli(), preview.PreviewID)
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE runtime_preview_sessions SET state='FINISHED',finished_at_ms=? WHERE id=?`, fixture.now.UnixMilli(), preview.PreviewID)
 		}},
 		{"expired", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
 			var expiry int64
-			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&expiry); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM runtime_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&expiry); err != nil {
 				t.Fatal(err)
 			}
 			*fixture.now = time.UnixMilli(expiry)
 		}},
-		{"new validation", func(t *testing.T, fixture reviewCheckpointFixture, _ ReviewPreviewCreated) {
-			mustRPGLaunchSQL(t, fixture.database, `UPDATE import_item_core_validations SET created_at_ms=? WHERE import_item_id=? AND created_at_ms=0`, fixture.now.UnixMilli()+1, fixture.itemID)
+		{"target disabled", func(t *testing.T, fixture reviewCheckpointFixture, _ ReviewPreviewCreated) {
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE runtime_target_bindings SET launch_policy='DISABLED' WHERE target_id='rpgmaker-2000'`)
 		}},
 	}
 	for _, test := range cases {

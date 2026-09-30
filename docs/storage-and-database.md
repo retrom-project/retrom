@@ -195,7 +195,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `import_items` | 单个游戏候选，含可选的内容类型专属 `review_profile_json` |
 | `import_item_source_files` | 候选的 CONTENT/DOS_SOURCE/COMPANION 发布前文件映射 |
 | `import_item_dos_entries` | 发布前 DOS 程序候选 |
-| `import_item_core_validations` / `import_item_validation_files` | 审核可选择的默认核心验证证据与派生文件 |
+| `import_items.content_analysis_json` / `import_item_runtime_files` | 当前来源的内容观察与 Item 拥有的派生产物；安装 BIOS 和 source COMPANION 不复制到派生产物表 |
 | `upload_sessions` / `upload_files` | 浏览器上传会话与相对路径 |
 | `upload_parts` | 分块上传 |
 | `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/Game Asset/Review Asset 的互斥审计归属 |
@@ -211,9 +211,10 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
 | `import_items` | 导入 Item 与当前审核字段共用一行；`review_version` 独立于 Item `version`，用于审核乐观并发，不保存编辑历史 |
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
-| `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
-| `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在普通 Player 中按需生成的审核截图与人工放行证据 |
-| `review_draft_tags` | 待审核草稿的当前活动标签选择；决定后保留历史关系 |
+| `runtime_preview_sessions` / `runtime_preview_files` | 中立的短时运行快照、授权和冻结资源；不引用审核/导入表 |
+| `review_preview_bindings` | 审核到运行 Preview 的工作关联，只由审核创建、恢复和清理使用 |
+| `review_runtime_screenshots` | 按 import_item_id 唯一的当前审核截图与人工放行证据 |
+| `review_draft_tags` | 待审核草稿的活动标签选择；最终决定复制到 Game 后删除 |
 | `source_collection_tags` | 统一 Collection 的管理员标签映射；名称证据另冻结在 Collection snapshot |
 
 ### 4.5 通用任务、幂等与审计
@@ -266,6 +267,8 @@ data/
   secrets/launch-capability.key
   tmp/uploads/<upload-id>/
   staging/items/<item-uuid>/{payload,scratch}/
+  previews/<preview-uuid>/checkpoints/<checkpoint-uuid>/
+  previews/<preview-uuid>/restore/
   staging/uploads/<upload-uuid>/
   staging/sources/<source-item-uuid>/
   staging/writes/
@@ -283,7 +286,7 @@ data/
 
 每个游戏独占 `files/<游戏 UUID 最后两位>/<游戏 UUID>/`。`content/<写入 UUID>/` 保存 ROM、目录项目与校验产物，`media/<资源 UUID>/` 保存封面、视频和截图。相同内容的两个游戏仍有独立目录、文件与 inode；摘要只用于完整性、DAT、内容识别和重复游戏提示。
 
-导入条目独占 `staging/items/<Item UUID>/`，其中 `payload/` 是准备发布的目录，`scratch/` 保存审核截图、预览检查点等临时材料。浏览器上传与服务器来源分别使用 `staging/uploads/<Upload UUID>/`、`staging/sources/<SourceItem UUID>/`。来源只是输入；准备完成后 Item 的 ROM 和媒体都能独立于来源存活。
+导入条目独占 `staging/items/<Item UUID>/`，其中 `payload/` 是准备发布的目录，`scratch/` 保存审核截图等临时材料；预览 checkpoint 存放于 `previews/<Preview UUID>/checkpoints/`，由 Preview 独占并通过 PATH_DELETE 回收。浏览器上传与服务器来源分别使用 `staging/uploads/<Upload UUID>/`、`staging/sources/<SourceItem UUID>/`。来源只是输入；准备完成后 Item 的 ROM 和媒体都能独立于来源存活。
 
 未登记为导入条目、来源项或上传会话的准备目录超过 24 小时后按目录清理；数据库查询失败时保留。长期待审条目不按目录年龄过期。
 
@@ -367,11 +370,11 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 ## 12. 审核运行预览的存储边界
 
-当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有独立文件存储，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 后台删除 和审核终态 OwnerCleanup 清除临时引用。
+当前 clean schema 在运行领域创建 runtime_preview_sessions/runtime_preview_files，在审核领域创建 review_preview_bindings/review_runtime_screenshots。审核关联只从 binding 指向中立 Preview，运行表没有导入、审核或 Source 外键。Preview 冻结不透明 scope/revision、返回路径、Provider/Target、Bundle 字节身份和实际资源，不引用 validation_id。运行内容引用已有独立文件存储，不复制成假 Game。
 
-重复试玩相同输入必须复用已有当前 Validation，包括需要人工试玩的 BLOCKED 结果，不因新建运行窗口追加校验记录。审核截图只维护条目的当前结果：成功保存时，在同一事务中清除该条目其他 Validation 的旧截图并覆盖当前截图；新截图校验或保存失败时保留原结果。截图不是不可变历史记录；旧图片文件由 Item 保留到终态清理。
+重复试玩仅创建会话，不生成验证记录。审核截图以 import_item_id 唯一，保存成功在同一事务覆盖该条目的当前截图；保存失败保留原结果。旧图片文件由 Item 保留到终态清理。
 
-Preview 是 ImportItem 文件的读取会话，截图与临时 checkpoint 同属 Item，不形成独立保护引用。冻结恢复不跟随当前 checkpoint 覆盖；原文件保留到 Item 终态清理。当前截图只向匹配当前来源、目录、Provider Target 与 input digest 的 Validation 投影；READY 或阻断状态均可使用，阻断截图允许管理员人工放行。HTTP 不暴露内部文件 ID。
+Preview 对输入文件只持有冻结读取授权；截图属于 Item，临时 checkpoint 属于 Preview 自有目录。最终发布或丢弃在决定事务中撤销 Preview、bootstrap ticket 和隔离 capability；此后运行与存档模块不读取 Item 状态。发布将当前有效截图复制到 Game 自有资产，终态审核媒体返回 404。异步清理负责剩余工作记录及目录删除。恢复资源在事务外复制到恢复 Preview 的自有 restore 目录，提交时重验来源 checkpoint 未变化；复制或提交失败清理未提交目录。恢复资源不跟随后续 checkpoint 覆盖，也不依赖原 Preview 的到期清理。逐文件回收只选择对应 checkpoint/restore workspace，终态才删除整个 Preview 目录。当前截图按 Item 关联，投影时核对来源快照、目标目录与 Provider/Target；BIOS 安装变化不使截图失效。READY 或允许人工放行的阻断状态均可显示截图。HTTP 不暴露内部文件 ID。
 
 ## 14. 标签数据边界
 
@@ -385,7 +388,7 @@ Tag 删除是业务软删除，不是存储清理：不得以减小数据库为�
 Provider 及 61 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
 state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 不闭合时不得部分激活。
 
-升级只允许 SemVer 增长。事务必须证明所有被 Variant 和 Validation 引用的 Target 仍存在，且每个存档的
+升级只允许 SemVer 增长。事务必须证明所有被当前 Variant、活动运行会话与未完成导入/审核引用的 Target 仍存在；完成的过程记录不构成引用，且每个存档的
 checkpoint format 仍可由至少一个当前 READY GameVariant 的 Target `readFormats` 读取。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
 文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
 

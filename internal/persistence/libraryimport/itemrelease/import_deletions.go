@@ -14,8 +14,10 @@ func DeleteStatements() []releaseops.DeletionBatch {
 			Remove: recordstore.DeleteIsolatedRuntimeCapabilities,
 			Where: `rowid IN (
  SELECT capability.rowid FROM isolated_runtime_capabilities capability
- JOIN review_preview_sessions preview ON preview.id=capability.preview_id
- WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
+ JOIN runtime_preview_sessions preview ON preview.id=capability.preview_id
+ WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?)
+ AND preview.state IN ('EXPIRED','REVOKED')
  ORDER BY capability.rowid LIMIT 200
 )`,
 		},
@@ -25,16 +27,19 @@ func DeleteStatements() []releaseops.DeletionBatch {
 			Remove: recordstore.DeleteIsolatedRuntimeBootstrapTickets,
 			Where: `rowid IN (
  SELECT ticket.rowid FROM isolated_runtime_bootstrap_tickets ticket
- JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
- WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
+ JOIN runtime_preview_sessions preview ON preview.id=ticket.preview_id
+ WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?)
+ AND preview.state IN ('EXPIRED','REVOKED')
  ORDER BY ticket.rowid LIMIT 200
 )`,
 		},
 
-		{Table: "review_preview_files", Remove: recordstore.DeleteReviewPreviewFiles, Where: `rowid IN (
- SELECT file.rowid FROM review_preview_files file
- JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
- WHERE preview.import_item_id=? ORDER BY file.rowid LIMIT 200
+		{Table: "runtime_preview_files", Remove: recordstore.DeleteRuntimePreviewFiles, Where: `rowid IN (
+ SELECT file.rowid FROM runtime_preview_files file
+ JOIN runtime_preview_sessions preview ON preview.id=file.preview_session_id
+ WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?) ORDER BY file.rowid LIMIT 200
 )`},
 
 		{
@@ -47,14 +52,15 @@ func DeleteStatements() []releaseops.DeletionBatch {
 		},
 
 		{
-			Table:  "review_preview_sessions",
-			Remove: recordstore.DeleteReviewPreviewSessions,
+			Table:  "runtime_preview_sessions",
+			Remove: recordstore.DeleteRuntimePreviewSessions,
 			Where: `rowid IN (
- SELECT rowid FROM review_preview_sessions WHERE import_item_id=?
+ SELECT rowid FROM runtime_preview_sessions WHERE id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?)
 AND state IN ('EXPIRED','REVOKED')
-AND NOT EXISTS(SELECT 1 FROM isolated_runtime_capabilities WHERE preview_id=review_preview_sessions.id)
-AND NOT EXISTS(SELECT 1 FROM isolated_runtime_bootstrap_tickets WHERE preview_id=review_preview_sessions.id)
-AND NOT EXISTS(SELECT 1 FROM review_preview_files WHERE preview_session_id=review_preview_sessions.id)
+AND NOT EXISTS(SELECT 1 FROM isolated_runtime_capabilities WHERE preview_id=runtime_preview_sessions.id)
+AND NOT EXISTS(SELECT 1 FROM isolated_runtime_bootstrap_tickets WHERE preview_id=runtime_preview_sessions.id)
+AND NOT EXISTS(SELECT 1 FROM runtime_preview_files WHERE preview_session_id=runtime_preview_sessions.id)
 ORDER BY rowid LIMIT 200
 )`,
 		},
@@ -71,12 +77,11 @@ ORDER BY rowid LIMIT 200
 )`},
 
 		{
-			Table:  "import_item_validation_files",
-			Remove: recordstore.DeleteImportItemValidationFiles,
+			Table:  "import_item_runtime_files",
+			Remove: recordstore.DeleteImportItemRuntimeFiles,
 			Where: `rowid IN (
- SELECT file.rowid FROM import_item_validation_files file
- JOIN import_item_core_validations validation ON validation.id=file.import_item_core_validation_id
- WHERE validation.import_item_id=? ORDER BY file.rowid LIMIT 200
+ SELECT file.rowid FROM import_item_runtime_files file
+ WHERE file.import_item_id=? ORDER BY file.rowid LIMIT 200
 )`,
 		},
 

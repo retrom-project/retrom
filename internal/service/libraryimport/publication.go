@@ -49,7 +49,7 @@ func (service *ReviewApprovals) preparePublication(ctx context.Context,
 		if err != nil {
 			return fmt.Errorf("prepare publication: %w", err)
 		}
-		intent.Files, err = publicationFiles(values, request.ItemID, run.head.ValidationID)
+		intent.Files, err = publicationFiles(values, request.ItemID, run.head.SourceSnapshotID)
 		if err != nil {
 			return err
 		}
@@ -132,6 +132,7 @@ func (service *ReviewApprovals) completePublication(ctx context.Context, intent 
 			screenshotOverride: intent.ScreenshotOverride, runtimeDependencyJSON: intent.RuntimeDependencyJSON,
 			rpgProfile: intent.RPGProfile, rpgDependencies: intent.RPGDependencies,
 		}
+		run.head.RuntimeFiles = stagePublicationRuntimeFiles(intent.Head.RuntimeFiles, intent.Files)
 		run.head.Progress, run.head.ParentVersion, err = scope.Publications.PublicationProgress(ctx, run.head.ImportID)
 		if err != nil {
 			return fmt.Errorf("complete publication: %w", err)

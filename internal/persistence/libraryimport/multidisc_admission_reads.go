@@ -20,8 +20,7 @@ draft.effective_source_snapshot_id,
 platform.platform_id,platform.id,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
 `+contentquery.BindingPolicySQL+`,
-validation.id,validation.status,validation.compatibility_code,
-validation.platform_instance_version,validation.core_id,validation.provider_id,validation.target_id
+validation.status,validation.compatibility_code
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -34,20 +33,16 @@ JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=b
   AND platform_binding.platform_id=platform.platform_id
 JOIN runtime_targets target ON target.provider_id=binding.provider_id
   AND target.target_id=binding.target_id
-JOIN import_item_core_validations validation ON validation.import_item_id=item.id
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=item.id
 AND validation.source_snapshot_id=snapshot.id
 AND validation.target_platform_instance_id=platform.id
 WHERE item.id=?
-ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 `, itemID).Scan(
 		&admission.DraftID, &admission.ItemState, &admission.DraftVersion,
 		&admission.SnapshotID, &admission.PlatformID, &admission.PlatformInstanceID,
 		&admission.PlatformVersion, &admission.CoreID, &admission.ProviderID, &admission.TargetID,
 		contentquery.ScanPolicy(&admission.Policy),
-		&admission.ValidationID,
 		&admission.ValidationStatus, &admission.CompatibilityCode,
-		&admission.ValidationPlatformVersion, &admission.ValidationCoreID,
-		&admission.ValidationProviderID, &admission.ValidationTargetID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return admission, false, nil
@@ -55,6 +50,11 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 	if err != nil {
 		return admission, false, fmt.Errorf("read multi-disc admission: %w", err)
 	}
+	runtime, err := ReadReviewRuntime(ctx, records.executor, itemID)
+	if err != nil {
+		return admission, false, err
+	}
+	admission.ValidationStatus, admission.CompatibilityCode = runtime.Status, runtime.Code
 	return admission, true, nil
 }
 

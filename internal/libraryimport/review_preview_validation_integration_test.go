@@ -3,94 +3,44 @@
 package libraryimport
 
 import (
-	"encoding/json"
-	"strings"
 	"testing"
 
 	dbapi "retrom/internal/database"
-
-	"github.com/google/uuid"
+	repository "retrom/internal/persistence/libraryimport"
 )
 
-func assertPreviewRefreshesLegacyBIOS(t *testing.T, database dbapi.DB, importer *Service,
-	itemID, biosFileRecord string,
-) int64 {
+func assertPreviewReadsCurrentBIOS(t *testing.T, database dbapi.DB, _ *Service, itemID, biosFileRecord string) int64 {
 	t.Helper()
-	ctx := t.Context()
-	var validationID, snapshotJSON string
 	var version int64
-	if err := dbapi.QueryRowContext(ctx, database, `
-SELECT draft.selected_validation_id,validation.dependency_snapshot_json,draft.review_version
-FROM import_items draft JOIN import_item_core_validations validation ON
-validation.id=draft.selected_validation_id
-WHERE draft.id=?
-`, itemID).Scan(&validationID, &snapshotJSON, &version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	var snapshot arcadeDraftSnapshot
-	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Dependencies[0].State = "MISSING"
-	snapshot.MissingEntries = []string{"codexbios.zip"}
-	snapshot.Warnings = []string{}
-	legacyJSON, err := json.Marshal(snapshot)
+	runtime, err := repository.ReadReviewRuntime(t.Context(), database, itemID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata := `{"title":"Child","description":"` + strings.Repeat("界", 12167) + `"}`
-	// Seed the immutable evidence produced before missing-entry uploads were usable.
-	legacyID := uuid.NewString()
-	if _, err := database.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,
-core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
-prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-'BLOCKED','LAUNCH_BIOS_MISSING',?,created_at_ms+1 FROM import_item_core_validations WHERE id=?;
-`, legacyID, string(legacyJSON), validationID); err != nil {
+	if runtime.Status != "READY" {
+		t.Fatalf("current BIOS status=%s code=%s", runtime.Status, runtime.Code)
+	}
+	files, err := repository.ReadReviewRuntimeFiles(t.Context(), database, itemID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `UPDATE import_items SET selected_validation_id=NULL,metadata_json=? WHERE id=?`, metadata, itemID); err != nil {
+	found := false
+	for _, file := range files {
+		if file.Role == "BIOS_BUNDLE" && file.FileRecord == biosFileRecord {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("installed BIOS absent from current runtime files")
+	}
+	var after int64
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&after); err != nil {
 		t.Fatal(err)
 	}
-	if err := importer.RefreshReviewPreviewValidation(ctx, itemID); err != nil {
-		t.Fatal(err)
+	if after != version {
+		t.Fatal("reading BIOS changed review version")
 	}
-	var selected, status, actualBlob, actualMetadata string
-	var nextVersion int64
-	if err := dbapi.QueryRowContext(ctx, database, `
-SELECT draft.selected_validation_id,validation.status,file.file_record,draft.metadata_json,
-draft.review_version
-FROM import_items draft JOIN import_item_core_validations validation ON
-validation.id=draft.selected_validation_id
-JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id AND
-file.role='BIOS_BUNDLE'
-WHERE draft.id=?
-`, itemID).Scan(&selected, &status, &actualBlob, &actualMetadata, &nextVersion); err != nil {
-		t.Fatal(err)
-	}
-	if selected == legacyID || status != "READY" || actualBlob != biosFileRecord ||
-		actualMetadata != metadata || nextVersion != version+1 {
-		t.Fatalf("preview refresh: selected=%s status=%s blob=%s version=%d expectedVersion=%d blobEqual=%t metadataEqual=%t", selected, status, actualBlob, nextVersion, version+1, actualBlob == biosFileRecord, actualMetadata == metadata)
-	}
-	var oldJSON string
-	if err := dbapi.QueryRowContext(ctx, database, `SELECT dependency_snapshot_json FROM import_item_core_validations WHERE id=?`, legacyID).Scan(&oldJSON); err != nil {
-		t.Fatal(err)
-	}
-	if oldJSON != string(legacyJSON) {
-		t.Fatal("preview refresh rewrote immutable evidence")
-	}
-	if err := importer.RefreshReviewPreviewValidation(ctx, itemID); err != nil {
-		t.Fatal(err)
-	}
-	var repeatedVersion int64
-	if err := dbapi.QueryRowContext(ctx, database, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&repeatedVersion); err != nil {
-		t.Fatal(err)
-	}
-	if repeatedVersion != nextVersion {
-		t.Fatal("unchanged dependencies changed the draft version")
-	}
-	return nextVersion
+	return version
 }

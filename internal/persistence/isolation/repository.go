@@ -50,7 +50,7 @@ SELECT ticket.profile_id,ticket.expires_at_ms,ticket.consumed_at_ms IS NOT NULL,
  COALESCE(launch.hard_expires_at_ms,preview.hard_expires_at_ms,0)
 FROM isolated_runtime_bootstrap_tickets ticket
 LEFT JOIN launch_sessions launch ON launch.id=ticket.launch_id
-LEFT JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
+LEFT JOIN runtime_preview_sessions preview ON preview.id=ticket.preview_id
 WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.expected_origin=?
  AND (? IS NULL OR ticket.ticket_sha256=?)
 `, query.LaunchID, query.Origin, digest, digest).Scan(&result.Session.Profile, &result.ExpiresAtMS, &result.Consumed,
@@ -118,7 +118,7 @@ SELECT capability.profile_id,capability.expires_at_ms,capability.revoked_at_ms I
  COALESCE(launch.hard_expires_at_ms,preview.hard_expires_at_ms,0)
 FROM isolated_runtime_capabilities capability
 LEFT JOIN launch_sessions launch ON launch.id=capability.launch_id
-LEFT JOIN review_preview_sessions preview ON preview.id=capability.preview_id
+LEFT JOIN runtime_preview_sessions preview ON preview.id=capability.preview_id
 WHERE capability.credential_sha256=? AND COALESCE(capability.launch_id,capability.preview_id)=?
  AND capability.expected_origin=?
 `, query.Digest[:], query.LaunchID, query.Origin).Scan(&result.Session.Profile, &result.ExpiresAtMS, &result.Revoked,

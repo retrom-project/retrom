@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"retrom/internal/content/arcade"
+
 	"retrom/internal/authn"
 	contentcapability "retrom/internal/content/capability"
 )
@@ -72,9 +74,9 @@ type ArcadeParentAttachmentWrite struct {
 }
 
 type ArcadeParentAttachmentAdmissionReader interface {
-	ArcadeRelationReader
+	arcade.RelationReader
 	Draft(context.Context, string) (ArcadeParentAttachmentDraft, bool, error)
-	Validation(context.Context, string, string) (ArcadeParentAttachmentValidation, bool, error)
+	Validation(context.Context, string) (ArcadeParentAttachmentValidation, bool, error)
 	Upload(context.Context, string) (ArcadeParentAttachmentUpload, bool, error)
 	HasActive(context.Context, string) (bool, error)
 }

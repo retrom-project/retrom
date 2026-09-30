@@ -48,6 +48,7 @@ func httpDependencies(
 			Approvals:     services.ReviewApprovals,
 			BulkApprovals: services.ReviewBulkApprovals,
 			Screenshots:   services.ReviewScreenshots,
+			Previews:      services.ReviewPreviews,
 			Metadata:      services.Metadata,
 			Evidence:      services.MetadataEvidence,
 		},

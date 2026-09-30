@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"retrom/internal/filestore"
@@ -120,41 +119,18 @@ func (run *creationCommit) persistValidation(
 	if err := run.resolveArcade(ctx, scope, group); err != nil {
 		return creationError("persist validation", err)
 	}
-	target := run.plan.Target
-	digest := PrepublishDigest(
-		PrepublishDigestInput{
-			SchemaVersion:            1,
-			SourceSnapshotID:         record.snapshotID,
-			SourceManifestDigest:     record.manifestDigest,
-			ContentKind:              record.kind,
-			TargetPlatformInstanceID: target.ID,
-			ProviderID:               target.ProviderID,
-			TargetID:                 target.TargetID,
-			ContentPolicyDigest:      target.Policy.DigestFor(record.kind),
-			DATVersionID:             creationOptional(run.plan.DATVersionID),
-			DefaultDOSEntry:          creationOptional(group.DefaultDOSEntry),
-			DependencySnapshot:       json.RawMessage(group.DependencySnapshot),
-			Status:                   group.ValidationStatus,
-			CompatibilityCode:        group.CompatibilityCode,
-		},
-	)
-	if digest == "" {
-		return ErrInvalid
-	}
 	return creationError("persist validation", scope.Reviews.Validation(
 		ctx,
 		CreationValidation{
-			ID:             record.validationID,
 			ItemID:         record.itemID,
 			SnapshotID:     record.snapshotID,
 			ManifestDigest: record.manifestDigest,
-			InputDigest:    digest,
 			Status:         group.ValidationStatus,
 			Code:           group.CompatibilityCode,
 			DependencyJSON: group.DependencySnapshot,
 			DATID:          run.plan.DATVersionID,
 			DefaultDOS:     group.DefaultDOSEntry,
-			Target:         target,
+			Target:         run.plan.Target,
 			DOSEntries:     group.DOSEntries,
 			Files:          group.ValidationFiles,
 			NowMS:          run.header.NowMS,

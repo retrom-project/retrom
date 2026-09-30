@@ -463,6 +463,8 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/SelectedAssetsRequest
     ReviewSelectedAssetsRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewSelectedAssetsRequest
+    ReviewReadiness:
+      $ref: ./domains/reviews.yaml#/components/schemas/ReviewReadiness
     ReviewDraftRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewDraftRequest
     MetadataProviderRequest:
