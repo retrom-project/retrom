@@ -1,3 +1,4 @@
+import {expectDetailHeroAlignment} from "./game-detail-alignment";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { expectPaletteContrast, expectServerImportStatsContrast } from "./palette-contrast-support";
@@ -81,7 +82,8 @@ async function expectRouteComposition(page: Page, route: string, width: number) 
   if (width! >= 1440 && route.startsWith("/games/")) {
     await expect(page.locator(".launch-panel-head .status")).toHaveCount(0);
     const cover = (await page.locator(".game-detail-poster").boundingBox())!;
-    expect(cover.width / cover.height).toBeCloseTo(3 / 4, 2);
+    if (page.viewportSize()!.width >= 1600) {await expectDetailHeroAlignment(page);}
+    else {expect(cover.width / cover.height).toBeCloseTo(3 / 4, 2);}
   }
   if (route.startsWith("/admin/imports/server/source/")) {
     for (const action of await page.locator(".source-review-action").all()) {
