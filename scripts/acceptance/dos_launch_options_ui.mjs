@@ -8,7 +8,8 @@ import {importComputer} from "./computer_product_client.mjs";
 
 const base = process.env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(process.env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/dos-launch-options-ui");
-await mkdir(directory, {recursive: true});
+const screenshots = join(directory, "screenshots");
+await mkdir(screenshots, {recursive: true});
 const report = {schemaVersion: 1, caseId: "ACC-UI-003", status: "FAIL"};
 const browser = await chromium.launch({executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true});
 const context = await browser.newContext({viewport: {width: 2560, height: 1440}, deviceScaleFactor: 1.5});
@@ -35,7 +36,7 @@ try {
   assert.equal(boxes[0].y, boxes[1].y, "DOS_SELECTORS_MUST_SHARE_ROW");
   assert.ok(boxes[1].x > boxes[0].x + boxes[0].width, "DOS_PROGRAM_MUST_BE_BESIDE_LOADING");
   assert.ok(Math.abs(boxes[0].x + boxes[0].width - boxes[2].x - boxes[2].width) < 1, "DOS_LOADING_BUTTON_RIGHT_ALIGNMENT");
-  await page.screenshot({path: join(directory, "dos-options-wide-4k.png")});
+  await page.screenshot({path: join(screenshots, "dos-options-wide-4k.png")});
   await middleWidth(400);
   await expect(options).toHaveClass(/is-tabbed/);
   const loadingTab = page.getByRole("tab", {name: /^内容加载/});
@@ -60,7 +61,7 @@ try {
   await page.keyboard.press("Home"); await expect(loadingTab).toBeFocused();
   await page.keyboard.press("ArrowRight"); await expect(programTab).toBeFocused();
   await page.keyboard.press("Tab"); await expect(program).toBeFocused();
-  await page.screenshot({path: join(directory, "dos-options-tabs-4k.png")});
+  await page.screenshot({path: join(screenshots, "dos-options-tabs-4k.png")});
   await middleWidth(700);
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(program).toHaveValue(""); await expect(loading).toHaveValue("PRELOAD");
@@ -73,8 +74,8 @@ try {
   await page.getByRole("button", {name: "启动选项", exact: true}).click();
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(loading).toHaveValue("PRELOAD"); await expect(program).toHaveValue("CACHE.COM");
-  await page.screenshot({path: join(directory, "dos-options-mobile.png")});
-  const metadata = await sharp(join(directory, "dos-options-tabs-4k.png")).metadata();
+  await page.screenshot({path: join(screenshots, "dos-options-mobile.png")});
+  const metadata = await sharp(join(screenshots, "dos-options-tabs-4k.png")).metadata();
   assert.equal(metadata.width, 3840); assert.equal(metadata.height, 2160);
   report.dimensions = {width: metadata.width, height: metadata.height, dpr: 1.5};
   report.wide = boxes; report.compact = {before, after};
