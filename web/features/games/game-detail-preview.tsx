@@ -32,7 +32,7 @@ export function GameDetailPreview({ title, coverUrl, videoUrl, save }: {
       </div></header> : null}
       <div className="game-detail-preview-panel" hidden={video} id={tabbed ? `${id}-panel-0` : undefined} role={tabbed ? "tabpanel" : undefined} aria-labelledby={tabbed ? `${id}-tab-0` : undefined}>
         {save ? <div className="game-detail-feature-shot">
-          <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${title} 最近存档`} sizes="(min-width: 1600px) 520px, 60vw" />
+          <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${title} 最近存档`} sizes="(min-width: 1600px) 520px, 60vw" loading="eager" />
           <SaveSizeLabel sizeBytes={save.sizeBytes} />
         </div> : null}
       </div>

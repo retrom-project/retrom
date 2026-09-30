@@ -7,6 +7,8 @@ import {computerResources} from "./computer_product_browser.mjs";
 import {observeContentIO,contentSourceMatcher} from "./content_io_observation.mjs";
 import {proofDigest} from "./content_io_case_proof.mjs";
 import sharp from "../../web/node_modules/sharp/dist/index.cjs";
+import {observeSymbianAssets} from "./symbian_assets.mjs";
+import {executingContentWorker} from "./content_io_worker_identity.mjs";
 
 // Operator instrumentation observes the exact factory; it does not replace native behavior.
 export async function observeSymbian(context) {
@@ -62,13 +64,7 @@ export async function openSymbian(context,base,launch,directory) {
   const config=await response.json(),resources=computerResources(config);
   const network=observeContentIO(context,contentSourceMatcher(resources,base));await network.ready;
   const page=await context.newPage(),errors=[],warnings=[];
-  const assets=[],pending=[];
-  const assetListener=response=>{
-    const path=new URL(response.url()).pathname;
-    if(!path.startsWith("/runtime/providers/retrom-runtime/")||!/(?:client\.mjs|worker\.mjs|eka2l1-runtime\.zip)$/u.test(path))return;
-    pending.push(response.body().then(bytes=>assets.push({path,sha256:proofDigest(bytes),sizeBytes:bytes.length}),()=>errors.push("SYMBIAN_PROVIDER_ASSET_UNAVAILABLE")));
-  };
-  context.on("response",assetListener);
+  const observedAssets=observeSymbianAssets(context,errors),assets=observedAssets.assets;
   page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="warning"||message.type()==="error")warnings.push(message.text());});
   const started=Date.now();await page.goto(base+launch.playUrl,{waitUntil:"domcontentloaded",timeout:60000});
@@ -91,13 +87,14 @@ export async function openSymbian(context,base,launch,directory) {
   assert.equal(config.runtime.targetId,"symbian-eka2l1");assert.equal(config.runtime.checkpoint.semantics,"GAME_SAVE");
   for(let i=0;i<3;i++)await frame.getByRole("button",{name:"Rotate game display"}).click();
   await canvas.click();await page.waitForTimeout(15000);
-  await Promise.all(pending);
+  await observedAssets.flush();
+  assets.push(await executingContentWorker(context,page,observedAssets.workerAssetPath));
   assert.ok(assets.some(asset=>asset.path.endsWith("/client.mjs")&&asset.sha256===config.runtime.moduleSha256),"SYMBIAN_MODULE_IDENTITY_MISMATCH");
   return {page,frame,canvas,config,resources,network,launch:{...launch,launchId:id},errors,warnings,assets,startup,
-    async flush(){await network.flush();await Promise.all(pending);assert.deepEqual(errors,[]);
+    async flush(){await network.flush();await observedAssets.flush();assert.deepEqual(errors,[]);
       const sandbox="An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.";
       assert.deepEqual(warnings.filter(message=>message!==sandbox),[]);},
-    dispose(){network.close();context.off("response",assetListener);}};
+    dispose(){network.close();observedAssets.dispose();}};
 }
 export async function pictureSymbian(opened,directory,name) {
   await opened.canvas.screenshot({path:join(directory,name+".png")});

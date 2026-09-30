@@ -82,6 +82,17 @@ try{
     transfer:symbianColdTransfer(game,total)};
   await stage("native-save-upload");
   report.save=await performContentIOPlayerExit(game.page,base,launch,()=>saveComputerDisk(game.page,launch.launchId));
+  const detailShot=game.page.locator(".game-detail-feature-shot img");
+  await detailShot.waitFor({state:"visible"});
+  assert.equal(await detailShot.getAttribute("loading"),"eager","SYMBIAN_HERO_SAVE_LOADING_DELAYED");
+  await game.page.waitForFunction(()=>{const image=document.querySelector(".game-detail-feature-shot img");return image?.complete&&image.naturalWidth>0;});
+  report.detailSavePreview={loading:"eager",screenshots:[]};
+  for(const viewport of [{width:2560,height:1440},{width:390,height:844}]){
+    await game.page.setViewportSize(viewport);
+    const path=`detail-after-native-save-${viewport.width}.png`;
+    await game.page.screenshot({path:join(directory,path),fullPage:true});
+    report.detailSavePreview.screenshots.push({viewport,path});
+  }
   report.launches.push(await collectComputerExit(game,collector));await stage("native-restore");
   const next=await launchCart(client,report.gameId,report.save.saveStateId);next.returnTo=launch.returnTo;
   assert.notEqual(next.launchId,launch.launchId);

@@ -18,6 +18,7 @@ it("prioritizes the save, mounts video only when selected and restores save prev
   const { container } = render(<GameDetailPreview title="Sudoku" coverUrl={null} videoUrl="/video.mp4" save={save} />);
   expect(screen.getByRole("tab", { name: "最近存档" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("tabpanel", { name: "最近存档" })).toBeVisible();
+  expect(screen.getByAltText("Sudoku 最近存档")).toHaveAttribute("loading", "eager");
   for (const tab of screen.getAllByRole("tab")) {
     expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBeInTheDocument();
   }
