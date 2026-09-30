@@ -412,9 +412,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("button", { name: "继续加载" }).click();
   await expect(rows).toHaveCount(60);
   expect(new Set(await rows.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-review-item")))).size).toBe(60);
-  // This seed intentionally has stale source evidence. The current-facts
-  // contract blocks publication until an ordinary draft save rebuilds it.
-  await expect(rows.first()).toContainText("缺少依赖");
+  await expect(rows.first()).toContainText("可以发布");
   await expect(page.getByRole("button", { name: "快速审批" })).toBeVisible();
 
   await page.getByRole("link", { name: "清除" }).click();
@@ -430,7 +428,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
   await expect(rows).toHaveCount(60);
 
-  const item57 = page.locator(`[data-review-item="${itemId(57)}"]`).getByRole("link", { name: "处理条目" });
+  const item57 = page.locator(`[data-review-item="${itemId(57)}"]`).getByRole("link", { name: "审核条目" });
   await item57.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
@@ -533,7 +531,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
   await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
   await page.getByRole("link", { name: "返回待审核列表" }).click();
-  await page.locator(`[data-review-item="${itemId(3)}"]`).getByRole("link", { name: "处理条目" }).click();
+  await page.locator(`[data-review-item="${itemId(3)}"]`).getByRole("link", { name: "审核条目" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}`));
   await page.getByRole("textbox", { name: "标题" }).fill("Batch 1 Game 03 Saved");
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
@@ -573,7 +571,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(rows).toHaveCount(40);
   await page.getByRole("button", { name: "继续加载" }).click();
   await expect(rows).toHaveCount(59);
-  await page.locator(`[data-review-item="${itemId(58)}"]`).getByRole("link", { name: "处理条目" }).click();
+  await page.locator(`[data-review-item="${itemId(58)}"]`).getByRole("link", { name: "审核条目" }).click();
   await page.getByRole("button", { name: "丢弃条目" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(58)}(?:\\?|$)`));
   await expect(page.locator(".app-toast")).toContainText("条目已丢弃");
