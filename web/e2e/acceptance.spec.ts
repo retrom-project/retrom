@@ -412,7 +412,9 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("button", { name: "继续加载" }).click();
   await expect(rows).toHaveCount(60);
   expect(new Set(await rows.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-review-item")))).size).toBe(60);
-  await expect(rows.first()).toContainText("可以发布");
+  // This seed intentionally has stale source evidence. The current-facts
+  // contract blocks publication until an ordinary draft save rebuilds it.
+  await expect(rows.first()).toContainText("缺少依赖");
   await expect(page.getByRole("button", { name: "快速审批" })).toBeVisible();
 
   await page.getByRole("link", { name: "清除" }).click();
