@@ -16,12 +16,13 @@ function SaveResume({ gameId, save, label, requiresThreads, secondary = false }:
     : <button className={secondary ? "button secondary" : "button"} type="button" disabled>当前不可继续</button>;
 }
 
-export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds = [] }: {
+export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds = [], heroScreenshotUrl }: {
   gameId: string;
   gameTitle: string;
   saves: SaveItem[];
   nowMs: number;
   threadCoreIds?: string[];
+  heroScreenshotUrl?: string | null;
 }) {
   const formatTime = useSaveTimeFormatter();
   const recentSaves = saves.slice(0, 3);
@@ -70,7 +71,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
         {recentSaves.map((save) => <article className="game-detail-save-card" key={save.saveStateId}>
           <div className="game-detail-save-media">
             {!saveAvailable(save) ? <span className="game-detail-save-blocked">当前不可用</span> : null}
-            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1600px) 220px, (min-width: 768px) 30vw, 120px" />
+            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1600px) 220px, (min-width: 768px) 30vw, 120px" loading={heroScreenshotUrl && save.screenshotUrl === heroScreenshotUrl ? "eager" : "lazy"} />
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </div>
           <div className="game-detail-save-body">
@@ -114,7 +115,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       <div className="game-detail-drawer-body">
         {saves.map((save) => <article className="game-detail-drawer-row" key={save.saveStateId}>
           <div className="game-detail-drawer-shot">
-            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="192px" />
+            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="192px" loading={heroScreenshotUrl && save.screenshotUrl === heroScreenshotUrl ? "eager" : "lazy"} />
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </div>
           <div><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}</small></div>

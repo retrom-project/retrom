@@ -29,6 +29,14 @@ function makeSave(index: number): SaveItem {
 describe("GameDetailSaves", () => {
   afterEach(cleanup);
 
+  it("shares eager hero loading across repeated images while other saves stay lazy", () => {
+    const hero = makeSave(0), other = makeSave(1);
+    const { container } = render(<GameDetailSaves gameId="game-1" gameTitle="Game" saves={[hero, other]} nowMs={nowMs} heroScreenshotUrl={hero.screenshotUrl} />);
+    for (const image of container.querySelectorAll("img")) {
+      expect(image).toHaveAttribute("loading", image.getAttribute("src") === hero.screenshotUrl ? "eager" : "lazy");
+    }
+  });
+
   it("keeps three recent saves in the page and exposes every save in a drawer", async () => {
     const user = userEvent.setup();
     const saves = Array.from({ length: 6 }, (_, index) => makeSave(index));

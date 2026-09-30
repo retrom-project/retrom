@@ -94,7 +94,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
             {fact("游戏目录", game.platformInstance.name)}
           </div></section>
         </div>
-        <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} />
+        <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} heroScreenshotUrl={latestSave?.screenshotUrl} />
       </div>
     </div>
   );
