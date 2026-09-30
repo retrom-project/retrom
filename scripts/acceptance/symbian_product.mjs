@@ -14,11 +14,12 @@ import {observeSymbian,openSymbian,pictureSymbian,nativeSlot,measureSymbian,ente
 import {symbianPreloadFailures} from "./symbian_preload_product.mjs";
 import {measureBrowserRSS} from "./content_io_browser_memory.mjs";
 import {symbianDebugPanel,symbianColdTransfer,symbianProcessMemory,symbianDraftPresentation} from "./symbian_diagnostics.mjs";
+import {cleanupSymbianFixture} from "./symbian_fixture.mjs";
 
 const env=process.env,base=env.RETROM_ACCEPTANCE_BASE_URL;
 const directory=resolve(env.RETROM_ACCEPTANCE_CASE_DIR??".artifacts/symbian-product");await mkdir(directory,{recursive:true});
 const report={schemaVersion:1,caseId:"ACC-EKA2L1-001",runId:env.RETROM_ACCEPTANCE_RUN_ID??randomUUID(),status:"FAIL",scope:"CANDIDATE_PRODUCT",launches:[]};
-let browser,proxy,active;
+let browser,proxy,active,context,cleanupClient;
 const stage=async name=>{report.stage=name;console.log(name);await writeFile(join(directory,"symbian-product.json"),JSON.stringify(report,null,2)+"\n");};
 const identity=rows=>rows.map(({sha256,sizeBytes})=>`${sha256}:${sizeBytes}`).sort();
 try{
@@ -28,9 +29,10 @@ try{
   const args=["--autoplay-policy=no-user-gesture-required",`--use-angle=${gpu}`,...(gpu==="vulkan"?
     ["--enable-features=Vulkan","--enable-vulkan","--disable-vulkan-surface"]:["--enable-unsafe-swiftshader"])];
   browser=await chromium.launch({executablePath:env.RETROM_CHROME_EXECUTABLE,headless:true,args});
-  let context=await browser.newContext({viewport:{width:2560,height:1440},deviceScaleFactor:1.5,...proxy.contextOptions});
+  context=await browser.newContext({viewport:{width:2560,height:1440},deviceScaleFactor:1.5,...proxy.contextOptions});
   context.setDefaultTimeout(15000);await installVirtualStandardGamepad(context);await observeSymbian(context);
   let collector=await observeContentStoreEvents(context,{retain:true}),client=await fantasyClient(context,base);
+  cleanupClient=client;
   const bios=await installComputerBios(client,"eka2l1",{"Nokia5320.rom":env.RETROM_SYMBIAN_ROM,"Nokia5320.rpkg":env.RETROM_SYMBIAN_RPKG});
   report.sources=[await computerSource(env.RETROM_SYMBIAN_SIS),...bios];
   const total=report.sources.reduce((sum,row)=>sum+row.sizeBytes,0);
@@ -56,6 +58,7 @@ try{
   context=await browser.newContext({viewport:{width:2560,height:1440},deviceScaleFactor:1.5,...proxy.contextOptions});
   context.setDefaultTimeout(15000);await installVirtualStandardGamepad(context);await observeSymbian(context);
   collector=await observeContentStoreEvents(context,{retain:true});client=await fantasyClient(context,base);
+  cleanupClient=client;
   await stage("product-launch");
   const launch=await launchCart(client,report.gameId);launch.returnTo=`/games/${report.gameId}`;
   const game=await open(launch);assert.equal(await nativeSlot(game),null,"SYMBIAN_SAVE_RESTORED_WITHOUT_SELECTION");
@@ -108,6 +111,13 @@ try{
   if(active)await pictureSymbian(active,directory,"failure-native").catch(()=>{});
   if(active){report.errors=active.errors;report.warnings=active.warnings;}
 }finally{
+  if(report.gameId){
+    try{
+      assert.ok(cleanupClient&&context,"SYMBIAN_FIXTURE_CLEANUP_CONTEXT_MISSING");
+      await context.setOffline(false);
+      report.fixtureRemoved=await cleanupSymbianFixture(cleanupClient,report.gameId,report.sources[0]);
+    }catch(error){report.cleanupError=error.message;report.status="FAIL";process.exitCode=1;}
+  }
   await browser?.close();await proxy?.close();await stage(report.status);
   console.log(JSON.stringify({caseId:report.caseId,status:report.status,errorCode:report.errorCode}));
 }
