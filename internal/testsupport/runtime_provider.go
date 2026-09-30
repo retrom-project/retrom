@@ -226,6 +226,12 @@ func insertFixtureTargets(
 			"writeFormat": "test-checkpoint-v1", "readFormats": []string{"test-checkpoint-v1"},
 			"maxBytes": 268435456,
 		}
+		if binding.TargetID == "symbian-eka2l1" {
+			checkpoint["semantics"] = "GAME_SAVE"
+			capabilities["volume"] = false
+			capabilities["requiresThreads"] = true
+			capabilities["frameMode"] = "SAME_ORIGIN_BLANK"
+		}
 		capabilitiesJSON, _ := json.Marshal(capabilities)
 		checkpointJSON, _ := json.Marshal(checkpoint)
 		fragmentJSON, _ := json.Marshal(map[string]any{
@@ -318,6 +324,11 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 		gameKind = "NATIVE_WEB"
 	}
 	result := []map[string]any{{"role": "game", "kind": gameKind, "cardinality": "ONE", "optional": false}}
+	if binding.TargetID == "symbian-eka2l1" {
+		result = append(result, map[string]any{
+			"role": "external", "kind": "EXTERNAL_FILE_SET", "cardinality": "ONE", "optional": false,
+		})
+	}
 	if binding.TargetID == "mame-arcade" {
 		result = append(result,
 			map[string]any{"role": "parent", "kind": "PARENT_ARCHIVE", "cardinality": "ONE", "optional": true},
@@ -342,6 +353,12 @@ func fixtureTargetOptionsSchema(binding runtimecatalog.Binding) map[string]any {
 	}
 	strategy, _ := runtimecatalog.Strategy(binding.DetectorProfile)
 	switch strategy.Options {
+	case runtimecatalog.OptionsSymbian:
+		return property(map[string]any{
+			"uid":        map[string]any{"type": "integer", "minimum": int64(0), "maximum": int64(4294967295)},
+			"rotation":   map[string]any{"type": "string", "enum": []any{"0", "180", "270", "90"}},
+			"confirmKey": map[string]any{"type": "string", "enum": []any{"CENTER", "ENTER", "NUM5"}},
+		}, "confirmKey", "rotation", "uid")
 	case runtimecatalog.OptionsNone:
 		return property(map[string]any{})
 	case runtimecatalog.OptionsONS:

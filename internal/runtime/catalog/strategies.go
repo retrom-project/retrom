@@ -15,6 +15,7 @@ const (
 	OptionsONS      = "ONS_SCRIPT"
 	OptionsKiriKiri = "KIRIKIRI_STARTUP"
 	OptionsArcade   = "ARCADE_MACHINE"
+	OptionsSymbian  = "SYMBIAN_KEYPAD"
 )
 
 var hostStrategies = map[string]HostStrategy{
@@ -34,6 +35,7 @@ var hostStrategies = map[string]HostStrategy{
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"MAME_ARCADE_ROM_SET":     {"EMULATORJS_CONTENT", OptionsArcade, []string{"SINGLE_FILE"}},
 	"DOS_BUNDLE":              {"EMULATORJS_CONTENT", OptionsEmulator, []string{"DOS_BUNDLE"}},
+	"SYMBIAN_SIS":             {"ROM_BLOB", OptionsSymbian, []string{"SINGLE_FILE"}},
 	"J2ME_JAR":                {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"FLASH_SWF":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"TIC80_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},

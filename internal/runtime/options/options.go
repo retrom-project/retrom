@@ -38,6 +38,7 @@ var strategies = map[string]strategy{
 	runtimecatalog.OptionsScummVM: {
 		[]string{"engineId", "gameId", "root", "language", "platform", "extra", "guiOptions", "filename"}, scummVMOptions,
 	},
+	runtimecatalog.OptionsSymbian:  {[]string{"uid", "rotation", "confirmKey"}, symbianOptions},
 	runtimecatalog.OptionsNone:     {[]string{}, emptyOptions},
 	runtimecatalog.OptionsEmulator: {[]string{"dosEntryPath", "initialDiscIndex"}, emulatorOptions},
 	runtimecatalog.OptionsArcade:   {[]string{"machine"}, arcadeOptions},
@@ -146,4 +147,11 @@ func scummVMOptions(input Input) (map[string]any, error) {
 		"language": candidate.Language, "platform": candidate.Platform,
 		"extra": candidate.Extra, "guiOptions": candidate.GUIOptions, "filename": filename,
 	}, nil
+}
+
+func symbianOptions(input Input) (map[string]any, error) {
+	if input.ContentKind != "SINGLE_FILE" {
+		return nil, ErrInvalid
+	}
+	return map[string]any{"uid": int64(0), "rotation": "0", "confirmKey": "ENTER"}, nil
 }

@@ -2841,3 +2841,34 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 1. 在 `mame_arcade` 自己的静态 BIOS 槽安装设备 ROM；原始 `vf2.zip` 经 Current DAT 审核，预览与产品启动分别提供独立 external 资源。不得把芯片文件并入游戏 ZIP，也不得借用 MAME 2003/Plus 的安装。
 2. 进入真实 Model 2 三维画面，投两枚币、按 Start、选人并进入对战；记录方向与动作输入后的可见变化。核对浏览器只取得公共 WASM 和 `arcade_model2` WASM，并记录压缩响应字节。
 3. `vf2` 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记。对战中必须显示当前场景不可存档；不得创建表面成功但恢复后纹理缺失的存档。记录对战画面和 console；若仅到达选人画面或背景演示，不判为完整通过。
+
+### ACC-EKA2L1-001：Symbian 原生游戏、GAME_SAVE 与完整缓存
+
+入口：`node scripts/acceptance/symbian_product.mjs`，硬超时 600 秒；可通过 `make acceptance-case CASE=ACC-EKA2L1-001`
+执行。共同参数为 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD/CASE_DIR` 和 `RETROM_CHROME_EXECUTABLE`；
+`RETROM_SYMBIAN_SIS/ROM/RPKG` 分别指向操作者提供的 SuperMario Reverse 1.5.3 安装包及 Nokia 5320 ROM/RPKG。
+操作者文件不得提交。`RETROM_SYMBIAN_GPU` 为 `swiftshader`（默认）或 `vulkan`；硬件性能结论须使用实际 GPU。
+具有 GPU 权限的容器执行同一入口也是等价命令，必须记录浏览器版本、GPU 配置和证据目录。
+
+通过标准：真实上传、导入、Review Preview、批准发布与 Product Launch。按标准 A 完成游戏菜单确认，
+方向改变玩家红色像素坐标，X 跳跃实际提高玩家坐标；不能以背景动画或帧摘要变化代替输入证明。
+通过游戏暂停菜单的 Abort Level 返回世界地图，读取实际生成的 `slot1.stsg`；经 Player“存档并退出”
+保存 GAME_SAVE，不得使用即时按钮、编辑文件或 do_state。新的 Launch ID 恢复后，在游戏启动阶段读回
+完全相同的原生文件，继续通过原生 Slot 菜单进入关卡，并验证方向和跳跃；未选存档时原生 slot 文件不存在。
+
+审核预览按公共契约使用 ON_DEMAND。正式 Product Launch 使用独立冷 context 的 PRELOAD，禁用普通
+浏览器 HTTP 缓存，核对游戏及两份固件的完整身份和下载字节数；同 context 的新恢复 Launch 不得再请求三份内容。两次在断网状态实际移动和跳跃。预下载进度须处于 0–100% 之间，
+未完成时无核心实例；下载中从 Player 退出并确认 Worker 释放。另一个冷 context 通过 CDP 拒绝实际
+预下载 Worker 的 OPFS/Cache Storage，实际 Worker 须返回 `CONTENT_IO_CACHE_UNAVAILABLE`，
+Player 显示对应的缓存权限/空间提示，不得启动核心或回退下载。
+普通会话退出后公共 Content I/O 的资源计数归零，浏览器 console 无运行或 WebGL/API 错误。
+Chrome 对公共 `SAME_ORIGIN_BLANK` sandbox 的固定结构警告单独记录；此 Target 需要同源线程环境，
+不能通过删除 sandbox 权限约束来消除该宿主诊断。其他警告仍使 Case 失败。
+
+实际关卡采样 30 秒，呈现帧率至少 30 FPS，记录帧间隔分桶、WASM 堆大小及主线程长任务；该门槛只约束
+本样本的桌面候选。视口为 2560×1440、DPR 1.5，缩小到 1280×900 后恢复，原生画布保持 320×240 和 4:3。
+本 Case 不宣称全部 Symbian 兼容或固定 60 FPS；旧 eka2l1-web 不作为实现、性能基线或验收输入。
+另行记录实际音频欠载和浏览器进程 RSS。样本右上 HUD 尚有小块黑色区域，必须保留截图和兼容性限制，
+不得把本 Case 的游玩通过表述为全部图形功能正确。通用 Content I/O 矩阵的五组冷暖对比及容量边界
+仍按原门禁独立执行；新核心首次建立的绝对帧率基准不冒充已有正式版本的性能对比。
+结构化证据写入 `symbian-product.json`，每个阶段截图必须逐图复核。

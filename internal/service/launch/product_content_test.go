@@ -81,6 +81,8 @@ func TestProductExternalBIOSRetainsOptionalAndCollisionPolicy(t *testing.T) {
 func TestComputerProductsIncludeExternalBIOS(t *testing.T) {
 	for _, test := range []struct{ target, game, bios, virtual string }{
 		{"bbc-jsbeeb", "Welcome.ssd", "os.rom", "/roms/os.rom"},
+		{"symbian-eka2l1", "game.sis", "Nokia5320.rom", "/firmware/Nokia5320.rom"},
+		{"symbian-eka2l1", "game.sisx", "Nokia5320.rpkg", "/firmware/Nokia5320.rpkg"},
 		{"samcoupe", "SafariSam.dsk", "samcoupe.rom", "/Resource/samcoupe.rom"},
 		{"apple2-apple2js", "Donkey Kong.dsk", "AppleIIe.rom", "/roms/AppleIIe.rom"},
 		{"mame-apple2", "Donkey Kong.dsk", "341-0011.d0", "/content/apple2p/341-0011.d0"},

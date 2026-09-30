@@ -28,7 +28,7 @@ const platformCategory: Record<string, DirectoryCategory> = {
   plus4: "computer", pokemini: "handheld", ps2: "console", psp: "handheld",
   psx: "console", pv1000: "console", rpgmaker: "runtime", samcoupe: "computer", satellaview: "console", saturn: "console", scummvm: "runtime",
   sega32x: "console", segacd: "console", sg1000: "console", sgb: "handheld", snes: "console", supergrafx: "console",
-  supervision: "handheld", thomson: "computer", tic80: "runtime", tyranoscript: "runtime",
+  supervision: "handheld", symbian: "runtime", thomson: "computer", tic80: "runtime", tyranoscript: "runtime",
   uzebox: "console", vectrex: "console",
   vic20: "computer", virtualboy: "console", wasm4: "runtime", wonderswan: "handheld",
   x68000: "computer", xegs: "console", zx81: "computer", zxspectrum: "computer",

@@ -52,7 +52,8 @@ func needsProductExternalBIOS(snapshot ProductSnapshot) bool {
 		return false
 	}
 	switch snapshot.Source.TargetID {
-	case "bbc-jsbeeb", "samcoupe", "apple2-apple2js", "mame-apple2", "mame-apple2e", "mame-atom", "mame-coleco":
+	case "symbian-eka2l1", "bbc-jsbeeb", "samcoupe", "apple2-apple2js",
+		"mame-apple2", "mame-apple2e", "mame-atom", "mame-coleco":
 		return true
 	default:
 		return false

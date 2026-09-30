@@ -803,6 +803,14 @@
     },
     {
       "providerId": "retrom-runtime",
+      "targetId": "symbian-eka2l1",
+      "mode": "EAGER",
+      "delivery": "BYTES",
+      "gameKind": "ROM_BLOB",
+      "checkpointSemantics": "GAME_SAVE"
+    },
+    {
+      "providerId": "retrom-runtime",
       "targetId": "tic80",
       "mode": "EAGER",
       "delivery": "BYTES",

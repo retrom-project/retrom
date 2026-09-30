@@ -9,7 +9,7 @@ import (
 	contentprofile "retrom/internal/content/profile"
 )
 
-const Version = 42
+const Version = 43
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -140,6 +140,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "j2me/j2me", PlatformID: "j2me", DefaultCoreID: "j2me",
 		Name: "Java ME 游戏", CatalogOrder: 340,
 	},
+	{Key: "symbian/eka2l1", PlatformID: "symbian", DefaultCoreID: "eka2l1", Name: "Symbian 游戏", CatalogOrder: 345},
 	{
 		Key: "tic80/tic80", PlatformID: "tic80", DefaultCoreID: "tic80",
 		Name: "TIC-80 游戏", CatalogOrder: 350,

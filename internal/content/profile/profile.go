@@ -126,6 +126,7 @@ var registry = map[string]Profile{
 	"mastersystem":  single("mastersystem", ".sms"),
 	"nintendo3ds":   raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":          raw("j2me", ".jar"),
+	"symbian":       raw("symbian", ".sis", ".sisx"),
 	"flash":         raw("flash", ".swf"),
 	"msx":           single("msx", ".rom", ".mx1", ".mx2", ".dsk", ".cas"),
 	"wasm4":         single("wasm4", ".wasm"),

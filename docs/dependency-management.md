@@ -339,3 +339,10 @@ PSP 产品 Case，具体契约见 `ACC-PSP-001` 与 `ACC-PSP-002`。
 Provider 可同时包含 WASM/ES module 原文件和 `.br` 同名伴随文件，两者都必须在完整性清单中。静态服务仅从同一安装或同一开发覆盖层选择伴随文件，按 `Accept-Encoding` 协商 Brotli，发送 `Vary: Accept-Encoding`、原文件 MIME 和压缩表示的 ETag/Content-Length。Range 始终读取原始文件。只有全量并校验完整 SHA-256 的核心代码读取允许浏览器自动解压；游戏/BIOS 与 Range 内容协议保持原有表示要求。
 
 MAME 候选来源固定 `retrom-project/mame` 的 `f65d5ba9bc42febea7cd76d4559827d0e1271581` 上游基线及 `retrom-mame-dylink-v1` ABI。公共模块、Apple/Acorn/vintage 设备族模块、构建元数据与完整许可由核心 fork 输出，runtime 不编译 MAME。正式 release tag 仍按 core → runtime → Retrom 顺序在授权后发布，候选身份不写入正式 Provider 选择配置。
+
+Symbian 的开发来源为 `retrom-project/EKA2L1`，维护基线 `retrom/g709e3e3293e7`，来自官方固定提交
+`709e3e3293e7d3c5b545ad647a4b6473d63aaeb1`。核心 fork 负责 WebAssembly、Web 前端、依赖许可证和
+对应源代码归档；`retrom-runtime` 只消费经摘要校验的 `eka2l1-runtime.zip`，ABI 为 `eka2l1-browser-v1`。
+未发布来源只登记于 `developmentInputs`，PFB 显式构建；不得伪造 Release 坐标或写入 production lock。
+正式发布按 core → runtime → Retrom 固定正式 Provider 并重跑 `ACC-EKA2L1-001`。
+ROM/RPKG 与 SIS 均为操作者授权输入，不进入核心、Provider 归档、仓库或镜像。

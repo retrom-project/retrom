@@ -60,7 +60,8 @@
         "daphne",
         "gearboy",
         "dosbox-pure",
-        "mame"
+        "mame",
+        "eka2l1"
       ]
     },
     {
@@ -566,6 +567,15 @@
       "gitlink": "git@github.com:retrom-project/Gearboy.git",
       "defaultBranch": "retrom/g340ebe3c2588",
       "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "eka2l1",
+      "path": "project/retrom-core/EKA2L1",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/EKA2L1.git",
+      "defaultBranch": "retrom/g709e3e3293e7",
+      "submodules": true,
       "dependsOn": []
     }
   ]

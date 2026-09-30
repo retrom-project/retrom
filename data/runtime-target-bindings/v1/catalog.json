@@ -1500,6 +1500,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-eka2l1",
+      "coreId": "eka2l1",
+      "providerId": "retrom-runtime",
+      "targetId": "symbian-eka2l1",
+      "platformIds": [
+        "symbian"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "SYMBIAN_SIS",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-tic80",
       "coreId": "tic80",
       "providerId": "retrom-runtime",
@@ -1642,7 +1656,7 @@
       },
       {
         "id": "bbkrpg",
-        "name": "步步高 RPG",
+        "name": "\u6b65\u6b65\u9ad8 RPG",
         "sortOrder": 670,
         "enabled": true
       },
@@ -1864,7 +1878,7 @@
       },
       {
         "id": "odyssey2",
-        "name": "Magnavox Odyssey² / Philips Videopac",
+        "name": "Magnavox Odyssey\u00b2 / Philips Videopac",
         "sortOrder": 575,
         "enabled": true
       },
@@ -1936,7 +1950,7 @@
       },
       {
         "id": "pokemini",
-        "name": "Nintendo Pokémon Mini",
+        "name": "Nintendo Pok\u00e9mon Mini",
         "sortOrder": 610,
         "enabled": true
       },
@@ -1972,7 +1986,7 @@
       },
       {
         "id": "samcoupe",
-        "name": "SAM Coupé",
+        "name": "SAM Coup\u00e9",
         "sortOrder": 725,
         "enabled": true
       },
@@ -2034,6 +2048,12 @@
         "id": "supervision",
         "name": "Watara Supervision",
         "sortOrder": 730,
+        "enabled": true
+      },
+      {
+        "id": "symbian",
+        "name": "Symbian S60v3",
+        "sortOrder": 83,
         "enabled": true
       },
       {
@@ -2197,6 +2217,11 @@
         "enabled": true
       },
       {
+        "id": "eka2l1",
+        "name": "EKA2L1",
+        "enabled": true
+      },
+      {
         "id": "fake08",
         "name": "FAKE-08",
         "enabled": true
@@ -2268,7 +2293,7 @@
       },
       {
         "id": "gbe_plus",
-        "name": "GBE+ (Pokémon Mini)",
+        "name": "GBE+ (Pok\u00e9mon Mini)",
         "enabled": true
       },
       {

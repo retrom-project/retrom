@@ -323,3 +323,34 @@ PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完�
 Atom 手柄方向映射 `;`、`.`、`Z`、`X`，A→Space、B/Start→Return、Select→Escape；适用于使用这些标准键位的游戏，真实键盘独立可用。PV-1000 方向及 A/B 使用原生摇杆和两个按键，单个按钮只发送一个目标输入。
 
 即时存档按机型、游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。其他机型、格式及写盘尚未准入。候选验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)、ACC-MAME-002 和 ACC-MAME-003。
+
+### Symbian / EKA2L1
+
+`retrom-runtime/symbian-eka2l1` 使用官方 EKA2L1 固定提交的独立浏览器 fork，首期设备为 Nokia 5320
+（S60v3 FP2）。游戏为原始单文件 `.sis/.sisx`，保留安装包完整字节，交付 `ROM_BLOB`；管理员安装
+`Nokia5320.rom`、`Nokia5320.rpkg`，按 BIOS catalog 的固定长度和摘要交付 `EXTERNAL_FILE_SET`。
+SIS 安装与 Symbian 服务由核心负责；宿主不解包 SIS，不提供核心专用启动旁路。
+
+要求 cross-origin isolation、SharedArrayBuffer、pthread、WebGL2 和 OffscreenCanvas。
+ARM 使用 dyncom 解释执行。首期支持已验证的原生 2D 游戏与 PCM8/PCM16；其他设备、SIS v1、
+一般 GLES/VG 3D、压缩媒体、MIDI 音色库、网络及移动设备性能尚未准入。
+`PRELOAD_ONLY` 固定显示“下载完成后开始”。公共 Content I/O 在核心启动前完整缓存并验证游戏与
+两份固件；失败明确停止启动，缓存按内容身份跨 Launch 复用，文件上限分别为 128 MiB / 512 MiB。
+
+`GAME_SAVE` 只保存游戏及系统写入 C/E 盘的变化文件与删除记录，不包含 CPU、RAM、线程或
+`do_state`。原生包 `eka2l1-game-save-v1` 校验应用 UID、SIS 与固件身份和每份文件摘要，包含
+严格路径及 64 MiB 上限；公共层压缩一次，存储格式为 `eka2l1-game-save-v1-storage-v1`。
+恢复必须先于游戏进程启动，游戏再从自己的保存菜单读取。系统设置写入也会产生变化，所以
+availability 声明 `STORAGE`，不能据此声称游戏进度已保存；Player 提醒先在游戏内保存，再“存档并退出”。
+
+默认确认键为 Enter；标准 A→Enter、B→Escape、X→Space、Y→中心键，方向随显示旋转。
+可显式选择中心键或数字 5 作为 A，单个按钮始终只发一个目标输入。默认 UID 0 自动选择安装包中的
+唯一应用；多应用包须显式选择 UID。显示支持 0/90/180/270 度旋转，暂停、失焦、后台和退出释放按键。
+
+接入门禁为 `ACC-EKA2L1-001`，使用真实安装包验证审核、发布、方向/确认/跳跃、原生保存、新 Launch
+读取与恢复后输入、完整缓存、离线输入、进度取消及缓存失败。实际关卡记录帧率、帧间隔、WASM 内存、
+主线程负载及 4K 150% 下缩小/恢复视口；单一样本通过不代表全库、移动端或实体手柄验证。
+
+未正式发布时，其他会启动独立实例的验收（包括 `ACC-UI-011`）也必须通过
+`RETROM_PROVIDER_CANDIDATE_ROOT` 选择包含本 Target 的完整候选。旧正式 Provider 不含 Symbian，
+会被当前分支的 Target 目录闭包检查拒绝；不能通过删除绑定或忽略验证来运行这些检查。

@@ -81,6 +81,7 @@ const platformArtwork: Readonly<Record<string, string>> = {
   "snes": "snes",
   "supergrafx": "supergrafx",
   "supervision": "supervision",
+  "symbian": "j2me", // Shared keypad phone illustration.
   "thomson": "home-computer",
   "tic80": "tic80",
   "tyranoscript": "tyranoscript",

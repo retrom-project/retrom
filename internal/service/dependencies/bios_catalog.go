@@ -32,6 +32,20 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(append(pc88BIOSCatalog(), mameBIOSCatalog()...), []staticBIOS{
 	{
+		coreID: "eka2l1", logical: "Nokia5320.rom", mode: "REQUIRED", size: 69947392,
+		md5:       "6faa90eea3b5ceea888d480da81d58be",
+		sha256:    "89c2d9fbbdaa94fca5d8bf49eb512cc82abdc17c97372bca77d700f02bb0d490",
+		sourceURL: "https://github.com/EKA2L1/EKA2L1/wiki/Dumping-the-ROM-and-ROFS",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/Nokia5320.rom", providerID: "retrom-runtime", targetID: "symbian-eka2l1",
+	},
+	{
+		coreID: "eka2l1", logical: "Nokia5320.rpkg", mode: "REQUIRED", size: 121092775,
+		md5:       "c00931f74d0ce1e85d1971a0f5a9bc0c",
+		sha256:    "58964f3d08a542f01118a7dfb78a34d2e029962b8edb9988381a37994c1c1531",
+		sourceURL: "https://github.com/EKA2L1/EKA2L1/wiki/Dumping-the-ROM-and-ROFS",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/Nokia5320.rpkg", providerID: "retrom-runtime", targetID: "symbian-eka2l1",
+	},
+	{
 		coreID: "apple2js", logical: "AppleIIe.rom", mode: "REQUIRED", size: 16384,
 		md5: "38063e08c778503fc03ecebb979769e9", sha256: "aab38a03ca8deabbb2f868733148c2efd6f655a59cd9c5d058ef3e0b7aa86a1a",
 		sourceURL: "https://github.com/whscullin/apple2js/tree/ee0aed25f73c69d0245e86a2a5fccb3324c3056c/js/roms",
