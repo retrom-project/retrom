@@ -55,11 +55,19 @@ async function display(gameId, capability, label) {
   await page.goto(`${base}/games/${gameId}`);
   async function check() {
     const choice = page.getByRole("combobox", {name: "内容加载", exact: true});
-    if (capability === "ON_DEMAND_AND_PRELOAD") {await expect(choice).toHaveValue("ON_DEMAND");}
-    else {
+    if (capability) {
+      await expect(choice).toHaveValue(capability === "PRELOAD_ONLY" ? "PRELOAD" : "ON_DEMAND");
+      await expect(choice.locator("option")).toHaveCount(capability === "PRELOAD_ONLY" ? 1 : 2);
+      await expect(choice).toBeEnabled();
+      if (page.viewportSize().width >= 1600) {
+        await expect.poll(async () => {
+          const select = await choice.boundingBox(), last = await page.locator(".launch-actions button").last().boundingBox();
+          return Math.abs(select.x + select.width - last.x - last.width);
+        }).toBeLessThan(1);
+      }
+    } else {
       await expect(choice).toHaveCount(0);
-      await expect(page.getByText("下载完成后开始", {exact: true})).toHaveCount(capability ? 1 : 0);
-      if (!capability) await expect(page.getByText("内容加载", {exact: true})).toHaveCount(0);
+      await expect(page.getByText("内容加载", {exact: true})).toHaveCount(0);
     }
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   }
