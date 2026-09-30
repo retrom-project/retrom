@@ -27,7 +27,7 @@ export async function symbianPreloadFailures(browser,proxy,base,gameId,directory
       else{
         const waiting=new Promise(resolve=>{release=resolve;});
         await context.route("**/runtime/content/**",async route=>{
-          if(++requests===4){await waiting;await route.abort().catch(()=>{});}
+          if(++requests===2){await waiting;await route.abort().catch(()=>{});}
           else await route.continue();
         });
       }

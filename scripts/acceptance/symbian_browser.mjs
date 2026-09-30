@@ -13,6 +13,12 @@ export async function observeSymbian(context) {
   await context.addInitScript(() => {
     let factory;
     globalThis.__symbianEvents=[];
+    globalThis.__symbianMemoryStages=[];
+    const memory=stage=>{
+      const module=globalThis.__symbianModule;if(!module)return;
+      __symbianMemoryStages.push({stage,at:performance.now(),wasmHeapBytes:module.HEAPU8.byteLength,
+        mallocLiveBytes:module._eka2l1_metric(10),reservedGuestBytes:module._eka2l1_metric(13),initializedGuestBytes:module._eka2l1_metric(14)});
+    };
     globalThis.__symbianAudio=new Map();
     globalThis.__symbianPreloadError=null;
     globalThis.Worker=new Proxy(globalThis.Worker,{construct(Constructor,args,NewTarget){
@@ -25,20 +31,26 @@ export async function observeSymbian(context) {
     Object.defineProperty(window,"createEKA2L1",{configurable:true,get(){return factory;},set(value){
       factory=async options=>{
         const callback=options.onCoreEvent;
-        options.onCoreEvent=event=>{globalThis.__symbianEvents.push(event);callback?.(event);};
+        options.onCoreEvent=event=>{globalThis.__symbianEvents.push(event);if(["installed","launched"].includes(event.stage))memory(event.stage);callback?.(event);};
         const audio=options.onAudio;
         options.onAudio=event=>{
           if(event.op==="open")globalThis.__symbianAudio.set(event.pointer,event);
           if(event.op==="close")globalThis.__symbianAudio.delete(event.pointer);
           audio?.(event);
         };
-        const module=await value(options);globalThis.__symbianModule=module;return module;
+        const module=await value(options);globalThis.__symbianModule=module;memory("module-ready");return module;
       };
     }});
     globalThis.__symbianProgress=[];
+    globalThis.__symbianSaveStates=[];
     new MutationObserver(()=>{
       const bar=document.querySelector('[role="progressbar"][aria-label="游戏内容加载进度"]');
       if(bar){const value=Number(bar.getAttribute("aria-valuenow"));if(__symbianProgress.at(-1)!==value)__symbianProgress.push(value);}
+      const status=document.querySelector('.player-sync-status');
+      if(status){const text=status.textContent;if(__symbianSaveStates.at(-1)?.text!==text){
+        __symbianSaveStates.push({at:performance.now(),text,busy:status.classList.contains('is-busy')});
+        if(__symbianSaveStates.length>256)__symbianSaveStates.shift();
+      }}
     }).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:["aria-valuenow"]});
   });
 }
@@ -58,7 +70,7 @@ export async function openSymbian(context,base,launch,directory) {
   context.on("response",assetListener);
   page.on("pageerror",error=>errors.push(error.message));
   page.on("console",message=>{if(message.type()==="warning"||message.type()==="error")warnings.push(message.text());});
-  await page.goto(base+launch.playUrl,{waitUntil:"domcontentloaded",timeout:60000});
+  const started=Date.now();await page.goto(base+launch.playUrl,{waitUntil:"domcontentloaded",timeout:60000});
   let frame;
   for(const deadline=Date.now()+90000;Date.now()<deadline&&!frame;){
     for(const candidate of page.frames()){
@@ -69,6 +81,10 @@ export async function openSymbian(context,base,launch,directory) {
     if(!frame)await page.waitForTimeout(100);
   }
   if(!frame){await page.screenshot({path:join(directory,"startup-failure.png")});throw new Error("SYMBIAN_STARTUP_TIMEOUT");}
+  await page.waitForFunction(()=>window.__RETROM_E2E_RUNTIME_V1__?.getState()==="RUNNING",null,{timeout:30000});
+  assert.ok(await frame.evaluate(()=>__symbianModule._eka2l1_frames()>0),"SYMBIAN_READY_BEFORE_FIRST_FRAME");
+  const startup={launchMs:Date.now()-started,events:await frame.evaluate(()=>__symbianEvents.filter(event=>event.stage!=="log"&&event.stage!=="log-error")),
+    memoryStages:await frame.evaluate(()=>__symbianMemoryStages)};
   const canvas=frame.locator('canvas[aria-label="Symbian game"]');
   await resumePreview(page);
   assert.equal(config.runtime.targetId,"symbian-eka2l1");assert.equal(config.runtime.checkpoint.semantics,"GAME_SAVE");
@@ -76,7 +92,7 @@ export async function openSymbian(context,base,launch,directory) {
   await canvas.click();await page.waitForTimeout(15000);
   await Promise.all(pending);
   assert.ok(assets.some(asset=>asset.path.endsWith("/client.mjs")&&asset.sha256===config.runtime.moduleSha256),"SYMBIAN_MODULE_IDENTITY_MISMATCH");
-  return {page,frame,canvas,config,resources,network,launch:{...launch,launchId:id},errors,warnings,assets,
+  return {page,frame,canvas,config,resources,network,launch:{...launch,launchId:id},errors,warnings,assets,startup,
     async flush(){await network.flush();await Promise.all(pending);assert.deepEqual(errors,[]);
       const sandbox="An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.";
       assert.deepEqual(warnings.filter(message=>message!==sandbox),[]);},
@@ -167,6 +183,7 @@ export async function measureSymbian(opened,milliseconds=30000) {
       underruns:Atomics.load(module.HEAPU32,pointer/4+3),active:Atomics.load(module.HEAPU32,pointer/4+2)}));
     return {milliseconds:after.at-before.at,frames:after.frames-before.frames,fps:1000*(after.frames-before.frames)/(after.at-before.at),
       intervalBins:after.bins.map((count,i)=>count-before.bins[i]),intervalUpperBoundsMs:[17,20,25,34,50,100,250,null],
-      wasmHeapBytes:module.HEAPU8.byteLength,canvas:[module.canvas.width,module.canvas.height],longTasks:tasks,audio,renderer};
+      wasmHeapBytes:module.HEAPU8.byteLength,mallocLiveBytes:module._eka2l1_metric(10),reservedGuestBytes:module._eka2l1_metric(13),initializedGuestBytes:module._eka2l1_metric(14),
+      canvas:[module.canvas.width,module.canvas.height],longTasks:tasks,audio,renderer};
   },milliseconds);
 }

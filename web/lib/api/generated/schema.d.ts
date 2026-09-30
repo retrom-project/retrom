@@ -4907,12 +4907,14 @@ export interface components {
                 "text/event-stream": string;
             };
         };
-        /** @description Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges. */
+        /** @description Binary content. Whole GET may use gzip with an encoding-specific weak ETag. HEAD, If-Match and Range retain identity encoding, strong ETag and exact original byte lengths; no-transform prevents intermediary transformations. */
         BinaryResponse: {
             headers: {
                 ETag?: string;
                 "Accept-Ranges"?: string;
                 "Cache-Control"?: string;
+                "Content-Encoding"?: "gzip";
+                Vary?: string;
                 [name: string]: unknown;
             };
             content: {

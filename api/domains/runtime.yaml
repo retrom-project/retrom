@@ -688,7 +688,7 @@ components:
           schema:
             $ref: '#/components/schemas/LaunchConfig'
     BinaryResponse:
-      description: Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges.
+      description: Binary content. Whole GET may use gzip with an encoding-specific weak ETag. HEAD, If-Match and Range retain identity encoding, strong ETag and exact original byte lengths; no-transform prevents intermediary transformations.
       headers:
         ETag:
           schema:
@@ -697,6 +697,13 @@ components:
           schema:
             type: string
         Cache-Control:
+          schema:
+            type: string
+        Content-Encoding:
+          schema:
+            type: string
+            enum: [gzip]
+        Vary:
           schema:
             type: string
       content:

@@ -76,7 +76,7 @@ func completeMultiDiscHTTPUpload(
 func seedMultiDiscHTTPBIOS(t *testing.T, server *testServer) {
 	t.Helper()
 	ctx := context.Background()
-	metadata, err := server.contentDeps.Files.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
+	metadata, err := server.contentDeps.Files.Put(bytes.NewReader(bytes.Repeat([]byte("deterministic HTTP Saturn BIOS fixture"), 256)))
 	testassert.False(t, err != nil, err)
 	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)

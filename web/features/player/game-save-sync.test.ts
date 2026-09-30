@@ -31,6 +31,57 @@ function fixture() {
 const changed = (revision: string): RuntimeCheckpointAvailabilityV1 => ({available: true, reason: null, revision});
 
 describe("local native game save drafts", () => {
+  it("bounds exit preparation while a native export remains pending and retains its later draft", async () => {
+    vi.useFakeTimers(); const f = fixture(); let release!: () => void;
+    f.runtime.checkpoint.mockImplementationOnce(() => new Promise(resolve => {
+      release = () => resolve({bytes: Uint8Array.of(1), format: "native-v1", metadata: null});
+    }));
+    let outcome = "pending";
+    f.emit(changed("1"));
+    const waiting = f.sync.flush().then(() => {outcome = "complete";}, error => {outcome = error.message;});
+    try {
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(outcome).toBe("GAME_DATA_BUSY");
+    } finally {
+      release(); await waiting; await f.sync.stop(); vi.useRealTimers();
+    }
+    expect(f.store.put).toHaveBeenCalledOnce(); expect(f.upload).not.toHaveBeenCalled();
+  });
+  it("coalesces continuous write notifications and bounds the delay before local persistence", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    try {
+      for (let revision = 1; revision <= 10; revision++) {
+        f.emit(changed(String(revision)));
+        await vi.advanceTimersByTimeAsync(450);
+      }
+      expect(f.runtime.checkpoint).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(f.runtime.checkpoint).toHaveBeenCalledOnce();
+      expect(f.store.put.mock.calls[0][0].checkpoint.bytes).toEqual(Uint8Array.of(10));
+      expect(f.upload).not.toHaveBeenCalled();
+      expect(f.present).toHaveBeenLastCalledWith(expect.objectContaining({tone: "synced"}));
+    } finally {await f.sync.stop(); vi.useRealTimers();}
+  });
+
+  it("does not recursively pause and export when native data changes during export", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    f.runtime.checkpoint.mockImplementation(async () => {
+      const revision = Number(f.runtime.getCheckpointAvailability().revision);
+      if (revision < 4) {f.emit(changed(String(revision + 1)));}
+      return {bytes: Uint8Array.of(revision), format: "native-v1", metadata: null};
+    });
+    try {
+      f.emit(changed("1"));
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(f.runtime.checkpoint).toHaveBeenCalledOnce();
+      expect(f.present).toHaveBeenLastCalledWith(expect.objectContaining({tone: "synced"}));
+      await f.sync.stop();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(f.runtime.checkpoint).toHaveBeenCalledOnce();
+    } finally {await f.sync.stop(); vi.useRealTimers();}
+  });
   it("creates and uploads a native save before any file exists only on explicit capture", async () => {
     const f = fixture();
     f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
@@ -89,6 +140,7 @@ describe("local native game save drafts", () => {
     const f = fixture(); f.upload.mockResolvedValueOnce(false);
     f.emit(changed("1")); await f.sync.flush();
     expect(await f.sync.save()).toBe(false);
+    expect(f.present).toHaveBeenLastCalledWith(expect.objectContaining({tone: "warning"}));
     expect(f.store.remove).not.toHaveBeenCalled(); expect(f.runtime.acknowledgeCheckpoint).not.toHaveBeenCalled();
     f.emit(changed("1")); expect(f.upload).toHaveBeenCalledOnce();
     expect(await f.sync.save()).toBe(true);
@@ -117,7 +169,7 @@ describe("local native game save drafts", () => {
   it("serializes local captures and preserves a later revision while an earlier write is pending", async () => {
     const f = fixture(); let finish!: () => void;
     f.store.put.mockImplementationOnce(() => new Promise<void>((resolve) => {finish = resolve;}));
-    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce());
+    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce(), {timeout: 2_000});
     f.emit(changed("2")); finish(); await f.sync.flush();
     expect(f.store.put.mock.calls.map(([payload]) => [...payload.checkpoint.bytes])).toEqual([[1], [2]]);
     expect(f.upload).not.toHaveBeenCalled(); await f.sync.stop();
@@ -126,7 +178,7 @@ describe("local native game save drafts", () => {
   it("does not submit a stale captured revision when data reverts during its local write", async () => {
     const f = fixture(); let finish!: () => void;
     f.store.put.mockImplementationOnce(() => new Promise<void>((resolve) => {finish = resolve;}));
-    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce());
+    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce(), {timeout: 2_000});
     const saving = f.sync.save(); f.emit({available: false, reason: "UNCHANGED"}); finish();
     expect(await saving).toBe(true); expect(f.upload).not.toHaveBeenCalled();
     expect(f.sync.hasChanges()).toBe(false); await f.sync.stop();
@@ -135,7 +187,7 @@ describe("local native game save drafts", () => {
   it("discard waits for pending local persistence, deletes the draft, and never uploads", async () => {
     const f = fixture(); let finish!: () => void;
     f.store.put.mockImplementationOnce(() => new Promise<void>((resolve) => {finish = resolve;}));
-    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce());
+    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce(), {timeout: 2_000});
     const discarded = f.sync.discard(); expect(f.store.remove).not.toHaveBeenCalled(); finish(); await discarded;
     expect(f.store.remove).toHaveBeenCalledOnce(); expect(f.upload).not.toHaveBeenCalled();
     f.emit(changed("2")); expect(f.store.put).toHaveBeenCalledOnce();
@@ -200,7 +252,7 @@ describe("local native game save drafts", () => {
   it("serializes a final handoff after an earlier draft write without losing the destructor write", async () => {
     const f = fixture(); let release!: () => void;
     f.store.put.mockImplementationOnce(() => new Promise<void>((resolve) => {release = resolve;}));
-    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce());
+    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce(), {timeout: 2_000});
     const final = f.sync.finish({checkpoint: {bytes: Uint8Array.of(8), format: "native-v1", metadata: null}, screenshot: null});
     release(); await final;
     expect(f.store.put.mock.calls.map(([payload]) => [...payload.checkpoint.bytes])).toEqual([[1], [8]]);

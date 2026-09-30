@@ -3,8 +3,11 @@
 package httpapi
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"testing"
@@ -21,6 +24,53 @@ func assertContentIOProtocol(t *testing.T, contentURL string, requestContent run
 	etag := fmt.Sprintf(`"sha256-%x"`, sha256.Sum256(full.Body.Bytes()))
 	if full.Header().Get("ETag") != etag || full.Header().Get("Content-Length") != strconv.Itoa(size) {
 		t.Fatalf("representation identity or length mismatch: %v", full.Header())
+	}
+	if size >= 4096 {
+		t.Run("compressed whole content retains decoded identity", func(t *testing.T) {
+			encoded := requestContent(http.MethodGet, contentURL, func(request *http.Request) {
+				request.Header.Set("Accept-Encoding", "gzip")
+			})
+			if encoded.Code != 200 || encoded.Header().Get("Content-Encoding") != "gzip" {
+				t.Fatalf("whole content was not compressed: status=%d headers=%v", encoded.Code, encoded.Header())
+			}
+			reader, err := gzip.NewReader(encoded.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := io.ReadAll(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := reader.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(decoded, full.Body.Bytes()) || encoded.Header().Get("ETag") == etag ||
+				encoded.Header().Get("Content-Length") != "" || encoded.Header().Get("Accept-Ranges") != "" {
+				t.Fatal("compressed representation has invalid bytes, validator or length")
+			}
+			unchanged := requestContent(http.MethodGet, contentURL, func(request *http.Request) {
+				request.Header.Set("Accept-Encoding", "gzip")
+				request.Header.Set("If-None-Match", encoded.Header().Get("ETag"))
+			})
+			if unchanged.Code != http.StatusNotModified || unchanged.Body.Len() != 0 {
+				t.Fatal("encoded validator did not produce an empty 304")
+			}
+			refused := requestContent(http.MethodGet, contentURL, func(request *http.Request) {
+				request.Header.Set("Accept-Encoding", "gzip;q=0, *;q=1")
+			})
+			if refused.Header().Get("Content-Encoding") != "" || !bytes.Equal(refused.Body.Bytes(), full.Body.Bytes()) {
+				t.Fatal("explicit gzip refusal was not respected")
+			}
+			interval := requestContent(http.MethodGet, contentURL, func(request *http.Request) {
+				request.Header.Set("Accept-Encoding", "gzip")
+				request.Header.Set("If-Match", etag)
+				request.Header.Set("Range", "bytes=0-2")
+			})
+			if interval.Code != http.StatusPartialContent || interval.Header().Get("Content-Encoding") != "" ||
+				interval.Header().Get("ETag") != etag || !bytes.Equal(interval.Body.Bytes(), full.Body.Bytes()[:3]) {
+				t.Fatal("gzip negotiation changed conditional byte ranges")
+			}
+		})
 	}
 	cases := []struct {
 		name, method, interval, match string

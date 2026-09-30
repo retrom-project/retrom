@@ -89,7 +89,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		writer.Header().Set("Cache-Control", immutablePrivateContent)
 		writer.Header().Set("ETag", `"sha256-`+hex.EncodeToString(digest[:])+`"`)
 		writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-		http.ServeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index))
+		serveRuntimeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index))
 		return
 	}
 	writer.Header().Set("Content-Type", mediaType)
@@ -97,7 +97,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	writer.Header().Set("ETag", `"sha256-`+etag+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
 	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
-	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
+	serveRuntimeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
 	server.recordMultiDiscContentResponse(request, authorizedLaunchID, content, metricsWriter)
 }
 
@@ -157,7 +157,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
-	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
+	serveRuntimeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
 }
 
 func (server *Server) projectContent(
@@ -223,7 +223,7 @@ func serveProjectIndex(writer http.ResponseWriter, request *http.Request, index 
 	writer.Header().Set("Cache-Control", immutablePrivateContent)
 	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	writer.Header().Set("ETag", `"sha256-`+index.SHA256+`"`)
-	http.ServeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index.Contents))
+	serveRuntimeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index.Contents))
 }
 
 func (server *Server) recordMultiDiscContentResponse(
@@ -352,7 +352,7 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
 	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
-	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
+	serveRuntimeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
 	server.recordExternalContentResponse(request, authorizedLaunchID, content, metricsWriter)
 }
 
@@ -469,7 +469,7 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 	writer.Header().Set("Cache-Control", immutablePrivateContent)
 	writer.Header().Set("ETag", `"sha256-`+hex.EncodeToString(digest.Sum(nil))+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
-	http.ServeContent(writer, request, "bundle.zip", time.Unix(0, 0), temporary)
+	serveRuntimeContent(writer, request, "bundle.zip", time.Unix(0, 0), temporary)
 }
 
 func (server *Server) createLaunchBundle(files []launch.BundleFile) (*os.File, error) {

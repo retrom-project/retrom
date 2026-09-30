@@ -12,8 +12,8 @@ import {performContentIOPlayerExit} from "./content_io_player_exit.mjs";
 import {observeContentStoreEvents} from "./content_store_events.mjs";
 import {observeSymbian,openSymbian,pictureSymbian,nativeSlot,measureSymbian,enterMarioLevel,moveMario,saveMarioInGame} from "./symbian_browser.mjs";
 import {symbianPreloadFailures} from "./symbian_preload_product.mjs";
-import {rangeSummary} from "./content_io_observation.mjs";
 import {measureBrowserRSS} from "./content_io_browser_memory.mjs";
+import {symbianDebugPanel,symbianColdTransfer,symbianProcessMemory,symbianDraftPresentation} from "./symbian_diagnostics.mjs";
 
 const env=process.env,base=env.RETROM_ACCEPTANCE_BASE_URL;
 const directory=resolve(env.RETROM_ACCEPTANCE_CASE_DIR??".artifacts/symbian-product");await mkdir(directory,{recursive:true});
@@ -46,19 +46,8 @@ try{
   assert.equal(await nativeSlot(preview),null);
   report.preview={player:await enterMarioLevel(preview),input:await moveMario(preview),screenshot:await pictureSymbian(preview,directory,"preview-input")};
   await preview.network.flush();
-  assert.equal(preview.network.requests.reduce((sum,row)=>sum+(row.sizeBytes??0),0),total,"SYMBIAN_COLD_BYTES_MISMATCH");
   report.previewCache={files:report.sources.length,bytes:total,requests:preview.network.requests,httpCacheDisabled:preview.network.requests.fetchPolicy,
-    resources:preview.resources.map(source=>{
-      const rows=preview.network.requests.filter(row=>row.path===new URL(source.url,base).pathname&&row.method==="GET");
-      assert.ok(rows.length>0,"SYMBIAN_COLD_FILE_MISSING");
-      if(rows.every(row=>row.status===206))return rangeSummary(preview.network.requests,source);
-      assert.equal(rows.length,1,"SYMBIAN_EAGER_FILE_REDOWNLOADED");
-      const [row]=rows;assert.equal(row.status,200);assert.equal(row.failure,null);
-      assert.equal(row.sizeBytes,source.sizeBytes);assert.equal(row.etag,`"sha256-${source.sha256}"`);
-      assert.equal(row.range,null);assert.equal(row.contentRange,null);
-      assert.ok(row.encoding===null||row.encoding==="identity");
-      return {requests:1,downloadedBytes:row.sizeBytes,mode:"EAGER"};
-    })};
+    transfer:symbianColdTransfer(preview,total),startup:preview.startup};
   assert.ok(preview.network.requests.filter(row=>row.method==="GET").every(row=>[200,206].includes(row.status)&&row.failure===null),"SYMBIAN_COLD_CONTENT_FAILED");
   report.launches.push(await closeComputer(preview,base,collector,"GAME_SAVE"));
   report.gameId=(await approveCart(client,review.itemId)).gameId;
@@ -74,16 +63,20 @@ try{
   await stage("product-performance");
   report.performance=await measureSymbian(game);
   report.processMemory=await measureBrowserRSS(browser);
+  report.proportionalMemory=await symbianProcessMemory(browser);
+  report.debugPanel=await symbianDebugPanel(game);
+  report.startup=game.startup;
   assert.ok(report.performance.fps>=30,"SYMBIAN_GAMEPLAY_BELOW_30_FPS");
   assert.equal(report.performance.longTasks.length,0,"SYMBIAN_BROWSER_LONG_TASK");
   assert.ok(report.performance.audio.some(stream=>stream.active===1)&&report.performance.audio.filter(stream=>stream.active===1).every(stream=>stream.underruns===0),"SYMBIAN_AUDIO_UNDERRUN");
   await context.setOffline(true);report.offlineInput=await moveMario(game);
   report.after=await pictureSymbian(game,directory,"level-offline-input");await context.setOffline(false);
   report.nativeSave=await saveMarioInGame(game);report.savedScreenshot=await pictureSymbian(game,directory,"native-save");
+  report.draftPresentation=await symbianDraftPresentation(game);
   await game.network.flush();
   assert.equal(game.config.runtime.capabilities.contentLoading,"PRELOAD_ONLY");
-  assert.equal(game.network.requests.reduce((sum,row)=>sum+(row.sizeBytes??0),0),total,"SYMBIAN_COLD_PRELOAD_BYTES_MISMATCH");
-  report.fullCache={files:report.sources.length,bytes:total,requests:game.network.requests,httpCacheDisabled:game.network.requests.fetchPolicy};
+  report.fullCache={files:report.sources.length,bytes:total,requests:game.network.requests,httpCacheDisabled:game.network.requests.fetchPolicy,
+    transfer:symbianColdTransfer(game,total)};
   await stage("native-save-upload");
   report.save=await performContentIOPlayerExit(game.page,base,launch,()=>saveComputerDisk(game.page,launch.launchId));
   report.launches.push(await collectComputerExit(game,collector));await stage("native-restore");

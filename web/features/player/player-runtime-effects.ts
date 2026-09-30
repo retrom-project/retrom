@@ -16,6 +16,7 @@ type RuntimeEffectParams = {
 };
 
 export function usePlayerRuntimeEffects(params: RuntimeEffectParams) {
+  const {debugOpen, runtime, setDebugMetrics} = params;
   useEffect(() => {
     updateRunningState(params);
     return params.clearControlsTimer;
@@ -35,19 +36,19 @@ export function usePlayerRuntimeEffects(params: RuntimeEffectParams) {
   }, [params]);
 
   useEffect(() => {
-    if (!params.debugOpen) {return;}
+    if (!debugOpen) {return;}
     let previous: PlayerDebugSample | null = null;
     const sample = () => {
-      const canvas = params.runtime.current?.getCanvas() ?? null;
-      const result = samplePlayerDebugMetrics(params.runtime.current, canvas, previous, performance.now(), { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio });
+      const canvas = runtime.current?.getCanvas() ?? null;
+      const result = samplePlayerDebugMetrics(runtime.current, canvas, previous, performance.now(), { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio });
       previous = result.sample;
-      params.setDebugMetrics(result.metrics);
+      setDebugMetrics(result.metrics);
     };
     const initialFrame = window.requestAnimationFrame(sample);
     const timer = window.setInterval(sample, 1_000);
     window.addEventListener("resize", sample);
     return () => {window.cancelAnimationFrame(initialFrame); window.clearInterval(timer); window.removeEventListener("resize", sample);};
-  }, [params]);
+  }, [debugOpen, runtime, setDebugMetrics]);
 
 
   function toggleDebug() {
