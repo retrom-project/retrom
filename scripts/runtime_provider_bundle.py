@@ -100,6 +100,7 @@ def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path
     if destination.exists():
         _verify_existing(destination, lock)
         _verify_extracted(destination, lock, allow_proof=True)
+        destination.chmod(0o755)
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{lock['providerId']}-", dir=destination.parent))
@@ -107,6 +108,8 @@ def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path
         _extract_closed_archive(archive, staging, lock)
         _verify_extracted(staging, lock)
         _write_json(staging / ".installation.json", _installation_proof(lock))
+        # mkdtemp starts private; the verified published bundle is runtime input.
+        staging.chmod(0o755)
         try:
             os.replace(staging, destination)
         except FileExistsError:
