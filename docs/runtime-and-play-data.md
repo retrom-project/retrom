@@ -68,7 +68,7 @@ Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边�
 
 Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。Provider 若能观察并上报核心主动退出，只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
 
-Provider 可通过公共 `getInputCapabilities()` 返回 `hostShortcuts: ("PAUSE" | "MENU")[]`，由 Target declaration 决定游戏聚焦时 Host 能拦截哪些键。标准 Player 的 P 暂停只在声明 PAUSE 时拦截，沉浸 Player 的 M 菜单只在声明 MENU 时拦截；旧 Provider 未实现此可选方法时不拦截游戏键盘，界面按钮仍可操作。电脑 Target 的完整键盘策略归 Provider 所有，Host 不维护 Target ID 特例。
+Provider 必须通过公共 `getInputCapabilities()` 返回 `hostShortcuts: ("PAUSE" | "MENU")[]`，由 Target declaration 决定游戏聚焦时 Host 能拦截哪些键。标准 Player 的 P 暂停只在声明 PAUSE 时拦截，沉浸 Player 的 M 菜单只在声明 MENU 时拦截；缺少此方法的 Provider 在 dispatcher 准入时失败，不提供旧接口回退。电脑 Target 的完整键盘策略归 Provider 所有，Host 不维护 Target ID 特例。
 
 公共 `RuntimeCheckpointAvailabilityV1.requiredAction: "SELECT_PROGRAM"` 表示需要选择启动程序；Host 只读取该字段决定通用选择提示，并同时订阅可用性事件。DOS 的私有 `targetOptions.dosEntryPath` 仅由 Provider 解释：未选择时报告不可存档、`PROGRAM_SELECTION_REQUIRED` 和 SELECT_PROGRAM；选定程序的新 Launch 不报告该 action，核心就绪后恢复存档能力。Host 不根据 Target ID 或私有 options 推断输入和选择需求。
 

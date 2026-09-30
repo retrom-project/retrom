@@ -124,7 +124,7 @@ func directoryCreationCounts(t *testing.T, server *testServer, key string) (int,
 	var directories, receipts int
 	err := dbapi.QueryRowContext(t.Context(), server.database,
 		`SELECT (SELECT count(*) FROM platform_instances WHERE name='ReviewReceiptProbe'),
-  (SELECT count(*) FROM idempotency_records WHERE operation_id='postAdminPlatformInstance' AND key=?)`, key,
+  (SELECT count(*) FROM idempotency_records WHERE operation_id='platforminstance.create' AND key=?)`, key,
 	).Scan(&directories, &receipts)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func directoryCreationCounts(t *testing.T, server *testServer, key string) (int,
 func TestDirectoryCreationRollsBackWhenReceiptFails(t *testing.T) {
 	server, create := directoryCreationProbe(t)
 	_, err := server.database.ExecContext(t.Context(),
-		`ALTER TABLE idempotency_records ADD COLUMN receipt_guard INTEGER CHECK(operation_id!='postAdminPlatformInstance')`)
+		`ALTER TABLE idempotency_records ADD COLUMN receipt_guard INTEGER CHECK(operation_id!='platforminstance.create')`)
 	if err != nil {
 		t.Fatal(err)
 	}

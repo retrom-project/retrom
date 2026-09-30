@@ -9,7 +9,7 @@ import (
 	contentcapability "retrom/internal/content/capability"
 )
 
-const createOperationID = "postAdminPlatformInstance"
+const createOperationID = "platforminstance.create"
 
 // CreateIdempotent commits the directory, audit and complete replay representation together.
 func (service *Service) CreateIdempotent(

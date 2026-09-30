@@ -27,7 +27,7 @@ func TestInvalidCreateNeverOpensTransaction(t *testing.T) {
 	repository := &boundaryRepository{}
 	service := New(repository, time.Now)
 	for _, input := range []CreateInput{{Name: ""}, {Name: " leading"}, {Name: "Valid", Description: "\x00"}} {
-		if _, err := service.Create(t.Context(), AuditActor{}, input); !errors.Is(err, ErrInvalid) {
+		if _, err := service.CreateIdempotent(t.Context(), AuditActor{}, "principal", "key", "digest", input, true); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("invalid input: %v", err)
 		}
 	}
@@ -57,9 +57,9 @@ func TestInvalidPatchNeverOpensTransaction(t *testing.T) {
 
 func TestUnavailableCoreCannotCreateDirectory(t *testing.T) {
 	t.Parallel()
-	repository := &boundaryRepository{scope: WriteScope{Reader: unavailableCore{}}}
+	repository := &boundaryRepository{scope: WriteScope{Reader: unavailableCore{}, Idempotency: absentCreationReceipt{}}}
 	service := New(repository, time.Now)
-	if _, err := service.Create(t.Context(), AuditActor{}, CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "disabled"}); !errors.Is(err, ErrDefaultCoreInvalid) {
+	if _, err := service.CreateIdempotent(t.Context(), AuditActor{}, "principal", "key", "digest", CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "disabled"}, true); !errors.Is(err, ErrDefaultCoreInvalid) {
 		t.Fatalf("unavailable core: %v", err)
 	}
 	if repository.writes != 1 {
@@ -104,3 +104,9 @@ func TestCoreImpactProjectionClassifiesVariantStates(t *testing.T) {
 }
 
 func boolPointer(value bool) *bool { return &value }
+
+type absentCreationReceipt struct{ IdempotencyRecords }
+
+func (absentCreationReceipt) Find(context.Context, IdempotencyKey, int64) (IdempotencyRecord, bool, error) {
+	return IdempotencyRecord{}, false, nil
+}

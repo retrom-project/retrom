@@ -4,6 +4,15 @@ import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeHostV1} from "./contract"
 import {loadProviderRuntime} from "./provider-dispatcher";
 
 describe("Provider Module V1 dispatcher", () => {
+  it("rejects a Provider that omits the required input policy", async () => {
+    const envelope = fixtureEnvelope();
+    const runtime = fixtureRuntime();
+    Reflect.deleteProperty(runtime, "getInputCapabilities");
+    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => ({
+      createRuntime: async () => runtime, providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
+    }), verifiedEnvironment(envelope))).rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
+  });
+
   it("requires persistence acknowledgment for native saves while accepting the complete contract", async () => {
     const envelope = fixtureEnvelope();
     envelope.runtime.capabilities.checkpoint = true;
@@ -232,6 +241,7 @@ function fixtureRuntime(): PlayerRuntimeV1 {
     closeNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     exit: vi.fn(async () => undefined),
     getCanvas: () => null,
+    getInputCapabilities: () => ({hostShortcuts: []}),
     getCapabilities: () => fixtureEnvelope().runtime.capabilities,
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
     getDiscState: vi.fn(async () => {throw new Error("unused");}),

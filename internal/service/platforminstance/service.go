@@ -52,21 +52,6 @@ func (service *Service) Recommendations(ctx context.Context) (Recommendations, e
 	return result, repositoryError("recommendations", err)
 }
 
-func (service *Service) Create(ctx context.Context, actor AuditActor, input CreateInput) (Instance, error) {
-	if !validText(input.Name, 1, 200, false) || !validText(input.Description, 0, 10_000, true) {
-		return Instance{}, ErrInvalid
-	}
-	var created Instance
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		var err error
-		created, err = service.createInstance(
-			ctx, scope, actor, input, "", "PLATFORM_INSTANCE_CREATED", service.now().UnixMilli(),
-		)
-		return err
-	})
-	return created, repositoryError("create", err)
-}
-
 func (service *Service) createInstance(
 	ctx context.Context, scope WriteScope, actor AuditActor, input CreateInput, catalogKey, action string, now int64,
 ) (Instance, error) {

@@ -135,7 +135,7 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 
 ### 3.1 当前事务覆盖与待迁移接口（2026-10-01）
 
-手动目录创建 `postAdminPlatformInstance` 已由 `platforminstance.Service.CreateIdempotent` 拥有事务：HTTP 层严格解码有界 JSON 并计算原有请求摘要，领域在同一个写事务内检查/清理过期回执、创建目录、写审计、计算响应并保存 status/body/白名单头。回执或 commit 失败时整体回滚；并发同 key 返回唯一目录及原始 `201`、ETag 和响应 bytes，同 key 异请求返回 409。HTTP middleware 对此 operation 直接交给领域，不能再次后置保存回执。摘要沿用原 HTTP 实现，已保存的创建回执继续可重放。推荐目录批量应用已有独立的领域事务覆盖，本次不改其行为。
+手动目录创建 `postAdminPlatformInstance` 已由 `platforminstance.Service.CreateIdempotent` 拥有事务：HTTP 层严格解码有界 JSON 并计算语义请求摘要，领域在同一个写事务内检查/清理过期回执、创建目录、写审计、计算响应并保存 status/body/白名单头。回执或 commit 失败时整体回滚；并发同 key 返回唯一目录及原始 `201`、ETag 和响应 bytes，同 key 异请求返回 409。HTTP middleware 对此 operation 直接交给领域，不能再次后置保存回执。领域回执使用 `platforminstance.create` 命名空间；旧 HTTP operation 回执不读取、不转换、不重放。共享存储表结构保持当前领域回执格式，不需要数据迁移。推荐目录批量应用已有独立的领域事务覆盖，本次不改其行为。
 
 以下 40 个 operation 仍走 `internal/httpapi/idempotency_middleware.go` 的通用路径：先执行 handler，再调用 `idempotency.Service.Store` 保存回执。静态排查确认它们的业务提交和 HTTP 回执之间存在分离边界；下表表示**尚未保证崩溃后的原响应重放**，不代表逐个接口均已复现重复实体。版本检查、自然键/唯一约束、消费标记和持久队列恢复可以限制部分重复副作用，但不能代替业务与原始回执的共同提交。本次仅列明，不迁移这些接口。
 

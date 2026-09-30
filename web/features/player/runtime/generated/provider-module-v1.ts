@@ -186,8 +186,8 @@ export interface PlayerRuntimeV1 {
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
   getCapabilities(): RuntimeCapabilitiesV1;
-  /** Absent on older Providers; Host then leaves game keyboard input untouched. */
-  getInputCapabilities?(): RuntimeInputCapabilitiesV1;
+  /** Declares which Host shortcuts may intercept the focused game's keyboard input. */
+  getInputCapabilities(): RuntimeInputCapabilitiesV1;
   getCheckpointAvailability(): RuntimeCheckpointAvailabilityV1;
   getCanvas(): HTMLCanvasElement | null;
   getGamepadCursor?(): RuntimeGamepadCursorV1 | null;

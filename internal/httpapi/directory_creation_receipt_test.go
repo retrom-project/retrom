@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestDirectoryCreationReplaysExistingHTTPReceipt(t *testing.T) {
+func TestDirectoryCreationDoesNotReadRetiredHTTPReceipts(t *testing.T) {
 	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
@@ -43,21 +42,14 @@ func TestDirectoryCreationReplaysExistingHTTPReceipt(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusCreated || response.Body.String() != string(original) || response.Header().Get("X-Retrom-Idempotent-Replay") != "true" {
-		t.Fatalf("legacy replay=%d %s", response.Code, response.Body.String())
+	if response.Code != http.StatusCreated || response.Body.String() == string(original) || response.Header().Get("X-Retrom-Idempotent-Replay") != "" {
+		t.Fatalf("retired receipt affected creation=%d %s", response.Code, response.Body.String())
 	}
 	var directories int
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM platform_instances WHERE name='LegacyReceipt'`).Scan(&directories); err != nil {
 		t.Fatal(err)
 	}
-	if directories != 0 {
-		t.Fatal("legacy replay created a new directory")
-	}
-	request.Body = io.NopCloser(strings.NewReader(body))
-	request.Header.Set("If-Match", `"v9"`)
-	conflict := httptest.NewRecorder()
-	handler.ServeHTTP(conflict, request)
-	if conflict.Code != http.StatusConflict {
-		t.Fatalf("header was excluded from request digest: %d", conflict.Code)
+	if directories != 1 {
+		t.Fatalf("created directories=%d", directories)
 	}
 }

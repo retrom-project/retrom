@@ -17,7 +17,7 @@ export function installRuntimeSurfaceControls(
   const frameDocument = runtime.getCanvas()?.ownerDocument;
   if (!frameDocument) {return () => undefined;}
   const keydown = (event: KeyboardEvent) => {
-    const shortcuts = runtime.getInputCapabilities?.().hostShortcuts ?? [];
+    const shortcuts = runtime.getInputCapabilities().hostShortcuts;
     if (options.experience === "immersive") {
       if (!shortcuts.includes("MENU") || !isShortcut(event, "KeyM")) {return;}
       event.preventDefault();

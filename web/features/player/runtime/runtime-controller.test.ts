@@ -133,7 +133,7 @@ function fixtureRuntime() {
     checkpoint: vi.fn(async () => {throw new Error("unused");}),
     closeNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     emit: (event: RuntimeEventV1) => listener?.(event),
-    exit: vi.fn(async (): Promise<void> => undefined), getCanvas: () => null,
+    exit: vi.fn(async (): Promise<void> => undefined), getCanvas: () => null, getInputCapabilities: () => ({hostShortcuts: []}),
     getCapabilities: () => envelope().runtime.capabilities,
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
     getDiscState: vi.fn(async () => {throw new Error("unused");}),
