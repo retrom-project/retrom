@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.7 |
-| 日期 | 2026-08-25 |
+| 版本 | 1.8 |
+| 日期 | 2026-10-01 |
 | 适用范围 | `/api/v1`、`/content`、`/runtime`、`/__retrom`、SSE、应用同源与每 Launch 独立 runtime origin 安全 |
 
 ## 1. 协议基线
@@ -15,6 +15,8 @@
 - 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `INTEGER`；时长为 `*DurationMs`。
 - 未知 JSON 字段、重复字段、错误类型、尾随多个 JSON 值一律 `400 INVALID_REQUEST`；UTF-8 无效文本拒绝。所有固定 JSON request/response object schema 显式 `additionalProperties: false`；真正的 map/错误 `details` 才逐项显式允许 additional properties。
 - OpenAPI 3.0.3 协议事实源是以 `api/openapi.yaml` 为唯一入口、由 `api/domains/*.yaml` 与 `api/components/*.yaml` 组成的本地文件集。领域文件共同维护 route 与所属 DTO，跨领域组件只进入 common 文件；入口以标准本地 `$ref` 固定完整 path/component 闭集。生成前必须拒绝远程、绝对路径和越出 `api/` 的引用，并确定性生成被忽略的 `.cache/generated/openapi.bundle.yaml`。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 只能消费该统一 bundle。Go 的 `models.gen.go`、`server.gen.go`、`spec.gen.go` 在标准后端编译链路中按需生成、被 Git 忽略且不得提交；TypeScript `web/lib/api/generated/schema.d.ts` 继续保持单一全局 `paths` schema、必须提交。`make api-check` 在临时目录重建 bundle 和两端结果、逐字节检查 TypeScript 漂移并拒绝任一 Go 生成物被跟踪。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
+
+所有声明 `requestBody` 的 operation 必须在 OpenAPI 中声明正整数 `x-retrom-max-body-bytes`，缺失或无效时拒绝启动。路由识别后、OpenAPI schema 验证与任何 handler/body 解析器之前安装 `http.MaxBytesReader`；已知 `Content-Length` 超限直接返回 `413 REQUEST_TOO_LARGE`，不读取 body；未知长度最多读取上限加 1 字节后拒绝。登录及其他认证请求上限为 32 KiB，普通 JSON 使用各 operation 的显式上限。四个 `x-retrom-streaming-body` operation 仍不经过 OpenAPI body 缓冲：两个存档 multipart 接收上限 270 MiB、审核截图接收上限 10 MiB + 1、Upload part 接收上限 8 MiB + 1；后两者保留 handler 对有效文件 10 MiB / 8 MiB 的限制。流式接收同样受前置硬上限约束。
 
 成功列表统一为：
 
@@ -130,6 +132,62 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复业务决定。
 
 语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的独立文件存储 Blob 交给 后台删除。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
+
+### 3.1 当前事务覆盖与待迁移接口（2026-10-01）
+
+手动目录创建 `postAdminPlatformInstance` 已由 `platforminstance.Service.CreateIdempotent` 拥有事务：HTTP 层严格解码有界 JSON 并计算原有请求摘要，领域在同一个写事务内检查/清理过期回执、创建目录、写审计、计算响应并保存 status/body/白名单头。回执或 commit 失败时整体回滚；并发同 key 返回唯一目录及原始 `201`、ETag 和响应 bytes，同 key 异请求返回 409。HTTP middleware 对此 operation 直接交给领域，不能再次后置保存回执。摘要沿用原 HTTP 实现，已保存的创建回执继续可重放。推荐目录批量应用已有独立的领域事务覆盖，本次不改其行为。
+
+以下 40 个 operation 仍走 `internal/httpapi/idempotency_middleware.go` 的通用路径：先执行 handler，再调用 `idempotency.Service.Store` 保存回执。静态排查确认它们的业务提交和 HTTP 回执之间存在分离边界；下表表示**尚未保证崩溃后的原响应重放**，不代表逐个接口均已复现重复实体。版本检查、自然键/唯一约束、消费标记和持久队列恢复可以限制部分重复副作用，但不能代替业务与原始回执的共同提交。本次仅列明，不迁移这些接口。
+
+| operationId | HTTP 端点 | OpenAPI 来源 |
+| --- | --- | --- |
+| `postAdminTag` | `POST /api/v1/admin/tags` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminTagDefaults` | `POST /api/v1/admin/tags/defaults` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `patchAdminTag` | `PATCH /api/v1/admin/tags/{tagId}` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `deleteAdminTag` | `DELETE /api/v1/admin/tags/{tagId}` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `putAdminGameTags` | `PUT /api/v1/admin/games/{gameId}/tags` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminGameAsset` | `POST /api/v1/admin/games/{gameId}/assets` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `deleteAdminGameAsset` | `DELETE /api/v1/admin/games/{gameId}/assets/{assetKind}` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminGameScrapeCandidates` | `POST /api/v1/admin/games/{gameId}/scrape-candidates` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminGameScrapeCandidateApply` | `POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminGameMovePreview` | `POST /api/v1/admin/games/{gameId}/move-preview` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminGameMove` | `POST /api/v1/admin/games/{gameId}/move` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminPlatformDefaultCore` | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | [`catalog.yaml`](../api/domains/catalog.yaml) |
+| `postAdminImportBatchDiscard` | `POST /api/v1/admin/import-batches/{kind}/{importId}/discard` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminUpload` | `POST /api/v1/admin/uploads` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminUploadComplete` | `POST /api/v1/admin/uploads/{uploadId}/complete` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminImport` | `POST /api/v1/admin/imports` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminImportCancel` | `POST /api/v1/admin/imports/{importJobId}/cancel` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminImportReconfigure` | `POST /api/v1/admin/imports/{importJobId}/reconfigure` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminImportItemRetry` | `POST /api/v1/admin/import-items/{importItemId}/retry` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminJobCancel` | `POST /api/v1/admin/jobs/{jobId}/cancel` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminJobRetry` | `POST /api/v1/admin/jobs/{jobId}/retry` | [`imports.yaml`](../api/domains/imports.yaml) |
+| `postAdminReviewDeduplicate` | `POST /api/v1/admin/reviews/deduplicate` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewBulkApproval` | `POST /api/v1/admin/review-bulk-approvals` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewScrapeCandidates` | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewAsset` | `POST /api/v1/admin/reviews/{importItemId}/assets` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewPreview` | `POST /api/v1/admin/reviews/{importItemId}/previews` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewArcadeParentAttachment` | `POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewMultiDiscAttachment` | `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewApprove` | `POST /api/v1/admin/reviews/{importItemId}/approve` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminReviewDiscard` | `POST /api/v1/admin/reviews/{importItemId}/discard` | [`reviews.yaml`](../api/domains/reviews.yaml) |
+| `postAdminServerImport` | `POST /api/v1/admin/server-imports` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
+| `postAdminServerImportCancel` | `POST /api/v1/admin/server-imports/{serverImportId}/cancel` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
+| `postAdminServerImportRetry` | `POST /api/v1/admin/server-imports/{serverImportId}/retry` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
+| `postAdminBIOSInstallation` | `POST /api/v1/admin/bios/{requirementId}/installations` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
+| `postAdminSourceImport` | `POST /api/v1/admin/source-imports` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `deleteAdminSourceImport` | `DELETE /api/v1/admin/source-imports/{sourceImportId}` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `putAdminSourceImportCollectionMappings` | `PUT /api/v1/admin/source-imports/{sourceImportId}/collection-mappings` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `postAdminSourceImportStart` | `POST /api/v1/admin/source-imports/{sourceImportId}/start` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `postAdminSourceImportCancel` | `POST /api/v1/admin/source-imports/{sourceImportId}/cancel` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `postAdminSourceImportRetry` | `POST /api/v1/admin/source-imports/{sourceImportId}/retry` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+
+后续按业务领域逐批迁移，而不是让 HTTP middleware 包住全部 handler 的事务：
+
+- 上传、Import/ServerImport/SourceImport 创建及启动、Review Preview、附件、审核通过/丢弃、批量操作、刮削和游戏移动预览优先检查资源/任务分配与响应回执。领域在短事务内同时保存引用、资源/Job、审计及回执；文件接收和网络抓取在事务外，任务派发在 commit 后，由持久队列恢复进程中断。
+- 修改、删除、替换、安装和移动接口将版本/消费条件判断与完整回执放入领域事务，确保已执行请求的重试返回原成功响应，不因资源版本已变或资源已删除而变成冲突/404。
+- 取消/重试接口保留现有租约与执行 fencing；将接受决定、执行轮次和回执一起提交，再唤醒 worker。现有 `postAdminJobRetry` 的“队列已提交、回执失败不即时唤醒、启动恢复”行为见 [runtime-and-play-data.md](./runtime-and-play-data.md)，不能误报为本次已修复。
+- 每批迁移都应使用回执写入/commit 故障注入、并发同 key、异请求冲突、不同账号隔离、24 小时过期及进程恢复验证；不能只验证同进程顺序重放。
 
 ## 4. 浏览器文件与目录上传
 

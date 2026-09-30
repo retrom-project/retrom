@@ -2551,6 +2551,7 @@
       <button type="button" data-review-scene="immersive-system-menu">沉浸系统菜单</button>
       <button type="button" data-review-scene="immersive-player">沉浸游戏菜单</button>
       <button type="button" data-review-scene="play-no-save">Player · 无存档</button>
+      <button type="button" data-review-scene="play-select-program">Player · 待选程序</button>
       <button type="button" data-review-scene="admin-users">用户管理</button>
       <button type="button" data-review-scene="rpg-import">RPG 导入</button>
       <button type="button" data-review-scene="rpg-review">RPG 审核</button>
@@ -3696,6 +3697,7 @@
         root.querySelector('#rt-player-game').textContent = 'NOeL 3';
         root.querySelector('#rt-player-core').textContent = 'Yabause · Saturn';
         delete app.dataset.noSaveScene;
+        delete app.dataset.programSelectionRequired;
         root.querySelector('[data-player-save-action]').disabled = false;
         root.querySelector('[data-player-save-action]').removeAttribute('title');
         root.querySelector('#rt-player-launch-state').textContent = '可创建存档';
@@ -3942,6 +3944,15 @@
           root.querySelector('#rt-player-launch-state').textContent = '不支持存档';
           root.querySelector('[data-player-save-action]').disabled = true;
           root.querySelector('[data-player-save-action]').title = '此平台不支持存档，退出后无法恢复本次进度。';
+          selectReviewScene(scene);
+        }
+        else if (scene === 'play-select-program') {
+          setMode('user'); showPage('play');
+          app.dataset.programSelectionRequired = 'true';
+          root.querySelector('#rt-player-game').textContent = 'DOS 程序菜单示例';
+          root.querySelector('#rt-player-core').textContent = 'DOSBox Pure · MS-DOS';
+          root.querySelector('#rt-player-launch-state').textContent = '程序菜单模式不可存档';
+          root.querySelector('[data-player-save-action]').disabled = true;
           selectReviewScene(scene);
         }
         else if (scene.startsWith('rpg-')) showRpgScene(scene);
@@ -4462,10 +4473,12 @@
       root.querySelectorAll('[data-player-exit]').forEach((button) => button.addEventListener('click', () => {
         root.querySelector('#rt-player-menu').classList.remove('is-open');
         const saveButton = root.querySelector('[data-save-before-player-exit]');
-        saveButton.disabled = app.dataset.noSaveScene === 'true';
+        saveButton.disabled = app.dataset.noSaveScene === 'true' || app.dataset.programSelectionRequired === 'true';
         saveButton.innerHTML = '<i data-lucide="save" aria-hidden="true"></i>创建存档';
         root.querySelector('[data-player-exit-copy]').textContent = app.dataset.noSaveScene === 'true'
           ? '此平台不支持存档，退出后无法恢复本次进度。'
+          : app.dataset.programSelectionRequired === 'true'
+          ? '当前尚未选择启动程序，无法创建可恢复存档；直接退出不会保存当前位置。请回到详情选择一个启动程序再开始。'
           : '直接退出不会创建存档；如需保留当前位置，请先创建存档。';
         if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
         playerExitDialog.hidden = false;

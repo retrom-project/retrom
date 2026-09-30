@@ -71,7 +71,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
   const [reviewScreenshotAvailable, setReviewScreenshotAvailable] = useState(false);
   const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
-  const [dosProgramMenu, setDosProgramMenu] = useState(false);
+  const [programSelectionRequired, setProgramSelectionRequired] = useState(false);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
   const [checkpointSemantics, setCheckpointSemantics] = useState<"INSTANT" | "GAME_SAVE" | "NO_SAVE">("INSTANT");
   const [coreName, setCoreName] = useState("");
@@ -101,7 +101,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const progressTimer = useRef<number | null>(null);
   const saveUploadQueue = useRef(Promise.resolve());
   const manualSaveAvailableRef = useRef(true);
-  const dosProgramMenuRef = useRef(false);
+  const programSelectionRequiredRef = useRef(false);
   const controlsTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
   const running = useRef(false);
@@ -230,9 +230,9 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const bootstrapParams = useMemo(() => ({
     userId,
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
-    returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
+    returnTo, manualSaveAvailableRef, programSelectionRequiredRef, orientationStateRef, videoRenderingModeRef,
     pausedRef, started, finishing, progressTimer, progressClock, toastTimer,
-    setMessage, setLoadProgress, setContentLoadingCapability, setState, setManualSaveAvailable, setDosProgramMenu,
+    setMessage, setLoadProgress, setContentLoadingCapability, setState, setManualSaveAvailable, setProgramSelectionRequired,
     setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,
     setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
@@ -251,7 +251,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const {toggleDebug} = usePlayerRuntimeEffects(runtimeEffectParams);
 
   const runtimeActionParams = useMemo(() => ({
-    userId, state, runtime, envelope, manualSaveAvailableRef, dosProgramMenuRef, uploadManualState, gameSaveSync,
+    userId, state, runtime, envelope, manualSaveAvailableRef, programSelectionRequiredRef, uploadManualState, gameSaveSync,
     discState, setDiscState, reportPlayerEvent, showToast, setSyncText, setSyncTone,
     setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
     emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef,
@@ -278,7 +278,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     gamepadCursor,
     checkpointSemantics, nativeSave, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.retry();},
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
-    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
+    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, programSelectionRequired, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
     inputRuntime: runtime, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,

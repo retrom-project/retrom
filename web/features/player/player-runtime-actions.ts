@@ -18,7 +18,7 @@ type RuntimeActionParams = {
   runtime: Mutable<PlayerRuntimeV1 | null>;
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   manualSaveAvailableRef: Mutable<boolean>;
-  dosProgramMenuRef: Mutable<boolean>;
+  programSelectionRequiredRef: Mutable<boolean>;
   uploadManualState: (payload: RuntimeSavePayload) => Promise<boolean>;
   gameSaveSync?: Mutable<GameSaveSync | null>;
   discState: RuntimeDiscStateV1 | null;
@@ -42,10 +42,10 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
   async function saveManualState() {
     if (params.gameSaveSync?.current) {return params.gameSaveSync.current.capture();}
     if (!params.manualSaveAvailableRef.current) {
-      params.setSyncText(params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档");
+      params.setSyncText(params.programSelectionRequiredRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档");
       params.setSyncTone("warning");
-      params.showToast(params.dosProgramMenuRef.current
-        ? "请退出后从游戏详情选择一个具体 DOS 程序再开始；程序菜单模式无法创建可恢复存档。"
+      params.showToast(params.programSelectionRequiredRef.current
+        ? "请退出后从游戏详情选择一个启动程序再开始；程序菜单模式无法创建可恢复存档。"
         : "当前游戏状态暂时无法创建可恢复存档，请继续游戏后重试。", 5_000);
       return false;
     }

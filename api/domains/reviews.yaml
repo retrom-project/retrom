@@ -19,6 +19,7 @@ paths:
   /api/v1/admin/reviews/deduplicate:
     post:
       operationId: postAdminReviewDeduplicate
+      x-retrom-max-body-bytes: 16384
       description: Discards pending reviews matching published content within the filtered scope, at most 50 scanned items per request. Continue with the returned cursor and upper bound until nextAfterItemId is null. Active attachments are skipped; published games are preserved.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -38,6 +39,7 @@ paths:
   /api/v1/admin/review-bulk-approvals:
     post:
       operationId: postAdminReviewBulkApproval
+      x-retrom-max-body-bytes: 1024
       description: Starts one bounded, global pending-review scan. Each item is rechecked before publication.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -99,6 +101,7 @@ paths:
                         $ref: '#/components/schemas/ReviewReadiness'
     patch:
       operationId: patchAdminReview
+      x-retrom-max-body-bytes: 65536
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
       requestBody:
@@ -111,6 +114,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewScrapeCandidates
+      x-retrom-max-body-bytes: 65536
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -124,6 +128,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewAsset
+      x-retrom-max-body-bytes: 8192
       description: Validates a completed local image upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -138,6 +143,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewPreview
+      x-retrom-max-body-bytes: 16384
       description: Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. The session freezes the concrete resources resolved at creation. An administrator can save a screenshot associated with the review item and use it to publish despite supported dependency blockers.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -151,6 +157,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewArcadeParentAttachment
+      x-retrom-max-body-bytes: 2097152
       description: Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review item's current Arcade DAT closure.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -165,6 +172,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewMultiDiscAttachment
+      x-retrom-max-body-bytes: 2097152
       description: Queues validation of one completed FILES upload containing exactly every currently missing CHD.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -179,6 +187,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewApprove
+      x-retrom-max-body-bytes: 8192
       description: Freezes an eligible review decision and Game UUID, moves the prepared directory, then commits the game. Interrupted publication resumes from the PUBLISHING item; retries after publication return the same Game UUID. A blocked validation requires a matching review screenshot for explicit override, recorded in the published Variant compatibility code.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -205,6 +214,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewDiscard
+      x-retrom-max-body-bytes: 8192
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey

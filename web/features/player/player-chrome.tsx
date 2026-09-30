@@ -37,7 +37,7 @@ export type PlayerChromeProps = {
   onRetrySync?: () => void;
   controlsVisible: boolean; running: boolean; paused: boolean; fullscreen: boolean;
   gameTitle: string; coreName: string; platformName: string; syncText: string; syncTone: SyncTone;
-  saveUploadProgress: number | null; saveAvailable: boolean; dosProgramMenu: boolean; toast: string; warnings: string[];
+  saveUploadProgress: number | null; saveAvailable: boolean; programSelectionRequired: boolean; toast: string; warnings: string[];
   emulatorToolbarOpen: boolean; emulatorVolume: number; emulatorMuted: boolean; videoRenderingMode: VideoRenderingMode;
   discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null;
   debugOpen: boolean; debugMetrics: PlayerDebugMetrics | null; debugRuntime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error";
@@ -62,11 +62,11 @@ function GameEditorLayer({open, editor, onClose}: {open: boolean; editor: Runtim
   return open && editor ? <GameEditorPanel editor={editor} onClose={onClose} /> : null;
 }
 
-function exitDescriptionFor(saveAvailable: boolean, dosProgramMenu: boolean, state: ExitSaveState, semantics: CheckpointSemantics) {
+function exitDescriptionFor(saveAvailable: boolean, programSelectionRequired: boolean, state: ExitSaveState, semantics: CheckpointSemantics) {
   if (semantics === "NO_SAVE") {return noSaveInstructions;}
   if (semantics === "GAME_SAVE") {return "请先在游戏内保存，再确认存档并退出；平台不保存当前画面的即时进度。";}
-  if (!saveAvailable) {return dosProgramMenu
-    ? "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。"
+  if (!saveAvailable) {return programSelectionRequired
+    ? "当前尚未选择启动程序，无法创建可恢复存档；直接退出不会保存当前位置。"
     : "当前场景暂时无法创建可恢复存档；直接退出不会保存当前位置。";}
   if (state === "saving") {return "正在创建退出前存档…";}
   if (state === "saved") {return "退出前存档已创建，可以安全退出。";}
@@ -104,7 +104,7 @@ export function PlayerChrome({
   syncTone,
   saveUploadProgress,
   saveAvailable,
-  dosProgramMenu,
+  programSelectionRequired,
   toast,
   warnings,
   emulatorToolbarOpen,
@@ -266,12 +266,12 @@ export function PlayerChrome({
     items[target]?.focus();
   }
 
-  const exitDescription = exitDescriptionFor(saveAvailable, dosProgramMenu, exitSaveState, checkpointSemantics);
+  const exitDescription = exitDescriptionFor(saveAvailable, programSelectionRequired, exitSaveState, checkpointSemantics);
 
   return <>
     <SaveUploadProgress value={saveUploadProgress} />
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onPointerEnter={(event) => {if (event.pointerType !== "touch" && !controlsVisible) {onToggleControls();}}} onClick={onToggleControls}><span aria-hidden="true" /></button>
-    <PlayerToolbar gamepadCursor={gamepadCursor} nativeSave={nativeSave} checkpointSemantics={checkpointSemantics} controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={checkpointSyncText(checkpointSemantics, syncTone, syncText)} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} gameEditorAvailable={Boolean(gameEditor)} blockingOverlay={exitOpen || editorOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} onGameEditor={() => {setMenuOpen(false); onPauseForToolbarInteraction(); setEditorOpen(true);}} />
+    <PlayerToolbar gamepadCursor={gamepadCursor} nativeSave={nativeSave} checkpointSemantics={checkpointSemantics} controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={checkpointSyncText(checkpointSemantics, syncTone, syncText)} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} saveAvailable={saveAvailable} programSelectionRequired={programSelectionRequired} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} gameEditorAvailable={Boolean(gameEditor)} blockingOverlay={exitOpen || editorOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} onGameEditor={() => {setMenuOpen(false); onPauseForToolbarInteraction(); setEditorOpen(true);}} />
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} coreName={coreName} discSet={discSet} discState={discState} inputRuntime={inputRuntime} />
 
@@ -285,7 +285,7 @@ export function PlayerChrome({
     <div className={`player-toast${visibleToast ? " is-visible" : ""}`} role="status" aria-live="polite">{visibleToast}</div>
     <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到屏幕顶部显示 Retrom 控制</div>
 
-    <ExitGameDialog checkpointSemantics={checkpointSemantics} open={exitOpen} description={exitDescription} running={running} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
+    <ExitGameDialog checkpointSemantics={checkpointSemantics} open={exitOpen} description={exitDescription} running={running} saveAvailable={saveAvailable} programSelectionRequired={programSelectionRequired} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
   </>;
 }
 
@@ -303,7 +303,7 @@ type ToolbarProps = {
   checkpointSemantics: CheckpointSemantics; nativeSave?: NativeSaveCapabilities;
   controlsVisible: boolean; paused: boolean; running: boolean; fullscreen: boolean; gameTitle: string; coreName: string; platformName: string;
   syncText: string; syncTone: SyncTone; warnings: string[]; warningCopy: string;
-  saveAvailable: boolean; dosProgramMenu: boolean; actionLayout: ReturnType<typeof playerActionPriority>; debugOpen: boolean; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null;
+  saveAvailable: boolean; programSelectionRequired: boolean; actionLayout: ReturnType<typeof playerActionPriority>; debugOpen: boolean; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null;
   discBusy: boolean; discMenuOpen: boolean; menuOpen: boolean; gameEditorAvailable: boolean; blockingOverlay: boolean;
   onScreenshot?: () => void;
   onHover: (hovered: boolean) => void; onFocus: (focused: boolean) => void;
@@ -330,7 +330,7 @@ function nativeCaptureBlocked(props: ToolbarProps) {
 }
 
 function PlayerContextActions({ props }: { props: ToolbarProps }) {
-  return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={props.checkpointSemantics === "NO_SAVE" || nativeCaptureBlocked(props) || !props.running || !props.saveAvailable} title={props.checkpointSemantics === "NO_SAVE" ? noSaveInstructions : !props.saveAvailable ? props.checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(props.nativeSave) : props.dosProgramMenu ? "请退出后从游戏详情选择具体 DOS 程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;
+  return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={props.checkpointSemantics === "NO_SAVE" || nativeCaptureBlocked(props) || !props.running || !props.saveAvailable} title={props.checkpointSemantics === "NO_SAVE" ? noSaveInstructions : !props.saveAvailable ? props.checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(props.nativeSave) : props.programSelectionRequired ? "请退出后从游戏详情选择启动程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;
 }
 
 function PlayerToolbar(props: ToolbarProps) {
@@ -366,7 +366,7 @@ function EmulatorToolbar({ open, volume, muted, renderingMode, onHold, onOpenPan
   return <section className={`player-emulator-toolbar${open ? " is-open" : ""}`} aria-label="模拟器设置工具栏" aria-hidden={!open} onFocusCapture={onHold} onPointerEnter={onHold}><div className="player-emulator-group"><span className="player-emulator-label">模拟器</span><button type="button" disabled={!open} onClick={() => onOpenPanel("controls")}><AppIcon name="gamepad" />控制</button><button type="button" disabled={!open} onClick={() => onOpenPanel("display")}><span aria-hidden="true">▤</span>显示</button><button type="button" disabled={!open} onClick={() => onOpenPanel("core")}><span aria-hidden="true">⚙</span>Core 设置</button></div><label className="player-emulator-rendering"><span className="player-emulator-label">画面</span><select aria-label="画面模式" disabled={!open} value={renderingMode} onChange={(event) => onRenderingMode(event.currentTarget.value as VideoRenderingMode)}>{videoRenderingModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><div className="player-emulator-group"><label className="player-emulator-volume"><span className="player-emulator-label">音量</span><input type="range" min="0" max="100" step="1" value={volumePercent} aria-label="模拟器音量" aria-valuetext={muted ? `已静音，音量 ${volumePercent}%` : `${volumePercent}%`} disabled={!open} onChange={(event) => onVolume(Number(event.currentTarget.value) / 100)} /></label><button type="button" disabled={!open} aria-label={muted ? "取消静音" : "静音"} aria-pressed={muted} onClick={onMute}><span aria-hidden="true">{muted ? "🔇" : "🔊"}</span></button><button type="button" disabled={!open} onClick={onClose}>收起</button></div></section>;
 }
 
-function ExitGameDialog({ checkpointSemantics, open, description, running, saveAvailable, dosProgramMenu, saveState, onSave, onCancel, onConfirm }: { checkpointSemantics: CheckpointSemantics; open: boolean; description: string; running: boolean; saveAvailable: boolean; dosProgramMenu: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
+function ExitGameDialog({ checkpointSemantics, open, description, running, saveAvailable, programSelectionRequired, saveState, onSave, onCancel, onConfirm }: { checkpointSemantics: CheckpointSemantics; open: boolean; description: string; running: boolean; saveAvailable: boolean; programSelectionRequired: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
   const leadingLabel = saveState === "saved" ? "已创建存档" : saveState === "error" ? "重试创建存档" : "创建存档";
-  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{checkpointSemantics === "NO_SAVE" ? <span>{noSaveInstructions}</span> : checkpointSemantics === "GAME_SAVE" ? <span>{gameSaveInstructions}</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : dosProgramMenu ? <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
+  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{checkpointSemantics === "NO_SAVE" ? <span>{noSaveInstructions}</span> : checkpointSemantics === "GAME_SAVE" ? <span>{gameSaveInstructions}</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : programSelectionRequired ? <span>请退出后从游戏详情选择一个启动程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
 }

@@ -54,10 +54,16 @@ export type RuntimeFinalSnapshotV1 = {checkpoint: RuntimeCheckpointV1; screensho
 export type RuntimeCheckpointAvailabilityV1 = {
   available: boolean;
   reason: string | null;
+  /** Public user action needed before a recoverable checkpoint can be created. */
+  requiredAction?: "SELECT_PROGRAM";
   /** Stable identity of unsynchronized native save content; never changes for identical writes. */
   revision?: string;
   /** GAME_SAVE only; independent from whether unsynchronized files are available to export. */
   save?: RuntimeNativeSaveCapabilitiesV1;
+};
+export type RuntimeInputCapabilitiesV1 = {
+  /** Host may intercept only these declared shortcuts while the game owns focus. */
+  hostShortcuts: ("PAUSE" | "MENU")[];
 };
 export type RuntimeDiscStateV1 = { count: number; currentIndex: number; labels: string[] };
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
@@ -180,6 +186,8 @@ export interface PlayerRuntimeV1 {
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
   getCapabilities(): RuntimeCapabilitiesV1;
+  /** Absent on older Providers; Host then leaves game keyboard input untouched. */
+  getInputCapabilities?(): RuntimeInputCapabilitiesV1;
   getCheckpointAvailability(): RuntimeCheckpointAvailabilityV1;
   getCanvas(): HTMLCanvasElement | null;
   getGamepadCursor?(): RuntimeGamepadCursorV1 | null;

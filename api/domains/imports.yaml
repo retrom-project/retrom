@@ -24,6 +24,7 @@ paths:
                 $ref: '#/components/schemas/ImportBatchDiscard'
     post:
       operationId: postAdminImportBatchDiscard
+      x-retrom-max-body-bytes: 1024
       description: Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games retain their independently owned files. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Domain cleanup and immediate file deletion use durable workers.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -46,6 +47,7 @@ paths:
   /api/v1/admin/uploads:
     post:
       operationId: postAdminUpload
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -77,6 +79,7 @@ paths:
       - $ref: '#/components/parameters/PartNo'
     put:
       operationId: putAdminUploadPart
+      x-retrom-max-body-bytes: 8388609
       x-retrom-streaming-body: true
       parameters:
         - $ref: '#/components/parameters/ContentRange'
@@ -138,6 +141,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminImport
+      x-retrom-max-body-bytes: 65536
       description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, independent file materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -181,6 +185,7 @@ paths:
       - $ref: '#/components/parameters/ImportJobID'
     post:
       operationId: postAdminImportCancel
+      x-retrom-max-body-bytes: 8192
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -194,6 +199,7 @@ paths:
       - $ref: '#/components/parameters/ImportJobID'
     post:
       operationId: postAdminImportReconfigure
+      x-retrom-max-body-bytes: 65536
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -207,6 +213,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminImportItemRetry
+      x-retrom-max-body-bytes: 1024
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -238,6 +245,7 @@ paths:
       - $ref: '#/components/parameters/JobID'
     post:
       operationId: postAdminJobCancel
+      x-retrom-max-body-bytes: 8192
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -251,6 +259,7 @@ paths:
       - $ref: '#/components/parameters/JobID'
     post:
       operationId: postAdminJobRetry
+      x-retrom-max-body-bytes: 1024
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey

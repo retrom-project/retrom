@@ -13,7 +13,7 @@ import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayProgressClock} from "./play-progress-clock";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
@@ -34,7 +34,7 @@ export type PlayerBootstrapParams = {
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   returnTo: Mutable<string>;
   manualSaveAvailableRef: Mutable<boolean>;
-  dosProgramMenuRef: Mutable<boolean>;
+  programSelectionRequiredRef: Mutable<boolean>;
   orientationStateRef: Mutable<PlayerOrientationState>;
   videoRenderingModeRef: Mutable<RuntimeVideoModeV1>;
   pausedRef: Mutable<boolean>;
@@ -48,7 +48,7 @@ export type PlayerBootstrapParams = {
   setContentLoadingCapability: Dispatch<SetStateAction<ContentLoadingCapability | undefined>>;
   setState: Dispatch<SetStateAction<ShellState>>;
   setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
-  setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
+  setProgramSelectionRequired: Dispatch<SetStateAction<boolean>>;
   setWarnings: Dispatch<SetStateAction<string[]>>;
   setGameTitle: Dispatch<SetStateAction<string>>;
   setCheckpointSemantics?: Dispatch<SetStateAction<CheckpointSemantics>>;
@@ -125,9 +125,6 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   resources.e2eDiagnosticsCleanup = installRuntimeE2EDiagnostics(mounted.runtime);
   resources.surfaceControlsCleanup = installRuntimeSurfaceControls(mounted.runtime, {
     experience: params.experience,
-    keyboardPauseShortcut: !new Set([
-      "atari800", "atari800-xegs", "hatarib", "bbc-jsbeeb", "samcoupe", "theodore",
-    ]).has(envelope.runtime.targetId),
     onKeyboardPause: params.onKeyboardPause,
     onImmersiveMenuShortcut: params.onImmersiveMenuShortcut,
     onRevealControls: params.onRevealControls,
@@ -165,10 +162,8 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
     crossOriginIsolated: window.crossOriginIsolated,
     sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
   });
-  const dosProgramMenu = envelope.runtime.targetId === "dosbox-pure" &&
-    envelope.targetOptions.dosEntryPath === null;
-  params.dosProgramMenuRef.current = dosProgramMenu;
-  params.setDosProgramMenu(dosProgramMenu);
+  params.programSelectionRequiredRef.current = false;
+  params.setProgramSelectionRequired(false);
   params.setDiscState(null);
 }
 
@@ -211,8 +206,7 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   params.started.current = true;
   params.setState("running");
   const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
-  const canSave = availability.available;
-  updateCheckpointAvailability(params, canSave);
+  updateCheckpointAvailability(params, availability);
   void params.reportProgress();
   params.progressTimer.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
 }
@@ -225,7 +219,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
     return;
   }
   if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED") {
-    updateCheckpointAvailability(params, event.availability.available);
+    updateCheckpointAvailability(params, event.availability);
     return;
   }
   if (event.type === "DISC_CHANGED") {params.setDiscState(event.state); return;}
@@ -237,7 +231,11 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
   }
 }
 
-function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean) {
+function updateCheckpointAvailability(params: PlayerBootstrapParams, availability: RuntimeCheckpointAvailabilityV1) {
+  const programSelectionRequired = !availability.available && availability.requiredAction === "SELECT_PROGRAM";
+  params.programSelectionRequiredRef.current = programSelectionRequired;
+  params.setProgramSelectionRequired(programSelectionRequired);
+  const available = availability.available;
   if (params.envelope.current?.runtime.checkpoint === null) {return;}
   if (params.envelope.current?.runtime.checkpoint?.semantics === "GAME_SAVE") {return;}
   params.manualSaveAvailableRef.current = available;

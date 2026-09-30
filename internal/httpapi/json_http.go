@@ -18,33 +18,52 @@ import (
 )
 
 func decodeJSON(writer http.ResponseWriter, request *http.Request, target any, limit int64) error {
+	_, err := decodeJSONBody(writer, request, target, limit)
+	return err
+}
+
+func decodeIdempotentJSON(
+	writer http.ResponseWriter, request *http.Request, target any, limit int64, principalID, operationID string,
+) (string, error) {
+	contents, err := decodeJSONBody(writer, request, target, limit)
+	if err != nil {
+		return "", err
+	}
+	digest, ok := semanticRequestDigest(request, principalID, operationID, contents)
+	if !ok {
+		return "", errJSONContentType
+	}
+	return digest, nil
+}
+
+func decodeJSONBody(writer http.ResponseWriter, request *http.Request, target any, limit int64) ([]byte, error) {
 	if mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type")); err != nil ||
 		mediaType != "application/json" {
-		return errJSONContentType
+		return nil, errJSONContentType
 	}
 	contents, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, limit))
 	if err != nil {
-		return fmt.Errorf("httpapi/server: %w", err)
+		return nil, fmt.Errorf("httpapi/server: %w", err)
 	}
 	if !utf8.Valid(contents) {
-		return errJSONUTF8
+		return nil, errJSONUTF8
 	}
 	if err := validateJSONLexical(contents, 64); err != nil {
-		return err
+		return nil, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("httpapi/server: %w", err)
+		return nil, fmt.Errorf("httpapi/server: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		if err == nil {
-			return errJSONTrailing
+			return nil, errJSONTrailing
 		}
-		return fmt.Errorf("httpapi/server: %w", err)
+		return nil, fmt.Errorf("httpapi/server: %w", err)
 	}
-	return nil
+	return contents, nil
 }
 
 type lexicalJSONParser struct {
