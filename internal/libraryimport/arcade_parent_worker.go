@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -24,6 +25,11 @@ func (service *Service) runParentAttachment(parent context.Context, jobID string
 	if err != nil {
 		return
 	}
+	remaining := time.Duration(candidate.deadlineAtMS-service.now().UnixMilli()) * time.Millisecond
+	ctx, deadlineCancel := context.WithTimeout(ctx, remaining)
+	defer deadlineCancel()
+	ctx, leaseCancel := service.attachmentLease(ctx, jobID, workerID)
+	defer leaseCancel()
 	archive, ok := service.validateParentArchive(ctx, candidate, jobID, workerID)
 	if !ok {
 		return
@@ -204,7 +210,9 @@ func (service *Service) claimParentAttachment(
 	if err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("claim", err)
 	}
-	return parentAttachmentCandidateFromApplication(claim.Candidate), claim.WorkerID, nil
+	candidate := parentAttachmentCandidateFromApplication(claim.Candidate)
+	candidate.deadlineAtMS = claim.DeadlineAtMS
+	return candidate, claim.WorkerID, nil
 }
 
 func parentAttachmentCandidateFromApplication(

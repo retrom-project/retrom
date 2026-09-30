@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
+
+	"retrom/internal/jobinput"
 
 	"retrom/internal/authn"
 	contentcapability "retrom/internal/content/capability"
@@ -127,7 +128,9 @@ func prepareMultiDiscInput(
 }
 
 func encodeMultiDiscAdmission(write *MultiDiscAttachmentWrite) error {
-	encoded, err := json.Marshal(write.Input)
+	encoded, err := jobinput.Encode(
+		"REVIEW_MULTI_DISC_VALIDATE", jobinput.Scope{Type: "IMPORT_ITEM", ID: write.Input.ImportItemID}, write.Input,
+	)
 	if err != nil {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}

@@ -144,7 +144,7 @@ func (records arcadeParentAttachmentAdmissionRecords) HasActive(ctx context.Cont
 	var count int64
 	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FROM review_arcade_parent_attachments
-WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
+WHERE import_item_id=? AND state='PENDING'
 `, itemID).Scan(&count); err != nil {
 		return false, fmt.Errorf("read active arcade parent attachment: %w", err)
 	}
@@ -165,7 +165,8 @@ INSERT INTO jobs(
   id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,
   state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms
 ) VALUES(?,'IMPORT_ITEM',?,'REVIEW_ARCADE_PARENT_VALIDATE',?,1,?,1,'QUEUED',0,4,?,?,?)
-`, write.JobID, write.ItemID, write.DedupeKey, write.InputJSON, write.NowMS, write.NowMS, write.NowMS); err != nil {
+`, write.JobID, write.ItemID, write.DedupeKey,
+		`{"schemaVersion":1,"inputExecutionNo":1}`, write.NowMS, write.NowMS, write.NowMS); err != nil {
 		return fmt.Errorf("create arcade parent job: %w", err)
 	}
 	if _, err := records.executor.ExecContext(ctx, `
@@ -179,7 +180,7 @@ INSERT INTO review_arcade_parent_attachments(
   id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,
   expected_logical_name,required_by_machine,depth,provider_id,target_id,dat_version_id,
   upload_file_id,original_filename,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'QUEUED','{}',?,1,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING','{}',?,1,?,?)
 `, write.AttachmentID, write.ItemID, write.DraftID, write.BaseSourceSnapshotID,
 		write.DependencyMachine, write.DependencyMachine+".zip", write.RequiredByMachine,
 		write.Depth, write.ProviderID, write.TargetID, write.DATVersionID, write.UploadID,

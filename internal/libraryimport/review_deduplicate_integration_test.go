@@ -184,7 +184,7 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
  provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,
 updated_at_ms)
  SELECT 'deduplicate-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
- 'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','QUEUED','{}','deduplicate-attachment-job',1,1
+ 'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','PENDING','{}','deduplicate-attachment-job',1,1
  FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, itemID)
 	result, err := fixture.service.DeduplicateReviews(fixture.ctx, ReviewDeduplicateRequest{})
 	if err != nil || result.ScannedCount != 2 || result.AttachmentActiveCount != 1 || result.DiscardedCount != 0 {
@@ -197,7 +197,7 @@ updated_at_ms)
 		"SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
 		t.Fatal(err)
 	}
-	if state != "QUEUED" {
+	if state != "PENDING" {
 		t.Fatalf("attachment was interrupted: %s", state)
 	}
 }

@@ -23,7 +23,8 @@ func TestArcadeParentCommitFinishesRetryableAttachmentAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var attachmentState, attachmentCode, jobState, jobCode string
+	var attachmentState, jobState, jobCode string
+	var attachmentCode *string
 	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT attachment.state,attachment.error_code,job.state,job.error_code
 FROM review_arcade_parent_attachments attachment JOIN jobs job ON job.id=attachment.job_id
@@ -31,9 +32,9 @@ WHERE attachment.id='attachment'
 `).Scan(&attachmentState, &attachmentCode, &jobState, &jobCode); err != nil {
 		t.Fatal(err)
 	}
-	if attachmentState != "FAILED_RETRYABLE" || attachmentCode != "REVIEW_PARENT_INPUT_STALE" ||
+	if attachmentState != "PENDING" || attachmentCode != nil ||
 		jobState != "FAILED" || jobCode != "REVIEW_PARENT_INPUT_STALE" {
-		t.Fatalf("terminal states attachment=%s/%s job=%s/%s", attachmentState, attachmentCode, jobState, jobCode)
+		t.Fatalf("terminal states attachment=%s/%v job=%s/%s", attachmentState, attachmentCode, jobState, jobCode)
 	}
 	var eventCount int
 	if err := dbapi.QueryRowContext(t.Context(), database, `
@@ -95,7 +96,7 @@ id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,exp
 required_by_machine,depth,provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,
 job_id,version,created_at_ms,updated_at_ms)
 SELECT 'attachment','item','item','snapshot','parent','parent.zip','root',1,binding.provider_id,binding.target_id,
-'parent-dat','parent.zip','RUNNING','{"schemaVersion":1}','parent-job',1,1,1
+'parent-dat','parent.zip','PENDING','{"schemaVersion":1}','parent-job',1,1,1
 FROM runtime_target_bindings binding
 WHERE binding.core_id=(SELECT default_core_id FROM platform_instances WHERE id=(SELECT target_platform_instance_id FROM import_jobs WHERE id='import'))
 LIMIT 1`)

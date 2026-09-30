@@ -3,7 +3,9 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	"time"
 
+	"retrom/internal/cleanup"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
@@ -61,6 +63,11 @@ func (service *Service) runMultiDiscAttachment(parent context.Context, jobID str
 	if err != nil {
 		return
 	}
+	remaining := time.Duration(candidate.deadlineAtMS-service.now().UnixMilli()) * time.Millisecond
+	ctx, deadlineCancel := context.WithTimeout(ctx, remaining)
+	defer deadlineCancel()
+	ctx, leaseCancel := service.attachmentLease(ctx, jobID, candidate.workerID)
+	defer leaseCancel()
 	if err := service.readAttachedMultiDiscBase(ctx, &candidate); err != nil {
 		service.finishRejectedMultiDiscAttachment(ctx, candidate, MultiDiscAttachmentErrorInputStale, err)
 		return
@@ -107,13 +114,19 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 	code string,
 	cause error,
 ) {
-	_ = service.attachmentTerminals.Reject(
+	if ctx.Err() != nil {
+		service.finishRetryableMultiDiscAttachment(ctx, candidate, MultiDiscAttachmentErrorUnavailable, cause)
+		return
+	}
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
+	cleanup.Error("reject multi-disc attachment", service.attachmentTerminals.Reject(
 		ctx,
 		libraryservice.MultiDiscAttachmentRejectRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Actor: multiDiscAttachmentActor(ctx),
 			Code: code, Cause: MultiDiscAttachmentErrorCode(cause),
 		},
-	)
+	))
 }
 
 func (service *Service) finishRetryableMultiDiscAttachment(
@@ -122,30 +135,39 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 	code string,
 	_ error,
 ) {
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
+	if service.finishMultiDiscAttachmentCancellation(ctx, candidate) {
+		return
+	}
 	result, err := service.attachmentTerminals.Retry(
 		ctx,
 		libraryservice.MultiDiscAttachmentRetryRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Code: code,
 		},
 	)
+	cleanup.Error("retry multi-disc attachment", err)
 	if err == nil && result.Scheduled {
 		service.scheduleMultiDiscAttachmentRun(ctx, candidate.jobID, result.Delay)
 	}
 }
 
 func (service *Service) SyncMultiDiscAttachmentCancellation(ctx context.Context, jobID string) {
-	_ = service.attachmentTerminals.SyncCancellation(ctx, jobID)
+	cleanup.Error("sync multi-disc attachment cancellation", service.attachmentTerminals.SyncCancellation(ctx, jobID))
 }
 
 func (service *Service) finishMultiDiscAttachmentCancellation(
 	ctx context.Context,
 	candidate multiDiscAttachmentCandidate,
 ) bool {
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
 	result, err := service.attachmentTerminals.FinishCancellation(
 		ctx,
 		libraryservice.MultiDiscAttachmentCancellationRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate),
 		},
 	)
+	cleanup.Error("finish multi-disc attachment cancellation", err)
 	return err == nil && result
 }

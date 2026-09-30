@@ -4,10 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
+	"retrom/internal/jobinput"
 )
 
 func retryEligibility(job Job, expectedVersion int64) error {
@@ -58,37 +57,10 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 	return result, nil
 }
 
-type retryInputEnvelope struct {
-	SchemaVersion int             `json:"schemaVersion"`
-	Kind          string          `json:"kind"`
-	Scope         retryInputScope `json:"scope"`
-	ExecutionID   string          `json:"executionId"`
-	Inputs        json.RawMessage `json:"inputs"`
-}
-
-type retryInputScope struct {
-	Type string `json:"type"`
-	ID   string `json:"id"`
-}
-
 func retryInputSnapshot(previous []byte, job Job) ([]byte, error) {
-	var input retryInputEnvelope
-	if json.Unmarshal(previous, &input) != nil || input.SchemaVersion != 1 ||
-		input.Kind != job.Kind || input.Scope.Type != job.ScopeType || input.Scope.ID != job.ScopeID ||
-		len(input.Inputs) == 0 || !json.Valid(input.Inputs) {
-		return nil, ErrConflict
-	}
-	if _, err := uuid.Parse(input.ExecutionID); err != nil {
-		return nil, ErrConflict
-	}
-	executionID, err := uuid.NewV7()
+	input, err := jobinput.Retry(previous, job.Kind, jobinput.Scope{Type: job.ScopeType, ID: job.ScopeID})
 	if err != nil {
-		return nil, fmt.Errorf("jobs/retry execution ID: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrConflict, err)
 	}
-	input.ExecutionID = executionID.String()
-	encoded, err := json.Marshal(input)
-	if err != nil {
-		return nil, fmt.Errorf("jobs/retry input: %w", err)
-	}
-	return encoded, nil
+	return input, nil
 }

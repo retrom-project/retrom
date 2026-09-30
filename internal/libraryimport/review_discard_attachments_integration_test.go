@@ -24,8 +24,8 @@ func TestDiscardAttachmentCancellationSharesDecisionTransaction(t *testing.T) {
 	t.Parallel()
 	for _, test := range []discardAttachmentCase{
 		{"ARCADE", "QUEUED", "CANCELLED", "CANCELLED"},
-		{"ARCADE", "RUNNING", "CANCELLED", "CANCEL_REQUESTED"},
-		{"MULTIDISC", "RUNNING", "RUNNING", "CANCEL_REQUESTED"},
+		{"ARCADE", "RUNNING", "PENDING", "CANCEL_REQUESTED"},
+		{"MULTIDISC", "RUNNING", "PENDING", "CANCEL_REQUESTED"},
 		{"MULTIDISC", "FAILED_RETRYABLE", "CANCELLED", "CANCELLED"},
 	} {
 		t.Run(test.kind+"/"+test.state, func(t *testing.T) { t.Parallel(); verifyDiscardAttachment(t, test) })
@@ -60,6 +60,13 @@ func verifyDiscardAttachment(t *testing.T, test discardAttachmentCase) {
 	if after.State != test.wantAttachment || after.JobState != test.wantJob || after.CancelRequestedAt == nil || after.JobReason == nil || *after.JobReason != "review discarded" {
 		t.Fatalf("attachment cancellation changed semantics: %+v", after)
 	}
+	if err := fixture.service.RecoverAttachmentJobs(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	after = readDiscardAttachment(t, fixture, test.kind)
+	if after.State != "CANCELLED" || after.JobState != "CANCELLED" {
+		t.Fatalf("interrupted cancellation stranded: %+v", after)
+	}
 }
 
 func seedDiscardAttachment(t *testing.T, fixture deduplicateFixture, itemID string, test discardAttachmentCase) {
@@ -70,13 +77,10 @@ func seedDiscardAttachment(t *testing.T, fixture deduplicateFixture, itemID stri
 	}
 	jobState := test.state
 	var finished *int64
-	var errorCode *string
 	if test.state == "FAILED_RETRYABLE" {
 		jobState = "FAILED"
 		value := int64(1)
 		finished = &value
-		code := "RETRY"
-		errorCode = &code
 	}
 	fixture.execute(t, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,
  cancellable,state,attempt_count,max_attempts,error_retryable,finished_at_ms,available_at_ms,created_at_ms,updated_at_ms)
@@ -87,15 +91,15 @@ func seedDiscardAttachment(t *testing.T, fixture deduplicateFixture, itemID stri
  base_source_snapshot_id,dependency_machine,expected_logical_name,required_by_machine,depth,
  provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
  SELECT 'discard-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
- 'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip',?,'{}','discard-attachment-job',1,1
- FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, test.state, itemID)
+ 'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','PENDING','{}','discard-attachment-job',1,1
+ FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, itemID)
 		return
 	}
 	fixture.execute(t, `INSERT INTO review_multidisc_attachments(id,import_item_id,review_draft_id,requested_by_user_id,
  base_source_snapshot_id,upload_session_id,expected_set_digest,state,error_code,diagnostics_json,job_id,finished_at_ms,created_at_ms,updated_at_ms)
  SELECT 'discard-attachment',i.id,d.id,'owner-actor',d.effective_source_snapshot_id,j.upload_session_id,
- 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',?,?,'{}','discard-attachment-job',?,1,1
- FROM import_items d JOIN import_items i ON i.id=d.id JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`, test.state, errorCode, finished, itemID)
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','PENDING',NULL,'{}','discard-attachment-job',NULL,1,1
+ FROM import_items d JOIN import_items i ON i.id=d.id JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`, itemID)
 }
 
 func readDiscardAttachment(t *testing.T, fixture deduplicateFixture, kind string) discardAttachmentSnapshot {

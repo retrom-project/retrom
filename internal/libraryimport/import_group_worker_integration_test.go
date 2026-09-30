@@ -36,7 +36,7 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
 
-	service.Start()
+	service.Start(t.Context())
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -108,7 +108,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, invalidONSArchive(t))
 	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
-	service.Start()
+	service.Start(t.Context())
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -137,7 +137,7 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
-	service.Start()
+	service.Start(t.Context())
 	created, err := service.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
 	original := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	release := gateImportWorker(t, original)
-	original.Start()
+	original.Start(t.Context())
 	created, err := original.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	recovered := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(recovered.Close)
 	recovered.RecoverImportGroupJobs(ctx)
-	recovered.Start()
+	recovered.Start(t.Context())
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 	var importState string
 	var attempts int
@@ -227,7 +227,7 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			)
 			service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 			t.Cleanup(service.Close)
-			service.Start()
+			service.Start(t.Context())
 			created, err := service.QueueCreate(ctx, CreateRequest{
 				UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 					t, database.SQL, test.catalogKey,

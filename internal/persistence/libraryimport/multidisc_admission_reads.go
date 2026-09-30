@@ -97,9 +97,11 @@ func (records multidiscAdmissionRecords) Activity(
 ) (libraryservice.MultiDiscAttachmentActivity, error) {
 	var result libraryservice.MultiDiscAttachmentActivity
 	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT
-COALESCE(sum(CASE WHEN state IN ('QUEUED','RUNNING') THEN 1 ELSE 0 END),0),
-COALESCE(sum(CASE WHEN state='FAILED_RETRYABLE' THEN 1 ELSE 0 END),0)
-FROM review_multidisc_attachments WHERE import_item_id=?`, id).Scan(&result.Active, &result.Retryable)
+COALESCE(sum(CASE WHEN attachment.state='PENDING'
+AND job.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') THEN 1 ELSE 0 END),0),
+COALESCE(sum(CASE WHEN attachment.state='PENDING' AND job.state='FAILED' AND job.error_retryable=1 THEN 1 ELSE 0 END),0)
+FROM review_multidisc_attachments attachment JOIN jobs job ON job.id=attachment.job_id
+WHERE attachment.import_item_id=?`, id).Scan(&result.Active, &result.Retryable)
 	if err != nil {
 		return result, fmt.Errorf("read multi-disc attachment activity: %w", err)
 	}

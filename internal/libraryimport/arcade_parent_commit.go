@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -92,17 +93,24 @@ func (service *Service) finishRejectedParentAttachment(
 	jobID, workerID, code, archiveCode string,
 	missing, mismatched []string,
 ) {
+	if ctx.Err() != nil {
+		service.finishRetryableParentAttachment(ctx, candidate, jobID, workerID, ParentErrorUnavailable)
+		return
+	}
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
 	diagnostics, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "archiveCode": archiveCode, "missingEntries": missing,
 		"mismatchedEntries": mismatched,
 	})
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	_ = repository.FinishRejected(ctx, libraryservice.ArcadeParentRejectedCommit{
+	err := repository.FinishRejected(ctx, libraryservice.ArcadeParentRejectedCommit{
 		AttachmentID: candidate.attachmentID, ItemID: candidate.itemID, JobID: jobID, WorkerID: workerID,
 		Code: code, DiagnosticsJSON: string(diagnostics),
 		BlobSize: candidate.blobSize, BlobSHA: candidate.blobSHA, Actor: reviewActor(ctx),
 		NowMS: service.now().UnixMilli(),
 	})
+	cleanup.Error("finish rejected parent attachment", err)
 }
 
 func (service *Service) finishRetryableParentAttachment(
@@ -110,20 +118,27 @@ func (service *Service) finishRetryableParentAttachment(
 	candidate parentAttachmentCandidate,
 	jobID, workerID, code string,
 ) {
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
+	if service.finishParentAttachmentCancellation(ctx, candidate, jobID, workerID) {
+		return
+	}
 	diagnostics := fmt.Sprintf(`{"errorCode":%q,"schemaVersion":1}`, code)
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	_ = repository.FinishRetryable(ctx, libraryservice.ArcadeParentRetryableCommit{
+	err := repository.FinishRetryable(ctx, libraryservice.ArcadeParentRetryableCommit{
 		AttachmentID: candidate.attachmentID, ItemID: candidate.itemID, JobID: jobID, WorkerID: workerID,
 		Code: code, DiagnosticsJSON: diagnostics, BlobSize: candidate.blobSize, BlobSHA: candidate.blobSHA,
 		NowMS: service.now().UnixMilli(),
 	})
+	cleanup.Error("finish retryable parent attachment", err)
 }
 
 func (service *Service) SyncParentAttachmentCancellation(ctx context.Context, jobID string) {
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	_ = repository.SyncCancellation(ctx, libraryservice.ArcadeParentCancellationSync{
+	err := repository.SyncCancellation(ctx, libraryservice.ArcadeParentCancellationSync{
 		JobID: jobID, NowMS: service.now().UnixMilli(),
 	})
+	cleanup.Error("sync parent attachment cancellation", err)
 }
 
 func (service *Service) finishParentAttachmentCancellation(
@@ -131,10 +146,13 @@ func (service *Service) finishParentAttachmentCancellation(
 	candidate parentAttachmentCandidate,
 	jobID, workerID string,
 ) bool {
+	ctx, cancel := attachmentCleanupContext(ctx)
+	defer cancel()
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	ok, _ := repository.FinishCancellation(ctx, libraryservice.ArcadeParentAttachmentCancellation{
+	ok, err := repository.FinishCancellation(ctx, libraryservice.ArcadeParentAttachmentCancellation{
 		AttachmentID: candidate.attachmentID, ItemID: candidate.itemID, JobID: jobID, WorkerID: workerID,
 		NowMS: service.now().UnixMilli(),
 	})
+	cleanup.Error("finish parent attachment cancellation", err)
 	return ok
 }
