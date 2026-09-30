@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {chromium} from "../../web/node_modules/playwright/index.mjs";
 import {symbianDebugPanel} from "./symbian_diagnostics.mjs";
+import {observeSymbian} from "./symbian_browser.mjs";
 
 test("debug FPS is read from the sibling definition even with other diagnostics present", async () => {
   const browser = await chromium.launch({executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true});
@@ -20,5 +21,24 @@ test("debug FPS is read from the sibling definition even with other diagnostics 
     const result = await symbianDebugPanel({page});
     assert.equal(result.fps, 49);
     assert.ok(result.after > result.before);
+  } finally {await browser.close();}
+});
+
+test("draft evidence observes text node and busy class changes", async () => {
+  const browser = await chromium.launch({executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true});
+  try {
+    const context = await browser.newContext();
+    await observeSymbian(context);
+    const page = await context.newPage();
+    await page.goto("data:text/html,<span class='player-sync-status'>Pending</span>");
+    await page.waitForFunction(() => __symbianSaveStates.length === 1);
+    await page.evaluate(() => document.querySelector(".player-sync-status").firstChild.nodeValue = "Staging");
+    await page.waitForFunction(() => __symbianSaveStates.at(-1).text === "Staging", null, {timeout: 1_000});
+    await page.evaluate(() => document.querySelector(".player-sync-status").classList.add("is-busy"));
+    await page.waitForFunction(() => __symbianSaveStates.at(-1).busy, null, {timeout: 1_000});
+    const states = await page.evaluate(() => __symbianSaveStates);
+    assert.deepEqual(states.map(({text, busy}) => ({text, busy})), [
+      {text: "Pending", busy: false}, {text: "Staging", busy: false}, {text: "Staging", busy: true},
+    ]);
   } finally {await browser.close();}
 });

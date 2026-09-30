@@ -47,11 +47,12 @@ export async function observeSymbian(context) {
       const bar=document.querySelector('[role="progressbar"][aria-label="游戏内容加载进度"]');
       if(bar){const value=Number(bar.getAttribute("aria-valuenow"));if(__symbianProgress.at(-1)!==value)__symbianProgress.push(value);}
       const status=document.querySelector('.player-sync-status');
-      if(status){const text=status.textContent;if(__symbianSaveStates.at(-1)?.text!==text){
-        __symbianSaveStates.push({at:performance.now(),text,busy:status.classList.contains('is-busy')});
+      if(status){const text=status.textContent,busy=status.classList.contains('is-busy');
+        if(__symbianSaveStates.at(-1)?.text!==text||__symbianSaveStates.at(-1)?.busy!==busy){
+        __symbianSaveStates.push({at:performance.now(),text,busy});
         if(__symbianSaveStates.length>256)__symbianSaveStates.shift();
       }}
-    }).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:["aria-valuenow"]});
+    }).observe(document,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["aria-valuenow","class"]});
   });
 }
 export async function openSymbian(context,base,launch,directory) {
