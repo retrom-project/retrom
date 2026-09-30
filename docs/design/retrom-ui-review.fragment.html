@@ -2415,10 +2415,13 @@
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice small { color: var(--muted); font-size: var(--text-small); }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice strong { font-size: var(--text-small); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice button { min-height: 44px; }
-#retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { min-width: 0; display: flex; flex-direction: column; }
 #retrom-ui-review [data-page="detail"] .rt-detail-preview-heading { min-height: 44px; margin-bottom: var(--space-2); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 #retrom-ui-review [data-page="detail"] .rt-detail-preview-heading strong { font-size: var(--text-body); font-weight: var(--weight-bold); }
-#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading > button { width: 128px; flex: none; }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-tabs { display: flex; align-items: center; gap: var(--space-1); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-divider { color: var(--muted); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-panel { min-height: 0; min-width: 0; flex: 1; display: flex; flex-direction: column; }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-panel[hidden] { display: none; }
 #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 0; border-radius: var(--radius-cover); padding: 0; background: var(--canvas); }
 #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot img, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage img { object-fit: contain; }
 #retrom-ui-review [data-page="detail"] .rt-detail-video-stage:hover .rt-detail-media-controls { opacity: 1; }
@@ -2464,7 +2467,6 @@
   #retrom-ui-review [data-page="detail"] .rt-detail-hero { align-items: stretch; }
   #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell { position: relative; align-self: stretch; }
   #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell > .rt-detail-cover { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; }
-  #retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { display: flex; flex-direction: column; }
   #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, .rt-detail-video-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
 }
 @media (max-width: 1599px) {
@@ -2880,7 +2882,7 @@
             <div class="rt-launch-note" id="rt-launch-note" hidden="">开始前会自动检查游戏文件和所需系统文件</div>
           </aside></div>
 
-        <aside class="rt-detail-feature-preview"><header class="rt-detail-preview-heading"><strong>将从这里继续</strong><button type="button" class="rt-button" data-toggle-detail-media="">查看视频</button></header><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
+        <aside class="rt-detail-feature-preview"><header class="rt-detail-preview-heading"><div class="rt-detail-preview-tabs" role="tablist" aria-label="游戏预览内容"><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-0" aria-selected="true" aria-controls="rt-preview-panel-0">最近存档</button><span class="rt-detail-preview-divider" aria-hidden="true">/</span><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-1" aria-selected="false" aria-controls="rt-preview-panel-1" tabindex="-1">视频预览</button></div></header><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-0" aria-labelledby="rt-preview-tab-0"><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></div><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-1" aria-labelledby="rt-preview-tab-1" hidden><div class="rt-detail-video-stage"><span class="rt-detail-save-screen" role="img" aria-label="视频画面示例"></span></div></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>8 月 6 日 21:14</strong><small>手动存档 10</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>1 小时 52 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
@@ -4282,11 +4284,22 @@
       root.querySelector('[data-close-detail-saves]').addEventListener('click', closeDetailSaves);
       detailSavesBackdrop.addEventListener('click', closeDetailSaves);
 
-      const detailMediaToggle = root.querySelector('[data-toggle-detail-media]');
-      detailMediaToggle.addEventListener('click', () => {
-        const video = detailMediaToggle.textContent === '查看视频';
-        detailMediaToggle.textContent = video ? '查看最近存档' : '查看视频';
-        root.querySelector('.rt-detail-preview-heading strong').textContent = video ? '视频预览' : '将从这里继续';
+      function selectDetailPreview(index) {
+        root.querySelectorAll('.rt-detail-preview-tabs button').forEach((tab, current) => {
+          tab.setAttribute('aria-selected', String(current === index));
+          tab.tabIndex = current === index ? 0 : -1;
+          root.querySelector(`#rt-preview-panel-${current}`).hidden = current !== index;
+        });
+      }
+      root.querySelectorAll('.rt-detail-preview-tabs button').forEach((tab, index) => {
+        tab.addEventListener('click', () => selectDetailPreview(index));
+        tab.addEventListener('keydown', event => {
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          if (next < 0) return;
+          event.preventDefault();
+          selectDetailPreview(next);
+          root.querySelectorAll('.rt-detail-preview-tabs button')[next].focus();
+        });
       });
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;

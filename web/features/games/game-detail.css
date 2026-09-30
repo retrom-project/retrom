@@ -76,10 +76,13 @@
 .launch-runtime-choice small { color: var(--muted); font-size: var(--text-small); }
 .launch-runtime-choice strong { font-size: var(--text-small); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .launch-runtime-choice button { min-height: 44px; }
-.game-detail-feature-preview { min-width: 0; }
+.game-detail-feature-preview { min-width: 0; display: flex; flex-direction: column; }
 .game-detail-preview-heading { min-height: 44px; margin-bottom: var(--space-2); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .game-detail-preview-heading strong { font-size: var(--text-body); font-weight: var(--weight-bold); }
-.game-detail-preview-heading > button { width: 128px; flex: none; }
+.game-detail-preview-tabs { display: flex; align-items: center; gap: var(--space-1); }
+.game-detail-preview-divider { color: var(--muted); }
+.game-detail-preview-panel { min-height: 0; min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.game-detail-preview-panel[hidden] { display: none; }
 .game-detail-feature-shot, .game-detail-video-stage { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 0; border-radius: var(--radius-cover); padding: 0; background: var(--canvas); }
 .game-detail-feature-shot img, .game-detail-video-stage img { object-fit: contain; }
 .game-detail-video-stage:hover .game-detail-media-controls { opacity: 1; }
@@ -125,8 +128,7 @@
   .game-detail-poster-shell { position: relative; align-self: stretch; }
   .game-detail-poster-shell > .game-detail-media { position: absolute; inset: 0; }
   .game-detail-poster { flex: 1; min-height: 0; aspect-ratio: auto; }
-  .game-detail-feature-preview { display: flex; flex-direction: column; }
-  .game-detail-feature-preview > .game-detail-media { min-height: 0; }
+  .game-detail-preview-panel > .game-detail-media { min-height: 0; }
   .game-detail-feature-shot, .game-detail-video-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
 }
 @media (max-width: 1599px) {
