@@ -38,10 +38,13 @@ func (records itemWorkRecords) Finish(ctx context.Context, change application.It
 	}
 	result, err := recordstore.UpdateSourceImportItems(ctx, records.tx, recordstore.Update{
 		Set: `execution_state=?,error_code=?,retryable=?,error_details_json=?,existing_game_id=COALESCE(?,existing_game_id),
-existing_matches_json=COALESCE(?,existing_matches_json),completed_at_ms=?,version=version+1,updated_at_ms=?`,
+existing_matches_json=COALESCE(?,existing_matches_json),completed_at_ms=?,version=version+1,updated_at_ms=?,
+library_import_job_id=CASE WHEN ?='REVIEW_PENDING' OR ? THEN library_import_job_id ELSE NULL END,
+library_import_item_id=CASE WHEN ?='REVIEW_PENDING' OR ? THEN library_import_item_id ELSE NULL END`,
 		Values: []any{
 			outcome.State, optionalText(outcome.Code), outcome.Retryable, failure,
 			optionalText(outcome.ExistingGameID), matches, change.NowMS, change.NowMS,
+			outcome.State, outcome.Retryable, outcome.State, outcome.Retryable,
 		},
 		Scope: recordstore.Scope{
 			Where: `id=? AND import_id=? AND version=? AND execution_state=?

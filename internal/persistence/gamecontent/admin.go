@@ -257,7 +257,7 @@ func (writes writes) UpdatePatch(ctx context.Context, update application.AdminGa
 	result, err := recordstore.UpdateGames(ctx, writes.transaction, recordstore.Update{
 		Set: `
 title=?,title_initial=?,description=?,developer=?,publisher=?,genre=?,players=?,release_year=?,
-metadata_source_kind='ADMIN_EDIT',metadata_source_ref_id=NULL,search_text=?,
+metadata_source_kind='ADMIN_EDIT',search_text=?,
 version=version+1,
 updated_at_ms=?
 `,

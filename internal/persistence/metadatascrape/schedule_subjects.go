@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
@@ -65,8 +67,8 @@ func (reads scheduleReads) DAT(
 	ctx context.Context,
 	subject metadatascrape.Subject,
 ) (metadatascrape.DATBinding, bool, error) {
-	query := `SELECT dat_version_id,dependency_snapshot_json FROM import_item_core_validations
- WHERE import_item_id=? AND dat_version_id IS NOT NULL ORDER BY created_at_ms DESC,id DESC LIMIT 1`
+	query := `SELECT dat_version_id,dependency_snapshot_json FROM (` + contentquery.CurrentContentSQL + `)
+ WHERE import_item_id=? AND dat_version_id IS NOT NULL`
 	if subject.Kind == "GAME" {
 		query = `SELECT v.dat_version_id,v.dependency_snapshot_json FROM games g
  JOIN platform_instances p ON p.id=g.platform_instance_id JOIN game_variants v ON v.game_id=g.id

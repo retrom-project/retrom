@@ -24,9 +24,8 @@ func Change(ctx context.Context, executor dbapi.Executor, update recordstore.Upd
 	}
 	update.Set += ",updated_at_ms=?"
 	update.Values = append(update.Values, change.NowMS)
-	update.Scope.Where += ` AND status=? AND metadata_source_kind=? AND COALESCE(metadata_source_ref_id,'')=?
- AND content_source_kind=? AND COALESCE(content_source_ref_id,'')=?`
+	update.Scope.Where += ` AND status=? AND metadata_source_kind=? AND content_source_kind=? AND source_manifest_digest=?`
 	update.Scope.Args = append(update.Scope.Args, before.State, change.Before.MetadataSource.Kind,
-		change.Before.MetadataSource.ID, change.Before.ContentSource.Kind, change.Before.ContentSource.ID)
+		change.Before.ContentSource.Kind, change.Before.GameManifestDigest)
 	return wrapPair(recordstore.UpdateGames(ctx, executor, update))
 }

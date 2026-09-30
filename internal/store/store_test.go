@@ -53,15 +53,24 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 		"charged_bytes", "version")
 	assertColumns(t, database.SQL, "scrape_candidate_assets", "media_fetch_job_id", "media_fetch_order",
 		"media_charged_bytes", "media_reserved_bytes")
-	assertColumns(t, database.SQL, "review_preview_sessions",
-		"import_item_id", "source_snapshot_id", "validation_id", "credential_sha256",
+	assertColumns(t, database.SQL, "runtime_preview_sessions",
+		"scope_id", "content_revision", "return_to", "credential_sha256",
 		"bootstrap_expires_at_ms", "hard_expires_at_ms", "checkpoint_payload_file_record", "checkpoint_format",
 		"restore_from_preview_id", "restore_payload_file_record", "restore_checkpoint_format")
-	assertColumns(t, database.SQL, "review_preview_files", "preview_session_id", "role", "file_record", "virtual_path")
+	assertColumns(t, database.SQL, "review_preview_bindings", "preview_session_id", "import_item_id", "source_snapshot_id")
+	assertColumns(t, database.SQL, "runtime_preview_files", "preview_session_id", "role", "file_record", "virtual_path")
 	assertColumns(t, database.SQL, "review_runtime_screenshots",
-		"import_item_id", "preview_session_id", "validation_id", "file_record", "captured_at_ms")
+		"import_item_id", "preview_session_id", "file_record", "captured_at_ms")
 	for _, removed := range []struct{ table, column string }{
-		{"review_preview_sessions", "capture_allowed"},
+		{"games", "metadata_source_ref_id"},
+		{"games", "content_source_ref_id"},
+		{"runtime_preview_sessions", "import_item_id"},
+		{"runtime_preview_sessions", "source_snapshot_id"},
+		{"runtime_preview_sessions", "capture_allowed"},
+		{"runtime_preview_sessions", "validation_id"},
+		{"review_runtime_screenshots", "validation_id"},
+		{"import_items", "selected_validation_id"},
+		{"review_multidisc_attachments", "result_validation_id"},
 		{"review_runtime_screenshots", "captured_after_ms"},
 		{"launch_sessions", "idle_expires_at_ms"},
 		{"play_sessions", "last_client_sequence"},
@@ -94,11 +103,11 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id",
 		"builtin_relative_path", "sha256", "parser_version", "parse_status")
 	assertColumns(t, database.SQL, "import_items", "review_version", "review_updated_at_ms",
-		"metadata_json", "review_profile_json")
+		"metadata_json", "review_profile_json", "content_analysis_json")
 	assertColumns(t, database.SQL, "games", "content_profile_json")
 	assertColumns(t, database.SQL, "game_variants", "runtime_profile_json")
 	assertColumns(t, database.SQL, "review_bulk_approvals", "max_item_id", "cursor_item_id", "scanned_count")
-	for _, retired := range []string{"review_drafts", "review_bulk_approval_items"} {
+	for _, retired := range []string{"review_drafts", "review_bulk_approval_items", "import_item_core_validations", "import_item_validation_files"} {
 		if slices.Contains(tables, retired) {
 			t.Errorf("retired review table remains: %s", retired)
 		}
@@ -178,10 +187,10 @@ func TestGameMetadataTitleInitialConstraint(t *testing.T) {
 		_, insertErr := transaction.ExecContext(t.Context(), `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
- metadata_source_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ metadata_source_kind,content_source_kind,source_manifest_json,
  source_manifest_digest,status,search_text,created_at_ms,updated_at_ms
 ) VALUES(?,'missing-instance','Game',?,'','','','',
- 'ADMIN_EDIT','ADMIN_REPLACE','fixture','{}',?,'PUBLISHED','game',1,1)
+ 'ADMIN_EDIT','ADMIN_REPLACE','{}',?,'PUBLISHED','game',1,1)
 `, id, initial, strings.Repeat("a", 64))
 		return insertErr
 	}

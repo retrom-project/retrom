@@ -18,6 +18,8 @@ func CleanupDirectory(value string) (string, error) {
 		}
 	case "saves":
 		count = 3
+	case "previews":
+		count = previewCleanupDepth(parts)
 	case "bios", "scrapes", "responses":
 		count = 2
 	case "staging":
@@ -41,6 +43,16 @@ func stagingCleanupDepth(parts []string) int {
 			return 6
 		}
 	case "uploads", "sources":
+		return 3
+	}
+	return 0
+}
+
+func previewCleanupDepth(parts []string) int {
+	if len(parts) > 4 && parts[2] == "checkpoints" {
+		return 4
+	}
+	if len(parts) > 3 && parts[2] == "restore" {
 		return 3
 	}
 	return 0

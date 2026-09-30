@@ -7,6 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/filedeletion"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	application "retrom/internal/service/cleanupjobs"
@@ -23,7 +24,7 @@ func (records Records) Previews(
 ) ([]application.PreviewExpiration, error) {
 	rows, err := records.Executor.QueryContext(ctx, `SELECT id,state,version,bootstrap_expires_at_ms,hard_expires_at_ms,
 finished_at_ms,COALESCE(checkpoint_payload_file_record,''),COALESCE(restore_payload_file_record,'')
-FROM review_preview_sessions WHERE `+previewExpiryDue+` ORDER BY hard_expires_at_ms,id LIMIT ?`, now, now, limit)
+FROM runtime_preview_sessions WHERE `+previewExpiryDue+` ORDER BY hard_expires_at_ms,id LIMIT ?`, now, now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("select expired previews: %w", err)
 	}
@@ -64,6 +65,9 @@ AND COALESCE(checkpoint_payload_file_record,'')=? AND COALESCE(restore_payload_f
 	})
 	if err := expirationWrite(result, err, 1); err != nil {
 		return fmt.Errorf("update expired preview: %w", err)
+	}
+	if err := filedeletion.QueuePath(ctx, records.Executor, "previews/"+before.ID, change.NowMS); err != nil {
+		return fmt.Errorf("queue expired preview directory: %w", err)
 	}
 	return nil
 }

@@ -555,11 +555,11 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'D','','',
 '','',NULL,NULL,
- 'IMPORT_REVIEW','pagination-fixture','SINGLE_FILE','IMPORT_REVIEW','pagination-fixture','{}',?,
+ 'IMPORT_REVIEW','SINGLE_FILE','IMPORT_REVIEW','{}',?,
  'PUBLISHED',?,1,?,?)
 `, gameID, title, strings.Repeat(strconv.Itoa(index+1), 64), strings.ToLower(title), createdAt, createdAt)
 	}
@@ -680,13 +680,13 @@ func seedRecentGameHistory(t *testing.T, database dbapi.DB, now int64, count int
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ metadata_source_kind,content_kind,content_source_kind,source_manifest_json,
 source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'R','','',
 '','',NULL,NULL,
- 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',?,'{}',?,'PUBLISHED',?,1,?,?)
-`, gameID, fmt.Sprintf("Recent fixture %02d", index), fmt.Sprintf("recent-%d", index), strings.Repeat("7", 64),
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','{}',?,'PUBLISHED',?,1,?,?)
+`, gameID, fmt.Sprintf("Recent fixture %02d", index), strings.Repeat("7", 64),
 			fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index))
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variants(
@@ -734,11 +734,11 @@ PRAGMA defer_foreign_keys=ON
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
  ?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),
- 'Doom','D',?,'','','',1,1993,'IMPORT_REVIEW','review','SINGLE_FILE','IMPORT_REVIEW','review',
+ 'Doom','D',?,'','','',1,1993,'IMPORT_REVIEW','SINGLE_FILE','IMPORT_REVIEW',
  '{}',?,'PUBLISHED','doom',1,?,?
 )
 `, gameID, "首页游戏简介\n保留当前元信息。", strings.Repeat("0", 64), now, now)

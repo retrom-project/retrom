@@ -84,7 +84,6 @@ type DraftPatch struct {
 	ScummVMCandidateID       *string                `json:"scummvmCandidateId,omitempty"`
 	TargetPlatformInstanceID *string                `json:"targetPlatformInstanceId,omitempty"`
 	Metadata                 *MetadataPatch         `json:"metadata,omitempty"`
-	SelectedValidationID     *string                `json:"selectedValidationId,omitempty"`
 	SelectedCandidateID      optionalNullableString `json:"selectedCandidateId,omitempty"`
 	SelectedAssets           *SelectedAssets        `json:"selectedAssets,omitempty"`
 	DefaultDOSEntry          optionalNullableString `json:"defaultDosEntry,omitempty"`
@@ -140,7 +139,7 @@ func ValidReviewField(value string, maximum int, multiline bool) bool {
 // transaction. State-dependent validation remains in the repository.
 func ValidateDraftPatch(patch DraftPatch) error {
 	noChange := patch.TargetPlatformInstanceID == nil && patch.Metadata == nil &&
-		patch.SelectedValidationID == nil && !patch.SelectedCandidateID.present &&
+		!patch.SelectedCandidateID.present &&
 		patch.SelectedAssets == nil && !patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0 &&
 		patch.RPGSelfContainedOverride == nil && patch.ScummVMCandidateID == nil
 	if patch.TagIDs == nil || noChange {

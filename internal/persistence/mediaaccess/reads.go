@@ -67,7 +67,7 @@ func readReviewAssets(rows *sql.Rows) ([]service.ReviewAsset, error) {
 	for rows.Next() {
 		var asset service.ReviewAsset
 		if err := rows.Scan(&asset.FileRecord, &asset.Digest, &asset.MediaType, &asset.Kind, &asset.State,
-			&asset.ItemState, &asset.GameState, &asset.TerminalReview); err != nil {
+			&asset.ItemState, &asset.GameState); err != nil {
 			return nil, fmt.Errorf("scan review asset: %w", err)
 		}
 		assets = append(assets, asset)

@@ -62,6 +62,7 @@ type Services struct {
 	Launcher            *launchservice.Service
 	Variants            *gamevariant.Service
 	ReviewScreenshots   *libraryservice.ScreenshotSaver
+	ReviewPreviews      *libraryservice.ReviewPreviews
 	LaunchSources       *launch.Sources
 	JobService          *jobs.Service
 	Immersive           *immersive.Service

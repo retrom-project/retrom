@@ -27,11 +27,11 @@ type ReviewApproved struct {
 }
 
 type ReviewApprovalDecision struct {
-	Reason                  *string
-	DuplicatePolicy         string
-	AcknowledgedGameIDs     []string
-	SourceKind, SourceRefID string
-	ExternalAssets          []ApprovalExternalAsset
+	Reason              *string
+	DuplicatePolicy     string
+	AcknowledgedGameIDs []string
+	SourceKind          string
+	ExternalAssets      []ApprovalExternalAsset
 }
 
 type ReviewApprovalRequest struct {
@@ -42,7 +42,7 @@ type ReviewApprovalRequest struct {
 }
 
 type BulkPublicationIntent struct {
-	BulkID, JobID, WorkerID, ValidationID, SourceSnapshotID string
+	BulkID, JobID, WorkerID, SourceSnapshotID string
 }
 
 type ApprovalExternalAsset struct {
@@ -52,7 +52,7 @@ type ApprovalExternalAsset struct {
 
 type ReviewApprovalHead struct {
 	DraftID, State, ImportID, PlatformID, PlatformInstanceID   string
-	ValidationID, ValidationStatus, MetadataJSON               string
+	ValidationStatus, MetadataJSON                             string
 	SourceSnapshotID, SourceManifestJSON, SourceManifestDigest string
 	ContentKind, CoreID, ProviderID, TargetID, DependencyJSON  string
 	Policy                                                     contentcapability.Policy
@@ -61,11 +61,12 @@ type ReviewApprovalHead struct {
 	CoverID, UploadedCoverID, BackgroundID, ScreenshotID       *string
 	SourceBusy                                                 bool
 	Progress                                                   importprogress.Snapshot
+	RuntimeFiles                                               []PreparedValidationFile
 }
 
 type ApprovalOrigin struct {
-	Kind, RefID string
-	Assets      []ApprovalExternalAsset
+	Kind   string
+	Assets []ApprovalExternalAsset
 }
 
 type ReviewApprovalRepository interface {
@@ -78,7 +79,7 @@ type ReviewApprovalScope struct {
 	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
-	Validation   ReviewValidationReader
+	Profiles     ReviewProfileReader
 	Dependencies ApprovalDependencyScope
 	Duplicates   ContentDuplicateReader
 	Tags         tagging.WriteScope
@@ -97,4 +98,5 @@ type ApprovalMediaReader interface {
 	Candidate(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	UploadedCover(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	Screenshots(context.Context, string) ([]string, error)
+	RuntimeScreenshot(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 }

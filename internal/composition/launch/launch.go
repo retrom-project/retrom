@@ -32,15 +32,8 @@ func New(
 			PrepareArcade:    prepare,
 		},
 	)
-	preview := application.NewPreviewCreator(
-		repository.NewPreviewCreation(database),
-		source,
-		application.PreviewEnvironment{
-			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
-		},
-	)
 	return application.New(application.ServiceDependencies{
-		Product: product, Preview: preview,
+		Product: product,
 		Config: application.NewConfigIssuer(repository.NewConfig(database), source, application.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
 		}),

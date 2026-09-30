@@ -13,7 +13,6 @@ type Runner = (label: string, operation: () => Promise<void>) => Promise<boolean
 type AttachmentParams = {
   reviewId: string;
   versionRef: { current: number };
-  currentValidationId: string | undefined;
   effectiveSourceSnapshotId: string;
   activeParentJobId: string;
   multiDisc: ReviewMultiDisc | null;
@@ -41,7 +40,7 @@ export function useReviewAttachments(params: AttachmentParams) {
     catch (caught) {terminalError = new Error(errorMessage(caught, "Parent ROM 校验失败"));}
     const updated = await params.refreshReview();
     if (terminalError) {params.setToast({ message: terminalError.message, tone: "bad" });}
-    else if (updated.validation?.status === "READY") {params.setToast({ message: "Parent ROM 已匹配，运行检查已通过", tone: "good" });}
+    else if (updated.readiness?.status === "READY") {params.setToast({ message: "Parent ROM 已匹配，运行检查已通过", tone: "good" });}
     else {params.setToast({ message: "Parent ROM 已匹配，仍有依赖需要处理", tone: "warn" });}
   }, [params]);
 
@@ -61,7 +60,7 @@ export function useReviewAttachments(params: AttachmentParams) {
       const response = await fetch(`/api/v1/admin/reviews/${params.reviewId}/arcade-parent-attachments`, {
         method: "POST", credentials: "same-origin",
         headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }),
-        body: JSON.stringify({ validationId: params.currentValidationId, baseSourceSnapshotId: params.effectiveSourceSnapshotId, dependencyMachine: node.machine, uploadFileId: uploaded.uploadFileId }),
+        body: JSON.stringify({ baseSourceSnapshotId: params.effectiveSourceSnapshotId, dependencyMachine: node.machine, uploadFileId: uploaded.uploadFileId }),
       });
       if (!response.ok) {throw new Error(await responseError(response, "无法创建 Parent ROM 校验任务"));}
       const result = await response.json() as { jobId: string };

@@ -27,7 +27,7 @@ func (run *reviewApprovalRun) publishGame() error {
 	if err := run.scope.Games.CreateGame(run.ctx, ApprovalGame{
 		ID: run.gameID, PlatformInstanceID: run.head.PlatformInstanceID,
 		TitleInitial: gametitle.Initial(run.metadata.Title), SearchText: strings.ToLower(run.metadata.Title),
-		SourceKind: run.origin.Kind, SourceRefID: run.origin.RefID, ContentKind: run.head.ContentKind,
+		SourceKind: run.origin.Kind, ContentKind: run.head.ContentKind,
 		ManifestJSON: run.head.SourceManifestJSON, ManifestDigest: run.head.SourceManifestDigest,
 		Metadata: run.metadata, NowMS: run.now,
 	}); err != nil {
@@ -85,8 +85,9 @@ func (run *reviewApprovalRun) publishVariant() error {
 	if err := run.scope.Variants.CreateVariant(run.ctx, variant); err != nil {
 		return fmt.Errorf("publish game variant: %w", err)
 	}
-	if err := run.scope.Variants.CopyValidationFiles(run.ctx, ApprovalValidationCopy{
-		VariantID: run.variantID, ValidationID: run.head.ValidationID, ItemID: run.request.ItemID, GameID: run.gameID,
+	if err := run.scope.Variants.CopyRuntimeFiles(run.ctx, ApprovalRuntimeCopy{
+		VariantID: run.variantID, ItemID: run.request.ItemID, GameID: run.gameID,
+		Files: run.head.RuntimeFiles,
 	}); err != nil {
 		return fmt.Errorf("publish variant files: %w", err)
 	}

@@ -32,10 +32,10 @@ func validApprovalDecision(decision ReviewApprovalDecision) bool {
 		return false
 	}
 	if decision.SourceKind != "" {
-		if !ValidApprovalSourceKind(decision.SourceKind) || decision.SourceRefID == "" {
+		if !ValidApprovalSourceKind(decision.SourceKind) {
 			return false
 		}
-	} else if decision.SourceRefID != "" || len(decision.ExternalAssets) != 0 {
+	} else if len(decision.ExternalAssets) != 0 {
 		return false
 	}
 	return ValidApprovalExternalAssets(decision.ExternalAssets)
@@ -43,7 +43,7 @@ func validApprovalDecision(decision ReviewApprovalDecision) bool {
 
 func validBulkPublicationIntent(intent *BulkPublicationIntent) bool {
 	return intent == nil || (intent.BulkID != "" && intent.JobID != "" && intent.WorkerID != "" &&
-		intent.ValidationID != "" && intent.SourceSnapshotID != "")
+		intent.SourceSnapshotID != "")
 }
 
 func ValidApprovalSourceKind(value string) bool {

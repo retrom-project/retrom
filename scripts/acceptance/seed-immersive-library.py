@@ -68,15 +68,15 @@ def seed_game(
         """
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,'Retrom','','Acceptance',1,2026,'ADMIN_EDIT',NULL,?,'ADMIN_REPLACE',?,?,?,
+) VALUES(?,?,?,?,?,'Retrom','','Acceptance',1,2026,'ADMIN_EDIT',?,'ADMIN_REPLACE',?,?,
  'PUBLISHED','RETAINED',lower(?),1,?,?)
 """,
         (
             game_id, base["platform_instance_id"], title, title_initial,
             f"沉浸资料库分页验收条目 {index:02d}", base["content_kind"],
-            f"immersive-acceptance:{index}", base["source_manifest_json"],
+            base["source_manifest_json"],
             base["source_manifest_digest"], title, now_ms, now_ms,
         ),
     )

@@ -4,6 +4,8 @@ package libraryimport
 import (
 	"time"
 
+	arcaderecords "retrom/internal/persistence/arcade"
+
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/core/scummvm"
@@ -37,7 +39,7 @@ func NewCreations(database dbapi.DB, now func() time.Time,
 
 func NewPreparation(database dbapi.DB, options CreationOptions) *libraryservice.ImportPreparation {
 	return libraryservice.NewImportPreparation(
-		repository.BindImportFacts(database), repository.BindPreparationCatalog(database),
+		repository.BindImportFacts(database), arcaderecords.New(database),
 		options.Blobs, libraryservice.ImportPreparationOptions{
 			MultiDiscEnabled: options.MultiDiscEnabled, MetadataScraperAvailable: options.Scraper != nil,
 			ScummVMDetector: options.ScummVMDetector,

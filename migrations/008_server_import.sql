@@ -135,10 +135,10 @@ CREATE TABLE "source_import_collections" (
   target_platform_instance_version INTEGER CHECK(target_platform_instance_version IS NULL OR target_platform_instance_version>=1),
   target_platform_id TEXT REFERENCES platforms(id),
   target_default_core_id TEXT REFERENCES cores(id),
-  target_provider_id TEXT REFERENCES runtime_providers(provider_id),
+  target_provider_id TEXT,
   target_id TEXT,
 
-  target_dat_version_id TEXT REFERENCES dat_versions(id),
+  target_dat_version_id TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms), tag_snapshot_json TEXT NOT NULL DEFAULT '[]'
 CHECK(json_valid(tag_snapshot_json) AND json_type(tag_snapshot_json)='array'),
@@ -148,8 +148,7 @@ CHECK(json_valid(tag_snapshot_json) AND json_type(tag_snapshot_json)='array'),
   CHECK((mapping_action='IMPORT')=(target_platform_id IS NOT NULL)),
   CHECK((mapping_action='IMPORT')=(target_default_core_id IS NOT NULL)),
   CHECK((mapping_action='IMPORT')=(target_provider_id IS NOT NULL)),
-  CHECK((mapping_action='IMPORT')=(target_id IS NOT NULL)),
-  FOREIGN KEY(target_provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
+  CHECK((mapping_action='IMPORT')=(target_id IS NOT NULL))
 );
 
 CREATE TABLE "source_import_items" (

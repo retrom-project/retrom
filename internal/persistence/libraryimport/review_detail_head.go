@@ -20,11 +20,9 @@ d.review_updated_at_ms,
 pi.id,
 pi.name,
 ` + contentquery.BindingPolicySQL + `,
-v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
-d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
 source_snapshot.content_kind,
@@ -56,14 +54,7 @@ JOIN runtime_targets current_target ON current_target.provider_id=COALESCE(
 JOIN runtime_target_bindings binding
  ON binding.provider_id=current_target.provider_id AND binding.target_id=current_target.target_id
  AND binding.launch_policy<>'DISABLED'
-LEFT JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,(
-  SELECT candidate.id
-FROM import_item_core_validations candidate
-WHERE candidate.import_item_id=i.id
-AND candidate.source_snapshot_id=d.effective_source_snapshot_id
-AND candidate.target_platform_instance_id=d.target_platform_instance_id
-ORDER BY candidate.created_at_ms DESC,
-candidate.id DESC LIMIT 1))
+LEFT JOIN (` + contentquery.CurrentContentSQL + `) v ON v.import_item_id=i.id
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 AND NOT EXISTS(
@@ -79,8 +70,8 @@ func (records ReviewDrafts) Head(ctx context.Context, itemID string) (libraryser
 	err := dbapi.QueryRowContext(ctx, records.executor, reviewDetailQuery, itemID).Scan(
 		&result.ItemID, &result.ImportJobID, &result.MetadataJSON, &result.Version, &result.UpdatedAtMS,
 		&result.PlatformInstance.ID, &result.PlatformInstance.Name, contentquery.ScanPolicy(&result.Policy),
-		&result.ValidationID, &result.ValidationStatus, &result.CompatibilityCode, &result.DependencyJSON,
-		&result.SelectedValidationID, &result.SnapshotID, &result.SourceManifestJSON, &result.ContentKind,
+		&result.ValidationStatus, &result.CompatibilityCode, &result.DependencyJSON,
+		&result.SnapshotID, &result.SourceManifestJSON, &result.ContentKind,
 		&result.SelectedCandidateID,
 		&result.CoverID,
 		&result.UploadedCoverID,
@@ -95,5 +86,12 @@ func (records ReviewDrafts) Head(ctx context.Context, itemID string) (libraryser
 	if err != nil {
 		return libraryservice.ReviewHead{}, fmt.Errorf("query review headline: %w", err)
 	}
+	runtime, err := ReadReviewRuntime(ctx, records.executor, itemID)
+	if err != nil {
+		return libraryservice.ReviewHead{}, err
+	}
+	result.ValidationStatus = &runtime.Status
+	result.CompatibilityCode = &runtime.Code
+	result.DependencyJSON = &runtime.DependencyJSON
 	return result, nil
 }

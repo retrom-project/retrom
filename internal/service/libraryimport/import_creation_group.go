@@ -22,7 +22,7 @@ func (service *ImportCreations) prepareGroup(
 	archives []PreparedArchive,
 ) (creationGroup, error) {
 	record := creationGroup{itemID: group.ItemID, group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
-	for _, destination := range []*string{&record.snapshotID, &record.validationID} {
+	for _, destination := range []*string{&record.snapshotID} {
 		if err := service.allocate(destination); err != nil {
 			return creationGroup{}, creationError("prepare group", err)
 		}
@@ -241,9 +241,6 @@ func (run *creationCommit) draftChange(record *creationGroup) (CreationDraft, er
 		SearchText:   strings.ToLower(strings.Join(names, " ")),
 		DefaultDOS:   creationOptional(record.group.DefaultDOSEntry),
 		NowMS:        run.header.NowMS,
-	}
-	if record.group.ValidationStatus == "READY" {
-		value.SelectedValidationID = &record.validationID
 	}
 	return value, nil
 }

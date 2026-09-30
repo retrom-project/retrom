@@ -9,7 +9,7 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
   platformInstance: { id: "platform-1", name: "Arcade" },
   metadata: { title: "Trial", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "validation-1", status: "READY", compatibilityCode: "READY" },
+  readiness: { status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],

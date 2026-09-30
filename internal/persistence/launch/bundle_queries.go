@@ -26,8 +26,8 @@ json_extract(blob.value, '$.sha256')
 		query = `
  SELECT session.credential_sha256,session.state,session.hard_expires_at_ms,file.logical_name,blob.value,
 json_extract(blob.value, '$.sha256')
- FROM review_preview_sessions session
- LEFT JOIN review_preview_files file ON file.preview_session_id=session.id AND file.role=?
+ FROM runtime_preview_sessions session
+ LEFT JOIN runtime_preview_files file ON file.preview_session_id=session.id AND file.role=?
  LEFT JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
  WHERE session.id=? ORDER BY file.sort_order,file.logical_name`
 	}

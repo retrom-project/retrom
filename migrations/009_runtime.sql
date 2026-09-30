@@ -1,3 +1,77 @@
+CREATE TABLE runtime_preview_files (
+  preview_session_id TEXT NOT NULL REFERENCES runtime_preview_sessions(id),
+  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE','RUNTIME_FILE')),
+  logical_name TEXT NOT NULL CHECK(
+    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 1024 AND
+    logical_name NOT LIKE '%\%' AND logical_name NOT IN ('.','..') AND
+    instr(logical_name,char(0))=0 AND
+    (role IN ('PROJECT_FILE','RUNTIME_FILE') OR logical_name NOT LIKE '%/%')
+  ),
+  virtual_path TEXT,
+  file_record TEXT NOT NULL,
+  sort_order INTEGER NOT NULL CHECK(sort_order>=0),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  PRIMARY KEY(preview_session_id,role,logical_name),
+  UNIQUE(preview_session_id,virtual_path),
+  CHECK(
+    (role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL) OR
+    (role IN ('PROJECT_FILE','RUNTIME_FILE') AND virtual_path IS NULL) OR
+    (role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
+      substr(virtual_path,1,1)='/' AND virtual_path NOT LIKE '%\%' AND
+      virtual_path NOT LIKE '%?%' AND virtual_path NOT LIKE '%#%' AND
+      instr(virtual_path,char(0))=0 AND virtual_path NOT LIKE '%//%' AND
+      virtual_path NOT LIKE '%/./%' AND virtual_path NOT LIKE '%/../%' AND
+      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..')
+  )
+);
+
+
+CREATE TABLE "runtime_preview_sessions" (
+  id TEXT PRIMARY KEY,
+  scope_id TEXT NOT NULL,
+  content_revision TEXT NOT NULL,
+  return_to TEXT NOT NULL,
+  target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
+  actor_user_id TEXT NOT NULL REFERENCES users(id),
+  idempotency_key TEXT NOT NULL,
+  title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
+  content_kind TEXT NOT NULL REFERENCES content_kinds(id),
+  content_file_record TEXT NOT NULL,
+  content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
+  content_format TEXT NOT NULL CHECK(
+    length(content_format) BETWEEN 2 AND 64 AND content_format=upper(content_format)
+    AND content_format NOT GLOB '*[^A-Z0-9_]*'
+  ),
+  dependency_snapshot_json TEXT NOT NULL,
+  default_dos_entry TEXT,
+  checkpoint_payload_file_record TEXT,
+  checkpoint_format TEXT CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
+  checkpoint_created_at_ms INTEGER CHECK(checkpoint_created_at_ms>=0),
+  restore_from_preview_id TEXT,
+  restore_payload_file_record TEXT,
+  restore_checkpoint_format TEXT CHECK(length(restore_checkpoint_format) BETWEEN 1 AND 128),
+  emulator_game_id INTEGER CHECK(emulator_game_id IS NULL OR emulator_game_id>0),
+  credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
+  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
+  bootstrap_expires_at_ms INTEGER NOT NULL CHECK(bootstrap_expires_at_ms>=0),
+  hard_expires_at_ms INTEGER NOT NULL CHECK(hard_expires_at_ms>=bootstrap_expires_at_ms),
+  activated_at_ms INTEGER,
+  finished_at_ms INTEGER,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  UNIQUE(actor_user_id,idempotency_key),
+  CHECK(state!='ACTIVE' OR activated_at_ms IS NOT NULL),
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED'))=(finished_at_ms IS NOT NULL)),
+  CHECK((checkpoint_payload_file_record IS NULL)=(checkpoint_format IS NULL)),
+  CHECK((checkpoint_payload_file_record IS NULL)=(checkpoint_created_at_ms IS NULL)),
+  CHECK((restore_payload_file_record IS NULL)=(restore_checkpoint_format IS NULL)),
+  CHECK(restore_payload_file_record IS NULL OR restore_from_preview_id IS NOT NULL)
+);
+
 -- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE "launch_content_files" (
@@ -15,7 +89,7 @@ CREATE TABLE "launch_content_files" (
 CREATE TABLE isolated_runtime_bootstrap_tickets (
   ticket_sha256 BLOB PRIMARY KEY CHECK(length(ticket_sha256)=32),
   launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
-  preview_id TEXT UNIQUE REFERENCES review_preview_sessions(id) ON DELETE CASCADE,
+  preview_id TEXT UNIQUE REFERENCES runtime_preview_sessions(id) ON DELETE CASCADE,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   expected_origin TEXT NOT NULL CHECK(
     expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'
@@ -28,7 +102,7 @@ CREATE TABLE isolated_runtime_bootstrap_tickets (
 CREATE TABLE isolated_runtime_capabilities (
   credential_sha256 BLOB PRIMARY KEY CHECK(length(credential_sha256)=32),
   launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
-  preview_id TEXT UNIQUE REFERENCES review_preview_sessions(id) ON DELETE CASCADE,
+  preview_id TEXT UNIQUE REFERENCES runtime_preview_sessions(id) ON DELETE CASCADE,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   expected_origin TEXT NOT NULL CHECK(
     expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'

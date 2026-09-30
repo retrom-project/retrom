@@ -63,8 +63,13 @@ func (records workerSettlementRecords) items(ctx context.Context, change applica
 	}
 	_, err := recordstore.UpdateSourceImportItems(ctx, records.tx, recordstore.Update{
 		Set: `execution_state=?,error_code=?,error_details_json=NULL,retryable=?,
-completed_at_ms=?,version=version+1,updated_at_ms=?`,
-		Values: []any{state, code, change.Failure.Retryable, change.NowMS, change.NowMS},
+completed_at_ms=?,version=version+1,updated_at_ms=?,
+library_import_job_id=CASE WHEN ? THEN library_import_job_id ELSE NULL END,
+library_import_item_id=CASE WHEN ? THEN library_import_item_id ELSE NULL END`,
+		Values: []any{
+			state, code, change.Failure.Retryable, change.NowMS, change.NowMS,
+			change.Failure.Retryable, change.Failure.Retryable,
+		},
 		Scope: recordstore.Scope{
 			Where: `import_id=? AND execution_state IN ('PENDING','COPYING','VALIDATING')
 AND NOT EXISTS(SELECT 1 FROM import_items bound WHERE bound.id=source_import_items.library_import_item_id

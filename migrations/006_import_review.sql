@@ -34,6 +34,7 @@ CREATE TABLE import_items (
   id TEXT PRIMARY KEY,
   import_job_id TEXT NOT NULL REFERENCES import_jobs(id),
   group_key TEXT NOT NULL CHECK(length(group_key) = 64),
+  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' REFERENCES content_kinds(id),
   state TEXT NOT NULL CHECK(state IN ('QUEUED','HASHING','IDENTIFYING','SCRAPING','REVIEW_PENDING','PUBLISHING','PUBLISHED','DISCARDED','FAILED_RETRYABLE','FAILED_FINAL','CANCELLED')),
   publication_game_id TEXT UNIQUE,
   publication_bulk_id TEXT,
@@ -48,7 +49,7 @@ CREATE TABLE import_items (
   payload_released_at_ms INTEGER,
   version INTEGER NOT NULL DEFAULT 1,
   target_platform_instance_id TEXT REFERENCES platform_instances(id),
-  selected_validation_id TEXT REFERENCES import_item_core_validations(id),
+  content_analysis_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(content_analysis_json)),
   selected_candidate_id TEXT REFERENCES scrape_candidates(id) ON DELETE SET NULL,
   cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
   background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
@@ -131,17 +132,17 @@ CREATE TABLE "import_item_source_snapshot_files" (
   CHECK((source_archive_file_record IS NULL)=(source_archive_entry_ordinal IS NULL))
 );
 
-CREATE TABLE "import_item_validation_files" (
-  import_item_core_validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
+CREATE TABLE "import_item_runtime_files" (
+  import_item_id TEXT NOT NULL REFERENCES import_items(id),
   role TEXT NOT NULL CHECK(role IN (
-    'PARENT','BIOS_BUNDLE','DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST',
+    'DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST',
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
   file_record TEXT NOT NULL,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  PRIMARY KEY(import_item_core_validation_id,role,logical_name)
+  PRIMARY KEY(import_item_id,role,logical_name)
 );
 
 CREATE TABLE import_item_dos_entries (
@@ -200,7 +201,6 @@ CREATE TABLE review_multidisc_attachments (
   requested_by_user_id TEXT NOT NULL REFERENCES users(id),
   base_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   result_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
-  result_validation_id TEXT REFERENCES import_item_core_validations(id),
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   expected_set_digest TEXT NOT NULL
     CHECK(length(expected_set_digest)=64 AND expected_set_digest=lower(expected_set_digest)),
@@ -213,39 +213,13 @@ CREATE TABLE review_multidisc_attachments (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   finished_at_ms INTEGER,
   CHECK(
-    state='ACCEPTED' AND result_source_snapshot_id IS NOT NULL AND result_validation_id IS NOT NULL OR
-    state<>'ACCEPTED' AND result_source_snapshot_id IS NULL AND result_validation_id IS NULL
+    state='ACCEPTED' AND result_source_snapshot_id IS NOT NULL OR
+    state<>'ACCEPTED' AND result_source_snapshot_id IS NULL
   ),
   CHECK((state IN ('REJECTED','FAILED_RETRYABLE','CANCELLED'))=(error_code IS NOT NULL)),
   CHECK((state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED'))=(finished_at_ms IS NOT NULL))
 );
 
-CREATE TABLE review_preview_files (
-  preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE','RUNTIME_FILE')),
-  logical_name TEXT NOT NULL CHECK(
-    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 1024 AND
-    logical_name NOT LIKE '%\%' AND logical_name NOT IN ('.','..') AND
-    instr(logical_name,char(0))=0 AND
-    (role IN ('PROJECT_FILE','RUNTIME_FILE') OR logical_name NOT LIKE '%/%')
-  ),
-  virtual_path TEXT,
-  file_record TEXT NOT NULL,
-  sort_order INTEGER NOT NULL CHECK(sort_order>=0),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  PRIMARY KEY(preview_session_id,role,logical_name),
-  UNIQUE(preview_session_id,virtual_path),
-  CHECK(
-    (role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL) OR
-    (role IN ('PROJECT_FILE','RUNTIME_FILE') AND virtual_path IS NULL) OR
-    (role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
-      substr(virtual_path,1,1)='/' AND virtual_path NOT LIKE '%\%' AND
-      virtual_path NOT LIKE '%?%' AND virtual_path NOT LIKE '%#%' AND
-      instr(virtual_path,char(0))=0 AND virtual_path NOT LIKE '%//%' AND
-      virtual_path NOT LIKE '%/./%' AND virtual_path NOT LIKE '%/../%' AND
-      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..')
-  )
-);
 
 CREATE TABLE review_draft_screenshot_assets (
   review_draft_id TEXT NOT NULL REFERENCES import_items(id),
@@ -426,9 +400,9 @@ CREATE TABLE "import_jobs" (
   platform_instance_version INTEGER NOT NULL,
   platform_id TEXT NOT NULL REFERENCES platforms(id),
   default_core_id TEXT NOT NULL REFERENCES cores(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  provider_id TEXT NOT NULL,
   target_id TEXT NOT NULL,
-  dat_version_id TEXT REFERENCES dat_versions(id),
+  dat_version_id TEXT,
   metadata_provider TEXT NOT NULL CHECK(metadata_provider IN ('HASHEOUS','NONE')),
   config_snapshot_json TEXT NOT NULL,
   config_snapshot_digest TEXT NOT NULL CHECK(length(config_snapshot_digest) = 64),
@@ -456,33 +430,12 @@ CREATE TABLE "import_jobs" (
 CHECK(resolved_rejected_file_count BETWEEN 0 AND rejected_file_count), reconfigured_from_import_job_id TEXT REFERENCES import_jobs(id), already_imported_item_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_item_count BETWEEN 0 AND discarded_item_count), already_imported_file_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_file_count >= 0),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(total_item_count = queued_item_count + running_item_count + review_pending_item_count + published_item_count + discarded_item_count + failed_item_count + cancelled_item_count),
   CHECK(
     payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
     payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
     payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   )
-);
-
-CREATE TABLE "import_item_core_validations" (
-  id TEXT PRIMARY KEY,
-  import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
-  platform_instance_version INTEGER NOT NULL CHECK(platform_instance_version>=1),
-  core_id TEXT NOT NULL REFERENCES cores(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  dat_version_id TEXT REFERENCES dat_versions(id),
-  default_dos_entry TEXT,
-  source_manifest_digest TEXT NOT NULL,
-  prepublish_input_digest TEXT NOT NULL CHECK(length(prepublish_input_digest)=64),
-  status TEXT NOT NULL CHECK(status IN ('READY','BLOCKED','INCOMPATIBLE')),
-  compatibility_code TEXT NOT NULL,
-  dependency_snapshot_json TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE "import_item_duplicate_matches" (
@@ -532,60 +485,18 @@ CREATE TABLE "review_arcade_parent_attachments" (
   CHECK(state IN ('QUEUED','RUNNING') OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL)
 );
 
-CREATE TABLE "review_preview_sessions" (
-  id TEXT PRIMARY KEY,
+CREATE TABLE review_preview_bindings (
+  preview_session_id TEXT PRIMARY KEY REFERENCES runtime_preview_sessions(id) ON DELETE CASCADE,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
-  target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
-  actor_user_id TEXT NOT NULL REFERENCES users(id),
-  idempotency_key TEXT NOT NULL,
-  title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
-  content_kind TEXT NOT NULL REFERENCES content_kinds(id),
-  content_file_record TEXT NOT NULL,
-  content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
-  content_format TEXT NOT NULL CHECK(
-    length(content_format) BETWEEN 2 AND 64 AND content_format=upper(content_format)
-    AND content_format NOT GLOB '*[^A-Z0-9_]*'
-  ),
-  dependency_snapshot_json TEXT NOT NULL,
-  default_dos_entry TEXT,
-  checkpoint_payload_file_record TEXT,
-  checkpoint_format TEXT CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
-  checkpoint_created_at_ms INTEGER CHECK(checkpoint_created_at_ms>=0),
-  restore_from_preview_id TEXT,
-  restore_payload_file_record TEXT,
-  restore_checkpoint_format TEXT CHECK(length(restore_checkpoint_format) BETWEEN 1 AND 128),
-  emulator_game_id INTEGER CHECK(emulator_game_id IS NULL OR emulator_game_id>0),
-  credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
-  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
-  bootstrap_expires_at_ms INTEGER NOT NULL CHECK(bootstrap_expires_at_ms>=0),
-  hard_expires_at_ms INTEGER NOT NULL CHECK(hard_expires_at_ms>=bootstrap_expires_at_ms),
-  activated_at_ms INTEGER,
-  finished_at_ms INTEGER,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  UNIQUE(actor_user_id,idempotency_key),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK(state!='ACTIVE' OR activated_at_ms IS NOT NULL),
-  CHECK((state IN ('FINISHED','EXPIRED','REVOKED'))=(finished_at_ms IS NOT NULL)),
-  CHECK((checkpoint_payload_file_record IS NULL)=(checkpoint_format IS NULL)),
-  CHECK((checkpoint_payload_file_record IS NULL)=(checkpoint_created_at_ms IS NULL)),
-  CHECK((restore_payload_file_record IS NULL)=(restore_checkpoint_format IS NULL)),
-  CHECK(restore_payload_file_record IS NULL OR restore_from_preview_id IS NOT NULL)
+  source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id)
 );
 
 CREATE TABLE "review_runtime_screenshots" (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
+  preview_session_id TEXT NOT NULL REFERENCES runtime_preview_sessions(id),
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  provider_id TEXT NOT NULL,
   target_id TEXT NOT NULL,
   file_record TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK(media_type IN ('image/png','image/jpeg')),
@@ -594,8 +505,7 @@ CREATE TABLE "review_runtime_screenshots" (
   captured_at_ms INTEGER NOT NULL CHECK(captured_at_ms>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),
-  UNIQUE(import_item_id,validation_id),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
+  UNIQUE(import_item_id)
 );
 
 CREATE TABLE "metadata_scrape_runs" (

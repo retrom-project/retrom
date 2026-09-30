@@ -19,7 +19,6 @@ import (
 	"retrom/internal/persistence/recordstore"
 	retromruntime "retrom/internal/runtime"
 	runtimecatalog "retrom/internal/runtime/catalog"
-	reviewservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -136,20 +135,10 @@ VALUES('rpg-snapshot','PROJECT_FILE',?,?,?, ?,?)`, file.logical, file.upload, fi
 UPDATE import_items SET target_platform_instance_id='rpg-platform',metadata_json='{}',
  review_version=1,review_created_at_ms=?,review_updated_at_ms=?,
 effective_source_snapshot_id='rpg-snapshot' WHERE id=?`, now, now, fixture.itemID)
-	mustRPGLaunchSQL(t, database, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
- platform_instance_version,core_id,provider_id,target_id,
- source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
- dependency_snapshot_json,created_at_ms)
-VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,
- 'rpg-snapshot',?,'READY','READY',
-'{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}',?)`, fixture.itemID,
-		target.ProviderID, target.TargetID,
-		strings.Repeat("d", 64), strings.Repeat("e", 64), now)
-	mustRPGReferenceSQL(t, database, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
+	mustRPGReferenceSQL(t, database, "import_item_runtime_files", `
+INSERT INTO import_item_runtime_files(import_item_id,role,logical_name,file_record,
  sort_order,created_at_ms)
-VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexFileRecord, now)
+VALUES(?,'RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.itemID, fixture.indexFileRecord, now)
 	mustRPGLaunchSQL(t, database, `
 UPDATE import_items SET review_version=review_version+1,review_updated_at_ms=?
 WHERE id=?`, now, fixture.itemID)
@@ -177,19 +166,13 @@ func mustRPGLaunchSQL(t *testing.T, database dbapi.DB, query string, arguments .
 
 func bindRPGFixtureValidation(t *testing.T, database dbapi.DB) {
 	t.Helper()
-	reader := reviewpersistence.BindReviewValidation(database)
-	evidence, err := reader.Evidence(t.Context(), "rpg-core-validation")
-	if err != nil {
+	var itemID string
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT id FROM import_items WHERE review_version>0 LIMIT 1`).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	input, current := evidence.CurrentInput()
-	if !current {
-		t.Fatal("RPG review fixture validation does not match its source")
-	}
-	mustRPGLaunchSQL(t, database, `UPDATE import_item_core_validations SET prepublish_input_digest=? WHERE id='rpg-core-validation'`, reviewservice.PrepublishDigest(input))
-	valid, err := reviewservice.NewReviewValidation(reader).Current(t.Context(), "rpg-core-validation")
-	if err != nil || !valid {
-		t.Fatalf("RPG fixture current validation: %v/%v", valid, err)
+	runtime, err := reviewpersistence.ReadReviewRuntime(t.Context(), database, itemID)
+	if err != nil || runtime.Status != "READY" {
+		t.Fatalf("RPG current runtime=%+v error=%v", runtime, err)
 	}
 }
 

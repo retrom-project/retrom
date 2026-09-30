@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/content/arcade"
 	corevalidation "retrom/internal/core/validation"
-	libraryimport "retrom/internal/service/libraryimport"
 )
 
 func TestAlternateArcadeAcceptsOnlySeparatelyInstalledBIOSGap(t *testing.T) {
@@ -23,14 +23,15 @@ func TestAlternateArcadeAcceptsOnlySeparatelyInstalledBIOSGap(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			group := libraryimport.PreparedGroup{
-				ValidationStatus: test.status, CompatibilityCode: test.code,
-				DependencySnapshot: `{"schemaVersion":1,"kind":"ARCADE","machine":"sample","datVersionId":"current-dat",` +
-					`"closure":[],"dependencies":[{"kind":"` + test.dependency + `","machine":"` + test.machine +
-					`","state":"MISSING","requiredEntries":[]}],"missingEntries":["` + test.missing +
-					`"],"mismatchedEntries":[],"warnings":[]}`,
+			result := arcade.Result{
+				Status: test.status, Code: test.code,
 			}
-			prepared, err := preparedArcadeGroup(group, source)
+			encoded := `{"schemaVersion":1,"kind":"ARCADE","machine":"sample","datVersionId":"current-dat",` +
+				`"closure":[],"dependencies":[{"kind":"` + test.dependency + `","machine":"` + test.machine +
+				`","state":"MISSING","requiredEntries":[]}],"missingEntries":["` + test.missing +
+				`"],"mismatchedEntries":[],"warnings":[]}`
+			result.Snapshot, _ = arcade.ParseSnapshot(encoded)
+			prepared, err := preparedArcadeResult(result, source)
 			if test.accepted {
 				if err != nil || prepared == nil || len(prepared.Dependencies) != 1 {
 					t.Fatalf("prepared=%v error=%v", prepared, err)

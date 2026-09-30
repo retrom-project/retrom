@@ -13,8 +13,9 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/launch"
+	review "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -22,17 +23,17 @@ import (
 )
 
 type previewWriteFaultRepository struct {
-	application.PreviewCreationRepository
+	review.ReviewPreviewRepository
 	change  func(*application.PreviewCreatePlan)
 	after   func() error
 	reached bool
 }
 
 func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context,
-	work func(application.PreviewCreationScope) error,
+	work func(review.ReviewPreviewScope) error,
 ) error {
-	return repository.PreviewCreationRepository.WithCreation(ctx, func(scope application.PreviewCreationScope) error {
-		err := work(previewWriteFaultScope{PreviewCreationScope: scope, change: repository.change})
+	return repository.ReviewPreviewRepository.WithCreation(ctx, func(scope review.ReviewPreviewScope) error {
+		err := work(previewWriteFaultScope{ReviewPreviewScope: scope, change: repository.change})
 		if err != nil {
 			return err
 		}
@@ -45,7 +46,7 @@ func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context,
 }
 
 type previewWriteFaultScope struct {
-	application.PreviewCreationScope
+	review.ReviewPreviewScope
 	change func(*application.PreviewCreatePlan)
 }
 
@@ -53,14 +54,14 @@ func (scope previewWriteFaultScope) Create(ctx context.Context, plan application
 	if scope.change != nil {
 		scope.change(&plan)
 	}
-	return scope.PreviewCreationScope.Create(ctx, plan)
+	return scope.ReviewPreviewScope.Create(ctx, plan)
 }
 
 func previewCreationRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := playRows(t, database)
 	rows, err := database.QueryContext(t.Context(), `SELECT preview_session_id,role,logical_name,file_record,sort_order,COALESCE(virtual_path,'') FROM
-review_preview_files ORDER BY preview_session_id,role,logical_name`)
+runtime_preview_files ORDER BY preview_session_id,role,logical_name`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,14 +82,14 @@ review_preview_files ORDER BY preview_session_id,role,logical_name`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result["review_preview_files"] = string(encoded)
+	result["runtime_preview_files"] = string(encoded)
 	return result
 }
 
 func assertPreviewCreationRollback(t *testing.T, service *Service, request ReviewPreviewRequest) {
 	t.Helper()
 	cause := errors.New("creation transaction interrupted after all owners")
-	repository := &previewWriteFaultRepository{PreviewCreationRepository: persistence.NewPreviewCreation(service.database), after: func() error { return cause }}
+	repository := &previewWriteFaultRepository{ReviewPreviewRepository: persistence.NewReviewPreviewCreation(service.database), after: func() error { return cause }}
 	before := previewCreationRows(t, service.database)
 	result, err := service.previewCreator(repository).Create(t.Context(), request)
 	if !errors.Is(err, cause) || result != (ReviewPreviewCreated{}) || !repository.reached {
@@ -184,7 +185,7 @@ func TestPreviewCreationReplaysTwoSimultaneousProductRequests(t *testing.T) {
 			second.result.PreviewID, first.err, second.err)
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM runtime_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

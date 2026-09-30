@@ -1,68 +1,13 @@
 package libraryimport
 
 import (
-	"context"
 	"errors"
 	"math"
 	"testing"
 
-	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/content/arcade"
 	corevalidation "retrom/internal/core/validation"
 )
-
-type approvalValidationStub struct {
-	ReviewValidationReader
-	evidence ReviewValidationEvidence
-	cause    error
-}
-
-func (stub approvalValidationStub) Evidence(context.Context, string) (ReviewValidationEvidence, error) {
-	return stub.evidence, stub.cause
-}
-
-func approvalCurrentEvidence() ReviewValidationEvidence {
-	value := ReviewValidationEvidence{SourceSnapshotID: "snapshot", DraftSnapshotID: "snapshot", PlatformInstanceID: "platform", DraftPlatformInstanceID: "platform", CoreID: "core", CurrentCoreID: "core", ProviderID: "provider", TargetID: "target", ManifestDigest: "manifest", SnapshotManifestDigest: "manifest", ContentKind: "SINGLE_FILE", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"), Status: "BLOCKED", CompatibilityCode: "BIOS_MISSING", DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
-	input, _ := value.CurrentInput()
-	value.InputDigest = PrepublishDigest(input)
-	return value
-}
-
-func TestReviewApprovalScreenshotStillRequiresCurrentValidation(t *testing.T) {
-	screenshot := "runtime-proof"
-	evidence := approvalCurrentEvidence()
-	for _, stale := range []bool{false, true} {
-		reader := approvalValidationStub{evidence: evidence}
-		if stale {
-			reader.evidence.InputDigest = "stale"
-		}
-		run := reviewApprovalRun{
-			ctx: t.Context(), scope: ReviewApprovalScope{Validation: reader},
-			head: ReviewApprovalHead{
-				ValidationID: "validation", ValidationStatus: "BLOCKED",
-				ScreenshotID: &screenshot, DependencyJSON: evidence.DependencyJSON,
-			},
-		}
-		err := run.prepareValidation()
-		if stale {
-			if !errors.Is(err, ErrInvalid) {
-				t.Fatalf("stale screenshot error=%v", err)
-			}
-		} else if err != nil || !run.screenshotOverride || run.runtimeDependencyJSON != evidence.DependencyJSON {
-			t.Fatalf("valid override=%v runtime=%s err=%v", run.screenshotOverride, run.runtimeDependencyJSON, err)
-		}
-	}
-}
-
-func TestReviewApprovalCurrentValidationPreservesFailure(t *testing.T) {
-	cause := errors.New("current validation read failed")
-	run := reviewApprovalRun{
-		ctx:   t.Context(),
-		scope: ReviewApprovalScope{Validation: approvalValidationStub{cause: cause}},
-	}
-	if err := run.prepareValidation(); !errors.Is(err, cause) {
-		t.Fatal(err)
-	}
-}
 
 func TestReviewApprovalScreenshotDropsOnlyUnavailableExternalBIOS(t *testing.T) {
 	path, blob, usable, bad := "bios.bin", "blob", "MATCHED", "INVALID"
@@ -141,7 +86,7 @@ func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
 
 func TestReviewApprovalArcadeUsesDefaultBIOSAndExactRequiredROMs(t *testing.T) {
 	selected, other := "selected", "other"
-	requirements := ApprovalArcadeRequirements{DefaultBIOS: &selected, ROMs: []ApprovalArcadeROM{
+	requirements := arcade.CatalogRequirements{DefaultBIOS: &selected, ROMs: []arcade.ROMRequirement{
 		{Name: "main", Status: "GOOD"},
 		{Name: "undumped", Status: "NODUMP"},
 		{Name: "bios", Status: "GOOD", BIOSName: &selected},

@@ -127,17 +127,18 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 func (repository *ArcadeParentAttachmentWorker) RootValidation(
 	ctx context.Context, candidate libraryservice.ArcadeParentAttachmentCandidate,
 ) (string, error) {
-	var raw string
-	if err := dbapi.QueryRowContext(ctx, repository.database, `
-SELECT dependency_snapshot_json
-FROM import_item_core_validations
-WHERE import_item_id=? AND source_snapshot_id=? AND provider_id=? AND target_id=? AND dat_version_id=?
-ORDER BY created_at_ms DESC,id DESC LIMIT 1
-`, candidate.ItemID, candidate.BaseSnapshotID, candidate.ProviderID, candidate.TargetID,
-		candidate.DATID).Scan(&raw); err != nil {
-		return "", fmt.Errorf("read arcade parent root validation: %w", err)
+	runtime, err := ReadReviewRuntime(ctx, repository.database, candidate.ItemID)
+	if err != nil {
+		return "", err
 	}
-	return raw, nil
+	if runtime.SnapshotID != candidate.BaseSnapshotID ||
+		runtime.ProviderID != candidate.ProviderID ||
+		runtime.TargetID != candidate.TargetID ||
+		runtime.DATID == nil ||
+		*runtime.DATID != candidate.DATID {
+		return "", libraryservice.ErrInvalid
+	}
+	return runtime.DependencyJSON, nil
 }
 
 func (repository *ArcadeParentAttachmentWorker) SourceSnapshot(

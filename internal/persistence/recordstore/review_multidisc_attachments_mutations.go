@@ -16,7 +16,7 @@ func UpdateReviewMultidiscAttachments(
 		change,
 		"review_multidisc_attachments",
 		"id,base_source_snapshot_id,created_at_ms,expected_set_digest,import_item_id,job_id,"+
-			"requested_by_user_id,result_source_snapshot_id,result_validation_id,review_draft_id,"+
+			"requested_by_user_id,result_source_snapshot_id,review_draft_id,"+
 			"state,upload_session_id",
 		ReviewMultidiscAttachmentsUpdateRule,
 	)
@@ -24,8 +24,8 @@ func UpdateReviewMultidiscAttachments(
 
 const ReviewMultidiscAttachmentsUpdateRule = `
 WITH previous(id,base_source_snapshot_id,created_at_ms,expected_set_digest,import_item_id,job_id,
-requested_by_user_id,result_source_snapshot_id,result_validation_id,review_draft_id,state,
-upload_session_id) AS (VALUES(?,?,?,?,?,?,?,?,?,?,?,?))
+requested_by_user_id,result_source_snapshot_id,review_draft_id,state,
+upload_session_id) AS (VALUES(?,?,?,?,?,?,?,?,?,?,?))
 SELECT CASE
 -- review_multidisc_attachment_identity_update
 WHEN ((candidate.import_item_id IS NOT previous.import_item_id OR candidate.review_draft_id IS NOT
@@ -36,16 +36,13 @@ OR candidate.job_id IS NOT previous.job_id OR candidate.created_at_ms IS NOT pre
 (1=1)) THEN 'multi-disc attachment identity is immutable'
 -- review_multidisc_attachment_result_update
 WHEN ((candidate.state IS NOT previous.state OR candidate.result_source_snapshot_id IS NOT
-previous.result_source_snapshot_id OR candidate.result_validation_id IS NOT
-previous.result_validation_id) AND (candidate.state='ACCEPTED' AND NOT EXISTS(
+previous.result_source_snapshot_id) AND (candidate.state='ACCEPTED' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot
-  JOIN import_item_core_validations validation ON validation.id=candidate.result_validation_id
   WHERE snapshot.id=candidate.result_source_snapshot_id AND
 snapshot.import_item_id=candidate.import_item_id
   AND snapshot.content_kind='MULTI_DISC' AND snapshot.created_by='MULTI_DISC_ATTACHMENT'
   AND snapshot.id<>candidate.base_source_snapshot_id
-  AND validation.import_item_id=candidate.import_item_id
-  AND validation.source_snapshot_id=candidate.result_source_snapshot_id
+
 ))) THEN 'invalid multi-disc attachment result'
 -- review_multidisc_attachment_terminal_update
 WHEN (previous.state IN ('ACCEPTED','REJECTED','CANCELLED')) THEN

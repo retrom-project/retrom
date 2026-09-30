@@ -34,7 +34,12 @@ WHEN ((candidate.content_kind IS NOT previous.content_kind OR candidate.source_m
 previous.source_manifest_json OR candidate.source_manifest_digest IS NOT previous.source_manifest_digest
 OR candidate.library_import_job_id IS NOT previous.library_import_job_id OR
 candidate.library_import_item_id IS NOT previous.library_import_item_id) AND (previous.execution_state
-NOT IN ('COPYING','VALIDATING') OR candidate.execution_state NOT IN ('VALIDATING','REVIEW_PENDING')))
+NOT IN ('COPYING','VALIDATING') OR candidate.execution_state NOT IN ('VALIDATING','REVIEW_PENDING'))
+AND NOT (candidate.library_import_item_id IS NULL AND candidate.library_import_job_id IS NULL
+ AND candidate.execution_state IN ('PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING',
+ 'IDENTIFY_FAILED','VALIDATION_FAILED','COMMIT_FAILED','CANCELLED')
+ AND EXISTS(SELECT 1 FROM import_items item WHERE item.id=previous.library_import_item_id
+ AND item.state IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED'))))
 THEN 'invalid Source manifest transition'
 -- source_item_published_update
 WHEN ((candidate.execution_state IS NOT previous.execution_state OR candidate.published_game_id IS NOT
@@ -42,8 +47,7 @@ previous.published_game_id) AND (candidate.execution_state='PUBLISHED' AND (
   candidate.published_game_id IS NULL OR NOT EXISTS(
     SELECT 1 FROM games game
     WHERE game.id=candidate.published_game_id AND game.metadata_source_kind='IMPORT_RECEIVE'
-    AND game.metadata_source_ref_id=candidate.id AND game.content_source_kind='IMPORT_RECEIVE'
-    AND game.content_source_ref_id=candidate.id
+    AND game.content_source_kind='IMPORT_RECEIVE'
   )
 ))) THEN 'invalid Source published game'
 -- source_item_review_pending_update
@@ -69,11 +73,11 @@ WHEN ((candidate.execution_state IS NOT previous.execution_state) AND
 (candidate.execution_state='REVIEW_DISCARDED'
 AND NOT EXISTS(SELECT 1 FROM import_batch_discards batch
  WHERE batch.kind='SOURCE' AND batch.import_id=candidate.import_id
- AND (candidate.library_import_item_id IS NULL OR EXISTS(SELECT 1 FROM import_items item
- WHERE item.id=candidate.library_import_item_id AND item.state IN ('DISCARDED','FAILED_FINAL',
+ AND (previous.library_import_item_id IS NULL OR EXISTS(SELECT 1 FROM import_items item
+ WHERE item.id=previous.library_import_item_id AND item.state IN ('DISCARDED','FAILED_FINAL',
 'CANCELLED'))))
 AND NOT EXISTS(
-  SELECT 1 FROM import_items item WHERE item.id=candidate.library_import_item_id AND
+  SELECT 1 FROM import_items item WHERE item.id=previous.library_import_item_id AND
 item.state='DISCARDED'
 ))) THEN 'invalid Source review discard'
 ELSE '' END

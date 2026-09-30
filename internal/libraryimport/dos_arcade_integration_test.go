@@ -16,6 +16,10 @@ import (
 	"testing"
 	"time"
 
+	libraryservice "retrom/internal/service/libraryimport"
+
+	reviewpersistence "retrom/internal/persistence/libraryimport"
+
 	variantcomposition "retrom/internal/composition/gamevariant"
 
 	"retrom/internal/persistence/recordstore"
@@ -164,24 +168,23 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 `, requirementID, fileRecord, "bios.zip", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
+	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { dbapi.Rollback(transaction) })
-	resolved, err := resolveArcadeDraftBIOSState(
-		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
+	resolved, err := libraryservice.ResolveCreationArcade(
+		ctx, reviewpersistence.BindCreationArcade(transaction), target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return !resolved.tracked },
-		func() bool { return resolved.replaceBundle },
-		func() bool { return resolved.status != "READY" },
-		func() bool { return resolved.code != "READY" },
-		func() bool { return len(resolved.dependencies) != 1 },
-		func() bool { return resolved.dependencies[0].FileRecord == nil },
-		func() bool { return *resolved.dependencies[0].FileRecord != fileRecord }),
+	testassert.Falsef(t, testassert.Any(func() bool { return !resolved.Tracked },
+		func() bool { return resolved.Status != "READY" },
+		func() bool { return resolved.Code != "READY" },
+		func() bool { return len(resolved.Dependencies) != 1 },
+		func() bool { return resolved.Dependencies[0].FileRecord == nil },
+		func() bool { return *resolved.Dependencies[0].FileRecord != fileRecord }),
 		"resolved arcade BIOS state = %#v", resolved)
 	var snapshot arcadeDraftSnapshot
-	if err := json.Unmarshal([]byte(resolved.snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
+	if err := json.Unmarshal([]byte(resolved.SnapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
 		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != "SATISFIED_EXTERNAL" {
 		t.Fatalf("resolved arcade snapshot = %#v, error=%v", snapshot, err)
 	}
@@ -331,17 +334,15 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		MetadataProvider:         "NONE",
 	})
 	testassert.False(t, err != nil, err)
-	var validationID, status, code, snapshotJSON string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
-validation.dependency_snapshot_json
-FROM import_items item
-JOIN import_items draft ON draft.id=item.id
-JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
-WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
+	var validationID string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&validationID); err != nil {
 		t.Fatal(err)
 	}
+	runtime, err := reviewpersistence.ReadReviewRuntime(ctx, database.SQL, validationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, code, snapshotJSON := runtime.Status, runtime.Code, runtime.DependencyJSON
 	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" },
 		func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
 	var snapshot arcadeDraftSnapshot
@@ -350,15 +351,13 @@ WHERE item.import_job_id=?
 		snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
 		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
 	}
-	var validationFileRecord string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT file_record FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
-`, validationID).Scan(&validationFileRecord); err != nil {
+	files, err := reviewpersistence.ReadReviewRuntimeFiles(ctx, database.SQL, validationID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, validationFileRecord != biosFileRecord,
-		"initial BIOS blob = %s, want %s", validationFileRecord, biosFileRecord)
+	if len(files) != 1 || files[0].Role != "BIOS_BUNDLE" || files[0].FileRecord != biosFileRecord {
+		t.Fatalf("current BIOS files=%+v", files)
+	}
 	var itemID string
 	var draftVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -370,7 +369,7 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if installationStatus == "MISSING_ENTRY" {
-		draftVersion = assertPreviewRefreshesLegacyBIOS(t, database.SQL, importService, itemID, biosFileRecord)
+		draftVersion = assertPreviewReadsCurrentBIOS(t, database.SQL, importService, itemID, biosFileRecord)
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	testassert.False(t, err != nil, err)
@@ -401,7 +400,7 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
 	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
-	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now, blobs)
 	t.Cleanup(variants.Close)
 	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	coreID := "fbneo"

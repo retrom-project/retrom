@@ -381,7 +381,7 @@ CREATE TABLE launch_sessions(
 CREATE TABLE launch_content_files(
  launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
-CREATE TABLE review_preview_sessions(
+CREATE TABLE runtime_preview_sessions(
  actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,
 content_format TEXT
 );

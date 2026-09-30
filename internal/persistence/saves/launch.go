@@ -24,8 +24,8 @@ SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.ga
   FROM launch_content_files file WHERE file.launch_session_id=launch.id),'') END,
  (SELECT count(*) FROM launch_external_files external
   WHERE external.launch_session_id=launch.id AND external.kind='DISC'),launch.initial_disc_index,
- game.status,'','',EXISTS(SELECT 1 FROM launch_game_save_bindings binding WHERE
-binding.launch_session_id=launch.id),''
+ game.status,EXISTS(SELECT 1 FROM launch_game_save_bindings binding WHERE
+binding.launch_session_id=launch.id)
 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 LEFT JOIN users user ON user.profile_id=launch.profile_id WHERE launch.id=?
@@ -33,17 +33,15 @@ UNION ALL
 SELECT actor.id,actor.profile_id,'REVIEW_PREVIEW','',
  preview.provider_id,preview.target_id,preview.default_dos_entry,preview.credential_sha256,preview.state,
  preview.hard_expires_at_ms,target.checkpoint_json,preview.content_format,
- (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND
+ (SELECT count(*) FROM runtime_preview_files file WHERE file.preview_session_id=preview.id AND
 file.role='DISC'),
- 0,'',item.state,item.payload_state,0,item.id
-FROM review_preview_sessions preview JOIN users actor ON actor.id=preview.actor_user_id
-JOIN import_items item ON item.id=preview.import_item_id
+ 0,'',0
+FROM runtime_preview_sessions preview JOIN users actor ON actor.id=preview.actor_user_id
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
 WHERE preview.id=?`, id, id).Scan(&result.PrincipalID, &result.ProfileID, &result.Purpose, &result.GameID,
 		&result.ProviderID, &result.TargetID, &result.DOSEntry, &result.CredentialHash,
 		&result.State, &result.HardExpiresAtMS, &checkpoint, &result.ContentFormat,
-		&result.DiscCount, &result.InitialDiscIndex, &result.GameStatus, &result.ItemState,
-		&result.PayloadState, &result.HasGameSaveBinding, &result.ItemID)
+		&result.DiscCount, &result.InitialDiscIndex, &result.GameStatus, &result.HasGameSaveBinding)
 	if errors.Is(err, sql.ErrNoRows) {
 		return saves.Launch{}, saves.ErrCredential
 	}
@@ -78,7 +76,7 @@ WHERE launch.id=? AND (binding.launch_session_id IS NULL OR
 UNION ALL
 SELECT target.checkpoint_json,blob.value,json_extract(blob.value, '$.sha256'),json_extract(blob.value,
 '$.size_bytes'),preview.restore_checkpoint_format
-FROM review_preview_sessions preview
+FROM runtime_preview_sessions preview
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
 JOIN json_each(json_array(preview.restore_payload_file_record)) blob ON blob.value IS NOT NULL WHERE
 preview.id=?`, id, id).

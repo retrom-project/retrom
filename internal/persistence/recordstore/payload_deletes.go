@@ -31,10 +31,10 @@ func DeleteGameFiles(
 	return deleteRows(ctx, db, "game_files", scope)
 }
 
-func DeleteReviewPreviewSessions(
+func DeleteRuntimePreviewSessions(
 	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
-	return deleteRows(ctx, db, "review_preview_sessions", scope)
+	return deleteRows(ctx, db, "runtime_preview_sessions", scope)
 }
 
 func DeleteReviewRuntimeScreenshots(

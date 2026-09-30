@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -32,7 +34,7 @@ func (records *SourceResults) ReadItem(
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT item.id,item.state,COALESCE(validation.status,''),COALESCE(validation.compatibility_code,''),
 COALESCE(validation.core_id,''),COALESCE(core.name,''),COALESCE(validation.dependency_snapshot_json,''),
-snapshot.content_kind,snapshot.source_manifest_json,snapshot.source_manifest_digest,
+item.content_kind,item.source_manifest_json,item.source_manifest_digest,
 COALESCE(duplicate.existing_game_id,''),
 COALESCE((SELECT json_group_array(relative_path) FROM (
  SELECT DISTINCT upload.relative_path AS relative_path
@@ -41,16 +43,8 @@ COALESCE((SELECT json_group_array(relative_path) FROM (
  ORDER BY upload.relative_path
 )),'[]')
 FROM import_items item
-JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id AND snapshot.created_by='IDENTIFICATION'
-LEFT JOIN import_items draft ON draft.id=item.id
-LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
- draft.selected_validation_id,
- (SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=item.id
-  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
-)
+LEFT JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=item.id
+ AND item.state='REVIEW_PENDING'
 LEFT JOIN cores core ON core.id=validation.core_id
 LEFT JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
 WHERE item.import_job_id=? AND (?='' OR item.id=?)
@@ -96,6 +90,18 @@ ORDER BY item.id,duplicate.existing_game_id
 	}
 	if err := rows.Close(); err != nil {
 		return libraryservice.ServerImportResult{}, fmt.Errorf("close server source results: %w", err)
+	}
+	for index := range result.Items {
+		item := &result.Items[index]
+		if item.State != "REVIEW_PENDING" {
+			continue
+		}
+		runtime, err := ReadReviewRuntime(ctx, records.executor, item.ItemID)
+		if err != nil {
+			return libraryservice.ServerImportResult{}, err
+		}
+		item.ValidationStatus, item.CompatibilityCode = runtime.Status, runtime.Code
+		item.DependencySnapshotJSON = runtime.DependencyJSON
 	}
 	result.RejectedCodes, err = records.rejectedCodes(ctx, created.ImportJobID)
 	if err != nil {

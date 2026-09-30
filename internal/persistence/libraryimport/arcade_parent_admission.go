@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/content/arcade"
+	arcaderecords "retrom/internal/persistence/arcade"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
@@ -85,31 +88,22 @@ WHERE item.id=?
 }
 
 func (records arcadeParentAttachmentAdmissionRecords) Validation(
-	ctx context.Context, validationID, itemID string,
+	ctx context.Context, itemID string,
 ) (libraryservice.ArcadeParentAttachmentValidation, bool, error) {
-	var result libraryservice.ArcadeParentAttachmentValidation
-	var datID sql.NullString
-	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT target_platform_instance_id,core_id,provider_id,target_id,
-  dat_version_id,source_snapshot_id,
-  dependency_snapshot_json
-FROM import_item_core_validations
-WHERE id=? AND import_item_id=?
-`, validationID, itemID).Scan(
-		&result.TargetPlatformInstanceID, &result.CoreID, &result.ProviderID, &result.TargetID,
-		&datID, &result.SourceSnapshotID, &result.DependencySnapshotJSON,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return libraryservice.ArcadeParentAttachmentValidation{}, false, nil
-	}
+	runtime, err := ReadReviewRuntime(ctx, records.executor, itemID)
 	if err != nil {
-		return libraryservice.ArcadeParentAttachmentValidation{}, false, fmt.Errorf(
-			"read arcade parent validation: %w",
-			err,
-		)
+		return libraryservice.ArcadeParentAttachmentValidation{}, false, err
 	}
-	result.DATVersionID, result.HasDATVersion = nullableString(datID)
-	return result, true, nil
+	result := libraryservice.ArcadeParentAttachmentValidation{
+		TargetPlatformInstanceID: runtime.PlatformInstanceID, CoreID: runtime.CoreID,
+		ProviderID: runtime.ProviderID, TargetID: runtime.TargetID,
+		SourceSnapshotID: runtime.SnapshotID, DependencySnapshotJSON: runtime.DependencyJSON,
+	}
+	if runtime.DATID != nil {
+		result.DATVersionID = *runtime.DATID
+		result.HasDATVersion = true
+	}
+	return result, runtime.SnapshotID != "", nil
 }
 
 func (records arcadeParentAttachmentAdmissionRecords) Upload(
@@ -153,8 +147,12 @@ WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
 
 func (records arcadeParentAttachmentAdmissionRecords) MachineRelation(
 	ctx context.Context, datID, machine string,
-) (libraryservice.ArcadeMachineRelation, bool, error) {
-	return BindArcadeRelations(records.executor).MachineRelation(ctx, datID, machine)
+) (arcade.MachineRelation, bool, error) {
+	relation, found, err := arcaderecords.New(records.executor).MachineRelation(ctx, datID, machine)
+	if err != nil {
+		return arcade.MachineRelation{}, false, fmt.Errorf("read parent admission relation: %w", err)
+	}
+	return relation, found, nil
 }
 
 func (records arcadeParentAttachmentAdmissionRecords) Create(

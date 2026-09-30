@@ -9,8 +9,8 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	persistence "retrom/internal/persistence/launch"
-	application "retrom/internal/service/launch"
+	persistence "retrom/internal/persistence/libraryimport"
+	review "retrom/internal/service/libraryimport"
 
 	"modernc.org/sqlite"
 )
@@ -39,7 +39,7 @@ func TestPreviewCreationReplaysAConcurrentCommittedRequest(t *testing.T) {
 		t.Fatalf("same-key request lost committed receipt: created=%q winner=%q error=%v", created.PreviewID, winner.PreviewID, err)
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM runtime_preview_sessions`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
@@ -70,7 +70,7 @@ func TestPreviewCreationRechecksPlatformEnabledAtCommit(t *testing.T) {
 		t.Fatalf("preview accepted a platform disabled after selection: created=%q error=%v", created.PreviewID, err)
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM runtime_preview_sessions`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -81,7 +81,7 @@ func TestPreviewCreationRechecksPlatformEnabledAtCommit(t *testing.T) {
 func TestPreviewCreationSourceQueryPreservesStorageCause(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
-	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE import_item_core_validations RENAME TO unavailable_preview_validations`)
+	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE import_item_runtime_files RENAME TO unavailable_preview_runtime_files`)
 	created, err := fixture.launcher.CreateReviewPreview(t.Context(), ReviewPreviewRequest{
 		ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "source-storage-fault",
 	})
@@ -102,7 +102,7 @@ func TestPreviewRestoreQueryPreservesCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err := persistence.NewPreviewCreation(fixture.database).WithCreation(t.Context(), func(scope application.PreviewCreationScope) error {
+	err := persistence.NewReviewPreviewCreation(fixture.database).WithCreation(t.Context(), func(scope review.ReviewPreviewScope) error {
 		_, _, err := scope.Restore(ctx, preview.PreviewID)
 		return err
 	})

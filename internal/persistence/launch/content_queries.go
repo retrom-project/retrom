@@ -73,9 +73,9 @@ SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.v
 json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
-(SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC'),
+(SELECT count(*) FROM runtime_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC'),
 binding.delivery_profile
-FROM review_preview_sessions preview
+FROM runtime_preview_sessions preview
 JOIN json_each(json_array(preview.content_file_record)) blob ON blob.value IS NOT NULL
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
 binding.target_id=preview.target_id
@@ -93,16 +93,16 @@ func (repository *ContentQueries) PreviewProject(
 	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 WITH preview_files AS (
  SELECT id AS preview_session_id,content_logical_name AS logical_name,content_file_record AS file_record
- FROM review_preview_sessions WHERE id=?
+ FROM runtime_preview_sessions WHERE id=?
  UNION ALL
- SELECT preview_session_id,logical_name,file_record FROM review_preview_files
+ SELECT preview_session_id,logical_name,file_record FROM runtime_preview_files
  WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
 )
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
 json_extract(blob.value, '$.sha256'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,NULL,0,binding.delivery_profile
-FROM review_preview_sessions preview
+FROM runtime_preview_sessions preview
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
 binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id

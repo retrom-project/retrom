@@ -2,7 +2,10 @@ package libraryimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"retrom/internal/content/arcade"
 
 	"retrom/internal/multidisc"
 )
@@ -21,9 +24,12 @@ func (service *ReviewDependencies) Arcade(
 	if head.PlatformID != "arcade" || head.DependencyJSON == nil {
 		return ReviewArcade{}, false, nil
 	}
-	snapshot, err := CanonicalArcadeSnapshot(ctx, service.reader, *head.DependencyJSON)
+	snapshot, err := arcade.CanonicalSnapshot(ctx, service.reader, *head.DependencyJSON)
 	if err != nil {
-		return ReviewArcade{}, false, err
+		if errors.Is(err, arcade.ErrInvalid) {
+			return ReviewArcade{}, false, errors.Join(ErrInvalid, err)
+		}
+		return ReviewArcade{}, false, fmt.Errorf("resolve review arcade snapshot: %w", err)
 	}
 	attachments, err := service.reader.ArcadeAttachments(ctx, itemID)
 	if err != nil {

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"retrom/internal/content/arcade"
 	"retrom/internal/format/arcadedat"
-	libraryimport "retrom/internal/service/libraryimport"
 )
 
 type EnsureScope struct {
@@ -22,22 +22,24 @@ type Provider interface {
 	BundleSHA256(string, string) (string, bool)
 }
 
+type ArcadePreparationReader interface {
+	Prepare(context.Context, []arcade.SourceFile, string, string, string) (arcade.Result, error)
+}
+
 type Service struct {
 	repository Repository
 	provider   Provider
 	now        func() time.Time
 	supervisor *ValidationSupervisor
-	arcade     *libraryimport.ImportPreparation
+	arcade     ArcadePreparationReader
 }
 
 func New(repository Repository, provider Provider, now func() time.Time, supervisor *ValidationSupervisor,
-	arcade ...*libraryimport.ImportPreparation,
+	arcadePreparation ArcadePreparationReader,
 ) *Service {
-	service := &Service{repository: repository, provider: provider, now: now, supervisor: supervisor}
-	if len(arcade) != 0 {
-		service.arcade = arcade[0]
+	return &Service{
+		repository: repository, provider: provider, now: now, supervisor: supervisor, arcade: arcadePreparation,
 	}
-	return service
 }
 
 // Ensure prepares a game/core configuration. Its caller dispatches only after

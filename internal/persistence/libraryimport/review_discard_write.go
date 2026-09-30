@@ -57,5 +57,8 @@ completed_at_ms=?
 WHERE id=? AND version=? AND review_pending_item_count=?
 `, change.Aggregate.Projection.State, now, change.Aggregate.Projection.CompletedAtMS,
 		importID, change.Aggregate.ExpectedVersion, change.Aggregate.ExpectedPending)
-	return requireDiscardMutation(jobResult, jobErr, "discard job aggregate")
+	if err := requireDiscardMutation(jobResult, jobErr, "discard job aggregate"); err != nil {
+		return err
+	}
+	return closeReview(ctx, transaction, itemID, now)
 }

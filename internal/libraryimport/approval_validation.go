@@ -2,18 +2,11 @@ package libraryimport
 
 import (
 	"context"
-	"crypto/sha256"
-	"database/sql"
-	"encoding/hex"
 	"fmt"
 
 	dbapi "retrom/internal/database"
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	libraryservice "retrom/internal/service/libraryimport"
-
-	contentcapability "retrom/internal/content/capability"
-	corevalidation "retrom/internal/core/validation"
-	"retrom/internal/multidisc"
 )
 
 func prepareStaticBIOSDependencies(
@@ -34,54 +27,3 @@ type (
 	ApprovalDecision = libraryservice.ReviewApprovalDecision
 	ExternalAsset    = libraryservice.ApprovalExternalAsset
 )
-
-type approvalValidationDigestInput struct {
-	VariantID, ContentID, ContentKind, ProviderID, TargetID string
-	ContentPolicy                                           contentcapability.Policy
-	DATID                                                   sql.NullString
-	ValidationID                                            string
-	Snapshot                                                corevalidation.Snapshot
-	SnapshotValid                                           bool
-}
-
-func approvalValidationInputDigest(input approvalValidationDigestInput) (string, error) {
-	if !input.SnapshotValid {
-		if input.ContentKind != contentcapability.ModeRPGMakerProject {
-			validationDigest := sha256.Sum256([]byte(input.ValidationID))
-			return hex.EncodeToString(validationDigest[:]), nil
-		}
-		input.Snapshot = corevalidation.Snapshot{
-			SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
-			BIOS: []corevalidation.BIOSDependency{},
-		}
-	}
-	if input.ContentKind != multidisc.ContentKind {
-		digest, err := corevalidation.ProviderValidationInputDigest(
-			input.ProviderID, input.TargetID, input.ContentID, dbapi.StringPointer(input.DATID),
-			input.Snapshot,
-		)
-		if err != nil {
-			return "", fmt.Errorf("libraryimport/service: %w", err)
-		}
-		return digest, nil
-	}
-	if input.Snapshot.MultiDisc == nil {
-		return "", ErrInvalid
-	}
-	biosDigest, err := corevalidation.BIOSDependencyDigest(input.Snapshot)
-	if err != nil {
-		return "", ErrInvalid
-	}
-	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: input.VariantID, GameID: input.ContentID,
-		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
-		ContentPolicySHA256: input.ContentPolicy.Digest(),
-		DATVersionID:        dbapi.StringPointer(input.DATID), BIOSDependencySHA256: biosDigest,
-		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
-		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
-	})
-	if err != nil {
-		return "", fmt.Errorf("libraryimport/service: %w", err)
-	}
-	return digest, nil
-}

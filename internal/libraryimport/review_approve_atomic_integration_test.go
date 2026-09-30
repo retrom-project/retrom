@@ -28,6 +28,7 @@ func (fault *approvalTransactionFault) beforeExec(_ context.Context, query strin
 	matched := fault.stage == "parent aggregate" && strings.Contains(query,
 		"UPDATE import_jobs SET review_pending_item_count=")
 	matched = matched || (fault.stage == "owner aggregate" && strings.HasPrefix(query, "UPDATE source_imports SET"))
+	matched = matched || (fault.stage == "review closure" && strings.Contains(query, "DELETE FROM review_draft_tags"))
 	matched = matched || (fault.stage == "payload event" && strings.Contains(query, "INSERT INTO job_events"))
 	if matched {
 		fault.hits++
@@ -67,7 +68,7 @@ func (result approvalResultFailure) RowsAffected() (int64, error) { return 0, re
 
 func TestApprovalLateFailureRollsBackPublicationAndSource(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"parent aggregate", "affected rows", "owner aggregate", "payload event"} {
+	for _, stage := range []string{"parent aggregate", "affected rows", "review closure", "owner aggregate", "payload event"} {
 		t.Run(stage, func(t *testing.T) { t.Parallel(); verifyApprovalLateFailure(t, stage) })
 	}
 }
@@ -151,6 +152,8 @@ func approvalDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 		"dos_entries", "game_tags", "tags", "content_identity_claims", "review_uploaded_assets", "review_draft_tags",
 		"import_items", "import_jobs", "source_import_items", "source_imports", "jobs", "job_events", "job_input_snapshots",
 		"review_bulk_approvals", "upload_files", "upload_sessions",
+		"runtime_preview_sessions", "runtime_preview_files", "review_preview_bindings",
+		"isolated_runtime_bootstrap_tickets", "isolated_runtime_capabilities",
 	} {
 		result[table] = approvalTableRows(t, database, table)
 	}

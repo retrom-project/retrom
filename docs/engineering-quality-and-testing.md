@@ -178,6 +178,8 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 4. `internal/format/arcadedat/**` 不得导入业务服务或 BIOS/导入工作流；
 5. `internal/service/**`（通用 jobs 管理包自身除外）及导入/Launch 工作流不得依赖 `service/jobs`，领域 Worker 维护自己的领取和执行协议；
 6. `archcheck` 的全业务包扫描同时拒绝数据库实现、application、composition、httpapi 和进程入口依赖。
+7. Launch 与 GameVariant 的业务、持久化、装配及 `internal/launch` 生产包不得导入任一 `libraryimport` 或 `composition/importworkflow` 包；共享 `content/arcade` 不依赖业务服务、持久化或 SQL。`depguard` 检查直接与嵌套目录的违规导入，`internal/architecture` 从所有生产 Go 源码建立依赖图，检查这些运行包的传递依赖，防止通过共享包重新引入导入工作流。同一传递依赖门禁覆盖 Saves、Isolation 与 RuntimeSession；SQL 门禁禁止这些运行消费者及中立 Preview recordstore 查询审核/导入/Source 表，schema 门禁禁止 Game/Variant/Launch/Save/Preview 的外键反向引用过程表。回归通过删除已完成审核、导入与上传记录后实际执行启动、备用核心校验、存档保存/恢复、媒体读取与永久删除，证明结果独立。测试装配允许串联真实导入、审核和启动链路。
+
 
 HTTP 生产代码另行禁止导入 `application`、`composition`、`database`、`persistence`、`store`，由进程入口提供已构造的功能依赖。
 

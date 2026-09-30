@@ -50,9 +50,9 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 	}
 	writeJSON(writer, http.StatusCreated, map[string]any{
 		"screenshotId": result.ID, "importItemId": result.ImportItemID,
-		"validationId": result.ValidationID, "providerId": result.ProviderID,
-		"targetId": result.TargetID,
-		"widthPx":  result.WidthPX, "heightPx": result.HeightPX,
+		"providerId": result.ProviderID,
+		"targetId":   result.TargetID,
+		"widthPx":    result.WidthPX, "heightPx": result.HeightPX,
 		"capturedAtMs": result.CapturedAtMS, "url": "/api/v1/admin/review-assets/" + result.ID,
 	})
 }

@@ -36,9 +36,9 @@ func TestPreviewBundleReadsAuthorityAndFrozenMembersInOneStatement(t *testing.T)
 		empty.Session.State != "ACTIVE" || counter.statements != 1 {
 		t.Fatalf("empty=%#v found=%t statements=%d error=%v", empty, found, counter.statements, err)
 	}
-	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO review_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
+	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO runtime_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
  VALUES(?,'BIOS_BUNDLE','z.bin','`+rpgFileRecord("rpg-project-a")+`',0,0)`, preview.PreviewID)
-	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO review_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
+	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO runtime_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
  VALUES(?,'BIOS_BUNDLE','a.bin','`+rpgFileRecord("rpg-project-b")+`',1,0)`, preview.PreviewID)
 	counter.statements = 0
 	record, found, err := repository.Bundle(t.Context(), ref, "BIOS_BUNDLE")
@@ -75,7 +75,7 @@ func TestPreviewProjectRepositoryKeepsExactAndUniqueFoldedPaths(t *testing.T) {
 		false); err != nil || found {
 		t.Fatalf("generic path folded: found=%t error=%v", found, err)
 	}
-	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO review_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
+	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO runtime_preview_files(preview_session_id,role,logical_name,file_record,sort_order,created_at_ms)
  VALUES(?,'PROJECT_FILE','RPG_RT.LDB','`+rpgFileRecord("rpg-project-b")+`',99,0)`, preview.PreviewID)
 	if _, found, err := repository.PreviewProject(t.Context(), preview.PreviewID, "rpg_rt.LdB",
 		true); err != nil || found {

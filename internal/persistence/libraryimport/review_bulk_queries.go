@@ -6,15 +6,20 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-type ReviewBulkQueries struct{ executor dbapi.Executor }
+type ReviewBulkQueries struct {
+	executor dbapi.Executor
+	database dbapi.DB
+}
 
 func NewReviewBulkQueries(database dbapi.DB) *ReviewBulkQueries {
-	return &ReviewBulkQueries{executor: database}
+	return &ReviewBulkQueries{executor: database, database: database}
 }
 
 func BindReviewBulkQueries(executor dbapi.Executor) *ReviewBulkQueries {
@@ -34,6 +39,52 @@ func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (st
 }
 
 func (repository *ReviewBulkQueries) Candidates(
+	ctx context.Context, query libraryservice.ReviewBulkCandidateQuery,
+) ([]libraryservice.ReviewBulkCandidate, error) {
+	if repository.database != nil {
+		tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
+		if err != nil {
+			return nil, fmt.Errorf("begin bulk candidates read: %w", err)
+		}
+		defer dbapi.Rollback(tx)
+		result, err := BindReviewBulkQueries(tx).Candidates(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit bulk candidates read: %w", err)
+		}
+		return result, nil
+	}
+	current := make([]libraryservice.ReviewBulkCandidate, 0, query.Limit)
+	for len(current) < query.Limit {
+		page, err := repository.candidatePage(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		for _, candidate := range page {
+			runtime, err := ReadReviewRuntime(ctx, repository.executor, candidate.ItemID)
+			if err != nil {
+				return nil, err
+			}
+			candidate.ValidationStatus = &runtime.Status
+			if query.Scope.BlockerCode != "" && runtime.Code != query.Scope.BlockerCode {
+				continue
+			}
+			current = append(current, candidate)
+			if len(current) == query.Limit {
+				break
+			}
+		}
+		if len(page) < query.Limit || query.Scope.BlockerCode == "" {
+			break
+		}
+		query.AfterItemID = page[len(page)-1].ItemID
+	}
+	return current, nil
+}
+
+func (repository *ReviewBulkQueries) candidatePage(
 	ctx context.Context, query libraryservice.ReviewBulkCandidateQuery,
 ) ([]libraryservice.ReviewBulkCandidate, error) {
 	statement, arguments, err := reviewBulkCandidateStatement(query)
@@ -89,10 +140,6 @@ func reviewBulkCandidateStatement(query libraryservice.ReviewBulkCandidateQuery)
  WHERE relation.review_draft_id=draft.id AND tag.id=?)`
 		arguments = append(arguments, query.Scope.TagID)
 	}
-	if query.Scope.BlockerCode != "" {
-		statement += " AND (validation.compatibility_code=? OR (?='NEEDS_VALIDATION' AND validation.id IS NULL))"
-		arguments = append(arguments, query.Scope.BlockerCode, query.Scope.BlockerCode)
-	}
 	if query.AfterItemID != "" {
 		statement += " AND item.id>?"
 		arguments = append(arguments, query.AfterItemID)
@@ -101,14 +148,15 @@ func reviewBulkCandidateStatement(query libraryservice.ReviewBulkCandidateQuery)
 		statement += " AND item.id<=?"
 		arguments = append(arguments, query.ThroughItemID)
 	}
-	statement += " ORDER BY item.id LIMIT ?"
+	statement += " ORDER BY item.id"
+	statement += " LIMIT ?"
 	arguments = append(arguments, query.Limit)
 	return statement, arguments, nil
 }
 
 const reviewBulkCandidateSelect = `
 SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,instance.platform_id,
-       validation.id,validation.status,
+       validation.status,
        EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
@@ -119,13 +167,7 @@ FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN import_item_core_validations validation ON validation.id=(
-  SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=item.id
-  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
-)
+LEFT JOIN (` + contentquery.CurrentContentSQL + `) validation ON validation.import_item_id=item.id
 LEFT JOIN source_import_items source_owner ON source_owner.library_import_item_id=item.id
 WHERE item.state='REVIEW_PENDING'
 AND (source_owner.id IS NULL OR source_owner.execution_state='REVIEW_PENDING')`
@@ -133,7 +175,7 @@ AND (source_owner.id IS NULL OR source_owner.execution_state='REVIEW_PENDING')`
 func scanReviewBulkCandidate(scanner dbapi.Scanner) (libraryservice.ReviewBulkCandidate, error) {
 	var candidate libraryservice.ReviewBulkCandidate
 	if err := scanner.Scan(&candidate.ItemID, &candidate.ReviewVersion, &candidate.SourceSnapshotID,
-		&candidate.PlatformID, &candidate.ValidationID, &candidate.ValidationStatus,
+		&candidate.PlatformID, &candidate.ValidationStatus,
 		&candidate.AttachmentActive, &candidate.SourceFlagged,
 	); err != nil {
 		return libraryservice.ReviewBulkCandidate{}, fmt.Errorf("scan review bulk candidate: %w", err)
@@ -167,7 +209,15 @@ func (repository *ReviewBulkQueries) CandidateByID(
 	if errors.Is(err, sql.ErrNoRows) {
 		return libraryservice.ReviewBulkCandidate{}, false, nil
 	}
-	return result, err == nil, err
+	if err != nil {
+		return libraryservice.ReviewBulkCandidate{}, false, err
+	}
+	runtime, err := ReadReviewRuntime(ctx, repository.executor, itemID)
+	if err != nil {
+		return libraryservice.ReviewBulkCandidate{}, false, err
+	}
+	result.ValidationStatus = &runtime.Status
+	return result, true, nil
 }
 
 const reviewBulkSummarySelect = `

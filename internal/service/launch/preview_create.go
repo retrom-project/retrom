@@ -11,20 +11,18 @@ import (
 )
 
 type PreviewCreator struct {
-	repository  PreviewCreationRepository
 	provider    PreviewProvider
 	environment PreviewEnvironment
 }
 
 func NewPreviewCreator(
-	repository PreviewCreationRepository,
 	provider PreviewProvider,
 	environment PreviewEnvironment,
 ) *PreviewCreator {
 	if environment.NewID == nil {
 		environment.NewID = newPreviewID
 	}
-	return &PreviewCreator{repository: repository, provider: provider, environment: environment}
+	return &PreviewCreator{provider: provider, environment: environment}
 }
 
 func newPreviewID() (string, error) {
@@ -35,45 +33,18 @@ func newPreviewID() (string, error) {
 	return id.String(), nil
 }
 
-func (service *PreviewCreator) Create(ctx context.Context, request ReviewPreviewRequest) (ReviewPreviewCreated, error) {
-	if request.ImportItemID == "" || request.ActorUserID == "" || request.IdempotencyKey == "" {
-		return ReviewPreviewCreated{}, ErrReviewPreviewUnavailable
-	}
-	receipt, found, err := service.repository.Replay(ctx, request.ActorUserID, request.IdempotencyKey)
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("read preview replay: %w", err)
-	}
-	if found {
-		return service.replay(request, receipt)
-	}
-	snapshot, found, err := service.repository.Snapshot(ctx, request.ImportItemID)
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("read preview snapshot: %w", err)
-	}
-	if !found {
-		return ReviewPreviewCreated{}, ErrReviewPreviewUnavailable
-	}
+// Prepare consumes current resources supplied by the source owner. It does not query review state.
+func (service *PreviewCreator) Prepare(
+	request ReviewPreviewRequest, snapshot PreviewSnapshot,
+) (PreviewCreatePlan, string, error) {
 	if err := service.validateSource(snapshot.Source, request.ClientCapabilities); err != nil {
-		return ReviewPreviewCreated{}, err
+		return PreviewCreatePlan{}, "", err
 	}
 	content, err := previewContent(snapshot)
 	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("assemble preview content: %w", err)
+		return PreviewCreatePlan{}, "", fmt.Errorf("assemble preview content: %w", err)
 	}
-	plan, capability, err := service.prepare(request, snapshot.Source, content)
-	if err != nil {
-		return ReviewPreviewCreated{}, err
-	}
-	var result ReviewPreviewCreated
-	err = service.repository.WithCreation(ctx, func(scope PreviewCreationScope) error {
-		var createErr error
-		result, createErr = service.commit(ctx, scope, plan, capability)
-		return createErr
-	})
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("create preview: %w", err)
-	}
-	return result, nil
+	return service.prepare(request, snapshot.Source, content)
 }
 
 func (service *PreviewCreator) prepare(
@@ -109,26 +80,13 @@ func (service *PreviewCreator) prepare(
 	return plan, capability, nil
 }
 
-func (service *PreviewCreator) commit(
+func (service *PreviewCreator) Commit(
 	ctx context.Context,
-	scope PreviewCreationScope,
+	scope PreviewSessionScope,
+	profileID string,
 	plan PreviewCreatePlan,
 	capability string,
 ) (ReviewPreviewCreated, error) {
-	receipt, found, err := scope.Replay(ctx, plan.Request.ActorUserID, plan.Request.IdempotencyKey)
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("read final preview replay: %w", err)
-	}
-	if found {
-		return service.replay(plan.Request, receipt)
-	}
-	current, profileID, found, err := scope.Current(ctx, plan.Request)
-	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("read final preview source: %w", err)
-	}
-	if !found || !reflect.DeepEqual(current, plan.Source) {
-		return ReviewPreviewCreated{}, ErrReviewPreviewUnavailable
-	}
 	restore, err := readPreviewRestore(ctx, scope, plan.Request)
 	if err != nil {
 		return ReviewPreviewCreated{}, err
@@ -142,7 +100,10 @@ func (service *PreviewCreator) commit(
 		if err := validatePreviewRestore(restore, plan); err != nil {
 			return ReviewPreviewCreated{}, err
 		}
-		plan.RestoreFileRecord, plan.RestoreFormat = &restore.FileRecord, &restore.Format
+		if plan.RestoreSourceFileRecord != restore.FileRecord || plan.RestoreFileRecord == nil ||
+			plan.RestoreFormat == nil || *plan.RestoreFormat != restore.Format {
+			return ReviewPreviewCreated{}, ErrSaveIncompatible
+		}
 	}
 	if plan.Isolation != nil && profileID == "" {
 		return ReviewPreviewCreated{}, ErrReviewPreviewUnavailable
@@ -160,7 +121,7 @@ func (service *PreviewCreator) commit(
 	}, nil
 }
 
-func (service *PreviewCreator) replay(
+func (service *PreviewCreator) Replay(
 	request ReviewPreviewRequest,
 	receipt PreviewReceipt,
 ) (ReviewPreviewCreated, error) {

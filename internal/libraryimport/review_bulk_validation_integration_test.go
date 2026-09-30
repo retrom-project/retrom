@@ -17,7 +17,7 @@ import (
 )
 
 func TestBulkApprovalUsesTheSameValidationAsIndividualApproval(t *testing.T) {
-	for _, reason := range []string{"stale validation", "long title", "control character in title"} {
+	for _, reason := range []string{"missing BIOS", "long title", "control character in title"} {
 		t.Run(reason, func(t *testing.T) { assertInvalidBulkApproval(t, reason) })
 	}
 }
@@ -39,9 +39,8 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		t.Fatal(err)
 	}
 	switch reason {
-	case "stale validation":
-		fixture.execute(t, `UPDATE import_item_core_validations SET prepublish_input_digest=? WHERE import_item_id=?`,
-			strings.Repeat("f", 64), itemID)
+	case "missing BIOS":
+		fixture.execute(t, `UPDATE bios_requirements SET requirement_mode='REQUIRED' WHERE core_id='mgba' AND logical_name='gba_bios.bin'`)
 	case "long title", "control character in title":
 		title := strings.Repeat("界", 201)
 		if reason == "control character in title" {

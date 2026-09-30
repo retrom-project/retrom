@@ -37,7 +37,7 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 	}
 	write := MultiDiscAttachmentCommitWrite{MultiDiscAttachmentCommitRequest: request, NowMS: service.now().UnixMilli()}
 	for _, target := range []*string{
-		&write.SourceSnapshotID, &write.ValidationID, &write.ConsumptionID,
+		&write.SourceSnapshotID, &write.ConsumptionID,
 	} {
 		id, err := service.newID()
 		if err != nil {

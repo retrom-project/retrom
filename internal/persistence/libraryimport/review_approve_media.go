@@ -46,15 +46,23 @@ func (records reviewApprovalRecords) Screenshots(ctx context.Context, itemID str
 	return (ReviewDrafts{executor: records.transaction}).ScreenshotIDs(ctx, itemID)
 }
 
+func (records reviewApprovalRecords) RuntimeScreenshot(
+	ctx context.Context, itemID, assetID string,
+) (libraryservice.ApprovalExternalAsset, bool, error) {
+	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
+SELECT file_record,width_px,height_px,media_type FROM review_runtime_screenshots
+WHERE import_item_id=? AND id=?`, itemID, assetID))
+}
+
 func (records reviewApprovalRecords) Origin(
 	ctx context.Context, itemID string,
 ) (libraryservice.ApprovalOrigin, bool, error) {
 	var origin libraryservice.ApprovalOrigin
 	err := dbapi.QueryRowContext(ctx, records.transaction, `
-SELECT source_ref_id,source_kind FROM (
- SELECT id AS source_ref_id,'IMPORT_RECEIVE' AS source_kind FROM source_import_items
+SELECT source_kind FROM (
+ SELECT 'IMPORT_RECEIVE' AS source_kind FROM source_import_items
  WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
-) ORDER BY source_kind LIMIT 1`, itemID).Scan(&origin.RefID, &origin.Kind)
+) ORDER BY source_kind LIMIT 1`, itemID).Scan(&origin.Kind)
 	if errors.Is(err, sql.ErrNoRows) {
 		return libraryservice.ApprovalOrigin{}, false, nil
 	}

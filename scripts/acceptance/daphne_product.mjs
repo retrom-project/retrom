@@ -255,7 +255,7 @@ try {
   let {itemId, gameId} = existsSync(progressPath) ? JSON.parse(readFileSync(progressPath, "utf8")) : {};
   if (itemId && !gameId) {
     const existing = await client.json("GET", `/api/v1/admin/reviews/${itemId}`);
-    if (!existing.validation.current) {itemId = undefined;}
+    if (!existing.readiness) {itemId = undefined;}
   }
   if (!itemId) {
     await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {

@@ -80,7 +80,7 @@ func TestReviewQueueRepositoryFiltersBySourceSearchPlatformAndBlocker(t *testing
 		{"unknown es", libraryservice.ReviewQueueFilter{SourceImportID: "missing"}, []string{}},
 		{"platform", libraryservice.ReviewQueueFilter{PlatformInstanceID: instance}, []string{"item", "item-2", "item-3"}},
 		{"unknown platform", libraryservice.ReviewQueueFilter{PlatformInstanceID: "missing"}, []string{}},
-		{"needs validation", libraryservice.ReviewQueueFilter{BlockerCode: "NEEDS_VALIDATION"}, []string{"item", "item-2", "item-3"}},
+		{"needs validation", libraryservice.ReviewQueueFilter{BlockerCode: "CONTENT_ANALYSIS_UNAVAILABLE"}, []string{"item", "item-2", "item-3"}},
 		{"other blocker", libraryservice.ReviewQueueFilter{BlockerCode: "DEPENDENCY_MISSING"}, []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestAssemblyCanCloseWithoutDispatchingValidation(t *testing.T) {
-	service := variantcomposition.New(nil, launch.NewSources(nil, nil), func() time.Time { return time.UnixMilli(1000) })
+	service := variantcomposition.New(nil, launch.NewSources(nil, nil), func() time.Time { return time.UnixMilli(1000) }, nil)
 	service.Close()
 	service.Resume(t.Context(), "after-close")
 	if err := service.Recover(t.Context()); err != nil {

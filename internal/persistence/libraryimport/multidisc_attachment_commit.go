@@ -72,15 +72,11 @@ func (scope multiDiscAttachmentCommitScope) CommitAccepted(
 	if err := scope.insertValidation(ctx, write); err != nil {
 		return err
 	}
-	selectedValidation := any(nil)
-	if write.Validation.Status == "READY" {
-		selectedValidation = write.ValidationID
-	}
 	result, err := recordstore.UpdateReviewItems(
 		ctx,
 		scope.transaction,
 		recordstore.Update{
-			Set: `effective_source_snapshot_id=?,selected_validation_id=?,
+			Set: `effective_source_snapshot_id=?,
 review_version=review_version+1,review_updated_at_ms=?`,
 
 			Scope: recordstore.Scope{
@@ -88,7 +84,7 @@ review_version=review_version+1,review_updated_at_ms=?`,
 				Args:  []any{write.Input.ReviewDraftID, write.Input.BaseSourceSnapshotID},
 			},
 
-			Values: []any{write.SourceSnapshotID, selectedValidation, write.NowMS},
+			Values: []any{write.SourceSnapshotID, write.NowMS},
 		},
 	)
 	if err := requireMultiDiscChange(result, err, "advance review source"); err != nil {
@@ -106,12 +102,12 @@ review_version=review_version+1,review_updated_at_ms=?`,
 		ctx,
 		scope.transaction,
 		recordstore.Update{
-			Set: `state='ACCEPTED',result_source_snapshot_id=?,result_validation_id=?,diagnostics_json=?,
+			Set: `state='ACCEPTED',result_source_snapshot_id=?,diagnostics_json=?,
 error_code=NULL,finished_at_ms=?,version=version+1,updated_at_ms=?`,
 
 			Scope: recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Input.AttachmentID}},
 
-			Values: []any{write.SourceSnapshotID, write.ValidationID, string(diagnostics), write.NowMS, write.NowMS},
+			Values: []any{write.SourceSnapshotID, string(diagnostics), write.NowMS, write.NowMS},
 		},
 	)
 	if err := requireMultiDiscChange(result, err, "accept attachment"); err != nil {
@@ -298,38 +294,30 @@ func (scope multiDiscAttachmentCommitScope) insertValidation(
 		return fmt.Errorf("register multi-disc canonical playlist: %w", err)
 	}
 
-	inputDigest := libraryservice.PrepublishDigest(libraryservice.PrepublishDigestInput{
-		SchemaVersion: 1, SourceSnapshotID: write.SourceSnapshotID,
-		SourceManifestDigest: write.ResultManifestDigest, ContentKind: multidisc.ContentKind,
-		TargetPlatformInstanceID: write.Input.PlatformInstanceID, ProviderID: write.Input.ProviderID,
-		TargetID: write.Input.TargetID, ContentPolicyDigest: write.Input.ContentPolicyDigest,
-		DependencySnapshot: json.RawMessage(write.Validation.DependencySnapshotJSON),
-		Status:             write.Validation.Status, CompatibilityCode: write.Validation.CompatibilityCode,
-	})
-	if inputDigest == "" {
-		return libraryservice.ErrInvalid
+	analysis,
+		err := libraryservice.ContentAnalysisJSON(
+		write.Validation.Status, write.Validation.CompatibilityCode, write.Validation.DependencySnapshotJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("save multi-disc content analysis: %w", err)
 	}
-	if _, err := recordstore.CreateImportItemCoreValidations(ctx, scope.transaction, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
-`, write.ValidationID, write.Input.ImportItemID, write.Input.PlatformInstanceID,
-		write.Input.PlatformVersion, write.Input.CoreID, write.Input.ProviderID, write.Input.TargetID,
-		write.ResultManifestDigest, write.SourceSnapshotID, inputDigest, write.Validation.Status,
-		write.Validation.CompatibilityCode, write.Validation.DependencySnapshotJSON, write.NowMS); err != nil {
-		return fmt.Errorf("insert multi-disc validation: %w", err)
+	if _, err := scope.transaction.ExecContext(ctx, `
+UPDATE import_items SET content_analysis_json=? WHERE id=?`, analysis, write.Input.ImportItemID); err != nil {
+		return fmt.Errorf("save multi-disc analysis: %w", err)
 	}
 	validationFiles := append([]libraryservice.PreparedValidationFile(nil), write.Validation.Files...)
 	validationFiles = append(validationFiles, libraryservice.PreparedValidationFile{
 		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", FileRecord: canonicalFileRecord, SortOrder: 0,
 	})
 	for _, file := range validationFiles {
-		if _, err := recordstore.InsertRows(ctx, scope.transaction, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
-sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
-`, write.ValidationID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, write.NowMS); err != nil {
+		if file.Role == "BIOS_BUNDLE" || file.Role == "PARENT" {
+			continue
+		}
+		if _, err := recordstore.InsertRows(ctx, scope.transaction, "import_item_runtime_files", `
+INSERT INTO import_item_runtime_files(import_item_id,role,logical_name,file_record,
+sort_order,created_at_ms) VALUES(?,?,?,?,?,?) ON CONFLICT(import_item_id,role,logical_name) DO UPDATE
+SET file_record=excluded.file_record,sort_order=excluded.sort_order
+`, write.Input.ImportItemID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, write.NowMS); err != nil {
 			return fmt.Errorf("insert multi-disc validation file: %w", err)
 		}
 	}
@@ -404,7 +392,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		write.JobID,
 		write.Input.ImportItemID,
 
-		fmt.Sprintf(`{"validationId":%q,"status":%q}`, write.ValidationID, write.Validation.Status),
+		fmt.Sprintf(`{"status":%q}`, write.Validation.Status),
 		write.NowMS,
 
 		write.JobID,

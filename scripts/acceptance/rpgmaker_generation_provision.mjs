@@ -304,7 +304,7 @@ async function trialAndPublish(context, client, review) {
       generation: review.rpgMaker.generation, evidenceGeneration: review.rpgMaker.evidenceGeneration,
       evidenceConfidence: review.rpgMaker.evidenceConfidence,
       effectiveSourceSnapshotId: review.effectiveSourceSnapshotId, projectFingerprint: review.sourceManifest.filesDigest,
-      dependencySnapshotSha256: createHash("sha256").update(JSON.stringify(review.validation.dependencySnapshot)).digest("hex"),
+      dependencySnapshotSha256: createHash("sha256").update(JSON.stringify(review.readiness.dependencySnapshot)).digest("hex"),
     },
     checkpointRoundTrip, frameProgress: {original: originalFrames, restored: restoredFrames}, audio,
     startedAtMs, finishedAtMs: Date.now(),

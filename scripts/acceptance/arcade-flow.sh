@@ -217,11 +217,11 @@ patched_review="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}"
 review_detail="$(curl --fail --silent --show-error "${common[@]}" "$origin/api/v1/admin/reviews/$item_id")"
 [[ "$(jq -r .version <<<"$review_detail")" == "$(jq -r .version <<<"$patched_review")" ]]
 printf '%s\n' "$review_detail" >"$evidence/review-detail.json"
-dat_version_id="$(jq -er '.validation.dependencySnapshot.datVersionId' <<<"$review_detail")"
+dat_version_id="$(jq -er '.readiness.dependencySnapshot.datVersionId' <<<"$review_detail")"
 if [[ "$dependency_mode" == "mame" ]]; then
   jq -e --arg datVersionId "$dat_version_id" '
-    .validation
-    | select(.status == "READY" and .current == true)
+    .readiness
+    | select(.status == "READY")
     | .dependencySnapshot
     | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | ([.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")] | length == 1)
@@ -229,8 +229,8 @@ if [[ "$dependency_mode" == "mame" ]]; then
   ' <<<"$review_detail" >/dev/null
 elif [[ "$dependency_mode" == "cps2-parent" ]]; then
   jq -e --arg datVersionId "$dat_version_id" '
-    .validation
-    | select(.status == "READY" and .current == true)
+    .readiness
+    | select(.status == "READY")
     | .dependencySnapshot
     | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | ([.dependencies[] | select(.kind == "PARENT" and .machine == "spf2t" and .state == "SATISFIED_EXTERNAL")] | length == 1)
@@ -238,8 +238,8 @@ elif [[ "$dependency_mode" == "cps2-parent" ]]; then
   ' <<<"$review_detail" >/dev/null
 else
   jq -e --arg datVersionId "$dat_version_id" '
-    .validation
-    | select(.status == "READY" and .current == true)
+    .readiness
+    | select(.status == "READY")
     | .dependencySnapshot
     | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | select(.dependencies | length == 0)

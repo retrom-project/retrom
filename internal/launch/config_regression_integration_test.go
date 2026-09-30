@@ -28,7 +28,7 @@ func configDraftFetch(t *testing.T, fixture reviewCheckpointFixture, created Cre
 
 func configDraftSourceTable(preview bool) string {
 	if preview {
-		return "review_preview_sessions"
+		return "runtime_preview_sessions"
 	}
 	return "launch_sessions"
 }

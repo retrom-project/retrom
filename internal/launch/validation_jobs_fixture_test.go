@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	variantrepository "retrom/internal/persistence/gamevariant"
-	gamevariant "retrom/internal/service/gamevariant"
+	variantcomposition "retrom/internal/composition/gamevariant"
 )
 
 func (service *Service) ensureVariant(
@@ -18,7 +17,8 @@ func (service *Service) ensureVariant(
 	if launchWhenReady {
 		return service.Create(ctx, profileID, request)
 	}
-	variants := gamevariant.New(variantrepository.New(service.database), service.sources(), service.now, nil)
+	variants := variantcomposition.New(service.database, service.sources(), service.now, service.blobs)
+	defer variants.Close()
 	result, err := variants.Ensure(ctx, request.GameID, requestedCore)
 	if err != nil {
 		return Created{}, fmt.Errorf("ensure variant: %w", err)

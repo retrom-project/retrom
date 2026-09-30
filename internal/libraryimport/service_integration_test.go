@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+
 	cleanupcomposition "retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 
@@ -346,15 +349,14 @@ WHERE job.id=?
 	crossPlatform := testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm")
 	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
 	testassert.Truef(t, errors.Is(err, ErrReimportRequiredPlatformChange), "cross-platform draft change error = %v", err)
-	var oldValidationID, importConfigSnapshot string
+	var importConfigSnapshot string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT d.selected_validation_id,
-j.config_snapshot_json
+SELECT j.config_snapshot_json
 FROM import_items d
 JOIN import_items i ON i.id=d.id
 JOIN import_jobs j ON j.id=i.import_job_id
 WHERE d.id=?
-`, itemID).Scan(&oldValidationID, &importConfigSnapshot); err != nil {
+`, itemID).Scan(&importConfigSnapshot); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := recordstore.UpdatePlatformInstances(ctx, database.SQL, recordstore.Update{
@@ -368,9 +370,6 @@ updated_at_ms=updated_at_ms+1
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if current, err := importer.ReviewValidationCurrent(ctx, oldValidationID); err != nil || !current {
-		t.Fatalf("folder presentation change invalidated review: current=%v, error=%v", current, err)
-	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"title":"Sudoku"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
@@ -378,19 +377,17 @@ updated_at_ms=updated_at_ms+1
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return refreshed.Version != 4 }), "refresh config validation = %#v, error=%v",
 		refreshed, err)
-	var refreshedValidationID string
 	var refreshedPlatformVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT d.selected_validation_id,
-v.platform_instance_version
+SELECT v.platform_instance_version
 FROM import_items d
-JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+JOIN (`+contentquery.CurrentContentSQL+`) v ON v.import_item_id=d.id
 WHERE d.id=?
-	`, itemID).Scan(&refreshedValidationID, &refreshedPlatformVersion); err != nil ||
-		refreshedValidationID != oldValidationID || refreshedPlatformVersion != 1 ||
+	`, itemID).Scan(&refreshedPlatformVersion); err != nil ||
+		refreshedPlatformVersion != 2 ||
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
-		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID,
-			refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
+		t.Fatalf("current platform version=%d frozen import config=%s error=%v",
+			refreshedPlatformVersion, importConfigSnapshot, err)
 	}
 	var sourceFileRecord string
 	if err := dbapi.QueryRowContext(ctx, database.SQL,
@@ -427,26 +424,14 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return biosRefreshed.Version != 5 }), "refresh BIOS validation = %#v, error=%v",
 		biosRefreshed, err)
-	var biosValidationID, biosSnapshotJSON, validationBIOSFileRecord string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT d.selected_validation_id,v.dependency_snapshot_json,f.file_record
-FROM import_items d
-JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-JOIN import_item_validation_files f ON f.import_item_core_validation_id=v.id
-AND f.role='BIOS_BUNDLE' AND f.logical_name='gba_bios.bin'
-WHERE d.id=?
-`, itemID).Scan(&biosValidationID, &biosSnapshotJSON, &validationBIOSFileRecord); err != nil {
+	currentRuntime, err := librarypersistence.ReadReviewRuntime(ctx, database.SQL, itemID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	biosSnapshot, err := corevalidation.ParseSnapshot(biosSnapshotJSON)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
-		func() bool { return biosValidationID == refreshedValidationID },
-		func() bool { return validationBIOSFileRecord != sourceFileRecord },
-		func() bool { return len(biosSnapshot.BIOS) != 1 },
-		func() bool { return biosSnapshot.BIOS[0].InstallationID == nil },
-		func() bool { return *biosSnapshot.BIOS[0].InstallationID != biosInstallationID }),
-		"refreshed BIOS validation = %s snapshot=%s blob=%s error=%v", biosValidationID,
-		biosSnapshotJSON, validationBIOSFileRecord, err)
+	biosSnapshot, err := corevalidation.ParseSnapshot(currentRuntime.DependencyJSON)
+	if err != nil || len(biosSnapshot.BIOS) != 1 || biosSnapshot.BIOS[0].InstallationID == nil || *biosSnapshot.BIOS[0].InstallationID != biosInstallationID || biosSnapshot.BIOS[0].FileRecord == nil || *biosSnapshot.BIOS[0].FileRecord != sourceFileRecord {
+		t.Fatalf("current BIOS facts = %s error=%v", currentRuntime.DependencyJSON, err)
+	}
 	coverMetadata, err := blobs.Copy(ctx, sourceFileRecord)
 	testassert.False(t, err != nil, err)
 	coverFileRecord, err := filestore.FileRecord(coverMetadata, "image/png")

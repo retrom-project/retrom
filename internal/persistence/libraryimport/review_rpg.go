@@ -10,7 +10,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func (records *ReviewValidation) Profile(
+func (records *ReviewInputs) Profile(
 	ctx context.Context,
 	draftID string,
 ) (libraryservice.RPGReviewProfile, bool, error) {

@@ -40,7 +40,7 @@ candidate.expires_at_ms<=launch.hard_expires_at_ms
       AND candidate.revoked_at_ms IS NULL
   )
   OR candidate.preview_id IS NOT NULL AND EXISTS(
-    SELECT 1 FROM review_preview_sessions preview
+    SELECT 1 FROM runtime_preview_sessions preview
     JOIN users actor ON actor.id=preview.actor_user_id
     JOIN isolated_runtime_bootstrap_tickets ticket ON ticket.preview_id=preview.id
     WHERE preview.id=candidate.preview_id AND actor.profile_id=candidate.profile_id

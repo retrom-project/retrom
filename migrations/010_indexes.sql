@@ -175,18 +175,17 @@ ON review_multidisc_attachments(requested_by_user_id,created_at_ms,id);
 CREATE INDEX review_multidisc_attachment_history
 ON review_multidisc_attachments(import_item_id,created_at_ms,id);
 
-CREATE INDEX review_preview_files_blob ON review_preview_files(file_record);
+CREATE INDEX runtime_preview_files_blob ON runtime_preview_files(file_record);
 
-CREATE INDEX review_preview_sessions_actor ON review_preview_sessions(actor_user_id);
+CREATE INDEX runtime_preview_sessions_actor ON runtime_preview_sessions(actor_user_id);
 
-CREATE INDEX review_preview_sessions_item
-ON review_preview_sessions(import_item_id,created_at_ms DESC,id DESC);
+CREATE INDEX review_preview_bindings_item
+ON review_preview_bindings(import_item_id,preview_session_id);
 
-CREATE INDEX review_preview_sessions_source ON review_preview_sessions(source_snapshot_id);
+CREATE INDEX review_preview_bindings_source ON review_preview_bindings(source_snapshot_id);
 
-CREATE INDEX review_preview_sessions_target ON review_preview_sessions(target_platform_instance_id);
+CREATE INDEX runtime_preview_sessions_target ON runtime_preview_sessions(target_platform_instance_id);
 
-CREATE INDEX review_preview_sessions_validation ON review_preview_sessions(validation_id);
 
 CREATE INDEX review_queue ON import_items(review_updated_at_ms, id) WHERE state='REVIEW_PENDING';
 
@@ -196,7 +195,6 @@ CREATE INDEX review_runtime_screenshots_preview ON review_runtime_screenshots(pr
 
 CREATE INDEX review_runtime_screenshots_source ON review_runtime_screenshots(source_snapshot_id);
 
-CREATE INDEX review_runtime_screenshots_validation ON review_runtime_screenshots(validation_id);
 
 CREATE INDEX review_uploaded_assets_item ON review_uploaded_assets(import_item_id, created_at_ms, id);
 
@@ -238,3 +236,8 @@ CREATE INDEX users_list_created ON users(created_at_ms DESC,id DESC);
 CREATE INDEX users_list_last_login ON users(last_login_at_ms DESC,id DESC);
 
 CREATE INDEX users_list_username ON users(username,id);
+
+-- Imported archive observations remain addressable after staging changes their path.
+CREATE INDEX idx_archive_entries_content_digest
+ON archive_entries(
+ CASE WHEN json_valid(archive_file_record) THEN json_extract(archive_file_record,'$.sha256') END,ordinal);

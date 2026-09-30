@@ -62,7 +62,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	return reviewCheckpointFixture{
 		files:    blobs,
 		database: database.SQL, now: &now, itemID: source.itemID,
-		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
+		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock).WithFileStore(blobs),
 		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
 	}
 }
@@ -215,7 +215,7 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 	}
 	var remaining int
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
-SELECT count(*) FROM review_preview_sessions WHERE id IN (?,?)
+SELECT count(*) FROM runtime_preview_sessions WHERE id IN (?,?)
  AND (state<>'EXPIRED' OR checkpoint_payload_file_record IS NOT NULL OR restore_payload_file_record IS
 NOT NULL)
 `, original.PreviewID, restored.PreviewID).Scan(&remaining); err != nil || remaining != 0 {
@@ -250,9 +250,9 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	var previews, productSaves int
 	var payloadState string
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
-SELECT (SELECT count(*) FROM review_preview_sessions WHERE id=?),
+SELECT (SELECT count(*) FROM runtime_preview_sessions WHERE id=?),
  (SELECT count(*) FROM save_states),payload_state FROM import_items WHERE id=?`,
-		fixture.itemID, fixture.itemID).Scan(&previews, &productSaves, &payloadState); err != nil {
+		preview.PreviewID, fixture.itemID).Scan(&previews, &productSaves, &payloadState); err != nil {
 		t.Fatal(err)
 	}
 	if previews != 0 || productSaves != 0 || payloadState != "RELEASED" {

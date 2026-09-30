@@ -9,24 +9,28 @@ import (
 )
 
 func readReviewValidation(ctx context.Context, scope ReviewReadScope, head ReviewHead, result *ReviewDetail) error {
-	current, err := projectReviewValidation(ctx, scope.Validation, head, result)
-	if err != nil {
-		return err
-	}
-	if current && head.ValidationID != nil {
-		screenshot, found, err := scope.Media.RuntimeScreenshot(ctx, head.ItemID, *head.ValidationID)
+	var dependency json.RawMessage
+	var err error
+	if head.DependencyJSON != nil {
+		dependency, err = reviewDocument(*head.DependencyJSON)
 		if err != nil {
-			return fmt.Errorf("read review runtime screenshot: %w", err)
-		}
-		if found {
-			result.RuntimeScreenshot = &screenshot
+			return err
 		}
 	}
-	if result.MultiDisc != nil && head.ValidationID != nil && !current {
-		result.MultiDisc.CanAttachMissingDiscs = false
+	result.Readiness = &ReviewReadinessView{
+		Status:            optionalTextValue(head.ValidationStatus),
+		CompatibilityCode: optionalTextValue(head.CompatibilityCode), DependencySnapshot: dependency,
 	}
-	result.CanApprove = ReviewApproval(head.ContentKind, result.CanApprove, result.RuntimeScreenshot != nil)
-	profile, found, err := scope.Validation.Profile(ctx, head.DraftID)
+	screenshot, found, err := scope.Media.RuntimeScreenshot(ctx, head.ItemID)
+	if err != nil {
+		return fmt.Errorf("read review runtime screenshot: %w", err)
+	}
+	if found {
+		result.RuntimeScreenshot = &screenshot
+	}
+	ready := optionalTextValue(head.ValidationStatus) == "READY"
+	result.CanApprove = head.Policy.Supports(head.ContentKind) && ReviewApproval(head.ContentKind, ready, found)
+	profile, found, err := scope.Profiles.Profile(ctx, head.DraftID)
 	if err != nil {
 		return fmt.Errorf("read review RPG profile: %w", err)
 	}
@@ -34,37 +38,6 @@ func readReviewValidation(ctx context.Context, scope ReviewReadScope, head Revie
 		result.RPGMaker, err = ProjectReviewRPGMaker(profile)
 	}
 	return err
-}
-
-func projectReviewValidation(
-	ctx context.Context,
-	reader ReviewValidationReader,
-	head ReviewHead,
-	result *ReviewDetail,
-) (bool, error) {
-	if head.ValidationID == nil {
-		return false, nil
-	}
-	current, err := NewReviewValidation(reader).Current(ctx, *head.ValidationID)
-	if err != nil {
-		return false, err
-	}
-	var dependency json.RawMessage
-	if head.DependencyJSON != nil {
-		dependency, err = reviewDocument(*head.DependencyJSON)
-		if err != nil {
-			return false, err
-		}
-	}
-	ready := optionalTextValue(head.ValidationStatus) == "READY"
-	result.Validation = &ReviewValidationView{
-		ID: *head.ValidationID, Status: optionalTextValue(head.ValidationStatus),
-		Current:            current && ready,
-		CompatibilityCode:  optionalTextValue(head.CompatibilityCode),
-		DependencySnapshot: dependency,
-	}
-	result.CanApprove = head.SelectedValidationID != nil && current && ready && head.Policy.Supports(head.ContentKind)
-	return current, nil
 }
 
 func ProjectReviewRPGMaker(profile RPGReviewProfile) (*ReviewRPGMaker, error) {

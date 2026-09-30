@@ -35,7 +35,6 @@ type Dependencies struct {
 	Retries             *libraryservice.ImportItemRetries
 	Cancellations       *libraryservice.ImportBatchCancellations
 	Deduplicator        *libraryservice.ReviewDeduplicator
-	PreviewValidations  *libraryservice.ReviewPreviewValidations
 	AttachmentSources   *libraryservice.MultiDiscAttachmentSources
 	AttachmentCommits   *libraryservice.MultiDiscAttachmentCommits
 	AttachmentTerminals *libraryservice.MultiDiscAttachmentTerminals
@@ -66,7 +65,6 @@ type Service struct {
 	retries                *libraryservice.ImportItemRetries
 	cancellations          *libraryservice.ImportBatchCancellations
 	deduplicator           *libraryservice.ReviewDeduplicator
-	previewValidations     *libraryservice.ReviewPreviewValidations
 	attachmentSources      *libraryservice.MultiDiscAttachmentSources
 	attachmentCommits      *libraryservice.MultiDiscAttachmentCommits
 	attachmentTerminals    *libraryservice.MultiDiscAttachmentTerminals
@@ -92,7 +90,7 @@ func New(deps Dependencies, options Options) *Service {
 		preparation:            deps.Preparation, creations: deps.Creations, reconfigurations: deps.Reconfigurations,
 		approvals: deps.Approvals, reviewDrafts: deps.Drafts, discards: deps.Discards,
 		batchDiscards: deps.BatchDiscards, retries: deps.Retries, cancellations: deps.Cancellations,
-		deduplicator: deps.Deduplicator, previewValidations: deps.PreviewValidations,
+		deduplicator:      deps.Deduplicator,
 		attachmentSources: deps.AttachmentSources, attachmentCommits: deps.AttachmentCommits,
 		attachmentTerminals: deps.AttachmentTerminals, executions: deps.Executions, worker: deps.Worker,
 		admissions: deps.Admissions,
@@ -104,8 +102,8 @@ func (deps Dependencies) validate() {
 		deps.AttachmentCreator == nil,
 		deps.Database == nil, deps.Files == nil, deps.Tags == nil, deps.Preparation == nil,
 		deps.Creations == nil, deps.Reconfigurations == nil, deps.Approvals == nil, deps.Drafts == nil,
+		deps.Deduplicator == nil, deps.AttachmentSources == nil,
 		deps.Discards == nil, deps.BatchDiscards == nil, deps.Retries == nil, deps.Cancellations == nil,
-		deps.Deduplicator == nil, deps.PreviewValidations == nil, deps.AttachmentSources == nil,
 		deps.AttachmentCommits == nil, deps.AttachmentTerminals == nil, deps.Executions == nil,
 		deps.Worker == nil, deps.Admissions == nil,
 	} {

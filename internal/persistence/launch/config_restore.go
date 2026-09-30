@@ -50,7 +50,7 @@ func configPreviewRestore(ctx context.Context, executor dbapi.Executor, id strin
 	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT preview.restore_payload_file_record,preview.restore_checkpoint_format,json_extract(blob.value,
 '$.sha256'),json_extract(blob.value, '$.size_bytes')
-FROM review_preview_sessions preview LEFT JOIN
+FROM runtime_preview_sessions preview LEFT JOIN
 json_each(json_array(preview.restore_payload_file_record)) blob ON blob.value IS NOT NULL
 WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
 	if err != nil {

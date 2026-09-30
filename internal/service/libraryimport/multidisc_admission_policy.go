@@ -31,9 +31,7 @@ func validateMultiDiscAdmission(value MultiDiscAttachmentAdmission, version int6
 	if value.DraftVersion != version {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorVersion, ErrInvalid)
 	}
-	current := value.ValidationStatus == "BLOCKED" && value.CompatibilityCode == "MULTI_DISC_FILE_MISSING" &&
-		value.ValidationCoreID == value.CoreID && value.ValidationProviderID == value.ProviderID &&
-		value.ValidationTargetID == value.TargetID
+	current := value.ValidationStatus == "BLOCKED" && value.CompatibilityCode == "MULTI_DISC_FILE_MISSING"
 	if !current {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, ErrInvalid)
 	}

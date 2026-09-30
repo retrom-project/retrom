@@ -21,7 +21,7 @@ func (repository *ReviewDetail) WithRead(ctx context.Context, work func(librarys
 	defer dbapi.Rollback(transaction)
 	scope := libraryservice.ReviewReadScope{
 		Drafts: ReviewDrafts{transaction}, Media: ReviewMedia{transaction}, Sources: ReviewSources{transaction},
-		Validation:   BindReviewValidation(transaction),
+		Profiles:     BindReviewInputs(transaction),
 		Duplicates:   BindContentDuplicates(transaction),
 		Dependencies: BindReviewDependencies(transaction),
 

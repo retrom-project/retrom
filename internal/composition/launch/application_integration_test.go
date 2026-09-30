@@ -21,7 +21,7 @@ import (
 
 func TestAssemblyServesRealPreviewAndProduct(t *testing.T) {
 	fixture := newAssemblyFixture(t)
-	preview, err := fixture.service.CreateReviewPreview(t.Context(), application.ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: assemblyActor, IdempotencyKey: "assembly-preview"})
+	preview, err := fixture.previews.Create(t.Context(), application.ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: assemblyActor, IdempotencyKey: "assembly-preview"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 		}
 		return nil
 	}})
-	variants := variantcomposition.New(fault, fixture.source, fixture.now)
+	variants := variantcomposition.New(fault, fixture.source, fixture.now, nil)
 	service := composition.New(fault, fixture.source, "http://localhost:3000", fixture.now, variants.Dispatch)
 	t.Cleanup(variants.Close)
 	core := "nestopia"

@@ -5,43 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/core/scummvm"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Validation(ctx context.Context, change libraryservice.CreationValidation) error {
-	target := change.Target
-	result, err := recordstore.CreateImportItemCoreValidations(
-		ctx,
-		records.transaction,
-		`
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
- platform_instance_version,core_id,
-provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
- prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,
-?,?,?,?,?,?,?,?,
- ?,?)`,
-		change.ID,
-		change.ItemID,
-		target.ID,
-		target.Version,
-		target.CoreID,
-		target.ProviderID,
-		target.TargetID,
-		creationNullable(change.DATID),
-		creationNullable(change.DefaultDOS),
-		change.ManifestDigest,
-		change.SnapshotID,
-		change.InputDigest,
-		change.Status,
-		change.Code,
-		change.DependencyJSON,
-		change.NowMS,
-	)
-	if err := creationMutation(result, err, "insert creation validation", 1); err != nil {
-		return err
+	if snapshot, err := scummvm.ParseSnapshot(change.DependencyJSON); err == nil {
+		profile, err := profilemodel.Encode(profilemodel.Review, profilemodel.ScummVMProject, &snapshot)
+		if err != nil {
+			return fmt.Errorf("save creation observations: %w", err)
+		}
+		_, err = records.transaction.ExecContext(ctx, `
+UPDATE import_items SET review_profile_json=? WHERE id=?`, profile, change.ItemID)
+		if err != nil {
+			return fmt.Errorf("save creation observations: %w", err)
+		}
+		return nil
+	}
+	analysis, err := libraryservice.ContentAnalysisJSON(change.Status, change.Code, change.DependencyJSON)
+	if err != nil {
+		return fmt.Errorf("save creation observations: %w", err)
+	}
+	result, err := records.transaction.ExecContext(ctx, `
+UPDATE import_items SET content_analysis_json=? WHERE id=?`, analysis, change.ItemID)
+	if err := creationMutation(result, err, "save creation content analysis", 1); err != nil {
+		return fmt.Errorf("save creation observations: %w", err)
 	}
 	for _, entry := range change.DOSEntries {
 		result, err = records.transaction.ExecContext(
@@ -60,17 +50,20 @@ VALUES(?,?,?,?,?,1,?,?)`,
 			change.NowMS,
 		)
 		if err := creationMutation(result, err, "insert creation DOS entry", 1); err != nil {
-			return err
+			return fmt.Errorf("save creation observations: %w", err)
 		}
 	}
 	for _, file := range change.Files {
-		result, err = recordstore.InsertRows(ctx, records.transaction, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,
+		if file.Role == "BIOS_BUNDLE" || file.Role == "PARENT" {
+			continue
+		}
+		result, err = recordstore.InsertRows(ctx, records.transaction, "import_item_runtime_files", `
+INSERT INTO import_item_runtime_files(import_item_id,role,logical_name,
 file_record,
  sort_order,created_at_ms)
-VALUES(?,?,?,?,?,?)`, change.ID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, change.NowMS)
+VALUES(?,?,?,?,?,?)`, change.ItemID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, change.NowMS)
 		if err := creationMutation(result, err, "insert creation validation file", 1); err != nil {
-			return err
+			return fmt.Errorf("save creation observations: %w", err)
 		}
 	}
 	return nil
@@ -81,12 +74,12 @@ func (records creationRecords) Draft(ctx context.Context, change libraryservice.
 		return libraryservice.ErrInvalid
 	}
 	result, err := recordstore.UpdateReviewItems(ctx, records.transaction, recordstore.Update{
-		Set: `search_text=?,target_platform_instance_id=?,selected_validation_id=?,
+		Set: `search_text=?,target_platform_instance_id=?,
 effective_source_snapshot_id=?,default_dos_entry=?,metadata_json=?,review_version=1,
 review_created_at_ms=?,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{Where: `id=? AND review_version=0`, Args: []any{change.ItemID}},
 		Values: []any{
-			change.SearchText, change.TargetID, change.SelectedValidationID,
+			change.SearchText, change.TargetID,
 			change.SnapshotID, change.DefaultDOS, change.MetadataJSON, change.NowMS, change.NowMS,
 		},
 	})
@@ -140,7 +133,7 @@ VALUES(?,?,?,?,?,?)`,
 			event.NowMS,
 		)
 		if err := creationMutation(result, err, "insert creation event", 1); err != nil {
-			return err
+			return fmt.Errorf("save creation observations: %w", err)
 		}
 	}
 	return nil

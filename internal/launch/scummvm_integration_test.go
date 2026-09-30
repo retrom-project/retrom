@@ -40,8 +40,8 @@ func TestScummVMReviewSelectionPublishesExactGameAndCompleteTree(t *testing.T) {
 		t.Fatal("stale draft accepted")
 	}
 	nextID, next := fixture.snapshot(t)
-	if nextID == firstID || next.SelectedCandidateID != selected.ID {
-		t.Fatalf("selection not immutable: %s %s %+v", firstID, nextID, next)
+	if nextID != firstID || next.SelectedCandidateID != selected.ID {
+		t.Fatalf("current selection not persisted: %s %s %+v", firstID, nextID, next)
 	}
 	request.IdempotencyKey = "scummvm-preview-2"
 	preview, err := fixture.service.CreateReviewPreview(ctx, request)

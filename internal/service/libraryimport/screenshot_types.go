@@ -13,14 +13,14 @@ var (
 )
 
 type ReviewScreenshot struct {
-	ID, ImportItemID, ValidationID  string
+	ID, ImportItemID                string
 	ProviderID, TargetID            string
 	WidthPX, HeightPX, CapturedAtMS int64
 }
 
 type ScreenshotSource struct {
 	PreviewID, ItemID, SourceSnapshotID, PlatformInstanceID string
-	ValidationID, ProviderID, TargetID                      string
+	ProviderID, TargetID                                    string
 	CredentialHash                                          []byte
 	State                                                   string
 	HardExpiresAtMS                                         int64

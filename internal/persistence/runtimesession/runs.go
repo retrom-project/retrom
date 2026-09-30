@@ -16,7 +16,7 @@ func (r *Repository) Runs(ctx context.Context, profile, id string, now int64) ([
  WHERE l.profile_id=? AND (?='' OR l.id=?) AND l.state IN ('CREATED','ACTIVE')
  AND l.hard_expires_at_ms>? AND (l.state='ACTIVE' OR l.bootstrap_expires_at_ms>?) AND g.deleted_at_ms IS NULL
  UNION ALL
- SELECT p.id,p.created_at_ms FROM review_preview_sessions p JOIN users u ON u.id=p.actor_user_id
+ SELECT p.id,p.created_at_ms FROM runtime_preview_sessions p JOIN users u ON u.id=p.actor_user_id
  WHERE u.profile_id=? AND (?='' OR p.id=?) AND p.state IN ('CREATED','ACTIVE')
  AND p.hard_expires_at_ms>? AND (p.state='ACTIVE' OR p.bootstrap_expires_at_ms>?)) ORDER BY created_at_ms DESC,id DESC`,
 		profile, id, id, now, now, profile, id, id, now, now)
@@ -81,7 +81,7 @@ func (r *Repository) ExtendRun(ctx context.Context, profile, id string, now, exp
 
 func (r *Repository) FinishablePreview(ctx context.Context, profile, id string, now int64) (bool, error) {
 	var valid bool
-	err := dbapi.QueryRowContext(ctx, r.database, `SELECT EXISTS(SELECT 1 FROM review_preview_sessions p
+	err := dbapi.QueryRowContext(ctx, r.database, `SELECT EXISTS(SELECT 1 FROM runtime_preview_sessions p
  JOIN users u ON u.id=p.actor_user_id WHERE p.id=? AND u.profile_id=? AND p.state IN ('CREATED','ACTIVE','FINISHED')
  AND p.hard_expires_at_ms>?)`, id, profile, now).Scan(&valid)
 	if err != nil {
