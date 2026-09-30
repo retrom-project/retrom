@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+	reviewrepo "retrom/internal/persistence/libraryimport"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
@@ -15,6 +18,25 @@ func (service *Queries) Items(
 	ctx context.Context,
 	filter application.ItemQuery,
 ) ([]application.Item, error) {
+	if service.readDB == nil {
+		return service.items(ctx, filter)
+	}
+	tx, err := service.readDB.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("begin source item read: %w", err)
+	}
+	defer dbapi.Rollback(tx)
+	result, err := (&Queries{database: tx}).items(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("read source item facts: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit source item read: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Queries) items(ctx context.Context, filter application.ItemQuery) ([]application.Item, error) {
 	importID, query, outcome, warning := filter.ImportID, filter.Text, filter.Outcome, filter.Warning
 	collectionID, afterTitle, afterID, limit := filter.CollectionID, filter.AfterTitle, filter.AfterID, filter.Limit
 	if limit < 1 || limit > 51 {
@@ -46,15 +68,8 @@ FROM source_import_items item
 LEFT JOIN jobs release_job ON release_job.id=item.payload_release_job_id
 LEFT JOIN source_import_collections collection ON collection.id=item.collection_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
-LEFT JOIN import_items draft ON draft.id=item.library_import_item_id
-LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
- draft.selected_validation_id,
- (SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=item.library_import_item_id
-  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
-)
+LEFT JOIN import_items draft ON draft.id=item.library_import_item_id AND item.execution_state='REVIEW_PENDING'
+LEFT JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=draft.id
 LEFT JOIN cores core ON core.id=validation.core_id
 WHERE item.import_id=?
 AND (?='' OR instr(lower(item.title),lower(?))>0)
@@ -104,6 +119,31 @@ LIMIT ?`,
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("sourceimport/iterate items: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close source item read: %w", err)
+	}
+	for index := range result {
+		item := &result[index]
+		if item.ReviewItemID == nil || item.ExecutionState != "REVIEW_PENDING" {
+			continue
+		}
+		runtime, err := reviewrepo.ReadReviewRuntime(ctx, service.database, *item.ReviewItemID)
+		if err != nil {
+			return nil, fmt.Errorf("read source item facts: %w", err)
+		}
+		text := func(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
+		name := runtime.CoreID
+		if item.RuntimeCheck != nil {
+			name = item.RuntimeCheck.CoreName
+		}
+		item.RuntimeCheck,
+			err = projectRuntimeCheck(
+			text(runtime.Status), text(runtime.Code), text(runtime.CoreID), text(name), text(runtime.DependencyJSON),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("read source item facts: %w", err)
+		}
 	}
 	return result, nil
 }

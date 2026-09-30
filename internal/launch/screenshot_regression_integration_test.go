@@ -107,7 +107,7 @@ func TestScreenshotRechecksDirectoryAfterImageRead(t *testing.T) {
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
 	reader := &screenshotHookReader{reader: bytes.NewReader(contents), before: func() {
 		mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET enabled=0 WHERE id=(SELECT target_platform_instance_id FROM
-review_preview_sessions WHERE id=?)`, preview.PreviewID)
+runtime_preview_sessions WHERE id=?)`, preview.PreviewID)
 	}}
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, reader)
 	if !errors.Is(err, reviewservice.ErrPreviewCredential) || result.ID != "" {
@@ -122,7 +122,7 @@ review_preview_sessions WHERE id=?)`, preview.PreviewID)
 func TestScreenshotCaptureTimestampCannotExceedAuthorizedLifetime(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	var hardEnd int64
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM runtime_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0

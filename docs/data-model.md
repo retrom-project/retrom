@@ -30,7 +30,7 @@ RuntimeProvider
   └─ RuntimeTarget
        ├─ RuntimeTargetBinding ── Product Core / Platform / content kind
        ├─ BIOSRequirement / DatVersion
-       ├─ ImportValidation / GameVariant
+       ├─ ReviewCurrentFacts / GameVariant
        └─ LaunchSession
 ```
 
@@ -44,9 +44,11 @@ RuntimeProvider
 
 ## 3. Game current state
 
-`games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
+`games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源类别、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
 `game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
+
+Game 不保存指向审核 Item、导入 Job 或刮削 Candidate 的来源引用；来源类别保留为描述，具体操作证据进入 AuditEvent。产品启动、存档、媒体与删除只读取 Game、Variant 和各自运行对象，已完成的导入及审核记录可独立删除。
 
 metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完成后执行一次事务切换，删除旧文件、派生物、运行资源和存档，再写入新当前态。永久删除保留 Game tombstone 与审计，异步释放 payload。
 
@@ -62,7 +64,7 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 ## 5. 导入、审核与刮削
 
-Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；ReviewDraft 只选择与当前来源、目录 Core、Target、DAT、依赖和内容策略完全匹配的 Validation，写事务发现输入变化时直接创建或切换当前选择。历史校验不进入当前 HTTP 投影，Provider Bundle 单独升级不使审核结果失效。
+Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照与审核草稿维持各自 owner、版本、幂等和 payload release 边界。审核只有当前事实：内容观察属于 Item，当前来源、目录 Core、Provider/Target、活动 DAT、BIOS 要求与 active installation 在读取事务内求值，不保存或选择历史 Validation。BIOS 模块负责安装事实，审核模块通过只读端口查询它；安装不触碰审核草稿版本，也不向审核发送业务状态。Provider Bundle 单独升级不使审核结论失效。
 
 `review_arcade_parent_attachments` 与 `review_multidisc_attachments` 只保存业务决定 `PENDING/ACCEPTED/REJECTED/CANCELLED`；排队、租约、尝试次数、execution deadline 与可重试失败均以关联 Job 为唯一事实源。`PENDING` 的部分唯一索引保留每类补传预约，手动 Retry 无需同步另一套业务执行状态。当前 clean schema 不兼容旧 Attachment 执行状态和裸业务输入快照；开发库通过精确 PFB ID 的 `pfb-data-reset` 归档重建，不回填旧数据。
 
@@ -70,25 +72,25 @@ Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照、Validati
 
 Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。
 
-检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用项目资源策略；外部 RTP 声明默认阻断，管理员的显式自包含确认与声明一起写入依赖快照并参与摘要，发布事务重新核对，不以是否打开过 Player 作为就绪条件。
+审核详情、队列、来源结果、批量候选、预览创建和批准共用当前依赖求值。缺失 → 安装 → 移除在下一次读取中分别为 BLOCKED → READY → BLOCKED，不追加校验记录。RPG 的读取和发布共用项目资源策略；外部 RTP 声明默认阻断，管理员的显式自包含确认保存于当前 profile，发布事务重新核对。
 
 运行包安装、选包与运行挂载已退出产品。当前建库基线不再创建 `runtime_asset_pack_definitions`、`runtime_asset_pack_installations`、`runtime_asset_pack_files`、`game_variant_runtime_packs` 和 `review_draft_runtime_pack_selections`，也不接受对应的上传用途、消费类型或后台任务类型。外部 RTP 声明继续由项目校验阻断，管理员只能按自包含确认规则继续发布。
 
-发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
+发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。当前有效的运行截图复制成 Game 自有 SCREENSHOT，标签及内容/运行 profile 写入 Game/Variant；临时预览 checkpoint 不转为产品存档。最终提交同时撤销所有关联 Preview 与隔离凭据、关闭审核媒体授权、清空审核 profile/标签并解除 Source 的工作关联。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
-`import_items.review_profile_json` 保存审核阶段内容类型专属的一对一扩展。三个 profile 字段均为可空 JSON；数据库只校验 JSON 合法、`kind` 是字符串且 `data` 是对象，不把任何具体核心的字段结构写进 schema。当前 RPG Maker 使用 `{"kind":"RPG_MAKER_PROJECT","data":{...}}`；代码按 owner 与 `kind` 映射到对应的 model，并由对应核心校验业务字段。RPG Maker 审核 profile 保存检测代际、证据、项目文件统计与 fingerprint、要求摘要、分析结果、自包含确认、稳定 Provider/Target 和依赖摘要；发布时将内容证据复制到 Game 的 `content_profile_json`，将运行代际及依赖摘要写入 Variant 的 `runtime_profile_json`。`metadata_json` 与 `source_manifest_json` 继续承担各自通用职责；文件、Blob、校验和依赖等一对多实体保持独立。profile 不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物，不能借试运行读取其他来源的 Blob。
+`import_items.review_profile_json` 保存审核阶段内容类型专属的一对一扩展。三个 profile 字段均为可空 JSON；数据库只校验 JSON 合法、`kind` 是字符串且 `data` 是对象，不把任何具体核心的字段结构写进 schema。当前 RPG Maker 使用 `{"kind":"RPG_MAKER_PROJECT","data":{...}}`；代码按 owner 与 `kind` 映射到对应的 model，并由对应核心校验业务字段。RPG Maker 审核 profile 保存检测代际、证据、项目文件统计与 fingerprint、要求摘要、分析结果、自包含确认、稳定 Provider/Target 和依赖摘要；发布时将内容证据复制到 Game 的 `content_profile_json`，将运行代际及依赖摘要写入 Variant 的 `runtime_profile_json`。`metadata_json` 与 `source_manifest_json` 继续承担各自通用职责；文件、Blob、校验和依赖等一对多实体保持独立。profile 不保存运行 gate、位置证明或独立验证决定。所有审核通过中立的 `runtime_preview_sessions` 试运行，`review_preview_bindings` 单向关联 Item/来源快照到 Preview；运行表没有审核或导入外键，使用不透明 scope/revision、冻结的返回路径、Provider/Target、Bundle 和文件授权。来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核 Item 的派生产物，不能借试运行读取其他来源的 Blob。
 
 当前 RPG Maker `data` 字段按 owner 分层：审核字段为 `generation`、`evidenceFamily`、`evidenceGeneration`、`evidenceConfidence`、`engineVersion`、`entryHtmlPath`、`fileCount`、`totalBytes`、`projectFingerprint`、`requirementsSha256`、`analysis`（JSON 对象）、`selfContainedOverride`（0/1）、`providerId`、`targetId` 与 `dependencySnapshotSha256`；Game 只保留证据、文件统计、要求摘要及分析；Variant 只保留 `generation` 与 `dependencySnapshotSha256`。没有适用扩展时整个字段为 SQL `NULL`，不写空对象。新增类型由对应代码定义和校验 `data`，无需新增一对一表或修改这三个字段的数据库约束。
 
-审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
+审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 在写事务前复制 checkpoint 到自己的 `previews/<Preview UUID>/restore/`，提交时重验来源 checkpoint 未变化；恢复输入不跟随原 preview 后续覆盖，也不依赖原 preview 到期后的文件寿命。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；审核完成立即撤销恢复权限；过期或终态清理退休预览自有目录。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 
 `metadata_media_runs` 每个 ScrapeRun 一行，保存媒体顺序冻结时刻、累计收费 bytes、版本与时刻，不复制 Job 状态，也不增加 Blob owner。`scrape_candidate_assets.media_fetch_job_id` 唯一关联下载 Job，`media_fetch_order` 保存冻结顺序，`media_charged_bytes/media_reserved_bytes` 保存资源累计收费和当前预留。可空 Job/顺序字段用于未冻结或手工证据状态，所有新下载必须原子绑定 Job 与输入。进程重启保留排序、预算与 Job 原始 execution 期限；payload 释放删除资产引用后，预算记录不阻碍实际释放。预算与恢复策略见[导入与刮削](./import-and-review.md#7-hasheous-适配器)。
 
 ### ScummVM 检测与选择
 
-`SCUMMVM_PROJECT` 沿用项目来源快照、`PROJECT_FILE`、Validation、ReviewDraft 与当前 Variant，不新增游戏特征库或第二套候选关系表。Validation 的 dependency snapshot 保存 `schemaVersion=1/kind=SCUMMVM`、来源内容摘要、固定检测器上游 commit、完整候选与根目录集合，以及当前 `selectedCandidateId`。候选 ID 由来源摘要和全部有界检测字段计算；客户端不能自行生成或复用另一份来源的 ID。
+`SCUMMVM_PROJECT` 沿用项目来源快照、`PROJECT_FILE`、审核草稿与当前 Variant。`review_profile_json` 的 SCUMMVM_PROJECT 扩展保存检测来源摘要、固定检测器上游 commit、完整候选与根目录，以及当前 selectedCandidateId。候选 ID 由来源摘要和全部有界检测字段计算；客户端不能复用另一份来源的 ID。
 
-选择只产生新的不可变 Validation，并在带版本检查的事务中切换 ReviewDraft 当前校验；原检测结果与历史 Validation 不被覆盖。发布复制所选校验到当前 Game Variant，重新验证保留来源匹配的准确选择，不能以通用 BIOS 空结果覆盖 ScummVM 快照。完整项目树保留全部根目录，所选 root 只是启动输入。ScummVM 没有必需的单 `CONTENT` 文件，不进入单 ROM 的 BIOS 哈希解析。
+ScummVM 选择在带草稿版本检查的事务中更新当前 profile，不生成验证记录。发布复制当前选择到 Game Variant，并复查来源摘要；完整项目树保留全部根目录，所选 root 只是启动输入。ScummVM 不进入单 ROM BIOS 解析。
 
 原生存档格式与槽位属于 Provider payload，数据库只记录公共 checkpoint format/大小/摘要；预览存档继续冻结自己的恢复输入；正式用户存档由 SaveState 持有 Blob，Launch 只绑定存档版本。
 
@@ -116,9 +118,9 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 SourceItem 复制文件、来源归档和 COVER/VIDEO 后先持有自己的引用；Arcade 伴随文件在 `source_import_item_companions` 中按 `(item_id,candidate_item_id)` 唯一保留，直到交接或终态清理。它不依赖伴随来源项是否同时执行。
 
-普通 ImportItem 持有完整来源快照及校验文件。来源媒体归 `import_item_assets`，主键为 `(import_item_id,kind)`，`kind` 只允许 `COVER/VIDEO`，保存 Blob、media type、可空宽高和创建时刻。Source 进入 `REVIEW_PENDING` 的交接事务同时复制媒体引用、完成 metadata/warning 与永久关联、更新聚合并登记独立 Source release Job；任一步失败全部回滚。仅转移引用，不复制独立文件存储字节。
+普通 ImportItem 持有完整来源快照及校验文件。来源媒体归 `import_item_assets`，主键为 `(import_item_id,kind)`，`kind` 只允许 `COVER/VIDEO`，保存 Blob、media type、可空宽高和创建时刻。Source 进入 `REVIEW_PENDING` 的交接事务同时复制媒体引用、完成 metadata/warning 与活动工作关联、更新聚合并登记独立 Source release Job；任一步失败全部回滚。仅转移引用，不复制独立文件存储字节。
 
-审核与发布读取 ImportItem 的文件和媒体，不读取 Source payload。Source 可在审核期间达到 `RELEASED`；来源摘要、绑定与结果仍保留。发布冻结目标 Game UUID 后移动 Item 的 payload 目录；ImportItem 终态清理剩余 staging 目录和审核读取关系。三者的 `payload_release_job_id` 不共用，删除 Game 不回溯清理 Source 或 ImportItem。
+审核与发布读取 ImportItem 的文件和媒体，不读取 Source payload。Source 可在审核期间达到 `RELEASED`；来源摘要与结果仍保留，绑定只维持到审核决定或 Source 终态。发布冻结目标 Game UUID 后移动 Item 的 payload 目录；ImportItem 终态清理剩余 staging 目录和审核读取关系。三者的 `payload_release_job_id` 不共用，删除 Game 不回溯清理 Source 或 ImportItem。
 
 payload 物理状态只有 `RETAINED/RELEASING/RELEASED`，没有 owner 失败列；任务失败与原因只保存在 Job。API 的 `FAILED` 是 `RELEASING` owner 与关联失败 Job 的读投影，已释放 owner 不会因后续任务错误退回失败。
 
@@ -134,7 +136,7 @@ Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner�
 
 写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式等于 Target 当前 `writeFormat`、大小不超过 `maxBytes`。恢复使用显式 Core 的当前 READY Variant；省略 Core 时通过来源 Launch 选择原 Core，而非目录当前默认 Core。当前 Target 还须声明可读该 checkpoint format，来源 Launch 不锁定恢复时的 Provider 版本或 Variant。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
 
-Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保证该核心现有未删除持久存档格式仍在 `readFormats` 中；同一 Game 的其他备用核心不继承这项格式要求。审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束由 ImportItem 清理临时读取关系并退休其文件；过期 preview 清除 checkpoint/restore 读取关系，文件随 Item 终态退休。后台删除队列只处理已经退休的文件。
+Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保证该核心现有未删除持久存档格式仍在 `readFormats` 中；同一 Game 的其他备用核心不继承这项格式要求。审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束的最终事务撤销 Preview 与隔离凭据；异步清理删除 checkpoint/restore 读取关系，并排队退休 `previews/<Preview UUID>/` 自有目录。过期 Preview 使用同一目录回收机制。后台删除队列只处理已经退休的文件。
 
 ## 8. Play 与隔离
 
@@ -145,9 +147,9 @@ PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累�
 
 Game、ImportItem、SaveState、BIOSInstallation、上传和抓取记录直接保存文件值：相对路径、size、四种 hash 与 MIME。`file_record` 及其用途前缀字段保存该 JSON 值；不存在全局文件登记、引用计数、owner 转移或逐文件删除表。摘要用于完整性和内容识别，不决定物理路径。不同游戏的同内容文件分别存储。
 
-Game 独占 `files/<UUID 后两位>/<Game UUID>/` 下的内容和媒体。ImportItem 独占 `staging/items/<Item UUID>/` 的 payload 和 scratch；发布移动整个 payload，审核临时材料随 Item 终态清理。存档、BIOS、抓取响应等仍由各自业务对象持有独立目录；Game 和 Launch 只能读取被授权的 BIOS 安装。
+Game 独占 `files/<UUID 后两位>/<Game UUID>/` 下的内容和媒体。ImportItem 独占 `staging/items/<Item UUID>/` 的 payload 和 scratch；发布移动整个 payload，审核截图等临时材料随 Item 终态清理；预览 checkpoint 由独立 `previews/<Preview UUID>/checkpoints/` 目录持有。存档、BIOS、抓取响应等仍由各自业务对象持有独立目录；Game 和 Launch 只能读取被授权的 BIOS 安装。
 
-`import_items` 的 `publication_game_id`、`publication_json` 和可选 `publication_bulk_id` 保存一次发布决定。审批先冻结当前输入和目标 Game UUID，转为 `PUBLISHING`；目录 rename 后再提交 Game/Variant 和 `PUBLISHED`。`PUBLISHING` 必须存在完整决定，其他状态没有未完成决定。启动和后台恢复继续同一决定，重复批准返回同一个 Game UUID。
+`import_items` 的 `publication_game_id`、`publication_json` 和可选 `publication_bulk_id` 保存一次发布决定。审批先冻结当前输入和目标 Game UUID，转为 `PUBLISHING`；目录 rename 后再提交 Game/Variant 和 `PUBLISHED`。`PUBLISHING` 必须存在完整决定，其他状态没有未完成决定。启动和后台恢复继续同一决定，重复批准返回同一个 Game UUID。`PUBLISHING` 仍属于未完成审核；只有最终事务提交产物及授权关闭后才是 `PUBLISHED`。终态清理移除来源快照、派生文件、刮削候选及草稿关系，Item 仅保留完成结果和恢复父任务所需的最小原始内容类型/manifest 摘要；这些摘要不提供产品运行权。
 
 `archive_entries` 保存归档扫描事实；文件复制时复制所需事实，目录退休时删除对应事实。已发布文件的读取不依赖原上传归档仍然存在。
 
@@ -163,9 +165,9 @@ BIOS 替换在安装事务切换当前安装、撤销旧 Launch/Play，保留 Ga
 
 `recordstore`、`sessionstore` 与声明式数据库约束共同保证：
 
-- Provider/Target 引用命中当前 catalog，Launch 的 Bundle 命中创建时的当前 Provider；
+- 活动工作和已落地运行产物的 Provider/Target 引用命中当前 catalog，Launch 的 Bundle 命中创建时的当前 Provider；完成的导入、Source 和审核历史只保留身份字符串，不阻止未被产物引用的 Target 退出；
 - Game、Variant 的稳定 owner 和逐次 `version` 更新；
-- Launch、Preview、Save、Validation 与资源 owner 一致；
+- Launch、Preview、Save、运行依赖 与资源 owner 一致；
 - checkpoint format 位于 Target 的可读格式集合；
 - 隔离 capability 的 owner/origin/expiry 一致；
 - payload release 不产生悬空 Blob 引用；

@@ -12,11 +12,12 @@ type EffectOwner struct {
 	Found                         bool
 	ParentID, ExistingGameID      string
 	MetadataSource, ContentSource EffectSource
+	GameManifestDigest            string
 	Consumption                   EffectConsumption
 }
 
 type EffectSource struct {
-	Kind, ID string
+	Kind string
 }
 
 type EffectConsumption struct {

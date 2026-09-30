@@ -42,7 +42,7 @@ func ensureFixture() (*Service, *ensureMemory) {
 		GameVersion: 1, SourceManifestDigest: "content", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"),
 	}}
 	memory := &ensureMemory{before: snapshot, current: snapshot}
-	service := New(memory, ensureProvider{valid: true}, func() time.Time { return time.UnixMilli(100) }, nil)
+	service := New(memory, ensureProvider{valid: true}, func() time.Time { return time.UnixMilli(100) }, nil, nil)
 	return service, memory
 }
 

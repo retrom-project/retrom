@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	contentcapability "retrom/internal/content/capability"
@@ -55,10 +54,6 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 		return err
 	}
 	diagnosticsJSON := request.DiagnosticsJSON
-	selectedValidation := any(nil)
-	if request.Validation.Status == "READY" {
-		selectedValidation = artifacts.validationID
-	}
 	consumptionID, _ := uuid.NewV7()
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
@@ -101,14 +96,14 @@ VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
 	}
 	result, err = recordstore.UpdateReviewItems(ctx, transaction, recordstore.Update{
 		Set: `
-effective_source_snapshot_id=?,selected_validation_id=?,
+effective_source_snapshot_id=?,
 review_version=review_version+1,review_updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
 			Where: `id=? AND effective_source_snapshot_id=?`,
 			Args:  []any{request.Candidate.DraftID, request.Candidate.BaseSnapshotID},
 		},
-		Values: []any{artifacts.snapshotID, selectedValidation, request.NowMS},
+		Values: []any{artifacts.snapshotID, request.NowMS},
 	})
 	if err := requireArcadeParentCommitChange(result, err, "advance review source"); err != nil {
 		return err
@@ -150,7 +145,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		request.JobID,
 		request.Candidate.ItemID,
 
-		fmt.Sprintf(`{"validationId":%q,"status":%q}`, artifacts.validationID, request.Validation.Status),
+		fmt.Sprintf(`{"status":%q}`, request.Validation.Status),
 		request.NowMS,
 
 		request.JobID,
@@ -378,7 +373,7 @@ VALUES(?,'IMPORT_ITEM',?,'CANCELLED','{}',?)
 }
 
 type arcadeParentCommitArtifacts struct {
-	snapshotID, validationID string
+	snapshotID string
 }
 
 type arcadeParentCommitTarget struct {
@@ -403,8 +398,7 @@ func insertArcadeParentCommitArtifacts(
 	now int64,
 ) (arcadeParentCommitArtifacts, error) {
 	snapshotUUID, _ := uuid.NewV7()
-	validationUUID, _ := uuid.NewV7()
-	artifacts := arcadeParentCommitArtifacts{snapshotID: snapshotUUID.String(), validationID: validationUUID.String()}
+	artifacts := arcadeParentCommitArtifacts{snapshotID: snapshotUUID.String()}
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(
   id,import_item_id,source_manifest_json,source_manifest_digest,
@@ -420,56 +414,42 @@ INSERT INTO import_item_source_snapshots(
 	if err := insertArcadeParentArchiveEntries(ctx, transaction, candidate.FileRecord, entries, now); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
-	if err := insertArcadeParentCoreValidation(
-		ctx, transaction, candidate, artifacts.snapshotID, artifacts.validationID,
-		manifestDigest, validation, target, now,
+	if err := saveArcadeParentAnalysis(
+		ctx, transaction, candidate, validation, now,
 	); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
 	return artifacts, nil
 }
 
-func insertArcadeParentCoreValidation(
+func saveArcadeParentAnalysis(
 	ctx context.Context,
 	transaction dbapi.Tx,
 	candidate libraryservice.ArcadeParentCommitCandidate,
-	snapshotID, validationID, manifestDigest string,
 	validation libraryservice.ArcadeParentValidation,
-	target arcadeParentCommitTarget,
 	now int64,
 ) error {
-	datID := optionalArcadeParentString(candidate.DATID)
-	digest := libraryservice.PrepublishDigest(libraryservice.PrepublishDigestInput{
-		SchemaVersion: 1, SourceSnapshotID: snapshotID,
-		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
-		TargetPlatformInstanceID: target.targetID,
-		ProviderID:               target.providerID, TargetID: target.runtimeTargetID,
-		ContentPolicyDigest: target.contentPolicy.DigestFor(target.contentKind),
-		DATVersionID:        datID,
-		DependencySnapshot:  json.RawMessage(validation.DependencySnapshot),
-		Status:              validation.Status, CompatibilityCode: validation.CompatibilityCode,
-	})
-	_, err := recordstore.CreateImportItemCoreValidations(ctx, transaction, `
-INSERT INTO import_item_core_validations(
-  id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,
-  dat_version_id,default_dos_entry,
-  source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-  status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)
-`, validationID, candidate.ItemID, target.targetID, target.platformVersion, target.coreID,
-		target.providerID, target.runtimeTargetID, candidate.DATID,
-		manifestDigest, snapshotID, digest, validation.Status,
-		validation.CompatibilityCode, validation.DependencySnapshot, now)
+	analysis,
+		err := libraryservice.ContentAnalysisJSON(
+		validation.Status, validation.CompatibilityCode, validation.DependencySnapshot,
+	)
 	if err != nil {
-		return arcadeParentCommitStoreError("insert source validation", err)
+		return fmt.Errorf("save parent content analysis: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE import_items SET content_analysis_json=? WHERE id=?`, analysis, candidate.ItemID); err != nil {
+		return arcadeParentCommitStoreError("save source content analysis", err)
 	}
 	for _, file := range validation.Files {
-		if _, err := recordstore.InsertRows(ctx, transaction, "import_item_validation_files", `
-INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
-) VALUES(?,?,?,?,?,?)
-`, validationID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, now); err != nil {
+		if file.Role == "BIOS_BUNDLE" || file.Role == "PARENT" {
+			continue
+		}
+		if _, err := recordstore.InsertRows(ctx, transaction, "import_item_runtime_files", `
+INSERT INTO import_item_runtime_files(
+  import_item_id,role,logical_name,file_record,sort_order,created_at_ms
+) VALUES(?,?,?,?,?,?) ON CONFLICT(import_item_id,role,logical_name) DO UPDATE
+SET file_record=excluded.file_record,sort_order=excluded.sort_order
+`, candidate.ItemID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, now); err != nil {
 			return arcadeParentCommitStoreError("insert validation file", err)
 		}
 	}
@@ -626,13 +606,6 @@ func requireArcadeParentCommitChange(result sql.Result, err error, action string
 		return libraryservice.ErrInvalid
 	}
 	return nil
-}
-
-func optionalArcadeParentString(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
 }
 
 func arcadeParentCommitStoreError(operation string, err error) error {

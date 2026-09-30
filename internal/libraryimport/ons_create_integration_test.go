@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -89,27 +91,26 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 		t.Fatalf("Create(ONS) = %#v", created)
 	}
 	var state, code, contentKind, metadataProvider, providerID, targetID string
-	var selectedValidation any
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
-	   validation.provider_id,validation.target_id,draft.selected_validation_id
+	   validation.provider_id,validation.target_id
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
-JOIN import_item_core_validations validation ON validation.import_item_id=item.id
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.source_snapshot_id
 JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(
-		&state, &code, &contentKind, &metadataProvider, &providerID, &targetID, &selectedValidation,
+		&state, &code, &contentKind, &metadataProvider, &providerID, &targetID,
 	); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "ONS_RUNTIME_TRIAL_REQUIRED" ||
 		contentKind != "ONS_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
-		targetID != "onscripter-yuri" || selectedValidation != nil {
+		targetID != "onscripter-yuri" {
 		t.Fatalf(
-			"ONS review = %s/%s/%s/%s/%s/%s selected=%v",
-			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation,
+			"ONS review = %s/%s/%s/%s/%s/%s",
+			state, code, contentKind, metadataProvider, providerID, targetID,
 		)
 	}
 }

@@ -134,7 +134,7 @@ try {
   }
   if (!progress.gameId) {
     const review = await client.json("GET", `/api/v1/admin/reviews/${progress.reviewId}`);
-    assert.equal(review.validation.status, "READY");
+    assert.equal(review.readiness.status, "READY");
     evidence.stages.push("import-review-ready");
     const preview = await previewCart(client, review.itemId);
     const first = await openPlayer(context, preview.playUrl, preview.previewId, scenario.core);

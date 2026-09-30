@@ -16,8 +16,48 @@ func NewReviewQueue(database dbapi.DB) *ReviewQueue { return &ReviewQueue{databa
 func (repository *ReviewQueue) List(
 	ctx context.Context, query libraryservice.ReviewQueueQuery,
 ) ([]libraryservice.ReviewQueueRecord, error) {
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("begin review queue read: %w", err)
+	}
+	defer dbapi.Rollback(transaction)
+	current := make([]libraryservice.ReviewQueueRecord, 0, query.Limit)
+	for len(current) < query.Limit {
+		page, err := readReviewQueuePage(ctx, transaction, query)
+		if err != nil {
+			return nil, err
+		}
+		for _, record := range page {
+			runtime, err := ReadReviewRuntime(ctx, transaction, record.ItemID)
+			if err != nil {
+				return nil, err
+			}
+			record.ValidationStatus, record.CompatibilityCode = &runtime.Status, &runtime.Code
+			if query.Filter.BlockerCode != "" && runtime.Code != query.Filter.BlockerCode {
+				continue
+			}
+			current = append(current, record)
+			if len(current) == query.Limit {
+				break
+			}
+		}
+		if len(page) < query.Limit || query.Filter.BlockerCode == "" {
+			break
+		}
+		last := page[len(page)-1]
+		query.After = &libraryservice.ReviewQueuePosition{UpdatedAtMS: last.UpdatedAtMS, ItemID: last.ItemID}
+	}
+	if err := transaction.Commit(); err != nil {
+		return nil, fmt.Errorf("commit review queue read: %w", err)
+	}
+	return current, nil
+}
+
+func readReviewQueuePage(
+	ctx context.Context, executor dbapi.Executor, query libraryservice.ReviewQueueQuery,
+) ([]libraryservice.ReviewQueueRecord, error) {
 	statement, args := reviewQueueStatement(query)
-	rows, err := repository.database.QueryContext(ctx, statement, args...)
+	rows, err := executor.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query review queue: %w", err)
 	}
@@ -32,9 +72,6 @@ func (repository *ReviewQueue) List(
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate review queue: %w", err)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("close review queue: %w", err)
 	}
 	return result, nil
 }
@@ -64,10 +101,6 @@ func reviewQueueStatement(query libraryservice.ReviewQueueQuery) (string, []any)
  WHERE relation.review_draft_id=d.id AND tag.id=?)`
 		args = append(args, query.Filter.TagID)
 	}
-	if query.Filter.BlockerCode != "" {
-		statement += " AND (v.compatibility_code=? OR (?='NEEDS_VALIDATION' AND v.id IS NULL))"
-		args = append(args, query.Filter.BlockerCode, query.Filter.BlockerCode)
-	}
 	comparison, direction := ">", "ASC"
 	if query.Filter.Sort == "UPDATED_DESC" {
 		comparison, direction = "<", "DESC"
@@ -77,7 +110,8 @@ func reviewQueueStatement(query libraryservice.ReviewQueueQuery) (string, []any)
 			"? OR (d.review_updated_at_ms=? AND i.id" + comparison + "?))"
 		args = append(args, query.After.UpdatedAtMS, query.After.UpdatedAtMS, query.After.ItemID)
 	}
-	statement += " ORDER BY d.review_updated_at_ms " + direction + ",i.id " + direction + " LIMIT ?"
+	statement += " ORDER BY d.review_updated_at_ms " + direction + ",i.id " + direction
+	statement += " LIMIT ?"
 	args = append(args, query.Limit)
 	return statement, args
 }

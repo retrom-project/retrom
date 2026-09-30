@@ -59,7 +59,7 @@ func (memory *screenshotMemory) Read(context.Context, string, io.Reader) (Screen
 func screenshotPolicyFixture() (*ScreenshotSaver, *screenshotMemory) {
 	source := ScreenshotSource{
 		PreviewID: "preview", ItemID: "item", SourceSnapshotID: "source", PlatformInstanceID: "directory",
-		ValidationID: "validation", ProviderID: "provider", TargetID: "target",
+		ProviderID: "provider", TargetID: "target",
 		CredentialHash: []byte("capability"), State: "ACTIVE", HardExpiresAtMS: 200,
 	}
 	memory := &screenshotMemory{
@@ -110,7 +110,6 @@ func TestScreenshotSaverRejectsChangedFinalAuthorityBeforeIdentity(t *testing.T)
 		{"item", func(memory *screenshotMemory) { memory.current.ItemID = "other" }},
 		{"source", func(memory *screenshotMemory) { memory.current.SourceSnapshotID = "other" }},
 		{"directory", func(memory *screenshotMemory) { memory.current.PlatformInstanceID = "other" }},
-		{"validation", func(memory *screenshotMemory) { memory.current.ValidationID = "other" }},
 		{"provider", func(memory *screenshotMemory) { memory.current.ProviderID = "other" }},
 		{"target", func(memory *screenshotMemory) { memory.current.TargetID = "other" }},
 		{"credential", func(memory *screenshotMemory) { memory.current.CredentialHash = []byte("other") }},
@@ -144,7 +143,7 @@ func TestScreenshotSaverCapturesWithFinalAuthorityTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := ReviewScreenshot{
-		ID: "81ed985b-3d2e-71f4-8017-e5e4ebc18c32", ImportItemID: "item", ValidationID: "validation",
+		ID: "81ed985b-3d2e-71f4-8017-e5e4ebc18c32", ImportItemID: "item",
 		ProviderID: "provider", TargetID: "target", WidthPX: 2, HeightPX: 3, CapturedAtMS: 102,
 	}
 	if result != want || calls != 2 || !memory.committed || memory.writes != 1 || memory.identities != 1 {

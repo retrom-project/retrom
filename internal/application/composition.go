@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	launchservice "retrom/internal/service/launch"
+
 	variantcomposition "retrom/internal/composition/gamevariant"
 
 	dbapi "retrom/internal/database"
@@ -171,6 +173,9 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	server.ReviewQueue = librarycomposition.NewReviewQueue(database, server.TagService)
 	server.ReviewDetails = librarycomposition.NewReviewDetails(database)
 	server.ReviewScreenshots = importworkflow.NewReviewScreenshots(database, blobs, now)
+	server.ReviewPreviews = librarycomposition.NewReviewPreviews(database, launchSources, launchservice.PreviewEnvironment{
+		Now: now, SignCapability: launchSources.SignCapability, SignIsolation: launchSources.SignIsolation,
+	}, blobs)
 	server.ReviewCoverUploads = librarycomposition.NewReviewCoverUploads(database, blobs, now)
 	server.ReviewDiscards = importDeps.Discards
 	server.ReviewApprovals = importDeps.Approvals

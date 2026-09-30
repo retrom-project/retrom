@@ -3,7 +3,6 @@ package launch
 // ServiceDependencies contains complete use cases assembled at process startup.
 type ServiceDependencies struct {
 	Product       *ProductCreator
-	Preview       *PreviewCreator
 	Config        *ConfigIssuer
 	Play          *PlayController
 	PreviewCloser *PreviewCloser

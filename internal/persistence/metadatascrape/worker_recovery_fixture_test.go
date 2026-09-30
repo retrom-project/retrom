@@ -30,11 +30,11 @@ func recoveryDatabase(t *testing.T) dbapi.DB {
 	})
 	_, err = database.SQL.ExecContext(t.Context(), `INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
- metadata_source_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ metadata_source_kind,content_source_kind,source_manifest_json,
  source_manifest_digest,status,search_text,created_at_ms,updated_at_ms)
  VALUES('018fbe68-0000-7000-8000-000000000002',(SELECT id FROM platform_instances WHERE
 catalog_template_key='gba/mgba'),
- 'Metadata','M','','','','','ADMIN_EDIT','ADMIN_REPLACE','fixture','[]',?,'PUBLISHED','metadata',?,?)`,
+ 'Metadata','M','','','','','ADMIN_EDIT','ADMIN_REPLACE','[]',?,'PUBLISHED','metadata',?,?)`,
 		strings.Repeat("a", 64), recoveryTime.UnixMilli(), recoveryTime.UnixMilli())
 	if err != nil {
 		t.Fatal(err)

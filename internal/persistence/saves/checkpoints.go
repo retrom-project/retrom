@@ -42,16 +42,6 @@ updated_at_ms,
 }
 
 func (store writes) ReplacePreview(ctx context.Context, update saves.PreviewWrite) error {
-	var itemID string
-	if err := dbapi.QueryRowContext(
-		ctx,
-		store.transaction,
-		`SELECT import_item_id FROM review_preview_sessions WHERE id=?`,
-		update.PreviewID,
-	).Scan(&itemID); err != nil {
-		return fmt.Errorf("read preview file owner: %w", err)
-	}
-
 	return changed(sessionstore.ChangePreview(ctx, store.transaction, recordstore.Update{
 		Set: `checkpoint_payload_file_record=?,checkpoint_format=?,checkpoint_created_at_ms=?,
 updated_at_ms=?,version=version+1`,

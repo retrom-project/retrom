@@ -286,6 +286,12 @@ fi
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 
+if [[ "$case_id" == "ACC-UI-003" ]]; then
+  RETROM_ACCEPTANCE_BASE_URL="$web_origin" \
+  RETROM_ACCEPTANCE_USERNAME=test RETROM_ACCEPTANCE_PASSWORD=test \
+  TMPDIR=/tmp node scripts/acceptance/dos_launch_options_ui.mjs
+fi
+
 RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop
 set +e
 wait "$process_id"

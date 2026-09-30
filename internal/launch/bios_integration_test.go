@@ -118,10 +118,10 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	}{
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+metadata_source_kind,content_kind,content_source_kind,
 source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture','SINGLE_FILE',
-'IMPORT_REVIEW','fixture','{}',?,'PUBLISHED','melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, strings.Repeat("a", 64), now, now}},
+VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','SINGLE_FILE',
+'IMPORT_REVIEW','{}',?,'PUBLISHED','melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, strings.Repeat("a", 64), now, now}},
 		{`INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{gameID, gameFileRecord}},
 		{`INSERT INTO game_variants(
 id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,compatibility_code,

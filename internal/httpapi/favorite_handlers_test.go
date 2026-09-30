@@ -80,10 +80,10 @@ func seedFavoriteHTTPGame(t *testing.T, server *testServer, gameID, _, title str
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(
   id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+  metadata_source_kind,content_kind,content_source_kind,source_manifest_json,source_manifest_digest,
   status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,'F','','','','',NULL,1994,
-  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','favorite-http-test','[]',?,'PUBLISHED',lower(?),1,1000,1000)
+  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','[]',?,'PUBLISHED',lower(?),1,1000,1000)
 `, gameID, title, strings.Repeat("a", 64), title); err != nil {
 		t.Fatal(err)
 	}

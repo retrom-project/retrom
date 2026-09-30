@@ -36,6 +36,7 @@ type productRPGFixture struct {
 	database dbapi.DB
 	blobs    *filestore.Store
 	gameID   string
+	itemID   string
 	now      func() time.Time
 }
 
@@ -95,7 +96,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
-	return productRPGFixture{service: service, database: database.SQL, blobs: blobs, gameID: approved.GameID, now: now}
+	return productRPGFixture{service: service, database: database.SQL, blobs: blobs, gameID: approved.GameID, itemID: itemID, now: now}
 }
 
 func uploadProductRPGFixture(t *testing.T, database dbapi.DB, blobs *filestore.Store, dataDir, generation string, now func() time.Time) string {

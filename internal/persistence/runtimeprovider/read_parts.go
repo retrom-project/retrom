@@ -37,21 +37,29 @@ func loadCurrentProviders(
 func (records catalogRecords) TargetReferenced(ctx context.Context, target service.TargetIdentity) (bool, error) {
 	transaction := records.executor
 	providerID, targetID := target.ProviderID, target.TargetID
-	references := []struct{ table, providerColumn, targetColumn string }{
-		{"bios_requirements", "provider_id", "target_id"},
-		{"dat_versions", "provider_id", "target_id"},
-		{"server_bios_import_items", "provider_id", "target_id"},
-		{"import_jobs", "provider_id", "target_id"},
-		{"import_item_core_validations", "provider_id", "target_id"},
-		{"review_preview_sessions", "provider_id", "target_id"},
-		{"review_runtime_screenshots", "provider_id", "target_id"},
-		{"game_variants", "provider_id", "target_id"},
-		{"launch_sessions", "provider_id", "target_id"},
-		{"source_import_collections", "target_provider_id", "target_id"},
+	references := []struct{ table, providerColumn, targetColumn, live string }{
+		{"bios_requirements", "provider_id", "target_id", "1"},
+		{"dat_versions", "provider_id", "target_id", "1"},
+		{"server_bios_import_items", "provider_id", "target_id", "state IN ('PENDING','EVALUATING')"},
+		{"import_jobs", "provider_id", "target_id", `
+ EXISTS(SELECT 1 FROM import_items item WHERE item.import_job_id=import_jobs.id
+ AND item.state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED'))
+ OR state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')`},
+		{"runtime_preview_sessions", "provider_id", "target_id", "state IN ('CREATED','ACTIVE','FINISHED')"},
+		{"review_runtime_screenshots", "provider_id", "target_id", `
+ EXISTS(SELECT 1 FROM import_items item WHERE item.id=review_runtime_screenshots.import_item_id
+ AND item.state IN ('REVIEW_PENDING','PUBLISHING'))`},
+		{"game_variants", "provider_id", "target_id", "1"},
+		{"launch_sessions", "provider_id", "target_id", "1"},
+		{"source_import_collections", "target_provider_id", "target_id", `EXISTS(
+ SELECT 1 FROM source_imports source WHERE source.id=source_import_collections.import_id
+ AND source.state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED'))
+ OR EXISTS(SELECT 1 FROM source_import_items item WHERE item.collection_id=source_import_collections.id
+ AND item.execution_state IN ('PENDING','COPYING','VALIDATING','REVIEW_PENDING'))`},
 	}
 	for _, reference := range references {
-		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s=? AND %s=? LIMIT 1)",
-			reference.table, reference.providerColumn, reference.targetColumn)
+		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s=? AND %s=? AND (%s) LIMIT 1)",
+			reference.table, reference.providerColumn, reference.targetColumn, reference.live)
 		var exists bool
 		if err := dbapi.QueryRowContext(ctx, transaction, query, providerID, targetID).Scan(&exists); err != nil {
 			return false, fmt.Errorf("reconcile runtime providers: inspect %s: %w", reference.table, err)
@@ -63,7 +71,7 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 	var reviewProfileReferenced bool
 	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT EXISTS(SELECT 1 FROM import_items
- WHERE json_extract(review_profile_json,'$.data.providerId')=?
+ WHERE state IN ('REVIEW_PENDING','PUBLISHING') AND json_extract(review_profile_json,'$.data.providerId')=?
  AND json_extract(review_profile_json,'$.data.targetId')=? LIMIT 1)`, providerID, targetID,
 	).Scan(&reviewProfileReferenced); err != nil {
 		return false, fmt.Errorf("reconcile runtime providers: inspect review profiles: %w", err)

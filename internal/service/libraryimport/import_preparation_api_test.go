@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"retrom/internal/content/arcade"
+
 	"retrom/internal/filestore"
 )
 
@@ -22,14 +24,14 @@ func (catalog preparationCatalogStub) MachineClassification(context.Context, str
 
 func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string,
 	string,
-) (ArcadeCatalogRequirements, error) {
-	return ArcadeCatalogRequirements{}, catalog.failure
+) (arcade.CatalogRequirements, error) {
+	return arcade.CatalogRequirements{}, catalog.failure
 }
 
 func (catalog preparationCatalogStub) MachineRelation(context.Context, string,
 	string,
-) (ArcadeMachineRelation, bool, error) {
-	return ArcadeMachineRelation{}, false, catalog.failure
+) (arcade.MachineRelation, bool, error) {
+	return arcade.MachineRelation{}, false, catalog.failure
 }
 
 func TestImportPreparationPreservesCatalogFailure(t *testing.T) {

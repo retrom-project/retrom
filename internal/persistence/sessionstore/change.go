@@ -26,8 +26,8 @@ func ChangePreview(ctx context.Context, db dbapi.Executor, change recordstore.Up
 		ctx,
 		db,
 		change,
-		"review_preview_sessions",
-		recordstore.UpdateReviewPreviewSessions,
+		"runtime_preview_sessions",
+		recordstore.UpdateRuntimePreviewSessions,
 		revokePreviewCapability,
 	)
 }

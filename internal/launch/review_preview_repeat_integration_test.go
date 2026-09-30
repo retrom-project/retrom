@@ -9,10 +9,6 @@ import (
 
 	reviewservice "retrom/internal/service/libraryimport"
 
-	"retrom/internal/persistence/recordstore"
-
-	"github.com/google/uuid"
-
 	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 )
@@ -23,35 +19,26 @@ func assertRepeatedPreviewKeepsScreenshot(
 ) {
 	t.Helper()
 	ctx := t.Context()
-	readEvidence := func() (string, string, int64, int) {
+	readEvidence := func() (string, int64) {
 		t.Helper()
-		var validationID, screenshotID string
+		var screenshotID string
 		var version int64
-		var count int
 		if err := dbapi.QueryRowContext(ctx, database, `
-SELECT validation.id,COALESCE(screenshot.id,''),draft.review_version,
- (SELECT count(*) FROM import_item_core_validations WHERE import_item_id=draft.id)
+SELECT COALESCE(screenshot.id,''),draft.review_version
 FROM import_items draft
-JOIN import_item_core_validations validation ON validation.id=(
- SELECT id FROM import_item_core_validations WHERE import_item_id=draft.id
- ORDER BY created_at_ms DESC,id DESC LIMIT 1)
 LEFT JOIN review_runtime_screenshots screenshot ON screenshot.import_item_id=draft.id
- AND screenshot.validation_id=validation.id
 WHERE draft.id=?
-`, screenshot.ImportItemID).Scan(&validationID, &screenshotID, &version, &count); err != nil {
+`, screenshot.ImportItemID).Scan(&screenshotID, &version); err != nil {
 			t.Fatal(err)
 		}
-		return validationID, screenshotID, version, count
+		return screenshotID, version
 	}
-	validationID, screenshotID, version, count := readEvidence()
+	screenshotID, version := readEvidence()
 	if screenshotID != screenshot.ID {
 		t.Fatalf("initial screenshot=%s, want %s", screenshotID, screenshot.ID)
 	}
 	var next ReviewPreviewCreated
 	for index := range 2 {
-		if err := importer.RefreshReviewPreviewValidation(ctx, screenshot.ImportItemID); err != nil {
-			t.Fatal(err)
-		}
 		created, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 			ImportItemID: screenshot.ImportItemID, ActorUserID: actorID,
 			IdempotencyKey:     fmt.Sprintf("repeat-%s-%d", screenshot.ID, index),
@@ -64,23 +51,21 @@ WHERE draft.id=?
 			t.Fatal(err)
 		}
 		next = created
-		currentValidation, currentScreenshot, currentVersion, currentCount := readEvidence()
-		if currentValidation != validationID || currentScreenshot != screenshotID || currentCount != count {
-			t.Fatalf("repeated trial changed review evidence: validation=%s screenshot=%s version=%d count=%d; want %s/%s/%d/%d",
-				currentValidation, currentScreenshot, currentVersion, currentCount, validationID, screenshotID, version, count)
+		currentScreenshot, currentVersion := readEvidence()
+		if currentScreenshot != screenshotID {
+			t.Fatalf("repeated trial changed item screenshot: %s; want %s", currentScreenshot, screenshotID)
 		}
-		if index > 0 && currentVersion != version {
+		if currentVersion != version {
 			t.Fatal("unchanged repeated preview changed the draft version")
 		}
-		version = currentVersion
 	}
 	updated, err := service.StoreReviewScreenshot(ctx, next.PreviewID, next.Capability, bytes.NewReader(image))
 	if err != nil {
 		t.Fatal(err)
 	}
-	currentValidation, currentScreenshot, _, _ := readEvidence()
-	if updated.ID == screenshotID || currentScreenshot != updated.ID || currentValidation != validationID {
-		t.Fatal("a new capture did not replace the screenshot for the same validation")
+	currentScreenshot, _ := readEvidence()
+	if updated.ID == screenshotID || currentScreenshot != updated.ID {
+		t.Fatal("a new capture did not replace the screenshot for the same item")
 	}
 	var retained int
 	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM review_runtime_screenshots WHERE import_item_id=?`, screenshot.ImportItemID).Scan(&retained); err != nil {
@@ -93,28 +78,7 @@ WHERE draft.id=?
 
 func seedOlderReviewScreenshot(t *testing.T, database dbapi.DB, screenshot reviewservice.ReviewScreenshot) {
 	t.Helper()
-	ctx := t.Context()
-	validationID, screenshotID := uuid.NewString(), uuid.NewString()
-	if _, err := database.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,
-core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
-prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,0
-FROM import_item_core_validations WHERE id=?
-`, validationID, screenshot.ValidationID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := recordstore.InsertRows(ctx, database, "review_runtime_screenshots", `
-INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-validation_id,provider_id,target_id,file_record,media_type,width_px,height_px,captured_at_ms,
-created_at_ms,updated_at_ms)
-SELECT ?,import_item_id,preview_session_id,source_snapshot_id,?,provider_id,target_id,file_record,
-media_type,width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms
-FROM review_runtime_screenshots WHERE id=?
-`, screenshotID, validationID, screenshot.ID); err != nil {
+	if _, err := database.ExecContext(t.Context(), `UPDATE review_runtime_screenshots SET captured_at_ms=0 WHERE import_item_id=?`, screenshot.ImportItemID); err != nil {
 		t.Fatal(err)
 	}
 }

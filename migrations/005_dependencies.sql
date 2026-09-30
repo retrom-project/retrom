@@ -233,7 +233,7 @@ CREATE TABLE "server_bios_import_items" (
   emulator_path TEXT,
   source_version TEXT NOT NULL,
   catalog_digest TEXT NOT NULL CHECK(length(catalog_digest)=64 AND catalog_digest=lower(catalog_digest)),
-  dat_version_id TEXT REFERENCES dat_versions(id),
+  dat_version_id TEXT,
   dat_machine_name TEXT,
   expected_size_bytes INTEGER CHECK(expected_size_bytes IS NULL OR expected_size_bytes>=0),
   expected_md5 TEXT,
@@ -257,6 +257,5 @@ CREATE TABLE "server_bios_import_items" (
   PRIMARY KEY(server_import_id,requirement_id),
   CHECK((source_kind='STATIC' AND dat_version_id IS NULL AND dat_machine_name IS NULL) OR
         (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
-  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL)),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
+  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL))
 );

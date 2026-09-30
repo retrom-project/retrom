@@ -23,7 +23,7 @@ func RemovablePath(relative string) bool {
 	case "staging":
 		return len(parts) >= 3 && (parts[1] == "items" || parts[1] == "sources" ||
 			parts[1] == "uploads" || parts[1] == "writes") && validObjectID(parts[2])
-	case "saves", "bios", "scrapes", "responses":
+	case "saves", "bios", "scrapes", "responses", "previews":
 		return len(parts) >= 2 && validObjectID(parts[1])
 	default:
 		return false

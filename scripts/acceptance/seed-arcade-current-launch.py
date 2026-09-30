@@ -78,10 +78,10 @@ LIMIT 1
         """
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,?,?,'M','Arcade current runtime parser regression','','','',NULL,NULL,
- 'ADMIN_EDIT',NULL,?,'ADMIN_REPLACE','current-regression',?,?,'PUBLISHED','RETAINED',lower(?),1,?,?)
+ 'ADMIN_EDIT',?,'ADMIN_REPLACE',?,?,'PUBLISHED','RETAINED',lower(?),1,?,?)
 """,
         (
             game_id, source["platform_instance_id"], title, source["content_kind"],

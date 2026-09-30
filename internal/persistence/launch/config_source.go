@@ -33,10 +33,10 @@ SELECT preview.credential_sha256,preview.state,preview.version,preview.provider_
 	 preview.bundle_sha256,
  binding.core_id,core.name,binding.detector_profile,binding.delivery_profile,
  'REVIEW_PREVIEW',preview.title,instance.name,
- '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
+ preview.return_to,preview.content_kind,preview.dependency_snapshot_json,'',
 	 NULL,preview.default_dos_entry,
  preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,0
-FROM review_preview_sessions preview
+FROM runtime_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN cores core ON core.id=binding.core_id

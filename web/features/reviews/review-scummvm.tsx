@@ -30,7 +30,7 @@ function blockerLabel(blocker: string) {
   return blocker ? "此游戏暂不受支持" : "";
 }
 
-export function reviewScummVM(validation: {dependencySnapshot?: ScummVMReview} | null, candidateId?: string) {
-  const snapshot = validation?.dependencySnapshot;
+export function reviewScummVM(readiness: {dependencySnapshot?: ScummVMReview} | null, candidateId?: string) {
+  const snapshot = readiness?.dependencySnapshot;
   return snapshot?.kind === "SCUMMVM" ? {...snapshot, selectedCandidateId: candidateId ?? snapshot.selectedCandidateId} : null;
 }

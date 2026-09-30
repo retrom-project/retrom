@@ -15,8 +15,7 @@ func (records reviewApprovalRecords) PublicationFiles(ctx context.Context,
 ) ([]string, error) {
 	values, err := dbapi.QueryStrings(ctx, records.transaction, `
 SELECT file_record FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
- UNION SELECT file_record FROM import_item_validation_files WHERE import_item_core_validation_id=? AND
-role<>'BIOS_BUNDLE'`, head.SourceSnapshotID, head.ValidationID)
+ UNION SELECT file_record FROM import_item_runtime_files WHERE import_item_id=?`, head.SourceSnapshotID, head.DraftID)
 	if err != nil {
 		return nil, fmt.Errorf("read publication files: %w", err)
 	}
@@ -36,8 +35,8 @@ UPDATE import_item_source_snapshot_files SET file_record=? WHERE source_snapshot
 			return fmt.Errorf("prepare publication records: %w", err)
 		}
 		if _, err := records.transaction.ExecContext(ctx, `
-UPDATE import_item_validation_files SET file_record=? WHERE import_item_core_validation_id=? AND file_record=?
-`, file.Staged, intent.Head.ValidationID, file.Source); err != nil {
+UPDATE import_item_runtime_files SET file_record=? WHERE import_item_id=? AND file_record=?
+`, file.Staged, intent.Head.DraftID, file.Source); err != nil {
 			return fmt.Errorf("prepare publication records: %w", err)
 		}
 	}

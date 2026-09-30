@@ -152,6 +152,9 @@ ORDER BY id`, importID)
 	}
 	scheduler := payloadservice.NewScheduler(nil)
 	for _, itemID := range ids {
+		if err := closeReview(ctx, tx, itemID, now); err != nil {
+			return err
+		}
 		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), itemID,
 			payloadservice.ReasonImportCancelled, now); err != nil {
 			return fmt.Errorf("schedule cancelled import payload: %w", err)

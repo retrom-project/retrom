@@ -984,7 +984,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the review workspace and the latest validation for its current staged source. */
+        /** @description Returns the review workspace with readiness computed from current runtime requirements, installed BIOS, and source content. Reading does not change the draft version. */
         get: operations["getAdminReview"];
         put?: never;
         post?: never;
@@ -1042,7 +1042,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. Every preview captures one runtime screenshot five seconds after the core reports game start; a current screenshot may be used by an administrator to publish despite dependency blockers. */
+        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. The session freezes the concrete resources resolved at creation. An administrator can save a screenshot associated with the review item and use it to publish despite supported dependency blockers. */
         post: operations["postAdminReviewPreview"];
         delete?: never;
         options?: never;
@@ -1061,7 +1061,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review draft's locked Arcade DAT closure. */
+        /** @description Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review item's current Arcade DAT closure. */
         post: operations["postAdminReviewArcadeParentAttachment"];
         delete?: never;
         options?: never;
@@ -3157,14 +3157,21 @@ export interface components {
             backgroundCandidateAssetId: string | null;
             screenshotCandidateAssetIds: string[];
         };
+        ReviewReadiness: {
+            /** @enum {string} */
+            status: "READY" | "BLOCKED" | "INCOMPATIBLE";
+            compatibilityCode: string;
+            /** @description Dependencies resolved from current requirements and active installations; no validation identity or historical selection. */
+            dependencySnapshot: {
+                [key: string]: unknown;
+            };
+        };
         ReviewDraftRequest: {
             /** Format: uuid */
             targetPlatformInstanceId?: string;
             metadata?: components["schemas"]["MetadataFields"];
             /** @description Selects one runnable upstream ScummVM candidate from the current immutable source; requires the ordinary review version precondition. */
             scummvmCandidateId?: string;
-            /** Format: uuid */
-            selectedValidationId?: string;
             /** Format: uuid */
             selectedCandidateId?: string | null;
             selectedAssets?: components["schemas"]["ReviewSelectedAssetsRequest"];
@@ -3195,8 +3202,6 @@ export interface components {
             kind: "COVER";
         };
         ReviewArcadeParentAttachmentRequest: {
-            /** Format: uuid */
-            validationId: string;
             /** Format: uuid */
             baseSourceSnapshotId: string;
             dependencyMachine: string;
@@ -4285,7 +4290,6 @@ export interface components {
             selected?: unknown;
             selectedAssets?: unknown;
             selectedCandidateId?: unknown;
-            selectedValidationId?: unknown;
             sequence?: unknown;
             sha1?: unknown;
             sha256?: unknown;
@@ -4339,6 +4343,7 @@ export interface components {
             uploadPartCount?: unknown;
             uploadSessionId?: unknown;
             validatedRequirementVersion?: unknown;
+            readiness?: components["schemas"]["ReviewReadiness"];
             validation?: unknown;
             validationDetails?: unknown;
             validationJobId?: unknown;
@@ -6449,7 +6454,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Current review facts in one read transaction; BIOS or DAT changes do not increment the review version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JSONObject"] & {
+                        readiness: components["schemas"]["ReviewReadiness"];
+                    };
+                };
+            };
         };
     };
     patchAdminReview: {

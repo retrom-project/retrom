@@ -299,7 +299,7 @@ VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'Locked mGBA save',0,1,?,?)
 	if _, err := contentTx.ExecContext(ctx, `
 UPDATE games
 SET platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
-content_source_kind='ADMIN_REPLACE',content_source_ref_id='fixture',source_manifest_digest=?,
+content_source_kind='ADMIN_REPLACE',source_manifest_digest=?,
 version=version+1,updated_at_ms=?
 WHERE id=?
 `, strings.Repeat("f", 64), time.Now().UnixMilli(), approved.GameID); err != nil {
@@ -462,11 +462,10 @@ func assertMissingFDSValidationFinishes(
 	}{
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+metadata_source_kind,content_kind,content_source_kind,
 source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 SELECT ?,target.id,'Acceptance Missing FDS BIOS','A',source.description,source.developer,
-source.publisher,source.genre,source.players,source.release_year,source.metadata_source_kind,
-source.metadata_source_ref_id,'SINGLE_FILE',source.content_source_kind,source.content_source_ref_id,
+source.publisher,source.genre,source.players,source.release_year,source.metadata_source_kind,'SINGLE_FILE',source.content_source_kind,
 source.source_manifest_json,source.source_manifest_digest,'PUBLISHED','acceptance missing fds bios',1,?,?
 FROM games source CROSS JOIN platform_instances target
 WHERE source.id=? AND target.catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli(), sourceGameID}},

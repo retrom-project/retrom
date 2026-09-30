@@ -59,13 +59,12 @@ func TestBulkStartupIsIdempotentAndCloseJoinsWorkers(t *testing.T) {
 }
 
 func TestAutomaticApprovalLeavesManualDecisionsToTheReviewer(t *testing.T) {
-	validation, ready := "validation", "READY"
-	candidate := ReviewBulkCandidate{ValidationID: &validation, ValidationStatus: &ready}
+	ready := "READY"
+	candidate := ReviewBulkCandidate{ValidationStatus: &ready}
 	if !automaticApprovalCandidate(candidate) {
 		t.Fatal("READY candidate was excluded")
 	}
 	for _, change := range []func(*ReviewBulkCandidate){
-		func(value *ReviewBulkCandidate) { value.ValidationID = nil },
 		func(value *ReviewBulkCandidate) { blocked := "BLOCKED"; value.ValidationStatus = &blocked },
 		func(value *ReviewBulkCandidate) { value.AttachmentActive = true },
 		func(value *ReviewBulkCandidate) { value.SourceFlagged = true },

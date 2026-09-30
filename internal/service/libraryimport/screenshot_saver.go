@@ -87,7 +87,7 @@ func (service *ScreenshotSaver) capture(
 		return ReviewScreenshot{}, fmt.Errorf("replace current screenshot: %w", err)
 	}
 	return ReviewScreenshot{
-		ID: id, ImportItemID: current.ItemID, ValidationID: current.ValidationID,
+		ID: id, ImportItemID: current.ItemID,
 		ProviderID: current.ProviderID, TargetID: current.TargetID,
 		WidthPX: image.WidthPX, HeightPX: image.HeightPX, CapturedAtMS: now,
 	}, nil

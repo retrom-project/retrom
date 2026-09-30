@@ -102,7 +102,7 @@ func (service *ReviewBulk) processNextReviewBulkItem(ctx context.Context, work r
 			ItemID: item.ID, ExpectedVersion: item.ReviewVersion,
 			Bulk: &BulkPublicationIntent{
 				BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID,
-				ValidationID: *candidate.ValidationID, SourceSnapshotID: candidate.SourceSnapshotID,
+				SourceSnapshotID: candidate.SourceSnapshotID,
 			},
 		}
 
@@ -209,6 +209,6 @@ func (service *ReviewBulk) publishReviewBulkRequest(ctx context.Context, work re
 // Automatic approval only excludes cases requiring a human decision. Approve owns
 // all shared content, dependency, validation and duplicate checks.
 func automaticApprovalCandidate(candidate ReviewBulkCandidate) bool {
-	return candidate.ValidationID != nil && candidate.ValidationStatus != nil &&
+	return candidate.ValidationStatus != nil &&
 		*candidate.ValidationStatus == "READY" && !candidate.AttachmentActive && !candidate.SourceFlagged
 }

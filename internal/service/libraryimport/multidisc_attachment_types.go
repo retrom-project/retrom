@@ -68,7 +68,6 @@ type MultiDiscAttachmentInput struct {
 	ReviewDraftID        string `json:"reviewDraftId"`
 	RequestedByUserID    string `json:"requestedByUserId"`
 	BaseSourceSnapshotID string `json:"baseSourceSnapshotId"`
-	BaseValidationID     string `json:"baseValidationId"`
 	UploadSessionID      string `json:"uploadSessionId"`
 	ExpectedSetDigest    string `json:"expectedSetDigest"`
 	TargetPlatformID     string `json:"targetPlatformId"`
@@ -83,11 +82,10 @@ type MultiDiscAttachmentInput struct {
 }
 
 type MultiDiscAttachmentAdmission struct {
-	DraftID, ItemState, SnapshotID, PlatformID, PlatformInstanceID, CoreID  string
-	ProviderID, TargetID, ValidationID, ValidationStatus, CompatibilityCode string
-	Policy                                                                  contentcapability.Policy
-	DraftVersion, PlatformVersion, ValidationPlatformVersion                int64
-	ValidationCoreID, ValidationProviderID, ValidationTargetID              string
+	DraftID, ItemState, SnapshotID, PlatformID, PlatformInstanceID, CoreID string
+	ProviderID, TargetID, ValidationStatus, CompatibilityCode              string
+	Policy                                                                 contentcapability.Policy
+	DraftVersion, PlatformVersion                                          int64
 }
 type (
 	MultiDiscAttachmentHead   struct{ State, ContentKind string }

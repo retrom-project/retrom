@@ -38,7 +38,9 @@ LEFT JOIN upload_sessions upload ON upload.id=owner.upload_session_id
 LEFT JOIN import_jobs imported ON imported.upload_session_id=owner.upload_session_id
 LEFT JOIN jobs group_job ON group_job.scope_type='IMPORT_GROUP' AND group_job.scope_id=imported.id
  AND group_job.kind='IMPORT_GROUP'
-WHERE source.id=? AND source.import_id=?`, string(intent.Kind), intent.ItemID, intent.ImportID).Scan(
+WHERE source.id=? AND source.import_id=?
+AND source.execution_state IN ('COPYING','VALIDATING','REVIEW_PENDING')`,
+		string(intent.Kind), intent.ItemID, intent.ImportID).Scan(
 		&linkedJob,
 		&linkedItem,
 		&importID,

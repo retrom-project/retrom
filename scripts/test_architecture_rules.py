@@ -14,6 +14,16 @@ class ArchitectureRulesTests(unittest.TestCase):
     def test_actual_package_paths_reject_reverse_dependencies(self):
         forbidden = {
             "internal/service/gamecontent": "retrom/internal/service/jobs",
+            "internal/service/launch": "retrom/internal/service/libraryimport",
+            "internal/service/gamevariant": "retrom/internal/libraryimport",
+            "internal/service/gamevariant/nested": "retrom/internal/service/libraryimport/port",
+            "internal/launch": "retrom/internal/persistence/libraryimport",
+            "internal/persistence/launch": "retrom/internal/service/libraryimport/port",
+            "internal/persistence/gamevariant/nested": "retrom/internal/persistence/libraryimport",
+            "internal/composition/launch": "retrom/internal/composition/libraryimport",
+            "internal/composition/gamevariant": "retrom/internal/composition/importworkflow",
+            "internal/content/arcade": "retrom/internal/service/libraryimport/port",
+            "internal/content/arcade/nested": "retrom/internal/persistence/arcade",
             "internal/service/metadatascrape": "retrom/internal/service/jobs",
             "internal/service/saves": "retrom/internal/service/jobs",
             "internal/service/uploads/nested": "retrom/internal/service/jobs",

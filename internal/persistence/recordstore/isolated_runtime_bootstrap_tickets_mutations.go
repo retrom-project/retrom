@@ -35,7 +35,7 @@ WHEN (previous.consumed_at_ms IS NOT NULL
     previous.launch_id IS NOT NULL AND EXISTS(SELECT 1 FROM launch_sessions launch
       WHERE launch.id=previous.launch_id AND launch.state IN ('CREATED','ACTIVE')
         AND candidate.consumed_at_ms<=previous.expires_at_ms)
-    OR previous.preview_id IS NOT NULL AND EXISTS(SELECT 1 FROM review_preview_sessions preview
+    OR previous.preview_id IS NOT NULL AND EXISTS(SELECT 1 FROM runtime_preview_sessions preview
       WHERE preview.id=previous.preview_id AND preview.state IN ('CREATED','ACTIVE')
         AND candidate.consumed_at_ms<=previous.expires_at_ms)
   )) THEN 'invalid bootstrap ticket consumption'
@@ -61,7 +61,7 @@ WITH previous(ticket_sha256,launch_id,preview_id) AS (VALUES(?,?,?))
 SELECT CASE
 -- isolated_runtime_bootstrap_tickets_immutable_delete
 WHEN (previous.launch_id IS NOT NULL OR EXISTS(
-  SELECT 1 FROM review_preview_sessions preview
+  SELECT 1 FROM runtime_preview_sessions preview
   WHERE preview.id=previous.preview_id AND preview.state NOT IN ('EXPIRED','REVOKED')
 )) THEN 'bootstrap ticket is retained for audit'
 ELSE '' END

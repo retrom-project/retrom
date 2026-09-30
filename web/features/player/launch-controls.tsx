@@ -11,6 +11,9 @@ import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
 import { LaunchButton } from "./launch-button";
 import { LaunchContentLoading } from "./launch-content-loading";
+import { useLaunchControlWidth } from "./use-launch-control-width";
+import {DOSProgramPicker} from "./dos-program-picker";
+import {DesktopLaunchSettings} from "./desktop-launch-options";
 import type { ContentLoadingCapability } from "./content-loading";
 
 export type CoreOption = {
@@ -70,21 +73,6 @@ function RuntimeStatus({ blocked, selectedCore }: { blocked: boolean; selectedCo
   return null;
 }
 
-function DOSProgramPicker({ defaultDosEntry, dosEntries, onChange, value }: {
-  defaultDosEntry: string | null;
-  dosEntries: DOSEntry[];
-  onChange: (value: string | null) => void;
-  value: string | null;
-}) {
-  return <div className="field">
-    <label htmlFor="dos-entry">启动程序</label>
-    <select id="dos-entry" value={value ?? ""} onChange={(event) => onChange(event.target.value || null)}>
-      <option value="">显示 DOSBox Pure 程序菜单</option>
-      {dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled || !entry.directLaunchSafe}>{entry.originalPath}{entry.path === defaultDosEntry ? " · 审核默认" : ""}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}
-    </select>
-  </div>;
-}
-
 type LaunchViewProps = {
   advancedOpen: boolean;
   blocked: boolean;
@@ -111,10 +99,11 @@ type LaunchViewProps = {
 };
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
-  return <aside className="launch-panel" aria-label="启动游戏">
-    <LaunchContentLoading selectedCore={props.selectedCore} savedCore={props.latestSave ? props.coreOptions.find(core => core.coreId === props.latestSave?.coreId) ?? {} : undefined} />
-    {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
-    <div className="launch-actions">
+  const {actionsRef, controlStyle} = useLaunchControlWidth(Boolean(props.latestSave));
+  return <aside className="launch-panel" aria-label="启动游戏" style={controlStyle}>
+    <DesktopLaunchSettings coreOptions={props.coreOptions} selectedCore={props.selectedCore} savedCoreId={props.latestSave?.coreId}
+      isDOS={props.isDOS} dosEntries={props.dosEntries} defaultDosEntry={props.defaultDosEntry} dosEntry={props.dosEntry} onDOSChange={props.onDOSChange} />
+    <div className="launch-actions" ref={actionsRef}>
       {props.latestSave ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" /> : null}
       <LaunchButton secondary={Boolean(props.latestSave)} gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "重新开始游戏" : undefined} onLaunchCreated={props.onLaunchCreated} />
     </div>

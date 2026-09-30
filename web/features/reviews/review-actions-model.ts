@@ -25,11 +25,11 @@ export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  validation: { id: string; status: string; compatibilityCode: string; dependencySnapshot?: ScummVMReview } | null;
+  readiness: { status: string; compatibilityCode: string; dependencySnapshot?: ScummVMReview } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
   rpgMaker?: RPGMakerReview | null;
-  runtimeScreenshot?: { screenshotId: string; validationId: string; providerId: string; targetId: string; widthPx: number; heightPx: number; capturedAtMs: number; url: string } | null;
+  runtimeScreenshot?: { screenshotId: string; providerId: string; targetId: string; widthPx: number; heightPx: number; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null; dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
@@ -83,7 +83,7 @@ export function reviewReadyForPublish(review: ReviewWorkspace) {
   const parentActive = review.arcadeDependencies?.activeAttachment?.state;
   const multiDiscActive = review.multiDisc?.activeAttachment?.state;
   const attachmentActive = [parentActive, multiDiscActive].some((state) => state === "QUEUED" || state === "RUNNING");
-  return (review.canApprove ?? review.validation?.status === "READY") && !attachmentActive;
+  return (review.canApprove ?? review.readiness?.status === "READY") && !attachmentActive;
 }
 
 export function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {
@@ -127,11 +127,11 @@ export function initialDraftState(review: ReviewWorkspace) {
 
 export function initialRuntimeState(review: ReviewWorkspace) {
   return {
-    validation: review.validation,
+    readiness: review.readiness,
     effectiveSourceSnapshotId: review.effectiveSourceSnapshotId ?? "",
     arcadeDependencies: review.arcadeDependencies ?? null,
     multiDisc: review.multiDisc ?? null,
-    canApprove: review.canApprove ?? review.validation?.status === "READY",
+    canApprove: review.canApprove ?? review.readiness?.status === "READY",
     runtimeScreenshot: review.runtimeScreenshot ?? null,
   };
 }

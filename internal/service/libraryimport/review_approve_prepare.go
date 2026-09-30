@@ -45,7 +45,7 @@ func (run *reviewApprovalRun) load() error {
 		return ErrInvalid
 	}
 	if bulk := run.request.Bulk; bulk != nil && (head.ValidationStatus != "READY" ||
-		head.ValidationID != bulk.ValidationID || head.SourceSnapshotID != bulk.SourceSnapshotID) {
+		head.SourceSnapshotID != bulk.SourceSnapshotID) {
 		return ErrInvalid
 	}
 	run.head = head
@@ -76,13 +76,6 @@ func (run *reviewApprovalRun) prepare() error {
 }
 
 func (run *reviewApprovalRun) prepareValidation() error {
-	current, err := NewReviewValidation(run.scope.Validation).Current(run.ctx, run.head.ValidationID)
-	if err != nil {
-		return fmt.Errorf("read current approval validation: %w", err)
-	}
-	if !current {
-		return fmt.Errorf("approval validation is no longer current: %w", ErrInvalid)
-	}
 	run.runtimeDependencyJSON = run.head.DependencyJSON
 	if run.head.PlatformID == "rpgmaker" {
 		return run.prepareRPG()
@@ -92,8 +85,11 @@ func (run *reviewApprovalRun) prepareValidation() error {
 	}
 	run.screenshotOverride = run.head.ValidationStatus != "READY" && run.head.ScreenshotID != nil
 	if !run.screenshotOverride {
+		if run.head.ValidationStatus != "READY" {
+			return ErrInvalid
+		}
 		return ValidateApprovalDependencies(run.ctx, run.scope.Dependencies, ApprovalDependencyInput{
-			SnapshotID: run.head.SourceSnapshotID, ValidationID: run.head.ValidationID,
+			SnapshotID: run.head.SourceSnapshotID, ItemID: run.request.ItemID,
 			PlatformID: run.head.PlatformID,
 			ProviderID: run.head.ProviderID, TargetID: run.head.TargetID, Policy: run.head.Policy,
 			ContentKind: run.head.ContentKind, DependencyJSON: run.head.DependencyJSON,
@@ -103,7 +99,7 @@ func (run *reviewApprovalRun) prepareValidation() error {
 }
 
 func (run *reviewApprovalRun) prepareRPG() error {
-	profile, found, err := run.scope.Validation.Profile(run.ctx, run.head.DraftID)
+	profile, found, err := run.scope.Profiles.Profile(run.ctx, run.head.DraftID)
 	if err != nil {
 		return fmt.Errorf("read approval RPG profile: %w", err)
 	}
@@ -114,8 +110,7 @@ func (run *reviewApprovalRun) prepareRPG() error {
 	if err != nil {
 		return err
 	}
-	if dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON ||
-		profile.DependencySHA256 != dependencies.Digest {
+	if dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON {
 		return ErrInvalid
 	}
 	run.rpgProfile, run.rpgDependencies = profile, dependencies

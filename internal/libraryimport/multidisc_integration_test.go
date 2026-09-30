@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/persistence/contentquery"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
 	librarypersistence "retrom/internal/persistence/libraryimport"
@@ -229,7 +230,7 @@ SELECT item.id||':'||snapshot.content_kind||':'||validation.status
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=draft.id
 WHERE item.import_job_id=? ORDER BY item.group_key
 `, created.ImportJobID)
 	testassert.Falsef(t, len(items) != 2, "items = %#v", items)
@@ -258,8 +259,8 @@ FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 	var playlistID string
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT blob.value
-FROM import_item_core_validations validation
-JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id
+FROM (`+contentquery.CurrentContentSQL+`) validation
+JOIN import_item_runtime_files file ON file.import_item_id=validation.import_item_id
 JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE validation.source_snapshot_id=? AND file.role='MULTI_DISC_PLAYLIST'
 `, firstSnapshotID).Scan(&playlistID); err != nil {
@@ -293,7 +294,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
 	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
-	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now, blobs)
 	t.Cleanup(variants.Close)
 	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
@@ -382,29 +383,27 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
 	var itemID, validationStatus, compatibilityCode string
-	var selectedValidationID *string
 	var missingFileRecord, missingUploadID *string
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT item.id,validation.status,validation.compatibility_code,draft.selected_validation_id,
+SELECT item.id,validation.status,validation.compatibility_code,
 entry.file_record,entry.upload_file_id
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
+JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.source_snapshot_id=snapshot.id
 JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id AND entry.state='MISSING'
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(
-		&itemID, &validationStatus, &compatibilityCode, &selectedValidationID, &missingFileRecord, &missingUploadID,
+		&itemID, &validationStatus, &compatibilityCode, &missingFileRecord, &missingUploadID,
 	); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "BLOCKED" },
 		func() bool { return compatibilityCode != "MULTI_DISC_FILE_MISSING" },
-		func() bool { return selectedValidationID != nil },
 		func() bool { return missingFileRecord != nil },
 		func() bool { return missingUploadID != nil }),
-		"blocked item = %s/%s selected=%v blob=%v upload=%v", validationStatus, compatibilityCode,
-		selectedValidationID, missingFileRecord, missingUploadID)
+		"blocked item = %s/%s blob=%v upload=%v", validationStatus, compatibilityCode,
+		missingFileRecord, missingUploadID)
 	if _, err := importer.Approve(ctx, itemID, 1); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("blocked approve error = %v", err)
 	}
@@ -455,17 +454,17 @@ ORDER BY id DESC LIMIT 1
 		!strings.Contains(terminalEventData, `"durationMs":`) {
 		t.Fatalf("attachment terminal event = %q, error=%v", terminalEventData, err)
 	}
-	var resultSnapshotID, selectedID string
+	var resultSnapshotID string
 	var version int64
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT effective_source_snapshot_id,selected_validation_id,review_version
+SELECT effective_source_snapshot_id,review_version
 FROM import_items WHERE id=?
-`, itemID).Scan(&resultSnapshotID, &selectedID, &version); err != nil {
+`, itemID).Scan(&resultSnapshotID, &version); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return resultSnapshotID == baseSnapshotID },
-		func() bool { return selectedID == "" }, func() bool { return version != 3 }),
-		"accepted draft snapshot=%s selected=%s version=%d", resultSnapshotID, selectedID, version)
+		func() bool { return version != 3 }),
+		"accepted draft snapshot=%s version=%d", resultSnapshotID, version)
 	oldEntries := queryAttachmentStrings(t, database.SQL, `
 SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, baseSnapshotID)
@@ -539,20 +538,18 @@ WHERE item.import_job_id=?
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, attachment.JobID, "FAILED")
 	var state, errorCode, currentSnapshotID string
-	var selectedID sql.NullString
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id,draft.selected_validation_id
+SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id
 FROM review_multidisc_attachments attachment
 JOIN import_items draft ON draft.id=attachment.review_draft_id
 WHERE attachment.id=?
-`, attachment.AttachmentID).Scan(&state, &errorCode, &currentSnapshotID, &selectedID); err != nil {
+`, attachment.AttachmentID).Scan(&state, &errorCode, &currentSnapshotID); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return state != "REJECTED" },
 		func() bool { return errorCode != MultiDiscAttachmentErrorSetMismatch },
-		func() bool { return currentSnapshotID != baseSnapshotID },
-		func() bool { return selectedID.Valid }),
-		"rejected attachment = %s/%s snapshot=%s selected=%v", state, errorCode, currentSnapshotID, selectedID)
+		func() bool { return currentSnapshotID != baseSnapshotID }),
+		"rejected attachment = %s/%s snapshot=%s", state, errorCode, currentSnapshotID)
 	var consumptions int
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?

@@ -1,5 +1,7 @@
 package libraryimport
 
+import "retrom/internal/persistence/contentquery"
+
 const reviewQueueSelect = `
 SELECT i.id,
 d.review_version,
@@ -58,15 +60,7 @@ JOIN import_items d ON d.id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 	LEFT JOIN source_import_items source ON source.library_import_item_id=i.id
 	LEFT JOIN source_import_collections source_collection ON source_collection.id=source.collection_id
-	LEFT
-JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
-(SELECT candidate.id
-FROM import_item_core_validations candidate
-WHERE candidate.import_item_id=i.id
-AND candidate.source_snapshot_id=d.effective_source_snapshot_id
-AND candidate.target_platform_instance_id=d.target_platform_instance_id
-ORDER BY candidate.created_at_ms DESC,
-candidate.id DESC LIMIT 1))
+LEFT JOIN (` + contentquery.CurrentContentSQL + `) v ON v.import_item_id=i.id
 WHERE i.state='REVIEW_PENDING'
 AND (source.id IS NULL OR source.execution_state='REVIEW_PENDING')
 `

@@ -15,6 +15,8 @@
 - BIOS 与 DAT 按 Provider Target declaration管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core，Core binding 决定当前 Target。
 - 浏览器和 EmulatorJS 不解析原始 DAT。后端预解析并持久化，页面查询物化结果，启动查询依赖快照。
 
+Arcade 的 DAT 默认 BIOS 选择、ROM 匹配、Parent/BIOS 闭包、循环限制、Merged/CHD 检查与依赖资源选择由 `internal/content/arcade` 统一实现，输入和结果使用领域类型，不包含 Upload、ImportItem、PreparedGroup 或审核状态。`internal/persistence/arcade` 提供可绑定同一读取/写入事务的 DAT Catalog。导入负责分组和来源观察，审核读取当前事实，GameVariant 依据所选核心自己的 DAT 评估已发布来源；三者使用相同规则。归档扫描在数据库写事务之外执行，进入写事务后由各调用方重新检查其输入身份与当前事实。
+
 文件匹配和候选质量比较位于纯逻辑包 `internal/firmware`。`internal/service/firmware` 编排安装、替换与归档检查，`internal/persistence/firmware` 负责事实查询和记录写入。浏览器上传归档在写事务之外扫描，提交时重新检查 Requirement version 与上传 Blob；旧安装退役、新安装、上传消费或服务器导入结果和 JobEvent 原子提交，提交成功后才唤醒释放任务。归档检查在一个读快照内取得当前 Requirement、active Installation 与全部预期/实际成员，避免拼接不同版本的事实。
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
@@ -202,7 +204,7 @@ BIOS 页面默认只统计当前游戏库各 GameVariant 当前 GameVariant 实�
 
 `MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，并可装入 Review Preview、READY Variant 和 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。DAT_MACHINE 安装必须在数据库写事务外按统一 ZIP 安全限制扫描归档，并把条目 hash 目录持久化；校验范围只含普通条目与默认 BIOS set 的非 NODUMP 条目。文件名不同时，仅当 size 与 DAT SHA-1（缺失时为 CRC32）一致才视为历史别名并记录 Warning；同名但内容不同为 `HASH_WARNING`，内容不存在才是 `MISSING_ENTRY`。静态文件 hash 不匹配也统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
 
-生成初始待审核条目，以及试玩 POST、草稿 PATCH、依赖附件或 DAT/BIOS 处理触发当前 Validation 切换时，都必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 Provider Target 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING/MISSING_ENTRY` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已经在当前校验开始前安装的 BIOS 不得先误报为缺失；已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。试玩 POST 只刷新运行依赖和选择新的不可变 Validation，不重写或重新提交元数据；依赖改变时更新草稿版本，客户端随后刷新审核页。
+审核不保存 BIOS 安装状态快照。进入详情、返回页面、读取队列、创建预览或批准时，STATIC requirement 按当前 active installation 求值；Arcade 由当前活动 DAT 的 closure 获取精确 `<machine>.zip` 要求，结合导入时保存的归档条目观察和当前安装事实。命中 MATCHED/HASH_WARNING/MISSING_ENTRY 的 BIOS 可交付，INVALID 不可交付；Parent 必须严格匹配。BIOS 安装与卸载无需调用审核模块、改草稿版本或新建验证记录。已有 Preview 保留其冻结的实际资源，新 Preview 与发布使用当前事实；来源或运行目标变化时旧截图不再投影。
 
 ## 5. 真实 DAT 基线
 
@@ -284,7 +286,7 @@ Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 pa
 
 Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、ASCII case-insensitive 路径碰撞、真正嵌套的 archive 和超出统一 ArchiveLimits 的展开量/压缩比。Parent DAT 只匹配根级 regular-file entry；像 `1944.zip` 这样同时携带根级 parent ROM 与安全 clone 子目录的归档可以保留子目录 bytes 作为原始证据，但子目录 entry 只作为 diagnostics 中的 ignored extra，不能满足缺失的根 entry、参与 Parent 判定或放开 Merged 主 ROMset。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
 
-Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Launch 继续只使用 selected READY ValidationFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
+Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Preview 与批准从当前有效来源的 Parent 和已安装 BIOS 解析实际文件；发布后的 Launch 使用 VariantFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
 
 发布后的首次启动可能因当前 BIOS 输入快照与审核期摘要不同而更新 GameVariant。只有 GameFiles 和 DatVersion 均未变化时，重校验才保留当前态已验证的 `PARENT` VariantFiles 与 `variant_dependencies`，并重新生成 BIOS bundle；不得因摘要归一化丢失 Parent，也不得把旧 DAT 的 Parent 关联带入新 DAT。
 

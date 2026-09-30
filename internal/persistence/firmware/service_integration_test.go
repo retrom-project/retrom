@@ -188,10 +188,10 @@ updated_at_ms)
 VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',0,1,?,?)`, []any{now, now}, ""},
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
-metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,
+metadata_source_kind,content_kind,content_source_kind,
 source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 VALUES('firmware-game','firmware-platform','Firmware','F','','','','','ADMIN_EDIT','SINGLE_FILE',
-'ADMIN_REPLACE','firmware-source','{}',?,'PUBLISHED','firmware',1,?,?)`, []any{strings.Repeat("1", 64), now, now}, ""},
+'ADMIN_REPLACE','{}',?,'PUBLISHED','firmware',1,?,?)`, []any{strings.Repeat("1", 64), now, now}, ""},
 		{`INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
 VALUES('firmware-game','CONTENT','firmware.gba',?,0)`, []any{contentFileRecord}, "game_files"},
 		{

@@ -32,11 +32,10 @@ func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 	})
 	_, err = db.SQL.ExecContext(t.Context(), `INSERT INTO games(id,platform_instance_id,title,title_initial,
  description,developer,publisher,genre,metadata_source_kind,content_kind,content_source_kind,
-content_source_ref_id,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
  VALUES('018fbe68-0000-7000-8000-000000000001',(SELECT id FROM platform_instances WHERE
 catalog_template_key='gba/mgba'),
- 'Effect','E','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','effect-source','{}',?,
+ 'Effect','E','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','{}',?,
  'PUBLISHED','effect',1,1,1)`, strings.Repeat("e", 64))
 	if err != nil {
 		t.Fatal(err)
@@ -58,8 +57,8 @@ catalog_template_key='gba/mgba'),
 
 func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 	for _, mutation := range []string{
-		"version=version+1", "content_source_ref_id='replacement'",
-		"metadata_source_kind='IMPORT_REVIEW',metadata_source_ref_id='replacement'",
+		"version=version+1", "source_manifest_digest='" + strings.Repeat("f", 64) + "'",
+		"metadata_source_kind='IMPORT_REVIEW'",
 	} {
 		t.Run(mutation, func(t *testing.T) {
 			db := effectRepositoryDatabase(t)

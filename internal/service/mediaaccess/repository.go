@@ -29,5 +29,4 @@ type SaveScreenshot struct {
 type ReviewAsset struct {
 	Resource
 	Kind, State, ItemState, GameState string
-	TerminalReview                    bool
 }

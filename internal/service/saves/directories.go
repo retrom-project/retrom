@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/filestore"
 
 	"github.com/google/uuid"
 )
@@ -25,7 +24,7 @@ func (service *Service) prepareSaveDirectory(ctx context.Context, launchID strin
 		}
 		parsed.directory = "saves/" + parsed.saveID + "/" + id.String()
 	} else {
-		parsed.directory = filestore.ItemDirectory(launch.ItemID) + "/scratch/checkpoints/" + id.String()
+		parsed.directory = "previews/" + launchID + "/checkpoints/" + id.String()
 	}
 	complete := false
 	defer func() {

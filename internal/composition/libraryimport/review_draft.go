@@ -15,10 +15,8 @@ func NewReviewDrafts(
 	database dbapi.DB,
 	tags *tagging.Service,
 	now func() time.Time,
-	refresh repository.DraftValidationRefresher,
-	selectScummVM repository.ScummVMSelector,
 ) *libraryservice.ReviewDrafts {
 	return libraryservice.NewReviewDrafts(repository.NewReviewDraftPatches(database, repository.ReviewDraftPatchOptions{
-		Tags: tags, Now: now, RefreshValidation: refresh, SelectScummVM: selectScummVM,
+		Tags: tags, Now: now,
 	}))
 }

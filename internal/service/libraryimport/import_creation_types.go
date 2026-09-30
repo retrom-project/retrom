@@ -141,7 +141,7 @@ type CreationValidation struct {
 }
 type CreationDraft struct {
 	ID, ItemID, TargetID, SnapshotID, MetadataJSON, SearchText string
-	SelectedValidationID, DefaultDOS                           *string
+	DefaultDOS                                                 *string
 	NowMS                                                      int64
 }
 type CreationRPGProfile struct {

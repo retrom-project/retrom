@@ -4,22 +4,25 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"retrom/internal/content/arcade"
 )
 
-func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, validationID, raw string) error {
-	frozen, valid := ParseArcadeDraftSnapshot(raw)
+func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, itemID, raw string) error {
+	frozen, valid := arcade.ParseSnapshot(raw)
 	if !valid || len(frozen.MissingEntries) != 0 || len(frozen.MismatchedEntries) != 0 {
-		return ErrInvalid
+		return fmt.Errorf("invalid current arcade dependencies: %w", ErrInvalid)
 	}
-	canonical, err := CanonicalArcadeSnapshot(ctx, scope.Arcade, raw)
+	canonical, err := arcade.CanonicalSnapshot(ctx, scope.Arcade, raw)
 	if err != nil {
-		return err
+		if errors.Is(err, arcade.ErrInvalid) {
+			return errors.Join(ErrInvalid, err)
+		}
+		return fmt.Errorf("resolve approval arcade snapshot: %w", err)
 	}
-	var closure []ArcadeClosureNode
-	if err := json.Unmarshal(canonical.Closure, &closure); err != nil {
-		return fmt.Errorf("decode approval arcade closure: %w", err)
-	}
+	closure := canonical.Closure
 	dependencyCount := 0
 	for _, node := range closure {
 		if node.Kind != "CONTENT" {
@@ -36,7 +39,7 @@ func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, 
 			return ErrInvalid
 		}
 		seen[key] = true
-		if err := validateApprovalArcadeDependency(ctx, scope.Reader, validationID,
+		if err := validateApprovalArcadeDependency(ctx, scope.Reader, itemID,
 			canonical.DatVersionID, dependency); err != nil {
 			return err
 		}
@@ -50,14 +53,14 @@ func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, 
 		return fmt.Errorf("encode current approval arcade snapshot: %w", err)
 	}
 	if !bytes.Equal(before, after) {
-		return ErrInvalid
+		return fmt.Errorf("arcade snapshot does not match current DAT: %w", ErrInvalid)
 	}
 	return nil
 }
 
 func validateApprovalArcadeDependency(
-	ctx context.Context, reader ApprovalDependencyReader, validationID, datID string,
-	dependency ArcadeDraftDependency,
+	ctx context.Context, reader ApprovalDependencyReader, itemID, datID string,
+	dependency arcade.Dependency,
 ) error {
 	if dependency.State != "SATISFIED_BY_CONTENT" && dependency.State != "SATISFIED_EXTERNAL" &&
 		dependency.State != "HASH_WARNING" {
@@ -83,17 +86,17 @@ func validateApprovalArcadeDependency(
 	if role == "" {
 		return ErrInvalid
 	}
-	count, err := reader.ExternalFileCount(ctx, validationID, role, dependency.ExpectedLogicalName)
+	count, err := reader.ExternalFileCount(ctx, itemID, role, dependency.ExpectedLogicalName)
 	if err != nil {
 		return fmt.Errorf("read approved arcade external files: %w", err)
 	}
 	if count != 1 {
-		return ErrInvalid
+		return fmt.Errorf("arcade external file %s count=%d: %w", dependency.ExpectedLogicalName, count, ErrInvalid)
 	}
 	return nil
 }
 
-func sameApprovalRequirementNames(requirements ApprovalArcadeRequirements, frozen []string) bool {
+func sameApprovalRequirementNames(requirements arcade.CatalogRequirements, frozen []string) bool {
 	index := 0
 	for _, rom := range requirements.ROMs {
 		if rom.Status == "NODUMP" || (rom.BIOSName != nil &&

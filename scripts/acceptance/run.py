@@ -730,7 +730,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
-        "content-preload-product.json", "content-loading-capability-product.json",
+        "content-preload-product.json", "content-loading-capability-product.json", "dos-launch-options-ui.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "wasm4-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
         "openbor-product.json", "ruffle-product.json", "pc98-product.json", "symbian-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
     ):

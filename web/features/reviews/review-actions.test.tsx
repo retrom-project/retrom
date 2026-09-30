@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as UploadModule from "@/lib/upload";
@@ -18,7 +18,7 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
   platformInstance: { id: "platform-1", name: "GBA 游戏" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "validation-1", status: "READY", compatibilityCode: "READY" },
+  readiness: { status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
@@ -37,6 +37,23 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ReviewActions metadata", () => {
+
+  it("reads installed BIOS on return without overwriting an unsaved title", async () => {
+    vi.useFakeTimers();
+    try {
+      const blocked: ReviewWorkspace = { ...review, canApprove: false, readiness: { status: "BLOCKED", compatibilityCode: "LAUNCH_BIOS_MISSING" } };
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ...review, canApprove: true }));
+      vi.stubGlobal("fetch", fetchMock);
+      render(<ReviewActions review={blocked} />);
+      expect(screen.getByRole("button", {name:"通过并发布"})).toBeDisabled();
+      fireEvent.change(screen.getByLabelText("标题"), {target:{value:"Unsaved title"}});
+      await act(async () => {window.dispatchEvent(new Event("focus"));});
+      expect(screen.getByRole("button", {name:"通过并发布"})).toBeEnabled();
+      expect(screen.getByLabelText("标题")).toHaveValue("Unsaved title");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
+    } finally { cleanup(); vi.useRealTimers(); }
+  });
 
   it("reconciles the current validation projection after autosave", async () => {
     const refreshed: ReviewWorkspace = {
@@ -102,7 +119,7 @@ describe("ReviewActions metadata", () => {
       ...review,
       canApprove: true,
       platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
-      validation: { id: "static-validation", status: "READY", compatibilityCode: "READY" },
+      readiness: { status: "READY", compatibilityCode: "READY" },
       rpgMaker: {
         selectedCoreId: "rpgmaker", generation: "RPGMV", evidenceGeneration: "RPGMV",
         evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
@@ -368,7 +385,7 @@ describe("ReviewActions metadata continuation", () => {
       ...review,
       metadata: { ...review.metadata, description: "界".repeat(12_167) },
       canApprove: false,
-      validation: { ...review.validation!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      readiness: { ...review.readiness!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -390,7 +407,7 @@ describe("ReviewActions metadata continuation", () => {
 
   it("shows the current optional runtime screenshot", () => {
     render(<ReviewActions review={{ ...review, runtimeScreenshot: {
-      screenshotId: "shot-1", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
+      screenshotId: "shot-1", providerId: "emulatorjs", targetId: "mgba",
       widthPx: 640, heightPx: 480, capturedAtMs: 123,
       url: "/api/v1/admin/review-assets/shot-1",
     } }} />);
@@ -406,9 +423,9 @@ describe("ReviewActions validation", () => {
     render(<ReviewActions review={{
       ...review,
       canApprove: true,
-      validation: { ...review.validation!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      readiness: { ...review.readiness!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
       runtimeScreenshot: {
-        screenshotId: "shot-blocked", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
+        screenshotId: "shot-blocked", providerId: "emulatorjs", targetId: "mgba",
         widthPx: 640, heightPx: 480, capturedAtMs: 123,
         url: "/api/v1/admin/review-assets/shot-blocked",
       },
@@ -424,7 +441,7 @@ describe("ReviewActions validation", () => {
       ...review,
       version: 7,
       effectiveSourceSnapshotId: "snapshot-1",
-      validation: { id: "validation-1", status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      readiness: { status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
       arcadeDependencies: {
         machine: "a", status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING", activeAttachment: null,
         nodes: [{ kind: "PARENT", machine: "b", requiredBy: "a", depth: 1, expectedLogicalName: "b.zip", state: "MISSING", requiredEntryCount: 1, canAttach: true, attachment: null }],
@@ -434,7 +451,7 @@ describe("ReviewActions validation", () => {
       ...parentReview,
       version: 9,
       effectiveSourceSnapshotId: "snapshot-2",
-      validation: { id: "validation-2", status: "READY", compatibilityCode: "READY" },
+      readiness: { status: "READY", compatibilityCode: "READY" },
       arcadeDependencies: { machine: "a", status: "READY", compatibilityCode: "READY", activeAttachment: null, nodes: [{ ...parentReview.arcadeDependencies!.nodes[0], state: "SATISFIED_EXTERNAL", canAttach: false, attachment: null }] },
     };
     upload.uploadOne.mockResolvedValue({ uploadId: "upload-1", uploadFileId: "upload-file-1" });
@@ -458,7 +475,7 @@ describe("ReviewActions validation", () => {
     await waitFor(() => expect(upload.waitForJobEvents).toHaveBeenCalledWith("job-1", expect.any(Function)));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/arcade-parent-attachments"));
     expect(request?.[1]?.headers).toMatchObject({ "If-Match": '"v7"' });
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ validationId: "validation-1", baseSourceSnapshotId: "snapshot-1", dependencyMachine: "b", uploadFileId: "upload-file-1" });
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ baseSourceSnapshotId: "snapshot-1", dependencyMachine: "b", uploadFileId: "upload-file-1" });
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
     expect(screen.getByText("Parent ROM 已匹配，运行检查已通过")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalled();
@@ -468,7 +485,7 @@ describe("ReviewActions validation", () => {
     const blocked: ReviewWorkspace = {
       ...review,
       version: 4,
-      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      readiness: { status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC",
         playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
@@ -484,7 +501,7 @@ describe("ReviewActions validation", () => {
     const refreshed: ReviewWorkspace = {
       ...blocked,
       version: 5,
-      validation: { id: "validation-multi-2", status: "READY", compatibilityCode: "READY" },
+      readiness: { status: "READY", compatibilityCode: "READY" },
       multiDisc: {
         ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], canAttachMissingDiscs: false,
         entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),
@@ -526,7 +543,7 @@ describe("ReviewActions validation", () => {
   it("keeps the exact-set drawer selection after a review version conflict", async () => {
     const blocked: ReviewWorkspace = {
       ...review, version: 4, canApprove: false,
-      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      readiness: { status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
@@ -562,7 +579,7 @@ describe("ReviewActions validation", () => {
     const failedAttachment = { attachmentId: "attachment-retry", state: "FAILED_RETRYABLE", errorCode: "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE", jobId: "job-retry", jobState: "FAILED", version: 2, jobVersion: 3, canRetry: true };
     const blocked: ReviewWorkspace = {
       ...review, version: 6, canApprove: false,
-      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      readiness: { status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
@@ -575,7 +592,7 @@ describe("ReviewActions validation", () => {
     };
     const refreshed: ReviewWorkspace = {
       ...blocked, version: 7, canApprove: true,
-      validation: { id: "validation-multi-2", status: "READY", compatibilityCode: "READY" },
+      readiness: { status: "READY", compatibilityCode: "READY" },
       multiDisc: {
         ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], latestAttachment: { ...failedAttachment, state: "ACCEPTED", errorCode: null, jobState: "SUCCEEDED", canRetry: false },
         entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),

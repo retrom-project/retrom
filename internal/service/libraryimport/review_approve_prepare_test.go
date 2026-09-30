@@ -34,11 +34,11 @@ func (stub *approvalScopeStub) WithApproval(_ context.Context, work func(ReviewA
 func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 	valid := ReviewApprovalHead{
 		State: "REVIEW_PENDING", DraftVersion: 1,
-		ValidationStatus: "READY", ValidationID: "validation", SourceSnapshotID: "snapshot",
+		ValidationStatus: "READY", SourceSnapshotID: "snapshot",
 	}
 	for _, name := range []string{
 		"missing", "wrong state", "version", "source busy",
-		"bulk status", "bulk validation", "bulk snapshot",
+		"bulk status", "bulk snapshot",
 	} {
 		t.Run(name, func(t *testing.T) {
 			head, found := valid, true
@@ -55,13 +55,11 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 			default:
 				request.Bulk = &BulkPublicationIntent{
 					BulkID: "bulk", JobID: "job", WorkerID: "worker",
-					ValidationID: "validation", SourceSnapshotID: "snapshot",
+					SourceSnapshotID: "snapshot",
 				}
 				switch name {
 				case "bulk status":
 					head.ValidationStatus = "BLOCKED"
-				case "bulk validation":
-					head.ValidationID = "changed"
 				case "bulk snapshot":
 					head.SourceSnapshotID = "changed"
 				}

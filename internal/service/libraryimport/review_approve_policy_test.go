@@ -39,9 +39,9 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 	}{
 		{"unknown policy", ReviewApprovalDecision{DuplicatePolicy: "OVERWRITE"}},
 		{"ack without policy", ReviewApprovalDecision{AcknowledgedGameIDs: []string{"game"}}},
-		{"unknown origin", ReviewApprovalDecision{SourceKind: "USER", SourceRefID: "source"}},
-		{"origin without ref", ReviewApprovalDecision{SourceKind: "IMPORT_RECEIVE"}},
-		{"ref without origin", ReviewApprovalDecision{SourceRefID: "source"}},
+		{"unknown origin", ReviewApprovalDecision{SourceKind: "USER"}},
+		{"review origin override", ReviewApprovalDecision{SourceKind: "IMPORT_REVIEW"}},
+		{"lowercase origin", ReviewApprovalDecision{SourceKind: "import_receive"}},
 		{
 			"media without origin",
 			ReviewApprovalDecision{ExternalAssets: []ApprovalExternalAsset{{
@@ -59,7 +59,7 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 		})
 	}
 	for _, kind := range []string{"IMPORT_RECEIVE"} {
-		if !validApprovalDecision(ReviewApprovalDecision{SourceKind: kind, SourceRefID: "source"}) {
+		if !validApprovalDecision(ReviewApprovalDecision{SourceKind: kind}) {
 			t.Fatal(kind)
 		}
 	}
@@ -133,14 +133,14 @@ func TestReviewApprovalRequiresExactDuplicateAcknowledgment(t *testing.T) {
 func TestBulkPublicationRequiresEveryFrozenIdentity(t *testing.T) {
 	complete := BulkPublicationIntent{
 		BulkID: "bulk", JobID: "job", WorkerID: "worker",
-		ValidationID: "validation", SourceSnapshotID: "source",
+		SourceSnapshotID: "source",
 	}
 	if !validBulkPublicationIntent(nil) || !validBulkPublicationIntent(&complete) {
 		t.Fatal("valid identity rejected")
 	}
-	for index := range 5 {
+	for index := range 4 {
 		intent := complete
-		fields := []*string{&intent.BulkID, &intent.JobID, &intent.WorkerID, &intent.ValidationID, &intent.SourceSnapshotID}
+		fields := []*string{&intent.BulkID, &intent.JobID, &intent.WorkerID, &intent.SourceSnapshotID}
 		*fields[index] = ""
 		if validBulkPublicationIntent(&intent) {
 			t.Fatalf("missing field %d accepted", index)

@@ -14,6 +14,7 @@ import { ArcadeDependencyCard } from "./arcade-dependencies";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
+import { useReviewCurrentFacts } from "./use-review-current-facts";
 import { useReviewAttachments } from "./review-attachments";
 import { useReviewCommands } from "./review-commands";
 import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
@@ -49,7 +50,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const [notice, setNotice] = useState(initial.notice);
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [currentValidation, setCurrentValidation] = useState(initialRuntime.validation);
+  const [currentValidation, setCurrentValidation] = useState(initialRuntime.readiness);
   const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(initialRuntime.effectiveSourceSnapshotId);
   const [arcadeDependencies, setArcadeDependencies] = useState(initialRuntime.arcadeDependencies);
   const [multiDisc, setMultiDisc] = useState(initialRuntime.multiDisc);
@@ -71,11 +72,11 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
   const applyRefreshedReview = useCallback((updated: ReviewWorkspace) => {
     versionRef.current = updated.version;
-    setCurrentValidation(updated.validation);
+    setCurrentValidation(updated.readiness);
     setEffectiveSourceSnapshotId(updated.effectiveSourceSnapshotId ?? "");
     setArcadeDependencies(updated.arcadeDependencies ?? null);
     setMultiDisc(updated.multiDisc ?? null);
-    setServerCanApprove(updated.canApprove ?? updated.validation?.status === "READY");
+    setServerCanApprove(updated.canApprove ?? updated.readiness?.status === "READY");
     setCandidates(updated.candidates);
     setUploadedAssets(updated.uploadedAssets ?? []);
     setRuntimeScreenshot(updated.runtimeScreenshot ?? null);
@@ -91,6 +92,16 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     applyRefreshedReview(updated);
     return updated;
   }, [applyRefreshedReview, review.itemId]);
+
+  const applyCurrentFacts = useCallback((updated: ReviewWorkspace) => {
+    setCurrentValidation(updated.readiness);
+    setArcadeDependencies(updated.arcadeDependencies ?? null);
+    setMultiDisc(updated.multiDisc ?? null);
+    setServerCanApprove(updated.canApprove ?? updated.readiness?.status === "READY");
+    setRuntimeScreenshot(updated.runtimeScreenshot ?? null);
+    router.refresh();
+  }, [router, setCurrentValidation, setArcadeDependencies, setMultiDisc, setServerCanApprove, setRuntimeScreenshot]);
+  useReviewCurrentFacts(review.itemId, applyCurrentFacts);
 
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
@@ -152,7 +163,6 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const attachments = useReviewAttachments({
     reviewId: review.itemId,
     versionRef,
-    currentValidationId: currentValidation?.id,
     effectiveSourceSnapshotId,
     activeParentJobId: activeAttachmentJobId(arcadeDependencies),
     multiDisc,
@@ -183,7 +193,7 @@ type ReviewViewModel = {
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
   notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
-  scummvm: NonNullable<ReviewWorkspace["validation"]>["dependencySnapshot"] | null; setScummvmCandidateId: (id: string) => void;
+  scummvm: NonNullable<ReviewWorkspace["readiness"]>["dependencySnapshot"] | null; setScummvmCandidateId: (id: string) => void;
   rpgMaker: NonNullable<ReviewWorkspace["rpgMaker"]> | null; setRPGMaker: Dispatch<SetStateAction<NonNullable<ReviewWorkspace["rpgMaker"]> | null>>;
   sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
   comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;

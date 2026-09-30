@@ -199,13 +199,13 @@ func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database dbapi.DB, 
 		query string
 		args  []any
 	}{
-		{`UPDATE review_preview_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?
+		{`UPDATE runtime_preview_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?
 WHERE id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, previewID}},
 		{`DELETE FROM isolated_runtime_capabilities WHERE preview_id=?`, []any{previewID}},
 		{`DELETE FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?`, []any{previewID}},
-		{`DELETE FROM review_preview_files WHERE preview_session_id=?`, []any{previewID}},
+		{`DELETE FROM runtime_preview_files WHERE preview_session_id=?`, []any{previewID}},
 		{`DELETE FROM review_runtime_screenshots WHERE preview_session_id=?`, []any{previewID}},
-		{`DELETE FROM review_preview_sessions WHERE id=?`, []any{previewID}},
+		{`DELETE FROM runtime_preview_sessions WHERE id=?`, []any{previewID}},
 	}
 	for _, statement := range statements {
 		if _, err := database.ExecContext(ctx, statement.query, statement.args...); err != nil {

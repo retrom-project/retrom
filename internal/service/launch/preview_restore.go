@@ -8,7 +8,7 @@ import (
 
 func readPreviewRestore(
 	ctx context.Context,
-	scope PreviewCreationScope,
+	scope PreviewSessionScope,
 	request ReviewPreviewRequest,
 ) (PreviewRestore, error) {
 	if request.RestoreFromPreviewID == nil {
@@ -22,6 +22,24 @@ func readPreviewRestore(
 		return PreviewRestore{}, ErrSaveIncompatible
 	}
 	return restore, nil
+}
+
+func (service *PreviewCreator) PrepareRestore(ctx context.Context, plan PreviewCreatePlan,
+	restore PreviewRestore,
+) (PreviewCreatePlan, error) {
+	if err := validatePreviewRestore(restore, plan); err != nil {
+		return PreviewCreatePlan{}, err
+	}
+	if service.environment.CopyRestorePayload == nil {
+		return PreviewCreatePlan{}, ErrSaveIncompatible
+	}
+	record, err := service.environment.CopyRestorePayload(ctx, plan.ID, restore.FileRecord)
+	if err != nil {
+		return PreviewCreatePlan{}, fmt.Errorf("copy preview restore payload: %w", err)
+	}
+	plan.RestoreFileRecord, plan.RestoreFormat = &record, &restore.Format
+	plan.RestoreSourceFileRecord = restore.FileRecord
+	return plan, nil
 }
 
 func validatePreviewRestore(restore PreviewRestore, plan PreviewCreatePlan) error {

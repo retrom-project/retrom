@@ -13,7 +13,7 @@ type ApprovalMetadata struct {
 
 type ApprovalGame struct {
 	ID, PlatformInstanceID, TitleInitial, SearchText string
-	SourceKind, SourceRefID, ContentKind             string
+	SourceKind, ContentKind                          string
 	ManifestJSON, ManifestDigest                     string
 	Metadata                                         ApprovalMetadata
 	NowMS                                            int64
@@ -40,7 +40,10 @@ type ApprovalVariant struct {
 }
 
 type (
-	ApprovalValidationCopy    struct{ VariantID, ValidationID, ItemID, GameID string }
+	ApprovalRuntimeCopy struct {
+		VariantID, ItemID, GameID string
+		Files                     []PreparedValidationFile
+	}
 	ApprovalRPGVariant        struct{ VariantID, Generation, DependencyDigest string }
 	ApprovalVariantDependency struct {
 		VariantID, Kind, Machine, DATID, RequiredEntriesJSON, State string
@@ -74,7 +77,7 @@ type ApprovalGameWriter interface {
 type ApprovalVariantWriter interface {
 	NextEmulatorID(context.Context) (int64, error)
 	CreateVariant(context.Context, ApprovalVariant) error
-	CopyValidationFiles(context.Context, ApprovalValidationCopy) error
+	CopyRuntimeFiles(context.Context, ApprovalRuntimeCopy) error
 	CreateDependency(context.Context, ApprovalVariantDependency) error
 	CreateRPGVariant(context.Context, ApprovalRPGVariant) error
 }

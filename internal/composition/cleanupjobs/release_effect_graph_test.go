@@ -50,7 +50,7 @@ func TestReleaseEffectNeverReleasesAnotherOwnersPayload(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			root := jobs.EffectOwner{Found: true, Owner: jobs.Owner{Scope: jobs.Scope{Type: kind, ID: "root"}, State: "PUBLISHED", PayloadState: "RELEASING", ReleaseJobID: "root-release", Version: 2}}
 			source := jobs.EffectOwner{Found: true, Owner: jobs.Owner{Scope: jobs.Scope{Type: jobs.ScopeSourceImportItem, ID: "source"}, State: "REVIEW_PENDING", PayloadState: "RETAINED", PublicID: "root", Version: 4}}
-			root.MetadataSource = jobs.EffectSource{Kind: "IMPORT_RECEIVE", ID: "source"}
+			root.MetadataSource = jobs.EffectSource{Kind: "IMPORT_RECEIVE"}
 			root.ContentSource = root.MetadataSource
 			root.Owner.PublicID = "unrelated-import-item"
 			memory := &effectGraphMemory{owners: map[jobs.Scope]jobs.EffectOwner{root.Owner.Scope: root, source.Owner.Scope: source}, links: map[jobs.Scope][]jobs.Scope{root.Owner.Scope: {source.Owner.Scope}}}

@@ -11,7 +11,7 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1, canApprove: false,
   platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED" },
+  readiness: { status: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
@@ -50,7 +50,7 @@ describe("ordinary RPG review", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       render(<ReviewActions review={{...review, canApprove: true,
-        validation: {...review.validation!, status: "READY", compatibilityCode: "READY"}}} />);
+        readiness: {...review.readiness!, status: "READY", compatibilityCode: "READY"}}} />);
       expect(screen.getByRole("button", {name: "通过并发布"})).toBeEnabled();
       expect(screen.getByRole("button", {name: "运行游戏"})).toBeEnabled();
       await act(() => vi.advanceTimersByTimeAsync(3_000));

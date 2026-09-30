@@ -38,5 +38,8 @@ UPDATE import_jobs SET review_pending_item_count=review_pending_item_count-1,
 WHERE id=? AND version=? AND review_pending_item_count=?`,
 		change.Projection.State, change.Projection.CompletedAtMS, change.NowMS,
 		change.ImportID, change.ExpectedParentVersion, change.ExpectedPending)
-	return approvalMutation(result, err, "publish import aggregate", true)
+	if err := approvalMutation(result, err, "publish import aggregate", true); err != nil {
+		return err
+	}
+	return closeReview(ctx, records.transaction, change.ItemID, change.NowMS)
 }

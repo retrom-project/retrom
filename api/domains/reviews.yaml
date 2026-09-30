@@ -83,10 +83,20 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     get:
       operationId: getAdminReview
-      description: Returns the review workspace and the latest validation for its current staged source.
+      description: Returns the review workspace with readiness computed from current runtime requirements, installed BIOS, and source content. Reading does not change the draft version.
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Current review facts in one read transaction; BIOS or DAT changes do not increment the review version.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: ../components/common.yaml#/components/schemas/JSONObject
+                  - type: object
+                    required: [itemId, version, readiness, canApprove]
+                    properties:
+                      readiness:
+                        $ref: '#/components/schemas/ReviewReadiness'
     patch:
       operationId: patchAdminReview
       parameters:
@@ -128,7 +138,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewPreview
-      description: Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. Every preview captures one runtime screenshot five seconds after the core reports game start; a current screenshot may be used by an administrator to publish despite dependency blockers.
+      description: Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. The session freezes the concrete resources resolved at creation. An administrator can save a screenshot associated with the review item and use it to publish despite supported dependency blockers.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -141,7 +151,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewArcadeParentAttachment
-      description: Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review draft's locked Arcade DAT closure.
+      description: Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review item's current Arcade DAT closure.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -205,6 +215,20 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
 components:
   schemas:
+    ReviewReadiness:
+      type: object
+      additionalProperties: false
+      required: [status, compatibilityCode, dependencySnapshot]
+      properties:
+        status:
+          type: string
+          enum: [READY, BLOCKED, INCOMPATIBLE]
+        compatibilityCode:
+          type: string
+        dependencySnapshot:
+          description: Dependencies resolved from current requirements and active installations; no validation identity or historical selection.
+          type: object
+          additionalProperties: true
     ApprovalReasonRequest:
       type: object
       additionalProperties: false
@@ -504,9 +528,6 @@ components:
           type: string
           pattern: ^[0-9a-f]{64}$
           description: Selects one runnable upstream ScummVM candidate from the current immutable source; requires the ordinary review version precondition.
-        selectedValidationId:
-          type: string
-          format: uuid
         selectedCandidateId:
           type: string
           format: uuid
@@ -545,14 +566,10 @@ components:
       type: object
       additionalProperties: false
       required:
-        - validationId
         - baseSourceSnapshotId
         - dependencyMachine
         - uploadFileId
       properties:
-        validationId:
-          type: string
-          format: uuid
         baseSourceSnapshotId:
           type: string
           format: uuid

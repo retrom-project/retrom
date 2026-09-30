@@ -35,13 +35,13 @@ type ReviewDecisionResult struct {
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 }
 type ReviewDiscardSnapshot struct {
-	DraftID, ImportID, MetadataJSON  string
-	Version                          int64
-	State                            string
-	SourceBusy                       bool
-	ValidationID, DatID, CandidateID *string
-	HasCover, HasBackground          bool
-	Aggregate                        ReviewDiscardAggregate
+	DraftID, ImportID, MetadataJSON string
+	Version                         int64
+	State                           string
+	SourceBusy                      bool
+	DatID, CandidateID              *string
+	HasCover, HasBackground         bool
+	Aggregate                       ReviewDiscardAggregate
 }
 type ReviewDiscardAggregate struct {
 	Version  int64

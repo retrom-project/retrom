@@ -72,7 +72,6 @@ func assembleTestDependencies(input testImportOptions) Dependencies {
 	approvals := commands.NewReviewApprovals(database, now, files, tags)
 	discards := commands.NewReviewDiscards(database, now)
 	executions := commands.NewExecutions(database, now)
-	validator := NewDraftValidator(now)
 	worker := libraryservice.NewImportWorker(libraryservice.ImportWorkerDependencies{
 		Queue: executions, Control: executions, Recovery: executions, Preparation: preparation, Creations: creations,
 	}, libraryservice.ImportWorkerSettings{
@@ -85,13 +84,12 @@ func assembleTestDependencies(input testImportOptions) Dependencies {
 	return Dependencies{
 		Database: database, Files: files, Tags: tags, Preparation: preparation, Creations: creations,
 		Approvals: approvals, Discards: discards, Executions: executions, Worker: worker, Admissions: admissions,
-		Reconfigurations:   commands.NewReconfigurations(database, now, files, creations),
-		Drafts:             commands.NewReviewDrafts(database, tags, now, validator.Refresh, validator.SelectScummVM),
-		PreviewValidations: commands.NewReviewPreviewValidations(database, now, validator.Refresh),
-		BatchDiscards:      commands.NewReviewBatchDiscards(database, discards, now),
-		Retries:            commands.NewImportItemRetries(database, now),
-		Cancellations:      commands.NewImportBatchCancellations(database, now),
-		Deduplicator:       commands.NewReviewDeduplicator(database, now),
+		Reconfigurations: commands.NewReconfigurations(database, now, files, creations),
+		Drafts:           commands.NewReviewDrafts(database, tags, now),
+		BatchDiscards:    commands.NewReviewBatchDiscards(database, discards, now),
+		Retries:          commands.NewImportItemRetries(database, now),
+		Cancellations:    commands.NewImportBatchCancellations(database, now),
+		Deduplicator:     commands.NewReviewDeduplicator(database, now),
 		AttachmentExecutions: libraryservice.NewAttachmentExecutions(
 			librarypersistence.NewAttachmentExecutions(database), now,
 		),

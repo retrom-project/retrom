@@ -16,13 +16,43 @@ const save: SaveItem = {
 it("prioritizes the save, mounts video only when selected and restores save preview", async () => {
   const user = userEvent.setup();
   const { container } = render(<GameDetailPreview title="Sudoku" coverUrl={null} videoUrl="/video.mp4" save={save} />);
-  expect(screen.getByText("将从这里继续")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "最近存档" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tabpanel", { name: "最近存档" })).toBeVisible();
+  for (const tab of screen.getAllByRole("tab")) {
+    expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBeInTheDocument();
+  }
   expect(container.querySelector("video")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "查看视频" }));
+  await user.click(screen.getByRole("tab", { name: "视频预览" }));
+  expect(screen.getByRole("tabpanel", { name: "视频预览" })).toBeVisible();
   expect(container.querySelector("video")).not.toBeNull();
-  await user.click(screen.getByRole("button", { name: "查看最近存档" }));
+  await user.click(screen.getByRole("tab", { name: "最近存档" }));
   expect(container.querySelector("video")).toBeNull();
   expect(screen.getByAltText("Sudoku 最近存档")).toBeVisible();
+});
+
+it("supports keyboard preview switching with one tab in the focus order", async () => {
+  const user = userEvent.setup();
+  render(<GameDetailPreview title="Sudoku" coverUrl={null} videoUrl="/video.mp4" save={save} />);
+  const saved = screen.getByRole("tab", { name: "最近存档" });
+  const video = screen.getByRole("tab", { name: "视频预览" });
+  expect(video).toHaveAttribute("tabindex", "-1");
+  saved.focus();
+  await user.keyboard("{ArrowRight}");
+  expect(video).toHaveFocus();
+  expect(video).toHaveAttribute("aria-selected", "true");
+  await user.keyboard("{Home}");
+  expect(saved).toHaveFocus();
+  expect(screen.getByRole("tabpanel", { name: "最近存档" })).toBeVisible();
+  await user.keyboard("{End}{ArrowLeft}");
+  expect(saved).toHaveFocus();
+});
+
+it.each([true, false])("shows a single heading without tabs when only one preview exists (save: %s)", (hasSave) => {
+  render(<GameDetailPreview title="Sudoku" coverUrl={null} videoUrl={hasSave ? null : "/video.mp4"} save={hasSave ? save : null} />);
+  expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.getByText(hasSave ? "将从这里继续" : "视频预览")).toBeVisible();
+  if (hasSave) {expect(screen.getByAltText("Sudoku 最近存档")).toBeVisible();}
+  else {expect(screen.getByLabelText("视频预览")).toBeVisible();}
 });
 
 it("keeps missing screenshot size visible without a dead preview action", () => {

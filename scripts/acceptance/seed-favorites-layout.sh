@@ -21,13 +21,13 @@ DELETE FROM favorite_games WHERE profile_id=(SELECT profile_id FROM favorite_own
 WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)
 INSERT OR IGNORE INTO games(
   id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+  metadata_source_kind,content_kind,content_source_kind,
   source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
 )
 SELECT printf('70000000-0000-7000-8000-%012d',n),
        (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
        printf('Favorite Layout Game %02d',n),'F','Layout acceptance','','','Fixture',NULL,1980+n,
-       'ADMIN_EDIT',NULL,'SINGLE_FILE','ADMIN_REPLACE','favorite-layout','[]',printf('%064x',n),
+       'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','[]',printf('%064x',n),
        'PUBLISHED','RETAINED',lower(printf('Favorite Layout Game %02d',n)),1,
        1786001000000+n,1786001000000+n
 FROM generated;

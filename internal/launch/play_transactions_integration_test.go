@@ -33,7 +33,7 @@ func playRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := make(map[string]string)
 	for _, table := range []string{
-		"launch_sessions", "play_sessions", "review_preview_sessions",
+		"launch_sessions", "play_sessions", "runtime_preview_sessions",
 		"launch_payload_retirements", "launch_game_save_bindings", "isolated_runtime_capabilities", "isolated_runtime_bootstrap_tickets", "save_states",
 	} {
 		result[table] = playTableRows(t, database, table)

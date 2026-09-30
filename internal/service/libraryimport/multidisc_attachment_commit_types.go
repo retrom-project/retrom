@@ -36,8 +36,8 @@ type MultiDiscAttachmentCommitRequest struct {
 
 type MultiDiscAttachmentCommitWrite struct {
 	MultiDiscAttachmentCommitRequest
-	SourceSnapshotID, ValidationID, ConsumptionID string
-	NowMS                                         int64
+	SourceSnapshotID, ConsumptionID string
+	NowMS                           int64
 }
 
 type MultiDiscAttachmentCommitScope interface {

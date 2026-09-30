@@ -16,13 +16,13 @@ func (records reviewApprovalRecords) CreateGame(ctx context.Context, game librar
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,
 release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,
 updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PUBLISHED',?,1,?,?)`,
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PUBLISHED',?,1,?,?)`,
 		game.ID, game.PlatformInstanceID, m.Title, game.TitleInitial, m.Description, m.Developer,
 		m.Publisher, m.Genre, m.Players, m.ReleaseYear,
-		game.SourceKind, game.SourceRefID, game.ContentKind, game.SourceKind, game.SourceRefID,
+		game.SourceKind, game.ContentKind, game.SourceKind,
 		game.ManifestJSON, game.ManifestDigest, game.SearchText, game.NowMS, game.NowMS)
 	return approvalMutation(result, err, "insert approved game", true)
 }

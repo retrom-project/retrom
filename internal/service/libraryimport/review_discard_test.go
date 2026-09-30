@@ -82,8 +82,7 @@ func discardService(fixture *discardFixture) *ReviewDiscards {
 func TestReviewDiscardsUpdatesCurrentStateAndSchedulesRelease(t *testing.T) {
 	t.Parallel()
 	fixture := newDiscardFixture()
-	validation, candidate, dat := "validation", "candidate", "dat"
-	fixture.snapshot.ValidationID = &validation
+	candidate, dat := "candidate", "dat"
 	fixture.snapshot.CandidateID = &candidate
 	fixture.snapshot.DatID = &dat
 	fixture.snapshot.HasCover = true

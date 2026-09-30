@@ -13,12 +13,15 @@ func (records Records) ItemRemaining(ctx context.Context, id string) (int64, err
 			`
 SELECT
  (SELECT count(*) FROM review_draft_screenshot_assets WHERE review_draft_id=?)+
-  (SELECT count(*) FROM isolated_runtime_capabilities capability JOIN review_preview_sessions preview
-   ON preview.id=capability.preview_id WHERE preview.import_item_id=?)+
-  (SELECT count(*) FROM isolated_runtime_bootstrap_tickets ticket JOIN review_preview_sessions preview
-   ON preview.id=ticket.preview_id WHERE preview.import_item_id=?)+
-  (SELECT count(*) FROM review_preview_files file JOIN review_preview_sessions preview
-   ON preview.id=file.preview_session_id WHERE preview.import_item_id=?)+
+  (SELECT count(*) FROM isolated_runtime_capabilities capability JOIN runtime_preview_sessions preview
+   ON preview.id=capability.preview_id WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?))+
+  (SELECT count(*) FROM isolated_runtime_bootstrap_tickets ticket JOIN runtime_preview_sessions preview
+   ON preview.id=ticket.preview_id WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?))+
+  (SELECT count(*) FROM runtime_preview_files file JOIN runtime_preview_sessions preview
+   ON preview.id=file.preview_session_id WHERE preview.id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?))+
   (SELECT count(*) FROM review_runtime_screenshots WHERE import_item_id=?)+
   (SELECT count(*) FROM review_arcade_parent_attachments WHERE import_item_id=? AND accepted_file_record
 IS NOT
@@ -29,11 +32,11 @@ NULL)+
   (SELECT count(*) FROM import_item_source_snapshot_files file
    JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
    WHERE snapshot.import_item_id=?)+
-  (SELECT count(*) FROM import_item_validation_files file
-   JOIN import_item_core_validations validation ON validation.id=file.import_item_core_validation_id
-   WHERE validation.import_item_id=?)+
+  (SELECT count(*) FROM import_item_runtime_files file
+   WHERE file.import_item_id=?)+
   (SELECT count(*) FROM review_uploaded_assets WHERE import_item_id=?)+
-  (SELECT count(*) FROM review_preview_sessions WHERE import_item_id=?)+
+  (SELECT count(*) FROM runtime_preview_sessions WHERE id IN (
+ SELECT preview_session_id FROM review_preview_bindings WHERE import_item_id=?))+
   (SELECT count(*) FROM content_hash_evidence evidence
    JOIN metadata_scrape_runs run ON run.id=evidence.scrape_run_id
    WHERE run.import_item_id=? AND evidence.payload_released_at_ms IS NULL)+

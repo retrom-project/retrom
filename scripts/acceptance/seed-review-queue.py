@@ -112,21 +112,17 @@ WHERE i.id LIKE '30000000-%';
 -- The copied digest intentionally belongs to another source snapshot. This seeds
 -- stale source evidence and verifies that draft save rebuilds it instead
 -- of trusting only the structurally matching validation columns.
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.provider_id,v.target_id,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
-       printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
-       v.prepublish_input_digest,'READY','READY',v.dependency_snapshot_json,i.created_at_ms
-FROM import_items i
-CROSS JOIN import_item_core_validations v
-WHERE v.import_item_id=(SELECT item_id FROM acceptance_base)
-AND v.id=(SELECT selected_validation_id FROM import_items WHERE id=(SELECT item_id FROM acceptance_base))
-AND i.id LIKE '30000000-%';
+INSERT INTO import_item_runtime_files(import_item_id,role,logical_name,file_record,sort_order,created_at_ms)
+SELECT item.id,base.role,base.logical_name,base.file_record,base.sort_order,item.created_at_ms
+FROM import_items item CROSS JOIN import_item_runtime_files base
+WHERE base.import_item_id=(SELECT item_id FROM acceptance_base) AND item.id LIKE '30000000-%';
 
 UPDATE import_items
-SET target_platform_instance_id=(SELECT v.target_platform_instance_id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
-    effective_source_snapshot_id=(SELECT v.source_snapshot_id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
-    selected_validation_id=(SELECT v.id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
-    default_dos_entry=(SELECT v.default_dos_entry FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
+SET target_platform_instance_id=(SELECT target_platform_instance_id FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
+    effective_source_snapshot_id=printf('35000000-0000-7000-80%02d-%012d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),
+    content_analysis_json=(SELECT content_analysis_json FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
+    review_profile_json=(SELECT review_profile_json FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
+    default_dos_entry=(SELECT default_dos_entry FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
     metadata_json=json_object('title',printf('Batch %d Game %02d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),
     review_version=1,review_created_at_ms=created_at_ms,review_updated_at_ms=updated_at_ms
 WHERE id LIKE '30000000-%';

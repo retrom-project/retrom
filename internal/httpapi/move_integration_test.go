@@ -442,14 +442,12 @@ func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	stale := sendPatch(`"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusConflict }, func() bool { return !strings.Contains(stale.Body.String(), `"code":"VERSION_CONFLICT"`) }), "stale metadata edit = %d %s", stale.Code, stale.Body.String())
 	var title, titleInitial, sourceKind string
-	var sourceRef sql.NullString
 	var storedContent, ownerID string
 	var version, auditCount int64
 	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT g.title,
 g.title_initial,
 g.metadata_source_kind,
-g.metadata_source_ref_id,
 g.id,
 g.platform_instance_id,
 g.version,
@@ -458,7 +456,7 @@ action='GAME_METADATA_UPDATED')
 FROM games g
 WHERE g.id=?
 `, gameID).Scan(
-		&title, &titleInitial, &sourceKind, &sourceRef,
+		&title, &titleInitial, &sourceKind,
 		&storedContent, &ownerID, &version, &auditCount,
 	); err != nil {
 		t.Fatal(err)
@@ -468,13 +466,12 @@ WHERE g.id=?
 		func() bool { return title != "打击者1945" },
 		func() bool { return titleInitial != "D" },
 		func() bool { return sourceKind != "ADMIN_EDIT" },
-		func() bool { return sourceRef.Valid },
 		func() bool { return storedContent != contentID },
 		func() bool { return ownerID != gbcID },
 		func() bool { return version != 2 },
 		func() bool { return auditCount != 1 },
-	), "metadata state = title:%s initial:%s source:%s/%v content:%s owner:%s version:%d audits:%d",
-		title, titleInitial, sourceKind, sourceRef, storedContent, ownerID, version, auditCount)
+	), "metadata state = title:%s initial:%s source:%s content:%s owner:%s version:%d audits:%d",
+		title, titleInitial, sourceKind, storedContent, ownerID, version, auditCount)
 	public := httptest.NewRecorder()
 	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
 		"/api/v1/games/"+gameID, nil))
@@ -799,11 +796,11 @@ func seedMovableGame(t *testing.T, server *testServer) (string, string) {
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ metadata_source_kind,content_kind,content_source_kind,source_manifest_json,
 source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
- 'Move fixture','M','','','','',NULL,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,
+ 'Move fixture','M','','','','',NULL,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','{}',?,
  'PUBLISHED','move fixture',1,?,?)
 `, []any{gameID, strings.Repeat("1", 64), now, now}, ""},
 		{`
@@ -863,15 +860,15 @@ func cloneMovableGame(
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
 SELECT ?,platform_instance_id,title || ?,title_initial,description,developer,publisher,genre,players,
 release_year,
- metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id || ?,
+ metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,search_text || ?,1,created_at_ms,updated_at_ms
 FROM games
 WHERE id=?
-`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}, ""},
+`, []any{id(gameSuffix), gameSuffix, gameSuffix, sourceGameID}, ""},
 		{`
 INSERT INTO game_files(game_id, role, logical_name, file_record, sort_order,
 source_archive_file_record, source_archive_entry_ordinal)

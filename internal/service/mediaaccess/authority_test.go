@@ -33,7 +33,7 @@ func TestMediaAccessChecksCurrentGameAndSaveOwner(t *testing.T) {
 	}
 }
 
-func TestReviewMediaPreservesReadyAndTerminalVisibility(t *testing.T) {
+func TestReviewMediaAllowsPendingAndClosesTerminalReview(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		asset ReviewAsset
@@ -43,12 +43,12 @@ func TestReviewMediaPreservesReadyAndTerminalVisibility(t *testing.T) {
 		{"ready current candidate", ReviewAsset{Kind: "CANDIDATE", State: "READY", ItemState: "REVIEW_PENDING"}, true},
 		{"game candidate", ReviewAsset{Kind: "CANDIDATE", State: "READY", GameState: "PUBLISHED"}, true},
 		{"finished without retained payload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED"}, false},
-		{"terminal upload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED", TerminalReview: true}, true},
+		{"terminal upload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED"}, false},
 		{"current screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "REVIEW_PENDING"}, true},
-		{"terminal screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "PUBLISHED", TerminalReview: true}, true},
+		{"terminal screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "PUBLISHED"}, false},
 		{"copied source", ReviewAsset{Kind: "SOURCE", State: "COPIED", ItemState: "REVIEW_PENDING"}, true},
-		{"pending source", ReviewAsset{Kind: "SOURCE", State: "PENDING", TerminalReview: true}, false},
-		{"terminal source", ReviewAsset{Kind: "SOURCE", State: "COPIED", TerminalReview: true}, true},
+		{"pending source", ReviewAsset{Kind: "SOURCE", State: "PENDING"}, false},
+		{"terminal source", ReviewAsset{Kind: "SOURCE", State: "COPIED", ItemState: "PUBLISHED"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			test.asset.Resource = Resource{Digest: "media"}

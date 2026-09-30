@@ -119,6 +119,42 @@ linters:
           deny:
             - pkg: retrom/internal/service/jobs
               desc: domains must not depend on job management use cases
+        runtime-no-import-workflow:
+          files:
+            - "${base-path}/internal/launch/**.go"
+            - "${base-path}/internal/service/launch/**.go"
+            - "${base-path}/internal/service/gamevariant/**.go"
+            - "${base-path}/internal/persistence/launch/**.go"
+            - "${base-path}/internal/persistence/gamevariant/**.go"
+            - "${base-path}/internal/composition/launch/**.go"
+            - "${base-path}/internal/composition/gamevariant/**.go"
+            - "!$test"
+          deny:
+            - pkg: retrom/internal/libraryimport
+              desc: runtime must not depend on import workflows
+            - pkg: retrom/internal/service/libraryimport
+              desc: runtime consumes content facts instead of review services
+            - pkg: retrom/internal/persistence/libraryimport
+              desc: review owns source authority and supplies prepared preview resources
+            - pkg: retrom/internal/composition/libraryimport
+              desc: review assembly belongs to the process root
+            - pkg: retrom/internal/composition/importworkflow
+              desc: runtime must not assemble import workflows
+        arcade-domain:
+          files:
+            - "${base-path}/internal/content/arcade/**.go"
+            - "!$test"
+          deny:
+            - pkg: retrom/internal/service
+              desc: Arcade domain rules must remain independent of workflows
+            - pkg: retrom/internal/persistence
+              desc: Arcade domain rules consume narrow catalog ports
+            - pkg: retrom/internal/database
+              desc: Arcade domain rules must not execute SQL
+            - pkg: retrom/internal/libraryimport
+              desc: Arcade domain rules must not depend on import workflows
+            - pkg: retrom/internal/launch
+              desc: Arcade domain rules must not depend on launch workflows
     dogsled:
       max-blank-identifiers: 3
     dupl:

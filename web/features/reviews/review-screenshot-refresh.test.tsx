@@ -10,7 +10,7 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
   platformInstance: { id: "platform-1", name: "ONS" },
   metadata: { title: "ONS Project", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "validation-1", status: "READY", compatibilityCode: "READY" },
+  readiness: { status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
@@ -18,7 +18,7 @@ const review: ReviewWorkspace = {
 
 function screenshotReview(id: string): ReviewWorkspace {
   return { ...review, runtimeScreenshot: {
-    screenshotId: id, validationId: "validation-1", providerId: "retrom-runtime", targetId: "onscripter-yuri",
+    screenshotId: id, providerId: "retrom-runtime", targetId: "onscripter-yuri",
     widthPx: 800, heightPx: 600, capturedAtMs: 1, url: `/api/v1/admin/review-assets/${id}`,
   } };
 }

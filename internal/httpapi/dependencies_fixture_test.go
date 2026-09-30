@@ -57,6 +57,7 @@ func testHTTPDependencies(services *application.Services, auth Authenticator, pr
 			Approvals:     services.ReviewApprovals,
 			BulkApprovals: services.ReviewBulkApprovals,
 			Screenshots:   services.ReviewScreenshots,
+			Previews:      services.ReviewPreviews,
 			Metadata:      services.Metadata,
 			Evidence:      services.MetadataEvidence,
 		},

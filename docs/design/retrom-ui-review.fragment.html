@@ -2380,34 +2380,51 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb { margin-bottom: var(--space-4); }
 #retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb a { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: var(--text-body); font-weight: var(--weight-medium); }
 #retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb svg { width: 18px; height: 18px; }
-#retrom-ui-review [data-page="detail"] .rt-detail-hero { min-width: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); align-items: center; gap: var(--space-6); padding: var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
+#retrom-ui-review [data-page="detail"] .rt-detail-hero { min-width: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); align-items: center; gap: var(--space-6); padding: var(--space-5) var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 260px minmax(280px, 1fr) minmax(280px, 520px); }
 #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell { width: 100%; min-width: 0; align-self: start; }
 #retrom-ui-review [data-page="detail"] .rt-detail-copy { min-width: 0; }
 #retrom-ui-review [data-page="detail"] .rt-detail-kicker { margin: 0 0 var(--space-3); color: var(--muted); font-size: var(--text-small); }
-#retrom-ui-review [data-page="detail"] .rt-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+#retrom-ui-review [data-page="detail"] .rt-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
 #retrom-ui-review [data-page="detail"] .rt-detail-title-row .rt-detail-title { min-width: 0; margin: 0; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
 #retrom-ui-review [data-page="detail"] .rt-detail-title-row .favorite-actions { flex: 0 0 auto; }
 #retrom-ui-review [data-page="detail"] .rt-detail-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-small); }
-#retrom-ui-review [data-page="detail"] .rt-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-5); color: var(--muted); font-size: var(--text-body); }
+#retrom-ui-review [data-page="detail"] .rt-detail-meta:empty { display: none; }
+#retrom-ui-review [data-page="detail"] .rt-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-body); }
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime strong { font-weight: var(--weight-regular); }
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
-#retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-5); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
+#retrom-ui-review .rt-launch-options { min-width: 0; }
+#retrom-ui-review .rt-launch-options:has(.rt-field:not([hidden])) { margin-bottom: var(--space-3); }
+#retrom-ui-review .rt-launch-option-panel { min-width: 0; }
+#retrom-ui-review .rt-launch-option-panel > .rt-field { margin-top: 0; gap: 7px; }
+#retrom-ui-review .rt-launch-options.is-tabbed { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "panel"; row-gap: var(--space-2); }
+#retrom-ui-review .rt-launch-option-tabs { grid-area: tabs; display: flex; align-items: center; gap: var(--space-1); }
+#retrom-ui-review .rt-launch-option-divider { color: var(--muted); }
+#retrom-ui-review .rt-launch-options.is-tabbed > .rt-launch-option-panel { grid-area: panel; }
+#retrom-ui-review .rt-launch-options.is-tabbed .is-inactive { visibility: hidden; pointer-events: none; }
+#retrom-ui-review .rt-launch-options.is-tabbed #rt-dos-field select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .rt-button { min-width: 148px; }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .status { flex-basis: 100%; white-space: normal; }
-#retrom-ui-review [data-page="detail"] .rt-launch-hint { margin: var(--space-3) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
-#retrom-ui-review [data-page="detail"] .rt-detail-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-4); padding-top: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-launch-hint { margin: var(--space-2) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-3); padding-top: var(--space-2); }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice, #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice > div { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice { flex-wrap: wrap; }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice small { color: var(--muted); font-size: var(--text-small); }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice strong { font-size: var(--text-small); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice button { min-height: 44px; }
-#retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { min-width: 0; display: flex; flex-direction: column; }
 #retrom-ui-review [data-page="detail"] .rt-detail-preview-heading { min-height: 44px; margin-bottom: var(--space-2); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-frame { position: relative; min-width: 0; min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-cover); background: var(--canvas); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading.is-overlay { position: absolute; z-index: 3; top: var(--space-2); left: var(--space-2); margin: 0; border-radius: var(--radius-control); background: var(--surface); }
 #retrom-ui-review [data-page="detail"] .rt-detail-preview-heading strong { font-size: var(--text-body); font-weight: var(--weight-bold); }
-#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading > button { width: 128px; flex: none; }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-tabs { display: flex; align-items: center; gap: var(--space-1); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-divider { color: var(--muted); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-panel { min-height: 0; min-width: 0; flex: 1; display: flex; flex-direction: column; }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-panel[hidden] { display: none; }
 #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 0; border-radius: var(--radius-cover); padding: 0; background: var(--canvas); }
 #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot img, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage img { object-fit: contain; }
 #retrom-ui-review [data-page="detail"] .rt-detail-video-stage:hover .rt-detail-media-controls { opacity: 1; }
@@ -2449,6 +2466,12 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-save-body .status { white-space: normal; }
 #retrom-ui-review [data-page="detail"] .rt-detail-saves-empty { margin-top: var(--space-4); padding: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius-panel); color: var(--muted); font-size: var(--text-body); }
 #retrom-ui-review [data-page="detail"] .rt-detail-saves-empty strong { font-weight: var(--weight-medium); color: var(--ink); }
+@media (min-width: 1600px) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-hero { align-items: stretch; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell { position: relative; align-self: stretch; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell > .rt-detail-cover { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, .rt-detail-video-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
+}
 @media (max-width: 1599px) {
   #retrom-ui-review [data-page="detail"] .rt-detail-hero, #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-5); padding: var(--space-5); }
   #retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { grid-column: 1 / -1; width: 100%; max-width: 640px; justify-self: center; }
@@ -2463,7 +2486,7 @@
   #retrom-ui-review [data-page="detail"] .rt-detail-page { padding-bottom: 100px; }
   #retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb { display: none; }
   #retrom-ui-review [data-page="detail"] .rt-detail-hero, #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 108px minmax(0, 1fr); padding: 0; gap: var(--space-4); border: 0; background: transparent; }
-  #retrom-ui-review [data-page="detail"] .rt-detail-title-row { flex-wrap: wrap; gap: var(--space-2); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-title-row { margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
   #retrom-ui-review [data-page="detail"] .rt-detail-title-row .rt-detail-title { font-size: var(--text-heading); }
   #retrom-ui-review [data-page="detail"] .rt-detail-kicker { font-size: var(--text-caption); }
   #retrom-ui-review [data-page="detail"] .rt-detail-playtime { flex-wrap: wrap; margin-top: var(--space-3); font-size: var(--text-caption); }
@@ -2845,9 +2868,15 @@
 
             <div class="rt-detail-playtime"><strong>累计游玩</strong><span id="rt-detail-hours">2 小时 24 分钟</span></div>
           <aside class="rt-launch-panel" aria-label="启动游戏">
-<label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
-
-            <label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
+<div class="rt-launch-options">
+              <div class="rt-launch-option-tabs" role="tablist" aria-label="启动设置" hidden>
+                <button type="button" class="rt-button option-tab" id="rt-option-tab-0" role="tab" aria-selected="true" aria-controls="rt-option-panel-0">内容加载</button>
+                <span class="rt-launch-option-divider" aria-hidden="true">/</span>
+                <button type="button" class="rt-button option-tab" id="rt-option-tab-1" role="tab" aria-selected="false" aria-controls="rt-option-panel-1" tabindex="-1">启动程序</button>
+              </div>
+              <div class="rt-launch-option-panel" id="rt-option-panel-0"><label class="rt-field" data-content-loading="" hidden=""><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label></div>
+              <div class="rt-launch-option-panel" id="rt-option-panel-1"><label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option><option>显示 DOSBox Pure 程序菜单</option></select></label></div>
+            </div>
             <span id="rt-launch-check" hidden=""><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></span>
             <div class="rt-launch-actions"><button type="button" class="rt-button rt-button-primary" data-start-current-save="">从存档继续</button><button type="button" class="rt-button rt-detail-restart" data-start-game="">重新开始游戏</button></div>
             <p class="rt-launch-hint">恢复最近存档 · 使用保存时的 FBNeo</p>
@@ -2856,7 +2885,7 @@
             <div class="rt-launch-note" id="rt-launch-note" hidden="">开始前会自动检查游戏文件和所需系统文件</div>
           </aside></div>
 
-        <aside class="rt-detail-feature-preview"><header class="rt-detail-preview-heading"><strong>将从这里继续</strong><button type="button" class="rt-button" data-toggle-detail-media="">查看视频</button></header><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
+        <aside class="rt-detail-feature-preview"><div class="rt-detail-preview-frame"><header class="rt-detail-preview-heading is-overlay"><div class="rt-detail-preview-tabs" role="tablist" aria-label="游戏预览内容"><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-0" aria-selected="true" aria-controls="rt-preview-panel-0">最近存档</button><span class="rt-detail-preview-divider" aria-hidden="true">/</span><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-1" aria-selected="false" aria-controls="rt-preview-panel-1" tabindex="-1">视频预览</button></div></header><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-0" aria-labelledby="rt-preview-tab-0"><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></div><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-1" aria-labelledby="rt-preview-tab-1" hidden><div class="rt-detail-video-stage"><span class="rt-detail-save-screen" role="img" aria-label="视频画面示例"></span></div></div></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>8 月 6 日 21:14</strong><small>手动存档 10</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>1 小时 52 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
@@ -2871,7 +2900,7 @@
       <section class="rt-page" data-page="play">
         <details class="rt-card" aria-label="内容加载能力状态评审"><summary>内容加载的三种状态</summary>
           <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
-          <div class="rt-field" role="group" aria-label="整文件缓存"><span class="rt-label">内容加载</span><strong>下载完成后开始</strong><small>此运行方式需要完整下载游戏内容。</small></div>
+          <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select" aria-label="整文件缓存"><option>下载完成后开始</option></select><small>此运行方式仅支持完整下载游戏内容。</small></label>
           <p>未接入统一缓存的运行方式不显示内容加载区域；切换核心不改写已保存的偏好。恢复存档与重新开始能力不同则分别标注。</p>
         </details>
         <details class="rt-card" aria-label="本地内容缓存状态评审"><summary>下载完成后开始</summary><p>正在下载游戏内容… 384 MiB / 768 MiB · 50%</p><p>无法完成本地缓存，请检查浏览器存储权限和可用空间。</p><button class="rt-button rt-button-primary">重试下载</button><button class="rt-button">改为按需加载</button><p>已下载的有效内容会在重试时复用。</p></details>
@@ -2936,7 +2965,7 @@
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks">任务进度</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>导入游戏</button></div>
         </div>
         <div class="rt-ingest-priority-grid">
-          <article class="rt-ingest-priority is-warning"><div><span class="rt-badge rt-badge-amber">需要处理</span><h2>待审核条目</h2><p class="rt-subtitle">运行检查已完成，等待管理员确认发布信息。</p></div><div><strong>4</strong><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></article>
+          <article class="rt-ingest-priority is-warning"><div><span class="rt-badge rt-badge-amber">需要处理</span><h2>待审核条目</h2><p class="rt-subtitle">页面读取当前运行依赖，等待管理员确认发布信息。</p></div><div><strong>4</strong><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></article>
           <article class="rt-ingest-priority is-danger"><div><span class="rt-badge rt-badge-red">阻塞进度</span><h2>异常任务</h2><p class="rt-subtitle">文件、依赖或运行检查存在问题，需要先处理。</p></div><div><strong>3</strong><button type="button" class="rt-button" data-page-link="admin-import-tasks">查看异常任务</button></div></article>
         </div>
         <div class="rt-ingest-stat-grid">
@@ -3122,7 +3151,7 @@
         <section class="rt-rpg-review-design" data-rpg-review-design hidden aria-label="RPG Maker 运行审核详情">
           <div class="rt-rpg-review-top">
             <article class="rt-rpg-card">
-              <div class="rt-section-head"><div><span class="rt-badge rt-badge-purple">RPG Maker 2000</span><h2>Lucky</h2><p>原始项目已冻结为当前来源快照；输入变化会原子切换当前校验，Provider/Target 身份保持稳定。</p></div><span class="rt-badge rt-badge-green">依赖已就绪</span></div>
+              <div class="rt-section-head"><div><span class="rt-badge rt-badge-purple">RPG Maker 2000</span><h2>Lucky</h2><p>原始项目已冻结为当前来源快照；页面读取当前来源与依赖事实，Provider/Target 身份保持稳定。</p></div><span class="rt-badge rt-badge-green">依赖已就绪</span></div>
               <div class="rt-rpg-binding"><div><span>所选版本</span><strong>RPG Maker 2000</strong></div><div><span>内容校验</span><strong>一致</strong></div><div><span>项目资源</span><strong>项目自包含</strong></div><div><span>试运行</span><strong>按需进行</strong></div></div>
               <label class="rt-check"><input type="checkbox" data-rpg-self-contained>确认项目自包含 RTP</label><p class="rt-subtitle">仅 2000/2003/XP/VX/VX Ace 提供此确认；忽略外部 RTP 声明并允许发布，不会补充缺失素材。</p>
             </article>
@@ -3964,7 +3993,7 @@
         doom: {
           title: 'DOOM', coverTitle: 'DOOM', coverClass: 'rt-cover-c', platform: 'MS-DOS / DOS 经典游戏 · 1993', directory: 'DOS 经典游戏',
           meta: ['id Software', '第一人称射击', '1 人'], description: '火星基地被恶魔占领。DOS 游戏在启动前可指定可执行程序，默认项由审核阶段确认，也可在每次启动时覆盖。',
-          hours: '1.8h', publisher: 'id Software', saveName: 'Phobos Lab', saveCore: 'DOSBox Pure', save: 'DOSBox Pure · 昨天 23:06', dos: true, ready: true,
+          hours: '1.8h', publisher: 'id Software', saveName: 'Phobos Lab', saveCore: 'DOSBox Pure', save: 'DOSBox Pure · 昨天 23:06', dos: true, ready: true, contentLoading: 'ON_DEMAND_AND_PRELOAD',
           cores: ['DOSBox Pure · 推荐'], check: '系统已识别 3 个可启动程序'
         },
         zelda: {
@@ -3975,6 +4004,50 @@
         }
       };
       const corePreferences = {};
+
+      let detailOptionTab = 0;
+      function syncDetailOptions() {
+        const options = root.querySelector('.rt-launch-options');
+        const loading = options.querySelector('[data-content-loading]');
+        const dos = root.querySelector('#rt-dos-field');
+        const tabbed = !loading.hidden && !dos.hidden;
+        options.classList.toggle('is-tabbed', tabbed);
+        options.querySelector('.rt-launch-option-tabs').hidden = !tabbed;
+        options.querySelectorAll('[role="tab"]').forEach((tab, index) => {
+          tab.setAttribute('aria-selected', String(index === detailOptionTab));
+          tab.tabIndex = index === detailOptionTab ? 0 : -1;
+        });
+        [loading, dos].forEach(field => field.querySelector('.rt-label').classList.toggle('sr-only', tabbed));
+        options.querySelectorAll('.rt-launch-option-panel').forEach((panel, index) => {
+          const inactive = tabbed && index !== detailOptionTab;
+          panel.classList.toggle('is-inactive', inactive);
+          panel.inert = inactive;
+          if (tabbed) { panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `rt-option-tab-${index}`); }
+          else { panel.removeAttribute('role'); panel.removeAttribute('aria-labelledby'); }
+          if (inactive) panel.setAttribute('aria-hidden', 'true'); else panel.removeAttribute('aria-hidden');
+        });
+      }
+      root.querySelectorAll('.rt-launch-option-tabs button').forEach((tab, index) => {
+        tab.addEventListener('click', () => { detailOptionTab = index; syncDetailOptions(); });
+        tab.addEventListener('keydown', event => {
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          if (next < 0) return;
+          event.preventDefault(); detailOptionTab = next; syncDetailOptions();
+          root.querySelectorAll('.rt-launch-option-tabs button')[next].focus();
+        });
+      });
+      root.querySelectorAll('.rt-launch-options select').forEach(select => select.addEventListener('change', syncDetailOptions));
+      function syncDetailLoadingWidth() {
+        const actions = root.querySelector('.rt-launch-actions');
+        const last = actions.querySelector('button:last-child');
+        const width = last.getBoundingClientRect().right - actions.getBoundingClientRect().left;
+        if (width > 0) root.querySelector('.rt-launch-panel').style.setProperty('--launch-control-width', `${width}px`);
+        syncDetailOptions();
+      }
+      const detailObserver = new ResizeObserver(syncDetailLoadingWidth);
+      detailObserver.observe(root.querySelector('.rt-launch-actions'));
+      root.querySelectorAll('.rt-launch-actions button').forEach(button => detailObserver.observe(button));
+      window.addEventListener('resize', syncDetailLoadingWidth);
 
       function openGame(key) {
         const game = gameDetails[key] || gameDetails.metal;
@@ -3990,7 +4063,7 @@
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
-        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.dos;});
+        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.contentLoading;});
         const coreSelect = root.querySelector('#rt-core-select');
         coreSelect.innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
         if (corePreferences[currentGame] && game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];
@@ -4214,11 +4287,22 @@
       root.querySelector('[data-close-detail-saves]').addEventListener('click', closeDetailSaves);
       detailSavesBackdrop.addEventListener('click', closeDetailSaves);
 
-      const detailMediaToggle = root.querySelector('[data-toggle-detail-media]');
-      detailMediaToggle.addEventListener('click', () => {
-        const video = detailMediaToggle.textContent === '查看视频';
-        detailMediaToggle.textContent = video ? '查看最近存档' : '查看视频';
-        root.querySelector('.rt-detail-preview-heading strong').textContent = video ? '视频预览' : '将从这里继续';
+      function selectDetailPreview(index) {
+        root.querySelectorAll('.rt-detail-preview-tabs button').forEach((tab, current) => {
+          tab.setAttribute('aria-selected', String(current === index));
+          tab.tabIndex = current === index ? 0 : -1;
+          root.querySelector(`#rt-preview-panel-${current}`).hidden = current !== index;
+        });
+      }
+      root.querySelectorAll('.rt-detail-preview-tabs button').forEach((tab, index) => {
+        tab.addEventListener('click', () => selectDetailPreview(index));
+        tab.addEventListener('keydown', event => {
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          if (next < 0) return;
+          event.preventDefault();
+          selectDetailPreview(next);
+          root.querySelectorAll('.rt-detail-preview-tabs button')[next].focus();
+        });
       });
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;

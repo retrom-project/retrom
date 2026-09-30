@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"context"
 	"encoding/json"
+
+	"retrom/internal/content/arcade"
 )
 
 type ReviewDependencyHead struct {
@@ -10,7 +12,7 @@ type ReviewDependencyHead struct {
 	ValidationStatus, CompatibilityCode, DependencyJSON *string
 }
 type ReviewDependencyReader interface {
-	ArcadeRelationReader
+	arcade.RelationReader
 	ArcadeAttachments(context.Context, string) ([]ArcadeAttachment, error)
 	MultiDiscSource(context.Context, string) (MultiDiscSource, error)
 	MultiDiscAttachments(context.Context, string) ([]MultiDiscAttachment, error)

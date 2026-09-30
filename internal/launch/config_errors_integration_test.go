@@ -68,7 +68,7 @@ func TestConfigRejectsCredentialBeforeLoadingResources(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			query := `ALTER TABLE launch_external_files RENAME TO unavailable_launch_external_files`
 			if preview {
-				query = `ALTER TABLE review_preview_files RENAME TO unavailable_review_preview_files`
+				query = `ALTER TABLE runtime_preview_files RENAME TO unavailable_runtime_preview_files`
 			}
 			mustRPGLaunchSQL(t, fixture.database, query)
 			var configuration Config

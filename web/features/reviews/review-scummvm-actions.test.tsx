@@ -13,7 +13,7 @@ it("does not carry a local candidate choice across a refreshed source snapshot",
     metadata: {title: "Collection", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null},
     candidates: [], selectedCandidateId: null, defaultDosEntry: null, dosEntries: [],
     selectedAssets: {coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: []},
-    validation: {id: "validation-1", status: "BLOCKED", compatibilityCode: "SCUMMVM_SELECTION_REQUIRED",
+    readiness: {status: "BLOCKED", compatibilityCode: "SCUMMVM_SELECTION_REQUIRED",
       dependencySnapshot: {kind: "SCUMMVM", selectedCandidateId: "", detection: {candidates: [
         {id: "first", root: "One", engineId: "sky", gameId: "sky", description: "First game", language: "en", platform: "pc", extra: "", blocker: ""},
         {id: "second", root: "Two", engineId: "sky", gameId: "sky", description: "Second game", language: "en", platform: "pc", extra: "", blocker: ""},
