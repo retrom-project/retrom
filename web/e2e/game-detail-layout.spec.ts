@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { evidencePath, noPageOverflow, pngDimensions } from "./acceptance-support";
+import {expectDetailHeroAlignment} from "./game-detail-alignment";
 import {uiLayoutState} from "./ui-layout-state";
 
 test.beforeEach(() => uiLayoutState("isolate"));
@@ -25,6 +26,7 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await expect(missingShot).toHaveCount(1);
       await expect(missingShot.locator(".save-library-size")).toBeVisible();
       await noPageOverflow(page);
+      if (width >= 1600) {await expectDetailHeroAlignment(page);}
       const image = await page.screenshot({ path: evidencePath(testInfo, `detail-populated-${width}.png`) });
       expect(pngDimensions(image)).toEqual({ width: width * dpr, height: height * dpr });
       if (width === 2560) {
@@ -48,6 +50,7 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       const toggleWidth = (await page.getByRole("button", { name: "查看视频", exact: true }).boundingBox())!.width;
       await page.getByRole("button", { name: "查看视频", exact: true }).click();
       await expect(page.locator(".game-detail-video-stage")).toBeVisible();
+      if (width >= 1600) {await expectDetailHeroAlignment(page);}
       expect(await previewLayout()).toEqual(saveLayout);
       expect((await page.getByRole("button", { name: "查看最近存档", exact: true }).boundingBox())!.width).toBe(toggleWidth);
       await page.getByRole("button", { name: "查看最近存档", exact: true }).click();

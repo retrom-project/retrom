@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import {expectDetailHeroAlignment} from "./game-detail-alignment";
 
 async function login(page: Page) {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
@@ -23,7 +24,8 @@ test("ACC-UI-005 detail separates static cover, launch, preview and reading area
       const title = rect(".game-detail-title-row h1"), heart = rect(".favorite-heart");
       return { ratio: cover.width / cover.height, contentWidth: rect(".game-detail-content").width, heroBottom: hero.bottom, aboutTop: about.top, heartAfterTitle: heart.left >= title.right, heartWidth: heart.width, overflow: document.documentElement.scrollWidth > innerWidth };
     });
-    expect(layout.ratio).toBeCloseTo(.75, 2);
+    if (width >= 1600) {await expectDetailHeroAlignment(page);}
+    else {expect(layout.ratio).toBeCloseTo(.75, 2);}
     expect(layout.contentWidth).toBeLessThanOrEqual(1800);
     expect(layout.aboutTop).toBeGreaterThan(layout.heroBottom);
     expect(layout.overflow).toBe(false);

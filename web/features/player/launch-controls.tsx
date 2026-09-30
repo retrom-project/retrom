@@ -11,6 +11,7 @@ import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
 import { LaunchButton } from "./launch-button";
 import { LaunchContentLoading } from "./launch-content-loading";
+import { useLaunchControlWidth } from "./use-launch-control-width";
 import type { ContentLoadingCapability } from "./content-loading";
 
 export type CoreOption = {
@@ -111,10 +112,11 @@ type LaunchViewProps = {
 };
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
-  return <aside className="launch-panel" aria-label="启动游戏">
+  const {actionsRef, controlStyle} = useLaunchControlWidth(Boolean(props.latestSave));
+  return <aside className="launch-panel" aria-label="启动游戏" style={controlStyle}>
     <LaunchContentLoading selectedCore={props.selectedCore} savedCore={props.latestSave ? props.coreOptions.find(core => core.coreId === props.latestSave?.coreId) ?? {} : undefined} />
     {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
-    <div className="launch-actions">
+    <div className="launch-actions" ref={actionsRef}>
       {props.latestSave ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" /> : null}
       <LaunchButton secondary={Boolean(props.latestSave)} gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "重新开始游戏" : undefined} onLaunchCreated={props.onLaunchCreated} />
     </div>

@@ -10,19 +10,15 @@ export function ContentLoadingField({capability, label = "内容加载"}: {capab
   const id = useId();
   const mode = useSyncExternalStore(subscribeContentLoading, () => readContentLoading(userId), () => "ON_DEMAND");
   if (!capability) {return null;}
-  if (capability === "PRELOAD_ONLY") {
-    return <div className="field" role="group" aria-label={label}>
-      <span>{label}</span>
-      <strong>下载完成后开始</strong>
-      <small>此运行方式需要完整下载游戏内容。</small>
-    </div>;
-  }
-  return <div className="field">
+  const preloadOnly = capability === "PRELOAD_ONLY";
+  return <div className="field content-loading-field">
     <label htmlFor={id}>{label}</label>
-    <select id={id} value={mode} onChange={event => writeContentLoading(userId, event.target.value === "PRELOAD" ? "PRELOAD" : "ON_DEMAND")}>
-      <option value="ON_DEMAND">按需加载</option>
+    <select id={id} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
+      if (!preloadOnly) {writeContentLoading(userId, event.target.value === "PRELOAD" ? "PRELOAD" : "ON_DEMAND");}
+    }}>
+      {!preloadOnly ? <option value="ON_DEMAND">按需加载</option> : null}
       <option value="PRELOAD">下载完成后开始</option>
     </select>
-    <small>偏好保存在当前设备，已缓存的内容会直接复用。</small>
+    <small>{preloadOnly ? "此运行方式仅支持完整下载游戏内容。" : "偏好保存在当前设备，已缓存的内容会直接复用。"}</small>
   </div>;
 }

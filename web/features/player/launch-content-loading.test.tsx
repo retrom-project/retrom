@@ -28,8 +28,8 @@ it.each([false, true])("updates loading controls when the selected core changes 
   };
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
   await select("full");
-  expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
-  expect(screen.getByText("下载完成后开始")).toBeVisible();
+  expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
+  expect(screen.getByRole("combobox", {name: "内容加载"}).querySelectorAll("option")).toHaveLength(1);
   await select("upstream");
   expect(screen.queryByText("内容加载")).toBeNull();
   expect(screen.queryByText("下载完成后开始")).toBeNull();
@@ -45,7 +45,7 @@ it.each([false, true])("shows the saved core capability independently of the new
   render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={latestSave} />);
   if (phone) {await user.click(screen.getByRole("button", {name: "启动选项"}));}
   expect(screen.getByRole("combobox", {name: "重新开始的内容加载"})).toBeVisible();
-  expect(screen.getByRole("group", {name: "从存档继续的内容加载"})).toHaveTextContent("下载完成后开始");
+  expect(screen.getByRole("combobox", {name: "从存档继续的内容加载"})).toHaveValue("PRELOAD");
 });
 
 it("does not describe an unresolved saved core using the new-game capability", () => {

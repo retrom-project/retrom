@@ -2394,6 +2394,7 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-5); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel > [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .rt-button { min-width: 148px; }
 #retrom-ui-review [data-page="detail"] .rt-launch-actions > .status { flex-basis: 100%; white-space: normal; }
@@ -2449,6 +2450,13 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-save-body .status { white-space: normal; }
 #retrom-ui-review [data-page="detail"] .rt-detail-saves-empty { margin-top: var(--space-4); padding: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius-panel); color: var(--muted); font-size: var(--text-body); }
 #retrom-ui-review [data-page="detail"] .rt-detail-saves-empty strong { font-weight: var(--weight-medium); color: var(--ink); }
+@media (min-width: 1600px) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-hero { align-items: stretch; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell { position: relative; align-self: stretch; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-poster-shell > .rt-detail-cover { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { display: flex; flex-direction: column; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, .rt-detail-video-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
+}
 @media (max-width: 1599px) {
   #retrom-ui-review [data-page="detail"] .rt-detail-hero, #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-5); padding: var(--space-5); }
   #retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { grid-column: 1 / -1; width: 100%; max-width: 640px; justify-self: center; }
@@ -2871,7 +2879,7 @@
       <section class="rt-page" data-page="play">
         <details class="rt-card" aria-label="内容加载能力状态评审"><summary>内容加载的三种状态</summary>
           <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
-          <div class="rt-field" role="group" aria-label="整文件缓存"><span class="rt-label">内容加载</span><strong>下载完成后开始</strong><small>此运行方式需要完整下载游戏内容。</small></div>
+          <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select" aria-label="整文件缓存"><option>下载完成后开始</option></select><small>此运行方式仅支持完整下载游戏内容。</small></label>
           <p>未接入统一缓存的运行方式不显示内容加载区域；切换核心不改写已保存的偏好。恢复存档与重新开始能力不同则分别标注。</p>
         </details>
         <details class="rt-card" aria-label="本地内容缓存状态评审"><summary>下载完成后开始</summary><p>正在下载游戏内容… 384 MiB / 768 MiB · 50%</p><p>无法完成本地缓存，请检查浏览器存储权限和可用空间。</p><button class="rt-button rt-button-primary">重试下载</button><button class="rt-button">改为按需加载</button><p>已下载的有效内容会在重试时复用。</p></details>
@@ -3964,7 +3972,7 @@
         doom: {
           title: 'DOOM', coverTitle: 'DOOM', coverClass: 'rt-cover-c', platform: 'MS-DOS / DOS 经典游戏 · 1993', directory: 'DOS 经典游戏',
           meta: ['id Software', '第一人称射击', '1 人'], description: '火星基地被恶魔占领。DOS 游戏在启动前可指定可执行程序，默认项由审核阶段确认，也可在每次启动时覆盖。',
-          hours: '1.8h', publisher: 'id Software', saveName: 'Phobos Lab', saveCore: 'DOSBox Pure', save: 'DOSBox Pure · 昨天 23:06', dos: true, ready: true,
+          hours: '1.8h', publisher: 'id Software', saveName: 'Phobos Lab', saveCore: 'DOSBox Pure', save: 'DOSBox Pure · 昨天 23:06', dos: true, ready: true, contentLoading: 'ON_DEMAND_AND_PRELOAD',
           cores: ['DOSBox Pure · 推荐'], check: '系统已识别 3 个可启动程序'
         },
         zelda: {
@@ -3975,6 +3983,17 @@
         }
       };
       const corePreferences = {};
+
+      function syncDetailLoadingWidth() {
+        const actions = root.querySelector('.rt-launch-actions');
+        const last = actions.querySelector('button:last-child');
+        const width = last.getBoundingClientRect().right - actions.getBoundingClientRect().left;
+        if (width > 0) root.querySelector('.rt-launch-panel').style.setProperty('--launch-control-width', `${width}px`);
+      }
+      const detailObserver = new ResizeObserver(syncDetailLoadingWidth);
+      detailObserver.observe(root.querySelector('.rt-launch-actions'));
+      root.querySelectorAll('.rt-launch-actions button').forEach(button => detailObserver.observe(button));
+      window.addEventListener('resize', syncDetailLoadingWidth);
 
       function openGame(key) {
         const game = gameDetails[key] || gameDetails.metal;
@@ -3990,7 +4009,7 @@
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
-        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.dos;});
+        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.contentLoading;});
         const coreSelect = root.querySelector('#rt-core-select');
         coreSelect.innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
         if (corePreferences[currentGame] && game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];
