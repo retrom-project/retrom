@@ -56,18 +56,13 @@
 .game-detail-playtime span { color: var(--ink); }
 .launch-panel { min-width: 0; margin-top: var(--space-5); }
 .launch-panel .content-loading-field select { width: min(100%, var(--launch-control-width, 100%)); }
-.launch-options { min-width: 0; column-gap: var(--space-3); }
+.launch-options { min-width: 0; }
 .launch-options:has(.field) { margin-bottom: var(--space-3); }
 .launch-option-panel { min-width: 0; }
 .launch-option-panel > .field + .field { margin-top: var(--space-3); }
-.launch-options.is-paired { display: grid; grid-template-columns: minmax(0, var(--launch-control-width, 308px)) minmax(280px, 1fr); gap: 7px var(--space-3); align-items: start; }
-.launch-options.is-paired:not(.has-separate-loading, .is-tabbed) > .launch-option-panel,
-.launch-options.is-paired:not(.has-separate-loading, .is-tabbed) .field { display: contents; }
-.launch-options.is-paired:not(.has-separate-loading, .is-tabbed) label { grid-row: 1; }
-.launch-options.is-paired:not(.has-separate-loading, .is-tabbed) select { grid-row: 2; min-width: 0; }
-.launch-options.is-paired:not(.has-separate-loading, .is-tabbed) .field small { grid-column: 1 / -1; grid-row: 3; }
-.launch-options.is-tabbed { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "panel"; row-gap: var(--space-2); }
-.launch-option-tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.launch-options.is-tabbed { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "panel"; row-gap: var(--space-2); }
+.launch-option-tabs { grid-area: tabs; display: flex; align-items: center; gap: var(--space-1); }
+.launch-option-divider { color: var(--muted); }
 .launch-options.is-tabbed > .launch-option-panel { grid-area: panel; }
 .launch-options.is-tabbed .is-inactive { visibility: hidden; pointer-events: none; }
 .launch-options.is-tabbed .dos-program-field select { width: min(100%, var(--launch-control-width, 100%)); }

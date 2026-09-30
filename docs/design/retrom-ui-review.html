@@ -117,10 +117,9 @@
 .rt-button:hover { background: var(--purple-hover); color: white; }
 .rt-button:not(.rt-button-primary) { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
 .rt-button:not(.rt-button-primary):hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }
-.rt-button:not(.rt-button-primary).option-tab { min-width: 0; display: grid; gap: 0; padding: var(--space-1) var(--space-3); text-align: left; }
-.rt-button:not(.rt-button-primary).option-tab[aria-selected=&quot;true&quot;] { border-color: var(--purple); background: var(--purple-soft); }
-.rt-button.option-tab &gt; span, .rt-button.option-tab small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rt-button.option-tab small { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-regular); }
+.rt-button:not(.rt-button-primary).option-tab { padding: var(--space-2) var(--space-3); border-color: transparent; background: transparent; color: var(--muted); }
+.rt-button:not(.rt-button-primary).option-tab:hover { color: var(--ink); background: var(--surface-subtle); }
+.rt-button:not(.rt-button-primary).option-tab[aria-selected=&quot;true&quot;] { color: var(--purple-dark); text-decoration: underline; text-underline-offset: var(--space-2); }
 .rt-button-danger { background: var(--danger-fill); color: white; }
 .rt-button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .rt-button svg { width: 18px; height: 18px; flex-shrink: 0; }
@@ -2595,18 +2594,13 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel { min-width: 0; margin-top: var(--space-5); }
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel &gt; .field { margin-bottom: var(--space-3); }
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
-#retrom-ui-review .rt-launch-options { min-width: 0; column-gap: var(--space-3); }
+#retrom-ui-review .rt-launch-options { min-width: 0; }
 #retrom-ui-review .rt-launch-options:has(.rt-field:not([hidden])) { margin-bottom: var(--space-3); }
 #retrom-ui-review .rt-launch-option-panel { min-width: 0; }
 #retrom-ui-review .rt-launch-option-panel &gt; .rt-field { margin-top: 0; gap: 7px; }
-#retrom-ui-review .rt-launch-options.is-paired { display: grid; grid-template-columns: minmax(0, var(--launch-control-width, 308px)) minmax(280px, 1fr); gap: 7px var(--space-3); align-items: start; }
-#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) &gt; .rt-launch-option-panel,
-#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) .rt-field { display: contents; }
-#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) .rt-label { grid-row: 1; }
-#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) select { grid-row: 2; min-width: 0; }
-#retrom-ui-review .rt-launch-options.is-paired:not(.is-tabbed) small { grid-column: 1 / -1; grid-row: 3; }
-#retrom-ui-review .rt-launch-options.is-tabbed { grid-template-columns: minmax(0, 1fr); grid-template-areas: &quot;tabs&quot; &quot;panel&quot;; row-gap: var(--space-2); }
-#retrom-ui-review .rt-launch-option-tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+#retrom-ui-review .rt-launch-options.is-tabbed { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: &quot;tabs&quot; &quot;panel&quot;; row-gap: var(--space-2); }
+#retrom-ui-review .rt-launch-option-tabs { grid-area: tabs; display: flex; align-items: center; gap: var(--space-1); }
+#retrom-ui-review .rt-launch-option-divider { color: var(--muted); }
 #retrom-ui-review .rt-launch-options.is-tabbed &gt; .rt-launch-option-panel { grid-area: panel; }
 #retrom-ui-review .rt-launch-options.is-tabbed .is-inactive { visibility: hidden; pointer-events: none; }
 #retrom-ui-review .rt-launch-options.is-tabbed #rt-dos-field select { width: min(100%, var(--launch-control-width, 100%)); }
@@ -3070,8 +3064,9 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           &lt;aside class=&quot;rt-launch-panel&quot; aria-label=&quot;启动游戏&quot;&gt;
 &lt;div class=&quot;rt-launch-options&quot;&gt;
               &lt;div class=&quot;rt-launch-option-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;启动设置&quot; hidden&gt;
-                &lt;button type=&quot;button&quot; class=&quot;rt-button option-tab&quot; id=&quot;rt-option-tab-0&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; aria-controls=&quot;rt-option-panel-0&quot;&gt;&lt;span&gt;内容加载&lt;/span&gt;&lt;small&gt;按需加载&lt;/small&gt;&lt;/button&gt;
-                &lt;button type=&quot;button&quot; class=&quot;rt-button option-tab&quot; id=&quot;rt-option-tab-1&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; aria-controls=&quot;rt-option-panel-1&quot; tabindex=&quot;-1&quot;&gt;&lt;span&gt;启动程序&lt;/span&gt;&lt;small&gt;DOOM.EXE&lt;/small&gt;&lt;/button&gt;
+                &lt;button type=&quot;button&quot; class=&quot;rt-button option-tab&quot; id=&quot;rt-option-tab-0&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; aria-controls=&quot;rt-option-panel-0&quot;&gt;内容加载&lt;/button&gt;
+                &lt;span class=&quot;rt-launch-option-divider&quot; aria-hidden=&quot;true&quot;&gt;/&lt;/span&gt;
+                &lt;button type=&quot;button&quot; class=&quot;rt-button option-tab&quot; id=&quot;rt-option-tab-1&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; aria-controls=&quot;rt-option-panel-1&quot; tabindex=&quot;-1&quot;&gt;启动程序&lt;/button&gt;
               &lt;/div&gt;
               &lt;div class=&quot;rt-launch-option-panel&quot; id=&quot;rt-option-panel-0&quot;&gt;&lt;label class=&quot;rt-field&quot; data-content-loading=&quot;&quot; hidden=&quot;&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;内容加载&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;按需加载&lt;/option&gt;&lt;option&gt;下载完成后开始&lt;/option&gt;&lt;/select&gt;&lt;small&gt;偏好保存在当前设备，已缓存的内容会直接复用。&lt;/small&gt;&lt;/label&gt;&lt;/div&gt;
               &lt;div class=&quot;rt-launch-option-panel&quot; id=&quot;rt-option-panel-1&quot;&gt;&lt;label class=&quot;rt-field&quot; id=&quot;rt-dos-field&quot; hidden=&quot;&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;启动程序&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;DOOM.EXE · 默认&lt;/option&gt;&lt;option&gt;SETUP.EXE&lt;/option&gt;&lt;option&gt;DEICE.EXE&lt;/option&gt;&lt;option&gt;显示 DOSBox Pure 程序菜单&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;
@@ -4209,28 +4204,19 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         const options = root.querySelector('.rt-launch-options');
         const loading = options.querySelector('[data-content-loading]');
         const dos = root.querySelector('#rt-dos-field');
-        const paired = !loading.hidden &amp;&amp; !dos.hidden;
-        const controlWidth = parseFloat(root.querySelector('.rt-launch-panel').style.getPropertyValue('--launch-control-width')) || 308;
-        const gap = parseFloat(getComputedStyle(options).columnGap) || 12;
-        const compact = paired &amp;&amp; options.getBoundingClientRect().width &gt; 0 &amp;&amp; options.getBoundingClientRect().width &lt; controlWidth + gap + 280;
-        options.classList.toggle('is-paired', paired);
-        options.classList.toggle('is-tabbed', compact);
-        options.querySelector('.rt-launch-option-tabs').hidden = !compact;
+        const tabbed = !loading.hidden &amp;&amp; !dos.hidden;
+        options.classList.toggle('is-tabbed', tabbed);
+        options.querySelector('.rt-launch-option-tabs').hidden = !tabbed;
         options.querySelectorAll('[role=&quot;tab&quot;]').forEach((tab, index) =&gt; {
           tab.setAttribute('aria-selected', String(index === detailOptionTab));
           tab.tabIndex = index === detailOptionTab ? 0 : -1;
-          const field = index === 0 ? loading : dos;
-          const select = field.querySelector('select');
-          const text = select.selectedOptions[0]?.textContent || '';
-          const summary = index === 1 ? text.startsWith('显示 DOSBox') ? '程序菜单' : text.split(' · ')[0].split(/[\\/]/).pop() : text;
-          tab.querySelector('small').textContent = summary;
-          tab.querySelector('small').title = text;
         });
+        [loading, dos].forEach(field =&gt; field.querySelector('.rt-label').classList.toggle('sr-only', tabbed));
         options.querySelectorAll('.rt-launch-option-panel').forEach((panel, index) =&gt; {
-          const inactive = compact &amp;&amp; index !== detailOptionTab;
+          const inactive = tabbed &amp;&amp; index !== detailOptionTab;
           panel.classList.toggle('is-inactive', inactive);
           panel.inert = inactive;
-          if (compact) { panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `rt-option-tab-${index}`); }
+          if (tabbed) { panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `rt-option-tab-${index}`); }
           else { panel.removeAttribute('role'); panel.removeAttribute('aria-labelledby'); }
           if (inactive) panel.setAttribute('aria-hidden', 'true'); else panel.removeAttribute('aria-hidden');
         });
@@ -4254,7 +4240,6 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       }
       const detailObserver = new ResizeObserver(syncDetailLoadingWidth);
       detailObserver.observe(root.querySelector('.rt-launch-actions'));
-      detailObserver.observe(root.querySelector('.rt-launch-options'));
       root.querySelectorAll('.rt-launch-actions button').forEach(button =&gt; detailObserver.observe(button));
       window.addEventListener('resize', syncDetailLoadingWidth);
 

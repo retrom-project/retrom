@@ -32,24 +32,26 @@ function renderDOS(selected: CoreOption = core, saved?: CoreOption) {
 }
 function resize(next: number) {act(() => {width = next; observers.forEach(callback => callback());});}
 
-it("puts DOS selectors beside each other when their container is wide enough", () => {
+it.each([400, 700, 1100])("shows one DOS selector under content/program tabs at width %s", value => {
+  width = value;
   renderDOS();
-  expect(screen.getByLabelText("内容加载").closest(".launch-options")).toHaveClass("is-paired");
-  expect(screen.getByLabelText("启动程序")).toBeVisible();
-  expect(screen.queryByRole("tablist")).toBeNull();
+  expect(screen.getByRole("tab", {name: "内容加载"})).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", {name: "启动程序"})).toHaveAttribute("aria-selected", "false");
+  expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  expect(screen.getByRole("combobox", {name: "内容加载"})).toBeVisible();
+  expect(screen.queryByRole("combobox", {name: "启动程序"})).toBeNull();
 });
 
-it("switches narrow DOS tabs by click and keyboard, preserving both values across resize", async () => {
+it("switches DOS tabs by click and keyboard, preserving both values across resize", async () => {
   width = 400;
   const user = userEvent.setup();
   renderDOS();
-  const loading = screen.getByRole("tab", {name: /内容加载.*按需加载/});
+  const loading = screen.getByRole("tab", {name: "内容加载"});
   await user.selectOptions(screen.getByRole("combobox", {name: "内容加载"}), "PRELOAD");
-  expect(loading).toHaveAccessibleName(/下载完成后开始/);
-  await user.click(screen.getByRole("tab", {name: /启动程序.*PLAY.EXE/}));
+  await user.click(screen.getByRole("tab", {name: "启动程序"}));
   expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
   await user.selectOptions(screen.getByRole("combobox", {name: "启动程序"}), "");
-  expect(screen.getByRole("tab", {name: /启动程序.*程序菜单/})).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", {name: "启动程序"})).toHaveAttribute("aria-selected", "true");
   await user.click(screen.getByRole("tab", {name: /启动程序/}));
   await user.keyboard("{ArrowLeft}");
   expect(loading).toHaveFocus();
@@ -57,9 +59,9 @@ it("switches narrow DOS tabs by click and keyboard, preserving both values acros
   await user.keyboard("{End}");
   expect(screen.getByRole("tab", {name: /启动程序/})).toHaveFocus();
   resize(700);
-  expect(screen.queryByRole("tablist")).toBeNull();
+  expect(screen.getByRole("tablist")).toBeVisible();
   expect(screen.getByRole("combobox", {name: "启动程序"})).toHaveValue("");
-  expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
+  expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
   resize(400);
   await user.click(screen.getByRole("tab", {name: /内容加载/}));
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");

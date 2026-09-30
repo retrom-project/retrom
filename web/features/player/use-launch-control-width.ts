@@ -21,5 +21,5 @@ export function useLaunchControlWidth(hasSave: boolean) {
     return () => {observer?.disconnect(); window.removeEventListener("resize", measure);};
   }, [hasSave]);
   const controlStyle: (CSSProperties & {"--launch-control-width": string}) | undefined = width ? {"--launch-control-width": `${width}px`} : undefined;
-  return {actionsRef, controlStyle, width};
+  return {actionsRef, controlStyle};
 }

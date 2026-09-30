@@ -99,9 +99,9 @@ type LaunchViewProps = {
 };
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
-  const {actionsRef, controlStyle, width} = useLaunchControlWidth(Boolean(props.latestSave));
+  const {actionsRef, controlStyle} = useLaunchControlWidth(Boolean(props.latestSave));
   return <aside className="launch-panel" aria-label="启动游戏" style={controlStyle}>
-    <DesktopLaunchSettings controlWidth={width} coreOptions={props.coreOptions} selectedCore={props.selectedCore} savedCoreId={props.latestSave?.coreId}
+    <DesktopLaunchSettings coreOptions={props.coreOptions} selectedCore={props.selectedCore} savedCoreId={props.latestSave?.coreId}
       isDOS={props.isDOS} dosEntries={props.dosEntries} defaultDosEntry={props.defaultDosEntry} dosEntry={props.dosEntry} onDOSChange={props.onDOSChange} />
     <div className="launch-actions" ref={actionsRef}>
       {props.latestSave ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" /> : null}

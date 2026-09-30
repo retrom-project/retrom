@@ -6,7 +6,7 @@ import {readContentLoading, subscribeContentLoading, writeContentLoading, type C
 
 const subscribeHydration = () => () => undefined;
 
-export function ContentLoadingField({capability, label = "内容加载"}: {capability?: ContentLoadingCapability | null; label?: string}) {
+export function ContentLoadingField({capability, label = "内容加载", hideLabel = false}: {capability?: ContentLoadingCapability | null; label?: string; hideLabel?: boolean}) {
   const {context} = useAuth();
   const userId = context.user?.userId;
   const id = useId();
@@ -15,7 +15,7 @@ export function ContentLoadingField({capability, label = "内容加载"}: {capab
   if (!capability) {return null;}
   const preloadOnly = capability === "PRELOAD_ONLY";
   return <div className="field content-loading-field">
-    <label htmlFor={id}>{label}</label>
+    <label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>{label}</label>
     <select id={id} disabled={!hydrated} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
       if (!preloadOnly) {writeContentLoading(userId, event.target.value === "PRELOAD" ? "PRELOAD" : "ON_DEMAND");}
     }}>
