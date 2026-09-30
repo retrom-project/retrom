@@ -662,6 +662,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选。重新配置无需再次上传；内部 UploadFile 可读取原输入，新的 ImportItem 准备阶段独立复制文件，保留相同 SHA-256，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、文件所有权、lease/attempt 和事务时长摘要。
 
+- 补传恢复补充：Parent 与多盘输入可走通用 Retry，保留冻结业务输入并新建 execution 身份；租约过期后同 execution 有界恢复且截止时间不延长；attempt/deadline 用尽后进入可手动重试失败；取消只收口取消；旧 worker 不得续租、写结果或追加事件，事务失败不留下局部领域状态。
+
 ### ACC-IMP-009：全局快速审批、逐项原子性与恢复
 
 - 上限：240 秒。

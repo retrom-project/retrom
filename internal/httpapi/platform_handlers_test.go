@@ -184,7 +184,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	server.importDeps.Importer.Close()
 	server.importDeps.Importer = importfixture.New(t, server.database, server.contentDeps.Files, importfixture.Options{Now: server.now, MultiDiscEnabled: true, Scraper: server.reviewDeps.Metadata})
 	t.Cleanup(server.importDeps.Importer.Close)
-	server.importDeps.Importer.Start()
+	server.importDeps.Importer.Start(t.Context())
 	server.importDeps.Admissions = librarycomposition.NewImportAdmissions(server.database,
 		server.importDeps.Importer, server.libraryDeps.Tags, libraryservice.ImportAdmissionOptions{
 			Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,

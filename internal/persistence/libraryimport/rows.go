@@ -3,8 +3,6 @@ package libraryimport
 import (
 	"database/sql"
 	"fmt"
-
-	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func collectRows[T any](
@@ -24,12 +22,4 @@ func collectRows[T any](
 		return nil, fmt.Errorf("%s: %w", iterateLabel, err)
 	}
 	return result, nil
-}
-
-func scanQueuedJob(rows *sql.Rows) (libraryservice.QueuedJob, error) {
-	var job libraryservice.QueuedJob
-	if err := rows.Scan(&job.ID, &job.AvailableAtMS); err != nil {
-		return libraryservice.QueuedJob{}, fmt.Errorf("scan queued job row: %w", err)
-	}
-	return job, nil
 }

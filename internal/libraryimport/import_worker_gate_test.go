@@ -38,7 +38,7 @@ func gateImportWorker(t *testing.T, service *Service) func() {
 	service.admissions = composition.NewImportAdmissions(service.database, service.worker, service.tags,
 		libraryservice.ImportAdmissionOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 
-	service.Start()
+	service.Start(t.Context())
 	t.Cleanup(func() { service.Close(); unblock() })
 	return unblock
 }

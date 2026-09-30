@@ -25,10 +25,7 @@ WITH previous(id,state) AS (VALUES(?,?))
 SELECT CASE
 -- review_arcade_parent_transition_update
 WHEN ((candidate.state IS NOT previous.state) AND (NOT (
-  previous.state='QUEUED' AND candidate.state IN ('RUNNING','CANCELLED','FAILED_RETRYABLE') OR
-  previous.state='RUNNING' AND candidate.state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED')
-OR
-  previous.state='FAILED_RETRYABLE' AND candidate.state IN ('QUEUED','RUNNING','CANCELLED')
+  previous.state='PENDING' AND candidate.state IN ('ACCEPTED','REJECTED','CANCELLED')
 ))) THEN 'invalid attachment state transition'
 ELSE '' END
 FROM review_arcade_parent_attachments candidate CROSS JOIN previous

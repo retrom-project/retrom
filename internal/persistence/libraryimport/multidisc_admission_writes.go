@@ -12,7 +12,8 @@ func (records multidiscAdmissionRecords) Job(ctx context.Context, value librarys
 payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,
 created_at_ms,updated_at_ms)
 VALUES(?,'IMPORT_ITEM',?,'REVIEW_MULTI_DISC_VALIDATE',?,1,?,1,'QUEUED',0,4,?,?,?)`,
-		value.JobID, value.Input.ImportItemID, value.DedupeKey, value.InputJSON, value.Now, value.Now, value.Now)
+		value.JobID, value.Input.ImportItemID, value.DedupeKey,
+		`{"schemaVersion":1,"inputExecutionNo":1}`, value.Now, value.Now, value.Now)
 	return attachmentAdmissionCount(
 		result, err, libraryservice.MultiDiscAttachmentErrorUnavailable,
 	)
@@ -45,9 +46,9 @@ func (records multidiscAdmissionRecords) Attachment(
 		ctx, records.executor, `INSERT INTO review_multidisc_attachments
 (id,import_item_id,review_draft_id,requested_by_user_id,base_source_snapshot_id,upload_session_id,
 expected_set_digest,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms)
-SELECT ?,?,?,?,?,?,?,'QUEUED','{}',?,1,?,? WHERE NOT EXISTS(
+SELECT ?,?,?,?,?,?,?,'PENDING','{}',?,1,?,? WHERE NOT EXISTS(
 SELECT 1 FROM review_multidisc_attachments active WHERE active.import_item_id=?
-	AND active.state IN ('QUEUED','RUNNING','FAILED_RETRYABLE'))`, input.AttachmentID,
+	AND active.state='PENDING')`, input.AttachmentID,
 		input.ImportItemID, input.ReviewDraftID,
 		input.RequestedByUserID, input.BaseSourceSnapshotID, input.UploadSessionID, input.ExpectedSetDigest, value.JobID,
 		value.Now, value.Now, input.ImportItemID)

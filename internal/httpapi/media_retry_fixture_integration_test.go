@@ -11,6 +11,7 @@ import (
 	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
+	"retrom/internal/service/jobs"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -78,6 +79,7 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	validationRetrySQL(t, database, `UPDATE jobs SET state='FAILED',error_code='MEDIA_BLOB_FAILED',error_retryable=1,finished_at_ms=? WHERE id=?`, now, fixture.jobID)
 	worker := metadatascrape.NewMediaWorker(metadatapersistence.NewMedia(database), retryMediaSource{}, blobs, fixture.now)
 	fixture.server.reviewDeps.Metadata = metadatascrape.NewWithMedia(nil, metadata, worker, fixture.now)
+	fixture.server.systemDeps.Jobs = fixture.server.systemDeps.Jobs.WithRetryWakeups(map[string]jobs.RetryWakeup{"MEDIA_FETCH": func(ctx context.Context, id string) { fixture.server.reviewDeps.Metadata.ResumeMediaJob(ctx, id) }})
 	t.Cleanup(fixture.server.reviewDeps.Metadata.Close)
 	return fixture
 }

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/jobinput"
+
 	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
@@ -35,40 +37,11 @@ func (repository *ArcadeParentAttachmentWorker) Claim(
 	)
 }
 
-func claimArcadeParentAttachmentRecords(
-	ctx context.Context, tx dbapi.Tx, jobID, workerID string, now int64,
-) error {
-	result, err := tx.ExecContext(ctx, `
-UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,worker_id=?,
-execution_started_at_ms=COALESCE(execution_started_at_ms,?),execution_deadline_at_ms=?,
-leased_until_ms=?,heartbeat_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND kind='REVIEW_ARCADE_PARENT_VALIDATE' AND state='QUEUED' AND available_at_ms<=?
-`, workerID, now, now+libraryservice.ArcadeParentAttachmentDeadline.Milliseconds(),
-		now+libraryservice.ArcadeParentAttachmentDeadline.Milliseconds(), now, now, jobID, now)
-	if err != nil {
-		return fmt.Errorf("claim arcade parent job: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return libraryservice.ErrInvalid
-	}
-	result, err = tx.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments
-SET state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
-`, now, jobID)
-	if err != nil {
-		return fmt.Errorf("mark arcade parent attachment running: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return libraryservice.ErrInvalid
-	}
-	if _, err := tx.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT id,scope_type,scope_id,'STARTED','{}',? FROM jobs WHERE id=?
-`, now, jobID); err != nil {
-		return fmt.Errorf("record arcade parent start event: %w", err)
-	}
-	return nil
+func claimArcadeParentAttachmentRecords(ctx context.Context, tx dbapi.Tx, jobID, workerID string, now int64) error {
+	return claimAttachmentRecords(
+		ctx, tx, jobID, workerID, now, "REVIEW_ARCADE_PARENT_VALIDATE",
+		libraryservice.ArcadeParentAttachmentDeadline.Milliseconds(),
+	)
 }
 
 func readClaimedArcadeParentAttachment(
@@ -76,16 +49,22 @@ func readClaimedArcadeParentAttachment(
 ) (libraryservice.ArcadeParentAttachmentWorkerClaim, error) {
 	var result libraryservice.ArcadeParentAttachmentWorkerClaim
 	result.JobID, result.WorkerID = jobID, workerID
-	var inputJSON string
+	var inputJSON, scopeID string
 	if err := dbapi.QueryRowContext(ctx, tx, `
-SELECT input.input_json,job.execution_started_at_ms
+SELECT input.input_json,job.scope_id,job.execution_started_at_ms,job.execution_deadline_at_ms
 FROM job_input_snapshots input
 JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
 WHERE input.job_id=?
-`, jobID).Scan(&inputJSON, &result.ExecutionStartedAtMS); err != nil {
+`, jobID).Scan(&inputJSON, &scopeID, &result.ExecutionStartedAtMS, &result.DeadlineAtMS); err != nil {
 		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf("read arcade parent input: %w", err)
 	}
-	if err := json.Unmarshal([]byte(inputJSON), &result.Input); err != nil ||
+	envelope, err := jobinput.Decode(
+		[]byte(inputJSON), "REVIEW_ARCADE_PARENT_VALIDATE", jobinput.Scope{Type: "IMPORT_ITEM", ID: scopeID},
+	)
+	if err != nil {
+		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf("decode attachment input: %w", err)
+	}
+	if err := json.Unmarshal(envelope.Inputs, &result.Input); err != nil ||
 		!libraryservice.ValidArcadeParentAttachmentInput(result.Input) {
 		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, libraryservice.ErrInvalid
 	}
@@ -100,7 +79,7 @@ file.upload_session_id,attachment.original_filename,file.file_record,json_extrac
 FROM review_arcade_parent_attachments attachment
 JOIN import_files file ON file.id=attachment.upload_file_id
 JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
-WHERE attachment.job_id=? AND attachment.state='RUNNING'
+WHERE attachment.job_id=? AND attachment.state='PENDING'
 `, jobID).Scan(
 		&candidate.AttachmentID, &candidate.ItemID, &candidate.DraftID, &candidate.BaseSnapshotID,
 		&candidate.Machine, &candidate.RequiredBy, &candidate.Depth, &candidate.ProviderID, &candidate.TargetID,

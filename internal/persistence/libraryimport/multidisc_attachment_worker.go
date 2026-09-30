@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/cleanup"
+	"retrom/internal/jobinput"
+
 	dbapi "retrom/internal/database"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/persistence/recordstore"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
@@ -37,7 +38,7 @@ func loadMultiDiscAttachmentClaim(
 	tx dbapi.Tx,
 	jobID, workerID string,
 ) (libraryservice.MultiDiscAttachmentWorkerClaim, error) {
-	input, startedAtMS, err := readMultiDiscAttachmentInput(ctx, tx, jobID)
+	input, startedAtMS, deadlineAtMS, err := readMultiDiscAttachmentInput(ctx, tx, jobID)
 	if err != nil {
 		return libraryservice.MultiDiscAttachmentWorkerClaim{}, err
 	}
@@ -53,6 +54,7 @@ func loadMultiDiscAttachmentClaim(
 		WorkerID:             workerID,
 		Input:                input,
 		ExecutionStartedAtMS: startedAtMS,
+		DeadlineAtMS:         deadlineAtMS,
 	}, nil
 }
 
@@ -60,25 +62,31 @@ func readMultiDiscAttachmentInput(
 	ctx context.Context,
 	tx dbapi.Tx,
 	jobID string,
-) (libraryservice.MultiDiscAttachmentInput, int64, error) {
-	var inputJSON string
-	var startedAtMS int64
+) (libraryservice.MultiDiscAttachmentInput, int64, int64, error) {
+	var inputJSON, scopeID string
+	var startedAtMS, deadlineAtMS int64
 	if err := dbapi.QueryRowContext(ctx, tx, `
-SELECT input.input_json,job.execution_started_at_ms
+SELECT input.input_json,job.scope_id,job.execution_started_at_ms,job.execution_deadline_at_ms
 FROM job_input_snapshots input
 JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
 WHERE input.job_id=?
-	`, jobID).Scan(&inputJSON, &startedAtMS); err != nil {
-		return libraryservice.MultiDiscAttachmentInput{}, 0, fmt.Errorf("read multi-disc attachment input: %w", err)
+	`, jobID).Scan(&inputJSON, &scopeID, &startedAtMS, &deadlineAtMS); err != nil {
+		return libraryservice.MultiDiscAttachmentInput{}, 0, 0, fmt.Errorf("read multi-disc attachment input: %w", err)
 	}
 	var input libraryservice.MultiDiscAttachmentInput
-	if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
-		return libraryservice.MultiDiscAttachmentInput{}, 0, libraryservice.ErrInvalid
+	envelope, err := jobinput.Decode(
+		[]byte(inputJSON), "REVIEW_MULTI_DISC_VALIDATE", jobinput.Scope{Type: "IMPORT_ITEM", ID: scopeID},
+	)
+	if err != nil {
+		return libraryservice.MultiDiscAttachmentInput{}, 0, 0, fmt.Errorf("decode attachment input: %w", err)
+	}
+	if err := json.Unmarshal(envelope.Inputs, &input); err != nil {
+		return libraryservice.MultiDiscAttachmentInput{}, 0, 0, libraryservice.ErrInvalid
 	}
 	if !libraryservice.ValidMultiDiscAttachmentInput(input) {
-		return libraryservice.MultiDiscAttachmentInput{}, 0, libraryservice.ErrInvalid
+		return libraryservice.MultiDiscAttachmentInput{}, 0, 0, libraryservice.ErrInvalid
 	}
-	return input, startedAtMS, nil
+	return input, startedAtMS, deadlineAtMS, nil
 }
 
 type multiDiscAttachmentRecord struct {
@@ -106,64 +114,21 @@ FROM review_multidisc_attachments WHERE job_id=?
 }
 
 func (record multiDiscAttachmentRecord) matches(input libraryservice.MultiDiscAttachmentInput) bool {
-	return record.State == "RUNNING" && record.ID == input.AttachmentID &&
+	return record.State == "PENDING" && record.ID == input.AttachmentID &&
 		record.ItemID == input.ImportItemID && record.DraftID == input.ReviewDraftID &&
 		record.UserID == input.RequestedByUserID && record.BaseSnapshotID == input.BaseSourceSnapshotID &&
 		record.UploadID == input.UploadSessionID && record.ExpectedDigest == input.ExpectedSetDigest
 }
 
 func claimMultiDiscAttachmentRecords(ctx context.Context, tx dbapi.Tx, jobID, workerID string, now int64) error {
-	result, err := tx.ExecContext(ctx, `
-UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,worker_id=?,
-execution_started_at_ms=COALESCE(execution_started_at_ms,?),
-execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),leased_until_ms=?,heartbeat_at_ms=?,
-version=version+1,updated_at_ms=?
-WHERE id=? AND kind='REVIEW_MULTI_DISC_VALIDATE' AND state='QUEUED' AND available_at_ms<=?
-AND attempt_count<max_attempts
-`, workerID, now, now+libraryservice.MultiDiscAttachmentDeadline.Milliseconds(),
-		now+60_000, now, now, jobID, now)
-	if err != nil {
-		return fmt.Errorf("claim multi-disc attachment job: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return libraryservice.ErrInvalid
-	}
-	result, err = recordstore.UpdateReviewMultidiscAttachments(ctx, tx, recordstore.Update{
-		Set:    `state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`, Args: []any{jobID}},
-		Values: []any{now},
-	})
-	if err != nil {
-		return fmt.Errorf("mark multi-disc attachment running: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return libraryservice.ErrInvalid
-	}
-	if _, err := tx.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-	SELECT id,scope_type,scope_id,'STARTED','{"schemaVersion":1,"state":"RUNNING"}',? FROM jobs WHERE id=?
-`, now, jobID); err != nil {
-		return fmt.Errorf("record multi-disc attachment start: %w", err)
-	}
-	return nil
+	return claimAttachmentRecords(
+		ctx, tx, jobID, workerID, now, "REVIEW_MULTI_DISC_VALIDATE",
+		libraryservice.MultiDiscAttachmentDeadline.Milliseconds(),
+	)
 }
 
 func (repository *MultiDiscAttachmentWorker) Heartbeat(ctx context.Context, jobID, workerID string, now int64) error {
-	result, err := repository.database.ExecContext(ctx, `
-UPDATE jobs SET leased_until_ms=?,heartbeat_at_ms=?,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND worker_id=? AND execution_deadline_at_ms>?
-`, now+60_000, now, now, jobID, workerID, now)
-	if err != nil {
-		return fmt.Errorf("heartbeat multi-disc attachment: %w", err)
-	}
-	changed, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("count multi-disc attachment heartbeat: %w", err)
-	}
-	if changed != 1 {
-		return libraryservice.ErrInvalid
-	}
-	return nil
+	return HeartbeatAttachment(ctx, repository.database, jobID, workerID, now)
 }
 
 func (repository *MultiDiscAttachmentWorker) BaseFiles(

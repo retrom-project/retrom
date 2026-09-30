@@ -179,6 +179,18 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	server.ImportAdmissions = importDeps.Admissions
 	server.JobService = composition.WithSourceJobCancellation(server.JobService, sourceImportService)
 	server.JobService = librarycomposition.WithJobCancellation(server.JobService, importDeps.Executions)
+	server.JobService = server.JobService.WithRetryWakeups(map[string]jobs.RetryWakeup{
+		"IMPORT_GROUP": func(ctx context.Context, id string) { importer.NotifyImportGroup(ctx, id) },
+		"REVIEW_ARCADE_PARENT_VALIDATE": func(ctx context.Context, id string) {
+			importer.ResumeAttachmentJob(ctx, "REVIEW_ARCADE_PARENT_VALIDATE", id)
+		},
+		"REVIEW_MULTI_DISC_VALIDATE": func(ctx context.Context, id string) {
+			importer.ResumeAttachmentJob(ctx, "REVIEW_MULTI_DISC_VALIDATE", id)
+		},
+		"VARIANT_VALIDATE": server.Variants.Dispatch,
+		"UPLOAD_FINALIZE":  func(ctx context.Context, id string) { server.Uploads.Resume(ctx, id) },
+		"MEDIA_FETCH":      func(ctx context.Context, id string) { server.Metadata.ResumeMediaJob(ctx, id) },
+	})
 	server.MediaAccess = mediaaccess.New(mediapersistence.New(database))
 	server.MetadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.ImportDiscards = composition.NewImportDiscard(

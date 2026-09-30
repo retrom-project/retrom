@@ -42,7 +42,7 @@ func TestImporterCloseKeepsInjectedWorkerClosed(t *testing.T) {
 	service := newTestImporter(t, db, nil, testImportOptions{})
 	worker, creations, preparation, approvals := service.worker, service.creations, service.preparation, service.approvals
 	service.Close()
-	service.Start()
+	service.Start(t.Context())
 	service.NotifyImportGroup(t.Context(), "unused")
 	if err := worker.Recover(t.Context()); err == nil {
 		t.Fatal("closed worker resumed recovery")

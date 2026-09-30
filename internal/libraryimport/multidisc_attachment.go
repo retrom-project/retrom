@@ -51,6 +51,7 @@ type multiDiscAttachmentCandidate struct {
 	input                multiDiscAttachmentInput
 	jobID, workerID      string
 	executionStartedAtMS int64
+	deadlineAtMS         int64
 	expectedMissing      []multidisc.Entry
 	baseFiles            []attachedMultiDiscFile
 	baseEntries          []multidisc.Entry
