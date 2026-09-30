@@ -311,7 +311,9 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
     expect(layout.heroHeight).toBeLessThanOrEqual(480);
     expect(layout.launchTopGap).toBeGreaterThan(100);
-    expect(layout.launchBottomGap).toBeGreaterThanOrEqual(32);
+    // The current detail design has 24px vertical hero padding plus its border.
+    expect(layout.launchBottomGap).toBeGreaterThanOrEqual(24);
+    expect(layout.launchBottomGap).toBeLessThanOrEqual(25);
     const typography = await page.evaluate(() => {
       const read = (selector: string) => {
         const element = document.querySelector(selector);
