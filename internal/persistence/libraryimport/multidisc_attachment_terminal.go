@@ -21,14 +21,19 @@ func (repository *MultiDiscAttachmentFinalization) Reject(
 		return fmt.Errorf("begin multi-disc rejection: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := requireAttachmentWorker(
+		ctx, transaction, write.Target.JobID, write.Target.WorkerID, write.NowMS, false,
+	); err != nil {
+		return err
+	}
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `state='REJECTED',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`, Args: []any{write.Target.AttachmentID},
+			Where: `id=? AND state='PENDING'`, Args: []any{write.Target.AttachmentID},
 		},
 		Values: []any{write.Code, write.DiagnosticsJSON, write.NowMS, write.NowMS},
 	})
-	if err := requireMultiDiscChange(result, err, "reject attachment"); err != nil {
+	if err := requireAttachmentChange(result, err, "reject attachment"); err != nil {
 		return err
 	}
 	result, err = transaction.ExecContext(ctx, `
@@ -36,7 +41,7 @@ UPDATE jobs SET state='FAILED',error_code=?,error_retryable=0,finished_at_ms=?,
 leased_until_ms=NULL,heartbeat_at_ms=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND state='RUNNING' AND worker_id=?
 `, write.Code, write.NowMS, write.NowMS, write.Target.JobID, write.Target.WorkerID)
-	if err := requireMultiDiscChange(result, err, "fail rejected attachment job"); err != nil {
+	if err := requireAttachmentChange(result, err, "fail rejected attachment job"); err != nil {
 		return err
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -62,6 +67,11 @@ func (repository *MultiDiscAttachmentFinalization) TryRetry(
 		return libraryservice.MultiDiscAttachmentRetryResult{}, fmt.Errorf("begin multi-disc retry: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := requireAttachmentWorker(
+		ctx, transaction, write.Target.JobID, write.Target.WorkerID, write.NowMS, false,
+	); err != nil {
+		return libraryservice.MultiDiscAttachmentRetryResult{}, err
+	}
 	var attemptCount, maxAttempts, deadline int64
 	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT attempt_count,max_attempts,execution_deadline_at_ms
@@ -75,11 +85,11 @@ FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?
 		return libraryservice.MultiDiscAttachmentRetryResult{}, nil
 	}
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
-		Set:    `state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Target.AttachmentID}},
-		Values: []any{write.Code, write.DiagnosticsJSON, write.NowMS, write.NowMS},
+		Set:    `diagnostics_json=?,version=version+1,updated_at_ms=?`,
+		Scope:  recordstore.Scope{Where: `id=? AND state='PENDING'`, Args: []any{write.Target.AttachmentID}},
+		Values: []any{write.DiagnosticsJSON, write.NowMS},
 	})
-	if err := requireMultiDiscChange(result, err, "schedule retry attachment"); err != nil {
+	if err := requireAttachmentChange(result, err, "schedule retry attachment"); err != nil {
 		return libraryservice.MultiDiscAttachmentRetryResult{}, err
 	}
 	result, err = transaction.ExecContext(ctx, `
@@ -87,7 +97,7 @@ UPDATE jobs SET state='QUEUED',available_at_ms=?,leased_until_ms=NULL,heartbeat_
 worker_id=NULL,error_code=NULL,error_retryable=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND state='RUNNING' AND worker_id=?
 `, availableAt, write.NowMS, write.Target.JobID, write.Target.WorkerID)
-	if err := requireMultiDiscChange(result, err, "queue multi-disc retry job"); err != nil {
+	if err := requireAttachmentChange(result, err, "queue multi-disc retry job"); err != nil {
 		return libraryservice.MultiDiscAttachmentRetryResult{}, err
 	}
 	eventJSON, _ := json.Marshal(map[string]any{
@@ -115,12 +125,17 @@ func (repository *MultiDiscAttachmentFinalization) FailRetryable(
 		return fmt.Errorf("begin multi-disc retry failure: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := requireAttachmentWorker(
+		ctx, transaction, write.Target.JobID, write.Target.WorkerID, write.NowMS, false,
+	); err != nil {
+		return err
+	}
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
-		Set:    `state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Target.AttachmentID}},
-		Values: []any{write.Code, write.DiagnosticsJSON, write.NowMS, write.NowMS},
+		Set:    `diagnostics_json=?,version=version+1,updated_at_ms=?`,
+		Scope:  recordstore.Scope{Where: `id=? AND state='PENDING'`, Args: []any{write.Target.AttachmentID}},
+		Values: []any{write.DiagnosticsJSON, write.NowMS},
 	})
-	if err := requireMultiDiscChange(result, err, "fail retryable attachment"); err != nil {
+	if err := requireAttachmentChange(result, err, "fail retryable attachment"); err != nil {
 		return err
 	}
 	result, err = transaction.ExecContext(ctx, `
@@ -128,7 +143,7 @@ UPDATE jobs SET state='FAILED',error_code=?,error_retryable=1,finished_at_ms=?,
 leased_until_ms=NULL,heartbeat_at_ms=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND state='RUNNING' AND worker_id=?
 `, write.Code, write.NowMS, write.NowMS, write.Target.JobID, write.Target.WorkerID)
-	if err := requireMultiDiscChange(result, err, "fail retryable attachment job"); err != nil {
+	if err := requireAttachmentChange(result, err, "fail retryable attachment job"); err != nil {
 		return err
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -150,7 +165,7 @@ func (repository *MultiDiscAttachmentFinalization) SyncCancellation(
 		Set: `state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
 version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{Where: `job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
+		Scope: recordstore.Scope{Where: `job_id=? AND state='PENDING'
 AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')`, Args: []any{jobID, jobID}},
 		Values: []any{nowMS, nowMS},
 	})
@@ -181,17 +196,17 @@ func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
 		Set: `state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
 version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Target.AttachmentID}},
+		Scope:  recordstore.Scope{Where: `id=? AND state='PENDING'`, Args: []any{write.Target.AttachmentID}},
 		Values: []any{write.NowMS, write.NowMS},
 	})
-	if err := requireMultiDiscChange(result, err, "cancel attachment"); err != nil {
+	if err := requireAttachmentChange(result, err, "cancel attachment"); err != nil {
 		return false, err
 	}
 	result, err = transaction.ExecContext(ctx, `
 UPDATE jobs SET state='CANCELLED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
 version=version+1,updated_at_ms=? WHERE id=? AND state='CANCEL_REQUESTED' AND worker_id=?
 `, write.NowMS, write.NowMS, write.Target.JobID, write.Target.WorkerID)
-	if err := requireMultiDiscChange(result, err, "cancel multi-disc job"); err != nil {
+	if err := requireAttachmentChange(result, err, "cancel multi-disc job"); err != nil {
 		return false, err
 	}
 	if _, err := transaction.ExecContext(ctx, `

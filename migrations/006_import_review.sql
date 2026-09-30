@@ -204,7 +204,7 @@ CREATE TABLE review_multidisc_attachments (
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   expected_set_digest TEXT NOT NULL
     CHECK(length(expected_set_digest)=64 AND expected_set_digest=lower(expected_set_digest)),
-  state TEXT NOT NULL CHECK(state IN ('QUEUED','RUNNING','ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED')),
+  state TEXT NOT NULL CHECK(state IN ('PENDING','ACCEPTED','REJECTED','CANCELLED')),
   error_code TEXT,
   diagnostics_json TEXT NOT NULL CHECK(length(CAST(diagnostics_json AS BLOB))<=65536),
   job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
@@ -216,8 +216,8 @@ CREATE TABLE review_multidisc_attachments (
     state='ACCEPTED' AND result_source_snapshot_id IS NOT NULL OR
     state<>'ACCEPTED' AND result_source_snapshot_id IS NULL
   ),
-  CHECK((state IN ('REJECTED','FAILED_RETRYABLE','CANCELLED'))=(error_code IS NOT NULL)),
-  CHECK((state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED'))=(finished_at_ms IS NOT NULL))
+  CHECK((state IN ('REJECTED','CANCELLED'))=(error_code IS NOT NULL)),
+  CHECK((state IN ('ACCEPTED','REJECTED','CANCELLED'))=(finished_at_ms IS NOT NULL))
 );
 
 
@@ -467,7 +467,7 @@ CREATE TABLE "review_arcade_parent_attachments" (
   original_filename TEXT NOT NULL CHECK(length(CAST(original_filename AS BLOB)) BETWEEN 1 AND 255),
   observed_size_bytes INTEGER CHECK(observed_size_bytes IS NULL OR observed_size_bytes >= 0),
   observed_sha256 TEXT CHECK(observed_sha256 IS NULL OR (length(observed_sha256)=64 AND observed_sha256=lower(observed_sha256))),
-  state TEXT NOT NULL CHECK(state IN ('QUEUED','RUNNING','ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED')),
+  state TEXT NOT NULL CHECK(state IN ('PENDING','ACCEPTED','REJECTED','CANCELLED')),
   error_code TEXT,
   diagnostics_json TEXT NOT NULL CHECK(length(CAST(diagnostics_json AS BLOB)) <= 65536),
   job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
@@ -480,9 +480,9 @@ CREATE TABLE "review_arcade_parent_attachments" (
   CHECK(state<>'ACCEPTED' AND accepted_file_record IS NULL AND payload_released_at_ms IS NULL OR
         state='ACCEPTED' AND accepted_file_record IS NOT NULL AND payload_released_at_ms IS NULL OR
         state='ACCEPTED' AND accepted_file_record IS NULL AND payload_released_at_ms IS NOT NULL),
-  CHECK((state IN ('REJECTED','FAILED_RETRYABLE','CANCELLED'))=(error_code IS NOT NULL)),
-  CHECK((state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED'))=(finished_at_ms IS NOT NULL)),
-  CHECK(state IN ('QUEUED','RUNNING') OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL)
+  CHECK((state IN ('REJECTED','CANCELLED'))=(error_code IS NOT NULL)),
+  CHECK((state IN ('ACCEPTED','REJECTED','CANCELLED'))=(finished_at_ms IS NOT NULL)),
+  CHECK(state='PENDING' OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL)
 );
 
 CREATE TABLE review_preview_bindings (

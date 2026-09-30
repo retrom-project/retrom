@@ -72,7 +72,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 		Server: &Server{
 			systemDeps: SystemDependencies{
 				Idempotency: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
-				Jobs:        jobs.New(jobpersistence.New(database.SQL), now),
+				Jobs:        jobs.New(jobpersistence.New(database.SQL), now).WithRetryWakeups(map[string]jobs.RetryWakeup{"UPLOAD_FINALIZE": func(ctx context.Context, id string) { uploader.Resume(ctx, id) }}),
 			},
 			now: now,
 			importDeps: ImportDependencies{

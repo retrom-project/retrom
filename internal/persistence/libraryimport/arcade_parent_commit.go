@@ -36,11 +36,13 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 		return arcadeParentCommitStoreError("begin accepted commit", err)
 	}
 	defer dbapi.Rollback(transaction)
-	target, err := loadArcadeParentCommitTarget(ctx, transaction, request.Candidate)
-	if err != nil {
+	if err := requireAttachmentWorker(
+		ctx, transaction, request.JobID, request.WorkerID, request.NowMS, true,
+	); err != nil {
 		return err
 	}
-	if err := validateArcadeParentCommitJob(ctx, transaction, request.JobID, request.WorkerID); err != nil {
+	target, err := loadArcadeParentCommitTarget(ctx, transaction, request.Candidate)
+	if err != nil {
 		return err
 	}
 
@@ -60,7 +62,7 @@ result_source_snapshot_id=?,observed_size_bytes=?,observed_sha256=?,diagnostics_
 finished_at_ms=?,version=version+1,updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`,
+			Where: `id=? AND state='PENDING'`,
 			Args:  []any{request.Candidate.AttachmentID},
 		},
 		Values: []any{
@@ -174,6 +176,11 @@ func (repository *ArcadeParentCommitRepository) FinishRejected(
 		return arcadeParentCommitStoreError("begin rejected attachment", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := requireAttachmentWorker(
+		ctx, transaction, request.JobID, request.WorkerID, request.NowMS, false,
+	); err != nil {
+		return err
+	}
 	if _, err := recordstore.UpdateReviewArcadeParentAttachments(
 		ctx,
 		transaction,
@@ -184,7 +191,7 @@ observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,updat
 `,
 
 			Scope: recordstore.Scope{
-				Where: `id=? AND state='RUNNING'`,
+				Where: `id=? AND state='PENDING'`,
 				Args:  []any{request.AttachmentID},
 			},
 
@@ -230,27 +237,29 @@ func (repository *ArcadeParentCommitRepository) FinishRetryable(
 		return arcadeParentCommitStoreError("begin retryable attachment", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := requireAttachmentWorker(
+		ctx, transaction, request.JobID, request.WorkerID, request.NowMS, false,
+	); err != nil {
+		return err
+	}
 	if _, err := recordstore.UpdateReviewArcadeParentAttachments(
 		ctx,
 		transaction,
 		recordstore.Update{
 			Set: `
-state='FAILED_RETRYABLE',error_code=?,
-diagnostics_json=?,observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,
+diagnostics_json=?,observed_size_bytes=?,observed_sha256=?,version=version+1,
 updated_at_ms=?
 `,
 
 			Scope: recordstore.Scope{
-				Where: `id=? AND state='RUNNING'`,
+				Where: `id=? AND state='PENDING'`,
 				Args:  []any{request.AttachmentID},
 			},
 
 			Values: []any{
-				request.Code,
 				request.DiagnosticsJSON,
 				request.BlobSize,
 				request.BlobSHA,
-				request.NowMS,
 				request.NowMS,
 			},
 		},
@@ -288,7 +297,7 @@ version=version+1,updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
 			Where: `
-job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
+job_id=? AND state='PENDING'
 AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')
 `,
 			Args: []any{request.JobID, request.JobID},
@@ -326,7 +335,7 @@ diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
 version=version+1,updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`,
+			Where: `id=? AND state='PENDING'`,
 			Args:  []any{request.AttachmentID},
 		},
 		Values: []any{request.NowMS, request.NowMS},
@@ -503,20 +512,6 @@ WHERE item.id=?
 		return arcadeParentCommitTarget{}, libraryservice.ErrInvalid
 	}
 	return target, nil
-}
-
-func validateArcadeParentCommitJob(
-	ctx context.Context,
-	transaction dbapi.Tx,
-	jobID, workerID string,
-) error {
-	var state, currentWorker string
-	err := dbapi.QueryRowContext(ctx, transaction, `SELECT state,worker_id FROM jobs WHERE id=?`, jobID).
-		Scan(&state, &currentWorker)
-	if err != nil || state != "RUNNING" || currentWorker != workerID {
-		return libraryservice.ErrInvalid
-	}
-	return nil
 }
 
 func insertArcadeParentSnapshotFiles(

@@ -49,10 +49,7 @@ WHEN (previous.state IN ('ACCEPTED','REJECTED','CANCELLED')) THEN
 'terminal multi-disc attachment is immutable'
 -- review_multidisc_attachment_transition_update
 WHEN ((candidate.state IS NOT previous.state) AND (NOT (
-  previous.state='QUEUED' AND candidate.state IN ('RUNNING','CANCELLED') OR
-  previous.state='RUNNING' AND candidate.state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED')
-OR
-  previous.state='FAILED_RETRYABLE' AND candidate.state IN ('RUNNING','CANCELLED')
+  previous.state='PENDING' AND candidate.state IN ('ACCEPTED','REJECTED','CANCELLED')
 ))) THEN 'invalid multi-disc attachment state transition'
 ELSE '' END
 FROM review_multidisc_attachments candidate CROSS JOIN previous

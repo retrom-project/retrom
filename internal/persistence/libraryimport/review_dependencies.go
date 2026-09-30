@@ -58,9 +58,15 @@ func (records *ReviewDependencies) ArcadeAttachments(
 	itemID string,
 ) ([]libraryservice.ArcadeAttachment, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT id,dependency_machine,expected_logical_name,original_filename,state,error_code,
-job_id,observed_size_bytes,observed_sha256,diagnostics_json,created_at_ms,updated_at_ms,finished_at_ms
-FROM review_arcade_parent_attachments WHERE import_item_id=? ORDER BY created_at_ms DESC,id DESC`, itemID)
+SELECT attachment.id,dependency_machine,expected_logical_name,original_filename,
+CASE WHEN attachment.state<>'PENDING' THEN attachment.state
+WHEN job.state='FAILED' AND job.error_retryable=1 THEN 'FAILED_RETRYABLE'
+WHEN job.state='CANCEL_REQUESTED' THEN 'RUNNING' ELSE job.state END,
+COALESCE(attachment.error_code,job.error_code),job_id,observed_size_bytes,observed_sha256,diagnostics_json,
+attachment.created_at_ms,MAX(attachment.updated_at_ms,job.updated_at_ms),
+COALESCE(attachment.finished_at_ms,job.finished_at_ms)
+FROM review_arcade_parent_attachments attachment JOIN jobs job ON job.id=attachment.job_id
+WHERE import_item_id=? ORDER BY attachment.created_at_ms DESC,attachment.id DESC`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query review arcade attachments: %w", err)
 	}

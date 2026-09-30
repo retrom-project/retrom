@@ -23,6 +23,7 @@ type Result struct {
 }
 
 type Service struct {
+	retryWakeups  map[string]RetryWakeup
 	repository    Repository
 	cancellations map[string]DomainCanceller
 	now           func() time.Time

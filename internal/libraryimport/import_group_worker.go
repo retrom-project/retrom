@@ -6,7 +6,11 @@ import (
 	"retrom/internal/cleanup"
 )
 
-func (service *Service) Start() { service.worker.Start() }
+func (service *Service) Start(ctx context.Context) {
+	service.worker.Start()
+	service.startAttachmentQueue(ctx)
+}
+
 func (service *Service) Close() {
 	service.Stop()
 	service.Wait()

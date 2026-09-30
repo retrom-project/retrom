@@ -110,6 +110,8 @@ CREATE INDEX job_events_scope ON job_events(scope_type,scope_id,id);
 
 CREATE INDEX jobs_claim ON jobs(state,available_at_ms);
 
+CREATE INDEX jobs_recovery ON jobs(kind,state,leased_until_ms,execution_deadline_at_ms);
+
 CREATE INDEX jobs_scope ON jobs(scope_type,scope_id);
 
 
@@ -152,7 +154,7 @@ WHERE catalog_template_key IS NOT NULL;
 
 CREATE UNIQUE INDEX review_arcade_parent_active
 ON review_arcade_parent_attachments(import_item_id)
-WHERE state IN ('QUEUED','RUNNING');
+WHERE state='PENDING';
 
 CREATE INDEX review_arcade_parent_history
 ON review_arcade_parent_attachments(import_item_id,created_at_ms,id);
@@ -167,7 +169,7 @@ CREATE INDEX review_draft_tags_tag ON review_draft_tags(tag_id,review_draft_id);
 
 
 CREATE UNIQUE INDEX review_multidisc_attachment_active
-ON review_multidisc_attachments(import_item_id) WHERE state IN ('QUEUED','RUNNING');
+ON review_multidisc_attachments(import_item_id) WHERE state='PENDING';
 
 CREATE INDEX review_multidisc_attachment_actor
 ON review_multidisc_attachments(requested_by_user_id,created_at_ms,id);

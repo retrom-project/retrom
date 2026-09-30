@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"retrom/internal/content/arcade"
+	"retrom/internal/jobinput"
 
 	contentcapability "retrom/internal/content/capability"
 	librarypersistence "retrom/internal/persistence/libraryimport"
@@ -88,6 +88,7 @@ type parentAttachmentCandidate struct {
 	blobSize                                         int64
 	contentPolicyDigest                              string
 	depth                                            int
+	deadlineAtMS                                     int64
 }
 
 // Preconditions intentionally share one transaction and one stable error mapping.
@@ -284,14 +285,19 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 	attachmentID, _ := uuid.NewV7()
 	jobID, _ := uuid.NewV7()
 	input := setup.input(attachmentID.String())
-	inputJSON, _ := json.Marshal(input)
+	inputJSON, err := jobinput.Encode(
+		"REVIEW_ARCADE_PARENT_VALIDATE", jobinput.Scope{Type: "IMPORT_ITEM", ID: setup.itemID}, input,
+	)
+	if err != nil {
+		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
+	}
 	inputDigest := sha256.Sum256(inputJSON)
 	now := setup.service.now().UnixMilli()
 	dedupe := sha256.Sum256([]byte(strings.Join([]string{
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
 		setup.blobSHA, setup.activeDATID,
 	}, "\x00")))
-	err := setup.scope.Write.Create(setup.ctx, libraryservice.ArcadeParentAttachmentWrite{
+	err = setup.scope.Write.Create(setup.ctx, libraryservice.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
 		InputDigest: hex.EncodeToString(inputDigest[:]), DedupeKey: hex.EncodeToString(dedupe[:]),
 		AttachmentID: attachmentID.String(), JobID: jobID.String(), ItemID: setup.itemID,
@@ -353,15 +359,4 @@ func (service *Service) canonicalArcadeSnapshotWithQueryer(
 		return arcadeDraftSnapshot{}, fmt.Errorf("read canonical arcade snapshot: %w", err)
 	}
 	return snapshot, nil
-}
-
-func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) error {
-	jobIDs, err := librarypersistence.NewReviewArcadeParentJobs(service.database).Queued(ctx)
-	if err != nil {
-		return fmt.Errorf("resume arcade attachments: %w", err)
-	}
-	for _, jobID := range jobIDs {
-		service.scheduleAttachment(ctx, 0, func(worker context.Context) { service.runParentAttachment(worker, jobID) })
-	}
-	return nil
 }

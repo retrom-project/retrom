@@ -65,7 +65,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 		Server: &Server{
 			systemDeps: SystemDependencies{
 				Idempotency: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
-				Jobs:        jobs.New(jobpersistence.New(database.SQL), now),
+				Jobs:        jobs.New(jobpersistence.New(database.SQL), now).WithRetryWakeups(map[string]jobs.RetryWakeup{"VARIANT_VALIDATE": variants.Dispatch}),
 			},
 			playDeps: PlayDependencies{
 				Variants: variants,

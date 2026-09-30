@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -60,6 +59,9 @@ func (scope multiDiscAttachmentCommitScope) BIOS(
 func (scope multiDiscAttachmentCommitScope) CommitAccepted(
 	ctx context.Context, write libraryservice.MultiDiscAttachmentCommitWrite,
 ) error {
+	if err := requireAttachmentWorker(ctx, scope.transaction, write.JobID, write.WorkerID, write.NowMS, true); err != nil {
+		return err
+	}
 	if err := scope.validateCurrentInput(ctx, write.Input); err != nil {
 		return err
 	}
@@ -87,7 +89,7 @@ review_version=review_version+1,review_updated_at_ms=?`,
 			Values: []any{write.SourceSnapshotID, write.NowMS},
 		},
 	)
-	if err := requireMultiDiscChange(result, err, "advance review source"); err != nil {
+	if err := requireAttachmentChange(result, err, "advance review source"); err != nil {
 		return err
 	}
 	if err := scope.recordDuplicateEvidence(ctx, write); err != nil {
@@ -105,12 +107,12 @@ review_version=review_version+1,review_updated_at_ms=?`,
 			Set: `state='ACCEPTED',result_source_snapshot_id=?,diagnostics_json=?,
 error_code=NULL,finished_at_ms=?,version=version+1,updated_at_ms=?`,
 
-			Scope: recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Input.AttachmentID}},
+			Scope: recordstore.Scope{Where: `id=? AND state='PENDING'`, Args: []any{write.Input.AttachmentID}},
 
 			Values: []any{write.SourceSnapshotID, string(diagnostics), write.NowMS, write.NowMS},
 		},
 	)
-	if err := requireMultiDiscChange(result, err, "accept attachment"); err != nil {
+	if err := requireAttachmentChange(result, err, "accept attachment"); err != nil {
 		return err
 	}
 	if _, err := recordstore.CreateUploadConsumptions(
@@ -138,7 +140,7 @@ VALUES(?,?,NULL,'REVIEW_MULTI_DISC',?,?)
 			Values: []any{write.NowMS},
 		},
 	)
-	if err := requireMultiDiscChange(result, err, "advance import item"); err != nil {
+	if err := requireAttachmentChange(result, err, "advance import item"); err != nil {
 		return err
 	}
 	if err := scope.recordAcceptedJobEvents(ctx, write); err != nil {
@@ -148,7 +150,7 @@ VALUES(?,?,NULL,'REVIEW_MULTI_DISC',?,?)
 UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
 version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING' AND worker_id=?
 `, write.NowMS, write.NowMS, write.JobID, write.WorkerID)
-	if err := requireMultiDiscChange(result, err, "complete job"); err != nil {
+	if err := requireAttachmentChange(result, err, "complete job"); err != nil {
 		return err
 	}
 	return nil
@@ -401,20 +403,6 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		write.NowMS,
 	); err != nil {
 		return fmt.Errorf("record multi-disc job events: %w", err)
-	}
-	return nil
-}
-
-func requireMultiDiscChange(result sql.Result, err error, action string) error {
-	if err != nil {
-		return fmt.Errorf("%s: %w", action, err)
-	}
-	changed, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("%s result: %w", action, err)
-	}
-	if changed != 1 {
-		return libraryservice.ErrInvalid
 	}
 	return nil
 }

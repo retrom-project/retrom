@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"hash"
 	"io"
 	"path"
@@ -19,18 +18,6 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/multidisc"
 )
-
-func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) error {
-	now := service.now().UnixMilli()
-	jobs, err := repository.NewQueuedJobs(service.database).Queued(ctx, "REVIEW_MULTI_DISC_VALIDATE")
-	if err != nil {
-		return fmt.Errorf("resume multi-disc attachments: %w", err)
-	}
-	for _, job := range jobs {
-		service.scheduleMultiDiscAttachmentRun(ctx, job.ID, time.Duration(job.AvailableAtMS-now)*time.Millisecond)
-	}
-	return nil
-}
 
 func (service *Service) scheduleMultiDiscAttachmentRun(
 	ctx context.Context,
@@ -57,6 +44,7 @@ func (service *Service) claimMultiDiscAttachment(
 	return multiDiscAttachmentCandidate{
 		input: claim.Input, jobID: claim.JobID, workerID: claim.WorkerID,
 		executionStartedAtMS: claim.ExecutionStartedAtMS,
+		deadlineAtMS:         claim.DeadlineAtMS,
 	}, nil
 }
 

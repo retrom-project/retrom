@@ -603,3 +603,7 @@ make acceptance-case CASE=ACC-RPG-001
 - 测试章节只记录必须覆盖的行为和命令，不写某次执行的测试数量或 PASS 日志。
 - 镜像名、Docker build context、`make dev` 进程模型或 TLS 终结边界发生变化时，必须同步更新本文和部署专题；不得把部署环境差异硬编码进前端构建产物。
 - 当目录、命令或技术栈发生变化时，同步更新根 `AGENTS.md`、本文和实际配置，保证三者一致。
+
+### 补传 Job 重试与恢复回归
+
+`internal/jobinput` 校验统一 execution 信封并验证 Retry 仅刷新 executionId；补传真实入队编码必须能交给通用 Retry。`internal/service/libraryimport` 的恢复策略覆盖 live/expired lease、execution deadline、attempt 耗尽和取消优先级；`internal/persistence/libraryimport` 使用独立 SQLite 库验证两类补传恢复、持久 backoff、重复恢复无重复事件、同事务取消、late failure 回滚、旧 worker 失效，以及手动 Retry 后 Review 状态投影和冻结快照保留。HTTP 的幂等重放不能重复唤醒。端到端补充运行 `ACC-MDISC-002` 和 `ACC-IMP-007` 的既有 Case。

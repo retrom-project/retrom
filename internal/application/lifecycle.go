@@ -41,13 +41,10 @@ func (services *Services) start(ctx context.Context) error {
 	if err := services.Variants.Recover(ctx); err != nil {
 		return fmt.Errorf("recover variant validation: %w", err)
 	}
-	services.Importer.Start()
-	if err := services.Importer.ResumeParentAttachmentJobs(ctx); err != nil {
+	if err := services.Importer.RecoverAttachmentJobs(ctx); err != nil {
 		return fmt.Errorf("recover import attachments: %w", err)
 	}
-	if err := services.Importer.ResumeMultiDiscAttachmentJobs(ctx); err != nil {
-		return fmt.Errorf("recover import attachments: %w", err)
-	}
+	services.Importer.Start(ctx)
 	if err := services.ReviewBulkApprovals.Start(ctx); err != nil {
 		return fmt.Errorf("recover bulk approvals: %w", err)
 	}

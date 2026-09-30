@@ -205,6 +205,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `scrape_candidates` / `scrape_candidate_hits` | Hasheous 元信息候选及多 hash/entry 命中关系 |
 | `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob、尺寸、任务绑定、冻结顺序与资源收费 |
 | `metadata_media_runs` | 每个刮削 Run 的媒体顺序冻结、累计收费和版本 |
+| `review_arcade_parent_attachments` / `review_multidisc_attachments` | 补传业务决定与冻结来源/结果引用；`PENDING` 保留预约，执行状态由关联 Job 投影 |
 | `review_uploaded_assets` | 审核期间人工上传的不可变封面资源及 Blob 归属 |
 | `metadata_provider_cache` | provider + request digest 的可变缓存指针与过期时间 |
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
@@ -224,6 +225,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `idempotency_records` | 按 USER/SYSTEM principal 隔离的写操作 24 小时请求/响应重放 |
 | `audit_events` | 管理操作 append-only 审计 |
 | `schema_migrations` | migration version、name、checksum 与整数应用时刻 |
+
+补传 Job 的 InputSnapshot 使用统一的 `schemaVersion/kind/scope/executionId/inputs` 信封，payload 只引用当前 execution。`jobs_recovery` 索引支持按 kind/state/lease/deadline 的有界恢复；每批至多 64 条，取消业务收口与 Job/Event 更新同事务。当前破坏性 schema 收口直接修改建库基线，不提供旧 Attachment 状态或裸输入的兼容迁移。
 
 ### 4.6 启动与游玩数据
 

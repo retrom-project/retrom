@@ -29,6 +29,7 @@ type MultiDiscAttachmentWorkerClaim struct {
 	JobID                string
 	WorkerID             string
 	ExecutionStartedAtMS int64
+	DeadlineAtMS         int64
 }
 
 type MultiDiscAttachmentWorkerRepository interface {

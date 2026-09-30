@@ -21,26 +21,27 @@ type MultiDiscAttachmentCreator interface {
 }
 
 type Dependencies struct {
-	AttachmentCreator   MultiDiscAttachmentCreator
-	Database            dbapi.DB
-	Files               *filestore.Store
-	Tags                *tagging.Service
-	Preparation         *libraryservice.ImportPreparation
-	Creations           *libraryservice.ImportCreations
-	Reconfigurations    *libraryservice.Reconfigurations
-	Approvals           *libraryservice.ReviewApprovals
-	Drafts              *libraryservice.ReviewDrafts
-	Discards            *libraryservice.ReviewDiscards
-	BatchDiscards       *libraryservice.ReviewBatchDiscards
-	Retries             *libraryservice.ImportItemRetries
-	Cancellations       *libraryservice.ImportBatchCancellations
-	Deduplicator        *libraryservice.ReviewDeduplicator
-	AttachmentSources   *libraryservice.MultiDiscAttachmentSources
-	AttachmentCommits   *libraryservice.MultiDiscAttachmentCommits
-	AttachmentTerminals *libraryservice.MultiDiscAttachmentTerminals
-	Executions          *libraryservice.ImportExecutions
-	Worker              *libraryservice.ImportWorker
-	Admissions          *libraryservice.ImportAdmissions
+	AttachmentExecutions *libraryservice.AttachmentExecutions
+	AttachmentCreator    MultiDiscAttachmentCreator
+	Database             dbapi.DB
+	Files                *filestore.Store
+	Tags                 *tagging.Service
+	Preparation          *libraryservice.ImportPreparation
+	Creations            *libraryservice.ImportCreations
+	Reconfigurations     *libraryservice.Reconfigurations
+	Approvals            *libraryservice.ReviewApprovals
+	Drafts               *libraryservice.ReviewDrafts
+	Discards             *libraryservice.ReviewDiscards
+	BatchDiscards        *libraryservice.ReviewBatchDiscards
+	Retries              *libraryservice.ImportItemRetries
+	Cancellations        *libraryservice.ImportBatchCancellations
+	Deduplicator         *libraryservice.ReviewDeduplicator
+	AttachmentSources    *libraryservice.MultiDiscAttachmentSources
+	AttachmentCommits    *libraryservice.MultiDiscAttachmentCommits
+	AttachmentTerminals  *libraryservice.MultiDiscAttachmentTerminals
+	Executions           *libraryservice.ImportExecutions
+	Worker               *libraryservice.ImportWorker
+	Admissions           *libraryservice.ImportAdmissions
 }
 
 type Options struct {
@@ -49,6 +50,8 @@ type Options struct {
 }
 
 type Service struct {
+	attachmentExecutions   *libraryservice.AttachmentExecutions
+	attachmentsStarted     bool
 	attachmentCreator      MultiDiscAttachmentCreator
 	database               dbapi.DB
 	blobs                  *filestore.Store
@@ -84,8 +87,9 @@ func New(deps Dependencies, options Options) *Service {
 		options.Now = time.Now
 	}
 	return &Service{
-		attachmentCreator: deps.AttachmentCreator,
-		database:          deps.Database, blobs: deps.Files, tags: deps.Tags, now: options.Now,
+		attachmentExecutions: deps.AttachmentExecutions,
+		attachmentCreator:    deps.AttachmentCreator,
+		database:             deps.Database, blobs: deps.Files, tags: deps.Tags, now: options.Now,
 		multiDiscImportEnabled: options.MultiDiscEnabled,
 		preparation:            deps.Preparation, creations: deps.Creations, reconfigurations: deps.Reconfigurations,
 		approvals: deps.Approvals, reviewDrafts: deps.Drafts, discards: deps.Discards,
@@ -99,7 +103,7 @@ func New(deps Dependencies, options Options) *Service {
 
 func (deps Dependencies) validate() {
 	for _, missing := range []bool{
-		deps.AttachmentCreator == nil,
+		deps.AttachmentCreator == nil, deps.AttachmentExecutions == nil,
 		deps.Database == nil, deps.Files == nil, deps.Tags == nil, deps.Preparation == nil,
 		deps.Creations == nil, deps.Reconfigurations == nil, deps.Approvals == nil, deps.Drafts == nil,
 		deps.Deduplicator == nil, deps.AttachmentSources == nil,

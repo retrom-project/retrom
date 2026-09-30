@@ -113,6 +113,7 @@ type ArcadeParentAttachmentWorkerClaim struct {
 	Input                ArcadeParentAttachmentInput
 	JobID, WorkerID      string
 	ExecutionStartedAtMS int64
+	DeadlineAtMS         int64
 }
 
 type ArcadeParentSourceSnapshotFile struct {
@@ -133,10 +134,4 @@ func ValidArcadeParentAttachmentInput(input ArcadeParentAttachmentInput) bool {
 		input.ReviewDraftID != "" && input.BaseSourceSnapshotID != "" && input.DependencyMachine != "" &&
 		input.ProviderID != "" && input.TargetID != "" && len(input.ContentPolicyDigest) == 64 &&
 		input.DATVersionID != "" && input.UploadFileID != ""
-}
-
-// ArcadeParentJobQueue is the application port used to resume queued parent
-// attachment validations when the process starts.
-type ArcadeParentJobQueue interface {
-	Queued(context.Context) ([]string, error)
 }

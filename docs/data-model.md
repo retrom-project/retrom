@@ -66,6 +66,8 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照与审核草稿维持各自 owner、版本、幂等和 payload release 边界。审核只有当前事实：内容观察属于 Item，当前来源、目录 Core、Provider/Target、活动 DAT、BIOS 要求与 active installation 在读取事务内求值，不保存或选择历史 Validation。BIOS 模块负责安装事实，审核模块通过只读端口查询它；安装不触碰审核草稿版本，也不向审核发送业务状态。Provider Bundle 单独升级不使审核结论失效。
 
+`review_arcade_parent_attachments` 与 `review_multidisc_attachments` 只保存业务决定 `PENDING/ACCEPTED/REJECTED/CANCELLED`；排队、租约、尝试次数、execution deadline 与可重试失败均以关联 Job 为唯一事实源。`PENDING` 的部分唯一索引保留每类补传预约，手动 Retry 无需同步另一套业务执行状态。当前 clean schema 不兼容旧 Attachment 执行状态和裸业务输入快照；开发库通过精确 PFB ID 的 `pfb-data-reset` 归档重建，不回填旧数据。
+
 来源快照是不可变的输入证据，不是业务版本树：不分配 revision 序号；每个 Item 最多一份 `created_by=IDENTIFICATION` 初始来源，当前来源只由 `ReviewDraft.effective_source_snapshot_id` 选择，不按创建时间或最大序号猜测。
 
 Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。

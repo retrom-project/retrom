@@ -158,9 +158,9 @@ const reviewBulkCandidateSelect = `
 SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,instance.platform_id,
        validation.status,
        EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
-         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
+         WHERE attachment.import_item_id=item.id AND attachment.state='PENDING') OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
-         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')),
+         WHERE attachment.import_item_id=item.id AND attachment.state='PENDING'),
        COALESCE(json_extract(source_owner.source_flags_json,'$.hidden'),0)=1 OR
        COALESCE(json_extract(source_owner.source_flags_json,'$.adult'),0)=1
 FROM import_items item

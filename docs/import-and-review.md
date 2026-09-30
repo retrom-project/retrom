@@ -350,20 +350,23 @@ type MetadataProvider interface {
 
 每个 ImportItem 的初始来源在识别完成时固化为 `created_by=IDENTIFICATION` 的唯一初始 `ImportItemSourceSnapshot`；旧 `ImportItemSourceFile` 只作为初始导入证据，不再被审核补传原地改写。Item 的 `effective_source_snapshot_id` 指向当前有效快照。补充 Parent、保存草稿、重复检查和 Approve 均以该来源为准；审核不维护可选择的历史验证身份。
 
-Arcade 审核允许对当前 V2 依赖闭包中状态为 `MISSING/MISMATCH` 的 `PARENT` 节点补充一个 ZIP。浏览器先走通用单文件分块上传并等待 UploadFile COMPLETE，再创建 `REVIEW_ARCADE_PARENT_VALIDATE` Job。Attachment 状态机固定为：
+Arcade 审核允许对当前 V2 依赖闭包中状态为 `MISSING/MISMATCH` 的 `PARENT` 节点补充一个 ZIP。浏览器先走通用单文件分块上传并等待 UploadFile COMPLETE，再创建 `REVIEW_ARCADE_PARENT_VALIDATE` Job。Parent 和多盘 Attachment 的持久业务状态统一为：
 
 ```text
-QUEUED -> RUNNING -> ACCEPTED
-                  -> REJECTED
-                  -> FAILED_RETRYABLE -> RUNNING
-QUEUED/RUNNING/FAILED_RETRYABLE -> CANCELLED
+PENDING -> ACCEPTED | REJECTED | CANCELLED
 ```
 
-同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对锁定 DAT 做 name/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。ZIP 可以同时保留不冲突的安全子目录 clone 文件作为原始归档证据，但这些子目录 entry 只计入 diagnostics，不能满足 Parent DAT、替代缺失根 entry 或让 Merged 主 ROMset 获得支持；真正的嵌套 archive、路径穿越、碰撞和统一 ArchiveLimits 超限仍拒绝。接受时在一个短事务内追加后继来源快照、更新内容观察与 Item 派生产物、保存 UploadConsumption 和 JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但当前就绪状态保持 BLOCKED。拒绝或可重试失败不产生后继快照，旧有效快照不变。
+排队、运行、自动重试和可重试失败只保存到 `jobs`。Review API 联合 Attachment 与 Job 投影 `QUEUED/RUNNING/FAILED_RETRYABLE`；业务终态以 Attachment 为准。每个 Item 每类补传最多一个 `PENDING` Attachment，可重试失败保留预约和上传输入，必须重试该 Job 或显式取消后重新补传。
+
+两类补传使用同一 execution 输入信封 `schemaVersion/kind/scope/executionId/inputs`，业务字段全部冻结在 `inputs`，Job payload 只引用 `inputExecutionNo`。手动 Retry 在一个事务中新建 InputSnapshot、增加 execution、清空旧租约/错误/截止时间、重置 attempt 并追加事件；仅刷新 executionId，不替换业务输入。进程入口按 kind 注入 worker 唤醒函数，HTTP 在幂等回执提交后唤醒对应 Job。
+
+补传持久队列在启动和运行期间检查两类任务。租约为 60 秒、每 15 秒续期；过期 `RUNNING` 在未耗尽 attempt/deadline 时重新排队，保留同一 execution、截止时间和已用 attempt。预算耗尽记录可手动重试的 Job FAILED；过期 `CANCEL_REQUESTED` 只完成取消，不重新计算。恢复、取消业务收口和事件在同一短事务提交；worker 提交结果时重验当前状态、owner 和未过期租约，接受结果还必须在 execution deadline 之前。
+
+Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对锁定 DAT 做 name/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。ZIP 可以同时保留不冲突的安全子目录 clone 文件作为原始归档证据，但这些子目录 entry 只计入 diagnostics，不能满足 Parent DAT、替代缺失根 entry 或让 Merged 主 ROMset 获得支持；真正的嵌套 archive、路径穿越、碰撞和统一 ArchiveLimits 超限仍拒绝。接受时在一个短事务内追加后继来源快照、更新内容观察与 Item 派生产物、保存 UploadConsumption 和 JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但当前就绪状态保持 BLOCKED。拒绝或可重试失败不产生后继快照，旧有效快照不变。
 
 审核者可按 `a -> b -> c` 分步补齐：接受 b 后重新投影完整闭包并继续展示 c；全部依赖与 BIOS 满足后当前就绪状态才为 READY。Merged、CHD、关系环、DAT/config/source 漂移不允许通过补传降级放行。Discard 会请求取消 active Job；离开页面不会取消，返回时由 Review GET 与 Job SSE 恢复。补传推进 Review version 是来源快照切换的并发保护，不能因此永久阻断发布：客户端在 Attachment 终态重新读取当前 Review；若发布仍因遗漏的系统版本推进返回 stale，只能在完整发布草稿等价、当前事实可发布且没有 active Attachment 时用新 ETag 有界重试一次，任何人工字段并发变化仍必须停止。补传任务诊断只保存 Attachment/Job/快照 ID、machine、原文件名、observed hash/size、状态和稳定错误码，不保存 ROM bytes 或宿主绝对路径。
 
-Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自该有效来源和当前依赖安装，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 的来源仍记录为 `IMPORT_RECEIVE` 并引用 Pegasus Item，但数据库必须沿一一关联的 `library_import_item_id -> ReviewDraft.effective_source_snapshot_id` 校验最终 content manifest；Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
+Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自该有效来源和当前依赖安装，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 仅保留 `IMPORT_RECEIVE` 来源类别，不持有 Pegasus Item 或审核 Item 的引用；发布事务以审核 Item 的有效来源快照校验并落地最终 content manifest。Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
 
 审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都替换当前抓取结果，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存；没有候选时必须把最新持久化 Run 的精确结论常驻投影到审核摘要，区分无特征、精确未命中、上游限流/超时/网络异常和响应无法解析，不能一律折叠成“未找到游戏信息”。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；替换结果时解除旧候选和媒体引用，已编辑的文字草稿保持不变。
 

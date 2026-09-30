@@ -71,9 +71,13 @@ func (records *ReviewDependencies) MultiDiscAttachments(
 	itemID string,
 ) ([]libraryservice.MultiDiscAttachment, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT attachment.id,attachment.state,attachment.error_code,attachment.diagnostics_json,
+SELECT attachment.id,CASE WHEN attachment.state<>'PENDING' THEN attachment.state
+WHEN job.state='FAILED' AND job.error_retryable=1 THEN 'FAILED_RETRYABLE'
+WHEN job.state='CANCEL_REQUESTED' THEN 'RUNNING' ELSE job.state END,
+COALESCE(attachment.error_code,job.error_code),attachment.diagnostics_json,
 attachment.job_id,job.state,job.error_retryable,job.version,
-attachment.version,attachment.created_at_ms,attachment.updated_at_ms,attachment.finished_at_ms
+attachment.version,attachment.created_at_ms,MAX(attachment.updated_at_ms,job.updated_at_ms),
+COALESCE(attachment.finished_at_ms,job.finished_at_ms)
 FROM review_multidisc_attachments attachment JOIN jobs job ON job.id=attachment.job_id
 WHERE attachment.import_item_id=? ORDER BY attachment.created_at_ms DESC,attachment.id
 DESC`, itemID)
