@@ -25,6 +25,9 @@ try {
   const loading = page.getByRole("combobox", {name: "内容加载", exact: true});
   const program = page.getByRole("combobox", {name: "启动程序", exact: true});
   await expect(loading).toBeEnabled();
+  await expect(page.locator(".game-detail-meta:empty")).toHaveCount(0);
+  report.heroHeight = (await page.locator(".game-detail-hero").boundingBox()).height;
+  assert.ok(report.heroHeight <= 480, "SHORT_TITLE_DOS_HERO_MUST_REMAIN_COMPACT");
   const loadingTab = page.getByRole("tab", {name: "内容加载", exact: true});
   const programTab = page.getByRole("tab", {name: "启动程序", exact: true});
   await expect(page.getByRole("tablist")).toHaveText(/内容加载\s*\/\s*启动程序/);

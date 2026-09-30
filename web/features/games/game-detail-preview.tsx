@@ -15,29 +15,30 @@ export function GameDetailPreview({ title, coverUrl, videoUrl, save }: {
   const tabbed = Boolean(save && videoUrl);
   const active = video ? 1 : 0;
   return <aside className="game-detail-feature-preview" aria-label="游戏预览">
-    <header className="game-detail-preview-heading">
-      {tabbed ? <div ref={tabsRef} className="game-detail-preview-tabs" role="tablist" aria-label="游戏预览内容">
-        {["最近存档", "视频预览"].map((label, index) => <Fragment key={label}>
-          {index > 0 ? <span className="game-detail-preview-divider" aria-hidden="true">/</span> : null}
-          <button type="button" className="button secondary option-tab" role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel-${index}`} aria-selected={index === active} tabIndex={index === active ? 0 : -1} onClick={() => setVideo(index === 1)} onKeyDown={event => {
-            const next = event.key === "Home" ? 0 : event.key === "End" ? 1
-              : event.key === "ArrowLeft" || event.key === "ArrowRight" ? 1 - index : -1;
-            if (next < 0) {return;}
-            event.preventDefault();
-            setVideo(next === 1);
-            tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
-          }}>{label}</button>
-        </Fragment>)}
-      </div> : <strong>{video ? "视频预览" : "将从这里继续"}</strong>}
-    </header>
-    <div className="game-detail-preview-panel" hidden={video} id={tabbed ? `${id}-panel-0` : undefined} role={tabbed ? "tabpanel" : undefined} aria-labelledby={tabbed ? `${id}-tab-0` : undefined}>
-      {save ? <div className="game-detail-feature-shot">
-        <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${title} 最近存档`} sizes="(min-width: 1600px) 520px, 60vw" />
-        <SaveSizeLabel sizeBytes={save.sizeBytes} />
-      </div> : null}
-    </div>
-    <div className="game-detail-preview-panel" hidden={!video} id={tabbed ? `${id}-panel-1` : undefined} role={tabbed ? "tabpanel" : undefined} aria-labelledby={tabbed ? `${id}-tab-1` : undefined}>
-      {video ? <GameDetailMedia title={title} coverUrl={coverUrl} videoUrl={videoUrl} landscape /> : null}
+    {!tabbed ? <header className="game-detail-preview-heading"><strong>{video ? "视频预览" : "将从这里继续"}</strong></header> : null}
+    <div className="game-detail-preview-frame">
+      {tabbed ? <header className="game-detail-preview-heading is-overlay"><div ref={tabsRef} className="game-detail-preview-tabs" role="tablist" aria-label="游戏预览内容">
+          {["最近存档", "视频预览"].map((label, index) => <Fragment key={label}>
+            {index > 0 ? <span className="game-detail-preview-divider" aria-hidden="true">/</span> : null}
+            <button type="button" className="button secondary option-tab" role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel-${index}`} aria-selected={index === active} tabIndex={index === active ? 0 : -1} onClick={() => setVideo(index === 1)} onKeyDown={event => {
+              const next = event.key === "Home" ? 0 : event.key === "End" ? 1
+                : event.key === "ArrowLeft" || event.key === "ArrowRight" ? 1 - index : -1;
+              if (next < 0) {return;}
+              event.preventDefault();
+              setVideo(next === 1);
+              tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+            }}>{label}</button>
+          </Fragment>)}
+      </div></header> : null}
+      <div className="game-detail-preview-panel" hidden={video} id={tabbed ? `${id}-panel-0` : undefined} role={tabbed ? "tabpanel" : undefined} aria-labelledby={tabbed ? `${id}-tab-0` : undefined}>
+        {save ? <div className="game-detail-feature-shot">
+          <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${title} 最近存档`} sizes="(min-width: 1600px) 520px, 60vw" />
+          <SaveSizeLabel sizeBytes={save.sizeBytes} />
+        </div> : null}
+      </div>
+      <div className="game-detail-preview-panel" hidden={!video} id={tabbed ? `${id}-panel-1` : undefined} role={tabbed ? "tabpanel" : undefined} aria-labelledby={tabbed ? `${id}-tab-1` : undefined}>
+        {video ? <GameDetailMedia title={title} coverUrl={coverUrl} videoUrl={videoUrl} landscape /> : null}
+      </div>
     </div>
   </aside>;
 }

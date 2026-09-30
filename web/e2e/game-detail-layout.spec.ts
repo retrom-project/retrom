@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { evidencePath, noPageOverflow, pngDimensions } from "./acceptance-support";
-import {expectDetailHeroAlignment} from "./game-detail-alignment";
+import {expectDetailHeroAlignment, expectDetailPreviewTabsInFrame} from "./game-detail-alignment";
 import {uiLayoutState} from "./ui-layout-state";
 
 test.beforeEach(() => uiLayoutState("isolate"));
@@ -26,6 +26,7 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await expect(missingShot).toHaveCount(1);
       await expect(missingShot.locator(".save-library-size")).toBeVisible();
       await noPageOverflow(page);
+      await expectDetailPreviewTabsInFrame(page);
       if (width >= 1600) {await expectDetailHeroAlignment(page);}
       const image = await page.screenshot({ path: evidencePath(testInfo, `detail-populated-${width}.png`) });
       expect(pngDimensions(image)).toEqual({ width: width * dpr, height: height * dpr });
@@ -56,6 +57,7 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await expect(videoTab).toHaveAttribute("aria-selected", "true");
       await expect(page.locator(".game-detail-video-stage")).toBeVisible();
       await expect(page.getByRole("tabpanel", { name: "视频预览", exact: true })).toBeVisible();
+      await expectDetailPreviewTabsInFrame(page);
       if (width >= 1600) {await expectDetailHeroAlignment(page);}
       expect(await previewLayout()).toEqual(saveLayout);
       await page.screenshot({ path: evidencePath(testInfo, `detail-video-tab-${width}.png`) });

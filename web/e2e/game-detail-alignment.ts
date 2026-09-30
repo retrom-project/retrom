@@ -1,6 +1,7 @@
 import {expect, type Page} from "@playwright/test";
 
 export async function expectDetailHeroAlignment(page: Page) {
+  await expect(page.locator(".game-detail-meta:empty")).toHaveCount(0);
   const main = (await page.locator(".game-detail-main").boundingBox())!;
   for (const selector of [".game-detail-poster", ".game-detail-feature-preview"]) {
     const column = page.locator(selector);
@@ -17,4 +18,18 @@ export async function expectDetailHeroAlignment(page: Page) {
       expect(Math.abs(box.x + box.width - last.x - last.width), "loading selector ends with the last launch button").toBeLessThan(1);
     }
   }
+}
+
+export async function expectDetailPreviewTabsInFrame(page: Page) {
+  const tabs = page.getByRole("tablist", {name: "游戏预览内容"});
+  if (!await tabs.count()) {return;}
+  const frame = page.locator(".game-detail-preview-frame");
+  await expect(frame).toBeVisible();
+  const tabBox = (await tabs.boundingBox())!;
+  const media = page.locator(".game-detail-feature-shot:visible, .game-detail-video-stage:visible");
+  const mediaBox = (await media.boundingBox())!;
+  expect(tabBox.x).toBeGreaterThanOrEqual(mediaBox.x);
+  expect(tabBox.y).toBeGreaterThanOrEqual(mediaBox.y);
+  expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(mediaBox.x + mediaBox.width);
+  expect(tabBox.y + tabBox.height).toBeLessThanOrEqual(mediaBox.y + mediaBox.height);
 }

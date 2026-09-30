@@ -69,7 +69,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
               <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" showManageButton={false} />
             </div>
             <TagChips tags={game.tags ?? []} linked />
-            <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
+            {game.releaseYear || game.publisher || game.genre ? <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div> : null}
             <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
             <LaunchControls
               gameId={game.gameId}
