@@ -209,6 +209,7 @@ data-check:
 	@python3 scripts/test_runtime_provider_contract.py
 	@python3 scripts/test_runtime_providers.py
 	@python3 scripts/test_runtime_provider_release.py
+	@python3 scripts/test_runtime_provider_permissions.py
 	@python3 scripts/test_release_input_digest.py
 	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"

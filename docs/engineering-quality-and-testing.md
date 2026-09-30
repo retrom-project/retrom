@@ -444,7 +444,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、公开测试 ROM、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
 5. PR 的 `quality` 汇总检查要求上述五个独立 job 全部通过；独立的 `branch-image/build` 在 GitHub runner 上执行 `make build-images` 并发布同仓库 PR 的分支测试镜像。涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须在合并前确认镜像检查通过，不要求开发机执行生产镜像构建。分支镜像不能被提升或标记为生产镜像。
-6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。两个镜像校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
+6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。PR 和 tag 镜像流水线随后单独运行 `scripts/verify-backend-image.sh`，以部署基线 UID/GID `1000:1000` 和临时数据根实际启动后端，60 秒内必须达到 ready；构建 target 本身仍不启动容器。两个镜像及非 root 启动校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 预期文件
 

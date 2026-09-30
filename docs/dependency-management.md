@@ -58,6 +58,8 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 仅 tag 是人工维护输入；摘要、size、manifest/integrity 校验仍由发布产物与安装器负责。解析发生在依赖准备或镜像构建阶段，应用启动只读取已安装的 active identity，不访问 GitHub。
 
+Provider 发布元数据、归档缓存和安装内容均为公开运行依赖，不包含凭据。原子写入的文件发布为 `0644`，验证完成的 Bundle 根目录发布为 `0755`；复用旧安装时也恢复根目录的可读和可遍历权限。不得把 `mkstemp` 的 `0600` 或 `mkdtemp` 的 `0700` 临时权限带入最终发布目录。镜像内资源属于构建身份，但必须可由部署指定的其他非 root UID 读取，运行时不依靠提权或修改镜像内容完成启动。
+
 ### 统一发布版本
 
 从 runtime `v0.46.0` 开始，GitHub 的不可移动 tag 是发布版本的唯一事实源。`retrom-runtime` 与 `emulatorjs` 两个 Provider 的 `providerVersion` 都等于 tag 去掉 `v` 的值；manifest、client 导出、archive 文件名和正式 runtime tag 必须一致。Retrom 的 pin、prepare 与 active 校验拒绝版本与 tag 不匹配的正式包。源码中的 npm package、上游来源清单和 Provider catalog 不再独立维护发布版本。未打 tag 的 runtime 构建使用 `0.0.0-dev`；PFB loose module 只沿用已校验基座的版本。
