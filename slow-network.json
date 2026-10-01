@@ -1,0 +1,349 @@
+[
+  {
+    "gameId": "01a0f8f0-fb5a-797b-a63b-27ee68bc8583",
+    "title": "Dungeons & Dragons: Tower of Doom",
+    "slow": true,
+    "errors": [],
+    "transfers": [
+      {
+        "path": "/runtime/launches/01a0f8fe-fd01-72a2-a959-31d43a354de6/config",
+        "startedMs": 2509,
+        "progress": [
+          {
+            "ms": 2825,
+            "bytes": 1580
+          }
+        ],
+        "status": 200,
+        "bytes": 1580,
+        "finishedMs": 2825
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/client.mjs",
+        "startedMs": 2832,
+        "progress": [
+          {
+            "ms": 3146,
+            "bytes": 1500
+          }
+        ],
+        "status": 200,
+        "bytes": 243812,
+        "finishedMs": 4379
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/loader.js",
+        "startedMs": 4423,
+        "progress": [
+          {
+            "ms": 4770,
+            "bytes": 1500
+          }
+        ],
+        "status": 200,
+        "bytes": 7594,
+        "finishedMs": 4770
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/emulator.min.js",
+        "startedMs": 4772,
+        "progress": [
+          {
+            "ms": 7248,
+            "bytes": 1500
+          }
+        ],
+        "status": 200,
+        "bytes": 426343,
+        "finishedMs": 7250
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/emulator.min.css",
+        "startedMs": 7252,
+        "progress": [
+          {
+            "ms": 7562,
+            "bytes": 1500
+          }
+        ],
+        "status": 200,
+        "bytes": 25630,
+        "finishedMs": 7685
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/localization/zh-CN.json",
+        "startedMs": 7704,
+        "progress": [
+          {
+            "ms": 8013,
+            "bytes": 1500
+          }
+        ],
+        "status": 200,
+        "bytes": 10521,
+        "finishedMs": 8058
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/cores/reports/fbneo.json",
+        "startedMs": 8096,
+        "progress": [
+          {
+            "ms": 8408,
+            "bytes": 119
+          }
+        ],
+        "status": 200,
+        "bytes": 119,
+        "finishedMs": 8409
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/cores/fbneo-wasm.data",
+        "startedMs": 8409,
+        "progress": [
+          {
+            "ms": 8722,
+            "bytes": 1500
+          },
+          {
+            "ms": 10223,
+            "bytes": 297000
+          },
+          {
+            "ms": 11726,
+            "bytes": 592500
+          },
+          {
+            "ms": 13230,
+            "bytes": 888000
+          },
+          {
+            "ms": 14733,
+            "bytes": 1183500
+          },
+          {
+            "ms": 16236,
+            "bytes": 1479000
+          },
+          {
+            "ms": 17738,
+            "bytes": 1774500
+          },
+          {
+            "ms": 19241,
+            "bytes": 2070000
+          },
+          {
+            "ms": 20744,
+            "bytes": 2365652
+          },
+          {
+            "ms": 22247,
+            "bytes": 2661152
+          },
+          {
+            "ms": 23750,
+            "bytes": 2956652
+          },
+          {
+            "ms": 25253,
+            "bytes": 3252152
+          },
+          {
+            "ms": 26756,
+            "bytes": 3547652
+          },
+          {
+            "ms": 28259,
+            "bytes": 3843152
+          },
+          {
+            "ms": 29761,
+            "bytes": 4138652
+          },
+          {
+            "ms": 31264,
+            "bytes": 4434304
+          },
+          {
+            "ms": 32768,
+            "bytes": 4729804
+          },
+          {
+            "ms": 34271,
+            "bytes": 5025304
+          }
+        ],
+        "status": 200,
+        "bytes": 5089804
+      }
+    ],
+    "startedAt": "2026-10-01T19:44:15.594Z",
+    "status": 201,
+    "body": "Dungeons & Dragons: Tower of Doom\nFinalBurn Neo · Arcade\n当前场景暂不可存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n错误\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\nPLAYER_RUNTIME_START_TIMEOUT\n运行模块已就绪\n运行环境已就绪\n61%\n核心资源准备中\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+    "outcome": "START_TIMEOUT",
+    "observedMs": 34534
+  },
+  {
+    "gameId": "01a0f8f0-fb5a-797b-a63b-27ee68bc8583",
+    "title": "Dungeons & Dragons: Tower of Doom",
+    "slow": false,
+    "errors": [],
+    "transfers": [
+      {
+        "path": "/runtime/launches/01a0f8ff-8434-74d6-9a40-f17c05336d8a/config",
+        "startedMs": 299,
+        "progress": [
+          {
+            "ms": 369,
+            "bytes": 1580
+          }
+        ],
+        "status": 200,
+        "bytes": 1580,
+        "finishedMs": 369
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/client.mjs",
+        "startedMs": 377,
+        "progress": [
+          {
+            "ms": 391,
+            "bytes": 243812
+          }
+        ],
+        "status": 200,
+        "bytes": 243812,
+        "finishedMs": 392
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/loader.js",
+        "startedMs": 431,
+        "progress": [
+          {
+            "ms": 436,
+            "bytes": 7594
+          }
+        ],
+        "status": 200,
+        "bytes": 7594,
+        "finishedMs": 436
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/emulator.min.js",
+        "startedMs": 436,
+        "progress": [
+          {
+            "ms": 444,
+            "bytes": 65536
+          }
+        ],
+        "status": 200,
+        "bytes": 426343,
+        "finishedMs": 444
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/emulator.min.css",
+        "startedMs": 445,
+        "progress": [
+          {
+            "ms": 447,
+            "bytes": 25630
+          }
+        ],
+        "status": 200,
+        "bytes": 25630,
+        "finishedMs": 448
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/localization/zh-CN.json",
+        "startedMs": 456,
+        "progress": [
+          {
+            "ms": 458,
+            "bytes": 10521
+          }
+        ],
+        "status": 200,
+        "bytes": 10521,
+        "finishedMs": 458
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/cores/reports/fbneo.json",
+        "startedMs": 483,
+        "progress": [
+          {
+            "ms": 489,
+            "bytes": 119
+          }
+        ],
+        "status": 200,
+        "bytes": 119,
+        "finishedMs": 489
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/cores/fbneo-wasm.data",
+        "startedMs": 489,
+        "progress": [
+          {
+            "ms": 492,
+            "bytes": 65536
+          }
+        ],
+        "status": 200,
+        "bytes": 8273551,
+        "finishedMs": 529
+      },
+      {
+        "path": "/runtime/providers/emulatorjs/c865a44700345c7a5605ae13527920c683e8599dc51bf662b58c3a4a7840c53b/assets/4.2.3/data/compression/extract7z.js",
+        "startedMs": 529,
+        "progress": [
+          {
+            "ms": 532,
+            "bytes": 280155
+          }
+        ],
+        "status": 200,
+        "bytes": 280155,
+        "finishedMs": 532
+      },
+      {
+        "path": "/runtime/content/game/1e565f2262fa4d5fd539fd2fc69e451fbba1d9b43460d715b5ec6032bbd8b557/ddtod.zip",
+        "startedMs": 2297,
+        "progress": [],
+        "status": 200,
+        "finishedMs": 2302
+      },
+      {
+        "path": "/runtime/content/game/1e565f2262fa4d5fd539fd2fc69e451fbba1d9b43460d715b5ec6032bbd8b557/ddtod.zip",
+        "startedMs": 2302,
+        "progress": [
+          {
+            "ms": 2324,
+            "bytes": 65536
+          }
+        ],
+        "status": 200,
+        "bytes": 10767244,
+        "finishedMs": 3070
+      },
+      {
+        "path": "/runtime/launches/01a0f8ff-8434-74d6-9a40-f17c05336d8a/progress",
+        "startedMs": 3069,
+        "progress": [
+          {
+            "ms": 3173,
+            "bytes": 78
+          }
+        ],
+        "status": 200,
+        "bytes": 78,
+        "finishedMs": 3173
+      }
+    ],
+    "startedAt": "2026-10-01T19:44:50.221Z",
+    "status": 201,
+    "body": "Dungeons & Dragons: Tower of Doom\nFinalBurn Neo · Arcade\n可创建存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n运行中\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制",
+    "outcome": "RUNNING",
+    "observedMs": 4783
+  }
+]

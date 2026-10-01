@@ -1,0 +1,138 @@
+[
+  {
+    "core": "fceumm",
+    "options": {},
+    "success": true,
+    "wire": [
+      {
+        "requestId": "1871805.43",
+        "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 339
+      },
+      {
+        "requestId": "1871805.44",
+        "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 131733
+      }
+    ]
+  },
+  {
+    "core": "fceumm",
+    "options": {},
+    "success": true,
+    "wire": [
+      {
+        "requestId": "1872002.43",
+        "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": true,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 0
+      },
+      {
+        "requestId": "1872002.44",
+        "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": true,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 0
+      }
+    ]
+  },
+  {
+    "core": "fceumm",
+    "options": {
+      "coreId": "nestopia"
+    },
+    "success": true,
+    "wire": [
+      {
+        "requestId": "1872198.43",
+        "path": "/runtime/content/game/06ee20f43e9ad9f0ff2e0e7b1fe85903cbdcd8a399aba524bbed35bded663884/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 339
+      },
+      {
+        "requestId": "1872198.44",
+        "path": "/runtime/content/game/06ee20f43e9ad9f0ff2e0e7b1fe85903cbdcd8a399aba524bbed35bded663884/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 131733
+      }
+    ]
+  },
+  {
+    "core": "fceumm",
+    "options": {
+      "coreId": "nestopia"
+    },
+    "success": true,
+    "wire": [
+      {
+        "requestId": "1872408.43",
+        "path": "/runtime/content/game/06ee20f43e9ad9f0ff2e0e7b1fe85903cbdcd8a399aba524bbed35bded663884/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": true,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 0
+      },
+      {
+        "requestId": "1872408.44",
+        "path": "/runtime/content/game/06ee20f43e9ad9f0ff2e0e7b1fe85903cbdcd8a399aba524bbed35bded663884/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "status": 200,
+        "fromDiskCache": true,
+        "fromServiceWorker": false,
+        "headers": {
+          "cache-control": "private, max-age=31536000, immutable, no-transform",
+          "etag": "\"sha256-4f6f12b05ff708ca69b3ca8740ac8c58be572bd1f460b8255fa8700b0e48074e\"",
+          "content-length": "131088"
+        },
+        "encodedDataLength": 0
+      }
+    ]
+  }
+]

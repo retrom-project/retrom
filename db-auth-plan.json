@@ -1,0 +1,20 @@
+{
+  "authenticationQueryPlan": [
+    [
+      5,
+      0,
+      0,
+      "SEARCH s USING INDEX sqlite_autoindex_auth_sessions_2 (token_sha256=?)"
+    ],
+    [
+      11,
+      0,
+      0,
+      "SEARCH u USING INDEX sqlite_autoindex_users_1 (id=?)"
+    ]
+  ],
+  "authenticationReadonlySamples": {
+    "medianMs": 0.004982983227819204,
+    "maxMs": 0.0513350241817534
+  }
+}

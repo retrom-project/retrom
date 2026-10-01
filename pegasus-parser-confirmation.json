@@ -1,0 +1,35 @@
+[
+  {
+    "case": "minimal-tab",
+    "collections": 0,
+    "error": "PEGASUS_METADATA_SYNTAX_INVALID: line 4: field contains a control character",
+    "games": 0
+  },
+  {
+    "case": "minimal-space",
+    "collections": 1,
+    "games": 1
+  },
+  {
+    "case": "/data/game/Pegasus G/Roms/18X FBNEO/metadata.pegasus.txt",
+    "collections": 0,
+    "error": "PEGASUS_METADATA_SYNTAX_INVALID: line 653: field contains a control character",
+    "games": 0
+  },
+  {
+    "case": "/data/game/Pegasus G/Roms/18X FBNEO/metadata.pegasus.txt-tabs-replaced-in-memory",
+    "collections": 1,
+    "games": 103
+  },
+  {
+    "case": "/data/game/Pegasus G/Roms/18X MAME/metadata.pegasus.txt",
+    "collections": 0,
+    "error": "PEGASUS_METADATA_SYNTAX_INVALID: line 573: field contains a control character",
+    "games": 0
+  },
+  {
+    "case": "/data/game/Pegasus G/Roms/18X MAME/metadata.pegasus.txt-tabs-replaced-in-memory",
+    "collections": 1,
+    "games": 71
+  }
+]
