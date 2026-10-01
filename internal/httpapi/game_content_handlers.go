@@ -172,6 +172,7 @@ func adminGameFilesResponse(files []gamecontent.AdminGameFile) []map[string]any 
 		result = append(result, map[string]any{
 			"role": file.Role, "logicalName": file.LogicalName, "sortOrder": file.SortOrder,
 			"sizeBytes": file.SizeBytes, "sha256": file.SHA256,
+			"md5": file.MD5, "sha1": file.SHA1, "crc32": file.CRC32, "mediaType": file.MediaType,
 		})
 	}
 	return result

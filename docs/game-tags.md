@@ -80,3 +80,5 @@ Tag 删除与关系变化都在短数据库写事务内完成，不执行文件�
 Tag create/rename/delete 写 `TAG_CREATED/TAG_RENAMED/TAG_DELETED` AuditEvent；Game 集合替换写排序后的 before/after 和 added/removed。Review 只更新当前草稿版本，统一来源沿用 mapping snapshot。日志和错误只包含非秘密 ID、计数与稳定错误码。
 
 统一验收入口是 [`project-acceptance.md`](./project-acceptance.md) 的 `ACC-TAG-001`–`ACC-TAG-005`。本能力不进入模拟器装载、内容交付、帧执行或存档协议，因此不触发 core smoke 或依赖/fixture 基线重验；若后续改动越过该边界，必须重新沿实际调用链判定。
+
+管理详情页的标签只在“游戏标签”面板展示，顶部基础信息不重复。空标签选择器的“前往标签管理”链接可通过鼠标或键盘进入 `/admin/tags`；焦点从输入框进入浮层链接时必须保持浮层挂载，离开后关闭。

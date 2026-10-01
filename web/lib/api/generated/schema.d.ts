@@ -2496,6 +2496,10 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
+            md5: string;
+            sha1: string;
+            crc32: string;
+            mediaType: string;
         };
         AdminGameAsset: {
             /** Format: uuid */

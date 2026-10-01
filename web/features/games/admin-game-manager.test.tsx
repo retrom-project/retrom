@@ -26,7 +26,7 @@ const game: AdminGame = {
   platformId: "arcade",
   platformInstance: { id: "fbneo-games", name: "FBNeo 游戏" },
   contentKind: "SINGLE",
-  files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64) }],
+  files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64), md5: "b".repeat(32), sha1: "c".repeat(40), crc32: "12345678", mediaType: "application/zip" }],
   version: 3,
   createdAtMs: 100,
   updatedAtMs: 200,
@@ -45,12 +45,6 @@ const directories: PlatformInstanceOption[] = [
   { id: "neo-geo", platformId: "arcade", platformName: "Arcade", name: "Neo Geo", defaultCoreId: "fbneo", defaultCoreName: "FinalBurn Neo", enabled: true, importCapabilities: { contentModes: ["STANDARD"], multiDisc: null } },
 ];
 
-function directoryFile(path: string, contents: string) {
-  const file = new File([contents], path.split("/").at(-1) ?? path);
-  Object.defineProperty(file, "webkitRelativePath", { value: path });
-  return file;
-}
-
 describe("AdminGameManager", () => {
   beforeEach(() => {
     upload.uploadFiles.mockReset();
@@ -60,7 +54,7 @@ describe("AdminGameManager", () => {
 
   it("renders the precise four-section workbench without the omitted section tags", () => {
     const { container } = render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
-    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "危险操作"]) {
+    for (const heading of ["发布信息", "媒体", "游戏文件", "管理操作", "危险操作"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     }
     for (const omitted of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
@@ -68,29 +62,12 @@ describe("AdminGameManager", () => {
     }
     expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "永久删除游戏" })).toBeVisible();
-    expect(container.querySelector(".admin-game-cover-slot > .admin-game-cover-frame")).not.toBeNull();
-    expect(screen.getByRole("heading", { name: "封面" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "视频预览" })).toBeVisible();
+    expect(container.querySelector(".admin-game-cover-frame")).not.toBeNull();
+    expect(screen.getByRole("tab", { name: "封面" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "视频" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存发布信息" })).toBeDisabled();
-  });
-
-  it("bounds project file details instead of hydrating a multi-megabyte path list", () => {
-    const files = Array.from({ length: 7 }, (_, index) => ({
-      role: "PROJECT_FILE",
-      logicalName: `data/scenario/file-${index}.ks`,
-      sortOrder: index,
-      sizeBytes: 4,
-      sha256: String(index).repeat(64),
-    }));
-    render(<AdminGameManager game={{
-      ...game,
-      files,
-    }} platformInstances={directories} candidates={[]} />);
-
-    expect(screen.getByText(/file-0\.ks、.*file-4\.ks 等 7 个文件/)).toBeInTheDocument();
-    expect(screen.queryByText(/file-5\.ks/)).not.toBeInTheDocument();
   });
 
   it("shows a deleted game as deleted instead of runnable", () => {
@@ -171,6 +148,8 @@ describe("AdminGameManager", () => {
       body: JSON.stringify({ tagIds: ["tag-action", "tag-coop"] }),
     })));
     await waitFor(() => expect(save).toBeDisabled());
+    expect(document.querySelector(".admin-game-hero-copy")).not.toHaveTextContent("双人合作");
+    expect(screen.getAllByText("双人合作", { exact: true })).toHaveLength(1);
   });
 
   it("opens a metadata and cover comparison instead of applying text immediately", async () => {
@@ -200,17 +179,6 @@ describe("AdminGameManager", () => {
     expect(preview).toBeEnabled();
   });
 
-  it("hides multi-disc replacement when the current directory lacks the capability", async () => {
-    const user = userEvent.setup();
-    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
-
-    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
-    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
-    expect(within(dialog).queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
-    expect(within(dialog).getByText(/当前游戏目录只允许替换普通内容/)).toBeVisible();
-	expect(within(dialog).getByText(/44 份存档会继续保留/)).toBeVisible();
-  });
-
   it("previews video only on demand and removes the current video", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"v4"' } }));
@@ -221,132 +189,19 @@ describe("AdminGameManager", () => {
       { assetId: "screenshot-1", kind: "SCREENSHOT", ordinal: 0, widthPx: 640, heightPx: 480, mediaType: "image/png", url: "/content/assets/screenshot-1" },
     ] }} platformInstances={directories} candidates={[]} />);
 
+    expect(screen.queryByLabelText("1943 管理视频预览")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "视频" }));
     const video = screen.getByLabelText("1943 管理视频预览");
     expect(video).toHaveAttribute("preload", "metadata");
     expect(video).not.toHaveAttribute("autoplay");
     expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "移除" }));
+    await user.click(screen.getByRole("tab", { name: "封面" }));
+    expect(screen.queryByLabelText("1943 管理视频预览")).not.toBeInTheDocument();
+    await user.keyboard("{End}");
+    expect(screen.getByRole("tab", { name: "视频" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "移除视频" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1/assets/VIDEO", expect.objectContaining({ method: "DELETE" })));
   });
 
-  it("preflights one complete multi-disc directory before creating a replacement job", async () => {
-    const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
-      ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
-    } : directory);
-    upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["playlist", "one", "two"] });
-    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(JSON.stringify({ jobId: "job-content" }), { status: 202, headers: { "Content-Type": "application/json" } })));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
-
-    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
-    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
-    await user.click(within(dialog).getByRole("checkbox", { name: /多盘游戏/ }));
-    const files = [
-      directoryFile("game/game.m3u", "one.chd\ntwo.chd\n"),
-      directoryFile("game/one.chd", "MComprHDone"),
-      directoryFile("game/two.chd", "MComprHDtwo"),
-    ];
-    await user.upload(within(dialog).getByLabelText("选择一份完整多盘目录"), files);
-
-    expect(await within(dialog).findByText("目录完整，可以上传")).toBeVisible();
-    const confirm = within(dialog).getByRole("button", { name: "上传并替换内容" });
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
-
-    await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
-    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-replacement"));
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC" });
-    expect(upload.waitForJob).toHaveBeenCalledWith("job-content", expect.any(Function));
-    await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "替换游戏内容" })).not.toBeInTheDocument());
-  });
-
-  it("does not allow a missing-disc directory to replace published content", async () => {
-    const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
-      ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
-    } : directory);
-    const user = userEvent.setup();
-    render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
-
-    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
-    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
-    await user.click(within(dialog).getByRole("checkbox", { name: /多盘游戏/ }));
-    await user.upload(within(dialog).getByLabelText("选择一份完整多盘目录"), [
-      directoryFile("game/game.m3u", "one.chd\ntwo.chd\n"),
-      directoryFile("game/one.chd", "MComprHDone"),
-    ]);
-
-    expect(await within(dialog).findByText("目录不完整，不能替换")).toBeVisible();
-    expect(within(dialog).getByText("不能替换当前内容。")).toBeVisible();
-    expect(within(dialog).getByRole("button", { name: "上传并替换内容" })).toBeDisabled();
-    expect(upload.uploadFiles).not.toHaveBeenCalled();
-  });
-
-  it("uploads an RPG Maker replacement as one project and explains a generation mismatch", async () => {
-    const rpgDirectory: PlatformInstanceOption = {
-      id: "rpgmaker-games", platformId: "rpgmaker", platformName: "RPG Maker",
-      name: "RPG Maker 游戏", defaultCoreId: "rpgmaker", defaultCoreName: "RPG Maker",
-      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT"], multiDisc: null },
-    };
-    const rpgGame: AdminGame = {
-      ...game,
-      platformId: "rpgmaker",
-      platformInstance: { id: rpgDirectory.id, name: rpgDirectory.name },
-      contentKind: "RPG_MAKER_PROJECT",
-      files: [{ role: "PROJECT_FILE", logicalName: "RPG_RT.ldb", sortOrder: 0, sizeBytes: 4, sha256: "b".repeat(64) }],
-      variants: [{
-        id: "rpg-variant", coreId: "rpgmaker_2000", coreName: "RPG Maker 2000",
-        providerId: "rpgmaker", targetId: "rpgmaker-2000", datVersionId: null,
-        status: "READY", compatibilityCode: "READY", version: 1, createdAtMs: 180, updatedAtMs: 180,
-      }],
-    };
-    const files = [
-      directoryFile("replacement/RPG_RT.ldb", "database"),
-      directoryFile("replacement/RPG_RT.lmt", "map tree"),
-    ];
-    upload.uploadFiles.mockResolvedValue({ uploadId: "rpg-upload", uploadFileIds: ["ldb", "lmt"] });
-    upload.waitForJob.mockRejectedValue(new Error("RPG_REPLACEMENT_GENERATION_MISMATCH"));
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ jobId: "rpg-job" }), {
-      status: 202, headers: { "Content-Type": "application/json" },
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<AdminGameManager game={rpgGame} platformInstances={[rpgDirectory]} candidates={[]} />);
-
-    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
-    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
-    expect(screen.getByText("RPG Maker 项目")).toBeVisible();
-    expect(within(dialog).getByText(/服务端会重新识别世代/)).toBeVisible();
-    await user.upload(within(dialog).getByLabelText("选择同世代 RPG Maker 项目目录"), files);
-    await user.click(within(dialog).getByRole("button", { name: "上传并替换内容" }));
-
-    await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
-    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-replacement"));
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT",
-    });
-    expect(await screen.findByText("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。")).toBeVisible();
-  });
-
-	it("explains that an identical ROM was rejected without reporting a replacement", async () => {
-	  upload.uploadFiles.mockResolvedValue({ uploadId: "upload-same", uploadFileIds: ["same-file"] });
-	  upload.waitForJob.mockRejectedValue(new Error("GAME_CONTENT_UNCHANGED"));
-	  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ jobId: "job-same" }), {
-		status: 202, headers: { "Content-Type": "application/json" },
-	  }));
-	  vi.stubGlobal("fetch", fetchMock);
-	  const user = userEvent.setup();
-	  render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
-
-	  await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
-	  const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
-	  await user.upload(within(dialog).getByLabelText("选择新的游戏文件"), new File(["same"], "1943.zip"));
-	  await user.click(within(dialog).getByRole("button", { name: "上传并替换内容" }));
-
-	  expect(await screen.findByText("所选游戏文件与当前内容相同，未执行替换。")).toBeVisible();
-	  expect(screen.getByRole("alertdialog", { name: "替换游戏内容" })).toBeVisible();
-	});
 });

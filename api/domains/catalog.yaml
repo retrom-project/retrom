@@ -598,6 +598,10 @@ components:
         - sortOrder
         - sizeBytes
         - sha256
+        - md5
+        - sha1
+        - crc32
+        - mediaType
       properties:
         role:
           type: string
@@ -613,6 +617,18 @@ components:
         sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
+        md5:
+          type: string
+          pattern: ^[0-9a-f]{32}$
+        sha1:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+        crc32:
+          type: string
+          pattern: ^[0-9a-f]{8}$
+        mediaType:
+          type: string
+          minLength: 1
     AdminGameAsset:
       type: object
       additionalProperties: false

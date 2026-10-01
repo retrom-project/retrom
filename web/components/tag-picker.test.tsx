@@ -72,6 +72,22 @@ describe("TagPicker", () => {
     await waitFor(() => expect(input).toHaveFocus());
   });
 
+  it("keeps the empty-taxonomy link mounted while it receives focus", async () => {
+    vi.useFakeTimers();
+    render(<TagPicker options={[]} selected={[]} onChange={() => undefined} />);
+    const input = screen.getByRole("combobox");
+    fireEvent.focus(input);
+    const link = screen.getByRole("link", { name: "前往标签管理" });
+    fireEvent.blur(input, { relatedTarget: link });
+    fireEvent.focus(link);
+    await act(() => vi.advanceTimersByTime(200));
+    expect(link).toBeVisible();
+    expect(link).toHaveAttribute("href", "/admin/tags");
+    fireEvent.blur(link, { relatedTarget: document.body });
+    await act(() => vi.advanceTimersByTime(200));
+    expect(link).not.toBeInTheDocument();
+  });
+
   it("explains the empty taxonomy and enforces the twenty-tag limit", async () => {
     const user = userEvent.setup();
     const twenty = Array.from({ length: 20 }, (_, index) => ({ tagId: `tag-${index}`, name: `标签 ${index + 1}` }));

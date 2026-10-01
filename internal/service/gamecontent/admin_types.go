@@ -17,8 +17,8 @@ type AdminGameDetail struct {
 }
 
 type AdminGameFile struct {
-	Role, LogicalName, SHA256 string
-	SortOrder, SizeBytes      int64
+	Role, LogicalName, SHA256, MD5, SHA1, CRC32, MediaType string
+	SortOrder, SizeBytes                                   int64
 }
 
 type AdminGameAsset struct {

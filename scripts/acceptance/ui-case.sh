@@ -251,7 +251,7 @@ if [[ "$case_id" == "ACC-UI-003" ]]; then
   specifications+=("e2e/game-detail-layout.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-005" ]]; then
-  specifications+=("e2e/home-description.spec.ts")
+  specifications+=("e2e/home-description.spec.ts" "e2e/admin-game-detail.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
   specifications+=("e2e/navigation-errors.spec.ts")

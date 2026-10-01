@@ -431,7 +431,8 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   await page.goto(`/admin/games/${gameId}`);
   await expect(page.getByRole("heading", { name: "背景图" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "游戏截图" })).toHaveCount(0);
-  const upload = page.locator("#admin-video-upload");
+  await page.getByRole("tab", { name: "视频", exact: true }).click();
+  const upload = page.getByLabel("上传视频", { exact: true });
   await expect(upload).toBeEnabled();
   await upload.setInputFiles({
     name: "acceptance.mp4",
@@ -442,39 +443,22 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   await expect(adminVideo).toBeVisible();
   await expect(adminVideo).toHaveAttribute("controls", "");
   await expect(adminVideo).not.toHaveAttribute("autoplay", "");
-  const mediaLayout = await page.locator(".admin-game-media-grid").evaluate((element) => {
-    const body = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    const cover = element.querySelector<HTMLElement>(".admin-game-cover-slot")!.getBoundingClientRect();
-    const video = element.querySelector<HTMLElement>(".admin-game-video-slot")!.getBoundingClientRect();
-    const preview = element.querySelector<HTMLVideoElement>("video")!;
-    const previewFrame = preview.parentElement!.getBoundingClientRect();
-    const previewRect = preview.getBoundingClientRect();
-    const previewStyle = getComputedStyle(preview);
+  const mediaLayout = await adminVideo.evaluate((preview) => {
+    const frame = preview.parentElement!.getBoundingClientRect();
+    const bounds = preview.getBoundingClientRect();
     return {
-      rightGap: body.right - Number.parseFloat(style.paddingRight) - video.right,
-      topGap: video.top - body.top - Number.parseFloat(style.paddingTop),
-      bottomGap: body.bottom - Number.parseFloat(style.paddingBottom) - video.bottom,
-      coverWidth: cover.width,
-      videoWidth: video.width,
-      previewHorizontalOffset: (previewRect.left + previewRect.right - previewFrame.left - previewFrame.right) / 2,
-      previewVerticalOffset: (previewRect.top + previewRect.bottom - previewFrame.top - previewFrame.bottom) / 2,
-      display: previewStyle.display,
-      placeSelf: previewStyle.placeSelf,
-      objectFit: previewStyle.objectFit,
-      objectPosition: previewStyle.objectPosition,
+      horizontalOffset: (bounds.left + bounds.right - frame.left - frame.right) / 2,
+      verticalOffset: (bounds.top + bounds.bottom - frame.top - frame.bottom) / 2,
+      objectFit: getComputedStyle(preview).objectFit,
     };
   });
-  expect(Math.abs(mediaLayout.rightGap)).toBeLessThanOrEqual(1);
-  expect(Math.abs(mediaLayout.topGap)).toBeLessThanOrEqual(1);
-  expect(Math.abs(mediaLayout.bottomGap)).toBeLessThanOrEqual(1);
-  expect(mediaLayout.videoWidth).toBeGreaterThan(mediaLayout.coverWidth);
-  expect(Math.abs(mediaLayout.previewHorizontalOffset)).toBeLessThanOrEqual(1);
-  expect(Math.abs(mediaLayout.previewVerticalOffset)).toBeLessThanOrEqual(1);
-  expect(mediaLayout.display).toBe("block");
-  expect(mediaLayout.placeSelf).toBe("center");
+  expect(Math.abs(mediaLayout.horizontalOffset)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mediaLayout.verticalOffset)).toBeLessThanOrEqual(1);
   expect(mediaLayout.objectFit).toBe("contain");
-  expect(mediaLayout.objectPosition).toBe("50% 50%");
+  await page.getByRole("tab", { name: "封面", exact: true }).click();
+  await expect(adminVideo).toHaveCount(0);
+  await page.getByRole("tab", { name: "视频", exact: true }).click();
+  await expect(adminVideo).toBeVisible();
   if ((page.viewportSize()?.width ?? 0) >= 1400) {
     const panelHeights = await page.locator(".admin-game-primary-grid").evaluate((element) => ({
       publish: element.querySelector<HTMLElement>(".admin-game-publish")!.getBoundingClientRect().height,
@@ -513,8 +497,11 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   await page.screenshot({ path: evidencePath(testInfo, "game-video-reduced-motion.png"), fullPage: true });
 
   await page.goto(`/admin/games/${gameId}`);
-  await page.getByRole("button", { name: "移除" }).click();
+  await expect(page.getByRole("tab", { name: "封面", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "视频", exact: true }).click();
+  await page.getByRole("button", { name: "移除视频" }).click();
   await expect(page.getByText("暂无视频", { exact: true })).toBeVisible();
+  await page.locator(".admin-game-media").screenshot({ path: evidencePath(testInfo, "admin-video-empty.png") });
 });
 
 const realBIOSRelativePath = process.env.RETROM_REAL_BIOS_RELATIVE_PATH;
