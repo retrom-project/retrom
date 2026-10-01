@@ -20,32 +20,62 @@ export const startupLabels: Record<RuntimeStartupKindV1, [string, string]> = {
 export class StartupTimeline {
   private rows: RuntimeStartupTaskV1[] = [];
   private readonly hiddenActive = new Map<string, RuntimeStartupTaskV1>();
+  private readonly summaries = new Map<string, RuntimeStartupTaskV1>();
   private readonly seen = new Set<string>();
   message(): string {
-    const active = [...this.hiddenActive.values(), ...this.rows].filter(task => task.state === "RUNNING").at(-1);
+    const active = this.snapshot().filter(task => task.state === "RUNNING").at(-1) ?? [...this.hiddenActive.values()].at(-1);
     return active ? startupLabels[active.kind][0] : "正在启动游戏…";
   }
   receive(task: RuntimeStartupTaskV1): RuntimeStartupTaskV1[] {
-    if (!validTask(task)) {return this.rows;}
+    if (!validTask(task)) {return this.snapshot();}
     if (this.hiddenActive.has(task.id)) {
+      const current = this.hiddenActive.get(task.id)!;
+      if (current.kind !== task.kind || !!current.summary !== !!task.summary) {return this.snapshot();}
       if (task.state !== "RUNNING") {this.hiddenActive.delete(task.id);}
-      return this.rows;
+      return this.snapshot();
     }
     const index = this.rows.findIndex(row => row.id === task.id);
     if (index >= 0) {
       const current = this.rows[index];
-      if (current.kind !== task.kind || current.state !== "RUNNING") {return this.rows;}
+      if (current.kind !== task.kind || current.state !== "RUNNING" || !!current.summary !== !!task.summary) {return this.snapshot();}
       this.rows = this.rows.map((row, position) => position === index ? task : row);
+    } else if (task.summary) {
+      this.receiveSummary(task);
     } else if (task.state === "RUNNING") {
-      if (this.seen.has(task.id)) {return this.rows;}
+      if (this.seen.has(task.id)) {return this.snapshot();}
       this.seen.add(task.id);
       this.rows = [...this.rows, task];
-      if (this.rows.length > 3) {
-        const removed = this.rows.shift()!;
-        if (removed.state === "RUNNING") {this.hiddenActive.set(removed.id, removed);}
-      }
     }
-    return this.rows;
+    return this.snapshot();
+  }
+
+  private receiveSummary(task: RuntimeStartupTaskV1): void {
+    const current = this.summaries.get(task.id);
+    if (current) {
+      if (current.kind !== task.kind) {return;}
+      if (task.state === "RUNNING") {this.summaries.set(task.id, task);}
+      else {
+        if (this.visibleSummary()?.id === task.id) {this.rows.push(task);}
+        this.summaries.delete(task.id);
+      }
+    } else if (task.state === "RUNNING" && !this.seen.has(task.id)) {
+      this.seen.add(task.id); this.summaries.set(task.id, task);
+    }
+  }
+
+  private visibleSummary(): RuntimeStartupTaskV1 | undefined {
+    return this.rows.some(task => task.state === "RUNNING") ? undefined : [...this.summaries.values()].at(-1);
+  }
+
+  private snapshot(): RuntimeStartupTaskV1[] {
+    // Completion moves above active work; progress never changes the relative order of active steps.
+    this.rows = [...this.rows.filter(task => task.state !== "RUNNING"), ...this.rows.filter(task => task.state === "RUNNING")];
+    const summary = this.visibleSummary();
+    while (this.rows.length > (summary ? 2 : 3)) {
+      const removed = this.rows.shift()!;
+      if (removed.state === "RUNNING") {this.hiddenActive.set(removed.id, removed);}
+    }
+    return summary ? [...this.rows, summary] : [...this.rows];
   }
 }
 
@@ -55,7 +85,8 @@ export function startupPercentage(task: RuntimeStartupTaskV1): number | null {
 
 function validTask(task: RuntimeStartupTaskV1): boolean {
   if (!task || typeof task.id !== "string" || task.id.length < 1 || task.id.length > 128 ||
-    !Object.hasOwn(startupLabels, task.kind) || !["RUNNING", "COMPLETED", "FAILED"].includes(task.state)) {return false;}
+    !Object.hasOwn(startupLabels, task.kind) || !["RUNNING", "COMPLETED", "FAILED"].includes(task.state) ||
+    task.summary !== undefined && typeof task.summary !== "boolean") {return false;}
   const progress = task.progress;
   return progress === null || !!progress && Number.isSafeInteger(progress.loadedBytes) && Number.isSafeInteger(progress.totalBytes) &&
     progress.totalBytes > 0 && progress.loadedBytes >= 0 && progress.loadedBytes <= progress.totalBytes;

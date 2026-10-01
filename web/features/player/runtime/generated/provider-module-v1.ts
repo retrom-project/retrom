@@ -167,6 +167,8 @@ export type RuntimeStartupTaskV1 = {
   state: "RUNNING" | "COMPLETED" | "FAILED";
   /** Bytes describe this operation only. 100% does not imply operation completion. */
   progress: {loadedBytes: number; totalBytes: number} | null;
+  /** Overall spans are fallback hints when no specific running step is visible. */
+  summary?: boolean;
 };
 
 export type RuntimeEventV1 =

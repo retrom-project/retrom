@@ -15,7 +15,7 @@ function StartupRow({task, position}: {task: RuntimeStartupTaskV1; position: num
   const percentage = startupPercentage(task);
   return <li className={`player-startup-row${completed ? " is-completed" : ""}${failed ? " is-failed" : ""}`}
     style={{"--startup-row": position} as CSSProperties}
-    data-task-id={task.id} data-task-kind={task.kind} data-task-state={task.state}>
+    data-task-id={task.id} data-task-kind={task.kind} data-task-state={task.state} data-task-summary={task.summary ? "true" : undefined}>
     <span className="player-startup-indicator">
       {completed ? <svg viewBox="0 0 24 24" aria-hidden="true" className="player-startup-check"><path d="m5 12 4 4 10-10" /></svg>
         : failed ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
