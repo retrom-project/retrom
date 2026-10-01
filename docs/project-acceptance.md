@@ -2837,6 +2837,8 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 4. 在关闭 HTTP 缓存的独立页面间启动两个不同 Arcade 族，再回到第一个族；公共 WASM 只发生一次网络传输，各族只首次传输自己的模块。记录压缩响应字节、WASM 原始大小、Provider/Build ID、DAT 摘要、三次截图及游戏输入前后证据。若所用 2003 ZIP 不符合 Current DAT，应记录为该样本不兼容，不得以同名或驱动存在判为通过。
 5. 用 `scripts/acceptance/mame_arcade_legacy_fallback.mjs` 将兼容的旧版 ZIP 发布在 MAME2003-Plus 推荐目录，再显式选择 `mame_arcade` 启动；确认同一游戏保留原变体，并创建按 Current DAT 校验的独立 READY 变体。对已安装到 Current Target 的 BIOS，允许游戏 ZIP 缺少 BIOS 条目，但必须由 Current 的 BIOS 安装满足依赖；缺 Parent 或主 ROM 仍阻断。设置 `RETROM_MAME_ARCADE_EXPECT_INCOMPATIBLE=1` 后用不兼容的旧版 ZIP 重跑脚本，预期 HTTP 422 `LAUNCH_BLOCKED`，且不得创建 Current 变体。
 
+Parent 缓存回归：对通过 Current DAT 的 Split 样本，设置 `RETROM_MAME_ARCADE_ROM`（子包）、`RETROM_MAME_ARCADE_PARENT`（父包）及脚本所需登录、浏览器和 PFB 地址，运行 `node scripts/acceptance/mame_arcade_product.mjs`。预览后清空本次独立浏览器上下文的内容存储；关闭 HTTP 缓存，首次 Product Launch 的 parent 恰好一次 GET，配置的长度和摘要与响应一致。关闭 Player 页面后创建恢复 Launch，拦截 parent 网络，要求零次请求且画面、恢复后输入正常；记录两个 Launch ID、parent 大小/摘要及请求次数。已安装正式 Provider/DAT 可直接作为 adapter 修复的基座，无须重建核心或替换 DAT。 移动端补充使用 `RETROM_MAME_ARCADE_MOBILE=1`（Pixel 5、844×390 横屏模拟）；复用已发布游戏时复制同一输入的 `progress.json`，证据明确记录复用，不冒充重新导入或预览。
+
 ### ACC-MAME-005：Apple IIe、SG-1000、ColecoVision 产品验证
 
 前置：安装包含 `apple`、`sg1000`、`coleco` 族的 MAME 候选；准备 Apple IIe 六份固件、ColecoVision 系统 ROM 和真实游戏文件。`RETROM_MAME_EXPANSION_INPUT_DIR` 指向验收专用输入目录，ROM/BIOS 不进入 Git。设置与 ACC-MAME-002 相同的站点、账号、Chrome 和结果目录环境变量，执行 `node scripts/acceptance/mame_expansion_product.mjs <apple2e|sg1000|colecovision>`；不传平台参数时依次检查三个平台共享公共 WASM 的缓存。

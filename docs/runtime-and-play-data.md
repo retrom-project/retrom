@@ -103,6 +103,8 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 EmulatorJS 的 `PARENT_ARCHIVE` 在启动前由公共 Content I/O 完整读取、校验并持久缓存，再以本地 Blob URL 交给上游解包；不依赖上游文件名缓存或浏览器 HTTP 缓存。`sha256` 和 `sizeBytes` 必须描述实际 ZIP 字节，URL 中的成员清单身份独立保留。配置签发在授权读取快照后、最终激活事务前通过注入的归档描述端口计算元数据，描述与 HTTP 响应共用确定性 ZIP 编码，并校验成员摘要；不得用文件数量代替字节数。新 Launch 复用同一内容摘要的缓存，依赖变化使用新的内容身份。无 parent 时不新增依赖读取或 Worker；取消和退出释放 Blob、Reader 与租约，已提交缓存保留。默认启动在持久存储不可用时遵循公共 Content I/O 的网络降级规则，摘要或长度不匹配则失败，不把未校验内容交给核心。parent 只改变自身读取路径，不改变主 ROM 与 BIOS 的现有策略。验收见 [ACC-RUN-006/007](./project-acceptance.md)。
 
+MAME Current（`retrom-runtime/mame-arcade`）的 parent 同样由公共 Content I/O 校验并持久缓存，使用有界字节物化后沿用嵌套 ZIP 解包和目录校验；压缩输入、展开总量均保留 128 MiB 上限。parent 纳入该 Target 的 PRELOAD 枚举，新 Launch 按同一内容摘要复用；长度、摘要错误或取消不得挂载部分内容。BIOS 的既有加载策略不在此修复范围。验收见 [ACC-MAME-004](./project-acceptance.md#acc-mame-004mame-current-arcade-兼容旧族候选验证)。
+
 `retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 与共享 HttpOnly 运行 Cookie 建立当前 Launch/origin 的服务端授权；项目脚本不能取得账户 Cookie、普通 API 或其他 Launch 内容。普通 cleanup 只清理对应存储，预览结束仅撤销该预览授权，均保留共享运行 Cookie。
