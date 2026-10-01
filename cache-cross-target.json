@@ -1,0 +1,321 @@
+[
+  {
+    "key": "parent-fbneo",
+    "gameId": "01a0f90d-9ae4-76a9-974d-8085593723d5",
+    "core": null,
+    "responses": [
+      {
+        "path": "/runtime/content/parent/e50ec5b39187b69a951f93a45dac8d8dc44e0a09cca06d26a722cb5494db26bd/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-d33b52863fb9398a23335ca7e23ef23ebe5529158b855860a77b1f77159cc3d8\"",
+        "length": "2033009",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "etag": "\"sha256-6bad6e65984dcdd576df98405e575591717a3a0b5d272a3da64c2a26bede644c\"",
+        "length": "2005230",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "etag": "\"sha256-6bad6e65984dcdd576df98405e575591717a3a0b5d272a3da64c2a26bede644c\"",
+        "length": "2005230",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:45:12.179Z",
+    "runningMs": 3637,
+    "inputChanged": true,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": [
+      {
+        "path": "/runtime/content/parent/e50ec5b39187b69a951f93a45dac8d8dc44e0a09cca06d26a722cb5494db26bd/bundle.zip",
+        "status": 200,
+        "bodyBytes": 2033009
+      },
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "bodyBytes": 0
+      },
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "bodyBytes": 2005230
+      }
+    ]
+  },
+  {
+    "key": "parent-fbneo-cached",
+    "gameId": "01a0f90d-9ae4-76a9-974d-8085593723d5",
+    "core": null,
+    "responses": [
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "etag": "\"sha256-6bad6e65984dcdd576df98405e575591717a3a0b5d272a3da64c2a26bede644c\"",
+        "length": "2005230",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "status": 200,
+        "etag": "\"sha256-6bad6e65984dcdd576df98405e575591717a3a0b5d272a3da64c2a26bede644c\"",
+        "length": "2005230",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:45:24.190Z",
+    "runningMs": 3567,
+    "inputChanged": true,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": []
+  },
+  {
+    "key": "parent-mame",
+    "gameId": "01a0f90d-c3bd-7208-bb6f-f848bbad0fd4",
+    "core": null,
+    "responses": [
+      {
+        "path": "/runtime/content/game/112df2695030e51481087f92266c2f6c92f64db85112df09a323ab1b07c3bbb1/bjtwina.zip",
+        "status": 200,
+        "etag": "\"sha256-5415c311bf3c127e4f61be837952dd627606d0d7f68fe508202aaa704b5952eb\"",
+        "length": "45368",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:45:36.115Z",
+    "runningMs": 5255,
+    "inputChanged": true,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": [
+      {
+        "path": "/runtime/content/game/112df2695030e51481087f92266c2f6c92f64db85112df09a323ab1b07c3bbb1/bjtwina.zip",
+        "status": 200,
+        "bodyBytes": 45368
+      }
+    ]
+  },
+  {
+    "key": "parent-mame-cached",
+    "gameId": "01a0f90d-c3bd-7208-bb6f-f848bbad0fd4",
+    "core": null,
+    "responses": [],
+    "startedAt": "2026-10-01T20:45:49.671Z",
+    "runningMs": 2273,
+    "inputChanged": true,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": []
+  },
+  {
+    "key": "fds-fceumm",
+    "gameId": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+    "core": "fceumm",
+    "responses": [
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:46:00.192Z",
+    "runningMs": 2532,
+    "inputChanged": false,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": [
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "bodyBytes": 0
+      },
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "bodyBytes": 131000
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "bodyBytes": 0
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "bodyBytes": 8328
+      }
+    ]
+  },
+  {
+    "key": "fds-fceumm-cached",
+    "gameId": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+    "core": "fceumm",
+    "responses": [
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:46:11.054Z",
+    "runningMs": 1958,
+    "inputChanged": false,
+    "offlineInputChanged": true,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": []
+  },
+  {
+    "key": "fds-nestopia",
+    "gameId": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+    "core": "nestopia",
+    "responses": [
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:46:21.395Z",
+    "runningMs": 3840,
+    "inputChanged": true,
+    "offlineInputChanged": false,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": [
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "bodyBytes": 0
+      },
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "bodyBytes": 131000
+      }
+    ]
+  },
+  {
+    "key": "fds-nestopia-cached",
+    "gameId": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+    "core": "nestopia",
+    "responses": [
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/game/02fc8cde0f32ab1c63cf34fcf9cf23780acb7c18670df753dc8159c4926b282f/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "status": 200,
+        "etag": "\"sha256-dd049d3ef671d895c1cab0dc71b7144495fb51f0c14c3fcc777a1a049f91bd1f\"",
+        "length": "131000",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      },
+      {
+        "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "status": 200,
+        "etag": "\"sha256-7af5b66721189f53017686cea6678bcb9cfdb8de9bc809ec181ac5047bbb1ed5\"",
+        "length": "8328",
+        "cacheControl": "private, max-age=31536000, immutable, no-transform"
+      }
+    ],
+    "startedAt": "2026-10-01T20:46:33.558Z",
+    "runningMs": 1844,
+    "inputChanged": true,
+    "offlineInputChanged": false,
+    "stillRunning": true,
+    "success": true,
+    "serverRequests": []
+  }
+]
