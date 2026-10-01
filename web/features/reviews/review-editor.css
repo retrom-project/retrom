@@ -124,11 +124,6 @@
 .scrape-run div { min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
 .scrape-run span, .scrape-run small { color: var(--muted); overflow-wrap: anywhere; }
 .button-spinner { width: 14px; height: 14px; display: inline-block; flex: 0 0 auto; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .75s linear infinite; }
-.app-toast { position: fixed; z-index: 100; right: 24px; top: 24px; width: min(440px, calc(100vw - 48px)); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid; border-radius: var(--radius-panel); box-shadow: 0 16px 42px rgb(26 31 44 / 22%); background: var(--surface); }
-.app-toast.good { color: var(--success); border-color: var(--success-line); background: var(--surface-subtle); }
-.app-toast.warn { color: var(--amber); border-color: var(--amber-line); background: var(--amber-soft); }
-.app-toast.bad { color: var(--danger); border-color: var(--danger-line); background: var(--surface-subtle); }
-.app-toast button { flex: 0 0 auto; border: 0; color: currentColor; background: transparent; font-size: var(--text-section); cursor: pointer; }
 .dropzone { min-height: 245px; display: grid; place-items: center; text-align: center; border: 2px dashed var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); }
 .dropzone span { display: block; width: 58px; height: 58px; margin: 0 auto 12px; border-radius: var(--radius-panel); background: var(--purple-soft); color: var(--purple-dark); font-size: var(--text-page); line-height: 58px; }
 .dropzone h2 { margin: 0; font-size: var(--text-lead); }

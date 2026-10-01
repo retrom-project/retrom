@@ -46,8 +46,8 @@ type productAttempt struct {
 }
 
 func (service *ProductCreator) Create(ctx context.Context, command ProductCreateCommand) (ProductReceipt, error) {
-	if !validProductRequest(command) {
-		return ProductReceipt{}, ErrBlocked
+	if err := validateProductRequest(command); err != nil {
+		return ProductReceipt{}, err
 	}
 	stored, found, err := service.repository.Replay(ctx, command)
 	if err != nil {

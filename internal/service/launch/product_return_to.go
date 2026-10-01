@@ -10,7 +10,7 @@ func ValidProductReturnTo(value, gameID string, saveStateID *string) bool {
 	if strings.ContainsAny(value, "#%\\") {
 		return false
 	}
-	if value == "/" || value == "/library" || value == "/saves" || value == "/games/"+gameID {
+	if value == "/" || value == "/library" || value == "/recent" || value == "/saves" || value == "/games/"+gameID {
 		return true
 	}
 	return validImmersiveReturnTo(value, gameID, saveStateID)

@@ -13,7 +13,7 @@ export async function expectDetailHeroAlignment(page: Page) {
   const buttons = page.locator(".launch-actions button");
   const last = await buttons.last().boundingBox();
   if (last) {
-    for (const field of await page.locator(".content-loading-field select").all()) {
+    for (const field of await page.locator(".content-loading-field select:visible").all()) {
       const box = (await field.boundingBox())!;
       expect(Math.abs(box.x + box.width - last.x - last.width), "loading selector ends with the last launch button").toBeLessThan(1);
     }

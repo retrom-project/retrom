@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { act } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -52,7 +53,7 @@ function initialPage(items: RecentGame[], generatedAtMs = nowMs) {
 
 describe("recent history", () => {
   it("renders summaries and keeps direct launch and detail actions separate", () => {
-    render(<RecentHistory initialPage={initialPage(games)} />);
+    render(<RecentHistory initialPage={initialPage(games)} />, { wrapper: ToastProvider });
     const summary = screen.getByRole("region", { name: "游玩统计" });
     expect(within(summary).getByText("2")).toBeVisible();
     expect(screen.getByRole("heading", { name: "今天" })).toBeVisible();
@@ -68,7 +69,7 @@ describe("recent history", () => {
       return { ok: true, json: async () => initialPage(items) };
     });
     const user = userEvent.setup();
-    render(<RecentHistory initialPage={initialPage(games)} />);
+    render(<RecentHistory initialPage={initialPage(games)} />, { wrapper: ToastProvider });
     await user.type(screen.getByRole("searchbox", { name: "搜索游戏" }), "掌机收藏");
     expect(await screen.findByText("Pokémon Green")).toBeVisible();
     await waitFor(() => expect(screen.queryByText("1943: The Battle of Midway")).not.toBeInTheDocument());
@@ -85,7 +86,7 @@ describe("recent history", () => {
 
   it("keeps a deleted game as a text tombstone without payload or executable actions", () => {
     const deleted = { ...games[0], status: "DELETED" as const, availability: "DELETED" as const, coverUrl: "/legacy-cover.png" };
-    render(<RecentHistory initialPage={initialPage([deleted, games[1]])} />);
+    render(<RecentHistory initialPage={initialPage([deleted, games[1]])} />, { wrapper: ToastProvider });
 
     expect(screen.getByText("已删除")).toBeVisible();
     expect(screen.getByText("已删除游戏")).toBeVisible();

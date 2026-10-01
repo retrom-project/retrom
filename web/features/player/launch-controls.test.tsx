@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,7 @@ describe("LaunchControls", () => {
 
   it("submits a selected core that still needs validation", async () => {
     const user = userEvent.setup();
-    render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
 
     expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /更换/ }));
@@ -63,7 +64,7 @@ describe("LaunchControls", () => {
 
   it("closes the core picker outside and restores the per-game choice on the next visit", async () => {
     const user = userEvent.setup();
-    const first = render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
+    const first = render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
 
     await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
@@ -73,7 +74,7 @@ describe("LaunchControls", () => {
     expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
 
     first.unmount();
-    render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
     await waitFor(() => expect(screen.getByRole("img", { name: "未采用默认核心" })).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /更换/ }));
     expect(screen.getByLabelText("运行引擎")).toHaveValue("gambatte");
@@ -85,7 +86,7 @@ describe("LaunchControls", () => {
 
   it("closes the core picker with Escape or the cancel button without applying changes", async () => {
     const user = userEvent.setup();
-    render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
 
     await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.keyboard("{Escape}");
@@ -100,7 +101,7 @@ describe("LaunchControls", () => {
   it("keeps fullscreen while soft-routing to the Player", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
-    render(<LaunchControls gameId="game-1" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="game-1" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
 
     await user.click(desktopLaunchButton());
 
@@ -113,7 +114,7 @@ describe("LaunchControls", () => {
     Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => document.documentElement });
     Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { code: "LAUNCH_BLOCKED", message: "LAUNCH_BIOS_MISSING" } }), { status: 422, headers: { "Content-Type": "application/json" } })));
-    render(<LaunchControls gameId="blocked-game" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="blocked-game" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
 
     await user.click(desktopLaunchButton());
 
@@ -125,7 +126,7 @@ describe("LaunchControls", () => {
   it("uses the reviewed DOS default and preserves the explicit program-menu choice", async () => {
     const user = userEvent.setup();
     const dosCore: CoreOption[] = [{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }];
-    render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />, { wrapper: ToastProvider });
 
     expect(screen.getByLabelText("启动程序")).toHaveValue("GAMES/DOOM.EXE");
     expect(screen.getByRole("option", { name: /SETUP%\.EXE/ })).toBeDisabled();
@@ -141,7 +142,7 @@ describe("LaunchControls", () => {
     const user = userEvent.setup();
     const dosCore: CoreOption[] = [{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }];
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
-    const first = render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    const first = render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />, { wrapper: ToastProvider });
 
     await user.selectOptions(screen.getByLabelText("启动程序"), "");
     await user.click(desktopLaunchButton());
@@ -149,19 +150,19 @@ describe("LaunchControls", () => {
     expect(window.localStorage.getItem(`${storagePrefix}preferred-dos-entry:dos-game`)).toBe('{"version":1,"entry":null}');
 
     first.unmount();
-    render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />, { wrapper: ToastProvider });
     expect(screen.getByLabelText("启动程序")).toHaveValue("");
   });
 
   it("falls back to the program menu when the reviewed DOS default is not direct-launch safe", () => {
     const dosCore: CoreOption[] = [{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }];
-    render(<LaunchControls gameId="menu-only-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="SETUP%.EXE" />);
+    render(<LaunchControls gameId="menu-only-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="SETUP%.EXE" />, { wrapper: ToastProvider });
 
     expect(screen.getByLabelText("启动程序")).toHaveValue("");
   });
 
   it("explains the fresh start when no resumable save is available", () => {
-    render(<LaunchControls gameId="no-save" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
+    render(<LaunchControls gameId="no-save" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
     expect(screen.getByText("本次将从游戏开头启动。")).toBeVisible();
     expect(screen.queryByRole("button", { name: "从存档继续" })).not.toBeInTheDocument();
     expect(desktopLaunchButton()).toBeEnabled();
@@ -181,7 +182,7 @@ describe("LaunchControls", () => {
         coreId: "mgba",
         coreName: "mGBA",
       }}
-    />);
+    />, { wrapper: ToastProvider });
 
     expect(screen.queryByText("还没有可继续的存档")).not.toBeInTheDocument();
     expect(screen.getByText("恢复最近存档 · 使用保存时的 mGBA")).toBeVisible();
@@ -191,7 +192,7 @@ describe("LaunchControls", () => {
   it("keeps phone save recovery primary and offers a separate fresh launch with usable settings", async () => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     const user = userEvent.setup();
-    render(<LaunchControls gameId="phone-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={{ saveStateId: "phone-save", coreId: "mgba", coreName: "mGBA", screenshotUrl: null, sizeBytes: 512, createdAtMs: 1000 }} />);
+    render(<LaunchControls gameId="phone-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={{ saveStateId: "phone-save", coreId: "mgba", coreName: "mGBA", screenshotUrl: null, sizeBytes: 512, createdAtMs: 1000 }} />, { wrapper: ToastProvider });
     expect(screen.queryByRole("complementary", { name: "启动游戏" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "从存档继续" }));
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -210,7 +211,7 @@ describe("LaunchControls", () => {
   it("keeps DOS program selection reachable on a phone", async () => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     const user = userEvent.setup();
-    render(<LaunchControls gameId="phone-dos" coreOptions={[{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }]} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    render(<LaunchControls gameId="phone-dos" coreOptions={[{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }]} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />, { wrapper: ToastProvider });
     await user.click(screen.getByRole("button", { name: "启动选项" }));
     const sheet = screen.getByRole("dialog", { name: "启动选项" });
     expect(within(sheet).getByRole("combobox", { name: "启动程序" })).toHaveValue("GAMES/DOOM.EXE");

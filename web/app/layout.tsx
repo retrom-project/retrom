@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { ToastProvider } from "@/components/toast-provider";
 import { AuthProvider } from "@/features/auth/auth-provider";
 import { loadAuthContext } from "@/features/auth/server";
 import "./globals.css";
@@ -17,7 +18,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="zh-CN">
       <body>
         <AuthProvider initialContext={initialContext}>
-          <AppShell>{children}</AppShell>
+          <ToastProvider><AppShell>{children}</AppShell></ToastProvider>
         </AuthProvider>
       </body>
     </html>

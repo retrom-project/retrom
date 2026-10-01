@@ -2,6 +2,20 @@ package launch
 
 import "testing"
 
+func TestValidReturnToAcceptsProductPagesWithoutRelaxingPathValidation(t *testing.T) {
+	t.Parallel()
+	for _, path := range []string{"/", "/library", "/recent", "/saves", "/games/game"} {
+		if !ValidProductReturnTo(path, "game", nil) {
+			t.Errorf("rejected product page %q", path)
+		}
+	}
+	for _, path := range []string{"/recent?gameId=game", "/recent#fragment", "/%72ecent", "//recent", "/recent/", "/games/other", "https://example.invalid/recent", `/recent\bad`} {
+		if ValidProductReturnTo(path, "game", nil) {
+			t.Errorf("accepted invalid return path %q", path)
+		}
+	}
+}
+
 func TestValidReturnToAcceptsOnlyExactImmersiveGameList(t *testing.T) {
 	t.Parallel()
 	const gameID = "01980000-0000-7000-8000-000000000001"

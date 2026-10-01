@@ -2395,6 +2395,8 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
+#retrom-ui-review .rt-launch-toast { position: fixed; z-index: 220; top: 24px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: var(--space-4); border: 1px solid var(--danger-line); border-radius: var(--radius-panel); color: var(--danger); background: var(--surface-subtle); font-size: var(--text-body); overflow-wrap: anywhere; }
+#retrom-ui-review [data-content-loading].is-placeholder { visibility: hidden; }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review .rt-launch-options { min-width: 0; }
 #retrom-ui-review .rt-launch-options:has(.rt-field:not([hidden])) { margin-bottom: var(--space-3); }
@@ -2431,9 +2433,8 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-overview { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-7); margin-block: var(--space-6); }
 #retrom-ui-review [data-page="detail"] .rt-detail-overview h2, #retrom-ui-review [data-page="detail"] .rt-detail-saves-head h2 { margin: 0 0 var(--space-4); font-size: var(--text-section); font-weight: var(--weight-semibold); }
 #retrom-ui-review [data-page="detail"] .rt-detail-about, #retrom-ui-review [data-page="detail"] .rt-detail-facts { min-width: 0; }
-#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap { color: var(--muted); font-size: var(--text-body); line-height: 1.8; overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap { height: 192px; overflow-y: auto; scrollbar-gutter: stable; color: var(--muted); font-size: var(--text-body); line-height: 1.8; overflow-wrap: anywhere; }
 #retrom-ui-review [data-page="detail"] .rt-detail-description-wrap p { margin: 0; white-space: pre-wrap; }
-#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap > button { margin-top: var(--space-4); }
 #retrom-ui-review [data-page="detail"] .rt-detail-facts { border-left: 1px solid var(--line); padding-left: var(--space-6); }
 #retrom-ui-review [data-page="detail"] .rt-detail-info-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-5); }
 #retrom-ui-review [data-page="detail"] .rt-detail-fact { min-width: 0; }
@@ -2539,6 +2540,7 @@
       <button type="button" data-review-scene="home-no-media">首页 · 无图片</button>
       <button type="button" data-review-scene="detail">详情 · 有存档</button>
       <button type="button" data-review-scene="detail-empty">详情 · 无存档</button>
+      <button type="button" data-review-scene="launch-error">启动错误提示</button>
       <button type="button" data-review-scene="setup">首次设置</button>
       <button type="button" data-review-scene="login">登录</button>
       <button type="button" data-review-scene="register">邀请注册</button>
@@ -2887,7 +2889,7 @@
             <div class="rt-launch-note" id="rt-launch-note" hidden="">开始前会自动检查游戏文件和所需系统文件</div>
           </aside></div>
 
-        <aside class="rt-detail-feature-preview"><div class="rt-detail-preview-frame"><header class="rt-detail-preview-heading is-overlay"><div class="rt-detail-preview-tabs" role="tablist" aria-label="游戏预览内容"><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-0" aria-selected="true" aria-controls="rt-preview-panel-0">最近存档</button><span class="rt-detail-preview-divider" aria-hidden="true">/</span><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-1" aria-selected="false" aria-controls="rt-preview-panel-1" tabindex="-1">视频预览</button></div></header><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-0" aria-labelledby="rt-preview-tab-0"><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></div><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-1" aria-labelledby="rt-preview-tab-1" hidden><div class="rt-detail-video-stage"><span class="rt-detail-save-screen" role="img" aria-label="视频画面示例"></span></div></div></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
+        <aside class="rt-detail-feature-preview"><div class="rt-detail-preview-frame"><header class="rt-detail-preview-heading is-overlay"><div class="rt-detail-preview-tabs" role="tablist" aria-label="游戏预览内容"><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-0" aria-selected="true" aria-controls="rt-preview-panel-0">最近存档</button><span class="rt-detail-preview-divider" aria-hidden="true">/</span><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-1" aria-selected="false" aria-controls="rt-preview-panel-1" tabindex="-1">视频预览</button></div></header><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-0" aria-labelledby="rt-preview-tab-0"><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></div><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-1" aria-labelledby="rt-preview-tab-1" hidden><div class="rt-detail-video-stage"><span class="rt-detail-save-screen" role="img" aria-label="视频画面示例"></span></div></div></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap" role="region" aria-label="游戏简介" tabindex="0"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>8 月 6 日 21:14</strong><small>手动存档 10</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>1 小时 52 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
@@ -3414,6 +3416,7 @@
     </div>
     <footer><button type="button" class="rt-button" data-close-disc-drawer>取消</button><button type="button" class="rt-button rt-button-primary" data-queue-disc-validation>上传并校验</button></footer>
   </aside>
+  <div class="rt-launch-toast" data-launch-toast role="alert" aria-live="assertive" hidden>当前游戏或核心无法启动</div>
   <div class="rt-review-disc-toast" data-review-disc-toast role="status" hidden>缺失光盘已补齐，正在更新审核结果</div>
 
   <div class="rt-dialog-backdrop" data-compare-dialog hidden>
@@ -3892,21 +3895,21 @@
         showPage(mode === 'user' ? 'home' : 'admin-import');
       }
 
-      function updateDetailDescription(expanded = false) {
-        const node = root.querySelector('#rt-detail-description');
-        const full = gameDetails[currentGame].description;
-        const chars = Array.from(full.trim());
-        node.textContent = !expanded && chars.length > 320 ? chars.slice(0, 320).join('') + '…' : full;
-        const toggle = root.querySelector('[data-expand-detail-description]');
-        toggle.hidden = chars.length <= 320;
-        toggle.setAttribute('aria-expanded', String(expanded));
-        toggle.textContent = expanded ? '收起简介' : '展开完整简介';
+      function updateDetailDescription() {
+        root.querySelector('#rt-detail-description').textContent = gameDetails[currentGame].description;
       }
-      root.querySelector('[data-expand-detail-description]').addEventListener('click', (event) => updateDetailDescription(event.currentTarget.getAttribute('aria-expanded') !== 'true'));
       modeButton.addEventListener('click', () => setMode(mode === 'user' ? 'admin' : 'user'));
+      let launchToastTimer;
       root.querySelectorAll('[data-review-scene]').forEach((button) => button.addEventListener('click', () => {
         const scene = button.dataset.reviewScene;
-        if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
+        if (scene === 'launch-error') {
+          setMode('user'); showPage('recent');
+          const toast = root.querySelector('[data-launch-toast]');
+          clearTimeout(launchToastTimer); toast.hidden = false;
+          launchToastTimer = setTimeout(() => {toast.hidden = true;}, 3000);
+          selectReviewScene(scene);
+        }
+        else if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
           setMode('user'); showPage('home');
           const media = root.querySelector('.rt-home-featured-media');
           media.dataset.kind = scene === 'home-platform' ? 'platform' : scene === 'home-no-media' ? 'empty' : 'landscape';
@@ -4022,7 +4025,7 @@
         const options = root.querySelector('.rt-launch-options');
         const loading = options.querySelector('[data-content-loading]');
         const dos = root.querySelector('#rt-dos-field');
-        const tabbed = !loading.hidden && !dos.hidden;
+        const tabbed = Boolean(gameDetails[currentGame].contentLoading) && !dos.hidden;
         options.classList.toggle('is-tabbed', tabbed);
         options.querySelector('.rt-launch-option-tabs').hidden = !tabbed;
         options.querySelectorAll('[role="tab"]').forEach((tab, index) => {
@@ -4075,7 +4078,12 @@
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
-        root.querySelectorAll('[data-content-loading]').forEach(field => {field.hidden = !game.contentLoading;});
+        root.querySelectorAll('[data-content-loading]').forEach(field => {
+          field.hidden = false;
+          field.classList.toggle('is-placeholder', !game.contentLoading);
+          field.inert = !game.contentLoading;
+          if (game.contentLoading) field.removeAttribute('aria-hidden'); else field.setAttribute('aria-hidden', 'true');
+        });
         const coreSelect = root.querySelector('#rt-core-select');
         coreSelect.innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
         if (corePreferences[currentGame] && game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];

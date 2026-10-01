@@ -47,7 +47,7 @@ def seed(path: Path) -> str:
             columns = list(row)
             db.execute(f"INSERT OR REPLACE INTO save_states({','.join(columns)}) VALUES({','.join('?' for _ in columns)})", list(row.values()))
             own_rows(db, "save_states", "id", row["id"], "SAVE_STATE", row["id"], ("payload_file_record", "screenshot_file_record"))
-        db.execute("UPDATE games SET description=? WHERE id=?", (("公开测试游戏的玩法说明。" * 30) + "\n\n最后一段：完整简介应随页面滚动。", original["game_id"]))
+        db.execute("UPDATE games SET description=? WHERE id=?", (("公开测试游戏的玩法说明。" * 100) + "\n\n最后一段：完整简介应在简介区域内滚动。", original["game_id"]))
         return original["game_id"]
 
 

@@ -262,6 +262,12 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '400':
+          description: Invalid request, including an unrecognized or unsafe returnTo (INVALID_LAUNCH_RETURN_TO).
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
 components:
   schemas:
     ReplaceFavoriteFoldersRequest:
@@ -1014,6 +1020,7 @@ components:
           nullable: true
         returnTo:
           type: string
+          description: Exact product return page (/, /library, /recent, /saves or /games/{gameId}), or a validated immersive game-list URL. Unsafe or unknown paths return 400 INVALID_LAUNCH_RETURN_TO.
         clientCapabilities:
           $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
   requestBodies:
