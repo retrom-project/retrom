@@ -2395,6 +2395,7 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
+#retrom-ui-review .rt-launch-toast { position: fixed; z-index: 220; top: 24px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: var(--space-4); border: 1px solid var(--danger-line); border-radius: var(--radius-panel); color: var(--danger); background: var(--surface-subtle); font-size: var(--text-body); overflow-wrap: anywhere; }
 #retrom-ui-review [data-content-loading].is-placeholder { visibility: hidden; }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review .rt-launch-options { min-width: 0; }
@@ -2539,6 +2540,7 @@
       <button type="button" data-review-scene="home-no-media">首页 · 无图片</button>
       <button type="button" data-review-scene="detail">详情 · 有存档</button>
       <button type="button" data-review-scene="detail-empty">详情 · 无存档</button>
+      <button type="button" data-review-scene="launch-error">启动错误提示</button>
       <button type="button" data-review-scene="setup">首次设置</button>
       <button type="button" data-review-scene="login">登录</button>
       <button type="button" data-review-scene="register">邀请注册</button>
@@ -3414,6 +3416,7 @@
     </div>
     <footer><button type="button" class="rt-button" data-close-disc-drawer>取消</button><button type="button" class="rt-button rt-button-primary" data-queue-disc-validation>上传并校验</button></footer>
   </aside>
+  <div class="rt-launch-toast" data-launch-toast role="alert" aria-live="assertive" hidden>当前游戏或核心无法启动</div>
   <div class="rt-review-disc-toast" data-review-disc-toast role="status" hidden>缺失光盘已补齐，正在更新审核结果</div>
 
   <div class="rt-dialog-backdrop" data-compare-dialog hidden>
@@ -3896,9 +3899,17 @@
         root.querySelector('#rt-detail-description').textContent = gameDetails[currentGame].description;
       }
       modeButton.addEventListener('click', () => setMode(mode === 'user' ? 'admin' : 'user'));
+      let launchToastTimer;
       root.querySelectorAll('[data-review-scene]').forEach((button) => button.addEventListener('click', () => {
         const scene = button.dataset.reviewScene;
-        if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
+        if (scene === 'launch-error') {
+          setMode('user'); showPage('recent');
+          const toast = root.querySelector('[data-launch-toast]');
+          clearTimeout(launchToastTimer); toast.hidden = false;
+          launchToastTimer = setTimeout(() => {toast.hidden = true;}, 3000);
+          selectReviewScene(scene);
+        }
+        else if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
           setMode('user'); showPage('home');
           const media = root.querySelector('.rt-home-featured-media');
           media.dataset.kind = scene === 'home-platform' ? 'platform' : scene === 'home-no-media' ? 'empty' : 'landscape';

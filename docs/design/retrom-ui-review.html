@@ -2599,6 +2599,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel { min-width: 0; margin-top: var(--space-3); }
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel &gt; .field { margin-bottom: var(--space-3); }
+#retrom-ui-review .rt-launch-toast { position: fixed; z-index: 220; top: 24px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: var(--space-4); border: 1px solid var(--danger-line); border-radius: var(--radius-panel); color: var(--danger); background: var(--surface-subtle); font-size: var(--text-body); overflow-wrap: anywhere; }
 #retrom-ui-review [data-content-loading].is-placeholder { visibility: hidden; }
 #retrom-ui-review [data-page=&quot;detail&quot;] .rt-launch-panel [data-content-loading] select { width: min(100%, var(--launch-control-width, 100%)); }
 #retrom-ui-review .rt-launch-options { min-width: 0; }
@@ -2743,6 +2744,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       &lt;button type=&quot;button&quot; data-review-scene=&quot;home-no-media&quot;&gt;首页 · 无图片&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;detail&quot;&gt;详情 · 有存档&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;detail-empty&quot;&gt;详情 · 无存档&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;launch-error&quot;&gt;启动错误提示&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;setup&quot;&gt;首次设置&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;login&quot;&gt;登录&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;register&quot;&gt;邀请注册&lt;/button&gt;
@@ -3618,6 +3620,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     &lt;/div&gt;
     &lt;footer&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-disc-drawer&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-queue-disc-validation&gt;上传并校验&lt;/button&gt;&lt;/footer&gt;
   &lt;/aside&gt;
+  &lt;div class=&quot;rt-launch-toast&quot; data-launch-toast role=&quot;alert&quot; aria-live=&quot;assertive&quot; hidden&gt;当前游戏或核心无法启动&lt;/div&gt;
   &lt;div class=&quot;rt-review-disc-toast&quot; data-review-disc-toast role=&quot;status&quot; hidden&gt;缺失光盘已补齐，正在更新审核结果&lt;/div&gt;
 
   &lt;div class=&quot;rt-dialog-backdrop&quot; data-compare-dialog hidden&gt;
@@ -4100,9 +4103,17 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         root.querySelector('#rt-detail-description').textContent = gameDetails[currentGame].description;
       }
       modeButton.addEventListener('click', () =&gt; setMode(mode === 'user' ? 'admin' : 'user'));
+      let launchToastTimer;
       root.querySelectorAll('[data-review-scene]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
         const scene = button.dataset.reviewScene;
-        if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
+        if (scene === 'launch-error') {
+          setMode('user'); showPage('recent');
+          const toast = root.querySelector('[data-launch-toast]');
+          clearTimeout(launchToastTimer); toast.hidden = false;
+          launchToastTimer = setTimeout(() =&gt; {toast.hidden = true;}, 3000);
+          selectReviewScene(scene);
+        }
+        else if (scene === 'home' || scene === 'home-empty' || scene === 'home-one' || scene === 'home-platform' || scene === 'home-no-media') {
           setMode('user'); showPage('home');
           const media = root.querySelector('.rt-home-featured-media');
           media.dataset.kind = scene === 'home-platform' ? 'platform' : scene === 'home-no-media' ? 'empty' : 'landscape';
