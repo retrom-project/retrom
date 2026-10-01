@@ -58,6 +58,8 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 `bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换会撤销使用旧 BIOS 的 Launch/Play，并切换当前安装；新的启动按当前安装重校验；Game 存档保留。
 
+BIOS 的“当前库所需”范围以当前已发布 Game 的 Provider/Target 判断成员资格，按 `game_variants_provider_target_game(provider_id,target_id,game_id)` 联合索引查找候选，再检查 Game 发布状态；不得按每条 BIOS 要求重复遍历整个已发布游戏库。多款游戏共享 Target 不重复增加 BIOS 项数，只有已删除游戏使用的 Target 不进入该范围。
+
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base 和多盘的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并记录文件标识；Blob 引用仍由领域 owner 持有。
 
 静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
