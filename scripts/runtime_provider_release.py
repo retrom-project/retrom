@@ -7,11 +7,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 if __package__:
+    from scripts.runtime_provider_cache import cached_download
     from scripts.runtime_provider_bundle import validate_provider_build_record, validate_provider_lock
-    from scripts.runtime_provider_io import _fetch_bytes, _load_json, _write_bytes_atomic, _write_json_atomic
+    from scripts.runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
 else:
+    from runtime_provider_cache import cached_download
     from runtime_provider_bundle import validate_provider_build_record, validate_provider_lock
-    from runtime_provider_io import _fetch_bytes, _load_json, _write_bytes_atomic, _write_json_atomic
+    from runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
 
 
 REPOSITORY = "https://github.com/retrom-project/retrom-runtime"
@@ -44,19 +46,15 @@ def resolve_provider_release(tag: str, cache_root: Path, fetch_bytes=None) -> tu
     """Cache immutable release metadata; retain all byte checks in resolved inputs."""
     _validate_tag(tag)
     descriptor = cache_root / "releases" / tag / "provider-release.json"
-    cached = descriptor.exists()
-    if cached:
-        with descriptor.open("rb") as source:
-            contents = source.read(METADATA_MAX_BYTES + 1)
-    else:
-        contents = (fetch_bytes or _fetch_bytes)(
+    metadata = cached_download(
+        descriptor,
+        lambda: (fetch_bytes or _fetch_bytes)(
             f"{REPOSITORY}/releases/download/{tag}/provider-release.json", METADATA_MAX_BYTES,
-        )
-    metadata = _parse_release_metadata(contents, tag)
+        ),
+        lambda contents: _parse_release_metadata(contents, tag), METADATA_MAX_BYTES,
+    )
     release = metadata["release"]
     locks = [_resolved_provider_lock(release, provider) for provider in metadata["providers"]]
-    if not cached:
-        _write_bytes_atomic(descriptor, contents)
     return release, sorted(locks, key=lambda lock: lock["providerId"])
 
 
