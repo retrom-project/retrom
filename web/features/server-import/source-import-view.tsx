@@ -192,9 +192,15 @@ function ItemAction({ item, reviewURL }: { item: SourceItem; reviewURL: string }
   return <span>—</span>;
 }
 
-function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
+function ResultMedia({ item }: { item: SourceItem }) {
+  if (item.executionState === "REVIEW_PENDING") {return <StatusBadge tone="good">已移交审核</StatusBadge>;}
+  if (item.payloadState === "RELEASED") {return <StatusBadge tone="good">源文件已清理</StatusBadge>;}
   const mediaTone = (state: string) => state === "READY" ? "good" as const : state === "WARNING" ? "warn" as const : "info" as const;
-  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media">{item.payloadState === "RELEASED" ? <StatusBadge tone="good">源文件已清理</StatusBadge> : <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>}</div><div role="cell" className="source-result-state"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><RuntimeCheckDetails item={item} /></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div></article>;
+  return <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>;
+}
+
+function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
+  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media"><ResultMedia item={item} /></div><div role="cell" className="source-result-state"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><RuntimeCheckDetails item={item} /></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div></article>;
 }
 
 type DetailViewProps = { onDiscarded?: () => void; summary: SourceImportSummary; items: SourceItem[]; nextCursor: string | null; draft: DetailFilters; collections: SourceCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };

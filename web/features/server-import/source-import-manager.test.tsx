@@ -27,6 +27,21 @@ function json(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function cleanupItem(payloadState: SourceItem["payloadState"]): SourceItem {
+  return {
+    id: "77777777-7777-4777-8777-777777777777", title: "Cleanup Fixture", tags: [],
+    sourceFlags: { hidden: false, adult: false, kidGame: false },
+    collectionId: null, collectionName: null, targetPlatformInstanceId: platform.id,
+    targetPlatformInstanceName: platform.name, metadataRelativePath: "fixture.zip",
+    executionState: "SKIPPED_EXISTING", contentKind: "SINGLE_FILE", payloadState,
+    payloadReleaseJobId: "88888888-8888-4888-8888-888888888888",
+    media: { cover: "MISSING", video: "MISSING" }, warnings: [], discoveryCode: null,
+    errorCode: null, retryable: false, publishedGameId: null, existingGameId: "existing-game",
+    reviewItemId: null, runtimeCheck: null,
+    failureDetails: null, existingMatches: [], updatedAtMs: 2,
+  };
+}
+
 afterEach(() => {
   cleanup();
   router.push.mockReset();
@@ -37,6 +52,76 @@ afterEach(() => {
 });
 
 describe("SourceImportDrawer", () => {
+  it.each(["RETAINED", "RELEASING", "RELEASED", "FAILED"] as const)("shows review handoff independently of the source payload being %s", (payloadState) => {
+    const item: SourceItem = { ...cleanupItem(payloadState), executionState: "REVIEW_PENDING", existingGameId: null, reviewItemId: "99999999-9999-4999-8999-999999999999" };
+    render(<SourceImportDetailManager initialSummary={summary("COMPLETED", 5)} initialItems={{ items: [item], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+    const row = screen.getByText(item.title).closest("article")!;
+    expect(within(row).getByText("已移交审核")).toBeVisible();
+    expect(within(row).queryByText("源文件已清理")).not.toBeInTheDocument();
+    expect(within(row).queryByText("封面 MISSING")).not.toBeInTheDocument();
+    expect(within(row).queryByText("视频 MISSING")).not.toBeInTheDocument();
+  });
+
+  it.each(["BASIC", "PEGASUS", "GAMELIST"] as const)("keeps completed %s results refreshing until asynchronous cleanup finishes", async (format) => {
+    vi.useFakeTimers();
+    const result = summary("COMPLETED", 5, { format, importJobId: "44444444-4444-4444-8444-444444444444", completedAtMs: 3 });
+    const released = cleanupItem("RELEASED");
+    const releasing = { ...cleanupItem("RELEASING"), id: "second-item", title: "Second Cleanup Fixture" };
+    const fetchMock = vi.fn().mockImplementation((request: Request) => Promise.resolve(
+      json(new URL(request.url).pathname.endsWith("/items") ? { items: [released, { ...releasing, payloadState: "RELEASED" }], nextCursor: null } : result),
+    ));
+    const events = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", events);
+    render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [released, releasing], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    expect(screen.getAllByText("源文件已清理")).toHaveLength(1);
+    expect(screen.getByText("封面 MISSING")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
+    expect(screen.getAllByText("源文件已清理")).toHaveLength(2);
+    expect(screen.queryByText("封面 MISSING")).not.toBeInTheDocument();
+    expect(screen.queryByText("视频 MISSING")).not.toBeInTheDocument();
+    expect(events).not.toHaveBeenCalled();
+    const calls = fetchMock.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
+  });
+
+  it("reads final items after observing main-job completion and keeps following cleanup", async () => {
+    vi.useFakeTimers();
+    const running = summary("RUNNING", 4, { importJobId: "44444444-4444-4444-8444-444444444444" });
+    const completed = { ...running, state: "COMPLETED" as const, completedAtMs: 3 };
+    const requests: string[] = [];
+    let itemReads = 0;
+    vi.stubGlobal("EventSource", undefined);
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((request: Request) => {
+      const items = new URL(request.url).pathname.endsWith("/items");
+      requests.push(items ? "items" : "summary");
+      if (items) {itemReads += 1;}
+      return Promise.resolve(json(items ? { items: [cleanupItem(itemReads === 1 ? "RELEASING" : "RELEASED")], nextCursor: null } : completed));
+    }));
+    render(<SourceImportDetailManager initialSummary={running} initialItems={{ items: [cleanupItem("RELEASING")], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
+    expect(screen.getByText("审核事项已生成")).toBeVisible();
+    expect(screen.getByText("封面 MISSING")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
+    expect(screen.getByText("源文件已清理")).toBeVisible();
+    expect(itemReads).toBe(2);
+    for (const [index, request] of requests.entries()) {
+      if (request === "items") {expect(requests[index - 1]).toBe("summary");}
+    }
+  });
+
+  it.each(["RETAINED", "FAILED", "RELEASED"] as const)("stops refreshing completed results whose payload is %s", async (payloadState) => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<SourceImportDetailManager initialSummary={summary("COMPLETED", 5)} initialItems={{ items: [cleanupItem(payloadState)], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("scans, requires an explicit collection mapping, then starts the frozen plan", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const scanning = summary("SCANNING", 1);

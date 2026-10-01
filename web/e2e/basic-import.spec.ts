@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type TestInfo } from "@playwright/test";
 import { selectServerSource } from "./server-directory-support";
+import { expectSourceHandoffDuringCleanup } from "./server-import-cleanup-support";
 
 function screenshotPath(info: TestInfo, name: string) {
   const directory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
@@ -57,6 +58,8 @@ test("ACC-BASIC-001 directory extensions feed the shared receive and review flow
   expect(payload.items).toHaveLength(1);
   const item = payload.items[0];
   expect(item).toMatchObject({ title: "basic-smoke", executionState: "REVIEW_PENDING", publishedGameId: null });
+  await expect(page.getByText("已移交审核", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expectSourceHandoffDuringCleanup(page, plan.id);
   await page.goto(`/admin/reviews/${item.reviewItemId}`);
   const approve = page.getByRole("button", { name: "通过并发布" });
   await expect(approve).toBeEnabled({ timeout: 30_000 });

@@ -3,6 +3,7 @@ import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { selectServerSource, serverSourcePath } from "./server-directory-support";
+import { expectSourceHandoffDuringCleanup } from "./server-import-cleanup-support";
 import {
   runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
 } from "./runtime-provider-support";
@@ -233,7 +234,8 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
     expect(result.items).toHaveLength(1);
     return result.items[0];
   }).toMatchObject({ payloadState: "RELEASED", media: { video: "READY" } });
-  await expect(resultTable).toContainText("源文件已清理");
+  await expect(resultTable).toContainText("已移交审核");
+  await expectSourceHandoffDuringCleanup(page, createdPlan.id);
   const adminGamesResponse = await page.request.get("/api/v1/admin/games?q=Acceptance%20Game&limit=100");
   expect(adminGamesResponse.ok()).toBe(true);
   const adminGames = await adminGamesResponse.json() as { items: Array<{ title: string }> };

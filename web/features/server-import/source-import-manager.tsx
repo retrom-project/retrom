@@ -268,6 +268,7 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [mappingOpen, setMappingOpen] = useState(false);
+  const cleanupPending = items.some((item) => item.payloadState === "RELEASING");
 
   const requestSummary = useCallback(async () => {
     const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: initialSummary.id } } });
@@ -292,14 +293,15 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   }, [filters]);
 
   useEffect(() => {
-    if (!["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(summary.state)) {return;}
-    const update = () => {void requestSummary().catch(() => undefined); void requestItems(filters).catch(() => undefined);};
+    const processing = ["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(summary.state);
+    if (!processing && !cleanupPending) {return;}
+    const update = () => {void requestSummary().then(() => requestItems(filters)).catch(() => undefined);};
     const timer = window.setInterval(update, 4_000);
     const jobId = summary.importJobId ?? summary.scanJobId;
-    const source = typeof EventSource === "undefined" ? null : new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
+    const source = !processing || typeof EventSource === "undefined" ? null : new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
     for (const event of ["progress", "succeeded", "failed", "cancelled"]) {source?.addEventListener(event, update);}
     return () => {window.clearInterval(timer); source?.close();};
-  }, [filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state]);
+  }, [cleanupPending, filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state]);
 
   async function applyFilters() {
     setBusy(true); setError("");
