@@ -26,7 +26,7 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
 	var instance, provider, target string
 	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
  JOIN runtime_target_bindings t ON t.core_id=p.default_core_id
- WHERE p.platform_id='gba' AND p.enabled=1 ORDER BY p.sort_order,p.id LIMIT 1`).Scan(&instance, &provider, &target); err != nil {
+ WHERE p.platform_id='gba' AND p.enabled=1 ORDER BY p.created_at_ms,p.id LIMIT 1`).Scan(&instance, &provider, &target); err != nil {
 		t.Fatal(err)
 	}
 	mustExecSourceTest(t.Context(), t, db, `INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,

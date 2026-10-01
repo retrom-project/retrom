@@ -36,12 +36,11 @@ type PlatformInstanceQuery struct {
 }
 
 type PlatformInstance struct {
-	ID, PlatformID, PlatformName   string
-	DefaultCoreID, DefaultCoreName string
-	Name, Slug, Description        string
-	SortOrder                      int
-	Enabled                        bool
-	Version, UpdatedAtMS           int64
-	GameCount                      int64
-	ContentPolicy                  contentcapability.Policy
+	ID, PlatformID, PlatformName      string
+	DefaultCoreID, DefaultCoreName    string
+	Name, Slug, Description           string
+	Enabled                           bool
+	Version, CreatedAtMS, UpdatedAtMS int64
+	GameCount                         int64
+	ContentPolicy                     contentcapability.Policy
 }

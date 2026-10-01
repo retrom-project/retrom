@@ -64,7 +64,7 @@ fi
 if [[ -z "$platform_instance_id" ]]; then
   platform_instance="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
     -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" \
-    -d "$(jq -nc --arg platformId "$platform_id" --arg coreId "$core_id" --arg name "$core_id acceptance games" '{platformId:$platformId,defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory",sortOrder:10000}')" \
+    -d "$(jq -nc --arg platformId "$platform_id" --arg coreId "$core_id" --arg name "$core_id acceptance games" '{platformId:$platformId,defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory"}')" \
     "$origin/api/v1/admin/platform-instances")"
   platform_instance_id="$(jq -er .id <<<"$platform_instance")"
 fi

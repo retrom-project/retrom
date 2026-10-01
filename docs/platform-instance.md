@@ -77,7 +77,6 @@ erDiagram
 | name | 展示名称，例如“FBNeo 飞行游戏” |
 | slug | 稳定路由标识；同一基础平台内唯一 |
 | description | 可选说明 |
-| sort_order | 游戏库筛选和管理页排序 |
 | enabled | 是否允许继续导入和出现在普通筛选项中 |
 | version | 乐观并发版本，从 1 开始 |
 | created_at_ms / updated_at_ms | UTC Unix 毫秒时间戳，SQLite INTEGER |
@@ -103,7 +102,6 @@ CREATE TABLE platform_instances (
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    sort_order INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
     created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
@@ -226,7 +224,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - `SUPPRESSED`：同 key 行已停用或软删除，表示管理员明确不希望再次补齐；
 - `MISSING`：以上均不成立，可以创建。
 
-“一键创建推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，把新目录按 catalog 顺序追加到当前最大 `sort_order` 之后，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
+“一键创建推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，按 catalog 顺序创建新目录，由服务端记录创建时间，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
 
 推荐目录的当前版本与完整集合以 `internal/platformcatalog` 为准。Play! 因运行不稳定，不提供 PS2/Play! 推荐目录；管理员仍可手动选择 PlayStation 2 平台与 Play! 核心创建目录，已有目录及其游戏不受影响。FDS 不再是独立目录，`.fds` 由 NES/FCEUmm 模板所属平台规则接收；MAME 2003 不再是独立模板，Arcade 保留 FBNeo、MAME 2003 Plus 与 FBA CPS1/CPS2 四个推荐目录。启动时必须验证每个模板引用的 Platform、Core、启用 PlatformCore 和已登记 Provider Target；release catalog 与依赖不一致时快速失败，不能在补齐时静默跳过。
 
@@ -254,8 +252,9 @@ Apple II 只提供一个“Apple II 游戏”推荐目录，默认核心保持 A
 
 ### 显示排序
 
-- 管理页面不暴露 `sort_order` 数字输入，使用拖拽手柄并为键盘提供上下方向键等价操作。
-- 排序提交必须带全部未删除目录的 `id/version`，服务端在同一短事务验证集合恰好相等、版本均未漂移后按数组顺序写入间隔为 100 的 `sort_order` 并逐项递增版本/写审计。目录集合或任一版本变化时整体拒绝，不能部分成功。
+- 目录固定按 `created_at_ms ASC, id ASC` 排列；创建时间由服务端生成且不可修改。同毫秒批量创建使用 UUIDv7 的 ID 作为稳定次序。
+- 管理页按平台类型分组，组内沿用上述创建顺序；目录列表、导入选择器和游戏库的目录筛选遵循同一顺序。
+- 目录不保存人工排序字段，也不提供排序写入接口。名称、说明、启停和默认核心变更不影响创建顺序。
 
 ## 8. 页面影响
 
@@ -272,8 +271,8 @@ Apple II 只提供一个“Apple II 游戏”推荐目录，默认核心保持 A
 管理后台新增“游戏目录”页面，用于维护 PlatformInstance，包含：
 
 - 目录名称、基础平台、默认核心、游戏数量和兼容性摘要。
-- 名称与用户说明通过各自铅笔在行内编辑；说明编辑器保持单行紧凑高度；默认核心以“推荐运行方式”下拉框呈现，启用状态以 checkbox 呈现。
-- 拖拽/键盘排序和启停不显示会推动表格的成功提示条，失败才显示错误；非空目录可启停，但红色删除 X 禁用并显示原因，空目录才可删除。
+- 名称与用户说明通过操作菜单在行内编辑；说明编辑器保持单行紧凑高度；默认核心以“推荐运行方式”下拉框呈现，启用状态以 checkbox 呈现。
+- 启停不显示会推动表格的成功提示条，失败才显示错误；非空目录可启停，但红色删除 X 禁用并显示原因，空目录才可删除。
 - 下拉切换默认核心后自动进入影响预览，确认前不提交。
 - 查看目录下游戏，并进入单个游戏的影响预览与移动流程。一期没有批量移动 API，不在 UI 暗示尚未定义的批量事务语义。
 

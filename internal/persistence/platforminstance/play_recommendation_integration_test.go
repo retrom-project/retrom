@@ -30,7 +30,7 @@ func TestPlayDirectoriesRequireManualCreation(t *testing.T) {
 		t.Fatalf("recommended directories created %d Play! directories", count)
 	}
 	manual, err := createManualDirectory(t, service, platforminstance.CreateInput{
-		PlatformID: "ps2", DefaultCoreID: "play", Name: "我的 PS2 游戏", SortOrder: 500,
+		PlatformID: "ps2", DefaultCoreID: "play", Name: "我的 PS2 游戏",
 	})
 	if err != nil {
 		t.Fatalf("manual Play! directory creation failed: %v", err)

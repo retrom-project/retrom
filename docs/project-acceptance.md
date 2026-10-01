@@ -521,7 +521,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-001`。
 - 流程：为 Arcade 创建名为 `acc-arcade-fbneo` 的目录并选择 `fbneo`；使用相同名称再次创建，随后软删除第一项并第三次使用相同名称；另尝试选择未关联/停用核心。
-- 通过标准：创建请求不包含 slug，合法目录创建成功；服务端依次生成 `acc-arcade-fbneo`、`acc-arcade-fbneo-2`、`acc-arcade-fbneo-3`，不会复用软删除标识；非法默认核心被 422 与数据库约束拒绝；时刻字段为整数。
+- 通过标准：创建请求不包含 slug 或排序字段，合法目录创建成功；旧 sortOrder 创建/修改请求被拒绝，旧排序写入路由不可用，目录列表固定按创建时间及 ID 升序；服务端依次生成 `acc-arcade-fbneo`、`acc-arcade-fbneo-2`、`acc-arcade-fbneo-3`，不会复用软删除标识；非法默认核心被 422 与数据库约束拒绝；时刻字段为整数。
 - 证据：API 响应和数据库行。
 
 ### ACC-PLAT-002：Game 唯一归属
@@ -563,6 +563,14 @@ make acceptance-case CASE=<case-id>
 - 流程：使用全新数据根建到当前 schema，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
 - 通过标准：catalog 固定返回 31 项且扩展名来自平台 profile；RPG Maker 恰有一个 `rpgmaker/rpgmaker` 虚拟核心推荐目录，GameMaker 恰有一个 `butterscotch/butterscotch` 推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 31 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
 - 证据：GET/POST 响应、Idempotency replay header、并发结果、目录/审计/幂等行和 catalog/contentprofile 对照。
+
+### ACC-PLAT-007：分类目录管理与创建时间排序
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-PLAT-007`。
+- 流程：在隔离验收环境创建两个同平台目录；电脑视口检查分类折叠、键盘展开、全部展开/收起、跨组搜索与清空后恢复、启用筛选、组内创建顺序、新建后的定位、单行分类菜单与空结果。覆盖 1280px 桌面和 2560×1440 CSS / DPR 1.5，保存页面及创建 Drawer 截图。
+- 通过标准：分类继承基础平台，匹配目录没有遗漏；时间相同时 ID 稳定排序；创建、名称编辑和启停保持原有语义；无人工排序入口，单行分类的菜单完整可见；搜索不永久改变展开状态；新建目录所属分类自动展开并聚焦。手机后台入口限制沿用既有契约，不新增管理布局。
+- 证据：真实页面截图、浏览器断言、创建与修改响应，以及创建时间查询的 HTTP 回归。
 
 ## 9. 游戏管理
 

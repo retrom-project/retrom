@@ -119,7 +119,7 @@ VALUES('01980000-0000-7000-8000-000000000800','source-profile','source-test','So
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(collections) != 1 }), "collections = %#v, error=%v", collections, err)
 	var targetID string
 	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL,
-		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`), &targetID)
+		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY created_at_ms,id LIMIT 1`), &targetID)
 	mapped, err := service.UpdateMappings(
 		ctx,
 		created.ID,

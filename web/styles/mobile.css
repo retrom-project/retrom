@@ -339,8 +339,6 @@
   .platform-directory-table { min-width: 0; }
   .platform-directory-table-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .platform-directory-row { min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
-  .platform-directory-order { justify-content: space-between; }
-  .platform-directory-handle,
   .platform-directory-more { width: 44px; height: 44px; }
   .platform-directory-copy h3,
   .platform-directory-copy p { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }

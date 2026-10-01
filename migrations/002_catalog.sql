@@ -98,7 +98,6 @@ CREATE TABLE platform_instances (
   name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 200),
   slug TEXT NOT NULL CHECK(slug = lower(slug) AND slug NOT LIKE '-%' AND slug NOT LIKE '%-' AND slug NOT LIKE '%--%'),
   description TEXT NOT NULL DEFAULT '',
-  sort_order INTEGER NOT NULL,
   enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),

@@ -64,11 +64,11 @@ func BuildPlatformInstances(ctx context.Context, database dbapi.DB) (PlatformIns
 		}
 		if _, err := recordstore.CreatePlatformInstances(ctx, database, `
 INSERT INTO platform_instances(
-  id,platform_id,default_core_id,name,slug,description,sort_order,enabled,version,
+  id,platform_id,default_core_id,name,slug,description,enabled,version,
   created_at_ms,updated_at_ms,catalog_template_key
-) VALUES(?,?,?,?,?,?,?,1,1,0,0,?)
+) VALUES(?,?,?,?,?,?,1,1,0,0,?)
 `, id.String(), template.PlatformID, template.DefaultCoreID, template.Name, slug,
-			template.Description, template.CatalogOrder, template.Key); err != nil {
+			template.Description, template.Key); err != nil {
 			return nil, fmt.Errorf("testsupport: create platform instance %s: %w", template.Key, err)
 		}
 		references[template.Key] = PlatformInstanceReference{

@@ -19,7 +19,7 @@ export type PlatformInstance = {
   name: string;
   slug: string;
   description: string;
-  sortOrder: number;
+  createdAtMs: number;
   enabled: boolean;
   version: number;
   gameCount: number;
@@ -30,12 +30,7 @@ export type PlatformDirectoryFilters = {
   query: string;
   platformId: string;
   status: "ALL" | "ENABLED" | "DISABLED";
-  sort: "ORDER" | "NAME" | "GAME_COUNT";
 };
-
-function stableNameOrder(left: PlatformInstance, right: PlatformInstance) {
-  return left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id);
-}
 
 export function filterPlatformDirectories(instances: PlatformInstance[], filters: PlatformDirectoryFilters) {
   const query = filters.query.trim().toLocaleLowerCase("zh-CN");
@@ -44,13 +39,9 @@ export function filterPlatformDirectories(instances: PlatformInstance[], filters
     if (filters.status === "ENABLED" && !instance.enabled) {return false;}
     if (filters.status === "DISABLED" && instance.enabled) {return false;}
     if (!query) {return true;}
-    return [instance.name, instance.platformName, instance.description]
+    return [instance.name, instance.platformName, instance.description, instance.defaultCoreName]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
-  }).sort((left, right) => {
-    if (filters.sort === "NAME") {return stableNameOrder(left, right);}
-    if (filters.sort === "GAME_COUNT") {return right.gameCount - left.gameCount || stableNameOrder(left, right);}
-    return left.sortOrder - right.sortOrder || left.id.localeCompare(right.id);
-  });
+  }).sort(directoryCreationOrder);
 }
 
 export function platformDirectorySummary(instances: PlatformInstance[]) {
@@ -59,10 +50,6 @@ export function platformDirectorySummary(instances: PlatformInstance[]) {
     enabled: instances.filter((instance) => instance.enabled).length,
     disabled: instances.filter((instance) => !instance.enabled).length,
   };
-}
-
-export function canReorderPlatformDirectories(filters: PlatformDirectoryFilters) {
-  return !filters.query.trim() && !filters.platformId && filters.status === "ALL" && filters.sort === "ORDER";
 }
 
 export function summarizeRecommendations(items: PlatformRecommendations["items"]): PlatformRecommendations["summary"] {
@@ -82,4 +69,8 @@ export function summarizeRecommendations(items: PlatformRecommendations["items"]
     if (item.state === "MISSING") {summary.missingCount++;}
   }
   return summary;
+}
+
+export function directoryCreationOrder(left: PlatformInstance, right: PlatformInstance) {
+  return left.createdAtMs - right.createdAtMs || left.id.localeCompare(right.id);
 }

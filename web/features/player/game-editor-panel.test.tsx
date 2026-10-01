@@ -1,10 +1,16 @@
-import {act, fireEvent, render, waitFor, within} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, waitFor, within} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 import type {RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {GameEditorPanel} from "./game-editor-panel";
 
 describe("GameEditorPanel", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(async () => {
+    // Vitest globals are disabled, so Testing Library cannot register auto-cleanup.
+    await act(async () => cleanup());
+    expect(document.body).toBeEmptyDOMElement();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
   it("shows a draggable category scrollbar only when the category row overflows", async () => {
     let notify: ResizeObserverCallback | undefined;
     vi.stubGlobal("ResizeObserver", class {
