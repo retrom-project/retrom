@@ -105,7 +105,7 @@ func directoryCreationProbe(t *testing.T) (*testServer, func(string, string) *ht
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
 	create := func(key, name string) *httptest.ResponseRecorder {
-		payload := fmt.Sprintf(`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`, name)
+		payload := fmt.Sprintf(`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":""}`, name)
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(payload))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", key)

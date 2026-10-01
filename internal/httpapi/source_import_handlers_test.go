@@ -77,7 +77,7 @@ func TestSourceImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return collectionsResponse.Code != http.StatusOK }, func() bool { return json.Unmarshal(collectionsResponse.Body.Bytes(), &page) != nil }, func() bool { return len(page.Items) != 1 }, func() bool { return page.Items[0].MappingAction != nil }), "collections = %d %s", collectionsResponse.Code, collectionsResponse.Body.String())
 	var platformInstanceID string
-	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&platformInstanceID); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY created_at_ms,id LIMIT 1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
 	mappingBody, _ := json.Marshal(map[string]any{"mappings": []map[string]any{{"collectionId": page.Items[0].ID, "action": "IMPORT", "platformInstanceId": platformInstanceID, "tagIds": []string{}}}})

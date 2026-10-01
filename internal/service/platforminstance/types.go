@@ -16,7 +16,6 @@ var (
 	ErrSlugExhausted      = errors.New("platform slug space exhausted")
 	ErrNotFound           = errors.New("platform instance not found")
 	ErrVersionConflict    = errors.New("platform instance version conflict")
-	ErrOrderStale         = errors.New("platform instance order stale")
 	ErrNotEmpty           = errors.New("platform instance is not empty")
 	ErrImpactStale        = errors.New("platform impact is stale")
 	ErrInvalidCore        = errors.New("platform core is invalid")
@@ -74,7 +73,6 @@ type Instance struct {
 	Name                string                               `json:"name"`
 	Slug                string                               `json:"slug"`
 	Description         string                               `json:"description"`
-	SortOrder           int64                                `json:"sortOrder"`
 	Enabled             bool                                 `json:"enabled"`
 	GameCount           int64                                `json:"gameCount"`
 	SupportedExtensions []string                             `json:"supportedExtensions"`
@@ -119,5 +117,4 @@ type CreateInput struct {
 	DefaultCoreID string
 	Name          string
 	Description   string
-	SortOrder     int64
 }

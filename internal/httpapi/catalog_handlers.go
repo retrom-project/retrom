@@ -81,7 +81,7 @@ func (server *Server) platformInstances(writer http.ResponseWriter, request *htt
 			"id": instance.ID, "platformId": instance.PlatformID, "platformName": instance.PlatformName,
 			"defaultCoreId": instance.DefaultCoreID, "defaultCoreName": instance.DefaultCoreName,
 			"name": instance.Name, "slug": instance.Slug, "description": instance.Description,
-			"sortOrder": instance.SortOrder, "enabled": instance.Enabled,
+			"createdAtMs": instance.CreatedAtMS, "enabled": instance.Enabled,
 			"version": instance.Version, "updatedAtMs": instance.UpdatedAtMS,
 			"gameCount": instance.GameCount, "supportedExtensions": instance.SupportedExtensions,
 			"importCapabilities": instance.ImportCapabilities,

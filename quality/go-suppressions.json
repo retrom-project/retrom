@@ -48,7 +48,7 @@
     },
     {
       "path": "internal/persistence/platforminstance/write.go",
-      "line": 144,
+      "line": 143,
       "symbol": "func nullableJSON(value any) (any, error)",
       "linter": "nilnil",
       "reason": "Platform audit JSON projections use a nil value to persist SQL NULL for absent optional data.",

@@ -1404,7 +1404,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Platform directory summaries ordered by sortOrder; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core. */
+        /** @description Platform directory summaries ordered by createdAtMs ascending, then id ascending; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core. */
         get: operations["getAdminPlatformInstances"];
         put?: never;
         post: operations["postAdminPlatformInstance"];
@@ -1442,23 +1442,6 @@ export interface paths {
         put?: never;
         /** @description Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories. */
         post: operations["postAdminPlatformInstanceRecommendationsApply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/platform-instances/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions. */
-        put: operations["putAdminPlatformInstanceOrder"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3249,8 +3232,6 @@ export interface components {
             defaultCoreId: string;
             name: string;
             description: string;
-            /** Format: int64 */
-            sortOrder: number;
         };
         PlatformDirectoryReference: {
             id: string;
@@ -3292,8 +3273,6 @@ export interface components {
             name: string;
             slug: string;
             description: string;
-            /** Format: int64 */
-            sortOrder: number;
             enabled: boolean;
             /** Format: int64 */
             gameCount: number;
@@ -3321,18 +3300,7 @@ export interface components {
         PatchPlatformInstanceRequest: {
             name?: string;
             description?: string;
-            /** Format: int64 */
-            sortOrder?: number;
             enabled?: boolean;
-        };
-        ReorderPlatformInstanceItem: {
-            /** Format: uuid */
-            id: string;
-            /** Format: int64 */
-            version: number;
-        };
-        ReorderPlatformInstancesRequest: {
-            items: components["schemas"]["ReorderPlatformInstanceItem"][];
         };
         DefaultCorePreviewRequest: {
             coreId: string;
@@ -5221,11 +5189,6 @@ export interface components {
                 "application/json": components["schemas"]["PatchPlatformInstanceRequest"];
             };
         };
-        ReorderPlatformInstances: {
-            content: {
-                "application/json": components["schemas"]["ReorderPlatformInstancesRequest"];
-            };
-        };
         DefaultCorePreview: {
             content: {
                 "application/json": components["schemas"]["DefaultCorePreviewRequest"];
@@ -7046,18 +7009,6 @@ export interface operations {
         requestBody: components["requestBodies"]["Empty"];
         responses: {
             200: components["responses"]["PlatformInstanceRecommendationsApplyResponse"];
-        };
-    };
-    putAdminPlatformInstanceOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReorderPlatformInstances"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
         };
     };
     getAdminPlatformInstance: {

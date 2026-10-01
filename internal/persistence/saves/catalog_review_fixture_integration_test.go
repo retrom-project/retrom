@@ -29,8 +29,8 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES(?,'local',?,'Save Admin','ADMIN','ENABLED',?,?)`, userID, "save-admin-"+userID[:8], now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms,catalog_template_key)
-VALUES(?,'rpgmaker','rpgmaker','RPG Maker 2000 Save','rpg-maker-save-test',999,1,1,?,?,NULL)`,
+ id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms,catalog_template_key)
+VALUES(?,'rpgmaker','rpgmaker','RPG Maker 2000 Save','rpg-maker-save-test',1,1,?,?,NULL)`,
 		ids["directory"], now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO upload_sessions(

@@ -20,9 +20,8 @@ func TestDeclaredCoreCanBeAddedToInitializedDatabaseWithoutSchemaChange(t *testi
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `
-INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,description,
-sort_order,enabled,version,created_at_ms,updated_at_ms)
-VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',42,0,1,1,1);
+INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,description,enabled,version,created_at_ms,updated_at_ms)
+VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',0,1,1,1);
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -66,17 +65,17 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 func assertExtensionPreservesFolder(t *testing.T, database dbapi.DB, schemaBefore string) {
 	t.Helper()
 	var schemaAfter, folderName, coreID string
-	var enabled, order, schemaVersion int
+	var enabled, createdAt, schemaVersion int
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaAfter); err != nil {
 		t.Fatal(err)
 	}
-	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,default_core_id,enabled,sort_order FROM platform_instances WHERE id='custom'`).Scan(&folderName, &coreID, &enabled, &order); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,default_core_id,enabled,created_at_ms FROM platform_instances WHERE id='custom'`).Scan(&folderName, &coreID, &enabled, &createdAt); err != nil {
 		t.Fatal(err)
 	}
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT max(version) FROM schema_migrations`).Scan(&schemaVersion); err != nil {
 		t.Fatal(err)
 	}
-	if schemaAfter != schemaBefore || schemaVersion != 17 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || order != 42 {
+	if schemaAfter != schemaBefore || schemaVersion != 17 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || createdAt != 1 {
 		t.Fatal("catalog update changed schema or user configuration")
 	}
 }
@@ -116,7 +115,7 @@ func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms) VALUES('custom','gbc','gambatte','My folder','custom',1,1,1,1,1)`); err != nil {
+	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms) VALUES('custom','gbc','gambatte','My folder','custom',1,1,1,1)`); err != nil {
 		t.Fatal(err)
 	}
 	candidate := projectionFixture("1.1.0", "b", []string{"state-v1"})

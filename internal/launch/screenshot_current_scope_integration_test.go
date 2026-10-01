@@ -20,8 +20,8 @@ func assertScreenshotFollowsCurrentDirectory(t *testing.T, database dbapi.DB, im
 		t.Fatalf("original screenshot projection=%+v error=%v", before, err)
 	}
 	const other = "01980000-0000-7000-8000-000000009994"
-	if _, err := database.ExecContext(ctx, `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)
-SELECT ?,platform_id,default_core_id,'Other directory','other-directory',0,1,1,0,0
+	if _, err := database.ExecContext(ctx, `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms)
+SELECT ?,platform_id,default_core_id,'Other directory','other-directory',1,1,0,0
 FROM platform_instances WHERE id=?`, other, before.PlatformInstance.ID); err != nil {
 		t.Fatal(err)
 	}
