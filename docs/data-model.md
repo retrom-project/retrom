@@ -104,7 +104,7 @@ ScummVM 选择在带草稿版本检查的事务中更新当前 profile，不生�
 
 ### 服务器 metadata 扫描证据
 
-`source_imports` 的 `format=PEGASUS|GAMELIST` 只选择解析器；Collection、Item、file、asset、metadata evidence 共用 `source_import_*` 表。通用 jobs 使用 `IMPORT_SCAN/IMPORT_RECEIVE`，不再创建格式专属任务表。
+`source_imports` 的 `format=BASIC|PEGASUS|GAMELIST` 只选择扫描器；`extension_filter` 保存 BASIC 的规范小写扩展名筛选，使用分号分隔、去重并排序，其他格式必须为空。BASIC 不生成 metadata evidence；所选目录形成一个 Collection（`metadata_relative_path=.`），每个符合筛选的文件形成一个 Item（该位置字段保存文件相对路径），文件 facts 与大小进入既有 source 文件快照。Collection、Item、file、asset、metadata evidence 共用 `source_import_*` 表。通用 jobs 使用 `IMPORT_SCAN/IMPORT_RECEIVE`，不再创建格式专属任务表。
 
 `source_import_metadata_files` 保存来源相对路径、实际大小、文件特征、解析状态与错误。大小不超过 8 MiB 的记录必须保存内容摘要；仅超过该上限且状态为 `INVALID/PEGASUS_METADATA_TOO_LARGE` 或 `INVALID/EMULATIONSTATION_GAMELIST_TOO_LARGE` 时允许摘要为 NULL，此时扫描和启动重验都不得读取超限内容。无摘要不能表示正常 metadata 或其他解析错误，相关组合由表级 CHECK 保证。
 

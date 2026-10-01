@@ -3358,7 +3358,9 @@ export interface components {
         };
         CreateSourceImportRequest: {
             /** @enum {string} */
-            format: "PEGASUS" | "GAMELIST";
+            format: "BASIC" | "PEGASUS" | "GAMELIST";
+            /** @description Only BASIC accepts suffixes with one leading dot, separated by semicolons. Empty allows all files. */
+            extensionFilter?: string;
             rootId: string;
             sourceRelativePath: string;
         };
@@ -3556,8 +3558,9 @@ export interface components {
             videos: number;
         };
         SourceImportSummary: {
+            extensionFilter: string;
             /** @enum {string} */
-            format: "PEGASUS" | "GAMELIST";
+            format: "BASIC" | "PEGASUS" | "GAMELIST";
             /** Format: uuid */
             id: string;
             root: {

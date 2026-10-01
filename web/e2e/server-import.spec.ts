@@ -147,6 +147,7 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await selectServerSource(drawer, "Games");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("PEGASUS");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const createdPlan = await (await scanResponse).json() as { id: string };
   const footerClose = drawer.locator("footer").getByRole("button", { name: "关闭", exact: true });
@@ -345,6 +346,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
   await selectServerSource(drawer, "Playable");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Playable")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("PEGASUS");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const plan = await (await scanResponse).json() as { id: string };
 

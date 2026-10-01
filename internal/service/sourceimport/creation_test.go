@@ -42,7 +42,7 @@ func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
 	repo := &creationMemory{}
 	source := &creationSource{}
 	now := time.UnixMilli(123)
-	value, err := NewCreation(repo, source, func() time.Time { return now }).Create(t.Context(), CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, "actor")
+	value, err := NewCreation(repo, source, func() time.Time { return now }).Create(t.Context(), CreateRequest{Format: "PEGASUS", RootID: "games", SourceRelativePath: "Roms"}, "actor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
 func TestCreationRejectsCapacityWithinWriteScope(t *testing.T) {
 	t.Parallel()
 	repo := &creationMemory{count: 20}
-	value, err := NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), CreateRequest{}, "actor")
+	value, err := NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), CreateRequest{Format: "PEGASUS"}, "actor")
 	if !errors.Is(err, ErrActive) || value.ID != "" || repo.inserted {
 		t.Fatalf("capacity: %#v, %v, inserted=%v", value, err, repo.inserted)
 	}
@@ -89,7 +89,7 @@ func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 			case "commit":
 				repo.commitErr = cause
 			}
-			value, err := NewCreation(repo, source, time.Now).Create(t.Context(), CreateRequest{}, "actor")
+			value, err := NewCreation(repo, source, time.Now).Create(t.Context(), CreateRequest{Format: "PEGASUS"}, "actor")
 			if !errors.Is(err, cause) || value.ID != "" {
 				t.Fatalf("failed creation: %#v, %v", value, err)
 			}

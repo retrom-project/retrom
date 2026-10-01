@@ -38,7 +38,7 @@ func TestServiceSignalsOnlyCommittedNewWork(t *testing.T) {
 			service := New(ServiceDependencies{Creation: fake, Starter: fake, Worker: serviceWake{fake}})
 			var err error
 			if name == "create failed" || name == "create committed" {
-				_, err = service.Create(t.Context(), CreateRequest{}, "actor")
+				_, err = service.Create(t.Context(), CreateRequest{Format: "PEGASUS"}, "actor")
 			} else {
 				_, err = service.StartImport(t.Context(), "import", 1, "actor")
 			}

@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrNotFound        = errors.New("SOURCE_IMPORT_NOT_FOUND")
 	ErrMetadataAbsent  = errors.New("PEGASUS_METADATA_NOT_FOUND")
+	ErrFilesAbsent     = errors.New("BASIC_FILES_NOT_FOUND")
 	ErrScanLimit       = errors.New("PEGASUS_SCAN_LIMIT_EXCEEDED")
 	ErrMapping         = errors.New("SOURCE_MAPPING_INCOMPLETE")
 	ErrVersionConflict = errors.New("VERSION_CONFLICT")

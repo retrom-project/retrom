@@ -644,15 +644,15 @@ Arcade DAT 不在 Web 后台暴露列表、上传、差异、启用或回滚入�
 
 统一准备任务条目操作列的“审核并决定”和“处理运行问题”占满同一操作列，保持等宽，按钮文字使用 14px 字号。
 
-“游戏入库”子菜单为“导入游戏、本地扫描、任务进度、待审核”。`/admin/imports/server` 并列显示 BIOS 和游戏文件两张能力卡。游戏文件卡统一准备审核事项，Drawer 第一步显式选择 Pegasus (`metadata.pegasus.txt`) 或 gamelist.xml 文件组织格式；后续目录浏览、Collection 映射、标签、计划确认和任务详情复用同一组件与通用接口。Collection 映射与普通导入共用按平台类型折叠的目录选择器，可跨类型搜索目录、平台和核心；“跳过此集合”与清除选择为独立操作，不属于目录分类。映射菜单浮在控件上方，展开和收起不得改变 Collection 卡片高度或滚动位置；选中目录后，默认标签输入框位于处理方式正下方，并与其等宽等高。游戏不会自动发布，来源命令不会执行。格式只用于扫描入口和计划摘要；审核页显示“来源文件”和 Collection 名称。所有游戏扫描计划合并分页，格式不建立独立任务区。`?action=bios` 打开 BIOS Drawer，`?action=source` 打开游戏文件 Drawer。
+“游戏入库”子菜单为“导入游戏、本地扫描、任务进度、待审核”。`/admin/imports/server` 并列显示 BIOS 和游戏文件两张能力卡。游戏文件卡统一准备审核事项，Drawer 第一步显式选择 basic、metadata.pegasus.txt 或 gamelist.xml 文件组织格式；后续目录浏览、Collection 映射、标签、计划确认和任务详情复用同一组件与通用接口。Collection 映射与普通导入共用按平台类型折叠的目录选择器，可跨类型搜索目录、平台和核心；“跳过此集合”与清除选择为独立操作，不属于目录分类。映射菜单浮在控件上方，展开和收起不得改变 Collection 卡片高度或滚动位置；选中目录后，默认标签输入框位于处理方式正下方，并与其等宽等高。游戏不会自动发布，来源命令不会执行。格式只用于扫描入口和计划摘要；审核页显示“来源文件”和 Collection 名称。所有游戏扫描计划合并分页，格式不建立独立任务区。`?action=bios` 打开 BIOS Drawer，`?action=source` 打开游戏文件 Drawer。
 
-创建 Drawer 使用 root radio、面包屑和直接子目录分页浏览，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
+创建 Drawer 使用面包屑和直接子目录分页浏览，移除固定服务器文件系统 radio，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
 
 `/admin/imports/server/:id` 通过 Job SSE 展示真实阶段/计数，断线保留内容并重连，离页不取消。详情摘要区分导入、无需变更、未找到、需核对和失败；结果及候选每页最多 50 条，服务端筛选写入 URL，候选弹层展示相对路径、hash/DAT entry 证据、rank 与未选原因。取消确认明确不回滚已提交 Installation，retry 只在服务端声明可用时出现。
 
 BIOS FULL_CATALOG 首屏和续页固定 100 条；距底部 600px 自动拉取，Set 去重且同时只有一个请求。切换 scope/query/filter 时取消旧请求和等待中的计时器并清空 cursor；首分页筛选请求等待 250ms，连续输入只提交最终条件，首次 SSR hydration 不重复取数；追加失败保留旧页并可用相同 cursor 重试。IntersectionObserver 不可用和纯键盘场景必须可用“加载更多”，`aria-live` 播报新增/完成。1280×800 只允许结果表自身横向滚动，页面不得溢出；2560×1440 与物理 4K、150% scale 场景遵循统一后台画布，且减少动画模式关闭非必要过渡。
 
-游戏文件 Drawer 为 760px 右侧三步流程：“选择目录 → 检查与映射 → 确认审核计划”。第一步复用 root radio、面包屑和直接子目录浏览，只展示 root label 与相对路径；开始扫描后可关闭 Drawer，重新打开时恢复该 SCANNING/AWAITING_MAPPING 计划。Drawer 打开期间必须锁定背景滚动并保留滚动条宽度；同一计划的轮询摘要更新不得重建 Drawer、转移焦点或重置尚未提交的映射。第二步展示每个 Collection 的游戏数、问题数和明确的游戏平台目录选择；不设默认映射，所有 Collection 都选择后才可继续，提交用计划 ETag 并按最多 100 条分批。该步骤在 Collection 列表之前提供“批量添加默认标签”：管理员选择既有活动标签并显式应用后，以 union 语义追加到全部当前未跳过 Collection（包括尚未选择处理方式者），不得覆盖已有选择；下方 Collection TagPicker 继续支持逐项增删，切换为 `SKIP` 必须清空该项标签。第三步以清晰摘要确认来源、处理/跳过数量、默认标签覆盖的 Collection/游戏数、可处理/源内容阻断、封面/视频、预计读取量和“全部进入待审核，由管理员逐项决定”的发布方式；主按钮为“开始准备审核事项”，正文明确后台不会创建游戏，不让浏览器解析 metadata 或决定兼容性。
+游戏文件 Drawer 为 760px 右侧三步流程：“选择目录 → 检查与映射 → 确认审核计划”。第一步保留面包屑和直接子目录浏览，移除只有一个固定选项的服务器文件系统 radio，只在目录摘要展示 root label 与相对路径。文件组织格式下拉框默认未选择，只有 `basic`、`metadata.pegasus.txt`、`gamelist.xml` 三个选项，明确选择前扫描按钮禁用。右侧为扩展名筛选文本框，仅选择 basic 后启用；填写规则使用输入框内的 placeholder 提示（如 `.nes;.zip`、留空允许全部扩展名），不在下方额外占用空间；窄屏上下排列，其他格式不应用筛选内容。开始扫描后可关闭 Drawer，重新打开时恢复该 SCANNING/AWAITING_MAPPING 计划。Drawer 打开期间必须锁定背景滚动并保留滚动条宽度；同一计划的轮询摘要更新不得重建 Drawer、转移焦点或重置尚未提交的映射。第二步展示每个 Collection 的游戏数、问题数和明确的游戏平台目录选择；不设默认映射，所有 Collection 都选择后才可继续，提交用计划 ETag 并按最多 100 条分批。该步骤在 Collection 列表之前提供“批量添加默认标签”：管理员选择既有活动标签并显式应用后，以 union 语义追加到全部当前未跳过 Collection（包括尚未选择处理方式者），不得覆盖已有选择；下方 Collection TagPicker 继续支持逐项增删，切换为 `SKIP` 必须清空该项标签。第三步以清晰摘要确认来源、处理/跳过数量、默认标签覆盖的 Collection/游戏数、可处理/源内容阻断、封面/视频、预计读取量和“全部进入待审核，由管理员逐项决定”的发布方式；主按钮为“开始准备审核事项”，正文明确后台不会创建游戏，不让浏览器解析 metadata 或决定兼容性。
 
 `/admin/imports/server/source/:id` 展示阶段、计数和映射快照，通过 SSE 更新并在断线时有界轮询；处于 `AWAITING_MAPPING` 时，详情头必须提供“继续映射”，直接为当前计划打开第二步 Drawer，不得要求重新选择目录或重新扫描。未保存的映射仍须重新选择；已经完整保存映射的计划恢复后直接进入第三步确认。过滤条件 `q/outcome/warning/collectionId` 写入 URL。条目每页最多 50 条，展示 Collection、目标游戏平台、来源相对路径、准备/审核结果、已有/新游戏链接以及 cover/video 的 READY、MISSING、WARNING 文本状态。任务完成且仍有待审核项时，页首显示独立紫色审核行动区，说明“内容已准备好，但尚未进入游戏库”，主操作“审核 N 个游戏”进入 `/admin/reviews?sourceImportId=:id`；每个 `REVIEW_PENDING` 行另提供“审核并决定”或“处理运行问题”。快速审批只在统一待审核页对全局待审队列提供，来源详情不复制按钮或发布状态机。摘要按“扫描范围 / 等待审核 / 已发布·已丢弃·已存在 / 源内容阻断·任务失败”分组，避免把任务准备完成误读为已发布。
 
@@ -712,7 +712,7 @@ Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · �
 
 RPG Maker 七版本核心选择、项目导入、审核验证、运行依赖、Player checkpoint 与恢复 UI 执行 `ACC-RPG-001`–`012`；每世代恢复必须展示并证明 A→B 保存→C→不同 Launch 回到 B，而不是只显示“恢复成功”toast。
 
-UI、导航、桌面/4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-011`；手机/平板 App Shell、逐页响应式布局、管理流程、方向门禁与移动横屏 Player 执行 `ACC-MOB-001`–`ACC-MOB-007`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；Pegasus 三步流程、详情、恢复与产品链执行 `ACC-PEG-005/006`，gamelist.xml 的通用 Drawer/详情/审核、多尺寸与目录到 Player 执行 `ACC-ES-005/006`，游戏视频策略执行 `ACC-MEDIA-001`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。
+UI、导航、桌面/4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-011`；手机/平板 App Shell、逐页响应式布局、管理流程、方向门禁与移动横屏 Player 执行 `ACC-MOB-001`–`ACC-MOB-007`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；basic 无组织目录筛选与统一审核执行 `ACC-BASIC-001`；Pegasus 三步流程、详情、恢复与产品链执行 `ACC-PEG-005/006`，gamelist.xml 的通用 Drawer/详情/审核、多尺寸与目录到 Player 执行 `ACC-ES-005/006`，游戏视频策略执行 `ACC-MEDIA-001`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。
 
 来源准备任务结果行的操作采用紧凑公共按钮：待审核为主按钮，已发布或已有游戏为次要按钮。状态单元格只展示生命周期标签，不重复追加等待提示或泛化失败文案；实际诊断由状态旁的“查看原因”打开覆盖式侧栏，关闭或 Escape 后焦点返回；有无诊断及打开诊断都不得改变结果行高度。无诊断时不渲染入口和空容器。首页主卡的时间、详情与启动操作集中在同一内容区，错误提示按内容自然展开。
 

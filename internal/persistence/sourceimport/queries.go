@@ -13,7 +13,7 @@ import (
 )
 
 const summaryQuery = `
-SELECT import.id,import.format,import.root_id,import.root_label_snapshot,
+SELECT import.id,import.format,import.extension_filter,import.root_id,import.root_label_snapshot,
 import.source_relative_path,import.state,import.phase,
 import.scan_job_id,import.import_job_id,import.metadata_count,import.invalid_metadata_count,import.collection_count,
 import.game_count,import.estimated_source_bytes,import.mapped_collection_count,import.skipped_collection_count,
@@ -38,7 +38,8 @@ func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 	var importJobID, phase, errorCode sql.NullString
 	var retryable int
 	if err := row.Scan(
-		&result.ID, &result.Format, &result.Root.ID, &result.Root.Label, &result.SourceRelativePath, &result.State, &phase,
+		&result.ID, &result.Format, &result.ExtensionFilter, &result.Root.ID, &result.Root.Label,
+		&result.SourceRelativePath, &result.State, &phase,
 		&result.ScanJobID, &importJobID, &result.Counts.Metadata, &result.Counts.InvalidMetadata,
 		&result.Counts.Collections, &result.Counts.Games, &result.Counts.EstimatedSourceBytes,
 		&result.Counts.MappedCollections, &result.Counts.SkippedCollections, &result.Counts.Processable,

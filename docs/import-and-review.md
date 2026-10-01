@@ -9,9 +9,9 @@
 
 ## 1. 边界
 
-浏览器单文件、目录和服务器组织格式共用一条导入链路。UploadSession/UploadFile 只负责传输；接收成功时在同一事务写入独立的 `import_files`，保存会话、规范相对路径、Blob、大小和接收时间，不保存 Pegasus/gamelist 格式。分组、校验、审核、重配置都从此表读取，未完成上传不能进入该表。
+浏览器单文件、目录和服务器组织格式共用一条导入链路。UploadSession/UploadFile 只负责传输；接收成功时在同一事务写入独立的 `import_files`，保存会话、规范相对路径、Blob、大小和接收时间，不保存服务器文件组织格式。分组、校验、审核、重配置都从此表读取，未完成上传不能进入该表。
 
-Pegasus 与 gamelist.xml 只负责把文件组织、文字元数据和媒体引用解析为统一的扫描投影。它们共享 `source_imports` 计划、`source_import_items` 和通用 `jobs` 中的 `IMPORT_SCAN/IMPORT_RECEIVE`，使用同一 Worker、映射、复制、取消、重试与恢复。文件接收后复用 `ImportPreparation/ImportCreations`，生成同一 `import_jobs/import_items`；下游不按格式选择上传或审核流。
+BASIC 递归发现所选目录的普通文件，按显式扩展名筛选投影为一个待映射集合，每个文件形成单文件候选，不解析 metadata、不猜测媒体或游戏平台；没有符合筛选的普通文件时扫描以 `BASIC_FILES_NOT_FOUND` 失败，可调整目录或筛选后重新扫描；文件名去掉末尾扩展名作为标题。扫描边界沿用 no-follow、取消、100,000 条目与 2 TiB 上限，接收前按冻结 facts 检查变化。Pegasus 与 gamelist.xml 只负责把文件组织、文字元数据和媒体引用解析为统一的扫描投影。三种格式共享 `source_imports` 计划、`source_import_items` 和通用 `jobs` 中的 `IMPORT_SCAN/IMPORT_RECEIVE`，使用同一 Worker、映射、复制、取消、重试与恢复。文件接收后复用 `ImportPreparation/ImportCreations`，生成同一 `import_jobs/import_items`；下游不按格式选择上传或审核流。
 
 导入链路将文件接收、运行依赖识别、展示元信息刮削和人工审核分开：
 
@@ -66,7 +66,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 
 同步创建、队列准备后的提交、服务器来源绑定和重新配置共用 `ImportCreations` Service 的创建规则。身份、manifest 与产物准备在事务外完成；Repository 在短事务中重验冻结的上传、目录、运行绑定、DAT 与执行权限，原子保存来源、Item、内容观察、审核、标签、刮削任务和聚合结果。提交前使用当前时钟再次核对原 execution、attempt、租约与期限；失败补偿也不能改写替代执行。读取原因必须保留，写入行数或返回主键数不能确认时回滚整个创建，提交成功后才交给受管理的刮削 worker。
 
-服务器来源创建携带显式 Pegasus 或 EmulationStation 类型。耗时准备后，提交事务重新校验最初 execution、worker、租约、冻结来源与目标事实，并将普通任务、唯一主条目和来源活动工作绑定一起提交；未完成任务重放先读取既有绑定，不能在来源 payload 已释放后重新按路径猜测普通条目。
+服务器来源创建携带统一的 Source 所有权，不向普通导入传递文件组织格式。耗时准备后，提交事务重新校验最初 execution、worker、租约、冻结来源与目标事实，并将普通任务、唯一主条目和来源活动工作绑定一起提交；未完成任务重放先读取既有绑定，不能在来源 payload 已释放后重新按路径猜测普通条目。
 
 选择器按基础平台分组，并同时展示目录名称、默认核心以及 Arcade 活动 DAT 状态。任务执行期间目录或 DAT 发生变化时，旧任务继续使用快照；审核前提示差异并要求重新验证，不能静默改用新配置。
 
@@ -151,7 +151,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - 浏览器目录上传优先从 Retrom 自绘 Dialog 调用 File System Access API 的 `showDirectoryPicker`，递归读取 `FileSystemDirectoryHandle` 并只传递以所选根目录开头的规范相对路径；Chrome / Edge 走该路径时，系统选择完成后不再出现“上传 N 个文件到此网站”的二次确认。Brave 虽基于 Chromium但禁用该 API，因此能力检测失败时回退到 `input[webkitdirectory]` 与 `File.webkitRelativePath`，并接受 Brave 自身不可绕过的原生上传确认。两条路径的选择结果都必须回到同一个 Dialog 展示根目录名、文件数、总大小和相对路径预览，管理员明确点击“使用此目录”后才进入导入配置；取消系统选择、Dialog 取消或 Escape 均不保留待确认文件。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
-- 普通用户导入不接受服务器路径；管理员无需配置目录白名单即可从服务进程可读取的文件系统选择目录，分别创建 BIOS、Pegasus 或 EmulationStation 任务。目录浏览固定使用 `filesystem`（`/`）；API 路径为去掉前导 `/` 的规范相对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
+- 普通用户导入不接受服务器路径；管理员无需配置目录白名单即可从服务进程可读取的文件系统选择目录，分别创建 BIOS 或三种格式的游戏扫描任务。目录浏览固定使用 `filesystem`（`/`）；API 路径为去掉前导 `/` 的规范相对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
 - Arcade DAT 发现 machine 依赖 disk/CHD 或 Merged ROMset 时保留文件证据并进入带 `UNSUPPORTED_CHD` / `UNSUPPORTED_MERGED_ROMSET` 的待审核 Blocker；这条只约束 Arcade ROMset，不影响 PSX/Saturn/3DO/PC-FX 明确支持的单文件 CHD。
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
@@ -450,7 +450,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 `internal/service/sourceimport.Scanner` 负责 metadata 解析、Collection/游戏投影、路径决策、媒体候选顺序及确定性快照。来源适配器只提供目录发现、metadata 读取和媒体检查，三种访问都使用共享 reader 预算并检查取消。先发现文件特征，再按路径顺序逐份读取 metadata，解析结果不跨文件保留；单份超过 8 MiB 时只登记 `INVALID/PEGASUS_METADATA_TOO_LARGE`、大小及 facts，不读取内容、不生成内容摘要，其他合法 metadata 仍可生成候选。启动时对此类记录只重验 no-follow 文件特征；正常 metadata 必须重验内容摘要。随机源失败终止扫描，已取消或被替换的执行不能继续发布投影。
 
-每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。Pegasus 与 gamelist 共用的映射界面只列启用目录，按基础平台类型折叠并提供跨类型目录/平台/核心搜索；跳过和清除选择保持独立，搜索结果不自动映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
+每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。三种格式共用的映射界面只列启用目录，按基础平台类型折叠并提供跨类型目录/平台/核心搜索；跳过和清除选择保持独立，搜索结果不自动映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
 
 启动 Service 先在短读事务中取得冻结的 root/source 摘要与有界 metadata evidence，释放数据库连接后再通过 no-follow 文件描述符、共享读取并发预算和可取消的读取重验大小、facts 与 digest。当前 root 配置必须与扫描时一致；创建 execution 前的写事务再次检查版本、到期时间、冻结摘要、活动标签和全实例执行容量，不能让校验期间过期或被修改的计划进入队列。所有 job/execution/audit ID 生成成功后，Job、不可变输入、阻断/跳过投影、计划状态、事件、操作者审计和 payload 释放登记一起提交；失败全部回滚，成功后才唤醒 worker。重复启动已执行计划返回既有状态，不重复创建 execution。
 

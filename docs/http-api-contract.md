@@ -694,7 +694,7 @@ Source route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/CS
 
 | Route | 契约 |
 | --- | --- |
-| `POST/GET /api/v1/admin/source-imports` | POST `{rootId,sourceRelativePath,format:"PEGASUS"|"GAMELIST"}` 返回 202 scan plan；GET 按 `createdAtMs DESC,id DESC`、`limit<=20` 分页并可筛 state。 |
+| `POST/GET /api/v1/admin/source-imports` | POST `{rootId,sourceRelativePath,format:"BASIC"|"PEGASUS"|"GAMELIST",extensionFilter?:string}` 返回 202 scan plan；格式必须显式选择。仅 BASIC 接受非空 `extensionFilter`，每项须为单个前导点加字母/数字/下划线/连字符扩展名，多个用 `;` 分隔；允许项间空格，大小写不敏感，留空包含全部文件（含无扩展名文件），无效值返回 `SOURCE_IMPORT_INVALID`。摘要始终返回规范 `extensionFilter`。GET 按 `createdAtMs DESC,id DESC`、`limit<=20` 分页并可筛 state。 |
 | `GET/DELETE /api/v1/admin/source-imports/{id}` | GET 返回 aggregate、两个 Job ID、phase/counts、mapping/version/expiry 与 ETag；DELETE 只删除无 execution 结果的 `AWAITING_MAPPING|EXPIRED` 投影。 |
 | `GET .../{id}/collections` | `limit<=100`，cursor 绑定 import；返回 metadata 相对路径、segment、name/shortname、game/issue 数与当前映射。 |
 | `PUT .../{id}/collection-mappings` | 最多 100 个精确 replacement；每项只能为 `IMPORT+platformInstanceId` 或 `SKIP`，没有 suggestion/default。 |

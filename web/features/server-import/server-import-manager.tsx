@@ -69,7 +69,7 @@ function ImportCapabilities({ catalogSummary, imports, onBIOSOpen, onSourceOpen,
   const mappingCount = sourceImports.filter((item) => item.state === "AWAITING_MAPPING").length;
   const reviewCount = sourceImports.reduce((total, item) => total + item.counts.reviewPending, 0);
   return <div className="server-import-capabilities"><section className="server-import-hero panel"><div><span className="eyebrow">BIOS DIRECTORY</span><h2>扫描并导入 BIOS</h2><p>从服务器目录检查完整 BIOS 目录。完整发现结束后才逐项安装；默认不会替换已有 BIOS。</p><dl className="server-import-capability-stats"><div><dt>完整目录</dt><dd>{catalogSummary.totalCount}</dd></div><div><dt>需要处理</dt><dd>{catalogSummary.attentionCount}</dd></div><div><dt>最近任务</dt><dd>{imports[0] ? stateLabels[imports[0].state] : "暂无"}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots || biosActive} onClick={onBIOSOpen}>选择目录并开始</button></section>
-    <section className="server-import-hero source-capability panel"><div><span className="eyebrow">游戏目录</span><h2>扫描并准备审核事项</h2><p>选择 Pegasus 或 gamelist.xml 格式，映射目标目录，再复制文件并运行检查。候选只进入待审核，不会自动发布。</p><dl className="server-import-capability-stats"><div><dt>可用位置</dt><dd>{availableRoots}</dd></div><div><dt>待配置计划</dt><dd>{mappingCount}</dd></div><div><dt>待逐项审核</dt><dd>{reviewCount}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots} onClick={onSourceOpen}>{resumableSource ? "继续扫描或映射" : "选择目录并扫描"}</button></section>
+    <section className="server-import-hero source-capability panel"><div><span className="eyebrow">游戏目录</span><h2>扫描并准备审核事项</h2><p>选择 basic、metadata.pegasus.txt 或 gamelist.xml 格式，映射目标目录，再复制文件并运行检查。候选只进入待审核，不会自动发布。</p><dl className="server-import-capability-stats"><div><dt>可用位置</dt><dd>{availableRoots}</dd></div><div><dt>待配置计划</dt><dd>{mappingCount}</dd></div><div><dt>待逐项审核</dt><dd>{reviewCount}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots} onClick={onSourceOpen}>{resumableSource ? "继续扫描或映射" : "选择目录并扫描"}</button></section>
     </div>;
 }
 
@@ -97,7 +97,7 @@ function ImportHistory({ canLoadMore, entries, historyLoading, onLoadMore }: { c
   return <section className="server-import-history"><div className="runtime-section-heading"><div><h2>导入历史</h2><p>任务离开页面后仍会继续；详情页会恢复实时进度。</p></div><Link href="/admin/bios">查看 BIOS 文件</Link></div>{content}</section>;
 }
 
-function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories, directoryLoading, directoryNextCursor, onClose, onCreate, onLoadMore, onPath, onReplaceIfBetter, onRoot, open, path, replaceIfBetter, rootId, roots, selectedRoot }: {
+function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories, directoryLoading, directoryNextCursor, onClose, onCreate, onLoadMore, onPath, onReplaceIfBetter, open, path, replaceIfBetter, rootId, selectedRoot }: {
   breadcrumbs: string[];
   busy: boolean;
   catalogSummary: { totalCount: number; attentionCount: number };
@@ -109,12 +109,10 @@ function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories,
   onLoadMore: () => void;
   onPath: (path: string) => void;
   onReplaceIfBetter: (value: boolean) => void;
-  onRoot: (id: string) => void;
   open: boolean;
   path: string;
   replaceIfBetter: boolean;
   rootId: string;
-  roots: ServerImportRoot[];
   selectedRoot: ServerImportRoot | undefined;
 }) {
   const drawer = useRef<HTMLElement>(null);
@@ -131,7 +129,7 @@ function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories,
   if (!directories.length && directoryLoading) {directoryContent = <p role="status"><span className="button-spinner" />正在读取子目录…</p>;}
   else if (directories.length) {directoryContent = <><ul>{directories.map((directory) => <li key={directory.relativePath}><button type="button" disabled={busy} onClick={() => onPath(directory.relativePath)}><AppIcon name="folder" /><span>{directory.name}</span></button></li>)}</ul>{directoryNextCursor ? <button type="button" className="button secondary compact server-directory-more" disabled={directoryLoading || busy} onClick={onLoadMore}>{directoryLoading ? "正在读取…" : "加载更多目录"}</button> : null}</>;}
   return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭服务器导入" disabled={busy} onClick={onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer" role="dialog" aria-modal="true" aria-labelledby="server-import-drawer-title" onKeyDown={trapFocus}><header><div><StatusBadge tone="info">服务器导入</StatusBadge><h2 id="server-import-drawer-title">选择 BIOS 所在目录</h2><p>从服务器根目录选择可读取的目录。</p></div><button id="server-import-drawer-close" type="button" className="runtime-drawer-close" aria-label="关闭" disabled={busy} onClick={onClose}><AppIcon name="x" /></button></header><div className="runtime-drawer-body">
-    <fieldset className="server-root-options"><legend>服务器位置</legend>{roots.map((root) => <label key={root.id}><input type="radio" name="server-import-root" value={root.id} checked={rootId === root.id} disabled={busy || root.status !== "AVAILABLE"} onChange={(event) => onRoot(event.target.value)} /><span><strong>{root.label}</strong><small>{root.status === "AVAILABLE" ? "可用" : "不可用"}</small></span></label>)}</fieldset>
+
     <div className="server-directory-browser"><nav aria-label="当前目录"><button type="button" onClick={() => onPath("")} disabled={!path || busy}>根目录</button>{breadcrumbs.map((part, index) => <button type="button" key={`${part}-${index}`} disabled={index === breadcrumbs.length - 1 || busy} onClick={() => onPath(breadcrumbs.slice(0, index + 1).join("/"))}>/ {part}</button>)}</nav>{directoryContent}</div>
     <label className="server-import-overwrite"><input type="checkbox" checked={replaceIfBetter} disabled={busy} onChange={(event) => onReplaceIfBetter(event.target.checked)} /><span><strong>允许使用更优候选替换已有 BIOS</strong><small>只接受严格更优候选；成功新 BIOS 将在下次启动游戏时生效，使用旧 BIOS 的运行会结束，已有存档保留。</small></span></label>
     <div className="server-import-selection-summary" aria-live="polite"><strong>{selectedRoot?.label ?? "未选择服务器位置"} / {path}</strong><span>将检查当前系统完整 BIOS 目录，共 {catalogSummary.totalCount} 项；包含可选和按需 BIOS，不只检查已导入游戏。</span></div>
@@ -157,7 +155,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialSourc
   const [historyLoading, setHistoryLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(initialOpen);
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(initialSourceOpen);
-  const [rootId, setRootId] = useState(initialRoots.find((root) => root.status === "AVAILABLE")?.id ?? "");
+  const [rootId] = useState(initialRoots.find((root) => root.status === "AVAILABLE")?.id ?? "");
   const [path, setPath] = useState("");
   const [directories, setDirectories] = useState<Directory[]>([]);
   const [directoryNextCursor, setDirectoryNextCursor] = useState<string | null>(null);
@@ -296,7 +294,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialSourc
     <ImportCapabilities catalogSummary={catalogSummary} imports={imports} onBIOSOpen={() => setDrawerOpen(true)} onSourceOpen={() => setSourceDrawerOpen(true)} sourceImports={sourceImports} resumableSource={resumableSource} roots={roots} />
     <ImportRoots roots={roots} />
     <ImportHistory canLoadMore={Boolean(historyCursor || sourceHistoryCursor)} entries={mergedHistory} historyLoading={historyLoading} onLoadMore={() => void loadMoreHistory()} />
-    <ServerDirectoryDrawer breadcrumbs={breadcrumbs} busy={busy} catalogSummary={catalogSummary} directories={directories} directoryLoading={directoryLoading} directoryNextCursor={directoryNextCursor} onClose={closeDrawer} onCreate={() => void createImport()} onLoadMore={() => void loadMoreDirectories()} onPath={setPath} onReplaceIfBetter={setReplaceIfBetter} onRoot={(id) => { setRootId(id); setPath(""); }} open={drawerOpen} path={path} replaceIfBetter={replaceIfBetter} rootId={rootId} roots={roots} selectedRoot={selectedRoot} />
+    <ServerDirectoryDrawer breadcrumbs={breadcrumbs} busy={busy} catalogSummary={catalogSummary} directories={directories} directoryLoading={directoryLoading} directoryNextCursor={directoryNextCursor} onClose={closeDrawer} onCreate={() => void createImport()} onLoadMore={() => void loadMoreDirectories()} onPath={setPath} onReplaceIfBetter={setReplaceIfBetter} open={drawerOpen} path={path} replaceIfBetter={replaceIfBetter} rootId={rootId} selectedRoot={selectedRoot} />
     {sourceDrawerOpen ? <SourceImportDrawer open roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumableSource} onClose={() => setSourceDrawerOpen(false)} onStarted={(summary: SourceImportSummary) => setSourceImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} /> : null}
     <Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} />
   </div>;

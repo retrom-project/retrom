@@ -13,6 +13,7 @@ import (
 type (
 	CreateRequest struct {
 		Format             string `json:"format"`
+		ExtensionFilter    string `json:"extensionFilter"`
 		RootID             string `json:"rootId"`
 		SourceRelativePath string `json:"sourceRelativePath"`
 	}
@@ -52,9 +53,11 @@ func NewCreation(
 }
 
 func (service *Creation) Create(ctx context.Context, request CreateRequest, actorID string) (Summary, error) {
-	if request.Format != "" && request.Format != "PEGASUS" && request.Format != "GAMELIST" {
-		return Summary{}, ErrInvalid
+	filter, err := NormalizeExtensionFilter(request.Format, request.ExtensionFilter)
+	if err != nil {
+		return Summary{}, err
 	}
+	request.ExtensionFilter = filter
 	root, err := service.sources.Select(ctx, request.RootID, request.SourceRelativePath)
 	if err != nil {
 		return Summary{}, fmt.Errorf("select Source source: %w", err)

@@ -137,7 +137,11 @@ components:
       properties:
         format:
           type: string
-          enum: [PEGASUS, GAMELIST]
+          enum: [BASIC, PEGASUS, GAMELIST]
+        extensionFilter:
+          type: string
+          maxLength: 2048
+          description: Only BASIC accepts suffixes with one leading dot, separated by semicolons. Empty allows all files.
         rootId:
           type: string
           pattern: ^[a-z][a-z0-9-]{0,31}$
@@ -294,6 +298,7 @@ components:
       required:
         - id
         - format
+        - extensionFilter
         - root
         - sourceRelativePath
         - state
@@ -311,9 +316,12 @@ components:
         - expiresAtMs
         - completedAtMs
       properties:
+        extensionFilter:
+          type: string
+          maxLength: 2048
         format:
           type: string
-          enum: [PEGASUS, GAMELIST]
+          enum: [BASIC, PEGASUS, GAMELIST]
         id:
           type: string
           format: uuid
