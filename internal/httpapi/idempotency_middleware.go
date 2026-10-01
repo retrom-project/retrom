@@ -30,6 +30,7 @@ var domainIdempotencyOperations = map[string]struct{}{
 	"postRuntimeSaveState":                          {},
 	"postAdminGameContentReplacement":               {},
 	"postAdminPlatformInstanceRecommendationsApply": {},
+	"postAdminPlatformInstance":                     {},
 	"postFavoriteOrganize":                          {},
 	"postFavoriteUnfavorite":                        {},
 	"postFavoriteRestore":                           {},

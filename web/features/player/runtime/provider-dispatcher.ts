@@ -127,7 +127,7 @@ function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asse
   if (!record(value)) {throw invalidModule();}
   for (const method of [
     "mount", "pause", "resume", "checkpoint", "screenshot", "exit", "getState", "getCapabilities",
-    "getCheckpointAvailability", "getCanvas", "getFrameCount", "setVolume", "setVideoMode",
+    "getCheckpointAvailability", "getInputCapabilities", "getCanvas", "getFrameCount", "setVolume", "setVideoMode",
     "openNativeSettings", "closeNativeSettings", "getDiscState", "switchDisc", "setInputFilter",
     "subscribe",
   ]) {

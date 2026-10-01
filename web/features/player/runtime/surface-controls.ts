@@ -3,7 +3,6 @@ import type {PlayerRuntimeV1} from "./contract";
 
 type RuntimeSurfaceControlOptions = {
   experience: "standard" | "immersive";
-  keyboardPauseShortcut?: boolean;
   onKeyboardPause: () => void;
   onImmersiveMenuShortcut: () => void;
   onRevealControls: (clientY: number) => void;
@@ -18,15 +17,16 @@ export function installRuntimeSurfaceControls(
   const frameDocument = runtime.getCanvas()?.ownerDocument;
   if (!frameDocument) {return () => undefined;}
   const keydown = (event: KeyboardEvent) => {
+    const shortcuts = runtime.getInputCapabilities().hostShortcuts;
     if (options.experience === "immersive") {
-      if (event.key.toLowerCase() !== "m") {return;}
+      if (!shortcuts.includes("MENU") || !isShortcut(event, "KeyM")) {return;}
       event.preventDefault();
       event.stopImmediatePropagation();
       options.onImmersiveMenuShortcut();
       return;
     }
     if (shouldRevealPlayerControlsForKey(event.key)) {options.onShowControls();}
-    if (options.keyboardPauseShortcut === false || !isPauseShortcut(event)) {return;}
+    if (!shortcuts.includes("PAUSE") || !isShortcut(event, "KeyP")) {return;}
     event.preventDefault();
     event.stopImmediatePropagation();
     options.onKeyboardPause();
@@ -50,8 +50,8 @@ export function installRuntimeSurfaceControls(
   };
 }
 
-function isPauseShortcut(event: KeyboardEvent) {
-  if (event.code !== "KeyP" || event.repeat || event.isComposing ||
+function isShortcut(event: KeyboardEvent, code: "KeyP" | "KeyM") {
+  if (event.code !== code || event.repeat || event.isComposing ||
     event.ctrlKey || event.altKey || event.metaKey) {return false;}
   const target = event.target as {closest?: (selectors: string) => Element | null} | null;
   return !(typeof target?.closest === "function" &&

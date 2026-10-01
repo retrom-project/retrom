@@ -26,6 +26,7 @@ paths:
     post:
       security: []
       operationId: postAuthInitialize
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/AuthInitialize'
       responses:
@@ -35,6 +36,7 @@ paths:
     post:
       security: []
       operationId: postAuthLogin
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/AuthLogin'
       responses:
@@ -44,6 +46,7 @@ paths:
     post:
       security: []
       operationId: postAuthLogout
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: ../components/common.yaml#/components/requestBodies/Empty
       responses:
@@ -52,6 +55,7 @@ paths:
   /api/v1/auth/change-password:
     post:
       operationId: postAuthChangePassword
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/AuthChangePassword'
       responses:
@@ -61,6 +65,7 @@ paths:
     post:
       security: []
       operationId: postAuthAccountLinkInspect
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/AccountLinkInspect'
       responses:
@@ -70,6 +75,7 @@ paths:
     post:
       security: []
       operationId: postAuthInvitationAccept
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/InvitationAccept'
       responses:
@@ -79,6 +85,7 @@ paths:
     post:
       security: []
       operationId: postAuthPasswordResetComplete
+      x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/PasswordResetComplete'
       responses:
@@ -102,6 +109,7 @@ paths:
           $ref: '#/components/responses/AccountLinkListResponse'
     post:
       operationId: postAdminInvitation
+      x-retrom-max-body-bytes: 32768
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
         - $ref: ../components/common.yaml#/components/parameters/CSRFToken
@@ -133,6 +141,7 @@ paths:
           $ref: '#/components/responses/AdminUserResponse'
     patch:
       operationId: patchAdminUser
+      x-retrom-max-body-bytes: 32768
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -144,6 +153,7 @@ paths:
           $ref: '#/components/responses/AdminUserResponse'
     delete:
       operationId: deleteAdminUser
+      x-retrom-max-body-bytes: 32768
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -167,6 +177,7 @@ paths:
           $ref: '#/components/responses/AccountLinkListResponse'
     post:
       operationId: postAdminUserPasswordResetLink
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -181,6 +192,7 @@ paths:
       - $ref: '#/components/parameters/AccountLinkID'
     delete:
       operationId: deleteAdminAccountLink
+      x-retrom-max-body-bytes: 32768
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey

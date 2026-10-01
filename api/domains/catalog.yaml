@@ -14,6 +14,7 @@ paths:
           $ref: '#/components/responses/TagListResponse'
     post:
       operationId: postAdminTag
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -24,6 +25,7 @@ paths:
   /api/v1/admin/tags/defaults:
     post:
       operationId: postAdminTagDefaults
+      x-retrom-max-body-bytes: 2097152
       description: Atomically creates every missing tag from the editable common-tag template and leaves existing active tags unchanged.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -42,6 +44,7 @@ paths:
           $ref: '#/components/responses/TagAdminItemResponse'
     patch:
       operationId: patchAdminTag
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -52,6 +55,7 @@ paths:
           $ref: '#/components/responses/TagAdminItemResponse'
     delete:
       operationId: deleteAdminTag
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -91,6 +95,7 @@ paths:
           $ref: '#/components/responses/AdminGameDetailResponse'
     patch:
       operationId: patchAdminGame
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
       requestBody:
@@ -100,6 +105,7 @@ paths:
           $ref: '#/components/responses/GameMutationResponse'
     delete:
       operationId: deleteAdminGame
+      x-retrom-max-body-bytes: 2097152
       description: Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -116,6 +122,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     put:
       operationId: putAdminGameTags
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -129,6 +136,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameAsset
+      x-retrom-max-body-bytes: 2097152
       description: Replaces the selected current media slot and queues newly unreferenced payload for asynchronous GC.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -156,6 +164,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameContentReplacement
+      x-retrom-max-body-bytes: 2097152
       description: Schedules an atomic complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch updates current game files and the current variant together while preserving saves; a failed replacement changes neither. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -176,6 +185,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminGameScrapeCandidates
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -190,6 +200,7 @@ paths:
       - $ref: '#/components/parameters/CandidateID'
     post:
       operationId: postAdminGameScrapeCandidateApply
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -203,6 +214,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameMovePreview
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -218,6 +230,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameMove
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -254,6 +267,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminPlatformInstance
+      x-retrom-max-body-bytes: 32768
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -271,6 +285,7 @@ paths:
   /api/v1/admin/platform-instances/recommendations/apply:
     post:
       operationId: postAdminPlatformInstanceRecommendationsApply
+      x-retrom-max-body-bytes: 2097152
       description: Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -282,6 +297,7 @@ paths:
   /api/v1/admin/platform-instances/order:
     put:
       operationId: putAdminPlatformInstanceOrder
+      x-retrom-max-body-bytes: 32768
       description: Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions.
       requestBody:
         $ref: '#/components/requestBodies/ReorderPlatformInstances'
@@ -298,6 +314,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     patch:
       operationId: patchAdminPlatformInstance
+      x-retrom-max-body-bytes: 32768
       description: Updates directory fields; enabled controls user-side visibility and may be changed while the directory contains games.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -318,6 +335,7 @@ paths:
       - $ref: '#/components/parameters/PlatformInstanceID'
     post:
       operationId: postAdminPlatformDefaultCorePreview
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
       requestBody:
@@ -330,6 +348,7 @@ paths:
       - $ref: '#/components/parameters/PlatformInstanceID'
     post:
       operationId: postAdminPlatformDefaultCore
+      x-retrom-max-body-bytes: 16384
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey

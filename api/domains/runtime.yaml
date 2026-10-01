@@ -187,6 +187,7 @@ paths:
     post:
       security: []
       operationId: postRuntimeLaunchProgress
+      x-retrom-max-body-bytes: 65536
       description: Best-effort cumulative play duration. Missing, duplicate, or reordered samples never affect launch access.
       requestBody:
         $ref: '#/components/requestBodies/PlayProgress'
@@ -213,6 +214,7 @@ paths:
     post:
       security: []
       operationId: postRuntimeMultiDiscPlayerEvent
+      x-retrom-max-body-bytes: 8192
       description: Records a closed, low-cardinality multi-disc Player result after validating the Launch cookie. Names, paths, hashes, and capabilities are not accepted.
       requestBody:
         $ref: '#/components/requestBodies/MultiDiscPlayerEvent'
@@ -224,6 +226,7 @@ paths:
       - $ref: '#/components/parameters/LaunchID'
     post:
       operationId: postLocalGameSave
+      x-retrom-max-body-bytes: 283115520
       x-retrom-streaming-body: true
       description: Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply.
       parameters:
@@ -270,6 +273,7 @@ paths:
     post:
       security: []
       operationId: postRuntimeSaveState
+      x-retrom-max-body-bytes: 283115520
       x-retrom-streaming-body: true
       description: Creates a product SaveState for INSTANT checkpoints, synchronizes the launch-bound mutable slot for GAME_SAVE, or replaces a review preview checkpoint. GAME_SAVE creates at most one slot for a fresh launch and updates the selected slot for restored launches; screenshot is required, identical payloads are deduplicated, and stale/deleted targets return SAVE_SYNC_CONFLICT (409). The successful response remains 201 for both creation and synchronization. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
       parameters:
@@ -410,6 +414,7 @@ paths:
     post:
       security: []
       operationId: postRuntimeReviewScreenshot
+      x-retrom-max-body-bytes: 10485761
       x-retrom-streaming-body: true
       description: Stores one bounded PNG or JPEG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only PNG from the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds it directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route.
       requestBody:

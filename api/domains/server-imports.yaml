@@ -32,6 +32,7 @@ paths:
           $ref: '#/components/responses/ServerImportListResponse'
     post:
       operationId: postAdminServerImport
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
         - $ref: ../components/common.yaml#/components/parameters/CSRFToken
@@ -71,6 +72,7 @@ paths:
       - $ref: '#/components/parameters/ServerImportID'
     post:
       operationId: postAdminServerImportCancel
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -87,6 +89,7 @@ paths:
       - $ref: '#/components/parameters/ServerImportID'
     post:
       operationId: postAdminServerImportRetry
+      x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -101,6 +104,7 @@ paths:
       - $ref: '#/components/parameters/RequirementID'
     post:
       operationId: postAdminBIOSInstallation
+      x-retrom-max-body-bytes: 8192
       description: Installs or replaces the current BIOS payload. Existing saves remain associated with their game and active runtime sessions are closed before the current payload changes.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch

@@ -31,8 +31,8 @@ describe("Provider-neutral runtime surface controls", () => {
     const canvas = frameWindow.document.createElement("canvas");
     frameWindow.document.body.append(canvas);
     const onKeyboardPause = vi.fn();
-    const cleanup = installRuntimeSurfaceControls(runtime(canvas), {
-      experience: "standard", keyboardPauseShortcut: false, onKeyboardPause,
+    const cleanup = installRuntimeSurfaceControls(runtime(canvas, ["MENU"]), {
+      experience: "standard", onKeyboardPause,
       onImmersiveMenuShortcut: vi.fn(), onRevealControls: vi.fn(),
       onShowControls: vi.fn(), onSurface: vi.fn(),
     });
@@ -64,6 +64,25 @@ describe("Provider-neutral runtime surface controls", () => {
   });
 });
 
-function runtime(canvas: HTMLCanvasElement) {
-  return {getCanvas: () => canvas} as PlayerRuntimeV1;
+function runtime(canvas: HTMLCanvasElement, hostShortcuts: ("PAUSE" | "MENU")[] = ["PAUSE", "MENU"]) {
+  return {getCanvas: () => canvas, getInputCapabilities: () => ({hostShortcuts})} as PlayerRuntimeV1;
 }
+
+
+it.each(["standard", "immersive"] as const)("keeps Provider-owned shortcuts available in %s mode", (experience) => {
+  const canvas = document.createElement("canvas");
+  document.body.append(canvas);
+  const onKeyboardPause = vi.fn(), onImmersiveMenuShortcut = vi.fn();
+  const player = {...runtime(canvas), getInputCapabilities: () => ({hostShortcuts: []})};
+  const cleanup = installRuntimeSurfaceControls(player, {
+    experience, onKeyboardPause, onImmersiveMenuShortcut,
+    onRevealControls: vi.fn(), onShowControls: vi.fn(), onSurface: vi.fn(),
+  });
+  const event = new KeyboardEvent("keydown", {bubbles: true, cancelable: true,
+    code: experience === "standard" ? "KeyP" : "KeyM", key: experience === "standard" ? "p" : "m"});
+  canvas.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  expect(onKeyboardPause).not.toHaveBeenCalled();
+  expect(onImmersiveMenuShortcut).not.toHaveBeenCalled();
+  cleanup(); canvas.remove();
+});

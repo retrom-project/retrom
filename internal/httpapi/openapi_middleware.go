@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -14,11 +15,16 @@ import (
 
 func handleOpenAPIValidationError(
 	_ context.Context,
-	_ error,
+	err error,
 	writer http.ResponseWriter,
 	request *http.Request,
 	options nethttpmiddleware.ErrorHandlerOpts,
 ) {
+	var oversized *http.MaxBytesError
+	if errors.As(err, &oversized) {
+		writeRequestTooLarge(writer, request)
+		return
+	}
 	if options.MatchedRoute == nil && options.StatusCode == http.StatusNotFound {
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
 		return
@@ -57,6 +63,9 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 	}
 	specification.Servers = nil
 	for documentedPath, pathItem := range specification.Paths.Map() {
+		for _, operation := range pathItem.Operations() {
+			requestBodyLimit(operation)
+		}
 		routerPath, ok := pathItem.Extensions["x-retrom-router-template"].(string)
 		if !ok || routerPath == "" || routerPath == documentedPath {
 			continue
@@ -94,13 +103,12 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		route, _, routeErr := router.FindRoute(request)
 		if routeErr == nil && route.Operation != nil {
+			if !boundOpenAPIRequestBody(writer, request, route.Operation) {
+				return
+			}
 			request = request.WithContext(
 				context.WithValue(request.Context(), operationIDContextKey, route.Operation.OperationID),
 			)
-			if route.Operation.RequestBody == nil && request.ContentLength > 0 {
-				writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "请求不允许包含 body", map[string]any{})
-				return
-			}
 			if enabled, ok := route.Operation.Extensions["x-retrom-streaming-body"].(bool); ok && enabled {
 				streaming.ServeHTTP(writer, request)
 				return

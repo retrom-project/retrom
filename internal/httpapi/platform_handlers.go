@@ -76,20 +76,26 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
 		return
 	}
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	var body createPlatformInstanceRequest
-	if err := decodeJSON(writer, request, &body, 32<<10); err != nil || !validText(body.Name, 1, 200, false) ||
+	digest, err := decodeIdempotentJSON(writer, request, &body, 32<<10, principal.UserID, "postAdminPlatformInstance")
+	if err != nil || !validText(body.Name, 1, 200, false) ||
 		!validText(body.Description, 0, 10_000, true) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "平台目录字段无效", map[string]any{})
 		return
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	created, err := server.libraryDeps.Directories.Create(request.Context(), platforminstance.AuditActor{
+	created, err := server.libraryDeps.Directories.CreateIdempotent(request.Context(), platforminstance.AuditActor{
 		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
-	}, platforminstance.CreateInput{
+	}, principal.UserID, request.Header.Get("Idempotency-Key"), digest, platforminstance.CreateInput{
 		PlatformID: body.PlatformID, DefaultCoreID: body.DefaultCoreID,
 		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder,
-	})
+	}, server.config.MultiDiscImportEnabled)
+	if errors.Is(err, platforminstance.ErrIdempotencyReused) {
+		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
+		return
+	}
 	if errors.Is(err, platforminstance.ErrDefaultCoreInvalid) {
 		writeError(
 			writer,
@@ -105,13 +111,14 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 		server.databaseError(writer, request, err)
 		return
 	}
-	item, err := server.readPlatformInstance(request, created.ID)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
+	for name, value := range created.Headers {
+		writer.Header().Set(name, value)
 	}
-	writer.Header().Set("ETag", `"v1"`)
-	writeJSON(writer, http.StatusCreated, item)
+	if created.Replayed {
+		writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
+	}
+	writer.WriteHeader(created.Status)
+	_, _ = writer.Write(created.Body)
 }
 
 func (server *Server) platformInstanceRecommendations(writer http.ResponseWriter, request *http.Request) {

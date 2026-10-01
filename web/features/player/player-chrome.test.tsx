@@ -31,7 +31,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     syncTone: "synced",
     saveUploadProgress: null,
     saveAvailable: true,
-    dosProgramMenu: false,
+    programSelectionRequired: false,
     toast: "",
     warnings: [],
     emulatorToolbarOpen: false,
@@ -117,22 +117,22 @@ describe("PlayerChrome", () => {
 
   it("does not create an unrestorable save from the DOS program menu", async () => {
     const user = userEvent.setup();
-    const values = props({ saveAvailable: false, dosProgramMenu: true });
+    const values = props({ saveAvailable: false, programSelectionRequired: true });
     render(<PlayerChrome {...values} />);
 
     expect(screen.getByRole("button", { name: "创建存档" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
     const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
-    expect(dialog).toHaveTextContent("当前从 DOS 程序菜单启动，无法创建可恢复存档");
+    expect(dialog).toHaveTextContent("当前尚未选择启动程序，无法创建可恢复存档");
     expect(within(dialog).getByRole("button", { name: "创建存档" })).toBeDisabled();
-    expect(dialog).toHaveTextContent("选择一个具体 DOS 程序再开始");
+    expect(dialog).toHaveTextContent("选择一个启动程序再开始");
     expect(values.onSave).not.toHaveBeenCalled();
   });
 
   it("does not describe a temporarily unavailable runtime checkpoint as a DOS program menu", async () => {
     const user = userEvent.setup();
-    const values = props({ saveAvailable: false, dosProgramMenu: false });
+    const values = props({ saveAvailable: false, programSelectionRequired: false });
     render(<PlayerChrome {...values} />);
 
     expect(screen.getByRole("button", { name: "创建存档" })).toHaveAttribute("title", "当前场景暂时无法创建存档，请继续游戏后重试");

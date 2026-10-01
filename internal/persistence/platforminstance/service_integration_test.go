@@ -106,7 +106,7 @@ SELECT (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
 func TestCoveragePreservesEquivalentCustomizedDisabledAndDeletedChoices(t *testing.T) {
 	t.Parallel()
 	service, database := newService(t)
-	manual, err := service.Create(t.Context(), actor(), platforminstance.CreateInput{
+	manual, err := createManualDirectory(t, service, platforminstance.CreateInput{
 		PlatformID: "gba", DefaultCoreID: "mgba", Name: "我的 GBA", SortOrder: 50,
 	})
 	testassert.False(t, err != nil, err)
@@ -203,4 +203,15 @@ func TestValidateCatalogFailsClosedOnDisabledRelationship(t *testing.T) {
 	if err := service.ValidateCatalog(t.Context()); !errors.Is(err, platforminstance.ErrCatalogInvalid) {
 		t.Fatalf("ValidateCatalog error = %v", err)
 	}
+}
+
+func createManualDirectory(t *testing.T, service *platforminstance.Service, input platforminstance.CreateInput) (platforminstance.Instance, error) {
+	t.Helper()
+	response, err := service.CreateIdempotent(t.Context(), actor(), testUserID, "manual-creation", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", input, true)
+	if err != nil {
+		return platforminstance.Instance{}, err
+	}
+	var instance platforminstance.Instance
+	err = json.Unmarshal(response.Body, &instance)
+	return instance, err
 }
