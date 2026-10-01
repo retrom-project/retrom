@@ -69,14 +69,23 @@ test("ACC-UI-005 failed recent launch uses a centered three-second toast without
     const row = page.locator(".recent-history-row").first();
     const button = row.getByRole("button", { name: "再玩一次", exact: true });
     await expect(button).toBeEnabled();
-    const before = { row: await row.boundingBox(), button: await button.boundingBox() };
+    const layout = async () => {
+      await row.evaluate(async element => {
+        await Promise.all(element.getAnimations({ subtree: true })
+          .filter(animation => animation instanceof CSSTransition)
+          .map(animation => animation.finished.catch(() => undefined)));
+      });
+      return { row: await row.boundingBox(), button: await button.boundingBox() };
+    };
+    await button.hover();
+    const before = await layout();
     await button.click();
     const toast = page.locator(".app-toast[role=alert]");
     await expect(toast).toHaveText("当前游戏或核心无法启动");
     await expect(toast.getByRole("button")).toHaveCount(0);
     await expect(row.getByRole("alert")).toHaveCount(0);
     await expect(button).toBeEnabled();
-    expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
+    expect(await layout()).toEqual(before);
     const geometry = await toast.evaluate(element => {
       const rect = element.getBoundingClientRect();
       return { centered: Math.abs(rect.x + rect.width / 2 - innerWidth / 2), top: rect.top, position: getComputedStyle(element).position, parent: element.parentElement?.tagName };
@@ -87,6 +96,6 @@ test("ACC-UI-005 failed recent launch uses a centered three-second toast without
     expect(geometry.parent).toBe("BODY");
     await page.screenshot({ path: testInfo.outputPath("recent-launch-error-toast.png") });
     await expect(toast).toHaveCount(0, { timeout: 4_000 });
-    expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
+    expect(await layout()).toEqual(before);
   } finally { uiLayoutState("restore"); }
 });
