@@ -177,6 +177,11 @@ func parseGameListFilters(values url.Values, includeDeleted bool) (gameListFilte
 		}
 		filters.Filters.TagID = tagID
 	}
+	runtime := values.Get("runtime")
+	if runtime != "" && runtime != "ALL" && runtime != "READY" && runtime != "ATTENTION" && runtime != "DELETED" {
+		return gameListFilters{}, fmt.Errorf("%w: runtime", errUnknownQuery)
+	}
+	filters.Filters.Runtime = runtime
 	filters.Filters.PlatformID = values.Get("platformId")
 	filters.Filters.PlatformInstanceID = values.Get("platformInstanceId")
 	return filters, nil
@@ -313,6 +318,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 		"platformId":         values.Get("platformId"),
 		"platformInstanceId": values.Get("platformInstanceId"),
 		"status":             values.Get("status"),
+		"runtime":            filters.Filters.Runtime,
 		"sort":               sortCode,
 	})
 	var pageCursor *gamelistservice.Cursor
@@ -327,12 +333,12 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 	limit := 50
 	if raw := values.Get("limit"); raw != "" {
 		limit, err = strconv.Atoi(raw)
-		if err != nil || limit < 1 {
+		if err != nil || limit < 1 || limit > 100 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "游戏数量限制无效", map[string]any{})
 			return
 		}
 	}
-	includeFacets := !includeDeleted && pageCursor == nil
+	includeFacets := pageCursor == nil
 	result, err := server.libraryDeps.List.List(request.Context(), gamelistservice.ListRequest{
 		ProfileID: principal.ProfileID, IncludeDeleted: includeDeleted,
 		Filters: filters.Filters, Sort: sortCode, Cursor: pageCursor, Limit: limit,
@@ -367,8 +373,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
 	}
 	if includeFacets {
-		response["filteredCount"] = result.FilteredCount
-		response["facets"] = projectGameListFacets(result.Facets)
+		projectGameListOverview(response, result, includeDeleted)
 	}
 	writeJSON(writer, http.StatusOK, response)
 }
@@ -422,4 +427,12 @@ func (server *Server) projectGameListAssociations(
 		return nil
 	}
 	return server.projectGameListFavorites(ctx, profileID, items)
+}
+
+func projectGameListOverview(response map[string]any, result gamelistservice.ListResult, includeDeleted bool) {
+	response["filteredCount"] = result.FilteredCount
+	response["facets"] = projectGameListFacets(result.Facets)
+	if includeDeleted {
+		response["summary"] = result.Summary
+	}
 }

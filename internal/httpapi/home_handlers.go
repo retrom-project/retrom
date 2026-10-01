@@ -231,20 +231,3 @@ func (server *Server) gameAssociations(
 	}
 	return favorite, tags, nil
 }
-
-// recentGames returns every visible game with play history, ordered by the
-// most recently started play session. This is a game projection rather than a
-// session log, so one game always occupies one row regardless of play count.
-func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
-	principal, _ := authn.PrincipalFromContext(request.Context())
-	games, err := server.libraryDeps.Home.RecentGames(request.Context(), principal.ProfileID, true)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	items := make([]recentGameProjection, 0, len(games))
-	for _, game := range games {
-		items = append(items, projectHomeRecentGame(game))
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{"generatedAtMs": server.now().UnixMilli(), "items": items})
-}

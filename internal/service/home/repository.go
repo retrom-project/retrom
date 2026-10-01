@@ -10,7 +10,8 @@ import (
 type Repository interface {
 	Summary(context.Context, string) (Summary, error)
 	RecentSaves(context.Context, string) ([]RecentSave, error)
-	RecentGames(context.Context, string, bool) ([]RecentGame, error)
+	RecentPage(context.Context, RecentQuery) ([]RecentGame, error)
+	RecentOverview(context.Context, RecentQuery) (RecentOverview, error)
 	LatestGames(context.Context) ([]LatestGame, error)
 	FeaturedGame(context.Context, string) (FeaturedGame, bool, error)
 	Platforms(context.Context, string) ([]Platform, error)

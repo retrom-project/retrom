@@ -61,7 +61,7 @@ type SaveState struct {
 }
 
 type Filters struct {
-	Query, TagID, PlatformID, PlatformInstanceID, Status string
+	Query, TagID, PlatformID, PlatformInstanceID, Status, Runtime string
 }
 
 type Cursor struct {
@@ -101,7 +101,16 @@ type Facets struct {
 	Tags              []Facet
 }
 
+type AdminSummary struct {
+	Total              int64 `json:"total"`
+	RuntimeAttention   int64 `json:"runtimeAttention"`
+	MissingCover       int64 `json:"missingCover"`
+	IncompleteMetadata int64 `json:"incompleteMetadata"`
+	Hidden             int64 `json:"hidden"`
+}
+
 type ListResult struct {
+	Summary       *AdminSummary
 	Items         []GameItem
 	NextCursor    *Cursor
 	FilteredCount int64

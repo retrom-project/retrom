@@ -325,8 +325,8 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
         if (current === sequence.current) {setFirstLoading(false);}
       }
     };
-    void load();
-    return () => controller.abort();
+    const timer = window.setTimeout(() => { void load(); }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [filters, loadedKey, requestPage, scope]);
 
   const loadMore = useCallback(async () => {

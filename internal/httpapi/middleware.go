@@ -194,6 +194,7 @@ func (server *Server) validRequestOrigin(request *http.Request) bool {
 }
 
 var exactQueryAllowlists = map[string][]string{
+	"GET /api/v1/recent-games":           {"q", "platformId", "sort", "fromAtMs", "cursor", "limit"},
 	"GET /api/v1/games":                  {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/immersive/platforms":    {},
 	"GET /api/v1/immersive/destinations": {},
@@ -213,6 +214,7 @@ var exactQueryAllowlists = map[string][]string{
 		"platformId",
 		"platformInstanceId",
 		"status",
+		"runtime",
 		"sort",
 		"cursor",
 		"limit",

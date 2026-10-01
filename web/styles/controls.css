@@ -94,3 +94,8 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 @media (forced-colors: active) { select { appearance: auto; background-image: none; } }
 
 .home-search { border: 1px solid var(--control-line); border-radius: var(--radius-control); }
+
+.list-pagination { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--muted); font-size: var(--text-caption); }
+.list-pagination > div { display: flex; align-items: center; gap: 12px; }
+.list-pagination button { min-height: 32px; padding: 0 10px; color: var(--purple-dark); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; }
+.list-pagination button:disabled { color: var(--muted); cursor: not-allowed; background: var(--surface-subtle); }

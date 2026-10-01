@@ -34,9 +34,13 @@ func (stub *repositoryStub) RecentSaves(context.Context, string) ([]RecentSave, 
 	return stub.recentSaves, stub.savesErr
 }
 
-func (stub *repositoryStub) RecentGames(_ context.Context, _ string, includeDeleted bool) ([]RecentGame, error) {
-	stub.include = includeDeleted
+func (stub *repositoryStub) RecentPage(_ context.Context, query RecentQuery) ([]RecentGame, error) {
+	stub.include = query.IncludeDeleted
 	return stub.recentGames, stub.recentErr
+}
+
+func (stub *repositoryStub) RecentOverview(context.Context, RecentQuery) (RecentOverview, error) {
+	return RecentOverview{}, nil
 }
 
 func (stub *repositoryStub) LatestGames(context.Context) ([]LatestGame, error) {
@@ -94,7 +98,8 @@ func TestDashboardSortsQuickPlatformsWithoutChangingCatalogOrder(t *testing.T) {
 func TestRecentGamesProjectsEmptyTagsAndWrapsTagErrors(t *testing.T) {
 	repository := &repositoryStub{recentGames: []RecentGame{{GameID: "game"}}}
 	tags := &tagReaderStub{references: map[string][]tagging.Reference{}}
-	games, err := New(repository, tags).RecentGames(context.Background(), "profile", true)
+	page, err := New(repository, tags).RecentPage(context.Background(), RecentQuery{ProfileID: "profile", IncludeDeleted: true, Limit: 50, Sort: RecentSortRecent})
+	games := page.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +108,7 @@ func TestRecentGamesProjectsEmptyTagsAndWrapsTagErrors(t *testing.T) {
 	}
 
 	cause := errors.New("tag lookup failed")
-	_, err = New(repository, &tagReaderStub{err: cause}).RecentGames(context.Background(), "profile", false)
+	_, err = New(repository, &tagReaderStub{err: cause}).RecentPage(context.Background(), RecentQuery{ProfileID: "profile", Limit: 50, Sort: RecentSortRecent})
 	if !errors.Is(err, cause) || !strings.Contains(err.Error(), "project home tags") {
 		t.Fatalf("tag error = %v", err)
 	}

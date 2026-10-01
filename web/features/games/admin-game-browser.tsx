@@ -2,20 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
-import { libraryTags } from "@/features/library/game-library";
+import { useAuth } from "@/features/auth/auth-provider";
+import { useCursorPage } from "@/lib/use-cursor-page";
 import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import {
-  adminGameDirectories,
-  adminGamePlatforms,
-  adminGameSummary,
+  adminGameURL,
+  collectAdminGameExport,
   adminGameUpdateNote,
-  filterAdminGames,
   formatAdminGameTime,
   runtimePresentation,
   type AdminGameFilters,
+  type AdminGamePage,
   type AdminGameSummary,
 } from "./admin-game-library";
 
@@ -52,19 +52,42 @@ function exportGames(games: AdminGameSummary[]) {
   URL.revokeObjectURL(url);
 }
 
-export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: AdminGameSummary[]; nowMs: number; initialFilters: AdminGameFilters }) {
+function adminPageOverview(page: AdminGamePage, platformId: string) {
+  const summary = page.summary ?? { total: 0, runtimeAttention: 0, missingCover: 0, incompleteMetadata: 0, hidden: 0 };
+  const platforms = page.facets?.platforms ?? [];
+  const directories = (page.facets?.platformInstances ?? []).filter((item) => !platformId || item.platformId === platformId);
+  const tags = page.facets?.tags ?? [];
+  return { summary, platforms, directories, tags };
+}
+
+export function AdminGameBrowser({ initialPage, initialFilters }: { initialPage: AdminGamePage; initialFilters: AdminGameFilters }) {
   const timeZone = useBrowserTimeZone();
   const searchRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState(initialFilters);
-  const [pageIndex, setPageIndex] = useState(0);
-  const summary = useMemo(() => adminGameSummary(games), [games]);
-  const platforms = useMemo(() => adminGamePlatforms(games), [games]);
-  const directories = useMemo(() => adminGameDirectories(games, filters.platformId), [games, filters.platformId]);
-  const tags = useMemo(() => libraryTags(games), [games]);
-  const filtered = useMemo(() => filterAdminGames(games, filters), [games, filters]);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(pageIndex, pageCount - 1);
-  const visibleGames = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const { authenticatedFetch } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const pagination = useCursorPage(initialPage, adminGameURL(filters));
+  const { page, index: currentPage, loading } = pagination;
+  const { summary, platforms, directories, tags } = adminPageOverview(page, filters.platformId);
+  const total = page.filteredCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const visibleGames = page.items;
+  const nowMs = page.generatedAtMs;
+
+  async function exportCurrent() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const result = await collectAdminGameExport(async (cursor) => {
+        const response = await authenticatedFetch(adminGameURL(filters, 100, cursor), { cache: "no-store" });
+        if (!response.ok) {throw new Error("导出失败，请重试");}
+        return response.json() as Promise<AdminGamePage>;
+      });
+      exportGames(result.items);
+    } catch (caught) { setExportError(caught instanceof Error ? caught.message : "导出失败"); }
+    finally { setExporting(false); }
+  }
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -82,13 +105,12 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
     setFilters((current) => {
       const updated = { ...current, ...next };
       if (Object.hasOwn(next, "platformId") && updated.platformInstanceId) {
-        const selected = games.find((game) => game.platformInstance.id === updated.platformInstanceId);
-        if (!selected || selected.platform.id !== updated.platformId) {updated.platformInstanceId = "";}
+        const selected = page.facets?.platformInstances.find((item) => item.id === updated.platformInstanceId);
+        if (!selected || updated.platformId && selected.platformId !== updated.platformId) {updated.platformInstanceId = "";}
       }
       updateLocation(updated);
       return updated;
     });
-    setPageIndex(0);
   }
 
   const summaryItems = [
@@ -99,8 +121,10 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
     { label: "用户不可见", value: summary.hidden, tone: "bad" },
   ];
 
-  return <div className="admin-game-browser">
-    <button className="button secondary admin-game-export" type="button" onClick={() => exportGames(filtered)}><AppIcon name="download" />导出当前列表</button>
+  return <div className="admin-game-browser" aria-busy={loading}>
+    <button className="button secondary admin-game-export" type="button" disabled={exporting || loading} onClick={() => { void exportCurrent(); }}><AppIcon name="download" />{exporting ? "正在导出…" : "导出当前列表"}</button>
+    {exportError ? <p role="alert">{exportError}</p> : null}
+    {pagination.error ? <p role="alert">{pagination.error} <button className="button secondary" type="button" onClick={pagination.retry}>重试</button></p> : null}
     <section className="admin-game-summary" aria-label="游戏管理摘要">
       {summaryItems.map((item) => <article className={item.tone} key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
     </section>
@@ -108,7 +132,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
       <label className="admin-game-search"><span>搜索游戏</span><span><AppIcon name="search" /><input ref={searchRef} type="search" value={filters.query} placeholder="输入游戏名称或标签" onChange={(event) => change({ query: event.target.value })} /></span></label>
       <label><span>平台</span><select value={filters.platformId} onChange={(event) => change({ platformId: event.target.value })}><option value="">所有平台</option>{platforms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label><span>游戏目录</span><select value={filters.platformInstanceId} onChange={(event) => change({ platformInstanceId: event.target.value })}><option value="">所有目录</option>{directories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label><span>标签</span><select value={filters.tagId} onChange={(event) => change({ tagId: event.target.value })}><option value="">所有标签</option>{tags.map((tag) => <option key={tag.tagId} value={tag.tagId}>{tag.name} · {tag.count}</option>)}</select></label>
+      <label><span>标签</span><select value={filters.tagId} onChange={(event) => change({ tagId: event.target.value })}><option value="">所有标签</option>{tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name} · {tag.count}</option>)}</select></label>
       <label><span>用户状态</span><select value={filters.visibility} onChange={(event) => change({ visibility: event.target.value as AdminGameFilters["visibility"] })}><option value="ALL">全部状态</option><option value="PUBLISHED">用户可见</option><option value="DELETED">用户不可见</option></select></label>
       <label><span>运行状态</span><select value={filters.runtime} onChange={(event) => change({ runtime: event.target.value as AdminGameFilters["runtime"] })}><option value="ALL">全部状态</option><option value="READY">可以运行</option><option value="ATTENTION">需要处理</option><option value="DELETED">已删除</option></select></label>
       <label><span>排序</span><select value={filters.sort} onChange={(event) => change({ sort: event.target.value as AdminGameFilters["sort"] })}><option value="UPDATED_DESC">最近更新</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称排序</option></select></label>
@@ -130,6 +154,6 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
         })}</tbody>
       </table>
     </div>}
-    <footer className="admin-game-pagination"><span>当前展示 {visibleGames.length} / {filtered.length} 款游戏</span><div><button type="button" disabled={currentPage === 0} onClick={() => setPageIndex((value) => Math.max(0, value - 1))}>上一页</button><span>第 {currentPage + 1} 页 · 共 {pageCount} 页</span><button type="button" disabled={currentPage >= pageCount - 1} onClick={() => setPageIndex((value) => Math.min(pageCount - 1, value + 1))}>下一页</button></div></footer>
+    <footer className="list-pagination"><span aria-live="polite">{loading ? "正在加载… " : ""}当前展示 {visibleGames.length} / {total} 款游戏</span><div><button type="button" disabled={loading || currentPage === 0} onClick={pagination.previous}>上一页</button><span>第 {currentPage + 1} 页 · 共 {pageCount} 页</span><button type="button" disabled={loading || !page.nextCursor} onClick={pagination.next}>下一页</button></div></footer>
   </div>;
 }

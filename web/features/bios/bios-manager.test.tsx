@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BIOSManager, type BIOSListResponse, type BIOSRequirement } from "./bios-manager";
@@ -42,7 +42,23 @@ function requestedURL(call: unknown[] | undefined) {
 
 describe("BIOSManager", () => {
   beforeEach(() => window.history.replaceState({ marker: "keep" }, "", "/admin/bios"));
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it("debounces a search burst into one request for the final query", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page([item("neogeo")])));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BIOSManager initialResponse={page([item("required")])} />);
+    const search = screen.getByRole("searchbox", { name: "搜索 BIOS 文件" });
+    for (const value of ["n", "neo", "neogeo"]) {fireEvent.change(search, { target: { value } });}
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(249); });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(requestedURL(fetchMock.mock.calls[0])).toContain("q=neogeo");
+    expect(screen.getByText("neogeo.bin")).toBeVisible();
+  });
 
   it("keeps dependency filters in the toolbar dropdown and URL", async () => {
     const user = userEvent.setup();
@@ -59,7 +75,7 @@ describe("BIOSManager", () => {
     await user.selectOptions(filter, "ALL");
     await screen.findByText("optional.bin");
     expect(filter).toHaveValue("ALL");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(window.location.search).not.toContain("quick=");
   });
 

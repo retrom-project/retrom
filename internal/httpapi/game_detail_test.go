@@ -245,7 +245,7 @@ func assertGameHomeAndActivity(
 	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.Description != "首页游戏简介\n保留当前元信息。" {
 		t.Fatal("home must include the current game description")
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.GameID != gameID }, func() bool { return !homeResponse.FeaturedGame.HasSaveStates }, func() bool { return homeResponse.FeaturedGame.LastSessionSave != nil }, func() bool { return len(homeResponse.RecentGames) != 1 }, func() bool { return homeResponse.RecentGames[0].SessionCount != 2 }, func() bool { return len(homeResponse.LatestGames) != 1 }, func() bool { return homeResponse.LatestGames[0].GameID != gameID }, func() bool { return homeResponse.LatestGames[0].CreatedAtMS != now }, func() bool { return len(homeResponse.QuickPlatforms) != 4 }, func() bool { return homeResponse.QuickPlatforms[0].ID != "dos" }, func() bool { return homeResponse.QuickPlatforms[0].PlayCount != 2 }), "home projection = %#v", homeResponse)
+	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.GameID != gameID }, func() bool { return !homeResponse.FeaturedGame.HasSaveStates }, func() bool { return homeResponse.FeaturedGame.LastSessionSave != nil }, func() bool { return len(homeResponse.RecentGames) != 0 }, func() bool { return homeResponse.QuickPlatforms[0].PlayCount != 2 }, func() bool { return len(homeResponse.LatestGames) != 1 }, func() bool { return homeResponse.LatestGames[0].GameID != gameID }, func() bool { return homeResponse.LatestGames[0].CreatedAtMS != now }, func() bool { return len(homeResponse.QuickPlatforms) != 4 }, func() bool { return homeResponse.QuickPlatforms[0].ID != "dos" }, func() bool { return homeResponse.QuickPlatforms[0].PlayCount != 2 }), "home projection = %#v", homeResponse)
 	if homeResponse.FeaturedGame.DefaultDOSEntry != nil {
 		t.Fatalf("unexpected DOS default before review: %q", *homeResponse.FeaturedGame.DefaultDOSEntry)
 	}
@@ -324,14 +324,12 @@ INSERT INTO save_states(
 		!strings.Contains(recent.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`),
 		!strings.Contains(recent.Body.String(), `"generatedAtMs":`)),
 		"recent games projection = %d: %s", recent.Code, recent.Body.String())
-	var recentResponse struct {
-		Items []recentGameProjection `json:"items"`
-	}
+	var recentResponse recentTestPage
 	mustDecodeHTTPTest(t, recent.Body.Bytes(), &recentResponse)
-	testassert.Falsef(t, len(recentResponse.Items) != 56,
-		"unbounded recent games count = %d", len(recentResponse.Items))
+	assertRecentFirstPage(t, recentResponse)
+	assertRecentFinalPage(t, server, recentResponse.NextCursor, recentResponse.Items)
 	invalidRecentLimit := httptest.NewRecorder()
-	server.Handler().ServeHTTP(invalidRecentLimit, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/recent-games?limit=50", nil))
+	server.Handler().ServeHTTP(invalidRecentLimit, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/recent-games?limit=101", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return invalidRecentLimit.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(invalidRecentLimit.Body.String(), `"code":"INVALID_QUERY"`) }), "recent games invalid limit = %d: %s", invalidRecentLimit.Code, invalidRecentLimit.Body.String())
 	screenshotResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -709,6 +707,7 @@ updated_at_ms)
 VALUES(?,?,'local',?,?,?,?,60000,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-int64(index+1)*1_000, now, now, now, now)
 	}
+	seedPlayActivity(t, transaction)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -878,6 +877,7 @@ VALUES(?,?,'local',?,?,?,?,?,'FINISHED',1,?,?)
 `, playID, launchID, gameID, now-20_000+int64(index)*10_000, now, now, duration,
 			now, now+int64(10-index))
 	}
+	seedPlayActivity(t, transaction)
 	mustCommitHTTPTest(t, transaction)
 }
 
@@ -886,4 +886,40 @@ func mustCreateHTTPReferences(t *testing.T, db dbapi.Executor, table, query stri
 	if _, err := recordstore.InsertRows(t.Context(), db, table, query, args...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func assertRecentFinalPage(t *testing.T, server *testServer, nextCursor string, initialItems []recentGameProjection) {
+	t.Helper()
+	nextRecent := httptest.NewRecorder()
+	server.Handler().ServeHTTP(nextRecent, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/recent-games?cursor="+url.QueryEscape(nextCursor), nil))
+	if nextRecent.Code != http.StatusOK {
+		t.Fatalf("recent second page: %d %s", nextRecent.Code, nextRecent.Body.String())
+	}
+	var nextBody struct {
+		Items      []recentGameProjection `json:"items"`
+		NextCursor *string                `json:"nextCursor"`
+	}
+	mustDecodeHTTPTest(t, nextRecent.Body.Bytes(), &nextBody)
+	if len(nextBody.Items) != 6 || nextBody.NextCursor != nil {
+		t.Fatalf("recent final page: %#v", nextBody)
+	}
+	seen := make(map[string]bool)
+	for _, item := range initialItems {
+		seen[item.GameID] = true
+	}
+	for _, item := range nextBody.Items {
+		if seen[item.GameID] {
+			t.Fatal("repeated recent game")
+		}
+		seen[item.GameID] = true
+	}
+	if len(seen) != 56 {
+		t.Fatalf("reachable recent games = %d", len(seen))
+	}
+}
+
+func assertRecentFirstPage(t *testing.T, page recentTestPage) {
+	t.Helper()
+	testassert.Falsef(t, len(page.Items) != 50 || page.FilteredCount != 56 || page.Stats.GameCount != 56 || page.NextCursor == "",
+		"bounded recent games count = %d", len(page.Items))
 }

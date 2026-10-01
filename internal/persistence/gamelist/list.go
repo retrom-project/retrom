@@ -24,7 +24,8 @@ SELECT g.id,
  g.version,
  g.created_at_ms,
  g.updated_at_ms,
- (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id AND ps.profile_id=?) AS last_played_at_ms,
+ (SELECT activity.last_played_at_ms FROM profile_game_activity activity
+ WHERE activity.game_id=g.id AND activity.profile_id=?) AS last_played_at_ms,
  g.release_year,
  CASE WHEN trim(g.description)<>''
  AND trim(g.developer)<>''
@@ -75,8 +76,14 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	}
 	if request.IncludeFacets {
 		result.FilteredCount, result.Facets, err = repository.facets(
-			ctx, baseConditions, baseArguments,
+			ctx, baseConditions, baseArguments, request.IncludeDeleted,
 		)
+		if err != nil {
+			return application.ListResult{}, err
+		}
+	}
+	if request.IncludeFacets && request.IncludeDeleted {
+		result.Summary, err = repository.adminSummary(ctx)
 		if err != nil {
 			return application.ListResult{}, err
 		}
@@ -97,10 +104,15 @@ func listConditions(request application.ListRequest) ([]string, []any) {
 		conditions = append(conditions, "g.status='DELETED'")
 	}
 	if request.Filters.Query != "" {
-		conditions = append(conditions, `(instr(g.search_text,?)>0 OR EXISTS(
+		search := `(instr(g.search_text,?)>0 OR EXISTS(
 SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE relation.game_id=g.id AND instr(tag.search_text,?)>0))`)
+WHERE relation.game_id=g.id AND instr(tag.search_text,?)>0))`
 		arguments = append(arguments, request.Filters.Query, request.Filters.Query)
+		if request.IncludeDeleted {
+			search = "(" + search + " OR instr(lower(p.name),?)>0 OR instr(lower(pi.name),?)>0 OR instr(lower(dc.name),?)>0)"
+			arguments = append(arguments, request.Filters.Query, request.Filters.Query, request.Filters.Query)
+		}
+		conditions = append(conditions, search)
 	}
 	if request.Filters.TagID != "" {
 		conditions = append(conditions, `EXISTS(
@@ -115,6 +127,14 @@ WHERE relation.game_id=g.id AND tag.id=?)`)
 	if request.Filters.PlatformInstanceID != "" {
 		conditions = append(conditions, "pi.id=?")
 		arguments = append(arguments, request.Filters.PlatformInstanceID)
+	}
+	switch request.Filters.Runtime {
+	case "READY":
+		conditions = append(conditions, "g.status<>'DELETED' AND "+defaultRuntime+"='READY'")
+	case "ATTENTION":
+		conditions = append(conditions, "g.status<>'DELETED' AND COALESCE("+defaultRuntime+",'')<>'READY'")
+	case "DELETED":
+		conditions = append(conditions, "g.status='DELETED'")
 	}
 	return conditions, arguments
 }
@@ -149,10 +169,11 @@ func appendCursor(
 			column = "g.updated_at_ms"
 		}
 		conditions = append(conditions, fmt.Sprintf(
-			"(%s<? OR (%s=? AND (g.title>? OR (g.title=? AND g.id>?))))",
-			column, column,
+			"(%s<=? AND (%s<? OR (%s=? AND (g.title>? OR (g.title=? AND g.id>?)))))",
+			column, column, column,
 		))
-		arguments = append(arguments, timestamp, timestamp, payload.SortValues[1], payload.SortValues[1], payload.ID)
+		arguments = append(arguments, timestamp, timestamp, timestamp,
+			payload.SortValues[1], payload.SortValues[1], payload.ID)
 	case application.SortRecentDesc:
 		if len(payload.SortValues) != 3 {
 			return query, append(conditions, "0=1"), arguments
@@ -162,8 +183,8 @@ func appendCursor(
 		if lastPlayedErr != nil || createdAtErr != nil {
 			return query, append(conditions, "0=1"), arguments
 		}
-		lastPlayedExpression := `COALESCE((SELECT max(ps_cursor.started_at_ms)
-FROM play_sessions ps_cursor WHERE ps_cursor.game_id=g.id AND ps_cursor.profile_id=?),-1)`
+		lastPlayedExpression := `COALESCE((SELECT activity.last_played_at_ms
+FROM profile_game_activity activity WHERE activity.game_id=g.id AND activity.profile_id=?),-1)`
 		conditions = append(conditions, fmt.Sprintf(
 			`(%s<? OR (%s=? AND (g.created_at_ms<? OR (g.created_at_ms=? AND (g.title>? OR (g.title=? AND g.id>?))))))`,
 			lastPlayedExpression, lastPlayedExpression,
