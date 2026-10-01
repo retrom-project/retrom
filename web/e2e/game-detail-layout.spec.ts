@@ -8,7 +8,7 @@ import {uiLayoutState} from "./ui-layout-state";
 test.beforeEach(() => uiLayoutState("isolate"));
 test.afterEach(() => uiLayoutState("restore"));
 
-test("ACC-UI-003 detail populated, missing screenshot and expanded states", async ({ browser }, testInfo) => {
+test("ACC-UI-003 detail populated, missing screenshot and scrollable descriptions", async ({ browser }, testInfo) => {
   test.setTimeout(90_000);
   const database = process.env.RETROM_E2E_DATABASE;
   expect(database, "requires the disposable acceptance database").toBeTruthy();
@@ -38,11 +38,14 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
         for (const card of cards) {expect(card.top).toBe(cards[0].top); expect(card.bottom).toBeLessThan(height); expect(card.fraction).toBeCloseTo(.42, 1); expect(card.ratio).toBeCloseTo(16 / 9, 2);}
       }
       const hero = await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height);
-      await page.getByRole("button", { name: "展开完整简介" }).click();
-      await expect(page.locator(".game-detail-description")).toContainText("最后一段：完整简介应随页面滚动。");
-      await expect(page.locator(".game-detail-description")).toHaveCSS("overflow-y", "visible");
-      expect(await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height)).toBe(hero);
-      await page.getByRole("button", { name: "收起简介" }).click();
+      const description = page.getByRole("region", { name: "游戏简介" });
+      await expect(description).toContainText("最后一段：完整简介应在简介区域内滚动。");
+      await expect(description.getByRole("button")).toHaveCount(0);
+      await expect(description).toHaveCSS("overflow-y", "auto");
+      await expect(description).toHaveCSS("height", "192px");
+      await description.evaluate(element => {element.scrollTop = element.scrollHeight;});
+      expect(await description.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      expect(await page.locator(".game-detail-hero").evaluate(element => element.getBoundingClientRect().height)).toBe(hero);
       const previewLayout = () => page.evaluate(() => [".game-detail-feature-preview", ".game-detail-hero", ".game-detail-overview"].map((selector) => {
         const rect = document.querySelector(selector)!.getBoundingClientRect();
         return { top: rect.top + window.scrollY, height: rect.height };

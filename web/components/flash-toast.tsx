@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useEffectEvent, useState } from "react";
+import { createPortal } from "react-dom";
 
-export type ToastMessage = { message: string; tone: "good" | "warn" | "bad" };
+export type ToastMessage = { message: string; tone: "good" | "warn" | "bad"; action?: { href: string; label: string } };
 
 const flashKey = "retrom:flash-toast";
 
@@ -11,17 +13,18 @@ export function queueFlashToast(toast: ToastMessage) {
 }
 
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
+  const dismiss = useEffectEvent(onDismiss);
   useEffect(() => {
     if (!toast) {return;}
-    const timer = window.setTimeout(onDismiss, 2_000);
+    const timer = window.setTimeout(dismiss, 3_000);
     return () => window.clearTimeout(timer);
-  }, [onDismiss, toast]);
+  }, [toast]);
 
-  if (!toast) {return null;}
-  return <div className={`app-toast ${toast.tone}`} role={toast.tone === "bad" ? "alert" : "status"} aria-live="polite">
+  if (!toast || typeof document === "undefined") {return null;}
+  return createPortal(<div className={`app-toast ${toast.tone}`} role={toast.tone === "bad" ? "alert" : "status"} aria-live={toast.tone === "bad" ? "assertive" : "polite"}>
     <span>{toast.message}</span>
-    <button type="button" aria-label="关闭通知" onClick={onDismiss}>×</button>
-  </div>;
+    {toast.action ? <Link href={toast.action.href}>{toast.action.label}</Link> : null}
+  </div>, document.body);
 }
 
 export function FlashToast() {

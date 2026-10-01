@@ -12,7 +12,13 @@ export function ContentLoadingField({capability, label = "内容加载", hideLab
   const id = useId();
   const mode = useSyncExternalStore(subscribeContentLoading, () => readContentLoading(userId), () => "ON_DEMAND");
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
-  if (!capability) {return null;}
+  if (!capability) {
+    return <div className="field content-loading-field is-placeholder" aria-hidden="true" inert>
+      <span className={hideLabel ? "sr-only" : "field-label"}>{label}</span>
+      <div className="content-loading-placeholder-control" />
+      <small>此运行方式仅支持完整下载游戏内容。</small>
+    </div>;
+  }
   const preloadOnly = capability === "PRELOAD_ONLY";
   return <div className="field content-loading-field">
     <label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>{label}</label>

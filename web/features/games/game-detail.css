@@ -57,6 +57,8 @@
 .launch-panel { min-width: 0; margin-top: var(--space-3); }
 .launch-panel .content-loading-field select { width: min(100%, var(--launch-control-width, 100%)); }
 .launch-options { min-width: 0; }
+.content-loading-field.is-placeholder { visibility: hidden; }
+.content-loading-placeholder-control { height: 44px; }
 .launch-options:has(.field) { margin-bottom: var(--space-3); }
 .launch-option-panel { min-width: 0; }
 .launch-option-panel > .field + .field { margin-top: var(--space-3); }
@@ -91,9 +93,8 @@
 .game-detail-overview { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-7); margin-block: var(--space-6); }
 .game-detail-overview h2, .game-detail-saves-head h2 { margin: 0 0 var(--space-4); font-size: var(--text-section); font-weight: var(--weight-semibold); }
 .game-detail-about, .game-detail-facts { min-width: 0; }
-.game-detail-description { color: var(--muted); font-size: var(--text-body); line-height: 1.8; overflow-wrap: anywhere; }
+.game-detail-description { height: 192px; overflow-y: auto; scrollbar-gutter: stable; color: var(--muted); font-size: var(--text-body); line-height: 1.8; overflow-wrap: anywhere; }
 .game-detail-description p { margin: 0; white-space: pre-wrap; }
-.game-detail-description > button { margin-top: var(--space-4); }
 .game-detail-facts { border-left: 1px solid var(--line); padding-left: var(--space-6); }
 .game-detail-info-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-5); }
 .game-detail-fact { min-width: 0; }

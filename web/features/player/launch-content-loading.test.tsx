@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import {afterEach, expect, it, vi} from "vitest";
 import {cleanup, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -19,7 +20,7 @@ it.each([false, true])("updates loading controls when the selected core changes 
   layout.phone = phone;
   const user = userEvent.setup();
   writeContentLoading("user-1", "PRELOAD");
-  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
+  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />, { wrapper: ToastProvider });
   if (phone) {await user.click(screen.getByRole("button", {name: "启动选项"}));}
   const select = async (core: string) => {
     if (!phone) {await user.click(screen.getByRole("button", {name: "更换"}));}
@@ -31,7 +32,9 @@ it.each([false, true])("updates loading controls when the selected core changes 
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
   expect(screen.getByRole("combobox", {name: "内容加载"}).querySelectorAll("option")).toHaveLength(1);
   await select("upstream");
-  expect(screen.queryByText("内容加载")).toBeNull();
+  expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
+  expect(document.querySelector(".content-loading-field.is-placeholder")).toHaveAttribute("aria-hidden", "true");
+  expect(document.querySelector(".content-loading-field.is-placeholder")).toHaveAttribute("inert");
   expect(screen.queryByText("下载完成后开始")).toBeNull();
   await select("dual");
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
@@ -42,7 +45,7 @@ it.each([false, true])("shows the saved core capability independently of the new
   layout.phone = phone;
   const user = userEvent.setup();
   const latestSave = {saveStateId: "save", sizeBytes: 3, screenshotUrl: null, createdAtMs: 0, coreId: "full", coreName: "整文件"};
-  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={latestSave} />);
+  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={latestSave} />, { wrapper: ToastProvider });
   if (phone) {await user.click(screen.getByRole("button", {name: "启动选项"}));}
   expect(screen.getByRole("combobox", {name: "重新开始的内容加载"})).toBeVisible();
   expect(screen.getByRole("combobox", {name: "从存档继续的内容加载"})).toHaveValue("PRELOAD");
@@ -50,7 +53,7 @@ it.each([false, true])("shows the saved core capability independently of the new
 
 it("does not describe an unresolved saved core using the new-game capability", () => {
   const latestSave = {saveStateId: "save", sizeBytes: 3, screenshotUrl: null, createdAtMs: 0, coreId: "unavailable", coreName: "Unavailable"};
-  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={latestSave} />);
+  render(<LaunchControls gameId="game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={latestSave} />, { wrapper: ToastProvider });
   expect(screen.getByRole("combobox", {name: "重新开始的内容加载"})).toBeVisible();
   expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
 });

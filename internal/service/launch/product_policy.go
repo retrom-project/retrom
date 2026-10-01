@@ -9,19 +9,25 @@ import (
 	"retrom/internal/multidisc"
 )
 
-func validProductRequest(command ProductCreateCommand) bool {
+func validateProductRequest(command ProductCreateCommand) error {
 	request := command.Request
-	if command.ProfileID == "" || request.GameID == "" || !ValidProductReturnTo(
+	if command.ProfileID == "" || request.GameID == "" {
+		return ErrBlocked
+	}
+	if !ValidProductReturnTo(
 		request.ReturnTo,
 		request.GameID,
 		request.SaveStateID,
 	) {
-		return false
+		return ErrInvalidReturnTo
 	}
 	if request.SaveStateID != nil && request.DOSEntry != nil {
-		return false
+		return ErrBlocked
 	}
-	return command.Key == "" || command.ActorID != "" && len(command.Digest) == 64
+	if command.Key != "" && (command.ActorID == "" || len(command.Digest) != 64) {
+		return ErrBlocked
+	}
+	return nil
 }
 
 func validateProductSelection(command ProductCreateCommand, snapshot ProductSnapshot) error {

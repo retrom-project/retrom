@@ -87,3 +87,8 @@
 .loading-grid i { height: 220px; border-radius: var(--radius-panel); background: linear-gradient(100deg, var(--surface) 20%, var(--surface-subtle) 40%, var(--surface) 60%); background-size: 300% 100%; animation: skeleton 1.5s infinite; }
 @keyframes skeleton { to { background-position: -150% 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+.app-toast { position: fixed; z-index: 220; top: calc(var(--space-6) + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid; border-radius: var(--radius-panel); box-shadow: 0 16px 42px rgb(26 31 44 / 22%); color: var(--ink); background: var(--surface); font-size: var(--text-body); overflow-wrap: anywhere; }
+.app-toast > span { min-width: 0; flex: 1 1 100%; }
+.app-toast.good { color: var(--success); border-color: var(--success-line); background: var(--surface-subtle); }
+.app-toast.warn { color: var(--amber); border-color: var(--amber-line); background: var(--amber-soft); }
+.app-toast.bad { color: var(--danger); border-color: var(--danger-line); background: var(--surface-subtle); }

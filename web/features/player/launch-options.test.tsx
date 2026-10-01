@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import {act, cleanup, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
@@ -28,7 +29,7 @@ beforeEach(() => {
 afterEach(() => {cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); observers.clear();});
 
 function renderDOS(selected: CoreOption = core, saved?: CoreOption) {
-  return render(<LaunchControls gameId="dos" coreOptions={saved ? [selected, saved] : [selected]} dosEntries={entries} defaultDosEntry="GAMES/PLAY.EXE" latestSave={saved ? {saveStateId: "save", sizeBytes: 1, screenshotUrl: null, createdAtMs: 0, coreId: saved.coreId, coreName: saved.name} : undefined} />);
+  return render(<LaunchControls gameId="dos" coreOptions={saved ? [selected, saved] : [selected]} dosEntries={entries} defaultDosEntry="GAMES/PLAY.EXE" latestSave={saved ? {saveStateId: "save", sizeBytes: 1, screenshotUrl: null, createdAtMs: 0, coreId: saved.coreId, coreName: saved.name} : undefined} />, { wrapper: ToastProvider });
 }
 function resize(next: number) {act(() => {width = next; observers.forEach(callback => callback());});}
 

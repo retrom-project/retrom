@@ -2777,6 +2777,7 @@ export interface components {
             /** Format: uuid */
             saveStateId: string | null;
             dosEntry: string | null;
+            /** @description Exact product return page (/, /library, /recent, /saves or /games/{gameId}), or a validated immersive game-list URL. Unsafe or unknown paths return 400 INVALID_LAUNCH_RETURN_TO. */
             returnTo: string;
             clientCapabilities: components["schemas"]["ClientCapabilities"];
         };
@@ -6011,6 +6012,15 @@ export interface operations {
         responses: {
             201: components["responses"]["JSONResponse"];
             202: components["responses"]["JSONResponse"];
+            /** @description Invalid request, including an unrecognized or unsafe returnTo (INVALID_LAUNCH_RETURN_TO). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     postAdminUpload: {

@@ -57,10 +57,12 @@ it("shows only the supported full-download option without changing the dual-mode
   expect(readContentLoading("user-1")).toBe("ON_DEMAND");
 });
 
-it("hides loading controls when the target does not declare local caching", () => {
+it("reserves an inaccessible placeholder when the target does not declare local caching", () => {
   writeContentLoading("user-1", "PRELOAD");
   const {container} = render(<ContentLoadingField />);
-  expect(container).toBeEmptyDOMElement();
+  expect(container.querySelector(".is-placeholder")).toHaveAttribute("aria-hidden", "true");
+  expect(container.querySelector(".is-placeholder")).toHaveAttribute("inert");
+  expect(screen.queryByRole("combobox")).toBeNull();
   expect(readContentLoading("user-1")).toBe("PRELOAD");
 });
 
@@ -70,7 +72,8 @@ it("restores the device preference when switching back to a dual-mode target", (
   view.rerender(<ContentLoadingField capability="PRELOAD_ONLY" />);
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
   view.rerender(<ContentLoadingField />);
-  expect(view.container).toBeEmptyDOMElement();
+  expect(view.container.querySelector(".is-placeholder")).toHaveAttribute("aria-hidden", "true");
+  expect(screen.queryByRole("combobox")).toBeNull();
   view.rerender(<ContentLoadingField capability="ON_DEMAND_AND_PRELOAD" />);
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("ON_DEMAND");
 });
