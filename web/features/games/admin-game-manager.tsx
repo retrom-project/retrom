@@ -198,10 +198,11 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       await waitForJob(result.jobId, () => setNotice("正在整理候选信息…"));
       const latestResponse = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { cache: "no-store" });
       if (!latestResponse.ok) {throw new Error(await responseError(latestResponse, "候选查询完成，但无法读取结果"));}
-      const latest = await latestResponse.json() as { items: ScrapeCandidate[] };
+      const latest = await latestResponse.json() as { items: ScrapeCandidate[]; evidenceCount: number };
       setScrapeCandidates(latest.items);
       if (latest.items[0]) {setComparison(latest.items[0]);}
-      return latest.items.length ? "候选已准备好，请在对比窗口中确认。" : "查询完成，但没有找到可用候选。";
+      if (latest.items.length) {return "候选已准备好，请在对比窗口中确认。";}
+      return latest.evidenceCount === 0 ? "没有符合条件的文件哈希，本次未请求信息源。" : "查询完成，但没有找到可用候选。";
     });
   }
 

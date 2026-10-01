@@ -180,6 +180,32 @@ describe("AdminGameManager", () => {
     expect(within(latestColumn).getByAltText("最新候选封面")).toHaveAttribute("src", expect.stringContaining("cover-1"));
   });
 
+  it.each([
+    [0, "没有符合条件的文件哈希，本次未请求信息源。"],
+    [2, "查询完成，但没有找到可用候选。"],
+  ])("explains an empty candidate result with %i eligible hashes", async (evidenceCount, notice) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ scrapeRunId: "run", jobId: "job", version: 4 })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], evidenceCount })));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "重新查找游戏信息" }));
+    expect(await screen.findByText(notice)).toBeVisible();
+    expect(upload.waitForJob).toHaveBeenCalledWith("job", expect.any(Function));
+  });
+
+  it("shows missing archive index errors without claiming the lookup completed", async () => {
+    const message = "主 ROM 的归档索引缺失，无法查找游戏信息。请重新导入游戏后再试。";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "METADATA_ARCHIVE_INDEX_MISSING", message },
+    }), { status: 409 })));
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "重新查找游戏信息" }));
+    expect(await screen.findByText(message, { exact: false })).toBeVisible();
+    expect(upload.waitForJob).not.toHaveBeenCalled();
+    expect(screen.queryByText("查询完成，但没有找到可用候选。")).not.toBeInTheDocument();
+  });
+
   it("requires an explicit target directory before previewing a move", async () => {
     const user = userEvent.setup();
     render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);

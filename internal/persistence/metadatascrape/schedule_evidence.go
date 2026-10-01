@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -59,6 +60,9 @@ func (reads scheduleReads) Arcade(
 	subject metadatascrape.Subject,
 	datID, machine string,
 ) ([]metadatascrape.ArcadeEvidence, error) {
+	if err := reads.requireArcadeArchiveIndexes(ctx, subject); err != nil {
+		return nil, err
+	}
 	table, column := evidenceSource(subject)
 	rows, err := reads.database.QueryContext(
 		ctx,
@@ -91,4 +95,20 @@ func (reads scheduleReads) Arcade(
 		return nil, fmt.Errorf("iterate arcade scrape evidence: %w", err)
 	}
 	return result, nil
+}
+
+func (reads scheduleReads) requireArcadeArchiveIndexes(ctx context.Context, subject metadatascrape.Subject) error {
+	table, column := evidenceSource(subject)
+	var missing bool
+	err := dbapi.QueryRowContext(ctx, reads.database, `SELECT EXISTS(
+ SELECT 1 FROM `+table+` s WHERE s.`+column+`=? AND s.role='CONTENT'
+ AND NOT EXISTS(SELECT 1 FROM archive_entries e WHERE e.archive_file_record=s.file_record))`,
+		subject.ID).Scan(&missing)
+	if err != nil {
+		return fmt.Errorf("check arcade archive indexes: %w", err)
+	}
+	if missing {
+		return metadatascrape.ErrArchiveIndexMissing
+	}
+	return nil
 }

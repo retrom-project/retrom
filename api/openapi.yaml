@@ -261,6 +261,8 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    GameScrapeCandidates:
+      $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
     ImportBatchDiscard:
       $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:
