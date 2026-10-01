@@ -62,6 +62,8 @@ it("reserves an inaccessible placeholder when the target does not declare local 
   const {container} = render(<ContentLoadingField />);
   expect(container.querySelector(".is-placeholder")).toHaveAttribute("aria-hidden", "true");
   expect(container.querySelector(".is-placeholder")).toHaveAttribute("inert");
+  expect(container.querySelector("select")).toBeDisabled();
+  expect(container.querySelector("select")).toHaveAttribute("tabindex", "-1");
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(readContentLoading("user-1")).toBe("PRELOAD");
 });

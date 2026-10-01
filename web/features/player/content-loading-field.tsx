@@ -15,7 +15,7 @@ export function ContentLoadingField({capability, label = "内容加载", hideLab
   if (!capability) {
     return <div className="field content-loading-field is-placeholder" aria-hidden="true" inert>
       <span className={hideLabel ? "sr-only" : "field-label"}>{label}</span>
-      <div className="content-loading-placeholder-control" />
+      <select disabled tabIndex={-1} defaultValue=""><option value="" /></select>
       <small>此运行方式仅支持完整下载游戏内容。</small>
     </div>;
   }

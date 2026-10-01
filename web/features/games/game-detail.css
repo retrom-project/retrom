@@ -58,7 +58,6 @@
 .launch-panel .content-loading-field select { width: min(100%, var(--launch-control-width, 100%)); }
 .launch-options { min-width: 0; }
 .content-loading-field.is-placeholder { visibility: hidden; }
-.content-loading-placeholder-control { height: 44px; }
 .launch-options:has(.field) { margin-bottom: var(--space-3); }
 .launch-option-panel { min-width: 0; }
 .launch-option-panel > .field + .field { margin-top: var(--space-3); }
