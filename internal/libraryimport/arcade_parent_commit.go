@@ -24,13 +24,14 @@ func (service *Service) commitAcceptedParentAttachment(
 	validation preparedGroup,
 	diagnostics map[string]any,
 ) error {
-	if err := service.prepareParentDirectory(ctx, &candidate, files, &validation); err != nil {
+	copies, err := service.prepareParentDirectory(ctx, &candidate, files, &validation)
+	if err != nil {
 		return err
 	}
 	diagnosticsJSON, _ := json.Marshal(diagnostics)
 	now := service.now().UnixMilli()
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	err := repository.CommitAccepted(ctx, libraryservice.ArcadeParentAcceptedCommit{
+	err = repository.CommitAccepted(ctx, libraryservice.ArcadeParentAcceptedCommit{
 		Candidate: libraryservice.ArcadeParentCommitCandidate{
 			AttachmentID: candidate.attachmentID, ItemID: candidate.itemID, DraftID: candidate.draftID,
 			BaseSnapshotID: candidate.baseSnapshotID, Machine: candidate.machine,
@@ -40,7 +41,7 @@ func (service *Service) commitAcceptedParentAttachment(
 			ContentPolicyDigest: candidate.contentPolicyDigest,
 		},
 		JobID: jobID, WorkerID: workerID, Entries: entries,
-		Files: arcadeParentSourceFiles(files), ManifestJSON: manifestJSON, ManifestDigest: manifestDigest,
+		Files: arcadeParentSourceFiles(files), FileCopies: copies, ManifestJSON: manifestJSON, ManifestDigest: manifestDigest,
 		Validation: libraryservice.ArcadeParentValidation{
 			Status: validation.ValidationStatus, CompatibilityCode: validation.CompatibilityCode,
 			DependencySnapshot: validation.DependencySnapshot,

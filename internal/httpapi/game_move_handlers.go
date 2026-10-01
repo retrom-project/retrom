@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/authn"
 	gamemove "retrom/internal/service/gamemove"
+	"retrom/internal/service/metadatascrape"
 )
 
 type gameMoveImpact = gamemove.Impact
@@ -240,14 +241,15 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 		request.Context(), request.PathValue("gameId"), expected,
 	)
 	if err != nil {
-		writeError(
-			writer,
-			request,
-			http.StatusConflict,
-			"VERSION_CONFLICT",
-			"游戏内容或版本已经变化",
-			map[string]any{},
-		)
+		switch {
+		case errors.Is(err, metadatascrape.ErrGameVersionConflict):
+			writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏内容或版本已经变化", map[string]any{})
+		case errors.Is(err, metadatascrape.ErrArchiveIndexMissing):
+			writeError(writer, request, http.StatusConflict, "METADATA_ARCHIVE_INDEX_MISSING",
+				"主 ROM 的归档索引缺失，无法查找游戏信息。请重新导入游戏后再试。", map[string]any{})
+		default:
+			server.databaseError(writer, request, err)
+		}
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
@@ -272,7 +274,7 @@ func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *
 			writer,
 			http.StatusOK,
 			map[string]any{
-				"gameId": request.PathValue("gameId"), "scrapeRunId": nil, "items": []any{},
+				"gameId": request.PathValue("gameId"), "scrapeRunId": nil, "evidenceCount": 0, "items": []any{},
 			},
 		)
 		return
@@ -304,7 +306,8 @@ func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId": request.PathValue("gameId"), "scrapeRunId": *result.RunID, "items": items,
+			"gameId": request.PathValue("gameId"), "scrapeRunId": *result.RunID,
+			"evidenceCount": result.EvidenceCount, "items": items,
 		},
 	)
 }

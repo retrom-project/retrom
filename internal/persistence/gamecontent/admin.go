@@ -120,7 +120,8 @@ WHERE g.id=?
 func (records records) adminGameFiles(ctx context.Context, gameID string) ([]application.AdminGameFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT file.role,file.logical_name,file.sort_order,json_extract(blob.value, '$.size_bytes'),
-json_extract(blob.value, '$.sha256')
+json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.md5'),
+json_extract(blob.value, '$.sha1'),json_extract(blob.value, '$.crc32'),json_extract(blob.value, '$.media_type')
 FROM game_files file
 JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.game_id=?
@@ -133,7 +134,8 @@ ORDER BY file.sort_order,file.role,file.logical_name
 	result := make([]application.AdminGameFile, 0)
 	for rows.Next() {
 		var file application.AdminGameFile
-		if err := rows.Scan(&file.Role, &file.LogicalName, &file.SortOrder, &file.SizeBytes, &file.SHA256); err != nil {
+		if err := rows.Scan(&file.Role, &file.LogicalName, &file.SortOrder, &file.SizeBytes,
+			&file.SHA256, &file.MD5, &file.SHA1, &file.CRC32, &file.MediaType); err != nil {
 			return nil, fmt.Errorf("scan admin game file: %w", err)
 		}
 		result = append(result, file)

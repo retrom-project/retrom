@@ -15,6 +15,7 @@ import (
 var (
 	ErrProviderInvalid       = errors.New("METADATA_PROVIDER_INVALID")
 	ErrArcadeSnapshotInvalid = errors.New("ARCADE_EVIDENCE_SNAPSHOT_INVALID")
+	ErrArchiveIndexMissing   = errors.New("METADATA_ARCHIVE_INDEX_MISSING")
 	ErrReviewVersionConflict = errors.New("REVIEW_VERSION_CONFLICT")
 	ErrGameVersionConflict   = errors.New("GAME_VERSION_CONFLICT")
 )

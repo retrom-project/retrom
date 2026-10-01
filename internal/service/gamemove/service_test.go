@@ -39,8 +39,8 @@ func (memory *memoryRepository) QueuedJobState(context.Context, string) (string,
 	return memory.jobState, nil
 }
 
-func (memory *memoryRepository) LatestScrapeRun(context.Context, string) (string, bool, error) {
-	return memory.runID, memory.runFound, nil
+func (memory *memoryRepository) LatestScrapeRun(context.Context, string) (ScrapeRun, bool, error) {
+	return ScrapeRun{ID: memory.runID, EvidenceCount: 2}, memory.runFound, nil
 }
 
 func (memory *memoryRepository) ScrapeCandidates(context.Context, string) ([]CandidateRecord, error) {
@@ -198,7 +198,16 @@ func TestScrapeCandidatesReturnsEmptyProjectionWhenNoCompletedRun(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.RunID != nil || result.Items == nil || len(result.Items) != 0 {
+	if result.RunID != nil || result.Items == nil || len(result.Items) != 0 || result.EvidenceCount != 0 {
 		t.Fatalf("empty scrape result = %#v", result)
+	}
+}
+
+func TestScrapeCandidatesIncludesEligibleHashCount(t *testing.T) {
+	repository := &memoryRepository{runID: "run", runFound: true}
+	service := New(repository, &memoryValidation{snapshot: testSnapshot()})
+	result, err := service.ScrapeCandidates(t.Context(), "game")
+	if err != nil || result.RunID == nil || *result.RunID != "run" || result.EvidenceCount != 2 {
+		t.Fatalf("scrape summary=%+v error=%v", result, err)
 	}
 }

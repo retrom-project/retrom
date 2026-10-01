@@ -1299,9 +1299,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the game's current content. */
+        /** @description Returns the latest completed candidate batch for the game's current content, including metadata, evidence, hit counts, and media assets. The required evidenceCount integer is the number of eligible file hashes in that run (zero when no run exists); zero means no provider lookup was attempted. */
         get: operations["getAdminGameScrapeCandidates"];
         put?: never;
+        /** @description Schedules a lookup from current content. Returns 409 METADATA_ARCHIVE_INDEX_MISSING when an Arcade main archive lacks its required member index, 409 VERSION_CONFLICT for stale content, and 500 for unexpected storage failures. Missing indexes roll back scheduling and preserve the previous result and game version. */
         post: operations["postAdminGameScrapeCandidates"];
         delete?: never;
         options?: never;
@@ -2206,6 +2207,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        GameScrapeCandidates: {
+            /** Format: uuid */
+            gameId: string;
+            /** Format: uuid */
+            scrapeRunId: string | null;
+            evidenceCount: number;
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
         ImportBatchDiscard: {
             /** @enum {string} */
             kind: "IMPORT" | "SOURCE";
@@ -2479,6 +2490,10 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
+            md5: string;
+            sha1: string;
+            crc32: string;
+            mediaType: string;
         };
         AdminGameAsset: {
             /** Format: uuid */
@@ -6856,7 +6871,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Current completed lookup result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameScrapeCandidates"];
+                };
+            };
         };
     };
     postAdminGameScrapeCandidates: {

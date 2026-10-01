@@ -225,7 +225,6 @@
   .admin-game-overview,
   .admin-game-primary-grid,
   .admin-game-publish-form,
-  .admin-game-media-grid,
   .platform-directory-toolbar,
   .runtime-kpis,
   .runtime-toolbar,
@@ -331,7 +330,6 @@
   .admin-game-savebar.full { grid-column: auto; }
   .admin-game-savebar { align-items: stretch; flex-direction: column; }
   .admin-game-savebar > div { display: grid; }
-  .admin-game-cover-slot { min-width: 0; min-height: 330px; }
   .admin-game-media { contain: none; }
 
   .platform-directory-footer { align-items: flex-start; flex-direction: column; }

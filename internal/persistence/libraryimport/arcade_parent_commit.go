@@ -46,6 +46,11 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 		return err
 	}
 
+	for source, destination := range request.FileCopies {
+		if err := recordstore.CopyArchiveFacts(ctx, transaction, source, destination); err != nil {
+			return arcadeParentCommitStoreError("copy parent snapshot archive indexes", err)
+		}
+	}
 	artifacts, err := insertArcadeParentCommitArtifacts(
 		ctx, transaction, request.Candidate, request.Entries, request.Files,
 		request.ManifestJSON, request.ManifestDigest, request.Validation, target, request.NowMS,

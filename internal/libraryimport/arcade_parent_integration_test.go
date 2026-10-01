@@ -169,6 +169,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	assertParentArchiveIndexes(t, database.SQL, "snapshot", snapshotID, "[COMPANION:b.zip:1 CONTENT:a.zip:1]")
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
 	var snapshotCount int
 	var validationStatus, validationCode, snapshotSource string
@@ -208,6 +209,7 @@ WHERE attachment.id=?
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedC.JobID, "SUCCEEDED")
 	itemID, version, snapshotID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	assertParentArchiveIndexes(t, database.SQL, "snapshot", snapshotID, "[COMPANION:b.zip:1 COMPANION:c.zip:2 CONTENT:a.zip:1]")
 	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
@@ -231,6 +233,7 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 	changeDATBetweenPublicationTransactions(t, importer, database.SQL, itemID)
 	approved, err := importer.Approve(ctx, itemID, version)
 	testassert.False(t, err != nil, err)
+	assertParentArchiveIndexes(t, database.SQL, "game", approved.GameID, "[COMPANION:b.zip:1 COMPANION:c.zip:2 CONTENT:a.zip:1]")
 	if source {
 		var contentSource, pegasusState string
 		if err := dbapi.QueryRowContext(ctx, database.SQL, `
@@ -285,6 +288,7 @@ JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
 WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "published dependencies = %v", revalidatedDependencies)
+	assertPublishedParentScrapeEvidence(t, database.SQL, approved.GameID)
 }
 
 func linkReviewToSourceOrigin(

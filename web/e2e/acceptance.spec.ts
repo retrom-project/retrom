@@ -341,7 +341,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   if (payload.items[0]) {
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
     await pageCanvasGaps(page, ".admin-game-detail");
-    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "危险操作"]) {
+    for (const heading of ["发布信息", "媒体", "游戏文件", "管理操作", "危险操作"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     }
     for (const omittedTag of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
@@ -352,12 +352,11 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
       return box.width / box.height;
     });
     expect(Math.abs(adminCoverRatio - 0.75)).toBeLessThanOrEqual(0.01);
-    const coverBottomGap = await page.locator(".admin-game-media-grid").evaluate((element) => {
-      const body = element.getBoundingClientRect();
-      const cover = element.querySelector<HTMLElement>(".admin-game-cover-frame")!.getBoundingClientRect();
-      return body.bottom - Number.parseFloat(getComputedStyle(element).paddingBottom) - cover.bottom;
-    });
-    expect(Math.abs(coverBottomGap)).toBeLessThanOrEqual(1);
+    await expect(page.getByRole("tab", { name: "封面", exact: true })).toHaveAttribute("aria-selected", "true");
+    const files = page.getByRole("region", { name: "游戏文件", exact: true });
+    await expect(files.getByRole("button", { name: /替换/ })).toHaveCount(0);
+    await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
+
     await expect(page.getByRole("button", { name: "保存发布信息" })).toBeDisabled();
     await noPageOverflow(page);
   }
