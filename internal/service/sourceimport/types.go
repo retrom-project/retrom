@@ -35,6 +35,7 @@ type Counts struct {
 
 type Summary struct {
 	Format             string    `json:"format"`
+	ExtensionFilter    string    `json:"extensionFilter"`
 	ID                 string    `json:"id"`
 	Root               RootRef   `json:"root"`
 	SourceRelativePath string    `json:"sourceRelativePath"`

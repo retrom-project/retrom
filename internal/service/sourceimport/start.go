@@ -117,7 +117,8 @@ func readyToStart(before StartSnapshot, version, now int64) error {
 }
 
 func (service *Starter) verifySource(ctx context.Context, before StartSnapshot) error {
-	if before.SourceSnapshotDigest == "" || len(before.Metadata) == 0 || len(before.Metadata) > MaxMetadataFiles {
+	if before.SourceSnapshotDigest == "" || len(before.Metadata) > MaxMetadataFiles ||
+		before.Summary.Format != "BASIC" && len(before.Metadata) == 0 {
 		return ErrSourceChanged
 	}
 	root, err := service.sources.Select(ctx, before.Summary.Root.ID, before.Summary.SourceRelativePath)

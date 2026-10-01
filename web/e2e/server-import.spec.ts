@@ -3,6 +3,7 @@ import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { selectServerSource, serverSourcePath } from "./server-directory-support";
+import { expectSourceHandoffDuringCleanup } from "./server-import-cleanup-support";
 import {
   runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
 } from "./runtime-provider-support";
@@ -147,6 +148,7 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await selectServerSource(drawer, "Games");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("PEGASUS");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const createdPlan = await (await scanResponse).json() as { id: string };
   const footerClose = drawer.locator("footer").getByRole("button", { name: "关闭", exact: true });
@@ -232,7 +234,8 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
     expect(result.items).toHaveLength(1);
     return result.items[0];
   }).toMatchObject({ payloadState: "RELEASED", media: { video: "READY" } });
-  await expect(resultTable).toContainText("源文件已清理");
+  await expect(resultTable).toContainText("已移交审核");
+  await expectSourceHandoffDuringCleanup(page, createdPlan.id);
   const adminGamesResponse = await page.request.get("/api/v1/admin/games?q=Acceptance%20Game&limit=100");
   expect(adminGamesResponse.ok()).toBe(true);
   const adminGames = await adminGamesResponse.json() as { items: Array<{ title: string }> };
@@ -345,6 +348,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
   await selectServerSource(drawer, "Playable");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Playable")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("PEGASUS");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const plan = await (await scanResponse).json() as { id: string };
 

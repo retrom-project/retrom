@@ -88,7 +88,7 @@ describe("ServerImportManager", () => {
 
     expect(screen.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "扫描并准备审核事项" })).toBeVisible();
-    expect(screen.getByText(/选择 Pegasus 或 gamelist.xml 格式/)).toBeVisible();
+    expect(screen.getByText(/选择 basic、metadata.pegasus.txt 或 gamelist.xml 格式/)).toBeVisible();
 
   });
 
@@ -101,7 +101,7 @@ describe("ServerImportManager", () => {
   it("returns to the styled directory picker after a failed scan and can scan again without a reload", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const scanning: SourceImportSummary = {
-      id: "22222222-2222-4222-8222-222222222222", format: "PEGASUS", root: { id: "source", label: "Source BIOS" },
+      id: "22222222-2222-4222-8222-222222222222", format: "PEGASUS", extensionFilter: "", root: { id: "source", label: "Source BIOS" },
       sourceRelativePath: "Other", state: "SCANNING", phase: "DISCOVERING_METADATA",
       scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: null,
       counts: { metadata: 0, invalidMetadata: 0, collections: 0, games: 0, estimatedSourceBytes: 0, mappedCollections: 0, skippedCollections: 0, processable: 0, blocked: 0, reviewPending: 0, published: 0, reviewDiscarded: 0, existing: 0, failed: 0, cancelled: 0, mediaWarnings: 0, covers: 0, videos: 0 },
@@ -128,6 +128,7 @@ describe("ServerImportManager", () => {
     const format = screen.getByRole("combobox", { name: "文件组织格式" });
     expect(format).toHaveClass("select");
     await user.click(await screen.findByRole("button", { name: "Other" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "文件组织格式" }), "PEGASUS");
     await user.click(screen.getByRole("button", { name: "扫描此目录" }));
     expect(await screen.findByText("发现 metadata")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });

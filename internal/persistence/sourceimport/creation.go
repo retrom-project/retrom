@@ -57,13 +57,15 @@ func (records creationRecords) Insert(ctx context.Context, plan application.Crea
 		ctx,
 		records.executor,
 		`
-INSERT INTO source_imports(format,id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
+INSERT INTO source_imports(format,extension_filter,id,root_id,root_label_snapshot,source_relative_path,
+root_config_digest,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-SELECT ?,?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?
+SELECT ?,?,?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?
 WHERE (SELECT count(*) FROM source_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
 OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL))<20
 `,
-		normalizedSourceFormat(plan.Request.Format),
+		plan.Request.Format,
+		plan.Request.ExtensionFilter,
 		plan.ImportID,
 		plan.Root.ID,
 		plan.Root.Label,
@@ -99,6 +101,8 @@ func (records creationRecords) insertScanJob(ctx context.Context, plan applicati
 		"schemaVersion": 1, "kind": "IMPORT_SCAN",
 		"scope": map[string]any{"type": "SOURCE_IMPORT", "id": plan.ImportID}, "executionId": plan.ExecutionID,
 		"inputs": map[string]any{
+			"format":             plan.Request.Format,
+			"extensionFilter":    plan.Request.ExtensionFilter,
 			"rootId":             plan.Root.ID,
 			"sourceRelativePath": plan.Request.SourceRelativePath,
 			"rootConfigDigest":   plan.Root.Digest,
@@ -169,11 +173,4 @@ VALUES(?,'USER',?,NULL,'SOURCE_IMPORT_CREATED','SOURCE_IMPORT',?,NULL,'{"state":
 		)
 	}
 	return nil
-}
-
-func normalizedSourceFormat(format string) string {
-	if format == "" {
-		return "PEGASUS"
-	}
-	return format
 }

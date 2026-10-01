@@ -44,13 +44,6 @@
 .source-stepper .is-active { color: var(--purple-dark); }
 .source-stepper .is-active span { color: white; border-color: var(--purple); background: var(--purple); }
 .source-stepper .is-complete span { color: var(--canvas); border-color: var(--cyan); background: var(--cyan); }
-.server-root-options { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; border: 0; }
-.server-root-options legend { margin-bottom: 6px; color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-.server-root-options label { min-width: 0; padding: 10px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
-.server-root-options input { width: 15px; height: 15px; }
-.server-root-options strong, .server-root-options small { display: block; }
-.server-root-options strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-caption); }
-.server-root-options small { margin-top: 2px; color: var(--muted); font-size: var(--text-caption); }
 .server-directory-browser { min-height: 280px; margin-bottom: 15px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .server-directory-browser nav { min-height: 43px; padding: 7px 9px; display: flex; align-items: center; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--surface); }
 .server-directory-browser nav button { min-height: 27px; padding: 0 6px; flex: 0 0 auto; color: var(--purple-dark); border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-size: var(--text-caption); }
@@ -212,7 +205,7 @@
 }
 
 @media (max-width: 720px) {
-  .server-root-options, .source-scan-summary { grid-template-columns: minmax(0, 1fr); }
+  .source-scan-summary { grid-template-columns: minmax(0, 1fr); }
   .source-stepper { padding-inline: 12px; }
   .source-stepper li { font-size: var(--text-caption); }
   .source-batch-tags > header, .source-batch-tag-actions, .source-review-tags { align-items: stretch; flex-direction: column; }
@@ -222,4 +215,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .server-import-task { transition: none; }
+}
+
+.source-format-fields { margin-bottom: 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.source-format-fields label { min-width: 0; display: grid; gap: 6px; }
+@media (max-width: 720px) {
+  .source-format-fields { grid-template-columns: minmax(0, 1fr); }
 }

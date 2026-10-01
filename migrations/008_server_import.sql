@@ -2,7 +2,8 @@
 
 CREATE TABLE "source_imports" (
   id TEXT PRIMARY KEY,
-  format TEXT NOT NULL DEFAULT 'PEGASUS' CHECK(format IN ('PEGASUS','GAMELIST')),
+  format TEXT NOT NULL DEFAULT 'PEGASUS' CHECK(format IN ('BASIC','PEGASUS','GAMELIST')),
+  extension_filter TEXT NOT NULL DEFAULT '' CHECK(length(extension_filter)<=2048 AND (format='BASIC' OR extension_filter='')),
   root_id TEXT NOT NULL CHECK(length(CAST(root_id AS BLOB)) BETWEEN 1 AND 32),
   root_label_snapshot TEXT NOT NULL CHECK(length(root_label_snapshot) BETWEEN 1 AND 40 AND length(CAST(root_label_snapshot AS BLOB))<=160),
   source_relative_path TEXT NOT NULL CHECK(length(CAST(source_relative_path AS BLOB))<=4096),

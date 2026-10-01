@@ -63,7 +63,9 @@ func (dispatcher *WorkDispatcher) scan(ctx context.Context, unit Work) {
 		dispatcher.fail(ctx, unit, err)
 		return
 	}
-	result, err := ScanOrganized(ctx, source, unit.Format, time.UnixMilli(unit.DeadlineAtMS).UTC().Year()+1)
+	result, err := ScanOrganized(
+		ctx, source, unit.Format, unit.ExtensionFilter, time.UnixMilli(unit.DeadlineAtMS).UTC().Year()+1,
+	)
 	if err != nil {
 		dispatcher.fail(ctx, unit, err)
 		return
@@ -76,7 +78,7 @@ func (dispatcher *WorkDispatcher) scan(ctx context.Context, unit Work) {
 func (dispatcher *WorkDispatcher) fail(ctx context.Context, unit Work, cause error) {
 	code := "INTERNAL_ERROR"
 	for _, known := range []error{
-		ErrRootChanged, ErrMetadataAbsent, ErrScanLimit, ErrSourceChanged,
+		ErrRootChanged, ErrMetadataAbsent, ErrFilesAbsent, ErrScanLimit, ErrSourceChanged,
 		ErrMapping, ErrNoSelection, ErrExpired, ErrActive, ErrInvalid,
 	} {
 		if errors.Is(cause, known) {
