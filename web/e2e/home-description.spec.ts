@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { seedHomeState, uiLayoutState } from "./ui-layout-state";
 
 test("ACC-UI-005 home keeps long titles and launch controls within its hero", async ({ page }, testInfo) => {
   await login(page);
@@ -56,32 +57,36 @@ async function login(page: Page) {
 }
 
 test("ACC-UI-005 failed recent launch uses a centered three-second toast without moving the row", async ({ page }, testInfo) => {
-  await login(page);
-  await page.route("**/api/v1/launches", route => route.fulfill({
-    status: 422, contentType: "application/json",
-    body: JSON.stringify({ error: { code: "LAUNCH_BLOCKED", message: "当前游戏或核心无法启动", details: {}, requestId: "01980000-0000-7000-8000-000000000001" } }),
-  }));
-  await page.goto("/recent");
-  const row = page.locator(".recent-history-row").first();
-  const button = row.getByRole("button", { name: "再玩一次", exact: true });
-  await expect(button).toBeEnabled();
-  const before = { row: await row.boundingBox(), button: await button.boundingBox() };
-  await button.click();
-  const toast = page.getByRole("alert");
-  await expect(toast).toHaveText("当前游戏或核心无法启动");
-  await expect(toast.getByRole("button")).toHaveCount(0);
-  await expect(row.getByRole("alert")).toHaveCount(0);
-  await expect(button).toBeEnabled();
-  expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
-  const geometry = await toast.evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    return { centered: Math.abs(rect.x + rect.width / 2 - innerWidth / 2), top: rect.top, position: getComputedStyle(element).position, parent: element.parentElement?.tagName };
-  });
-  expect(geometry.centered).toBeLessThan(1);
-  expect(geometry.top).toBeLessThan(60);
-  expect(geometry.position).toBe("fixed");
-  expect(geometry.parent).toBe("BODY");
-  await page.screenshot({ path: testInfo.outputPath("recent-launch-error-toast.png") });
-  await expect(toast).toHaveCount(0, { timeout: 4_000 });
-  expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
+  uiLayoutState("isolate");
+  try {
+    seedHomeState("played");
+    await login(page);
+    await page.route("**/api/v1/launches", route => route.fulfill({
+      status: 422, contentType: "application/json",
+      body: JSON.stringify({ error: { code: "LAUNCH_BLOCKED", message: "当前游戏或核心无法启动", details: {}, requestId: "01980000-0000-7000-8000-000000000001" } }),
+    }));
+    await page.goto("/recent");
+    const row = page.locator(".recent-history-row").first();
+    const button = row.getByRole("button", { name: "再玩一次", exact: true });
+    await expect(button).toBeEnabled();
+    const before = { row: await row.boundingBox(), button: await button.boundingBox() };
+    await button.click();
+    const toast = page.locator(".app-toast[role=alert]");
+    await expect(toast).toHaveText("当前游戏或核心无法启动");
+    await expect(toast.getByRole("button")).toHaveCount(0);
+    await expect(row.getByRole("alert")).toHaveCount(0);
+    await expect(button).toBeEnabled();
+    expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
+    const geometry = await toast.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { centered: Math.abs(rect.x + rect.width / 2 - innerWidth / 2), top: rect.top, position: getComputedStyle(element).position, parent: element.parentElement?.tagName };
+    });
+    expect(geometry.centered).toBeLessThan(1);
+    expect(geometry.top).toBeLessThan(60);
+    expect(geometry.position).toBe("fixed");
+    expect(geometry.parent).toBe("BODY");
+    await page.screenshot({ path: testInfo.outputPath("recent-launch-error-toast.png") });
+    await expect(toast).toHaveCount(0, { timeout: 4_000 });
+    expect({ row: await row.boundingBox(), button: await button.boundingBox() }).toEqual(before);
+  } finally { uiLayoutState("restore"); }
 });
