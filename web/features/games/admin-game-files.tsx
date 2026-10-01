@@ -16,6 +16,13 @@ const fileRoles: Record<string, string> = {
   RPG_MAKER_LAUNCH_BUNDLE: "运行文件包",
 };
 
+const fileRoleOrder: Record<string, number> = { CONTENT: 0, PLAYLIST_SOURCE: 0, DISC: 1, COMPANION: 2 };
+
+function compareFiles(left: GameFile, right: GameFile) {
+  return (fileRoleOrder[left.role] ?? 3) - (fileRoleOrder[right.role] ?? 3)
+    || left.sortOrder - right.sortOrder || left.logicalName.localeCompare(right.logicalName);
+}
+
 function FileMetadata({ file }: { file: GameFile }) {
   const hashes = [["SHA-256", file.sha256], ["MD5", file.md5], ["SHA-1", file.sha1], ["CRC32", file.crc32]];
   return <dl className="admin-game-file-metadata">
@@ -27,7 +34,7 @@ function FileMetadata({ file }: { file: GameFile }) {
 
 export function AdminGameFiles({ files }: { files: GameFile[] }) {
   const [page, setPage] = useState(0);
-  const ordered = [...files].sort((left, right) => left.sortOrder - right.sortOrder || left.logicalName.localeCompare(right.logicalName));
+  const ordered = [...files].sort(compareFiles);
   const lastPage = Math.max(0, Math.ceil(ordered.length / pageSize) - 1);
   const currentPage = Math.min(page, lastPage);
   const visible = ordered.slice(currentPage * pageSize, (currentPage + 1) * pageSize);

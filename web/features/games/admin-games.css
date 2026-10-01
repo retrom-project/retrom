@@ -90,7 +90,8 @@
 .admin-game-savebar summary { min-height: 42px; padding: 0 14px; display: flex; align-items: center; list-style: none; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .admin-game-savebar summary::-webkit-details-marker { display: none; }
 .admin-game-savebar details > div { position: absolute; z-index: 8; right: 0; bottom: 48px; width: 320px; max-height: 220px; padding: 10px; overflow: auto; display: grid; gap: 5px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
-.admin-game-media-tabs { display: flex; align-items: center; gap: var(--space-1); }
+.admin-game-media > .panel-head { position: relative; }
+.admin-game-media-tabs { position: absolute; inset-inline-end: var(--space-4); top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: var(--space-1); }
 .admin-game-media-body { display: flex; flex-direction: column; gap: var(--space-3); }
 .admin-game-media-stage { position: relative; flex: 1; min-height: 0; container-type: size; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-cover); background: var(--surface-subtle); }
 .admin-game-media-panel { position: absolute; inset: 0; display: grid; place-items: center; }

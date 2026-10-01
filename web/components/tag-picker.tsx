@@ -156,7 +156,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
   return <div className="tag-picker">
     <label htmlFor={inputId}>{label}</label>
     {description ? <p className="field-help" id={`${inputId}-help`}>{description}</p> : null}
-    <div className="tag-picker-selected" aria-label="已选择标签">{selected.map((tag) => <span className="tag-chip tag-chip-removable" key={tag.tagId} title={tag.name}>{tag.name}<button type="button" disabled={disabled} aria-label={`移除标签“${tag.name}”`} onClick={() => { onChange(selected.filter((entry) => entry.tagId !== tag.tagId)); window.requestAnimationFrame(() => inputRef.current?.focus()); }}>×</button></span>)}</div>
+    <div className="tag-picker-selected" aria-label="已选择标签">{selected.map((tag) => <span className="tag-chip tag-chip-removable" key={tag.tagId} title={tag.name}><span className="tag-chip-label">{tag.name}</span><button type="button" disabled={disabled} aria-label={`移除标签“${tag.name}”`} onClick={() => { onChange(selected.filter((entry) => entry.tagId !== tag.tagId)); window.requestAnimationFrame(() => inputRef.current?.focus()); }}>×</button></span>)}</div>
     <div className="tag-picker-combobox">
       <input
         id={inputId}

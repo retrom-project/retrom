@@ -1,4 +1,5 @@
 import { expectPhoneAdminNotice } from "./admin-phone-support";
+import { expectTagChipTextVisible } from "./tag-chip-layout-support";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
@@ -117,6 +118,8 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await picker.fill(tagName);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: `移除标签“${tagName}”` })).toBeVisible();
+  await expectTagChipTextVisible(page);
+  await page.locator(".tag-picker-selected").screenshot({ path: evidencePath(testInfo, "selected-tag-text.png") });
   await page.getByRole("button", { name: "更新标签" }).click();
   await expect(page.getByText("游戏标签已更新。", { exact: true })).toBeVisible();
   await expect(page.locator(".admin-game-hero-copy .tag-chips")).toHaveCount(0);

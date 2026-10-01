@@ -30,6 +30,21 @@ describe("AdminGameFiles", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("keeps the primary file first when imported roles reuse sort order zero", () => {
+    const view = render(<AdminGameFiles files={[
+      { ...file, logicalName: "parent.zip", role: "COMPANION", sortOrder: 0 },
+      { ...file, logicalName: "main.zip", role: "CONTENT", sortOrder: 1 },
+    ]} />);
+    const names = () => screen.getAllByRole("listitem").map((row) => row.querySelector("strong")?.textContent);
+    expect(names()).toEqual(["main.zip", "parent.zip"]);
+    view.rerender(<AdminGameFiles files={[
+      { ...file, logicalName: "game (Disc 1).chd", role: "DISC", sortOrder: 0 },
+      { ...file, logicalName: "game.m3u", role: "PLAYLIST_SOURCE", sortOrder: 0 },
+      { ...file, logicalName: "game (Disc 2).chd", role: "DISC", sortOrder: 1 },
+    ]} />);
+    expect(names()).toEqual(["game.m3u", "game (Disc 1).chd", "game (Disc 2).chd"]);
+  });
+
   it("makes every project file reachable without mounting the whole file list", async () => {
     const user = userEvent.setup();
     render(<AdminGameFiles files={Array.from({ length: 21 }, (_, index) => ({ ...file, role: "PROJECT_FILE", logicalName: `data/file-${index}.ks`, sortOrder: index }))} />);

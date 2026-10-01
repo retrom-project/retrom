@@ -12,6 +12,9 @@ test("ACC-UI-005 management media, read-only files and empty tag navigation", as
   await expect(page.getByRole("link", { name: "返回游戏管理", exact: true })).toBeVisible();
   const cover = page.getByRole("tab", { name: "封面", exact: true });
   const video = page.getByRole("tab", { name: "视频", exact: true });
+  const headingHeights = await page.locator(".admin-game-primary-grid > .panel > .panel-head").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+  expect(headingHeights).toHaveLength(2);
+  expect(Math.abs(headingHeights[0] - headingHeights[1])).toBeLessThan(1);
   await expect(cover).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".admin-game-media video")).toHaveCount(0);
   await cover.focus();

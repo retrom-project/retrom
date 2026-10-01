@@ -70,6 +70,16 @@ describe("AdminGameManager", () => {
     expect(screen.getByRole("button", { name: "保存发布信息" })).toBeDisabled();
   });
 
+  it.each([["CONTENT", "main.zip"], ["PLAYLIST_SOURCE", "game.m3u"]])("uses the %s file in the current file overview", (role, logicalName) => {
+    render(<AdminGameManager game={{ ...game, files: [
+      { ...game.files[0], role: "COMPANION", logicalName: "parent.zip", sortOrder: 0 },
+      { ...game.files[0], role, logicalName, sortOrder: 1 },
+    ] }} platformInstances={directories} candidates={[]} />);
+    const overview = within(screen.getByRole("region", { name: "游戏概览" }));
+    expect(overview.getByText(logicalName)).toBeVisible();
+    expect(overview.queryByText("parent.zip")).not.toBeInTheDocument();
+  });
+
   it("shows a deleted game as deleted instead of runnable", () => {
     render(<AdminGameManager game={{ ...game, status: "DELETED" }} platformInstances={directories} candidates={[]} />);
 

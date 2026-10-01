@@ -279,6 +279,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
 
   const currentInstance = platformInstances.find((item) => item.id === game.platformInstance.id);
   const runtimeVariant = runtimeVariantPresentation(game, currentInstance);
+  const primaryFile = game.files.find((file) => file.role === "CONTENT" || file.role === "PLAYLIST_SOURCE") ?? game.files[0];
   const cover = game.assets.find((asset) => asset.kind === "COVER");
   const video = game.assets.find((asset) => asset.kind === "VIDEO");
   const metadataComplete = gameMetadataComplete(game);
@@ -295,7 +296,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
   return <AdminGameManagerView
     activeTags={activeTags} busy={busy} clientReady={clientReady}
     comparison={comparison} comparisonCover={comparisonCover} comparisonFields={comparisonFields} cover={cover}
-    currentFile={game.files[0]?.logicalName ?? "尚无游戏文件"} currentInstance={currentInstance}
+    currentFile={primaryFile?.logicalName ?? "尚无游戏文件"} currentInstance={currentInstance}
     currentVariant={runtimeVariant.variant} disabled={disabled} draft={draft} error={error}
     game={game} gameTags={gameTags} metadataComplete={metadataComplete} metadataDirty={metadataDirty}
     moveTarget={moveTarget} moveTargets={moveTargets} notice={notice}
