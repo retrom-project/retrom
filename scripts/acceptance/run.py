@@ -197,7 +197,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PLAT-001": (
         120,
-        "go test ./internal/httpapi -run '^TestPlatformLifecycleUsesImpactDigestVersioningAndAudit$' -count=1",
+        "go test ./internal/httpapi -run 'TestPlatformLifecycleUsesImpactDigestVersioningAndAudit|TestPlatformDirectory' -count=1",
     ),
     "ACC-PLAT-002": (
         120,
@@ -215,6 +215,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         120,
         "go test -tags=integration ./internal/httpapi -run 'TestPlatformLifecycleUsesImpactDigestVersioningAndAudit|TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries' -count=1",
     ),
+    "ACC-PLAT-007": (180, "scripts/acceptance/ui-case.sh ACC-PLAT-007"),
     "ACC-PLAT-006": (
         180,
         "go test ./internal/platformcatalog ./internal/content/profile ./internal/service/platforminstance ./internal/persistence/platforminstance -count=1 && go test ./internal/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
@@ -222,7 +223,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/persistence/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
         180,
-        "go test -tags=integration ./internal/httpapi ./internal/persistence/metadatascrape -run 'TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1 -timeout=30s",
+        "go test -tags=integration ./internal/httpapi ./internal/persistence/metadatascrape -run 'TestGameScrapeMapsIndexVersionAndStorageFailures|TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1 -timeout=30s",
     ),
     "ACC-GAME-003": (
         180,
@@ -248,7 +249,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMP-007": (
         180,
-        "go test -tags=integration ./internal/libraryimport ./internal/persistence/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1",
+        "go test -tags=integration ./internal/libraryimport ./internal/persistence/libraryimport ./internal/persistence/metadatascrape -run 'TestParentArchiveIndexesRollBackWithSnapshotFailure|TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1",
     ),
     "ACC-IMP-008": (
         180,

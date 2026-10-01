@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|01[01])|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-BASIC-001|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..011|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-BASIC-001|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
+if [[ ! "$case_id" =~ ^(ACC-PLAT-007|ACC-UI-(00[1-9]|01[01])|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-BASIC-001|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-PLAT-007|ACC-UI-001..011|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-BASIC-001|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
   exit 2
 fi
 
@@ -234,6 +234,9 @@ fi
 export RETROM_ACCEPTANCE_DATA_DIR="$temporary_root/data"
 
 specification="e2e/acceptance.spec.ts"
+if [[ "$case_id" == "ACC-PLAT-007" ]]; then
+  specification="e2e/directory-groups.spec.ts"
+fi
 if [[ "$case_id" == "ACC-UI-011" ]]; then
   specification="e2e/ui-consistency.spec.ts"
 fi
@@ -274,7 +277,7 @@ if [[ "$case_id" == "ACC-UI-003" ]]; then
   specifications+=("e2e/game-detail-layout.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-005" ]]; then
-  specifications+=("e2e/home-description.spec.ts")
+  specifications+=("e2e/home-description.spec.ts" "e2e/admin-game-detail.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
   specifications+=("e2e/navigation-errors.spec.ts")
@@ -284,12 +287,12 @@ if [[ "$case_id" == "ACC-MOB-007" ]]; then
   playwright_grep="ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007"
 fi
 playwright_args=(playwright test "${specifications[@]}" --grep "$playwright_grep")
-if [[ "$case_id" == "ACC-UI-011" ]]; then
+if [[ "$case_id" == "ACC-UI-011" || "$case_id" == "ACC-PLAT-007" ]]; then
   playwright_args+=(--project=chrome-1280 --project=chrome-4k-150)
 fi
 if [[ "$case_id" =~ ^ACC-MOB-00[1-6]$ ]]; then
   playwright_args+=(--project=chrome-mobile)
-elif [[ "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
+elif [[ "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-PLAT-007" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

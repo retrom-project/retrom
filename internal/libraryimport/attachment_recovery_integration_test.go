@@ -62,6 +62,7 @@ func TestAttachmentRecoveryAndManualRetryRunFrozenInputToAcceptance(t *testing.T
 				restarted.Start(fixture.ctx)
 				waitParentJob(t, fixture.database.SQL, fixture.jobID, "SUCCEEDED")
 				fixture.assertAcceptedOnce(t, manual)
+				fixture.assertArchiveIndexes(t)
 			})
 		}
 	}
@@ -136,4 +137,17 @@ func (fixture attachmentRecoveryFixture) assertAcceptedOnce(t *testing.T, manual
 	if execution != wantExecution || attempt != wantAttempt || snapshots != 2 || successes != 1 {
 		t.Fatalf("execution=%d attempt=%d snapshots=%d successes=%d", execution, attempt, snapshots, successes)
 	}
+}
+
+func (fixture attachmentRecoveryFixture) assertArchiveIndexes(t *testing.T) {
+	t.Helper()
+	if fixture.kind != "REVIEW_ARCADE_PARENT_VALIDATE" {
+		return
+	}
+	var snapshot string
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL,
+		"SELECT effective_source_snapshot_id FROM import_items WHERE id=?", fixture.itemID).Scan(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	assertParentArchiveIndexes(t, fixture.database.SQL, "snapshot", snapshot, "[COMPANION:b.zip:1 CONTENT:a.zip:1]")
 }

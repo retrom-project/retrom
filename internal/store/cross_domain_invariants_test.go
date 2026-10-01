@@ -35,11 +35,11 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 	seedSchemaProductDefinitions(t, database.SQL)
 	for _, statement := range []string{
 		`INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
-) VALUES('current-nes','nes','fceumm','Current NES','current-nes',1,1,1,1,1)`,
+ id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms
+) VALUES('current-nes','nes','fceumm','Current NES','current-nes',1,1,1,1)`,
 		`INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
-) VALUES('current-snes','snes','snes9x','Current SNES','current-snes',2,1,1,1,1)`,
+ id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms
+) VALUES('current-snes','snes','snes9x','Current SNES','current-snes',1,1,1,1)`,
 		`INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
  metadata_source_kind,content_kind,content_source_kind,
@@ -139,8 +139,8 @@ manifest_fragment_json
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
 ) VALUES('current-binding','fceumm','current-provider','target-a','CURRENT','CURRENT','ENABLED')`,
 		`INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
-) VALUES('current-platform','nes','fceumm','Current platform','current-platform',1,1,1,1,1)`,
+ id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms
+) VALUES('current-platform','nes','fceumm','Current platform','current-platform',1,1,1,1)`,
 		`INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
  metadata_source_kind,content_kind,content_source_kind,

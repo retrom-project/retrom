@@ -15,8 +15,8 @@ export default async function AdminGameDetail({ params }: { params: Promise<{ ga
   return <>
     <PageHeader
       title={game.title}
-      description="维护当前发布信息、媒体、游戏内容与运行环境；替换内容时保留现有存档。"
-      actions={<ButtonLink href="/admin/games" secondary>← 返回游戏管理</ButtonLink>}
+      description="维护发布信息、媒体与标签，查看游戏文件及管理操作。"
+      actions={<ButtonLink href="/admin/games" secondary>返回游戏管理</ButtonLink>}
     />
     <AdminGameManager game={game} platformInstances={instances.items} candidates={scrape.items} activeTags={activeTags} />
   </>;

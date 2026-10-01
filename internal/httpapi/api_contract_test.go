@@ -129,7 +129,7 @@ func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
 	key := "01980000-0000-7000-8000-000000000077"
-	body := `{"platformId":"nes","defaultCoreId":"fceumm","name":"Concurrent Directory","description":"","sortOrder":99}`
+	body := `{"platformId":"nes","defaultCoreId":"fceumm","name":"Concurrent Directory","description":""}`
 	send := func(contents string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(contents))
 		request.Header.Set("Content-Type", "application/json")
@@ -160,7 +160,7 @@ WHERE slug='concurrent-directory'
 		t.Fatalf("created rows = %d, error=%v", count, err)
 	}
 	conflict := send(
-		`{"platformId":"nes","defaultCoreId":"fceumm","name":"Different Directory","description":"","sortOrder":99}`,
+		`{"platformId":"nes","defaultCoreId":"fceumm","name":"Different Directory","description":""}`,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return conflict.Code != http.StatusConflict }, func() bool { return !strings.Contains(conflict.Body.String(), `"code":"IDEMPOTENCY_KEY_REUSED"`) }), "idempotency conflict = %d %s", conflict.Code, conflict.Body.String())
 }

@@ -172,8 +172,6 @@ paths:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1recommendations
   /api/v1/admin/platform-instances/recommendations/apply:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1recommendations~1apply
-  /api/v1/admin/platform-instances/order:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1order
   /api/v1/admin/platform-instances/{platformInstanceId}:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1{platformInstanceId}
   /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview:
@@ -261,6 +259,8 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    GameScrapeCandidates:
+      $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
     ImportBatchDiscard:
       $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:
@@ -507,10 +507,6 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendationsApplyResult
     PatchPlatformInstanceRequest:
       $ref: ./domains/catalog.yaml#/components/schemas/PatchPlatformInstanceRequest
-    ReorderPlatformInstanceItem:
-      $ref: ./domains/catalog.yaml#/components/schemas/ReorderPlatformInstanceItem
-    ReorderPlatformInstancesRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/ReorderPlatformInstancesRequest
     DefaultCorePreviewRequest:
       $ref: ./domains/catalog.yaml#/components/schemas/DefaultCorePreviewRequest
     DefaultCoreRequest:
@@ -714,8 +710,6 @@ components:
       $ref: ./domains/catalog.yaml#/components/requestBodies/CreatePlatformInstance
     PatchPlatformInstance:
       $ref: ./domains/catalog.yaml#/components/requestBodies/PatchPlatformInstance
-    ReorderPlatformInstances:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/ReorderPlatformInstances
     DefaultCorePreview:
       $ref: ./domains/catalog.yaml#/components/requestBodies/DefaultCorePreview
     DefaultCore:

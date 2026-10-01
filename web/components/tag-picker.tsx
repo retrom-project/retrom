@@ -148,13 +148,15 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
   const list = <TagPickerList
     {...{ activeIndex, atLimit, disabled, filtered, listId, listPosition, open, options }}
     onChoose={choose}
+    onFocus={cancelBlur}
+    onBlur={deferClose}
     onSetActive={setActiveIndex}
   />;
 
   return <div className="tag-picker">
     <label htmlFor={inputId}>{label}</label>
     {description ? <p className="field-help" id={`${inputId}-help`}>{description}</p> : null}
-    <div className="tag-picker-selected" aria-label="已选择标签">{selected.map((tag) => <span className="tag-chip tag-chip-removable" key={tag.tagId} title={tag.name}>{tag.name}<button type="button" disabled={disabled} aria-label={`移除标签“${tag.name}”`} onClick={() => { onChange(selected.filter((entry) => entry.tagId !== tag.tagId)); window.requestAnimationFrame(() => inputRef.current?.focus()); }}>×</button></span>)}</div>
+    <div className="tag-picker-selected" aria-label="已选择标签">{selected.map((tag) => <span className="tag-chip tag-chip-removable" key={tag.tagId} title={tag.name}><span className="tag-chip-label">{tag.name}</span><button type="button" disabled={disabled} aria-label={`移除标签“${tag.name}”`} onClick={() => { onChange(selected.filter((entry) => entry.tagId !== tag.tagId)); window.requestAnimationFrame(() => inputRef.current?.focus()); }}>×</button></span>)}</div>
     <div className="tag-picker-combobox">
       <input
         id={inputId}
@@ -190,7 +192,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
 }
 
 function TagPickerList({
-  activeIndex, atLimit, disabled, filtered, listId, listPosition, onChoose, onSetActive, open, options,
+  activeIndex, atLimit, disabled, filtered, listId, listPosition, onChoose, onFocus, onBlur, onSetActive, open, options,
 }: {
   activeIndex: number;
   atLimit: boolean;
@@ -199,6 +201,8 @@ function TagPickerList({
   listId: string;
   listPosition: ListPosition | null;
   onChoose: (tag: TagReference) => void;
+  onFocus: () => void;
+  onBlur: () => void;
   onSetActive: (index: number) => void;
   open: boolean;
   options: TagReference[];
@@ -207,6 +211,8 @@ function TagPickerList({
   return <div
     className={`tag-picker-list tag-picker-list-floating${listPosition.above ? " is-above" : ""}`}
     id={listId}
+    onFocusCapture={onFocus}
+    onBlurCapture={onBlur}
     role="listbox"
     style={{ left: listPosition.left, maxHeight: listPosition.maxHeight, top: listPosition.top, width: listPosition.width }}
   >{filtered.length ? filtered.map((tag, index) => <button

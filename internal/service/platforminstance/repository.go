@@ -40,7 +40,6 @@ type DirectoryWrites interface {
 
 type Directory struct {
 	ID, PlatformID, CoreID, Name, Description string
-	SortOrder                                 int64
 	Version                                   int64
 	Enabled                                   bool
 	CatalogKey                                *string
@@ -98,7 +97,6 @@ type DefaultCoreChangeResult struct {
 
 type DirectoryUpdate struct {
 	ID, Name, Description string
-	SortOrder             int64
 	Enabled               bool
 	ExpectedVersion       int64
 	UpdatedAtMS           int64

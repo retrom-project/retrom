@@ -12,7 +12,7 @@ const platforms: Platform[] = [{ id: "gba", name: "Game Boy Advance", enabled: t
 ] }];
 const instances: PlatformInstance[] = [{
   id: "instance-1", platformId: "gba", platformName: "Game Boy Advance", defaultCoreId: "mgba",
-  defaultCoreName: "mGBA", name: "掌机游戏", slug: "handheld", description: "", sortOrder: 10, enabled: true, version: 1, gameCount: 0,
+  defaultCoreName: "mGBA", name: "掌机游戏", slug: "handheld", description: "", createdAtMs: 10, enabled: true, version: 1, gameCount: 0,
   supportedExtensions: [".gba"]
 }];
 const recommendations: PlatformRecommendations = {
@@ -32,18 +32,17 @@ describe("PlatformManager", () => {
       if (String(input).endsWith("/default-core-preview")) {
         return new Response(JSON.stringify({ impactDigest: "impact", counts: { ready: 1, needsValidation: 0, blocked: 0 } }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
-      if (String(input).endsWith("/order")) {
-        const request = JSON.parse(String(init?.body)) as { items: Array<{ id: string; version: number }> };
-        return new Response(JSON.stringify({ items: request.items.map((item, index) => ({ ...item, version: item.version + 1, sortOrder: (index + 1) * 100 })) }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
       if (String(input).endsWith("/recommendations/apply")) {
         return new Response(JSON.stringify({
           catalogVersion: 1,
           createdTemplateKeys: ["gba/mgba"],
-          created: [{ ...instances[0], id: "recommended-gba", name: "GBA 游戏", slug: "gba-games", sortOrder: 100, createdAtMs: 1, updatedAtMs: 1 }],
+          created: [{ ...instances[0], id: "recommended-gba", name: "GBA 游戏", slug: "gba-games", createdAtMs: 1, updatedAtMs: 1 }],
           summary: { createdCount: 1, coveredCount: 0, suppressedCount: 0, remainingMissingCount: 0 },
           items: [{ ...recommendations.items[0], state: "ACTIVE", platformInstanceId: "11111111-1111-4111-8111-111111111111" }],
         }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (init?.method === "POST") {
+        return new Response(JSON.stringify({ ...instances[0], id: "created", name: "My GBA Games", createdAtMs: 30 }), { status: 201, headers: { "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ version: 2 }), { status: 200, headers: { "Content-Type": "application/json" } });
     }));
@@ -51,20 +50,28 @@ describe("PlatformManager", () => {
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it("shows the shared platform category before directory details", () => {
+  it("groups directories under collapsible category headings without order fields", async () => {
+    const user = userEvent.setup();
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
-    const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
-    expect(headers.slice(1, 8)).toEqual(["平台类型", "游戏目录", "游戏平台", "扩展名", "游戏数", expect.stringContaining("推荐运行方式"), "启用状态"]);
-    const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
-    expect(within(row).getByRole("cell", { name: "掌机" })).toBeVisible();
+    const group = screen.getByRole("button", { name: "掌机 1 个目录" });
+    expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
+    group.focus();
+    await user.keyboard("{Enter}");
+    expect(group).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(["游戏目录", "游戏平台", "扩展名", "游戏数", "推荐运行方式", "启用状态", "操作"]);
     expect(screen.getByRole("cell", { name: "Game Boy Advance 支持的扩展名" })).toHaveTextContent(".gba");
-    expect(screen.queryByText("不支持", { exact: true })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全部收起" }));
+    expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全部展开" }));
+    expect(screen.getByText("掌机游戏")).toBeVisible();
   });
 
   it("previews impact and only commits after the application dialog is confirmed", async () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "全部展开" }));
     const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
     await user.selectOptions(within(row).getByLabelText("“掌机游戏”的推荐运行方式"), "vba_next");
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
@@ -91,27 +98,17 @@ describe("PlatformManager", () => {
     const body = JSON.parse(String((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]?.body)) as Record<string, unknown>;
     expect(body).toMatchObject({ platformId: "gba", defaultCoreId: "mgba", name: "My GBA Games" });
     expect(body).not.toHaveProperty("slug");
+    expect(body).not.toHaveProperty("sortOrder");
+    expect(screen.getByRole("button", { name: "掌机 1 个目录" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("My GBA Games")).toBeVisible();
   });
 
-  it("persists keyboard reordering without exposing numeric sort fields", async () => {
-    const user = userEvent.setup();
-    const second: PlatformInstance = { ...instances[0], id: "instance-2", name: "另一个目录", slug: "other", sortOrder: 20 };
-    render(<PlatformManager instances={[...instances, second]} platforms={platforms} createOpen={false} />);
-
-    const handle = screen.getByRole("button", { name: "拖动“另一个目录”调整顺序" });
-    handle.focus();
-    await user.keyboard("{ArrowUp}");
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    const body = JSON.parse(String((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]?.body)) as { items: Array<{ id: string }> };
-    expect(body.items.map((item) => item.id)).toEqual(["instance-2", "instance-1"]);
-    expect(screen.queryByLabelText("显示顺序")).not.toBeInTheDocument();
-    expect(screen.queryByText("目录顺序已保存。")).not.toBeInTheDocument();
-  });
 
   it("lets a non-empty directory change user visibility without showing success banners", async () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={[{ ...instances[0], gameCount: 3 }]} platforms={platforms} createOpen={false} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "全部展开" }));
     const enabled = screen.getByRole("checkbox", { name: "“掌机游戏”启用状态" });
     expect(enabled).toBeEnabled();
     await user.click(enabled);
@@ -123,13 +120,15 @@ describe("PlatformManager", () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "全部展开" }));
     await user.click(screen.getByRole("button", { name: "管理目录“掌机游戏”" }));
     await user.click(screen.getByRole("menuitem", { name: "编辑说明" }));
+    fireEvent.click(screen.getByRole("button", { name: "全部展开" }));
     const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
     expect(within(row).getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
   });
 
-  it("filters rows locally and disables global reordering while filtered", async () => {
+  it("searches every category and restores collapsed state after clearing", async () => {
     const user = userEvent.setup();
     const second: PlatformInstance = { ...instances[0], id: "instance-2", name: "街机目录", slug: "arcade", platformId: "arcade", platformName: "Arcade" };
     render(<PlatformManager instances={[...instances, second]} platforms={platforms} createOpen={false} />);
@@ -137,8 +136,10 @@ describe("PlatformManager", () => {
     await user.type(screen.getByRole("searchbox", { name: "搜索目录" }), "街机");
     expect(screen.getByText("街机目录")).toBeInTheDocument();
     expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "拖动“街机目录”调整顺序" })).toBeDisabled();
-    expect(screen.getByText("筛选状态下仅查看；清除筛选后可调整全局展示顺序")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "街机 1 个目录" })).toHaveAttribute("aria-expanded", "true");
+    await user.clear(screen.getByRole("searchbox", { name: "搜索目录" }));
+    expect(screen.getByRole("button", { name: "街机 1 个目录" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("街机目录")).not.toBeInTheDocument();
   });
 
   it("filters by the status dropdown without duplicate quick filters", async () => {
@@ -154,15 +155,23 @@ describe("PlatformManager", () => {
     expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
   });
 
-  it("uses the complete directory row as the drag preview", () => {
-    render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
-    const handle = screen.getByRole("button", { name: "拖动“掌机游戏”调整顺序" });
-    const row = handle.closest<HTMLElement>("[role='row']")!;
-    const setDragImage = vi.fn();
 
-    fireEvent.dragStart(handle, { dataTransfer: { effectAllowed: "none", setDragImage } });
-    expect(setDragImage).toHaveBeenCalledWith(row, expect.any(Number), expect.any(Number));
-    expect(row).toHaveClass("is-dragging");
+  it("keeps a single-row menu open while its table scrolls and restores focus on Escape", async () => {
+    const user = userEvent.setup();
+    render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
+    await user.click(screen.getByRole("button", { name: "全部展开" }));
+    const trigger = screen.getByRole("button", { name: "管理目录“掌机游戏”" });
+    await user.click(trigger);
+    fireEvent.scroll(window);
+    expect(screen.getByRole("menu")).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "编辑说明" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    await user.click(trigger);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("opens the creation drawer from the page header and closes it from the backdrop", async () => {

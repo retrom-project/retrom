@@ -78,16 +78,6 @@ func (service *Service) apply(
 	}
 	before := projectRecommendations(catalog, references, rows)
 	coveredBefore := before.Summary.ActiveCount + before.Summary.CustomizedCount + before.Summary.CoveredByEquivalentCount
-	maxSortOrder := int64(0)
-	for _, row := range rows {
-		if !row.Deleted && row.SortOrder > maxSortOrder {
-			maxSortOrder = row.SortOrder
-		}
-	}
-	nextSortOrder := int64(100)
-	if maxSortOrder > 0 {
-		nextSortOrder = (maxSortOrder/100 + 1) * 100
-	}
 	created := make([]Instance, 0, before.Summary.MissingCount)
 	createdKeys := make([]string, 0, before.Summary.MissingCount)
 	for _, recommendation := range before.Items {
@@ -97,14 +87,13 @@ func (service *Service) apply(
 		template := catalogTemplate(catalog, recommendation.TemplateKey)
 		instance, err := service.createInstance(ctx, scope, actor, CreateInput{
 			PlatformID: template.PlatformID, DefaultCoreID: template.DefaultCoreID,
-			Name: template.Name, Description: template.Description, SortOrder: nextSortOrder,
+			Name: template.Name, Description: template.Description,
 		}, template.Key, "PLATFORM_INSTANCE_RECOMMENDED_CREATED", now)
 		if err != nil {
 			return ApplyResult{}, repositoryError("apply catalog", err)
 		}
 		created = append(created, instance)
 		createdKeys = append(createdKeys, template.Key)
-		nextSortOrder += 100
 	}
 	rows, err = scope.Reader.Directories(ctx)
 	if err != nil {

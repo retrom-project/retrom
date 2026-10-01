@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  canReorderPlatformDirectories,
+  directoryCreationOrder,
   filterPlatformDirectories,
   platformDirectorySummary,
   summarizeRecommendations,
@@ -16,7 +16,7 @@ function directory(overrides: Partial<PlatformInstance> & Pick<PlatformInstance,
     defaultCoreName: "FinalBurn Neo",
     slug: overrides.id,
     description: "街机游戏集合",
-    sortOrder: 100,
+    createdAtMs: 100,
     enabled: true,
     version: 1,
     gameCount: 0,
@@ -25,11 +25,11 @@ function directory(overrides: Partial<PlatformInstance> & Pick<PlatformInstance,
   };
 }
 
-const baseFilters: PlatformDirectoryFilters = { query: "", platformId: "", status: "ALL", sort: "ORDER" };
+const baseFilters: PlatformDirectoryFilters = { query: "", platformId: "", status: "ALL" };
 const directories = [
-  directory({ id: "fbneo", name: "FBNeo 游戏", sortOrder: 200, gameCount: 3 }),
-  directory({ id: "mame", name: "MAME 游戏", sortOrder: 100, enabled: false }),
-  directory({ id: "gba", name: "GBA 游戏", platformId: "gba", platformName: "Game Boy Advance", defaultCoreId: "mgba", defaultCoreName: "mGBA", description: "掌机合集", sortOrder: 300 }),
+  directory({ id: "fbneo", name: "FBNeo 游戏", createdAtMs: 200, gameCount: 3 }),
+  directory({ id: "mame", name: "MAME 游戏", createdAtMs: 100, enabled: false }),
+  directory({ id: "gba", name: "GBA 游戏", platformId: "gba", platformName: "Game Boy Advance", defaultCoreId: "mgba", defaultCoreName: "mGBA", description: "掌机合集", createdAtMs: 300 }),
 ];
 
 describe("platform directory list", () => {
@@ -44,14 +44,14 @@ describe("platform directory list", () => {
 
   it("filters status and sorts deterministically", () => {
     expect(filterPlatformDirectories(directories, { ...baseFilters, status: "DISABLED" }).map((item) => item.id)).toEqual(["mame"]);
-    expect(filterPlatformDirectories(directories, { ...baseFilters, sort: "GAME_COUNT" }).map((item) => item.id)).toEqual(["fbneo", "gba", "mame"]);
-    expect(filterPlatformDirectories(directories, { ...baseFilters, sort: "NAME" }).map((item) => item.id)).toEqual(["fbneo", "gba", "mame"]);
+    expect(filterPlatformDirectories(directories, baseFilters).map((item) => item.id)).toEqual(["mame", "fbneo", "gba"]);
+    expect(filterPlatformDirectories(directories, { ...baseFilters, query: "  finalburn  " }).map((item) => item.id)).toEqual(["mame", "fbneo"]);
   });
 
-  it("only allows global reordering in the unfiltered display-order view", () => {
-    expect(canReorderPlatformDirectories(baseFilters)).toBe(true);
-    expect(canReorderPlatformDirectories({ ...baseFilters, query: "gba" })).toBe(false);
-    expect(canReorderPlatformDirectories({ ...baseFilters, sort: "NAME" })).toBe(false);
+  it("keeps equal-time creations stable without changing the source list", () => {
+    const items = [directory({ id: "b", name: "A" }), directory({ id: "a", name: "Z" })];
+    expect([...items].sort(directoryCreationOrder).map((item) => item.id)).toEqual(["a", "b"]);
+    expect(items.map((item) => item.id)).toEqual(["b", "a"]);
   });
 
   it("summarizes recommendation states without parsing labels", () => {

@@ -117,7 +117,7 @@ func (repository *Repository) PlatformInstances(
 	}
 	statement := `
 SELECT pi.id,pi.platform_id,p.name,pi.default_core_id,c.name,pi.name,pi.slug,pi.description,
-pi.sort_order,pi.enabled,pi.version,pi.updated_at_ms,
+pi.created_at_ms,pi.enabled,pi.version,pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id),
 COALESCE((SELECT ` + contentquery.BindingPolicySQL + `
  FROM runtime_target_bindings binding
@@ -128,7 +128,7 @@ COALESCE((SELECT ` + contentquery.BindingPolicySQL + `
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
-WHERE ` + strings.Join(conditions, " AND ") + ` ORDER BY pi.sort_order,pi.id LIMIT 100`
+WHERE ` + strings.Join(conditions, " AND ") + ` ORDER BY pi.created_at_ms,pi.id`
 	rows, err := repository.database.QueryContext(ctx, statement, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("query platform instances: %w", err)
@@ -140,7 +140,7 @@ WHERE ` + strings.Join(conditions, " AND ") + ` ORDER BY pi.sort_order,pi.id LIM
 		var enabled int
 		var policy contentcapability.Policy
 		if err := rows.Scan(&item.ID, &item.PlatformID, &item.PlatformName, &item.DefaultCoreID,
-			&item.DefaultCoreName, &item.Name, &item.Slug, &item.Description, &item.SortOrder,
+			&item.DefaultCoreName, &item.Name, &item.Slug, &item.Description, &item.CreatedAtMS,
 			&enabled, &item.Version, &item.UpdatedAtMS, &item.GameCount,
 			contentquery.ScanPolicy(&policy)); err != nil {
 			return nil, fmt.Errorf("scan platform instance: %w", err)

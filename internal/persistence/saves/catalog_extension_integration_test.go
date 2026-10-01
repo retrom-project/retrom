@@ -31,7 +31,7 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 		t.Fatal(err)
 	}
 	fixture.createPendingRPGReview(t)
-	mustSaveSQL(t, fixture.database.SQL, `UPDATE platform_instances SET name='My configured folder',sort_order=321,version=version+1 WHERE catalog_template_key='gba/mgba'`)
+	mustSaveSQL(t, fixture.database.SQL, `UPDATE platform_instances SET name='My configured folder',version=version+1 WHERE catalog_template_key='gba/mgba'`)
 	before := catalogUserEvidence(t, fixture.database.SQL)
 	active, manifests, err := testsupport.RuntimeProviderInputs(fixture.ctx, fixture.database.SQL)
 	if err != nil {

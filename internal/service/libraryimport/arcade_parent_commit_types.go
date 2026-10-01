@@ -42,6 +42,7 @@ type ArcadeParentAcceptedCommit struct {
 	JobID, WorkerID string
 	Entries         []importing.ArchiveEntry
 	Files           []ArcadeParentSourceFile
+	FileCopies      map[string]string
 	ManifestJSON    string
 	ManifestDigest  string
 	Validation      ArcadeParentValidation

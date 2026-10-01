@@ -1,4 +1,5 @@
 import { expectPhoneAdminNotice } from "./admin-phone-support";
+import { expectTagChipTextVisible } from "./tag-chip-layout-support";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
@@ -117,19 +118,20 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await picker.fill(tagName);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: `移除标签“${tagName}”` })).toBeVisible();
+  await expectTagChipTextVisible(page);
+  await page.locator(".tag-picker-selected").screenshot({ path: evidencePath(testInfo, "selected-tag-text.png") });
   await page.getByRole("button", { name: "更新标签" }).click();
   await expect(page.getByText("游戏标签已更新。", { exact: true })).toBeVisible();
+  await expect(page.locator(".admin-game-hero-copy .tag-chips")).toHaveCount(0);
   const detailSpacing = await page.evaluate(() => {
-    const chips = document.querySelector(".admin-game-hero-copy > .tag-chips");
     const tags = document.querySelector(".admin-game-tags");
     const primary = document.querySelector(".admin-game-primary-grid");
-    if (!chips?.nextElementSibling || !tags || !primary) {return null;}
+    if (!tags || !primary) {return null;}
     return {
-      statusGap: chips.nextElementSibling.getBoundingClientRect().top - chips.getBoundingClientRect().bottom,
       sectionGap: primary.getBoundingClientRect().top - tags.getBoundingClientRect().bottom,
     };
   });
-  expect(detailSpacing).toEqual({ statusGap: 8, sectionGap: 14 });
+  expect(detailSpacing).toEqual({ sectionGap: 14 });
 
   await page.goto("/admin/tags");
   const assignedRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });

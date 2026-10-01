@@ -35,14 +35,14 @@ func (service *Service) prepareMultiDiscDirectory(ctx context.Context, candidate
 
 func (service *Service) prepareParentDirectory(ctx context.Context,
 	candidate *parentAttachmentCandidate, files []attachedSourceFile, validation *preparedGroup,
-) error {
+) (map[string]string, error) {
 	directory := filestore.ItemDirectory(candidate.itemID) + "/payload/content/" + candidate.attachmentID
 	copies := map[string]string{}
 	for i := range files {
 		file := &files[i]
 		copied, err := service.blobs.CopyTo(ctx, file.fileRecord, directory+"/source", file.logicalName)
 		if err != nil {
-			return fmt.Errorf("prepare parent directory: %w", err)
+			return nil, fmt.Errorf("prepare parent directory: %w", err)
 		}
 		copies[file.fileRecord] = copied.Record
 		file.fileRecord = copied.Record
@@ -58,12 +58,12 @@ func (service *Service) prepareParentDirectory(ctx context.Context,
 		}
 		copied, err := service.blobs.CopyTo(ctx, file.FileRecord, directory+"/derived", file.LogicalName)
 		if err != nil {
-			return fmt.Errorf("prepare parent directory: %w", err)
+			return nil, fmt.Errorf("prepare parent directory: %w", err)
 		}
 		file.FileRecord = copied.Record
 	}
 	if copied, ok := copies[candidate.fileRecord]; ok {
 		candidate.fileRecord = copied
 	}
-	return nil
+	return copies, nil
 }

@@ -87,8 +87,8 @@ func seedRPGReviewFixture(
 	}
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)
-VALUES('rpg-platform','rpgmaker','rpgmaker','RPG Maker validation','rpg-validation',999,1,1,?,?)`, now, now)
+ id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms)
+VALUES('rpg-platform','rpgmaker','rpgmaker','RPG Maker validation','rpg-validation',1,1,?,?)`, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO upload_sessions(id,purpose,state,source_type,total_files,total_bytes,manifest_digest,
  expires_at_ms,created_at_ms,updated_at_ms)

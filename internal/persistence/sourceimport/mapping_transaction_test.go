@@ -197,7 +197,7 @@ func seedMappingTarget(t *testing.T, db dbapi.DB) string {
 		t.Fatal(err)
 	}
 	var id string
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&id); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY created_at_ms,id LIMIT 1`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id

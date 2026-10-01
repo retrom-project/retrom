@@ -30,8 +30,8 @@ func TestTargetRemovalUsesActiveWorkAndIgnoresCompletedImportHistory(t *testing.
 				query string
 				args  []any
 			}{
-				{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)
- VALUES('history-directory','gbc','gambatte','History','history',0,1,1,1,1)`, nil},
+				{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,enabled,version,created_at_ms,updated_at_ms)
+ VALUES('history-directory','gbc','gambatte','History','history',1,1,1,1)`, nil},
 				{`INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
  VALUES('history-upload','COMPLETE','FILES',1,0,?,100,1,1)`, []any{strings.Repeat("a", 64)}},
 				{

@@ -59,7 +59,7 @@ error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-00000
 		t.Fatal(err)
 	}
 	var target string
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&target); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY created_at_ms,id LIMIT 1`).Scan(&target); err != nil {
 		t.Fatal(err)
 	}
 	files, err := filestore.Open(t.TempDir())
