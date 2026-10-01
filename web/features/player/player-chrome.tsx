@@ -275,7 +275,7 @@ export function PlayerChrome({
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} coreName={coreName} discSet={discSet} discState={discState} inputRuntime={inputRuntime} />
 
-    <CheckpointHelp save={nativeSave} semantics={checkpointSemantics} visible={controlsVisible} retryAvailable={nativeRetryAvailable} onRetry={onRetrySync} />
+    <CheckpointHelp save={nativeSave} semantics={checkpointSemantics} visible={controlsVisible && runtimeState === "running"} retryAvailable={nativeRetryAvailable} onRetry={onRetrySync} />
     <PauseOverlay paused={paused} settingsOpen={emulatorToolbarOpen || editorOpen} onGameSurface={resumeFromPauseOverlay} />
 
     <GameEditorLayer open={editorOpen} editor={gameEditor} onClose={() => {setEditorOpen(false); document.getElementById("player-more-button")?.focus();}} />

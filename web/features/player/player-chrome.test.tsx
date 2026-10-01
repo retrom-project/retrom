@@ -463,6 +463,14 @@ describe("PlayerChrome settings and exit", () => {
   });
 });
 
+it("keeps native save instructions outside startup and shows them once the game is ready", () => {
+  const values = props({checkpointSemantics: "GAME_SAVE"});
+  const view = render(<PlayerChrome {...values} running={false} runtimeState="loading" />);
+  expect(screen.queryByText(/恢复后请从游戏菜单读档/)).not.toBeInTheDocument();
+  view.rerender(<PlayerChrome {...values} />);
+  expect(screen.getByText(/恢复后请从游戏菜单读档/)).toBeVisible();
+});
+
 it("explains native save and game-menu restore without promising an execution snapshot", async () => {
   const user = userEvent.setup();
   const values = props({checkpointSemantics: "GAME_SAVE"});
