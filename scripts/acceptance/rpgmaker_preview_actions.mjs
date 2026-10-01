@@ -81,6 +81,12 @@ export async function revealPreviewToolbar(page) {
   await Promise.all(page.frames().map(frame => frame.evaluate(() => {
     if (document.pointerLockElement) {return document.exitPointerLock();}
   }).catch(() => undefined)));
+  if (await page.evaluate(() => matchMedia("(hover: none) and (pointer: coarse)").matches)) {
+    const handle = page.locator(".player-hud-handle");
+    if (await handle.getAttribute("aria-pressed") === "false") {await handle.tap();}
+    await page.locator(".player-toolbar.is-visible").waitFor({state: "visible"});
+    return;
+  }
   // Always refresh the top-edge interaction, even while the toolbar is still
   // visible: its idle deadline may expire before the next pointer action.
   await page.locator(".player-hud-handle").hover();
