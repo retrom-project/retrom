@@ -191,6 +191,17 @@
 
     #retrom-ui-review .rt-page { display: none; width: 100%; max-width: var(--retrom-content-max); margin: 0 auto; padding: 24px; }
     #retrom-ui-review .rt-page.is-active { display: block; }
+
+    #retrom-ui-review .rt-startup-preview { width: min(440px, 100%); padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--canvas); text-align: center; }
+    #retrom-ui-review .rt-startup-preview ol { height: 108px; margin: var(--space-4) 0; padding: 0; display: grid; align-content: end; gap: var(--space-2); list-style: none; }
+    #retrom-ui-review .rt-startup-preview li { min-height: 28px; display: flex; align-items: center; justify-content: center; gap: var(--space-3); font-size: var(--text-body); }
+    #retrom-ui-review .rt-startup-preview svg { width: 1em; height: 1em; margin-inline: var(--space-4); fill: none; stroke: var(--purple-dark); stroke-width: 2; stroke-linecap: round; }
+    #retrom-ui-review .rt-startup-preview .is-completed { opacity: .65; transform: translateY(-2px); }
+    #retrom-ui-review .rt-startup-preview .is-completed svg { stroke: var(--success); }
+    #retrom-ui-review .rt-startup-percent { width: 48px; text-align: center; color: var(--purple-dark); font-variant-numeric: tabular-nums; }
+    #retrom-ui-review .rt-startup-spin { stroke-dasharray: 42 18; animation: rt-startup-spin 1s linear infinite; }
+    @keyframes rt-startup-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #retrom-ui-review .rt-startup-spin { animation: none; } }
     #retrom-ui-review .rt-page[data-page="play"] { padding: 0; }
     #retrom-ui-review .rt-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     #retrom-ui-review h1,
@@ -2906,6 +2917,13 @@
           <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select"><option>按需加载</option><option>下载完成后开始</option></select><small>偏好保存在当前设备，已缓存的内容会直接复用。</small></label>
           <label class="rt-field"><span class="rt-label">内容加载</span><select class="rt-select" aria-label="整文件缓存"><option>下载完成后开始</option></select><small>此运行方式仅支持完整下载游戏内容。</small></label>
           <p>未接入统一缓存的运行方式不显示内容加载区域；切换核心不改写已保存的偏好。恢复存档与重新开始能力不同则分别标注。</p>
+        </details>
+        <details class="rt-card" aria-label="公共启动事件状态评审"><summary>全部运行方式共用的加载步骤</summary>
+          <div class="rt-startup-preview" role="status"><strong>核心初始化中</strong><ol aria-label="游戏启动步骤">
+            <li class="is-completed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg><span>BIOS 已准备</span></li>
+            <li><span class="rt-startup-percent" role="progressbar" aria-label="游戏内容准备中" aria-valuemin="0" aria-valuemax="100" aria-valuenow="75">75%</span><span>游戏内容准备中</span></li>
+            <li><svg class="rt-startup-spin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /></svg><span>核心初始化中</span></li>
+          </ol><small>真实进度；未知总量显示旋转状态。完成项在上方渐隐，当前步骤在底部，最多三条；总流程只在没有具体运行步骤时显示，项目文件合并为一次装载；挂载、恢复和画面控制准备完成后消失。</small></div>
         </details>
         <details class="rt-card" aria-label="本地内容缓存状态评审"><summary>下载完成后开始</summary><p>正在下载游戏内容… 384 MiB / 768 MiB · 50%</p><p>无法完成本地缓存，请检查浏览器存储权限和可用空间。</p><button class="rt-button rt-button-primary">重试下载</button><button class="rt-button">改为按需加载</button><p>已下载的有效内容会在重试时复用。</p></details>
         <details class="rt-card" aria-label="原生存档交互状态评审">

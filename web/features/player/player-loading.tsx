@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { formatPlayerBytes } from "./player-shell-model";
 import { ContentPreloadRetry } from "./content-preload-retry";
+import {PlayerStartupTasks} from "./player-startup-tasks";
+import type {RuntimeStartupTaskV1} from "./runtime/contract";
 
 export type PlayerLoadProgress = {
   loadedBytes: number;
@@ -9,6 +11,7 @@ export type PlayerLoadProgress = {
 };
 
 type PlayerLoadingProps = {
+  tasks?: RuntimeStartupTaskV1[];
   immersive: boolean;
   canLoadOnDemand?: boolean;
   message: string;
@@ -17,17 +20,17 @@ type PlayerLoadingProps = {
   state: "loading" | "error";
 };
 
-export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand }: PlayerLoadingProps) {
+export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = [] }: PlayerLoadingProps) {
   const percentage = progressPercentage(progress);
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
   const retryable = cacheFailure || downloadFailure;
   return <div className="player-loading" role="status" aria-live="polite">
-    {state === "loading" ? <i aria-hidden="true" /> : null}
-    <strong>{cacheFailure ? "无法完成本地缓存，请检查浏览器存储权限和可用空间。"
-      : downloadFailure ? "内容下载未完成，请检查网络后重试。" : message}</strong>
+    {state === "loading" && tasks.length === 0 ? <i aria-hidden="true" /> : null}
+    <LoadingTitle state={state} tasks={tasks} message={message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} />
     {retryable ? <ContentPreloadRetry canLoadOnDemand={canLoadOnDemand === true} /> : null}
-    {state === "loading" && progress && percentage !== null ? <div className="player-loading-progress">
+    {tasks.length > 0 ? <PlayerStartupTasks tasks={tasks} /> : null}
+    {state === "loading" && tasks.length === 0 && progress && percentage !== null ? <div className="player-loading-progress">
       <div
         className="player-loading-progress-track"
         role="progressbar"
@@ -38,12 +41,25 @@ export function PlayerLoading({ state, message, progress, returnTo, immersive, c
       ><span style={{ width: `${percentage}%` }} /></div>
       <small>{formatPlayerBytes(progress.loadedBytes)} / {formatPlayerBytes(progress.totalBytes)} · {percentage}%</small>
     </div> : null}
-    <p>{state === "error"
-      ? <><span>{retryable ? "已下载的有效内容会在重试时复用。" : "凭据可能已过期或依赖不兼容。"}</span> <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link></>
-      : progress
-        ? "首次加载会写入本地缓存；再次启动相同版本时将直接复用。"
-        : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p>
+    <LoadingNote state={state} retryable={retryable} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
   </div>;
+}
+
+function LoadingTitle({state, tasks, message, cacheFailure, downloadFailure}: {
+  state: PlayerLoadingProps["state"]; tasks: RuntimeStartupTaskV1[]; message: string; cacheFailure: boolean; downloadFailure: boolean;
+}) {
+  return <strong>{state === "loading" && tasks.length > 0 && tasks.every(task => task.state !== "RUNNING")
+    ? <svg className="player-startup-spinner player-startup-pending" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /></svg> : null}
+    {cacheFailure ? "无法完成本地缓存，请检查浏览器存储权限和可用空间。"
+      : downloadFailure ? "内容下载未完成，请检查网络后重试。" : message}</strong>;
+}
+
+function LoadingNote({state, retryable, returnTo, immersive, tasks, progress}: Pick<PlayerLoadingProps, "state" | "returnTo" | "immersive" | "progress"> & {retryable: boolean; tasks: RuntimeStartupTaskV1[]}) {
+  return <p>{state === "error"
+    ? <><span>{retryable ? "已下载的有效内容会在重试时复用。" : "凭据可能已过期或依赖不兼容。"}</span> <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link></>
+    : tasks.length > 0 ? "正在准备本次启动所需内容，已缓存的资源会直接复用。"
+      : progress ? "首次加载会写入本地缓存；再次启动相同版本时将直接复用。"
+        : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p>;
 }
 
 function progressPercentage(progress: PlayerLoadProgress | null) {

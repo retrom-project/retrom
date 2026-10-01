@@ -157,8 +157,23 @@ export interface RuntimeGameEditorV1 {
   };
 }
 
+/** Startup tasks are session-local operations, independent of Provider and Target. */
+export type RuntimeStartupKindV1 = "LAUNCH_CONFIG" | "PROVIDER_MODULE" | "ENVIRONMENT" |
+  "BIOS" | "GAME_CONTENT" | "DEPENDENCIES" | "CORE_ASSETS" | "CORE_INITIALIZATION" |
+  "CONTENT_MOUNT" | "RESTORE_LOAD" | "RESTORE_APPLY" | "GAME_START" | "PLAYER_SETUP";
+export type RuntimeStartupTaskV1 = {
+  id: string;
+  kind: RuntimeStartupKindV1;
+  state: "RUNNING" | "COMPLETED" | "FAILED";
+  /** Bytes describe this operation only. 100% does not imply operation completion. */
+  progress: {loadedBytes: number; totalBytes: number} | null;
+  /** Overall spans are fallback hints when no specific running step is visible. */
+  summary?: boolean;
+};
+
 export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
+  | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
   | { type: "CHECKPOINT_AVAILABILITY_CHANGED"; availability: RuntimeCheckpointAvailabilityV1 }
   | { type: "DISC_CHANGED"; state: RuntimeDiscStateV1 }
