@@ -259,8 +259,9 @@ function registerRun004(): void {
     await page.locator(".library-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).getByRole("link").first().click();
     await expect(page).toHaveURL(/\/games\/60000000-0000-7000-8000-000000000001$/);
     await page.getByRole("button", { name: "开始游戏" }).click();
-    await expect(page.locator(".launch-panel [role=alert]")).toContainText("LAUNCH_BIOS_MISSING", { timeout: 30_000 });
-    await expect(page.getByRole("link", { name: "前往 BIOS 管理" })).toBeVisible();
+    const blockerToast = page.locator(".app-toast[role=alert]");
+    await expect(blockerToast).toContainText("LAUNCH_BIOS_MISSING");
+    await expect(blockerToast.getByRole("link", { name: "前往 BIOS 管理" })).toBeVisible();
     await expect(page).toHaveURL(/\/games\/60000000-0000-7000-8000-000000000001$/);
     expect(await page.evaluate(() => sessionStorage.getItem("retrom:fullscreen-requested"))).toBe("true");
     expect(await page.evaluate(() => sessionStorage.getItem("retrom:fullscreen-exited"))).toBe("true");

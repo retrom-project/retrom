@@ -304,6 +304,11 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
       const launch = document.querySelector(".launch-panel")?.getBoundingClientRect();
       return hero && launch ? hero.bottom - launch.bottom : Number.POSITIVE_INFINITY;
     })(),
+    heroBottomInset: (() => {
+      const hero = document.querySelector(".game-detail-hero");
+      const style = hero ? getComputedStyle(hero) : null;
+      return { padding: Number.parseFloat(style?.paddingBottom ?? "0"), border: Number.parseFloat(style?.borderBottomWidth ?? "0") };
+    })(),
   }));
   expect(layout.overflow).toBe(false);
   if (testInfo.project.name === "chrome-1280") {expect(layout.savesTop).toBeGreaterThan(layout.heroHeight);}
@@ -311,7 +316,8 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
     expect(layout.heroHeight).toBeLessThanOrEqual(480);
     expect(layout.launchTopGap).toBeGreaterThan(100);
-    expect(layout.launchBottomGap).toBeGreaterThanOrEqual(32);
+    expect(layout.heroBottomInset.padding).toBe(24);
+    expect(layout.launchBottomGap).toBeGreaterThanOrEqual(layout.heroBottomInset.padding + layout.heroBottomInset.border);
     const typography = await page.evaluate(() => {
       const read = (selector: string) => {
         const element = document.querySelector(selector);

@@ -18,15 +18,21 @@ WITH base_job AS (
   ORDER BY i.updated_at_ms DESC,i.id DESC
   LIMIT 1
 ), base_payload AS (
-  SELECT file.file_record,json_extract(file.file_record,'$.size_bytes') AS size_bytes
+  SELECT file.file_record,json_extract(file.file_record,'$.size_bytes') AS size_bytes,
+         json_object('status',variant.status,'code',variant.compatibility_code,
+                     'details',json_set(variant.dependency_snapshot_json,'$.bios',json('[]'))) AS content_analysis_json,
+         variant.runtime_profile_json AS review_profile_json,variant.default_dos_entry
   FROM games game
   JOIN platform_instances platform ON platform.id=game.platform_instance_id
   JOIN game_files file ON file.game_id=game.id
+  JOIN game_variants variant ON variant.game_id=game.id
+       AND variant.core_id=(SELECT default_core_id FROM import_jobs WHERE id=(SELECT job_id FROM base_job))
   WHERE game.status='PUBLISHED' AND platform.platform_id='gba'
   ORDER BY game.updated_at_ms DESC,game.id DESC,file.sort_order,file.logical_name
   LIMIT 1
 )
-SELECT base_job.item_id,base_job.job_id,base_payload.file_record,base_payload.size_bytes
+SELECT base_job.item_id,base_job.job_id,base_payload.file_record,base_payload.size_bytes,
+       base_payload.content_analysis_json,base_payload.review_profile_json,base_payload.default_dos_entry
 FROM base_job CROSS JOIN base_payload;
 
 -- Item 57 has distinct content so the stateful review test can leave exactly
@@ -109,20 +115,14 @@ FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
 WHERE i.id LIKE '30000000-%';
 
--- The copied digest intentionally belongs to another source snapshot. This seeds
--- stale source evidence and verifies that draft save rebuilds it instead
--- of trusting only the structurally matching validation columns.
-INSERT INTO import_item_runtime_files(import_item_id,role,logical_name,file_record,sort_order,created_at_ms)
-SELECT item.id,base.role,base.logical_name,base.file_record,base.sort_order,item.created_at_ms
-FROM import_items item CROSS JOIN import_item_runtime_files base
-WHERE base.import_item_id=(SELECT item_id FROM acceptance_base) AND item.id LIKE '30000000-%';
-
+-- Published Items have already released their preparation payload. Use the
+-- published Game's facts instead. Single-file GBA content needs no derived files.
 UPDATE import_items
 SET target_platform_instance_id=(SELECT target_platform_instance_id FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
     effective_source_snapshot_id=printf('35000000-0000-7000-80%02d-%012d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),
-    content_analysis_json=(SELECT content_analysis_json FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
-    review_profile_json=(SELECT review_profile_json FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
-    default_dos_entry=(SELECT default_dos_entry FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
+    content_analysis_json=(SELECT content_analysis_json FROM acceptance_base),
+    review_profile_json=(SELECT review_profile_json FROM acceptance_base),
+    default_dos_entry=(SELECT default_dos_entry FROM acceptance_base),
     metadata_json=json_object('title',printf('Batch %d Game %02d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),
     review_version=1,review_created_at_ms=created_at_ms,review_updated_at_ms=updated_at_ms
 WHERE id LIKE '30000000-%';
