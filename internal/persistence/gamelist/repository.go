@@ -58,10 +58,10 @@ AND a.kind='VIDEO'
 AND a.ordinal=0
 ORDER BY a.id
 LIMIT 1),
-COALESCE((SELECT SUM(active_duration_ms)
-FROM play_sessions ps
-WHERE ps.game_id=g.id
-AND ps.profile_id=?),
+COALESCE((SELECT activity.active_duration_ms
+FROM profile_game_activity activity
+WHERE activity.game_id=g.id
+AND activity.profile_id=?),
 0)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id

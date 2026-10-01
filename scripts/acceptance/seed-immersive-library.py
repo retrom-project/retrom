@@ -136,6 +136,13 @@ INSERT INTO launch_sessions(
         ),
     )
     database.execute(
+        "INSERT INTO profile_game_activity(profile_id,game_id,last_played_at_ms,active_duration_ms,session_count) "
+        "VALUES(?,?,?,1000,1) ON CONFLICT(profile_id,game_id) DO UPDATE SET "
+        "last_played_at_ms=max(last_played_at_ms,excluded.last_played_at_ms), "
+        "active_duration_ms=active_duration_ms+1000,session_count=session_count+1",
+        (profile_id, game_id, started_at_ms),
+    )
+    database.execute(
         """
 INSERT INTO play_sessions(
  id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,ended_at_ms,

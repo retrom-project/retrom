@@ -12,11 +12,13 @@ func (repository *Repository) facets(
 	ctx context.Context,
 	filteredConditions []string,
 	filteredArguments []any,
+	includeDeleted bool,
 ) (int64, application.Facets, error) {
 	baseFrom := `
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
+JOIN cores dc ON dc.id=pi.default_core_id
 `
 	var filteredCount int64
 	if err := dbapi.QueryRowContext(
@@ -31,7 +33,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		ctx,
 		"SELECT p.id,p.name,count(*) "+baseFrom,
 		" GROUP BY p.id,p.name ORDER BY p.name,p.id",
-		false,
+		false, includeDeleted,
 	)
 	if err != nil {
 		return 0, application.Facets{}, fmt.Errorf("list game platform facets: %w", err)
@@ -40,7 +42,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		ctx,
 		"SELECT pi.id,pi.name,p.id,count(*) "+baseFrom,
 		" GROUP BY pi.id,pi.name,p.id ORDER BY pi.name,pi.id",
-		true,
+		true, includeDeleted,
 	)
 	if err != nil {
 		return 0, application.Facets{}, fmt.Errorf("list game directory facets: %w", err)
@@ -53,7 +55,7 @@ JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
 		ctx,
 		"SELECT tag.id,tag.name,count(*) "+tagFrom,
 		" GROUP BY tag.id,tag.name ORDER BY tag.name,tag.id",
-		false,
+		false, includeDeleted,
 	)
 	if err != nil {
 		return 0, application.Facets{}, fmt.Errorf("list game tag facets: %w", err)
@@ -72,9 +74,12 @@ JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
 func (repository *Repository) facetRows(
 	ctx context.Context,
 	query, suffix string,
-	includePlatform bool,
+	includePlatform, includeDeleted bool,
 ) ([]application.Facet, error) {
 	visible := []string{"g.status='PUBLISHED'", "pi.enabled=1"}
+	if includeDeleted {
+		visible = nil
+	}
 	rows, err := repository.database.QueryContext(ctx, withConditions(query, visible, suffix))
 	if err != nil {
 		return nil, fmt.Errorf("query game facets: %w", err)

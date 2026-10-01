@@ -46,10 +46,7 @@
 .admin-game-identity span { width: fit-content; margin-top: 5px; padding: 2px 7px; display: block; color: var(--muted); border-radius: 999px; background: var(--surface-subtle); font-size: var(--text-caption); }
 .admin-game-manage { min-height: 36px; padding: 0 13px; display: inline-flex; align-items: center; justify-content: center; color: var(--purple-dark); border: 1px solid var(--purple-line); border-radius: var(--radius-control); background: var(--surface-subtle); font-weight: var(--weight-semibold); white-space: nowrap; }
 .admin-game-manage:hover { border-color: var(--purple-line); background: var(--purple-soft); }
-.admin-game-pagination { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--muted); font-size: var(--text-caption); }
-.admin-game-pagination > div { display: flex; align-items: center; gap: 12px; }
-.admin-game-pagination button { min-height: 32px; padding: 0 10px; color: var(--purple-dark); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; }
-.admin-game-pagination button:disabled { color: var(--muted); cursor: not-allowed; background: var(--surface-subtle); }
+
 
 .admin-game-detail { display: grid; gap: 14px; }
 .admin-game-detail .panel-head { padding: 14px 16px; }

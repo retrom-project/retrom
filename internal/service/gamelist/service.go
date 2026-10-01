@@ -25,7 +25,8 @@ func (service *Service) Detail(ctx context.Context, profileID, gameID string) (D
 }
 
 func (service *Service) List(ctx context.Context, request ListRequest) (ListResult, error) {
-	if service.repository == nil || request.ProfileID == "" || request.Limit < 1 || !validSort(request.Sort) {
+	if service.repository == nil || request.ProfileID == "" || request.Limit < 1 || request.Limit > 100 ||
+		!validSort(request.Sort) {
 		return ListResult{}, ErrInvalid
 	}
 	fetch := request

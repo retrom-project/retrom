@@ -1,11 +1,15 @@
 import { act } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecentHistory } from "./recent-history";
 import type { RecentGame } from "./recent-games";
+
+const { fetchPage } = vi.hoisted(() => ({ fetchPage: vi.fn() }));
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: fetchPage, profileId: "local" }) }));
+beforeEach(() => fetchPage.mockReset());
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
@@ -39,9 +43,16 @@ const games: RecentGame[] = [
   },
 ];
 
+function initialPage(items: RecentGame[], generatedAtMs = nowMs) {
+  return { items, generatedAtMs, nextCursor: null,
+    filteredCount: items.length, stats: { gameCount: 2, activeDurationMs: 340_000, sessionCount: 5 },
+    platforms: [{ id: "arcade", name: "街机" }, { id: "gbc", name: "Game Boy / Color" }],
+  };
+}
+
 describe("recent history", () => {
   it("renders summaries and keeps direct launch and detail actions separate", () => {
-    render(<RecentHistory games={games} nowMs={nowMs} />);
+    render(<RecentHistory initialPage={initialPage(games)} />);
     const summary = screen.getByRole("region", { name: "游玩统计" });
     expect(within(summary).getByText("2")).toBeVisible();
     expect(screen.getByRole("heading", { name: "今天" })).toBeVisible();
@@ -51,25 +62,30 @@ describe("recent history", () => {
   });
 
   it("updates the result in place for query, platform and rolling time filters", async () => {
+    fetchPage.mockImplementation(async (url: string) => {
+      const query = new URL(url, "http://test").searchParams;
+      const items = query.get("q") ? [games[1]] : query.get("platformId") || query.has("fromAtMs") ? [games[0]] : games;
+      return { ok: true, json: async () => initialPage(items) };
+    });
     const user = userEvent.setup();
-    render(<RecentHistory games={games} nowMs={nowMs} />);
+    render(<RecentHistory initialPage={initialPage(games)} />);
     await user.type(screen.getByRole("searchbox", { name: "搜索游戏" }), "掌机收藏");
-    expect(screen.getByText("Pokémon Green")).toBeVisible();
-    expect(screen.queryByText("1943: The Battle of Midway")).not.toBeInTheDocument();
+    expect(await screen.findByText("Pokémon Green")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText("1943: The Battle of Midway")).not.toBeInTheDocument());
     await user.clear(screen.getByRole("searchbox", { name: "搜索游戏" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "游戏平台" }), "arcade");
-    expect(screen.getByText("1943: The Battle of Midway")).toBeVisible();
-    expect(screen.queryByText("Pokémon Green")).not.toBeInTheDocument();
+    expect(await screen.findByText("1943: The Battle of Midway")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText("Pokémon Green")).not.toBeInTheDocument());
     await user.selectOptions(screen.getByRole("combobox", { name: "游戏平台" }), "");
     await user.click(screen.getByRole("button", { name: "7 天" }));
-    expect(screen.getByText("1943: The Battle of Midway")).toBeVisible();
-    expect(screen.queryByText("Pokémon Green")).not.toBeInTheDocument();
+    expect(await screen.findByText("1943: The Battle of Midway")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText("Pokémon Green")).not.toBeInTheDocument());
     expect(document.querySelector(".recent-result-count")).toHaveTextContent("共 1 款");
   });
 
   it("keeps a deleted game as a text tombstone without payload or executable actions", () => {
     const deleted = { ...games[0], status: "DELETED" as const, availability: "DELETED" as const, coverUrl: "/legacy-cover.png" };
-    render(<RecentHistory games={[deleted, games[1]]} nowMs={nowMs} />);
+    render(<RecentHistory initialPage={initialPage([deleted, games[1]])} />);
 
     expect(screen.getByText("已删除")).toBeVisible();
     expect(screen.getByText("已删除游戏")).toBeVisible();
@@ -89,7 +105,7 @@ describe("recent history", () => {
     };
     process.env.TZ = "UTC";
     const container = document.createElement("div");
-    container.innerHTML = renderToString(<RecentHistory games={[game]} nowMs={now} />);
+    container.innerHTML = renderToString(<RecentHistory initialPage={initialPage([game], now)} />);
     document.body.append(container);
     expect(container).toHaveTextContent("更早");
 
@@ -97,7 +113,7 @@ describe("recent history", () => {
     const recoverableErrors: unknown[] = [];
     let root: Root | undefined;
     await act(async () => {
-      root = hydrateRoot(container, <RecentHistory games={[game]} nowMs={now} />, {
+      root = hydrateRoot(container, <RecentHistory initialPage={initialPage([game], now)} />, {
         onRecoverableError: (error) => recoverableErrors.push(error),
       });
     });

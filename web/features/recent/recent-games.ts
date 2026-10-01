@@ -20,40 +20,26 @@ export type RecentGameFilters = {
   nowMs: number;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export type RecentPage = {
+  generatedAtMs: number;
+  items: RecentGame[];
+  nextCursor: string | null;
+  filteredCount?: number;
+  stats?: { gameCount: number; activeDurationMs: number; sessionCount: number };
+  platforms?: Array<{ id: string; name: string }>;
+};
 
-export function filterRecentGames(games: RecentGame[], filters: RecentGameFilters) {
-  const query = filters.query.trim().toLocaleLowerCase("zh-CN");
-  const periodDays = filters.period === "7d" ? 7 : filters.period === "30d" ? 30 : null;
-  const cutoff = periodDays === null ? null : filters.nowMs - periodDays * DAY_MS;
-  const result = games.filter((game) => {
-    if (filters.platformId && game.platform.id !== filters.platformId) {return false;}
-    if (cutoff !== null && game.lastPlayedAtMs < cutoff) {return false;}
-    if (!query) {return true;}
-    return [game.title, game.platform.name, game.platformInstance.name, ...(game.tags ?? []).map((tag) => tag.name)]
-      .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
-  });
-  return result.sort((left, right) => {
-    if (filters.sort === "title") {
-      const titleOrder = left.title.localeCompare(right.title, "zh-CN", { sensitivity: "base" });
-      return titleOrder || left.gameId.localeCompare(right.gameId);
-    }
-    if (filters.sort === "duration" && left.activeDurationMs !== right.activeDurationMs) {
-      return right.activeDurationMs - left.activeDurationMs;
-    }
-    if (filters.sort === "sessions" && left.sessionCount !== right.sessionCount) {
-      return right.sessionCount - left.sessionCount;
-    }
-    return right.lastPlayedAtMs - left.lastPlayedAtMs || right.gameId.localeCompare(left.gameId);
-  });
-}
-
-export function recentGameStats(games: RecentGame[]) {
-  return games.reduce((summary, game) => ({
-    gameCount: summary.gameCount + 1,
-    activeDurationMs: summary.activeDurationMs + game.activeDurationMs,
-    sessionCount: summary.sessionCount + game.sessionCount,
-  }), { gameCount: 0, activeDurationMs: 0, sessionCount: 0 });
+export function recentGameURL(filters: RecentGameFilters) {
+  const query = new URLSearchParams({ limit: "50", sort: {
+    recent: "RECENT_DESC", title: "TITLE_ASC", duration: "DURATION_DESC", sessions: "SESSIONS_DESC",
+  }[filters.sort] });
+  if (filters.query.trim()) {query.set("q", filters.query.trim());}
+  if (filters.platformId) {query.set("platformId", filters.platformId);}
+  if (filters.period !== "all") {
+    const days = filters.period === "7d" ? 7 : 30;
+    query.set("fromAtMs", String(Math.max(0, filters.nowMs - days * 24 * 60 * 60 * 1000)));
+  }
+  return `/api/v1/recent-games?${query}`;
 }
 
 export function zonedDateKey(value: number, timeZone?: string) {
@@ -62,11 +48,6 @@ export function zonedDateKey(value: number, timeZone?: string) {
   }).formatToParts(new Date(value));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}
-
-export function startOfLocalDay(nowMs: number) {
-  const date = new Date(nowMs);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 export function formatRecentDuration(value: number) {

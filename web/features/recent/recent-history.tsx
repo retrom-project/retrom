@@ -4,19 +4,20 @@ import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
 import { LaunchButton } from "@/features/player/launch-button";
 import { TagChips } from "@/components/tag-picker";
+import { useCursorPage } from "@/lib/use-cursor-page";
 import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import {
-  filterRecentGames,
+  recentGameURL,
   formatRecentDuration,
   formatRecentTime,
-  recentGameStats,
   zonedDateKey,
   type RecentGame,
+  type RecentPage,
   type RecentGameFilters,
 } from "./recent-games";
 
@@ -50,16 +51,18 @@ function RecentGameRow({ game, timeZone }: { game: RecentGame; timeZone: string 
   </article>;
 }
 
-export function RecentHistory({ games, nowMs }: { games: RecentGame[]; nowMs: number }) {
+export function RecentHistory({ initialPage }: { initialPage: RecentPage }) {
+  const nowMs = initialPage.generatedAtMs;
   const timeZone = useBrowserTimeZone();
   const [query, setQuery] = useState("");
   const [platformId, setPlatformId] = useState("");
   const [sort, setSort] = useState<RecentGameFilters["sort"]>("recent");
   const [period, setPeriod] = useState<RecentGameFilters["period"]>("all");
-  const platforms = useMemo(() => Array.from(new Map(games.map((game) => [game.platform.id, game.platform])).values())
-    .sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id)), [games]);
-  const stats = useMemo(() => recentGameStats(games), [games]);
-  const filtered = useMemo(() => filterRecentGames(games, { query, platformId, sort, period, nowMs }), [games, nowMs, period, platformId, query, sort]);
+  const pagination = useCursorPage(initialPage, recentGameURL({ query, platformId, sort, period, nowMs }));
+  const { page, loading } = pagination;
+  const platforms = page.platforms ?? [];
+  const stats = page.stats ?? { gameCount: 0, activeDurationMs: 0, sessionCount: 0 };
+  const filtered = page.items;
   const todayKey = zonedDateKey(nowMs, timeZone);
   const today = filtered.filter((game) => zonedDateKey(game.lastPlayedAtMs, timeZone) === todayKey);
   const earlier = filtered.filter((game) => zonedDateKey(game.lastPlayedAtMs, timeZone) !== todayKey);
@@ -76,12 +79,19 @@ export function RecentHistory({ games, nowMs }: { games: RecentGame[]; nowMs: nu
       <PhoneDisclosure title="筛选与排序"><label className="recent-filter-select"><span>游戏平台</span><select value={platformId} onChange={(event) => setPlatformId(event.target.value)}><option value="">所有平台</option>{platforms.map((platform) => <option value={platform.id} key={platform.id}>{platform.name}</option>)}</select></label>
       <label className="recent-filter-select"><span>排列顺序</span><select value={sort} onChange={(event) => setSort(event.target.value as RecentGameFilters["sort"])}><option value="recent">按最近游玩排序</option><option value="duration">按累计时长排序</option><option value="sessions">按游玩次数排序</option><option value="title">按标题排序</option></select></label>
       <fieldset className="recent-period-filter"><legend>时间范围</legend><div>{periodOptions.map((option) => <button className={period === option.value ? "is-active" : ""} type="button" aria-pressed={period === option.value} onClick={() => setPeriod(option.value)} key={option.value}>{option.label}</button>)}</div></fieldset>
-      </PhoneDisclosure><p className="recent-result-count" aria-live="polite">共 <strong>{filtered.length}</strong> 款</p>
+      </PhoneDisclosure><p className="recent-result-count" aria-live="polite">共 <strong>{page.filteredCount ?? 0}</strong> 款</p>
     </section>
 
+    {pagination.error ? <p role="alert">{pagination.error} <button className="button secondary" type="button" onClick={pagination.retry}>重试</button></p> : null}
     {filtered.length === 0 ? <EmptyState title="没有符合条件的游戏" description="尝试更换平台、时间范围或搜索关键词。" /> : <div className="recent-history-groups">
       {today.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-today"><h2 id="recent-today">今天</h2><div className="recent-history-list">{today.map((game) => <RecentGameRow game={game} timeZone={timeZone} key={game.gameId} />)}</div></section> : null}
       {earlier.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-earlier"><h2 id="recent-earlier">更早</h2><div className="recent-history-list">{earlier.map((game) => <RecentGameRow game={game} timeZone={timeZone} key={game.gameId} />)}</div></section> : null}
     </div>}
+    <footer className="list-pagination" aria-label="最近游玩分页" aria-busy={loading}>
+      <span aria-live="polite">{loading ? "正在加载… " : ""}当前展示 {filtered.length} / {page.filteredCount ?? 0} 款游戏</span>
+      <div><button type="button" disabled={loading || pagination.index === 0} onClick={pagination.previous}>上一页</button>
+        <span>第 {pagination.index + 1} 页 · 共 {Math.max(1, Math.ceil((page.filteredCount ?? 0) / 50))} 页</span>
+        <button type="button" disabled={loading || !page.nextCursor} onClick={pagination.next}>下一页</button></div>
+    </footer>
   </>;
 }

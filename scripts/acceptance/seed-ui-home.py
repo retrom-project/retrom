@@ -38,6 +38,12 @@ def seed(database_path: Path, state: str) -> None:
         for index in (INDEX, INDEX + 1):
             database.execute("DELETE FROM play_sessions WHERE id=?", (module.identifier(5, index),))
             database.execute("DELETE FROM launch_sessions WHERE id=?", (module.identifier(4, index),))
+        database.execute("DELETE FROM profile_game_activity WHERE profile_id=?", (profile,))
+        database.execute(
+            "INSERT INTO profile_game_activity(profile_id,game_id,last_played_at_ms,active_duration_ms,session_count) "
+            "SELECT profile_id,game_id,max(started_at_ms),sum(active_duration_ms),count(*) "
+            "FROM play_sessions WHERE profile_id=? GROUP BY profile_id,game_id", (profile,),
+        )
         launch_id = module.identifier(4, INDEX)
         if state == "empty":
             return

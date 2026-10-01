@@ -1,4 +1,5 @@
-import { formatLibraryPlayedAt, type GameSummary } from "@/features/library/game-library";
+import { withQuery } from "@/lib/backend";
+import { formatLibraryPlayedAt, type GameSummary, type LibraryFacets } from "@/features/library/game-library";
 
 export type AdminGameSummary = GameSummary & {
   version: number;
@@ -22,9 +23,12 @@ export type AdminGamePage = {
   generatedAtMs: number;
   items: AdminGameSummary[];
   nextCursor: string | null;
+  filteredCount?: number;
+  facets?: LibraryFacets;
+  summary?: { total: number; runtimeAttention: number; missingCover: number; incompleteMetadata: number; hidden: number };
 };
 
-export async function collectAdminGamePages(loadPage: (cursor: string | null) => Promise<AdminGamePage>) {
+export async function collectAdminGameExport(loadPage: (cursor: string | null) => Promise<AdminGamePage>) {
   const items: AdminGameSummary[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
@@ -40,71 +44,13 @@ export async function collectAdminGamePages(loadPage: (cursor: string | null) =>
   return { generatedAtMs: generatedAtMs ?? 0, items };
 }
 
-function stableTitleOrder(left: AdminGameSummary, right: AdminGameSummary) {
-  return left.title.localeCompare(right.title, "zh-CN") || left.gameId.localeCompare(right.gameId);
-}
-
-export function filterAdminGames(games: AdminGameSummary[], filters: AdminGameFilters) {
-  const query = filters.query.trim().toLocaleLowerCase("zh-CN");
-  return games
-    .filter((game) => matchesAdminGame(game, filters, query))
-    .sort((left, right) => compareAdminGames(left, right, filters.sort));
-}
-
-function matchesAdminGame(game: AdminGameSummary, filters: AdminGameFilters, query: string) {
-  if (filters.platformId && game.platform.id !== filters.platformId) {return false;}
-  if (filters.platformInstanceId && game.platformInstance.id !== filters.platformInstanceId) {return false;}
-  if (filters.tagId && !(game.tags ?? []).some((tag) => tag.tagId === filters.tagId)) {return false;}
-  if (filters.visibility !== "ALL" && game.status !== filters.visibility) {return false;}
-  if (!matchesRuntimeFilter(game, filters.runtime)) {return false;}
-  if (!query) {return true;}
-  return matchesAdminGameSearch(game, query);
-}
-
-function matchesRuntimeFilter(game: AdminGameSummary, runtime: AdminGameFilters["runtime"]) {
-  if (runtime === "ALL") {return true;}
-  if (runtime === "DELETED") {return game.status === "DELETED";}
-  if (game.status === "DELETED") {return false;}
-  return runtime === "READY" ? game.runtimeStatus === "READY" : game.runtimeStatus !== "READY";
-}
-
-function matchesAdminGameSearch(game: AdminGameSummary, query: string) {
-  const searchable = [
-    game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name,
-    ...(game.tags ?? []).map((tag) => tag.name),
-  ];
-  return searchable.some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
-}
-
-function compareAdminGames(left: AdminGameSummary, right: AdminGameSummary, sort: AdminGameFilters["sort"]) {
-  if (sort === "TITLE_ASC") {return stableTitleOrder(left, right);}
-  if (sort === "ADDED_DESC") {return right.createdAtMs - left.createdAtMs || stableTitleOrder(left, right);}
-  return right.updatedAtMs - left.updatedAtMs || stableTitleOrder(left, right);
-}
-
-export function adminGameSummary(games: AdminGameSummary[]) {
-  return {
-    total: games.length,
-    runtimeAttention: games.filter((game) => game.status !== "DELETED" && game.runtimeStatus !== "READY").length,
-    missingCover: games.filter((game) => !game.coverUrl).length,
-    incompleteMetadata: games.filter((game) => !game.metadataComplete).length,
-    hidden: games.filter((game) => game.status !== "PUBLISHED").length,
-  };
-}
-
-export function adminGamePlatforms(games: AdminGameSummary[]) {
-  const values = new Map<string, { id: string; name: string }>();
-  for (const game of games) {values.set(game.platform.id, game.platform);}
-  return [...values.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id));
-}
-
-export function adminGameDirectories(games: AdminGameSummary[], platformId: string) {
-  const values = new Map<string, { id: string; name: string; platformId: string }>();
-  for (const game of games) {
-    if (platformId && game.platform.id !== platformId) {continue;}
-    values.set(game.platformInstance.id, { ...game.platformInstance, platformId: game.platform.id });
-  }
-  return [...values.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id));
+export function adminGameURL(filters: AdminGameFilters, limit = 6, cursor?: string | null) {
+  return withQuery("/api/v1/admin/games", {
+    limit: String(limit), q: filters.query.trim(), platformId: filters.platformId,
+    platformInstanceId: filters.platformInstanceId, tagId: filters.tagId ?? "",
+    status: filters.visibility, runtime: filters.runtime, sort: filters.sort,
+    ...(cursor ? { cursor } : {}),
+  });
 }
 
 export function runtimePresentation(status: string | null, gameStatus = "PUBLISHED") {

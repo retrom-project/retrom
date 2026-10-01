@@ -546,6 +546,7 @@ VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,'ACTI
 		time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
+	seedPlayActivity(t, server.database)
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO favorite_games(profile_id,game_id,created_at_ms)
 SELECT profile_id,?,? FROM launch_sessions WHERE id=?

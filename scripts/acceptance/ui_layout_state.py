@@ -17,6 +17,7 @@ def validate_database(path: Path) -> Path:
 
 
 def clear_history(db, profile):
+    db.execute("DELETE FROM profile_game_activity WHERE profile_id=?", (profile,))
     db.execute("DELETE FROM play_sessions WHERE profile_id=?", (profile,))
     retire_save(db, "profile_id=?", (profile,))
     db.execute("DELETE FROM save_states WHERE profile_id=?", (profile,))
@@ -37,7 +38,7 @@ def isolate(path: Path) -> None:
         # Retain original IDs and foreign references from restored Launches and
         # native-save revisions while keeping them out of the layout user's UI.
         db.execute("INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'UI history holding profile',0)", (parked,))
-        for table in ("play_sessions", "save_states"):
+        for table in ("play_sessions", "profile_game_activity", "save_states"):
             db.execute(f"UPDATE {table} SET profile_id=? WHERE profile_id=?", (parked, profile))
         snapshot.write_text(json.dumps({"profile": profile, "parkedProfile": parked, "descriptions": descriptions}))
 
@@ -53,7 +54,7 @@ def restore(path: Path) -> None:
         db.execute("BEGIN IMMEDIATE")
         if db.execute("SELECT 1 FROM profiles WHERE id=?", (saved["parkedProfile"],)).fetchone():
             clear_history(db, saved["profile"])
-            for table in ("play_sessions", "save_states"):
+            for table in ("play_sessions", "profile_game_activity", "save_states"):
                 db.execute(f"UPDATE {table} SET profile_id=? WHERE profile_id=?", (saved["profile"], saved["parkedProfile"]))
             db.execute("DELETE FROM profiles WHERE id=?", (saved["parkedProfile"],))
             db.executemany("UPDATE games SET description=? WHERE id=?", [(value, key) for key, value in saved["descriptions"].items()])

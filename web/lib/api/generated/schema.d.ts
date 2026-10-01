@@ -277,7 +277,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
+        /** @description Homepage aggregate from enabled platform directories. It includes library counters, up to ten recently played games excluding the featured game, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -294,7 +294,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All visible games with play history, ordered by the newest play-session start, with aggregate active duration and session count. The response includes generatedAtMs so client-side day and rolling-window filters use the same clock as the server-rendered page. */
+        /** @description Cursor-paginated Profile-scoped play history including deleted-game tombstones. Default 50 and maximum 100 games per page, read from transactional per-game activity summaries. Supports server-side search, platform, rolling-window cutoff, and deterministic recent/title/duration/session sorts. First pages include global stats, complete history platform facets and filteredCount; later pages include only items, generatedAtMs and nextCursor. Cursors are bound to the Profile and all filters. */
         get: operations["getRecentGames"];
         put?: never;
         post?: never;
@@ -1184,7 +1184,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination. */
+        /** @description Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination. The first page includes complete admin facets, filteredCount and global summary counters; subsequent pages omit these aggregates. Search includes title, tags, platform, directory and recommended core. */
         get: operations["getAdminGames"];
         put?: never;
         post?: never;
@@ -5644,7 +5644,14 @@ export interface operations {
     };
     getRecentGames: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: components["parameters"]["Q"];
+                platformId?: components["parameters"]["PlatformIDQuery"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+                sort?: "RECENT_DESC" | "TITLE_ASC" | "DURATION_DESC" | "SESSIONS_DESC";
+                fromAtMs?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6731,6 +6738,7 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
+                runtime?: "ALL" | "READY" | "ATTENTION" | "DELETED";
             };
             header?: never;
             path?: never;

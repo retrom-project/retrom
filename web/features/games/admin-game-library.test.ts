@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  adminGameDirectories,
-  adminGameSummary,
-  collectAdminGamePages,
-  filterAdminGames,
+  adminGameURL,
+  collectAdminGameExport,
   runtimePresentation,
   type AdminGameSummary,
 } from "./admin-game-library";
@@ -34,21 +32,9 @@ describe("admin game library", () => {
     game({ gameId: "c", title: "Final Fight", status: "DELETED", runtimeStatus: null, updatedAtMs: 400 }),
   ];
 
-  it("summarizes management health independently of active filters", () => {
-    expect(adminGameSummary(games)).toEqual({ total: 3, runtimeAttention: 1, missingCover: 1, incompleteMetadata: 1, hidden: 1 });
-  });
-
-  it("filters by dependent directory, visibility, runtime, and immediate text", () => {
-    expect(filterAdminGames(games, { query: "metal", platformId: "arcade", platformInstanceId: "neo", visibility: "PUBLISHED", runtime: "ATTENTION", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["b"]);
-    expect(filterAdminGames(games, { query: "", platformId: "", platformInstanceId: "", visibility: "ALL", runtime: "ATTENTION", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["b"]);
-    expect(filterAdminGames(games, { query: "", platformId: "", platformInstanceId: "", visibility: "ALL", runtime: "DELETED", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["c"]);
-    expect(adminGameDirectories(games, "arcade").map((item) => item.id)).toEqual(["fbneo", "neo"]);
-  });
-
-  it("sorts deterministically by update, addition, or title", () => {
-    const base = { query: "", platformId: "", platformInstanceId: "", visibility: "ALL" as const, runtime: "ALL" as const };
-    expect(filterAdminGames(games, { ...base, sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["c", "a", "b"]);
-    expect(filterAdminGames(games, { ...base, sort: "TITLE_ASC" }).map((item) => item.gameId)).toEqual(["a", "c", "b"]);
+  it("sends filters and a bounded page size to the server", () => {
+    const url = new URL(adminGameURL({ query: " Metal ", platformId: "arcade", platformInstanceId: "neo", tagId: "tag", visibility: "PUBLISHED", runtime: "ATTENTION", sort: "TITLE_ASC" }), "http://test");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ limit: "6", q: "Metal", platformId: "arcade", platformInstanceId: "neo", tagId: "tag", status: "PUBLISHED", runtime: "ATTENTION", sort: "TITLE_ASC" });
   });
 
   it("maps runtime states to user-facing health labels", () => {
@@ -58,12 +44,12 @@ describe("admin game library", () => {
     expect(runtimePresentation("READY", "DELETED")).toEqual({ label: "已删除", tone: "bad", note: "游戏已删除" });
   });
 
-  it("collects every cursor page and rejects repeated cursors", async () => {
+  it("exports every cursor page on demand and rejects repeated cursors", async () => {
     const pages = new Map<string | null, { generatedAtMs: number; items: AdminGameSummary[]; nextCursor: string | null }>([
       [null, { generatedAtMs: 500, items: [games[0]], nextCursor: "next" }],
       ["next", { generatedAtMs: 501, items: [games[1]], nextCursor: null }],
     ]);
-    await expect(collectAdminGamePages(async (cursor) => pages.get(cursor)!)).resolves.toEqual({ generatedAtMs: 500, items: [games[0], games[1]] });
-    await expect(collectAdminGamePages(async () => ({ generatedAtMs: 500, items: [], nextCursor: "same" }))).rejects.toThrow("repeated admin game cursor");
+    await expect(collectAdminGameExport(async (cursor) => pages.get(cursor)!)).resolves.toEqual({ generatedAtMs: 500, items: [games[0], games[1]] });
+    await expect(collectAdminGameExport(async () => ({ generatedAtMs: 500, items: [], nextCursor: "same" }))).rejects.toThrow("repeated admin game cursor");
   });
 });
