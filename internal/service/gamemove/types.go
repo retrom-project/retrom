@@ -95,7 +95,13 @@ type CandidateRecord struct {
 	CreatedAtMS, HitCount                          int64
 }
 
+type ScrapeRun struct {
+	ID            string
+	EvidenceCount int
+}
+
 type ScrapeCandidatesResult struct {
-	RunID *string
-	Items []CandidateRecord
+	EvidenceCount int
+	RunID         *string
+	Items         []CandidateRecord
 }

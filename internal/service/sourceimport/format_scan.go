@@ -9,8 +9,17 @@ import (
 
 // ScanOrganized is the only format dispatch. Everything after this projection
 // consumes normalized collections, entries and files, without a format branch.
-func ScanOrganized(ctx context.Context, source ScannerSource, format string, maximumYear int) (ScanResult, error) {
-	if format == "" || format == "PEGASUS" {
+func ScanOrganized(
+	ctx context.Context, source ScannerSource, format, extensionFilter string, maximumYear int,
+) (ScanResult, error) {
+	filter, err := NormalizeExtensionFilter(format, extensionFilter)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	if format == "BASIC" {
+		return scanBasic(ctx, source, filter)
+	}
+	if format == "PEGASUS" {
 		return NewScanner(source).Scan(ctx)
 	}
 	if format != "GAMELIST" {

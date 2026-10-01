@@ -12,8 +12,10 @@ import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker"
 import { StatusBadge } from "@/components/ui";
 import { formatBytes } from "@/lib/backend";
 import type { ServerImportRoot } from "./server-import-manager";
+import { SourceFormatFields } from "./source-format-fields";
 import { SourcePlanDelete } from "./source-plan-delete";
 import {
+  type SourceFormat,
   sourceOutcomeLabels,
   sourcePhaseLabels,
   sourceStateLabels,
@@ -104,8 +106,8 @@ function trapFocus(drawer: HTMLElement | null, event: KeyboardEvent<HTMLElement>
   else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first.focus();}
 }
 
-function SelectionStep({ roots, rootId, path, breadcrumbs, directories, cursor, loading, busy, selectedRoot, onRoot, onPath, onMore }: { roots: ServerImportRoot[]; rootId: string; path: string; breadcrumbs: string[]; directories: SourceDirectory[]; cursor: string | null; loading: boolean; busy: boolean; selectedRoot?: ServerImportRoot; onRoot: (id: string) => void; onPath: (path: string) => void; onMore: () => void }) {
-  return <><fieldset className="server-root-options"><legend>服务器位置</legend>{roots.map((root) => <label key={root.id}><input type="radio" name="source-root" checked={rootId === root.id} disabled={busy || root.status !== "AVAILABLE"} onChange={() => onRoot(root.id)} /><span><strong>{root.label}</strong><small>{root.status === "AVAILABLE" ? "可用" : "不可用"}</small></span></label>)}</fieldset><div className="server-directory-browser"><nav aria-label="当前目录"><button type="button" onClick={() => onPath("")} disabled={!path || busy}>根目录</button>{breadcrumbs.map((part, index) => <button type="button" key={`${part}-${index}`} disabled={index === breadcrumbs.length - 1 || busy} onClick={() => onPath(breadcrumbs.slice(0, index + 1).join("/"))}>/ {part}</button>)}</nav>{directories.length ? <><ul>{directories.map((directory) => <li key={directory.relativePath}><button type="button" disabled={busy} onClick={() => onPath(directory.relativePath)}><AppIcon name="folder" /><span>{directory.name}</span></button></li>)}</ul>{cursor ? <button type="button" className="button secondary compact" disabled={loading || busy} onClick={onMore}>{loading ? "正在读取…" : "加载更多目录"}</button> : null}</> : <p role="status">{loading ? "正在读取子目录…" : "当前目录没有可进入的子目录。"}</p>}</div><div className="server-import-selection-summary"><strong>{selectedRoot?.label ?? "未选择"} / {path || "根目录"}</strong><span>先异步读取 metadata、文件大小与稳定 facts；确认映射后才读取完整 ROM bytes。</span></div></>;
+function SelectionStep({ path, breadcrumbs, directories, cursor, loading, busy, selectedRoot, onPath, onMore }: { path: string; breadcrumbs: string[]; directories: SourceDirectory[]; cursor: string | null; loading: boolean; busy: boolean; selectedRoot?: ServerImportRoot; onPath: (path: string) => void; onMore: () => void }) {
+  return <><div className="server-directory-browser"><nav aria-label="当前目录"><button type="button" onClick={() => onPath("")} disabled={!path || busy}>根目录</button>{breadcrumbs.map((part, index) => <button type="button" key={`${part}-${index}`} disabled={index === breadcrumbs.length - 1 || busy} onClick={() => onPath(breadcrumbs.slice(0, index + 1).join("/"))}>/ {part}</button>)}</nav>{directories.length ? <><ul>{directories.map((directory) => <li key={directory.relativePath}><button type="button" disabled={busy} onClick={() => onPath(directory.relativePath)}><AppIcon name="folder" /><span>{directory.name}</span></button></li>)}</ul>{cursor ? <button type="button" className="button secondary compact" disabled={loading || busy} onClick={onMore}>{loading ? "正在读取…" : "加载更多目录"}</button> : null}</> : <p role="status">{loading ? "正在读取子目录…" : "当前目录没有可进入的子目录。"}</p>}</div><div className="server-import-selection-summary"><strong>{selectedRoot?.label ?? "未选择"} / {path || "根目录"}</strong><span>扫描目录中的来源文件；确认映射后才复制内容并准备审核事项。</span></div></>;
 }
 
 function CollectionMapping({ collection, draft, instances, tags, busy, onChange }: { collection: SourceCollection; draft: MappingDraft; instances: SourcePlatformInstance[]; tags: TagReference[]; busy: boolean; onChange: (draft: MappingDraft) => void }) {
@@ -131,8 +133,9 @@ function ReviewStep({ plan, mapped, skipped, taggedCollections, taggedGames, map
 }
 
 type DrawerViewProps = {
-  format: "PEGASUS" | "GAMELIST";
-  onFormat: (format: "PEGASUS" | "GAMELIST") => void; roots: ServerImportRoot[]; rootId: string; path: string; breadcrumbs: string[]; directories: SourceDirectory[]; directoryCursor: string | null; directoryLoading: boolean; selectedRoot?: ServerImportRoot; step: 1 | 2 | 3; plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; availableInstances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; error: string; mapped: number; skipped: number; taggedCollections: number; taggedGames: number; mappedTags: TagReference[]; mappingComplete: boolean; onRoot: (id: string) => void; onPath: (path: string) => void; onMore: () => void; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void; onClose: () => void; onScan: () => void; onConfirm: () => void; onStart: () => void; onDismissError: () => void };
+  format: SourceFormat | "";
+  extensionFilter: string; onExtensionFilter: (value: string) => void;
+  onFormat: (format: SourceFormat | "") => void; rootId: string; path: string; breadcrumbs: string[]; directories: SourceDirectory[]; directoryCursor: string | null; directoryLoading: boolean; selectedRoot?: ServerImportRoot; step: 1 | 2 | 3; plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; availableInstances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; error: string; mapped: number; skipped: number; taggedCollections: number; taggedGames: number; mappedTags: TagReference[]; mappingComplete: boolean; onPath: (path: string) => void; onMore: () => void; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void; onClose: () => void; onScan: () => void; onConfirm: () => void; onStart: () => void; onDismissError: () => void };
 
 function stepClass(step: number, expected: number) {
   if (step === expected) {return "is-active";}
@@ -145,14 +148,14 @@ function DrawerSteps({ step }: { step: 1 | 2 | 3 }) {
 }
 
 function DrawerBody({ props }: { props: DrawerViewProps }) {
-  if (props.step === 1) {return <><label>文件组织格式<select className="select" aria-label="文件组织格式" value={props.format} disabled={props.busy} onChange={(event) => props.onFormat(event.target.value === "GAMELIST" ? "GAMELIST" : "PEGASUS")}><option value="PEGASUS">Pegasus · metadata.pegasus.txt</option><option value="GAMELIST">gamelist.xml</option></select></label><SelectionStep roots={props.roots} rootId={props.rootId} path={props.path} breadcrumbs={props.breadcrumbs} directories={props.directories} cursor={props.directoryCursor} loading={props.directoryLoading} busy={props.busy} selectedRoot={props.selectedRoot} onRoot={props.onRoot} onPath={props.onPath} onMore={props.onMore} /></>;}
+  if (props.step === 1) {return <><SourceFormatFields format={props.format} onFormat={props.onFormat} extensionFilter={props.extensionFilter} onExtensionFilter={props.onExtensionFilter} busy={props.busy} /><SelectionStep path={props.path} breadcrumbs={props.breadcrumbs} directories={props.directories} cursor={props.directoryCursor} loading={props.directoryLoading} busy={props.busy} selectedRoot={props.selectedRoot} onPath={props.onPath} onMore={props.onMore} /></>;}
   if (props.step === 2) {return <MappingStep plan={props.plan} collections={props.collections} mappings={props.mappings} instances={props.availableInstances} activeTags={props.activeTags} batchTags={props.batchTags} batchStatus={props.batchStatus} busy={props.busy} onBatchTags={props.onBatchTags} onApplyBatch={props.onApplyBatch} onMapping={props.onMapping} />;}
   if (props.plan) {return <ReviewStep plan={props.plan} mapped={props.mapped} skipped={props.skipped} taggedCollections={props.taggedCollections} taggedGames={props.taggedGames} mappedTags={props.mappedTags} />;}
   return null;
 }
 
 function DrawerFooter({ props }: { props: DrawerViewProps }) {
-  return <footer><button type="button" className="button secondary" disabled={props.busy} onClick={props.onClose}>关闭</button>{props.step === 1 ? <button type="button" className="button" disabled={props.busy || !props.rootId || props.selectedRoot?.status !== "AVAILABLE"} onClick={props.onScan}>{props.busy ? "正在创建…" : "扫描此目录"}</button> : null}{props.step === 2 && props.plan?.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy || !props.mappingComplete} onClick={props.onConfirm}>{props.busy ? "正在保存…" : "确认映射"}</button> : null}{props.step === 3 ? <button type="button" className="button" disabled={props.busy} onClick={props.onStart}>{props.busy ? "正在启动…" : "开始准备审核事项"}</button> : null}</footer>;
+  return <footer><button type="button" className="button secondary" disabled={props.busy} onClick={props.onClose}>关闭</button>{props.step === 1 ? <button type="button" className="button" disabled={props.busy || !props.format || !props.rootId || props.selectedRoot?.status !== "AVAILABLE"} onClick={props.onScan}>{props.busy ? "正在创建…" : "扫描此目录"}</button> : null}{props.step === 2 && props.plan?.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy || !props.mappingComplete} onClick={props.onConfirm}>{props.busy ? "正在保存…" : "确认映射"}</button> : null}{props.step === 3 ? <button type="button" className="button" disabled={props.busy} onClick={props.onStart}>{props.busy ? "正在启动…" : "开始准备审核事项"}</button> : null}</footer>;
 }
 
 export function SourceImportDrawerView(props: DrawerViewProps) {
@@ -189,9 +192,15 @@ function ItemAction({ item, reviewURL }: { item: SourceItem; reviewURL: string }
   return <span>—</span>;
 }
 
-function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
+function ResultMedia({ item }: { item: SourceItem }) {
+  if (item.executionState === "REVIEW_PENDING") {return <StatusBadge tone="good">已移交审核</StatusBadge>;}
+  if (item.payloadState === "RELEASED") {return <StatusBadge tone="good">源文件已清理</StatusBadge>;}
   const mediaTone = (state: string) => state === "READY" ? "good" as const : state === "WARNING" ? "warn" as const : "info" as const;
-  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media">{item.payloadState === "RELEASED" ? <StatusBadge tone="good">源文件已清理</StatusBadge> : <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>}</div><div role="cell" className="source-result-state"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><RuntimeCheckDetails item={item} /></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div></article>;
+  return <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>;
+}
+
+function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
+  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media"><ResultMedia item={item} /></div><div role="cell" className="source-result-state"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><RuntimeCheckDetails item={item} /></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div></article>;
 }
 
 type DetailViewProps = { onDiscarded?: () => void; summary: SourceImportSummary; items: SourceItem[]; nextCursor: string | null; draft: DetailFilters; collections: SourceCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };

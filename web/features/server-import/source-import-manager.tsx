@@ -8,6 +8,8 @@ import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 import type { ServerImportRoot } from "./server-import-manager";
 import {
+  validExtensionFilter,
+  type SourceFormat,
   sourceStateLabels,
   sourceStateTone,
   type SourceCollection,
@@ -26,6 +28,8 @@ import {
 } from "./source-import-view";
 
 export {
+  validExtensionFilter,
+  type SourceFormat,
   sourceStateLabels,
   sourceStateTone,
   type SourceCollection,
@@ -46,6 +50,12 @@ function mergeTags(current: TagReference[], additions: TagReference[]) {
   return [...merged.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
 }
 
+function useSourceFormat(plan?: SourceImportSummary) {
+  const [format, setFormat] = useState<SourceFormat | "">(plan?.format ?? "");
+  const [extensionFilter, setExtensionFilter] = useState(plan?.extensionFilter ?? "");
+  return { format, setFormat, extensionFilter, setExtensionFilter };
+}
+
 export function SourceImportDrawer({ open, roots, platformInstances, activeTags = [], resumablePlan, onClose, onStarted }: {
   open: boolean;
   roots: ServerImportRoot[];
@@ -58,9 +68,9 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
   const router = useRouter();
   const hydratedPlanId = useRef("");
   const refreshRequest = useRef<{ planId: string; promise: Promise<SourceImportSummary> } | null>(null);
-  const [format, setFormat] = useState<"PEGASUS" | "GAMELIST">(resumablePlan?.format ?? "PEGASUS");
+  const { format, setFormat, extensionFilter, setExtensionFilter } = useSourceFormat(resumablePlan);
   const [step, setStep] = useState<1 | 2 | 3>(resumablePlan ? 2 : 1);
-  const [rootId, setRootId] = useState(resumablePlan?.root.id ?? roots.find((root) => root.status === "AVAILABLE")?.id ?? "");
+  const [rootId] = useState(resumablePlan?.root.id ?? roots.find((root) => root.status === "AVAILABLE")?.id ?? "");
   const [path, setPath] = useState(resumablePlan?.sourceRelativePath ?? "");
   const [directories, setDirectories] = useState<SourceDirectory[]>([]);
   const [directoryCursor, setDirectoryCursor] = useState<string | null>(null);
@@ -176,10 +186,11 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
   }
 
   async function scan() {
-    if (!rootId || selectedRoot?.status !== "AVAILABLE") {return;}
+    if (!format || !rootId || selectedRoot?.status !== "AVAILABLE") {return;}
+    if (format === "BASIC" && !validExtensionFilter(extensionFilter)) {setError("扩展名须以 . 开头，多个扩展名用 ; 分隔，例如 .nes;.zip；留空允许全部文件。"); return;}
     setBusy(true); setError("");
     try {
-      const { data, response } = await api.POST("/api/v1/admin/source-imports", { params: { header: { ...writeHeaders(), "Idempotency-Key": newUuid(), "X-Retrom-Csrf": "" } }, body: { rootId, sourceRelativePath: path, format } });
+      const { data, response } = await api.POST("/api/v1/admin/source-imports", { params: { header: { ...writeHeaders(), "Idempotency-Key": newUuid(), "X-Retrom-Csrf": "" } }, body: { rootId, sourceRelativePath: path, format, extensionFilter: format === "BASIC" ? extensionFilter : "" } });
       if (!data) {throw new Error(await message(response, "目录扫描创建失败"));}
       hydratedPlanId.current = data.id;
       setPlan(data); setStep(2); onStarted(data);
@@ -236,7 +247,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
 
   const { mapped, skipped, taggedCollections, taggedGames, mappedTags, mappingComplete } = mappingSummary(collections, mappings);
   if (!open) {return null;}
-  return <SourceImportDrawerView format={format} onFormat={setFormat} roots={roots} rootId={rootId} path={path} breadcrumbs={breadcrumbs} directories={directories} directoryCursor={directoryCursor} directoryLoading={directoryLoading} selectedRoot={selectedRoot} step={step} plan={plan} collections={collections} mappings={mappings} availableInstances={availableInstances} activeTags={activeTags} batchTags={batchTags} batchStatus={batchTagStatus} busy={busy} error={error} mapped={mapped} skipped={skipped} taggedCollections={taggedCollections.length} taggedGames={taggedGames} mappedTags={mappedTags} mappingComplete={mappingComplete} onRoot={(id) => {setRootId(id); setPath("");}} onPath={setPath} onMore={() => void loadMoreDirectories()} onBatchTags={(tags) => {setBatchTags(tags); setBatchTagStatus("");}} onApplyBatch={applyBatchTags} onMapping={(id, draft) => setMappings((current) => ({ ...current, [id]: draft }))} onClose={onClose} onScan={() => void scan()} onConfirm={() => void confirmMappings()} onStart={() => void startImport()} onDismissError={() => setError("")} />;
+  return <SourceImportDrawerView format={format} onFormat={setFormat} extensionFilter={extensionFilter} onExtensionFilter={setExtensionFilter} rootId={rootId} path={path} breadcrumbs={breadcrumbs} directories={directories} directoryCursor={directoryCursor} directoryLoading={directoryLoading} selectedRoot={selectedRoot} step={step} plan={plan} collections={collections} mappings={mappings} availableInstances={availableInstances} activeTags={activeTags} batchTags={batchTags} batchStatus={batchTagStatus} busy={busy} error={error} mapped={mapped} skipped={skipped} taggedCollections={taggedCollections.length} taggedGames={taggedGames} mappedTags={mappedTags} mappingComplete={mappingComplete} onPath={setPath} onMore={() => void loadMoreDirectories()} onBatchTags={(tags) => {setBatchTags(tags); setBatchTagStatus("");}} onApplyBatch={applyBatchTags} onMapping={(id, draft) => setMappings((current) => ({ ...current, [id]: draft }))} onClose={onClose} onScan={() => void scan()} onConfirm={() => void confirmMappings()} onStart={() => void startImport()} onDismissError={() => setError("")} />;
 }
 
 export function SourceImportDetailManager({ initialSummary, initialItems, collections, roots, platformInstances, activeTags = [], initialFilters }: {
@@ -257,6 +268,7 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [mappingOpen, setMappingOpen] = useState(false);
+  const cleanupPending = items.some((item) => item.payloadState === "RELEASING");
 
   const requestSummary = useCallback(async () => {
     const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: initialSummary.id } } });
@@ -281,14 +293,15 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   }, [filters]);
 
   useEffect(() => {
-    if (!["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(summary.state)) {return;}
-    const update = () => {void requestSummary().catch(() => undefined); void requestItems(filters).catch(() => undefined);};
+    const processing = ["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(summary.state);
+    if (!processing && !cleanupPending) {return;}
+    const update = () => {void requestSummary().then(() => requestItems(filters)).catch(() => undefined);};
     const timer = window.setInterval(update, 4_000);
     const jobId = summary.importJobId ?? summary.scanJobId;
-    const source = typeof EventSource === "undefined" ? null : new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
+    const source = !processing || typeof EventSource === "undefined" ? null : new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
     for (const event of ["progress", "succeeded", "failed", "cancelled"]) {source?.addEventListener(event, update);}
     return () => {window.clearInterval(timer); source?.close();};
-  }, [filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state]);
+  }, [cleanupPending, filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state]);
 
   async function applyFilters() {
     setBusy(true); setError("");

@@ -169,7 +169,7 @@ if [[ -z "$platform_instance_id" ]]; then
   platform_instance="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
     -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" \
     -d "$(jq -nc --arg coreId "$core_id" --arg name "$core_id acceptance games" \
-      '{platformId:"arcade",defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory",sortOrder:10000}')" \
+      '{platformId:"arcade",defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory"}')" \
     "$origin/api/v1/admin/platform-instances")"
   platform_instance_id="$(jq -er .id <<<"$platform_instance")"
   printf '%s\n' "$platform_instance" >"$evidence/platform-instance-created.json"

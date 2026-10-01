@@ -3,13 +3,14 @@
 import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { writeHeaders } from "@/lib/api/client";
+import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
-import { responseError, uploadFiles, uploadOne, waitForJob } from "@/lib/upload";
+import { responseError, uploadOne, waitForJob } from "@/lib/upload";
 import { runtimePresentation } from "./admin-game-library";
 import { type TagReference } from "@/components/tag-picker";
 import { AdminGameManagerView } from "./admin-game-manager-view";
 
-export type GameFile = { role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string };
+export type GameFile = components["schemas"]["AdminGameFile"];
 export type Variant = {
   id: string;
   coreId: string;
@@ -19,7 +20,6 @@ export type Variant = {
   datVersionId: string | null;
   status: string;
   compatibilityCode: string;
-  dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } };
   version: number;
   createdAtMs: number;
   updatedAtMs: number;
@@ -68,22 +68,9 @@ function metadataDraft(game: AdminGame): MetadataDraft {
   };
 }
 
-function contentPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
-  const supportsMultiDisc = instance?.importCapabilities?.contentModes.includes("MULTI_DISC") ?? false;
-  const discs = game.contentKind === "MULTI_DISC"
-    ? game.files.filter((file) => file.role === "DISC").sort((left, right) => left.sortOrder - right.sortOrder)
-    : [];
-  return {
-    discs,
-    file: game.files[0]?.logicalName ?? "尚无游戏文件",
-    replacementLimits: supportsMultiDisc ? instance?.importCapabilities?.multiDisc ?? null : null,
-  };
-}
-
 function runtimeVariantPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
   const variant = game.variants.find((item) => item.coreId === instance?.defaultCoreId) ?? game.variants[0];
   return {
-    canonicalPlaylistSHA256: variant?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "",
     runtime: runtimePresentation(variant?.status ?? null, game.status),
     variant,
   };
@@ -201,31 +188,6 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     });
   }
 
-  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT") {
-    return action("content", async () => {
-      const uploaded = await uploadFiles(files, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-replacement`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });
-      if (!response.ok) {throw new Error(await responseError(response, "内容替换任务创建失败"));}
-      const result = await response.json() as { jobId: string };
-      setNotice("正在安全校验新游戏文件…");
-      try {
-        await waitForJob(result.jobId, () => setNotice("正在检查新文件是否可以运行…"));
-      } catch (error) {
-        if (error instanceof Error && error.message === "GAME_CONTENT_UNCHANGED") {
-          throw new Error("所选游戏文件与当前内容相同，未执行替换。");
-        }
-        if (error instanceof Error && error.message === "RPG_REPLACEMENT_GENERATION_MISMATCH") {
-          throw new Error("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。");
-        }
-        if (error instanceof Error && error.message === "RPG_REPLACEMENT_DEPENDENCIES_CHANGED") {
-          throw new Error("替换项目所需的 RPG Maker 运行依赖已变化，当前游戏内容与存档未变更。");
-        }
-        throw error;
-      }
-      return "游戏文件已更新，现有存档保持可用。";
-    });
-  }
-
   async function rescrape() {
     await action("scrape", async () => {
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ metadataProvider: "HASHEOUS" }) });
@@ -236,10 +198,11 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       await waitForJob(result.jobId, () => setNotice("正在整理候选信息…"));
       const latestResponse = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { cache: "no-store" });
       if (!latestResponse.ok) {throw new Error(await responseError(latestResponse, "候选查询完成，但无法读取结果"));}
-      const latest = await latestResponse.json() as { items: ScrapeCandidate[] };
+      const latest = await latestResponse.json() as { items: ScrapeCandidate[]; evidenceCount: number };
       setScrapeCandidates(latest.items);
       if (latest.items[0]) {setComparison(latest.items[0]);}
-      return latest.items.length ? "候选已准备好，请在对比窗口中确认。" : "查询完成，但没有找到可用候选。";
+      if (latest.items.length) {return "候选已准备好，请在对比窗口中确认。";}
+      return latest.evidenceCount === 0 ? "没有符合条件的文件哈希，本次未请求信息源。" : "查询完成，但没有找到可用候选。";
     });
   }
 
@@ -316,8 +279,8 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
   }
 
   const currentInstance = platformInstances.find((item) => item.id === game.platformInstance.id);
-  const content = contentPresentation(game, currentInstance);
   const runtimeVariant = runtimeVariantPresentation(game, currentInstance);
+  const primaryFile = game.files.find((file) => file.role === "CONTENT" || file.role === "PLAYLIST_SOURCE") ?? game.files[0];
   const cover = game.assets.find((asset) => asset.kind === "COVER");
   const video = game.assets.find((asset) => asset.kind === "VIDEO");
   const metadataComplete = gameMetadataComplete(game);
@@ -332,12 +295,12 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
   ];
 
   return <AdminGameManagerView
-    activeTags={activeTags} busy={busy} canonicalPlaylistSHA256={runtimeVariant.canonicalPlaylistSHA256} clientReady={clientReady}
+    activeTags={activeTags} busy={busy} clientReady={clientReady}
     comparison={comparison} comparisonCover={comparisonCover} comparisonFields={comparisonFields} cover={cover}
-    currentDiscs={content.discs} currentFile={content.file} currentInstance={currentInstance}
+    currentFile={primaryFile?.logicalName ?? "尚无游戏文件"} currentInstance={currentInstance}
     currentVariant={runtimeVariant.variant} disabled={disabled} draft={draft} error={error}
     game={game} gameTags={gameTags} metadataComplete={metadataComplete} metadataDirty={metadataDirty}
-    moveTarget={moveTarget} moveTargets={moveTargets} multiDiscReplacementLimits={content.replacementLimits} notice={notice}
+    moveTarget={moveTarget} moveTargets={moveTargets} notice={notice}
     onApplyCandidate={(candidate) => void applyCandidate(candidate)} onCloseComparison={() => setComparison(null)}
     onCloseMove={() => setPendingMove(null)} onConfirmMove={() => void confirmMove()}
     onDismissToast={() => { setNotice(""); setError(""); }}
@@ -346,7 +309,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     onPreviewMove={(target) => void previewMove(target)} onRemove={() => void remove()}
     onRetryPayloadRelease={() => void retryPayloadRelease()}
     onRemoveVideo={() => void removeVideo()} onReplaceAsset={(file, kind, ordinal) => void replaceAsset(file, kind, ordinal)}
-    onReplaceContent={replaceContent} onRescrape={() => void rescrape()} onSaveMetadata={(event) => void saveMetadata(event)}
+    onRescrape={() => void rescrape()} onSaveMetadata={(event) => void saveMetadata(event)}
     onSaveTags={() => void saveTags()} pendingMove={pendingMove} runtime={runtimeVariant.runtime} scrapeCandidates={scrapeCandidates}
     tagsDirty={tagsDirty} video={video}
   />;

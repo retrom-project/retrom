@@ -184,12 +184,17 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     get:
       operationId: getAdminGameScrapeCandidates
-      description: Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the game's current content.
+      description: Returns the latest completed candidate batch for the game's current content, including metadata, evidence, hit counts, and media assets. The required evidenceCount integer is the number of eligible file hashes in that run (zero when no run exists); zero means no provider lookup was attempted.
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Current completed lookup result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameScrapeCandidates'
     post:
       operationId: postAdminGameScrapeCandidates
+      description: Schedules a lookup from current content. Returns 409 METADATA_ARCHIVE_INDEX_MISSING when an Arcade main archive lacks its required member index, 409 VERSION_CONFLICT for stale content, and 500 for unexpected storage failures. Missing indexes roll back scheduling and preserve the previous result and game version.
       x-retrom-max-body-bytes: 2097152
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
@@ -260,7 +265,7 @@ paths:
   /api/v1/admin/platform-instances:
     get:
       operationId: getAdminPlatformInstances
-      description: Platform directory summaries ordered by sortOrder; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core.
+      description: Platform directory summaries ordered by createdAtMs ascending, then id ascending; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
         - $ref: '#/components/parameters/Enabled'
@@ -299,16 +304,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PlatformInstanceRecommendationsApplyResponse'
-  /api/v1/admin/platform-instances/order:
-    put:
-      operationId: putAdminPlatformInstanceOrder
-      x-retrom-max-body-bytes: 32768
-      description: Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions.
-      requestBody:
-        $ref: '#/components/requestBodies/ReorderPlatformInstances'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/platform-instances/{platformInstanceId}:
     parameters:
       - $ref: '#/components/parameters/PlatformInstanceID'
@@ -381,6 +376,26 @@ paths:
           $ref: '#/components/responses/BIOSListResponse'
 components:
   schemas:
+    GameScrapeCandidates:
+      type: object
+      additionalProperties: false
+      required: [gameId, scrapeRunId, evidenceCount, items]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        scrapeRunId:
+          type: string
+          nullable: true
+          format: uuid
+        evidenceCount:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     TagUsage:
       type: object
       additionalProperties: false
@@ -598,6 +613,10 @@ components:
         - sortOrder
         - sizeBytes
         - sha256
+        - md5
+        - sha1
+        - crc32
+        - mediaType
       properties:
         role:
           type: string
@@ -613,6 +632,18 @@ components:
         sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
+        md5:
+          type: string
+          pattern: ^[0-9a-f]{32}$
+        sha1:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+        crc32:
+          type: string
+          pattern: ^[0-9a-f]{8}$
+        mediaType:
+          type: string
+          minLength: 1
     AdminGameAsset:
       type: object
       additionalProperties: false
@@ -1052,7 +1083,6 @@ components:
         - defaultCoreId
         - name
         - description
-        - sortOrder
       properties:
         platformId:
           type: string
@@ -1065,9 +1095,6 @@ components:
         description:
           type: string
           maxLength: 10000
-        sortOrder:
-          type: integer
-          format: int64
     PlatformDirectoryReference:
       type: object
       additionalProperties: false
@@ -1187,7 +1214,6 @@ components:
         - name
         - slug
         - description
-        - sortOrder
         - enabled
         - gameCount
         - supportedExtensions
@@ -1212,9 +1238,6 @@ components:
           type: string
         description:
           type: string
-        sortOrder:
-          type: integer
-          format: int64
         enabled:
           type: boolean
         gameCount:
@@ -1302,37 +1325,8 @@ components:
         description:
           type: string
           maxLength: 10000
-        sortOrder:
-          type: integer
-          format: int64
         enabled:
           type: boolean
-    ReorderPlatformInstanceItem:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - version
-      properties:
-        id:
-          type: string
-          format: uuid
-        version:
-          type: integer
-          format: int64
-          minimum: 1
-    ReorderPlatformInstancesRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          minItems: 1
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/ReorderPlatformInstanceItem'
     DefaultCorePreviewRequest:
       type: object
       additionalProperties: false
@@ -1630,12 +1624,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/PatchPlatformInstanceRequest'
-    ReorderPlatformInstances:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ReorderPlatformInstancesRequest'
     DefaultCorePreview:
       required: true
       content:

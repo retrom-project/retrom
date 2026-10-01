@@ -41,7 +41,7 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	platformInstances, err := repository.facetRows(
 		ctx,
 		"SELECT pi.id,pi.name,p.id,count(*) "+baseFrom,
-		" GROUP BY pi.id,pi.name,p.id ORDER BY pi.name,pi.id",
+		" GROUP BY pi.id,pi.name,p.id ORDER BY pi.created_at_ms,pi.id",
 		true, includeDeleted,
 	)
 	if err != nil {

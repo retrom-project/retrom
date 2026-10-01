@@ -38,7 +38,7 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 		func() bool { return live.Header().Get("X-Request-ID") == "" }),
 		"live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
 
-	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Retained","description":"","sortOrder":900}`
+	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Retained","description":""}`
 	unauthenticated := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
@@ -117,7 +117,7 @@ func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 	auth := accountHTTPLogin(t, handler)
 	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
 		body := fmt.Sprintf(
-			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`,
+			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":""}`,
 			"LAN "+name,
 		)
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,

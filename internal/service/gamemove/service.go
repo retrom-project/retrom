@@ -173,19 +173,19 @@ func (service *Service) ScrapeCandidates(ctx context.Context, gameID string) (Sc
 	if gameID == "" {
 		return ScrapeCandidatesResult{}, ErrInvalid
 	}
-	runID, found, err := service.repository.LatestScrapeRun(ctx, gameID)
+	run, found, err := service.repository.LatestScrapeRun(ctx, gameID)
 	if err != nil {
 		return ScrapeCandidatesResult{}, fmt.Errorf("read game scrape run: %w", err)
 	}
 	if !found {
 		return ScrapeCandidatesResult{Items: []CandidateRecord{}}, nil
 	}
-	records, err := service.repository.ScrapeCandidates(ctx, runID)
+	records, err := service.repository.ScrapeCandidates(ctx, run.ID)
 	if err != nil {
 		return ScrapeCandidatesResult{}, fmt.Errorf("read game scrape candidates: %w", err)
 	}
 	if records == nil {
 		records = []CandidateRecord{}
 	}
-	return ScrapeCandidatesResult{RunID: &runID, Items: records}, nil
+	return ScrapeCandidatesResult{RunID: &run.ID, EvidenceCount: run.EvidenceCount, Items: records}, nil
 }

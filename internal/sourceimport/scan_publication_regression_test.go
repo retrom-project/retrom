@@ -20,7 +20,7 @@ UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,worker_id='scanner',leased_u
 heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadline_at_ms=100 WHERE id='scan';`)
 	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
 	unit := work{
-		JobID: "scan", ImportID: "import", Kind: "IMPORT_SCAN",
+		JobID: "scan", ImportID: "import", Kind: "IMPORT_SCAN", Format: "PEGASUS",
 		WorkerID: "scanner", ExecutionNo: 1, Attempt: 1,
 	}
 	digest := strings.Repeat("a", 64)

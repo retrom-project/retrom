@@ -12,7 +12,7 @@ type Repository interface {
 	ImpactSubject(context.Context, string, string) (ImpactSubject, error)
 	Variant(context.Context, VariantQuery) (VariantState, bool, error)
 	QueuedJobState(context.Context, string) (string, error)
-	LatestScrapeRun(context.Context, string) (string, bool, error)
+	LatestScrapeRun(context.Context, string) (ScrapeRun, bool, error)
 	ScrapeCandidates(context.Context, string) ([]CandidateRecord, error)
 	WithMove(context.Context, func(MoveScope) error) error
 }

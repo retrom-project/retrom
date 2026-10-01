@@ -16,7 +16,7 @@ type (
 	}
 	Work struct {
 		JobID, ImportID, Kind, RootID, RootDigest, RelativePath string
-		Format                                                  string
+		Format, ExtensionFilter                                 string
 		CreatedByUserID, WorkerID                               string
 		ExecutionNo, Attempt, DeadlineAtMS                      int64
 	}

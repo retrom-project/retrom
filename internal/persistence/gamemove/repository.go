@@ -123,10 +123,10 @@ WHERE id=?
 
 func (repository *Repository) LatestScrapeRun(
 	ctx context.Context, gameID string,
-) (string, bool, error) {
-	var runID string
+) (application.ScrapeRun, bool, error) {
+	var run application.ScrapeRun
 	err := dbapi.QueryRowContext(ctx, repository.database, `
-SELECT r.id
+SELECT r.id, (SELECT count(*) FROM content_hash_evidence e WHERE e.scrape_run_id=r.id)
 FROM metadata_scrape_runs r
 JOIN games g ON g.id=r.game_id AND g.status='PUBLISHED'
 WHERE r.game_id=?
@@ -134,14 +134,14 @@ AND r.provider='HASHEOUS'
 AND r.state='COMPLETED'
 ORDER BY r.created_at_ms DESC,
 r.id DESC LIMIT 1
-`, gameID).Scan(&runID)
+`, gameID).Scan(&run.ID, &run.EvidenceCount)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", false, nil
+		return run, false, nil
 	}
 	if err != nil {
-		return "", false, fmt.Errorf("read latest game scrape run: %w", err)
+		return run, false, fmt.Errorf("read latest game scrape run: %w", err)
 	}
-	return runID, true, nil
+	return run, true, nil
 }
 
 func (repository *Repository) ScrapeCandidates(

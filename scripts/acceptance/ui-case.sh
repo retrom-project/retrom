@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|01[01])|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..011|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
+if [[ ! "$case_id" =~ ^(ACC-PLAT-007|ACC-UI-(00[1-9]|01[01])|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-BASIC-001|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-PLAT-007|ACC-UI-001..011|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-BASIC-001|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
   exit 2
 fi
 
@@ -67,6 +67,12 @@ printf 'retrom deterministic pegasus acceptance fixture\n' >"$temporary_root/sou
 printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/source/Games/media/Acceptance Game/video.mp4"
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 "$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
+if [[ "$case_id" == "ACC-BASIC-001" ]]; then
+  mkdir -p "$temporary_root/source/Basic/nested"
+  cp -p "$repository_root/testdata/public-roms/gba-smoke/pegasus-smoke.gba" "$temporary_root/source/Basic/nested/basic-smoke.GBA"
+  printf 'ignored text\n' >"$temporary_root/source/Basic/notes.txt"
+  printf 'no extension\n' >"$temporary_root/source/Basic/README"
+fi
 cd "$repository_root"
 NEXT_WEB_E2E=true setsid make dev \
   RETROM_MODE="test" \
@@ -113,6 +119,20 @@ done
 
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   scripts/acceptance/http-flow.sh
+
+if [[ "$case_id" == "ACC-UI-011" ]]; then
+  # Complete the cold webpack route build before the browser navigation budget.
+  ui_warmup_start=$SECONDS
+  warmup_cookies="$temporary_root/ui-warmup-cookies.txt"
+  curl --fail --silent --show-error --max-time 30 --cookie-jar "$warmup_cookies" \
+    --header 'Content-Type: application/json' --header "Origin: $web_origin" \
+    --data '{"username":"test","password":"test"}' \
+    --output /dev/null "$web_origin/api/v1/auth/login"
+  warmup_status="$(curl --fail --silent --show-error --max-time 30 --cookie "$warmup_cookies" \
+    --output /dev/null --write-out '%{http_code}' "$web_origin/immersive")"
+  [[ "$warmup_status" == "200" ]] || { echo "UI warmup failed: HTTP $warmup_status" >&2; exit 1; }
+  printf 'ui_warmup=complete route=/immersive http_status=200 duration_seconds=%s\n' "$((SECONDS - ui_warmup_start))"
+fi
 
 if [[ "$case_id" == "ACC-IMM-009" ]]; then
   python3 scripts/acceptance/seed-immersive-library.py "$temporary_root/data/retrom.db" \
@@ -214,6 +234,9 @@ fi
 export RETROM_ACCEPTANCE_DATA_DIR="$temporary_root/data"
 
 specification="e2e/acceptance.spec.ts"
+if [[ "$case_id" == "ACC-PLAT-007" ]]; then
+  specification="e2e/directory-groups.spec.ts"
+fi
 if [[ "$case_id" == "ACC-UI-011" ]]; then
   specification="e2e/ui-consistency.spec.ts"
 fi
@@ -228,6 +251,9 @@ if [[ "$case_id" == "ACC-TAG-005" ]]; then
 fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
+fi
+if [[ "$case_id" == "ACC-BASIC-001" ]]; then
+  specification="e2e/basic-import.spec.ts"
 fi
 if [[ "$case_id" == "ACC-ES-005" || "$case_id" == "ACC-ES-006" ]]; then
   specification="e2e/emulationstation-import.spec.ts"
@@ -251,7 +277,7 @@ if [[ "$case_id" == "ACC-UI-003" ]]; then
   specifications+=("e2e/game-detail-layout.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-005" ]]; then
-  specifications+=("e2e/home-description.spec.ts")
+  specifications+=("e2e/home-description.spec.ts" "e2e/admin-game-detail.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
   specifications+=("e2e/navigation-errors.spec.ts")
@@ -261,12 +287,12 @@ if [[ "$case_id" == "ACC-MOB-007" ]]; then
   playwright_grep="ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007"
 fi
 playwright_args=(playwright test "${specifications[@]}" --grep "$playwright_grep")
-if [[ "$case_id" == "ACC-UI-011" ]]; then
+if [[ "$case_id" == "ACC-UI-011" || "$case_id" == "ACC-PLAT-007" ]]; then
   playwright_args+=(--project=chrome-1280 --project=chrome-4k-150)
 fi
 if [[ "$case_id" =~ ^ACC-MOB-00[1-6]$ ]]; then
   playwright_args+=(--project=chrome-mobile)
-elif [[ "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
+elif [[ "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-PLAT-007" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

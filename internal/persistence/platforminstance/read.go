@@ -49,9 +49,9 @@ AND (
 
 func (reader records) Directories(ctx context.Context) ([]platforminstance.Directory, error) {
 	rows, err := reader.database.QueryContext(ctx, `
-SELECT id,platform_id,default_core_id,name,description,sort_order,enabled,version,catalog_template_key,deleted_at_ms
+SELECT id,platform_id,default_core_id,name,description,enabled,version,catalog_template_key,deleted_at_ms
 FROM platform_instances
-ORDER BY sort_order,id
+ORDER BY created_at_ms,id
 `)
 	if err != nil {
 		return nil, fmt.Errorf("platforminstance: query directories: %w", err)
@@ -64,7 +64,7 @@ ORDER BY sort_order,id
 		var key sql.NullString
 		var deleted sql.NullInt64
 		if err := rows.Scan(&row.ID, &row.PlatformID, &row.CoreID, &row.Name, &row.Description,
-			&row.SortOrder, &enabled, &row.Version, &key, &deleted); err != nil {
+			&enabled, &row.Version, &key, &deleted); err != nil {
 			return nil, fmt.Errorf("platforminstance: scan directory: %w", err)
 		}
 		row.Enabled = enabled == 1
@@ -86,7 +86,7 @@ func (reader records) Instance(ctx context.Context, id string) (platforminstance
 	contentPolicy := instance.ContentPolicy
 	err := dbapi.QueryRowContext(ctx, reader.database, `
 SELECT pi.id,pi.platform_id,p.name,pi.default_core_id,c.name,pi.name,pi.slug,pi.description,
-pi.sort_order,pi.enabled,pi.version,pi.created_at_ms,pi.updated_at_ms,
+pi.enabled,pi.version,pi.created_at_ms,pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id),
 COALESCE((SELECT `+contentquery.BindingPolicySQL+`
  FROM runtime_target_bindings binding
@@ -101,7 +101,7 @@ WHERE pi.id=? AND pi.deleted_at_ms IS NULL
 `, id).Scan(
 		&instance.ID, &instance.PlatformID, &instance.PlatformName, &instance.DefaultCoreID,
 		&instance.DefaultCoreName, &instance.Name, &instance.Slug, &instance.Description,
-		&instance.SortOrder, &enabled, &instance.Version, &instance.CreatedAtMS, &instance.UpdatedAtMS,
+		&enabled, &instance.Version, &instance.CreatedAtMS, &instance.UpdatedAtMS,
 		&instance.GameCount, contentquery.ScanPolicy(&contentPolicy),
 	)
 	if err != nil {

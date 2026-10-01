@@ -183,9 +183,9 @@ func seedFirmwareReplacementLifecycle(
 		args       []any
 		references string
 	}{
-		{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,created_at_ms,
+		{`INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,enabled,created_at_ms,
 updated_at_ms)
-VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',0,1,?,?)`, []any{now, now}, ""},
+VALUES('firmware-platform','gba','mgba','Firmware GBA','firmware-gba',1,?,?)`, []any{now, now}, ""},
 		{`INSERT INTO games(
 id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
 metadata_source_kind,content_kind,content_source_kind,

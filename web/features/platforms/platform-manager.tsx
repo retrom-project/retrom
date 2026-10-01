@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { type ToastMessage } from "@/components/flash-toast";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
 import {
-  canReorderPlatformDirectories,
+  directoryCreationOrder,
   filterPlatformDirectories,
   summarizeRecommendations,
   type Platform,
@@ -15,6 +15,7 @@ import {
   type PlatformRecommendations,
   type PlatformRecommendationsApplyResult,
 } from "./platform-directory-list";
+import { categoryForPlatform, directoryCategories, type DirectoryCategory } from "./platform-category";
 import { PlatformManagerView } from "./platform-manager-view";
 
 export type { Platform, PlatformInstance, PlatformRecommendations } from "./platform-directory-list";
@@ -25,7 +26,7 @@ export type PendingAction =
 
 export type EditTarget = { id: string; field: "name" | "description" } | null;
 
-const initialFilters: PlatformDirectoryFilters = { query: "", platformId: "", status: "ALL", sort: "ORDER" };
+const initialFilters: PlatformDirectoryFilters = { query: "", platformId: "", status: "ALL" };
 
 async function message(response: Response) {
   const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
@@ -34,17 +35,17 @@ async function message(response: Response) {
 
 export function PlatformManager({ instances, platforms, recommendations = null, createOpen }: { instances: PlatformInstance[]; platforms: Platform[]; recommendations?: PlatformRecommendations | null; createOpen: boolean }) {
   const router = useRouter();
-  const [rows, setRows] = useState(() => [...instances].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id)));
+  const [rows, setRows] = useState(() => [...instances].sort(directoryCreationOrder));
   const [filters, setFilters] = useState(initialFilters);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [recommendationState, setRecommendationState] = useState(recommendations);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [editing, setEditing] = useState<EditTarget>(null);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<DirectoryCategory[]>([]);
+  const createdRowRef = useRef<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(createOpen);
-  const [sortHelpOpen, setSortHelpOpen] = useState(false);
   const enabledPlatforms = useMemo(() => platforms.filter((platform) => platform.enabled), [platforms]);
   const initialPlatform = enabledPlatforms[0];
   const [createPlatformID, setCreatePlatformID] = useState(initialPlatform?.id ?? "");
@@ -54,14 +55,13 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
   const busyRef = useRef(busy);
 
   const visibleRows = useMemo(() => filterPlatformDirectories(rows, filters), [rows, filters]);
-  const reorderEnabled = canReorderPlatformDirectories(filters);
   const selectedCreatePlatform = platforms.find((platform) => platform.id === createPlatformID);
   const selectedCreateCore = selectedCreatePlatform?.cores.find((core) => core.id === createCoreID);
 
   useEffect(() => {
     if (!openMenuId) {return;}
     const close = (event: PointerEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest(".platform-more-wrap")) {setOpenMenuId(null);}
+      if (!(event.target instanceof Element) || !event.target.closest(".platform-more-wrap, .platform-directory-menu")) {setOpenMenuId(null);}
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
@@ -88,6 +88,17 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
     };
   }, [drawerOpen]);
 
+  useEffect(() => {
+    const id = createdRowRef.current;
+    if (!id) {return;}
+    const row = document.getElementById(`directory-${id}`);
+    if (row) {
+      row.scrollIntoView?.({ block: "center" });
+      row.focus();
+      createdRowRef.current = null;
+    }
+  }, [rows, expandedCategories]);
+
   function clearFeedback() { setToast(null); }
 
   function selectCreatePlatform(platformId: string) {
@@ -100,11 +111,16 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
     event.preventDefault();
     setBusy("create");
     clearFeedback();
-    const sortOrder = (rows.at(-1)?.sortOrder ?? 0) + 100;
-    const body = { platformId: createPlatformID, defaultCoreId: createCoreID, name: createName, description: createDescription, sortOrder };
+    const body = { platformId: createPlatformID, defaultCoreId: createCoreID, name: createName, description: createDescription };
     try {
       const response = await fetch("/api/v1/admin/platform-instances", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
       if (!response.ok) {throw new Error(await message(response));}
+      const created = await response.json() as PlatformInstance;
+      setRows((current) => [...current, created].sort(directoryCreationOrder));
+      setFilters(initialFilters);
+      const category = categoryForPlatform(created.platformId);
+      setExpandedCategories((current) => [...new Set([...current, category])]);
+      createdRowRef.current = created.id;
       setCreateName("");
       setCreateDescription("");
       setDrawerOpen(false);
@@ -168,55 +184,6 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
     finally { setBusy(null); }
   }
 
-  async function persistOrder(next: PlatformInstance[], previous: PlatformInstance[]) {
-    setBusy("order");
-    clearFeedback();
-    try {
-      const response = await fetch("/api/v1/admin/platform-instances/order", { method: "PUT", headers: await writeHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ items: next.map((item) => ({ id: item.id, version: item.version })) }) });
-      if (!response.ok) {throw new Error(await message(response));}
-      const result = await response.json() as { items: Array<{ id: string; sortOrder: number; version: number }> };
-      const projections = new Map(result.items.map((item) => [item.id, item]));
-      setRows((current) => current.map((item) => ({ ...item, ...projections.get(item.id) })));
-    } catch (caught) {
-      setRows(previous);
-      setToast({ message: caught instanceof Error ? caught.message : "目录排序失败", tone: "bad" });
-    } finally { setBusy(null); }
-  }
-
-  function move(instanceId: string, targetIndex: number) {
-    if (busy || !reorderEnabled) {return;}
-    const previous = [...rows];
-    const sourceIndex = rows.findIndex((row) => row.id === instanceId);
-    if (sourceIndex < 0) {return;}
-    const bounded = Math.max(0, Math.min(rows.length - 1, targetIndex));
-    if (sourceIndex === bounded) {return;}
-    const next = [...rows];
-    const [moved] = next.splice(sourceIndex, 1);
-    next.splice(bounded, 0, moved);
-    setRows(next);
-    void persistOrder(next, previous);
-  }
-
-  function dropOn(event: DragEvent<HTMLDivElement>, targetId: string) {
-    event.preventDefault();
-    const sourceId = draggedId;
-    setDraggedId(null);
-    if (!sourceId || sourceId === targetId || !reorderEnabled) {return;}
-    move(sourceId, rows.findIndex((row) => row.id === targetId));
-  }
-
-  function startDrag(event: DragEvent<HTMLButtonElement>, instanceId: string) {
-    const row = event.currentTarget.closest<HTMLElement>(".platform-directory-row");
-    if (row) {
-      const bounds = row.getBoundingClientRect();
-      const offsetX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
-      const offsetY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setDragImage(row, offsetX, offsetY);
-    }
-    setDraggedId(instanceId);
-  }
-
   async function applyRecommendations() {
     if (!recommendationState || recommendationState.summary.missingCount === 0 || busy) {return;}
     setBusy("recommendations");
@@ -234,8 +201,9 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
       setRows((current) => {
         const existing = new Set(current.map((item) => item.id));
         return [...current, ...created.filter((item) => !existing.has(item.id))]
-          .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+          .sort(directoryCreationOrder);
       });
+      setExpandedCategories(directoryCategories.map((category) => category.id));
       setRecommendationState({ catalogVersion: result.catalogVersion, items: result.items, summary: summarizeRecommendations(result.items) });
       const suppressed = result.summary.suppressedCount
 		? `；${result.summary.suppressedCount} 个已停用或删除的推荐目录未恢复`
@@ -251,17 +219,18 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
 
   return <PlatformManagerView
     busy={busy} createCoreID={createCoreID} createDescription={createDescription} createName={createName} createPlatformID={createPlatformID}
-    draggedId={draggedId} drawerOpen={drawerOpen} editing={editing}
+    drawerOpen={drawerOpen} editing={editing} expandedCategories={expandedCategories}
+    onExpandedCategories={setExpandedCategories}
     enabledPlatforms={enabledPlatforms} filters={filters} onApplyRecommendations={() => void applyRecommendations()}
     onConfirmPending={() => void confirmPending()} onCreate={(event) => void create(event)} onCreateCore={setCreateCoreID}
     onCreateDescription={setCreateDescription} onCreateName={setCreateName} onDelete={(instance) => setPending({ kind: "delete", instance })}
-    onDragEnd={() => setDraggedId(null)} onDrawer={setDrawerOpen} onDrop={dropOn} onEdit={setEditing}
-    onFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))} onMenu={setOpenMenuId} onMove={move}
+    onDrawer={setDrawerOpen} onEdit={setEditing}
+    onFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))} onMenu={setOpenMenuId}
     onPatch={(instance, body) => void patchInstance(instance, body)} onPendingClose={() => setPending(null)}
     onPreviewCore={(instance, coreId) => void previewCore(instance, coreId)} onSelectCreatePlatform={selectCreatePlatform}
-    onSortHelp={setSortHelpOpen} onStartDrag={startDrag} onSubmitInline={(event, instance, field) => void submitInline(event, instance, field)}
+    onSubmitInline={(event, instance, field) => void submitInline(event, instance, field)}
     onToastDismiss={() => setToast(null)} openMenuId={openMenuId} pending={pending} platforms={platforms}
-    recommendationState={recommendationState} reorderEnabled={reorderEnabled} rows={rows} selectedCreateCore={selectedCreateCore}
-    selectedCreatePlatform={selectedCreatePlatform} sortHelpOpen={sortHelpOpen} toast={toast} visibleRows={visibleRows}
+    recommendationState={recommendationState} rows={rows} selectedCreateCore={selectedCreateCore}
+    selectedCreatePlatform={selectedCreatePlatform} toast={toast} visibleRows={visibleRows}
   />;
 }

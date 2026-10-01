@@ -14,11 +14,11 @@ func (writer records) Insert(ctx context.Context, directory platforminstance.New
 	input := directory.Input
 	_, err := recordstore.CreatePlatformInstances(ctx, writer.database, `
 INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,description,sort_order,enabled,version,
+ id,platform_id,default_core_id,name,slug,description,enabled,version,
  created_at_ms,updated_at_ms,catalog_template_key
-) VALUES(?,?,?,?,?,?,?,1,1,?,?,?)
+) VALUES(?,?,?,?,?,?,1,1,?,?,?)
 `, directory.ID, input.PlatformID, input.DefaultCoreID, input.Name, directory.Slug, input.Description,
-		input.SortOrder, directory.CreatedAtMS, directory.CreatedAtMS, nullableCatalogKey(directory.CatalogKey))
+		directory.CreatedAtMS, directory.CreatedAtMS, nullableCatalogKey(directory.CatalogKey))
 	if err != nil {
 		return fmt.Errorf("platforminstance: insert: %w", err)
 	}
@@ -30,7 +30,7 @@ func (writer records) RecordCreation(ctx context.Context, audit platforminstance
 	input := directory.Input
 	after, err := json.Marshal(map[string]any{
 		"platformId": input.PlatformID, "defaultCoreId": input.DefaultCoreID, "name": input.Name,
-		"slug": directory.Slug, "description": input.Description, "sortOrder": input.SortOrder,
+		"slug": directory.Slug, "description": input.Description,
 		"catalogTemplateKey": nullableCatalogKey(directory.CatalogKey),
 	})
 	if err != nil {
@@ -47,7 +47,6 @@ func (writer records) Update(ctx context.Context, input platforminstance.Directo
 		Set: `
 name=?,
 description=?,
-sort_order=?,
 enabled=?,
 version=version+1,
 updated_at_ms=?
@@ -57,7 +56,7 @@ id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `, Args: []any{input.ID, input.ExpectedVersion}},
-		Values: []any{input.Name, input.Description, input.SortOrder, input.Enabled, input.UpdatedAtMS},
+		Values: []any{input.Name, input.Description, input.Enabled, input.UpdatedAtMS},
 	})
 	if err != nil {
 		return false, fmt.Errorf("platforminstance: update: %w", err)

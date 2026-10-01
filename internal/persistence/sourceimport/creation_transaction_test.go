@@ -37,7 +37,7 @@ func creationDatabase(t *testing.T) dbapi.DB {
 
 func creationPlan(index int) application.CreationPlan {
 	id := strconv.Itoa(index)
-	return application.CreationPlan{ImportID: "import-" + id, JobID: "job-" + id, ExecutionID: "execution-" + id, AuditID: "audit-" + id, ActorID: "actor", DedupeKey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + fmt.Sprintf("%04x", index), Request: application.CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, Root: application.SelectedRoot{ID: "games", Label: "Games", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, NowMS: 1, ExpiresAtMS: 604800001}
+	return application.CreationPlan{ImportID: "import-" + id, JobID: "job-" + id, ExecutionID: "execution-" + id, AuditID: "audit-" + id, ActorID: "actor", DedupeKey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + fmt.Sprintf("%04x", index), Request: application.CreateRequest{Format: "PEGASUS", RootID: "games", SourceRelativePath: "Roms"}, Root: application.SelectedRoot{ID: "games", Label: "Games", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, NowMS: 1, ExpiresAtMS: 604800001}
 }
 
 func TestCreationRollsBackWriteAndLateFailures(t *testing.T) {

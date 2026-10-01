@@ -160,7 +160,6 @@ func (server *Server) registerAdminAccountRoutes(mux *http.ServeMux) {
 		"POST /api/v1/admin/platform-instances/recommendations/apply",
 		server.applyPlatformInstanceRecommendations,
 	)
-	mux.HandleFunc("PUT /api/v1/admin/platform-instances/order", server.reorderPlatformInstances)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances/{platformInstanceId}", server.platformInstance)
 	mux.HandleFunc("PATCH /api/v1/admin/platform-instances/{platformInstanceId}", server.patchPlatformInstance)
 	mux.HandleFunc("DELETE /api/v1/admin/platform-instances/{platformInstanceId}", server.deletePlatformInstance)

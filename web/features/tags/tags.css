@@ -3,7 +3,8 @@
 a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-color: var(--purple); background: var(--surface); }
 .tag-chip-more { color: var(--muted); border-color: var(--line); background: var(--surface-subtle); }
 .tag-chip-removable { padding-right: 4px; }
-.tag-chip-removable button { width: 20px; height: 20px; display: grid; place-items: center; color: inherit; border: 0; border-radius: 50%; background: transparent; font-size: var(--text-lead); line-height: 1; cursor: pointer; }
+.tag-chip-label { min-width: 0; padding-block: var(--space-1); overflow: hidden; text-overflow: ellipsis; text-box: trim-both cap alphabetic; }
+.tag-chip-removable button { flex: none; width: 20px; height: 20px; display: grid; place-items: center; color: inherit; border: 0; border-radius: 50%; background: transparent; font-size: var(--text-lead); line-height: 1; cursor: pointer; }
 .tag-chip-removable button:hover, .tag-chip-removable button:focus-visible { background: var(--purple-soft); }
 .tag-picker { display: grid; gap: 8px; position: relative; }
 .tag-picker > label { font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--ink); }

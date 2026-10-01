@@ -29,7 +29,7 @@ func TestCreatePropagatesEntropyFailureWithoutPersistingPlan(t *testing.T) {
 	uuid.SetRand(unavailableCreationEntropy{})
 	value, err := func() (Summary, error) {
 		defer uuid.SetRand(nil)
-		return service.Create(t.Context(), CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, "user")
+		return service.Create(t.Context(), CreateRequest{Format: "PEGASUS", RootID: "games", SourceRelativePath: "Roms"}, "user")
 	}()
 	if !errors.Is(err, errCreationEntropy) || value.ID != "" {
 		t.Errorf("entropy failure: %#v, %v", value, err)

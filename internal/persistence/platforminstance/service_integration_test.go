@@ -107,7 +107,7 @@ func TestCoveragePreservesEquivalentCustomizedDisabledAndDeletedChoices(t *testi
 	t.Parallel()
 	service, database := newService(t)
 	manual, err := createManualDirectory(t, service, platforminstance.CreateInput{
-		PlatformID: "gba", DefaultCoreID: "mgba", Name: "我的 GBA", SortOrder: 50,
+		PlatformID: "gba", DefaultCoreID: "mgba", Name: "我的 GBA",
 	})
 	testassert.False(t, err != nil, err)
 	if _, err := service.Apply(t.Context(), actor(), testUserID, "22222222-2222-4222-8222-222222222222"); err != nil {

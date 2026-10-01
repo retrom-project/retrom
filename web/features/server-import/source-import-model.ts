@@ -1,5 +1,11 @@
 import type { components } from "@/lib/api/generated/schema";
 
+export type SourceFormat = components["schemas"]["SourceImportSummary"]["format"];
+
+export function validExtensionFilter(value: string) {
+  return value.length <= 2048 && (!value.trim() || value.split(";").every((part) => /^\.[a-z0-9_-]+$/i.test(part.trim())));
+}
+
 export type SourceImportSummary = components["schemas"]["SourceImportSummary"];
 export type SourceImportList = components["schemas"]["SourceImportList"];
 export type SourceCollection = components["schemas"]["SourceSourceCollection"];

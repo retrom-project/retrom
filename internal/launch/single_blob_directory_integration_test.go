@@ -19,7 +19,7 @@ func createSingleBlobDirectory(t *testing.T, database dbapi.DB, input singleBlob
 	receipt, err := service.CreateIdempotent(t.Context(), platforminstance.AuditActor{
 		Kind: "USER", UserID: actorID, RequestID: "single-blob-directory",
 	}, actorID, "single-blob-"+input.core, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", platforminstance.CreateInput{
-		PlatformID: input.platform, DefaultCoreID: input.core, Name: "手动游戏目录", SortOrder: 500,
+		PlatformID: input.platform, DefaultCoreID: input.core, Name: "手动游戏目录",
 	}, true)
 	if err != nil {
 		t.Fatalf("create manual %s/%s directory: %v", input.platform, input.core, err)

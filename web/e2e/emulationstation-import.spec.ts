@@ -170,6 +170,7 @@ async function scanPublicSource(page: Page) {
     return url.pathname === "/api/v1/admin/source-imports"
       && response.request().method() === "POST";
   });
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("GAMELIST");
   await activateWithKeyboard(
     drawer.getByRole("button", { name: "扫描此目录" }),
   );

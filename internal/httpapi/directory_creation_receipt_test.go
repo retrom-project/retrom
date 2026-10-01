@@ -17,7 +17,7 @@ func TestDirectoryCreationDoesNotReadRetiredHTTPReceipts(t *testing.T) {
 	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
-	body := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"LegacyReceipt","description":"","sortOrder":0}`
+	body := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"LegacyReceipt","description":""}`
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
 	request.Header.Set("If-Match", `"v8"`)
