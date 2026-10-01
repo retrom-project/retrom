@@ -166,7 +166,7 @@ updated_at_ms) VALUES(?,
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	fceummTarget, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fceumm")
 	if err != nil {

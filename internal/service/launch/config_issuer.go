@@ -35,7 +35,7 @@ func (service *ConfigIssuer) Issue(ctx context.Context, ref SessionRef, capabili
 	if err != nil {
 		return Config{}, err
 	}
-	configuration, err := service.envelope(ref.ID, snapshot, ticket)
+	configuration, err := service.envelope(ctx, ref.ID, snapshot, ticket)
 	if err != nil {
 		return Config{}, err
 	}

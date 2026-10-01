@@ -7,6 +7,8 @@ import (
 	"io"
 	"testing"
 
+	"retrom/internal/zipentry"
+
 	"retrom/internal/testassert"
 )
 
@@ -64,7 +66,7 @@ func TestWriteMKXPZRejectsUnsafeCollisionAndSizeDrift(t *testing.T) {
 }
 
 func TestStoreZIPHeaderHasFixedWireFields(t *testing.T) {
-	header := StoreZIPHeader("Game.ini")
+	header := zipentry.StoreHeader("Game.ini")
 	if !header.Modified.IsZero() || len(header.Extra) != 0 ||
 		header.Method != zip.Store || header.Mode().Perm() != 0o644 {
 		t.Fatalf("header=%#v", header)

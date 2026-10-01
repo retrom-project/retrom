@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"time"
+
+	"retrom/internal/zipentry"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
@@ -61,19 +62,6 @@ func WriteMKXPZ(destination io.Writer, files []SourceFile) (Result, error) {
 	}, nil
 }
 
-func StoreZIPHeader(name string) *zip.FileHeader {
-	header := &zip.FileHeader{Name: name, Method: zip.Store}
-	header.SetMode(0o644)
-	header.Modified = time.Time{}
-	// archive/zip otherwise emits an extended timestamp. These DOS fields encode
-	// 1980-01-01 00:00:00 while keeping Extra empty.
-	header.ModifiedDate = 33 //nolint:staticcheck // Deterministic ZIP wire contract.
-	header.ModifiedTime = 0  //nolint:staticcheck // Deterministic ZIP wire contract.
-	header.Extra = nil
-	header.Comment = ""
-	return header
-}
-
 func validateSources(files []SourceFile) ([]SourceFile, int64, error) {
 	ordered := append([]SourceFile(nil), files...)
 	sort.Slice(ordered, func(left, right int) bool { return ordered[left].Path < ordered[right].Path })
@@ -95,7 +83,7 @@ func validateSources(files []SourceFile) ([]SourceFile, int64, error) {
 }
 
 func writeSource(archive *zip.Writer, file SourceFile) error {
-	destination, err := archive.CreateHeader(StoreZIPHeader(file.Path))
+	destination, err := archive.CreateHeader(zipentry.StoreHeader(file.Path))
 	if err != nil {
 		return fmt.Errorf("%w: create %s: %w", ErrInvalid, file.Path, err)
 	}

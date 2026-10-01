@@ -45,6 +45,7 @@ func (repository *configTestRepository) Activate(context.Context, ConfigActivati
 }
 
 type configTestBuilder struct {
+	input      runtimelaunch.Input
 	cause      error
 	afterBuild func()
 	inputs     []runtimebundle.Input
@@ -56,7 +57,8 @@ func (builder *configTestBuilder) Target(string, string) (runtimebundle.Target, 
 	}}, true
 }
 func (*configTestBuilder) BundleSHA256(string, string) (string, bool) { return "bundle", true }
-func (builder *configTestBuilder) Build(runtimelaunch.Input) ([]byte, error) {
+func (builder *configTestBuilder) Build(input runtimelaunch.Input) ([]byte, error) {
+	builder.input = input
 	if builder.afterBuild != nil {
 		builder.afterBuild()
 	}

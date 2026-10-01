@@ -36,6 +36,7 @@ func New(
 		Product: product,
 		Config: application.NewConfigIssuer(repository.NewConfig(database), source, application.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
+			DescribeBundle: source.DescribeBundle,
 		}),
 		PreviewCloser: application.NewPreviewCloser(
 			repository.NewPreviewClose(database), now, retromruntime.MatchesCapability,

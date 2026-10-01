@@ -47,7 +47,7 @@ func providerParentResource(files []ConfigFile, kind string) (map[string]any, er
 		return nil, err
 	}
 	return map[string]any{
-		"kind": kind, "url": url, "sha256": identity, "sizeBytes": int64(len(files)), "rangeRequired": true,
+		"kind": kind, "url": url, "rangeRequired": true,
 	}, nil
 }
 

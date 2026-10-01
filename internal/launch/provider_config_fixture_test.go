@@ -21,6 +21,7 @@ func (service *Service) configIssuer() *application.ConfigIssuer {
 	return application.NewConfigIssuer(persistence.NewConfig(service.database), service.runtimeBuilder,
 		application.ConfigEnvironment{
 			Now: service.now, Matches: retromruntime.MatchesCapability, PublicOrigin: service.publicOrigin,
+			DescribeBundle: NewSources(service.blobs, service.credentials).DescribeBundle,
 			SignIsolation: func(id string) (application.IsolationTicket, error) {
 				origin, ticket, hash, err := service.isolatedRuntimeTicket(id)
 				return application.IsolationTicket{Origin: origin, Ticket: ticket, Hash: hash}, err
