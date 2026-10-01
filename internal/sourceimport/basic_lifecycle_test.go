@@ -83,7 +83,7 @@ func mapBasicLifecycle(t *testing.T, fixture sourceLifecycle) Summary {
 	}
 	var target string
 	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, fixture.database.SQL,
-		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`), &target)
+		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY created_at_ms,id LIMIT 1`), &target)
 	mapped, err := service.UpdateMappings(ctx, scanned.ID, scanned.Version, []Mapping{{
 		CollectionID: collections[0].ID, Action: "IMPORT", PlatformInstanceID: target, TagIDs: []string{fixture.mappedTag.TagID},
 	}})
