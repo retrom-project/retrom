@@ -1,0 +1,24 @@
+[
+  {
+    "bypassCSP": false,
+    "errors": [
+      {
+        "message": "Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'nonce-redacted' blob: 'wasm-unsafe-eval'\".\n",
+        "stack": "EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'nonce-redacted' blob: 'wasm-unsafe-eval'\".\n\n    at Function (<anonymous>)\n    at newFunc (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:101421)\n    at craftInvokerFunction (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:103802)\n    at https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:105291\n    at onComplete (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:83367)\n    at whenDependentTypesAreResolved (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:84082)\n    at https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:105160\n    at onComplete (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:83367)\n    at whenDependentTypesAreResolved (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:84082)\n    at __embind_register_class_class_function (https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js:9:104563)"
+      }
+    ],
+    "violations": [
+      {
+        "directive": "script-src",
+        "blockedURI": "eval",
+        "sourceFile": "https://app.example.invalid/runtime/providers/retrom-runtime/5a1ecf90bd3e9dfb12f450ec62d87991ae554260044df725c26ec1ba4872280a/assets/easyrpg/easyrpg-player.js",
+        "line": 9
+      }
+    ],
+    "responses": [],
+    "gameId": "01a0f8f1-b452-7592-addc-1220c58c7fcb",
+    "csp": "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' 'nonce-redacted' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.sub.retrom.example.invalid; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:",
+    "body": "正在运行的游戏\n正在连接…\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n加载中\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\n启动信息准备中\n启动信息准备中\n\n正在准备本次启动所需内容，已缓存的资源会直接复用。",
+    "elapsedMs": 50914
+  }
+]

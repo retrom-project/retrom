@@ -1,0 +1,25 @@
+[
+  {
+    "bypassCSP": false,
+    "errors": [],
+    "violations": [],
+    "responses": [],
+    "gameId": "01a0f8f1-b452-7592-addc-1220c58c7fcb",
+    "csp": "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' 'nonce-redacted' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.sub.retrom.example.invalid; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:",
+    "body": "正在运行的游戏\n正在连接…\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n错误\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\nFailed to fetch\n启动信息准备失败\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+    "elapsedMs": 51590
+  },
+  {
+    "bypassCSP": true,
+    "errors": [],
+    "violations": [],
+    "responses": [],
+    "gameId": "01a0f8f1-b452-7592-addc-1220c58c7fcb",
+    "csp": "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' 'nonce-redacted' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.sub.retrom.example.invalid; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:",
+    "body": "Lucky.easyrpg\nRPG Maker · RPG Maker\n当前场景暂不可存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n运行中\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制",
+    "running": true,
+    "runningMs": 1937,
+    "inputChanged": true,
+    "elapsedMs": 5403
+  }
+]

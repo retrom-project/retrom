@@ -1,0 +1,82 @@
+{
+  "gameId": "01a0f90e-47e2-7215-b55d-347357366043",
+  "beforeFiles": [
+    {
+      "crc32": "ba3523a7",
+      "logicalName": "pong.wasm",
+      "md5": "27329c820fc9e51e812dab97f4f6114d",
+      "mediaType": "application/wasm",
+      "role": "CONTENT",
+      "sha1": "0e361ed484e576d150217304d95903da5b8a8467",
+      "sha256": "b79058895b708976449c4efd1b4a3e1af738478a99f401f597a00cbe7cab02cd",
+      "sizeBytes": 6818,
+      "sortOrder": 0
+    }
+  ],
+  "beforeVariants": [
+    {
+      "compatibilityCode": "READY",
+      "coreId": "wasm4",
+      "coreName": "WASM-4",
+      "createdAtMs": 1790884857953,
+      "datVersionId": null,
+      "dependencySnapshot": {
+        "bios": [],
+        "kind": "STATIC",
+        "schemaVersion": 1
+      },
+      "id": "01a0f90e-47e2-7217-b245-9c25a8b7534b",
+      "providerId": "retrom-runtime",
+      "status": "READY",
+      "targetId": "wasm4",
+      "updatedAtMs": 1790884857953,
+      "version": 1
+    }
+  ],
+  "job": {
+    "jobId": "01a0f92f-a17f-7952-a44d-8220248dda14",
+    "scopeType": "GAME",
+    "scopeId": "01a0f90e-47e2-7215-b55d-347357366043",
+    "kind": "GAME_CONTENT_REPLACE",
+    "state": "SUCCEEDED",
+    "version": 3,
+    "attemptCount": 1,
+    "maxAttempts": 2,
+    "errorCode": null,
+    "retryable": false,
+    "updatedAtMs": 1790887043624
+  },
+  "afterFiles": [
+    {
+      "crc32": "7f8f3077",
+      "logicalName": "not-a-cart.wasm",
+      "md5": "2ccc97bdcd478fb51d53101b34e91782",
+      "mediaType": "application/octet-stream",
+      "role": "CONTENT",
+      "sha1": "40ac0103c5b692780b550bacb75d71e94dee84b2",
+      "sha256": "4c4c9395078071d8aa15e526ea05493c24a254ae2afcc76a3cba8caf1ede50fa",
+      "sizeBytes": 22647,
+      "sortOrder": 0
+    }
+  ],
+  "afterVariants": [
+    {
+      "compatibilityCode": "READY",
+      "coreId": "wasm4",
+      "coreName": "WASM-4",
+      "createdAtMs": 1790884857953,
+      "datVersionId": null,
+      "dependencySnapshot": {
+        "bios": [],
+        "kind": "STATIC",
+        "schemaVersion": 1
+      },
+      "id": "01a0f90e-47e2-7217-b245-9c25a8b7534b",
+      "providerId": "retrom-runtime",
+      "status": "READY",
+      "targetId": "wasm4",
+      "updatedAtMs": 1790887043624,
+      "version": 2
+    }
+  ]
+}
