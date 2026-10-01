@@ -390,6 +390,17 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 
     #retrom-ui-review .rt-page { display: none; width: 100%; max-width: var(--retrom-content-max); margin: 0 auto; padding: 24px; }
     #retrom-ui-review .rt-page.is-active { display: block; }
+
+    #retrom-ui-review .rt-startup-preview { width: min(440px, 100%); padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--canvas); text-align: center; }
+    #retrom-ui-review .rt-startup-preview ol { height: 108px; margin: var(--space-4) 0; padding: 0; display: grid; align-content: end; gap: var(--space-2); list-style: none; }
+    #retrom-ui-review .rt-startup-preview li { min-height: 28px; display: flex; align-items: center; justify-content: center; gap: var(--space-3); font-size: var(--text-body); }
+    #retrom-ui-review .rt-startup-preview svg { width: 1em; height: 1em; margin-inline: var(--space-4); fill: none; stroke: var(--purple-dark); stroke-width: 2; stroke-linecap: round; }
+    #retrom-ui-review .rt-startup-preview .is-completed { opacity: .65; transform: translateY(-2px); }
+    #retrom-ui-review .rt-startup-preview .is-completed svg { stroke: var(--success); }
+    #retrom-ui-review .rt-startup-percent { width: 48px; text-align: center; color: var(--purple-dark); font-variant-numeric: tabular-nums; }
+    #retrom-ui-review .rt-startup-spin { stroke-dasharray: 42 18; animation: rt-startup-spin 1s linear infinite; }
+    @keyframes rt-startup-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #retrom-ui-review .rt-startup-spin { animation: none; } }
     #retrom-ui-review .rt-page[data-page=&quot;play&quot;] { padding: 0; }
     #retrom-ui-review .rt-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     #retrom-ui-review h1,
@@ -3102,6 +3113,13 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;内容加载&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;按需加载&lt;/option&gt;&lt;option&gt;下载完成后开始&lt;/option&gt;&lt;/select&gt;&lt;small&gt;偏好保存在当前设备，已缓存的内容会直接复用。&lt;/small&gt;&lt;/label&gt;
           &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;内容加载&lt;/span&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;整文件缓存&quot;&gt;&lt;option&gt;下载完成后开始&lt;/option&gt;&lt;/select&gt;&lt;small&gt;此运行方式仅支持完整下载游戏内容。&lt;/small&gt;&lt;/label&gt;
           &lt;p&gt;未接入统一缓存的运行方式不显示内容加载区域；切换核心不改写已保存的偏好。恢复存档与重新开始能力不同则分别标注。&lt;/p&gt;
+        &lt;/details&gt;
+        &lt;details class=&quot;rt-card&quot; aria-label=&quot;公共启动事件状态评审&quot;&gt;&lt;summary&gt;全部运行方式共用的加载步骤&lt;/summary&gt;
+          &lt;div class=&quot;rt-startup-preview&quot; role=&quot;status&quot;&gt;&lt;strong&gt;核心初始化中&lt;/strong&gt;&lt;ol aria-label=&quot;游戏启动步骤&quot;&gt;
+            &lt;li class=&quot;is-completed&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;m5 12 4 4 10-10&quot; /&gt;&lt;/svg&gt;&lt;span&gt;BIOS 已准备&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;rt-startup-percent&quot; role=&quot;progressbar&quot; aria-label=&quot;游戏内容准备中&quot; aria-valuemin=&quot;0&quot; aria-valuemax=&quot;100&quot; aria-valuenow=&quot;75&quot;&gt;75%&lt;/span&gt;&lt;span&gt;游戏内容准备中&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;svg class=&quot;rt-startup-spin&quot; viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;9&quot; /&gt;&lt;/svg&gt;&lt;span&gt;核心初始化中&lt;/span&gt;&lt;/li&gt;
+          &lt;/ol&gt;&lt;small&gt;真实进度；未知总量显示旋转状态。完成项上移渐隐，最新步骤在底部，最多三条；挂载、恢复和画面控制准备完成后消失。&lt;/small&gt;&lt;/div&gt;
         &lt;/details&gt;
         &lt;details class=&quot;rt-card&quot; aria-label=&quot;本地内容缓存状态评审&quot;&gt;&lt;summary&gt;下载完成后开始&lt;/summary&gt;&lt;p&gt;正在下载游戏内容… 384 MiB / 768 MiB · 50%&lt;/p&gt;&lt;p&gt;无法完成本地缓存，请检查浏览器存储权限和可用空间。&lt;/p&gt;&lt;button class=&quot;rt-button rt-button-primary&quot;&gt;重试下载&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;改为按需加载&lt;/button&gt;&lt;p&gt;已下载的有效内容会在重试时复用。&lt;/p&gt;&lt;/details&gt;
         &lt;details class=&quot;rt-card&quot; aria-label=&quot;原生存档交互状态评审&quot;&gt;

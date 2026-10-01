@@ -1553,6 +1553,8 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 - 上限：900 秒。证明所有 Launch 只返回 Launch Envelope V1，Go 在签发前按 Target schema 精确验证 options；module 身份和 hash 匹配，前端共享 dispatcher 只做通用安全边界，Provider Module 再做精确校验后 mount；Provider 静态路由及 CSP fail closed。
 
+- 启动事件覆盖当前完整 Target declaration；任务完成必须对应准备 Promise 返回，100% 不提前就绪。共同 UI 最多三条，百分比更新不新增行，移出窗口的并行任务仍保留状态，失败/取消不能显示完成或重启实例。独立加载器也使用同一公共事件。
+
 ### ACC-PROVIDER-004：Opaque checkpoint 往返
 
 - 上限：900 秒。证明 Host 不解释 checkpoint bytes，存储的 format/size/hash 精确，跨 Launch restore 与 availability 状态一致。

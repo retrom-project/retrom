@@ -1,5 +1,7 @@
 "use client";
 
+import {runHostStartup} from "./runtime/startup-task";
+import type {RuntimeStartupTaskV1} from "./runtime/contract";
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
 import {readContentLoading, resolveContentLoading, type ContentLoadingCapability} from "./content-loading";
 
@@ -24,6 +26,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type Mutable<T> = {current: T};
 
 export type PlayerBootstrapParams = {
+  reportStartupTask?: (task: RuntimeStartupTaskV1 | null) => void;
   userId?: string;
   launchId: string;
   experience: "standard" | "immersive";
@@ -95,14 +98,18 @@ export function usePlayerBootstrap(params: PlayerBootstrapParams, cancellationRe
 function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+  params.reportStartupTask?.(null);
   params.setLoadProgress(null);
   params.setContentLoadingCapability(undefined);
   params.setMessage("正在验证 Provider 启动信息…");
-  const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
-    credentials: "same-origin", cache: "no-store", signal: abort.signal,
-  });
-  if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
-  const envelope = parseLaunchEnvelopeJSON(await response.text());
+  const envelope = await runHostStartup("LAUNCH_CONFIG", params.reportStartupTask, async () => {
+    const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
+      credentials: "same-origin", cache: "no-store", signal: abort.signal,
+    });
+    if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
+    return parseLaunchEnvelopeJSON(await response.text());
+  }, abort.signal);
+  params.setMessage("正在启动游戏…");
   validateExperience(params.experience, envelope);
   applyEnvelope(params, envelope);
   await prepareOrientation(params, abort.signal);
@@ -132,7 +139,8 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     onSurface: params.onGameSurface,
   });
   params.onGamepadCursorReady?.(mounted.runtime);
-  await configureMountedRuntime(params, resources, mounted.runtime);
+  await runHostStartup("PLAYER_SETUP", params.reportStartupTask, () => configureMountedRuntime(params, resources, mounted.runtime), abort.signal);
+  await completeSingleStart(params);
 }
 
 function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1) {
@@ -195,7 +203,6 @@ async function configureMountedRuntime(
     params.setDiscState(disc);
     params.reportPlayerEvent({eventType: "START", resultCode: "OK", discCount: disc.count, observedDiscCount: disc.count});
   }
-  await completeSingleStart(params);
 }
 
 async function completeSingleStart(params: PlayerBootstrapParams) {
@@ -212,6 +219,7 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
 }
 
 function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
+  if (event.type === "LOAD_TASK") {params.reportStartupTask?.(event.task); return;}
   if (event.type === "LOAD_PROGRESS") {
     params.setLoadProgress(event.totalBytes === null ? null : {
       loadedBytes: event.loadedBytes, totalBytes: event.totalBytes,

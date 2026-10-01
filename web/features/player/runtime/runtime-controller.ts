@@ -1,3 +1,4 @@
+import {runHostStartup} from "./startup-task";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1, RuntimeFinalSnapshotV1} from "./contract";
 import {
   loadProviderRuntime, type DispatcherEnvironment, type ProviderImporter,
@@ -48,7 +49,8 @@ export async function mountProviderRuntime(
   if (options.signal?.aborted) {abort.abort(); throw new DOMException("Aborted", "AbortError");}
   options.signal?.addEventListener("abort", externalAbort, {once: true});
   try {
-    runtime = await loadProviderRuntime(envelope, host, options.importer, options.dispatcher);
+    runtime = await runHostStartup("PROVIDER_MODULE", task => options.onRuntimeEvent?.({type: "LOAD_TASK", task}),
+      () => loadProviderRuntime(envelope, host, options.importer, options.dispatcher), abort.signal);
     if (abort.signal.aborted) {
       await runtime.exit();
       throw abort.signal.reason;

@@ -107,6 +107,18 @@ describe("provider runtime controller", () => {
 
     expect(onRuntimeEvent).toHaveBeenCalledWith({type: "CHECKPOINT_AVAILABILITY_CHANGED", availability});
   });
+
+  it("does not overwrite a terminal error with tasks emitted during cleanup", async () => {
+    const runtime = fixtureRuntime(), onRuntimeEvent = vi.fn();
+    const controller = await mountProviderRuntime(envelope(), document.createElement("div"), {
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), onRuntimeEvent,
+    });
+    runtime.emit({type: "FATAL_ERROR", code: "CONTENT_IO_NETWORK_FAILED"});
+    onRuntimeEvent.mockClear();
+    runtime.emit({type: "LOAD_TASK", task: {id: "provider:1", kind: "GAME_START", state: "FAILED", progress: null}});
+    expect(onRuntimeEvent).not.toHaveBeenCalled();
+    await controller.exit();
+  });
 });
 
 function fixtureModule(runtime: PlayerRuntimeV1) {

@@ -48,7 +48,10 @@ case "$CASE_ID" in
       -run 'Provider|LaunchEnvelope|RuntimeStatic|RuntimeAsset' -count=1)
     web_test features/player/runtime/envelope-fixtures.test.ts \
       features/player/runtime/provider-module-v1.test.ts features/player/runtime/runtime-controller.test.ts \
-      features/player/runtime/runtime-host.test.ts
+      features/player/runtime/runtime-host.test.ts features/player/player-bootstrap-actions.test.ts features/player/player-bootstrap-lifecycle.test.ts \
+      features/player/startup-task-model.test.ts features/player/player-loading-tasks.test.tsx
+    runtime_test tests/startup-targets.test.ts src/provider/startup.test.ts \
+      src/providers/emulatorjs/startup-downloads.test.ts
     ;;
   ACC-PROVIDER-004)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves ./internal/launch -count=1)
