@@ -76,7 +76,7 @@ func assertExtensionPreservesFolder(t *testing.T, database dbapi.DB, schemaBefor
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT max(version) FROM schema_migrations`).Scan(&schemaVersion); err != nil {
 		t.Fatal(err)
 	}
-	if schemaAfter != schemaBefore || schemaVersion != 15 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || order != 42 {
+	if schemaAfter != schemaBefore || schemaVersion != 17 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || order != 42 {
 		t.Fatal("catalog update changed schema or user configuration")
 	}
 }

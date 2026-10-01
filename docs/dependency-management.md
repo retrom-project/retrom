@@ -54,7 +54,23 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 更新版本使用 `make runtime-provider-pin-release TAG=v0.48.3`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
 
-`make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。描述缓存在 `.cache/runtime-providers/releases/<tag>/provider-release.json`；归档继续按内容摘要缓存。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
+`make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
+
+### 共享下载缓存
+
+位于 `retrom-project/project/retrom` 的基线 checkout 及其 Git worktree，默认使用根工作区的 `.cache/runtime-providers/`。准备命令通过 Git common directory 定位 owner checkout，再识别带 `manifest.yaml` 的工作区，因此从 PFB 子仓库直接运行也会复用同一个目录。独立 Retrom checkout 或源码归档默认使用自身 `.cache/runtime-providers/`；调用者可以显式覆盖 `RETROM_PROVIDER_CACHE_ROOT`，镜像 builder 继续使用独立的 BuildKit 缓存。
+
+Release 描述位于 `releases/<tag>/provider-release.json`，归档位于 `<providerId>/<bundleSha256>.tar.gz`。每个缓存文件使用独立进程锁，取得锁后重新检查缓存，缺失时才下载；校验通过后以临时文件、fsync 与原子替换发布。失败不发布归档，已有损坏缓存仍然报错。锁文件保留，避免等待进程与后来进程锁住不同 inode。不同 tag 和不同归档可以并行准备，缓存复用不会改变各分支的固定 tag。
+
+公共目录只保存公开下载与锁，由根 Git 忽略，单个 PFB 清理不删除它。解压安装、`active.json`、开发覆盖层和数据库继续归各自开发环境所有；准备命令不会共享活动 Provider 选择，也不会自动升级 PFB 基座。
+
+已有下载可以显式校验后导入，不联网、不删除来源、不修改安装或 active：
+
+```bash
+make runtime-provider-cache-import SOURCE_ROOT=/absolute/path/to/existing/.cache/runtime-providers
+```
+
+导入读取来源缓存的 Release 描述，校验闭合字段、tag、归档大小和 SHA-256，只发布已验证的文件。同 tag 的目标描述必须与来源一致，冲突或损坏文件报错；重复导入幂等。缺少的归档保留为 cache miss，由之后的正式准备命令下载。根工作区也转发 `runtime-provider-prepare`、`runtime-provider-pin-release` 和 `runtime-provider-cache-import`，可通过 `PFB=<name>` 选择 Retrom checkout，默认传入根公共缓存。
 
 仅 tag 是人工维护输入；摘要、size、manifest/integrity 校验仍由发布产物与安装器负责。解析发生在依赖准备或镜像构建阶段，应用启动只读取已安装的 active identity，不访问 GitHub。
 

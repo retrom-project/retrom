@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +24,7 @@ describe("LaunchButton thread capability guard", () => {
     vi.stubGlobal("isSecureContext", false);
     vi.stubGlobal("crossOriginIsolated", false);
     vi.stubGlobal("SharedArrayBuffer", undefined);
-    render(<LaunchButton gameId="game-1" coreId="ppsspp" requiresThreads />);
+    render(<LaunchButton gameId="game-1" coreId="ppsspp" requiresThreads />, { wrapper: ToastProvider });
     await user.click(screen.getByRole("button", { name: "开始游戏" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -39,7 +40,7 @@ describe("LaunchButton thread capability guard", () => {
     vi.stubGlobal("isSecureContext", true);
     vi.stubGlobal("crossOriginIsolated", true);
 
-    render(<LaunchButton gameId="recent-game" returnTo="/" label="再玩一次" />);
+    render(<LaunchButton gameId="recent-game" returnTo="/recent" label="再玩一次" />, { wrapper: ToastProvider });
     await user.click(screen.getByRole("button", { name: "再玩一次" }));
 
     await vi.waitFor(() => expect(navigation.replacePlayerDocument).toHaveBeenCalledWith("/play/launch-single", navigation.replace));
@@ -52,8 +53,22 @@ describe("LaunchButton thread capability guard", () => {
       coreId: null,
       saveStateId: null,
       dosEntry: null,
-      returnTo: "/",
+      returnTo: "/recent",
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     });
+  });
+
+  it("shows a failed launch in the global toast and leaves the action available for retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, json: async () => ({ error: { message: "缺少 BIOS 固件" } }),
+    }));
+    const { container } = render(<LaunchButton gameId="game-1" />, { wrapper: ToastProvider });
+    await userEvent.setup().click(screen.getByRole("button", { name: "开始游戏" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("缺少 BIOS 固件");
+    expect(container.querySelector("[role=alert]")).toBeNull();
+    expect(screen.queryByRole("button", { name: "关闭通知" })).toBeNull();
+    expect(screen.getByRole("link", { name: "前往 BIOS 管理" })).toHaveAttribute("href", "/admin/bios?scope=REQUIRED_BY_LIBRARY");
+    expect(screen.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+    expect(navigation.replacePlayerDocument).not.toHaveBeenCalled();
   });
 });

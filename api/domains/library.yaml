@@ -2,14 +2,31 @@ paths:
   /api/v1/home:
     get:
       operationId: getHome
-      description: Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
+      description: Homepage aggregate from enabled platform directories. It includes library counters, up to ten recently played games excluding the featured game, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/recent-games:
     get:
       operationId: getRecentGames
-      description: All visible games with play history, ordered by the newest play-session start, with aggregate active duration and session count. The response includes generatedAtMs so client-side day and rolling-window filters use the same clock as the server-rendered page.
+      description: Cursor-paginated Profile-scoped play history including deleted-game tombstones. Default 50 and maximum 100 games per page, read from transactional per-game activity summaries. Supports server-side search, platform, rolling-window cutoff, and deterministic recent/title/duration/session sorts. First pages include global stats, complete history platform facets and filteredCount; later pages include only items, generatedAtMs and nextCursor. Cursors are bound to the Profile and all filters.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [RECENT_DESC, TITLE_ASC, DURATION_DESC, SESSIONS_DESC]
+            default: RECENT_DESC
+        - name: fromAtMs
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -245,6 +262,12 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '400':
+          description: Invalid request, including an unrecognized or unsafe returnTo (INVALID_LAUNCH_RETURN_TO).
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
 components:
   schemas:
     ReplaceFavoriteFoldersRequest:
@@ -997,6 +1020,7 @@ components:
           nullable: true
         returnTo:
           type: string
+          description: Exact product return page (/, /library, /recent, /saves or /games/{gameId}), or a validated immersive game-list URL. Unsafe or unknown paths return 400 INVALID_LAUNCH_RETURN_TO.
         clientCapabilities:
           $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
   requestBodies:

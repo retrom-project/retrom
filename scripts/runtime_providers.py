@@ -9,7 +9,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 if __package__:
-    from scripts.runtime_provider_io import _fetch_bytes, _load_json, _write_bytes_atomic, _write_json_atomic
+    from scripts.runtime_provider_cache import cached_download
+    from scripts.runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
     from scripts.runtime_provider_release import (
         _valid_release_identity, load_release_config, pin_provider_release, resolve_provider_release,
     )
@@ -18,7 +19,8 @@ if __package__:
         install_provider_bundle,
     )
 else:
-    from runtime_provider_io import _fetch_bytes, _load_json, _write_bytes_atomic, _write_json_atomic
+    from runtime_provider_cache import cached_download
+    from runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
     from runtime_provider_release import (
         _valid_release_identity, load_release_config, pin_provider_release, resolve_provider_release,
     )
@@ -89,13 +91,10 @@ def prepare_production_providers(
     downloader = fetch_bytes or _fetch_bytes
     for lock in locks:
         cache_path = cache_root / lock["providerId"] / f'{lock["bundleSha256"]}.tar.gz'
-        if cache_path.exists():
-            _verify_archive_bytes(cache_path.read_bytes(), lock)
-        else:
-            contents = downloader(lock["bundleUrl"], lock["bundleSizeBytes"])
-            _verify_archive_bytes(contents, lock)
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            _write_bytes_atomic(cache_path, contents)
+        cached_download(
+            cache_path, lambda: downloader(lock["bundleUrl"], lock["bundleSizeBytes"]),
+            lambda contents: _verify_archive_bytes(contents, lock), lock["bundleSizeBytes"],
+        )
         install_provider_bundle(cache_path, lock, installed_root)
         active_providers.append(describe_installed_provider(lock, installed_root))
     active = {

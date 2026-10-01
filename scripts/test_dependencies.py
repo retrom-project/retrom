@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -14,6 +16,13 @@ import dependencies
 
 
 class VersionTests(unittest.TestCase):
+    def test_cli_reports_dependency_errors_without_a_traceback(self) -> None:
+        output = io.StringIO()
+        with mock.patch("sys.argv", ["dependencies.py", "data-check", "--versions", ""]), \
+                contextlib.redirect_stderr(output):
+            self.assertEqual(1, dependencies.main())
+        self.assertEqual("DEPENDENCY_VERSION_LIST_INVALID\n", output.getvalue())
+
     def test_versions_are_strictly_increasing(self) -> None:
         self.assertEqual(["4.2.3", "4.3.0-pre"], dependencies.parse_versions("4.2.3,4.3.0-pre"))
         for invalid in ("", "4.2.3,4.2.3", "4.3.0,4.2.3", "4.2.03"):
@@ -24,12 +33,12 @@ class VersionTests(unittest.TestCase):
 class DATManifestTests(unittest.TestCase):
     def test_mame_current_dat_is_bound_to_published_core_and_provider(self) -> None:
         manifest = dependencies.load_mame_manifest()
-        self.assertEqual("v0.57.0", manifest["provider_release"]["tag"])
+        self.assertEqual("v0.57.1", manifest["provider_release"]["tag"])
         self.assertEqual("retrom-core-gf65d5ba9bc42-r2", manifest["core_release"]["tag"])
         self.assertEqual("mame_arcade", manifest["cores"][0]["core_id"])
         self.assertEqual(10049, manifest["cores"][0]["parse_stats"]["machine_count"])
         entries = dependencies.image_export_entries([], [], dependencies.load_auth_manifest(), manifest)
-        self.assertIn("dat/mame-current/v0.57.0/mame-arcade.xml", entries)
+        self.assertIn("dat/mame-current/v0.57.1/mame-arcade.xml", entries)
         self.assertIn("runtime-providers/release.json", entries)
 
     def test_repository_manifests_are_provider_neutral(self) -> None:

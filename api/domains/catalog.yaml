@@ -71,7 +71,7 @@ paths:
   /api/v1/admin/games:
     get:
       operationId: getAdminGames
-      description: Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination.
+      description: Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination. The first page includes complete admin facets, filteredCount and global summary counters; subsequent pages omit these aggregates. Search includes title, tags, platform, directory and recommended core.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
@@ -81,6 +81,11 @@ paths:
         - $ref: ../components/common.yaml#/components/parameters/Sort
         - $ref: ../components/common.yaml#/components/parameters/Cursor
         - $ref: ../components/common.yaml#/components/parameters/Limit
+        - name: runtime
+          in: query
+          schema:
+            type: string
+            enum: [ALL, READY, ATTENTION, DELETED]
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse

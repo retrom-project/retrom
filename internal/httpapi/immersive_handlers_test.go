@@ -262,6 +262,7 @@ INSERT INTO play_sessions(
 ) VALUES(?,?,?,?,?,?,?,100,'FINISHED',1,?,?)
 `, playID, launchID, profileID, seed.GameID, startedAtMS, startedAtMS+500,
 		startedAtMS+500, startedAtMS, startedAtMS+500)
+	seedPlayActivity(t, transaction)
 	mustCommitHTTPTest(t, transaction)
 }
 

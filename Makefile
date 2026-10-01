@@ -16,7 +16,7 @@ RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
 RETROM_PROVIDER_CANDIDATE_AUTO_ROOT ?= $(abspath .pfb/candidates/runtime)
 RETROM_PROVIDER_CANDIDATE_ROOT ?= $(if $(wildcard $(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT)/providers/provider-build.json),$(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT),)
 RETROM_PROVIDER_RELEASE_PATH ?= $(abspath data/runtime-providers/release.json)
-RETROM_PROVIDER_CACHE_ROOT ?= $(abspath .cache/runtime-providers)
+RETROM_PROVIDER_CACHE_ROOT ?= $(shell python3 scripts/runtime_provider_cache.py --repository-root "$(CURDIR)")
 RETROM_PROVIDER_INSTALLED_ROOT ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/installed)
 RETROM_PROVIDER_ACTIVE_PATH ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/active.json)
 RETROM_PROVIDER_SOURCE ?= $(if $(strip $(RETROM_PROVIDER_CANDIDATE_ROOT)),candidate,production)
@@ -60,7 +60,7 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci ci-contracts dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
-	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
+	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade runtime-provider-cache-import \
 	runtime-provider-prepare-auto \
 	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify \
 	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down
@@ -209,6 +209,8 @@ data-check:
 	@python3 scripts/test_runtime_provider_contract.py
 	@python3 scripts/test_runtime_providers.py
 	@python3 scripts/test_runtime_provider_release.py
+	@python3 scripts/test_runtime_provider_cache.py
+	@python3 scripts/test_runtime_provider_shared_cache.py
 	@python3 scripts/test_runtime_provider_permissions.py
 	@python3 scripts/test_release_input_digest.py
 	@python3 scripts/test_runtime_target_bindings.py
@@ -216,6 +218,10 @@ data-check:
 
 runtime-provider-prepare:
 	@python3 scripts/runtime_providers.py prepare --release-path "$(RETROM_PROVIDER_RELEASE_PATH)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+
+runtime-provider-cache-import:
+	@test -n "$(SOURCE_ROOT)" || { echo 'SOURCE_ROOT is required' >&2; exit 2; }
+	@python3 scripts/runtime_provider_cache_import.py --source-root "$(SOURCE_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-prepare-candidate:
 	@test -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" || { echo 'RETROM_PROVIDER_CANDIDATE_ROOT is required' >&2; exit 2; }

@@ -315,9 +315,9 @@
   .admin-game-table td:nth-child(5),
   .admin-game-table td:nth-child(6) { padding-top: 7px; border-top: 1px solid var(--line); }
   .admin-game-manage { width: 100%; min-height: 48px; }
-  .admin-game-pagination { align-items: flex-start; flex-direction: column; }
-  .admin-game-pagination > div { width: 100%; justify-content: space-between; }
-  .admin-game-pagination button { min-height: 44px; }
+  .list-pagination { align-items: flex-start; flex-direction: column; }
+  .list-pagination > div { width: 100%; justify-content: space-between; }
+  .list-pagination button { min-height: 44px; }
   .admin-game-hero { min-height: 0; padding: 14px; grid-template-columns: 86px minmax(0, 1fr); }
   .admin-game-hero-cover { width: 78px; height: 98px; }
   .admin-game-hero-copy { padding-left: 0; }

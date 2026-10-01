@@ -20,7 +20,7 @@ func (service *Service) Dashboard(ctx context.Context, profileID string) (Data, 
 	if err != nil {
 		return Data{}, fmt.Errorf("read home summary: %w", err)
 	}
-	recentGames, err := service.RecentGames(ctx, profileID, false)
+	recentPage, err := service.RecentPage(ctx, RecentQuery{ProfileID: profileID, Sort: RecentSortRecent, Limit: 11})
 	if err != nil {
 		return Data{}, err
 	}
@@ -57,26 +57,14 @@ func (service *Service) Dashboard(ctx context.Context, profileID string) (Data, 
 		featured = FeaturedGame{}
 	}
 	result := Data{
-		Summary: summary, LatestGames: latestGames, RecentGames: recentGames,
+		Summary: summary, LatestGames: latestGames, RecentGames: recentPage.Items,
 		RecentSaves: recentSaves, Platforms: platforms, QuickPlatforms: quick,
 	}
 	if found {
 		result.FeaturedGame = &featured
 	}
+	result.RecentGames = homeRecentPreview(recentPage.Items, result.FeaturedGame)
 	return result, nil
-}
-
-func (service *Service) RecentGames(ctx context.Context, profileID string, includeDeleted bool) ([]RecentGame, error) {
-	games, err := service.repository.RecentGames(ctx, profileID, includeDeleted)
-	if err != nil {
-		return nil, fmt.Errorf("read recent games: %w", err)
-	}
-	if err := service.attachTags(ctx, recentGameIDs(games), func(index int, tags []Tag) {
-		games[index].Tags = tags
-	}); err != nil {
-		return nil, err
-	}
-	return games, nil
 }
 
 func (service *Service) RecentSaves(ctx context.Context, profileID string) ([]RecentSave, error) {
@@ -153,4 +141,18 @@ func recentGameIDs(games []RecentGame) []string {
 		ids = append(ids, game.GameID)
 	}
 	return ids
+}
+
+func homeRecentPreview(games []RecentGame, featured *FeaturedGame) []RecentGame {
+	preview := make([]RecentGame, 0, 10)
+	for _, game := range games {
+		if featured != nil && game.GameID == featured.GameID {
+			continue
+		}
+		preview = append(preview, game)
+		if len(preview) == 10 {
+			break
+		}
+	}
+	return preview
 }

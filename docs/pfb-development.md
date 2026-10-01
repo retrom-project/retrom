@@ -136,6 +136,8 @@ make runtime-provider-prepare \
   RETROM_PROVIDER_ACTIVE_PATH=/absolute/shared/provider-base/active.json
 ```
 
+准备命令默认复用根工作区 `.cache/runtime-providers/` 的下载归档，跨 PFB 并发请求同一文件时只下载一次。共享下载不改变各 PFB 的 release tag、安装目录或活动基座；缓存定位、校验及已有缓存导入见[依赖管理](./dependency-management.md#共享下载缓存)。`pfb-up/restart` 仍不下载 Provider，PFB 清理也不删除公共下载缓存。
+
 `pfb-provider-import` 只允许在 app 停止时执行。它先完整验证来源，复制到 staging 后再次验证，再执行 upgrade-only 检查；相同 bundle 幂等复用，不删除旧的 immutable installation，最后才原子切换 `active.json`。它不读取 Provider tar、不联网，也不构建 runtime/core。旧 PFB 已经拥有命名卷时使用下节的 `pfb-migrate-storage`，无需重复 import。
 
 后续循环：

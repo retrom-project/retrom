@@ -68,6 +68,11 @@ func TestProductProgressKeepsAccessAndRejectsPreviewFinish(t *testing.T) {
 		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &result) != nil || result.ActiveDurationMS != accepted {
 			t.Fatalf("sample %d: status=%d result=%#v", elapsed, response.Code, result)
 		}
+		var total, count int64
+		if err := dbapi.QueryRowContext(t.Context(), server.database,
+			`SELECT active_duration_ms,session_count FROM profile_game_activity WHERE profile_id='local' AND game_id=?`, gameID).Scan(&total, &count); err != nil || total != accepted || count != 1 {
+			t.Fatalf("activity after duplicate/out-of-order sample %d: duration=%d count=%d error=%v", elapsed, total, count, err)
+		}
 	}
 	denied := requestReviewCheckpointHTTP(t, server, created.LaunchID, cookie, "POST", "finish", nil, "")
 	if denied.Code != http.StatusUnauthorized {

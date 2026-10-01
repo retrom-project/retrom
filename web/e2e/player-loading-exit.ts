@@ -48,7 +48,7 @@ export async function verifyExitDuringProviderLoading(page: Page) {
     await page.goBack();
     await expect(page).toHaveURL(/\/library$/);
   } finally {
+    await page.unrouteAll({behavior: "ignoreErrors"});
     release();
-    await page.unroute(pattern, routeHandler);
   }
 }

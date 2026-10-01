@@ -13,6 +13,7 @@ import (
 
 var (
 	ErrIdempotencyKeyReused = errors.New("IDEMPOTENCY_KEY_REUSED")
+	ErrInvalidReturnTo      = errors.New("INVALID_LAUNCH_RETURN_TO")
 	ErrDOSEntryMissing      = errors.New("LAUNCH_DOS_ENTRY_MISSING")
 	ErrDOSEntryUnsafe       = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
 )

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { seedHomeState, uiLayoutState } from "./ui-layout-state";
 
 test("ACC-UI-005 home keeps long titles and launch controls within its hero", async ({ page }, testInfo) => {
   await login(page);
@@ -24,7 +25,7 @@ test("ACC-UI-005 home keeps long titles and launch controls within its hero", as
   }
 });
 
-test("ACC-UI-005 detail description uses natural page flow below a stable hero", async ({ page }, testInfo) => {
+test("ACC-UI-005 detail description shows full text inside a bounded scroll area below a stable hero", async ({ page }, testInfo) => {
   await login(page);
   const games = await (await page.request.get("/api/v1/games?limit=1")).json();
   const gameId = process.env.RETROM_REVIEW_GAME_ID ?? games.items[0].gameId;
@@ -32,18 +33,17 @@ test("ACC-UI-005 detail description uses natural page flow below a stable hero",
   await page.goto(`/games/${gameId}`);
   const description = page.locator(".game-detail-description");
   await expect(description).toBeVisible();
-  const expand = description.getByRole("button", { name: "展开完整简介" });
   const before = await page.locator(".game-detail-hero").boundingBox();
-  if (Array.from(game.description.trim()).length > 320) {
-    await expect(expand).toHaveAttribute("aria-expanded", "false");
-    await expand.click();
-    await expect(description.getByRole("button", { name: "收起简介" })).toHaveAttribute("aria-expanded", "true");
-  }
+  const beforeDescription = await description.boundingBox();
+  await expect(description.getByRole("button")).toHaveCount(0);
   await expect(description.locator("p")).toHaveText(game.description.trim() ? game.description : "尚未填写游戏简介。");
-  await expect(description).toHaveCSS("overflow-y", "visible");
+  await expect(description).toHaveCSS("overflow-y", "auto");
   await description.locator("p").evaluate((element) => {element.textContent = "完整的游戏简介，不截断文字。\n\n".repeat(100);});
   const flow = await description.evaluate((element) => ({ height: element.clientHeight, scroll: element.scrollHeight, bottom: element.getBoundingClientRect().bottom, savesTop: document.querySelector(".game-detail-saves")!.getBoundingClientRect().top }));
-  expect(flow.scroll).toBeLessThanOrEqual(flow.height + 1);
+  expect(flow.scroll).toBeGreaterThan(flow.height);
+  expect(await description.boundingBox()).toEqual(beforeDescription);
+  await description.evaluate(element => {element.scrollTop = element.scrollHeight;});
+  expect(await description.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   expect(flow.savesTop).toBeGreaterThan(flow.bottom);
   expect(await page.locator(".game-detail-hero").boundingBox()).toEqual(before);
   await page.reload();
@@ -55,3 +55,47 @@ async function login(page: Page) {
   const response = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
   expect(response.ok()).toBe(true);
 }
+
+test("ACC-UI-005 failed recent launch uses a centered three-second toast without moving the row", async ({ page }, testInfo) => {
+  uiLayoutState("isolate");
+  try {
+    seedHomeState("played");
+    await login(page);
+    await page.route("**/api/v1/launches", route => route.fulfill({
+      status: 422, contentType: "application/json",
+      body: JSON.stringify({ error: { code: "LAUNCH_BLOCKED", message: "当前游戏或核心无法启动", details: {}, requestId: "01980000-0000-7000-8000-000000000001" } }),
+    }));
+    await page.goto("/recent");
+    const row = page.locator(".recent-history-row").first();
+    const button = row.getByRole("button", { name: "再玩一次", exact: true });
+    await expect(button).toBeEnabled();
+    const layout = async () => {
+      await row.evaluate(async element => {
+        await Promise.all(element.getAnimations({ subtree: true })
+          .filter(animation => animation instanceof CSSTransition)
+          .map(animation => animation.finished.catch(() => undefined)));
+      });
+      return { row: await row.boundingBox(), button: await button.boundingBox() };
+    };
+    await button.hover();
+    const before = await layout();
+    await button.click();
+    const toast = page.locator(".app-toast[role=alert]");
+    await expect(toast).toHaveText("当前游戏或核心无法启动");
+    await expect(toast.getByRole("button")).toHaveCount(0);
+    await expect(row.getByRole("alert")).toHaveCount(0);
+    await expect(button).toBeEnabled();
+    expect(await layout()).toEqual(before);
+    const geometry = await toast.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { centered: Math.abs(rect.x + rect.width / 2 - innerWidth / 2), top: rect.top, position: getComputedStyle(element).position, parent: element.parentElement?.tagName };
+    });
+    expect(geometry.centered).toBeLessThan(1);
+    expect(geometry.top).toBeLessThan(60);
+    expect(geometry.position).toBe("fixed");
+    expect(geometry.parent).toBe("BODY");
+    await page.screenshot({ path: testInfo.outputPath("recent-launch-error-toast.png") });
+    await expect(toast).toHaveCount(0, { timeout: 4_000 });
+    expect(await layout()).toEqual(before);
+  } finally { uiLayoutState("restore"); }
+});

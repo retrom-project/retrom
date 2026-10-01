@@ -58,6 +58,8 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 `bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换会撤销使用旧 BIOS 的 Launch/Play，并切换当前安装；新的启动按当前安装重校验；Game 存档保留。
 
+BIOS 的“当前库所需”范围以当前已发布 Game 的 Provider/Target 判断成员资格，按 `game_variants_provider_target_game(provider_id,target_id,game_id)` 联合索引查找候选，再检查 Game 发布状态；不得按每条 BIOS 要求重复遍历整个已发布游戏库。多款游戏共享 Target 不重复增加 BIOS 项数，只有已删除游戏使用的 Target 不进入该范围。
+
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base 和多盘的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并记录文件标识；Blob 引用仍由领域 owner 持有。
 
 静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
@@ -187,3 +189,9 @@ BIOS 替换在安装事务切换当前安装、撤销旧 Launch/Play，保留 Ga
 
 浏览器的 GAME_SAVE 草稿不新增服务端数据表。IndexedDB 按账号与 Launch 隔离，保存完整 checkpoint、截图、标题、来源恢复标记、
 更新时间和固定幂等请求；它不参与 Launch 恢复输入。用户确认提交时才通过既有 launch_game_save_bindings 原子更新正式存档。
+
+### 用户游戏活动读模型
+
+`profile_game_activity` 以 `(profile_id,game_id)` 为主键，记录 `last_played_at_ms/active_duration_ms/session_count`。首次有效游玩上报增加会话数，后续上报只增加已接受累计时长与前值的差额，和 `play_sessions` 在同一事务写入；重复或乱序样本不重复计数。删除游戏保留文字墓碑与汇总，停用目录只改变用户可见性。迁移 016 从当前标准会话账本一次生成该读模型，运行时不再以全表聚合充当缺失读模型的回退。
+
+最近时间、时长、次数排序分别由 Profile 开头的覆盖索引支持；会话账本具有 Profile/时间及 Profile/Game/时间索引。后台游戏列表为标题、创建时间、更新时间提供与游标排序一致的索引，首页最新游戏和主封面查询分别使用 `games_latest`、`game_assets_primary`。统计与筛选选项仅在首屏或筛选改变时计算，不随翻页重复传输。

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useToast } from "@/components/toast-provider";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
@@ -46,19 +46,20 @@ function waitForValidation(jobId: string) {
 
 export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, requiresThreads = false, disabled = false, label = "开始游戏", onLaunchCreated, secondary = false }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; requiresThreads?: boolean; disabled?: boolean; label?: string; onLaunchCreated?: () => void; secondary?: boolean }) {
   const router = useRouter();
-  const [state, setState] = useState<"idle" | "starting" | "blocked">("idle");
-  const [message, setMessage] = useState("");
+  const { notify, clear } = useToast();
+  const [starting, setStarting] = useState(false);
 
   async function launch() {
-    setState("starting");
+    clear();
+    setStarting(true);
     const clientCapabilities = {
       secureContext: window.isSecureContext,
       crossOriginIsolated: window.crossOriginIsolated,
       sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined"
     };
     if (lacksRequiredThreads(requiresThreads, clientCapabilities)) {
-      setMessage("当前浏览器环境不提供该运行方式所需的线程能力；远程明文 HTTP 无法提供 SharedArrayBuffer。");
-      setState("blocked");
+      notify({ tone: "bad", message: "当前浏览器环境不提供该运行方式所需的线程能力；远程明文 HTTP 无法提供 SharedArrayBuffer。" });
+      setStarting(false);
       return;
     }
     // Fullscreen must be requested directly from the trusted click; waiting for
@@ -100,11 +101,11 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
     } catch (error) {
       unlockLandscape();
       if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
-      setMessage(error instanceof Error ? error.message : "启动失败");
-      setState("blocked");
+      const message = error instanceof Error ? error.message : "启动失败";
+      notify({ tone: "bad", message, action: /BIOS|固件/.test(message) ? { href: "/admin/bios?scope=REQUIRED_BY_LIBRARY", label: "前往 BIOS 管理" } : undefined });
+      setStarting(false);
     }
   }
 
-  const biosBlocked = /BIOS|固件/.test(message);
-  return <><button className={secondary ? "button secondary" : "button"} disabled={disabled || state === "starting"} onClick={() => void launch()}>{state === "starting" ? "正在准备运行环境…" : label}</button>{state === "blocked" ? <p role="alert" className="status bad">{message}{biosBlocked ? <> <Link href="/admin/bios?scope=REQUIRED_BY_LIBRARY">前往 BIOS 管理</Link></> : null}</p> : null}</>;
+  return <button className={secondary ? "button secondary" : "button"} disabled={disabled || starting} onClick={() => void launch()}>{starting ? "正在准备运行环境…" : label}</button>;
 }
