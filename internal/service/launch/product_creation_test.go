@@ -31,6 +31,27 @@ func TestProductCreatorRetainsSnapshotFailure(t *testing.T) {
 	}
 }
 
+func TestProductCreatorLaunchesRecentGameAndPersistsReturnPage(t *testing.T) {
+	creator, repository, _, command := productFixture(t)
+	command.Request.ReturnTo = "/recent"
+	result, err := creator.Create(t.Context(), command)
+	if err != nil || result.Status != 201 || len(repository.writes) != 1 {
+		t.Fatalf("status=%d writes=%d error=%v", result.Status, len(repository.writes), err)
+	}
+	if repository.writes[0].Command.Request.ReturnTo != "/recent" {
+		t.Fatalf("return page=%q", repository.writes[0].Command.Request.ReturnTo)
+	}
+}
+
+func TestProductCreatorRejectsInvalidReturnPageBeforeReadingOrWriting(t *testing.T) {
+	creator, repository, _, command := productFixture(t)
+	command.Request.ReturnTo = "/recent?redirect=https://example.invalid"
+	_, err := creator.Create(t.Context(), command)
+	if !errors.Is(err, ErrInvalidReturnTo) || repository.loads != 0 || repository.transactions != 0 {
+		t.Fatalf("error=%v loads=%d transactions=%d", err, repository.loads, repository.transactions)
+	}
+}
+
 func TestProductCreatorRejectsIncompatibleAlternateArcadeBeforeWriter(t *testing.T) {
 	creator, repository, _, command := productFixture(t)
 	dat := "current-dat"

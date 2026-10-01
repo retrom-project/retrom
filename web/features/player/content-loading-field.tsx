@@ -12,11 +12,12 @@ export function ContentLoadingField({capability, label = "内容加载", hideLab
   const id = useId();
   const mode = useSyncExternalStore(subscribeContentLoading, () => readContentLoading(userId), () => "ON_DEMAND");
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
-  if (!capability) {return null;}
-  const preloadOnly = capability === "PRELOAD_ONLY";
-  return <div className="field content-loading-field">
+  const unavailable = !capability;
+  const preloadOnly = unavailable || capability === "PRELOAD_ONLY";
+  // Keep the same native markup so responsive field styles also size the placeholder.
+  return <div className={`field content-loading-field${unavailable ? " is-placeholder" : ""}`} aria-hidden={unavailable || undefined} inert={unavailable || undefined}>
     <label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>{label}</label>
-    <select id={id} disabled={!hydrated} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
+    <select id={id} disabled={unavailable || !hydrated} tabIndex={unavailable ? -1 : undefined} value={preloadOnly ? "PRELOAD" : mode} onChange={event => {
       if (!preloadOnly) {writeContentLoading(userId, event.target.value === "PRELOAD" ? "PRELOAD" : "ON_DEMAND");}
     }}>
       {!preloadOnly ? <option value="ON_DEMAND">按需加载</option> : null}

@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -32,7 +33,7 @@ describe("GameDetailSaves", () => {
   it("keeps three recent saves in the page and exposes every save in a drawer", async () => {
     const user = userEvent.setup();
     const saves = Array.from({ length: 6 }, (_, index) => makeSave(index));
-    const { container } = render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={saves} nowMs={nowMs} />);
+    const { container } = render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={saves} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(container.querySelectorAll(".game-detail-save-card")).toHaveLength(3);
     expect(screen.getByText("共 6 份")).toBeInTheDocument();
@@ -55,7 +56,7 @@ describe("GameDetailSaves", () => {
   });
 
   it("does not offer an image preview when the save has no screenshot", () => {
-    render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0), { ...makeSave(1), screenshotUrl: null }]} nowMs={nowMs} />);
+    render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0), { ...makeSave(1), screenshotUrl: null }]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(screen.getByRole("img", { name: "存档截图无预览图" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /从存档继续/ })).toHaveLength(2);

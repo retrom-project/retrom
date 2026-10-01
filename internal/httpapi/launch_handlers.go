@@ -58,6 +58,10 @@ func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, rece
 }
 
 func (server *Server) productCreationError(writer http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, launchservice.ErrInvalidReturnTo) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_LAUNCH_RETURN_TO", "启动后的返回页面无效", map[string]any{})
+		return
+	}
 	if errors.Is(err, launchservice.ErrIdempotencyKeyReused) {
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 		return

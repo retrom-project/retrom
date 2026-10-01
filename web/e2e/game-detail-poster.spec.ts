@@ -30,7 +30,7 @@ test("ACC-UI-005 detail separates static cover, launch, preview and reading area
     expect(layout.aboutTop).toBeGreaterThan(layout.heroBottom);
     expect(layout.overflow).toBe(false);
     expect(layout.heartWidth).toBe(38);
-    await expect(page.locator(".game-detail-description")).toHaveCSS("overflow-y", "visible");
+    await expect(page.locator(".game-detail-description")).toHaveCSS("overflow-y", "auto");
     if (width >= 1280) {
       expect(layout.heartAfterTitle).toBe(true);
       await expect(page.locator(".game-detail-main .launch-actions .button").first()).toBeVisible();

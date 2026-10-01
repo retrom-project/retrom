@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
@@ -45,7 +46,7 @@ describe("SaveManager", () => {
   });
 
   it("keeps game tags out of save group headings", () => {
-    const { container } = render(<SaveManager saves={[makeSave({ tags: [{ tagId: "tag", name: "掌机精选" }] })]} nowMs={nowMs} />);
+    const { container } = render(<SaveManager saves={[makeSave({ tags: [{ tagId: "tag", name: "掌机精选" }] })]} nowMs={nowMs} />, { wrapper: ToastProvider });
     expect(screen.getAllByRole("heading", { name: "Metal Slug" })).toHaveLength(2);
     expect(screen.queryByText("掌机精选")).not.toBeInTheDocument();
     expect(container.querySelector(".tag-chips")).toBeNull();
@@ -75,7 +76,7 @@ describe("SaveManager", () => {
   });
 
   it("renders the latest save, summary and game-grouped library", () => {
-    render(<SaveManager saves={[makeSave()]} nowMs={nowMs} />);
+    render(<SaveManager saves={[makeSave()]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(screen.getByRole("heading", { name: "我的存档" })).toBeInTheDocument();
     expect(screen.getByText("1 份")).toBeInTheDocument();
@@ -90,7 +91,7 @@ describe("SaveManager", () => {
   });
 
   it("keeps screenshot-less saves resumable and renders stable placeholders", () => {
-    render(<SaveManager saves={[makeSave({ screenshotUrl: null })]} nowMs={nowMs} />);
+    render(<SaveManager saves={[makeSave({ screenshotUrl: null })]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(screen.getAllByRole("img", { name: "Metal Slug 存档画面无预览图" })).toHaveLength(1);
     expect(screen.getByRole("img", { name: "Metal Slug 最近存档画面无预览图" })).toBeInTheDocument();
@@ -99,7 +100,7 @@ describe("SaveManager", () => {
 
   it("filters locally and keeps the selection in the address bar", async () => {
     const user = userEvent.setup();
-    render(<SaveManager saves={[makeSave(), makeSave({ saveStateId: "save-2", gameId: "game-2", gameTitle: "1943", name: "手动存档 2026/8/8" })]} nowMs={nowMs} />);
+    render(<SaveManager saves={[makeSave(), makeSave({ saveStateId: "save-2", gameId: "game-2", gameTitle: "1943", name: "手动存档 2026/8/8" })]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     const search = screen.getByPlaceholderText("搜索游戏或存档名称");
     await user.type(search, "1943");
@@ -112,7 +113,7 @@ describe("SaveManager", () => {
 
   it("renames and deletes from the compact card menu without refreshing", async () => {
     const user = userEvent.setup();
-    render(<SaveManager saves={[makeSave()]} nowMs={nowMs} />);
+    render(<SaveManager saves={[makeSave()]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     await user.click(screen.getByRole("button", { name: "存档“最终关”的更多操作" }));
     await user.click(screen.getByRole("menuitem", { name: "重命名" }));
@@ -135,7 +136,7 @@ describe("SaveManager", () => {
   });
 
   it("shows availability details only for blocked saves", () => {
-    render(<SaveManager saves={[makeSave({ availability: { status: "BLOCKED", reasons: [{ logicalName: "neogeo.zip" }] } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />);
+    render(<SaveManager saves={[makeSave({ availability: { status: "BLOCKED", reasons: [{ logicalName: "neogeo.zip" }] } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />, { wrapper: ToastProvider });
 
     expect(screen.getAllByText("当前不可用").length).toBeGreaterThan(0);
     expect(screen.getByRole("alert")).toHaveTextContent("neogeo.zip 当前不可用");
@@ -145,7 +146,7 @@ describe("SaveManager", () => {
   it("explains that an incompatible runtime save is retained but cannot be restored", () => {
     render(<SaveManager saves={[makeSave({ availability: {
       status: "BLOCKED", reasons: [{ code: "SAVE_RUNTIME_INCOMPATIBLE" }],
-    } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />);
+    } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />, { wrapper: ToastProvider });
 
     expect(screen.getByRole("alert")).toHaveTextContent("旧版运行时存档已保留，但当前版本无法恢复");
     expect(screen.getByRole("button", { name: "当前不可继续" })).toBeDisabled();
