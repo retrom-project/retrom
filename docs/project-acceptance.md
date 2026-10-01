@@ -980,6 +980,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、CRC32、SHA-1 和 fixture bytes 一致。审核及发布 当前 GameVariant 的依赖证据锁定同一 DatVersion 的 Arcade schemaVersion=1、kind=ARCADE，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现kind=STATIC 的 BIOS snapshot 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/kind=ARCADE/schemaVersion=1。正常发布、首次重验证与直接 Launch 都保留同一 GameFiles、DatVersion、Parent 和 BIOS；Envelope 的 `PARENT_ARCHIVE/BIOS_BUNDLE` resources 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。Envelope 精确选择 `providerId=emulatorjs`、`targetId=mame2003` 和当前 Bundle identity；Provider 私有 4.2.1 override 不泄漏到 Host。游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 Provider/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 不被目标驱动执行。
 - 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
+- Parent 缓存回归：禁用浏览器 HTTP 缓存，冷启动仅一个 parent GET，Envelope 的摘要/长度与 ZIP 响应一致；销毁文档后以相同 parent 创建不同 Launch，阻断 parent 网络端点仍可执行帧，parent 请求数为零。证据记录两次 Launch、parent SHA-256/字节数和冷/热请求数。
+
 ### ACC-RUN-007：FBNeo test-only 内置 DAT、Split、Parent 与 BIOS 单机产品链路
 
 - 上限：300 秒。
@@ -987,6 +989,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 流程：先确认 `ACC-DAT-004` 已独立验证 production manifest 的 FBNeo DAT；本 Case 在临时验收数据库中由 acceptance-only Go 装置把项目自有 `fbneo-smoke.dat` 登记为 test-only `BUILTIN/READY`，不调用任何 DAT HTTP/UI 路由。分别通过真实 BIOS installation 与普通 Import 上传 `retrombios.zip`、`pacman.zip` Child、`puckman.zip` Parent，核对审核 kind=ARCADE、schemaVersion=1 依赖快照、审核发布、读取详情页并触发首次启动重验证。再从同次实际导入形成的 Content、DatVersion、Parent 与 BIOS 不可变证据复现 screenshot-approved 的 kind=ARCADE、schemaVersion=1 当前 GameVariant，不经首次重验证从详情页直接 Launch。读取两条 Launch config 与受限内容，随后由单个 Chrome 页面通过 Retrom Player 启动 FinalBurn Neo。
 - 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、FBNeo 锁定驱动 CRC32 和 fixture bytes 一致。审核及发布 当前 GameVariant 的依赖证据锁定同一 DatVersion 的 Arcade schemaVersion=1、kind=ARCADE，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现kind=STATIC 的 BIOS snapshot 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/kind=ARCADE/schemaVersion=1。正常发布、首次重验证与直接 Launch 都保留同一 GameFiles、DatVersion、Parent 和 BIOS；Envelope 的 `PARENT_ARCHIVE/BIOS_BUNDLE` resources 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。Envelope 精确选择 `providerId=emulatorjs`、`targetId=fbneo` 和当前 Bundle identity，游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 Provider/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0；测试 BIOS 不被目标驱动执行。
 - 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
+
+- Parent 缓存回归：禁用浏览器 HTTP 缓存，冷启动仅一个 parent GET，Envelope 的摘要/长度与 ZIP 响应一致；销毁文档后以相同 parent 创建不同 Launch，阻断 parent 网络端点仍可执行帧，parent 请求数为零。证据记录两次 Launch、parent SHA-256/字节数和冷/热请求数。
 
 ### ACC-RUN-008：SNES9x 自有 LoROM 单机执行与状态恢复
 
@@ -1422,7 +1426,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
 - 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet 并用确定性多盘夹具完成一次换盘；以聚焦 Player reducer/adapter 测试驱动方向门禁、暂停和本地输入状态。
-- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。暂停与恢复只作用于当前运行会话。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。仅图标布局的“调试信息”和“创建存档”图标中心与按钮中心误差小于 1px；方向触控为圆形，拖动覆盖四向、斜向、松手及取消，A/B/Start 等按钮布局与映射保留。暂停与恢复只作用于当前运行会话。
 - 证据：四 viewport 尺寸/命中断言、DOM/network trace 与 pause/input 状态测试输出。
 
 ### ACC-MOB-007：可访问性与视觉回归
@@ -2848,6 +2852,8 @@ CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、W
 3. 在真实游戏画面分别验证投币、Start、方向和主要动作使游戏状态可观察地改变；暂停、截图与非空即时存档后，在另一个 Launch 恢复到同一进度并继续输入。浏览器 console 中的错误及未解释 warning 必须处理。
 4. 在关闭 HTTP 缓存的独立页面间启动两个不同 Arcade 族，再回到第一个族；公共 WASM 只发生一次网络传输，各族只首次传输自己的模块。记录压缩响应字节、WASM 原始大小、Provider/Build ID、DAT 摘要、三次截图及游戏输入前后证据。若所用 2003 ZIP 不符合 Current DAT，应记录为该样本不兼容，不得以同名或驱动存在判为通过。
 5. 用 `scripts/acceptance/mame_arcade_legacy_fallback.mjs` 将兼容的旧版 ZIP 发布在 MAME2003-Plus 推荐目录，再显式选择 `mame_arcade` 启动；确认同一游戏保留原变体，并创建按 Current DAT 校验的独立 READY 变体。对已安装到 Current Target 的 BIOS，允许游戏 ZIP 缺少 BIOS 条目，但必须由 Current 的 BIOS 安装满足依赖；缺 Parent 或主 ROM 仍阻断。设置 `RETROM_MAME_ARCADE_EXPECT_INCOMPATIBLE=1` 后用不兼容的旧版 ZIP 重跑脚本，预期 HTTP 422 `LAUNCH_BLOCKED`，且不得创建 Current 变体。
+
+Parent 缓存回归：对通过 Current DAT 的 Split 样本，设置 `RETROM_MAME_ARCADE_ROM`（子包）、`RETROM_MAME_ARCADE_PARENT`（父包）及脚本所需登录、浏览器和 PFB 地址，运行 `node scripts/acceptance/mame_arcade_product.mjs`。预览后清空本次独立浏览器上下文的内容存储；关闭 HTTP 缓存，首次 Product Launch 的 parent 恰好一次 GET，配置的长度和摘要与响应一致。关闭 Player 页面后创建恢复 Launch，拦截 parent 网络，要求零次请求且画面、恢复后输入正常；记录两个 Launch ID、parent 大小/摘要及请求次数。已安装正式 Provider/DAT 可直接作为 adapter 修复的基座，无须重建核心或替换 DAT。 移动端补充使用 `RETROM_MAME_ARCADE_MOBILE=1`（Pixel 5、844×390 横屏模拟）；复用已发布游戏时复制同一输入的 `progress.json`，证据明确记录复用，不冒充重新导入或预览。 跨版本存档回归可设置同一游戏的 `RETROM_MAME_ARCADE_SAVE_STATE`，首次 Product Launch 必须恢复该存档并记录其 ID，再完成输入、新存档和新 Launch 恢复；旧 v1 父包成员身份、外层 ZIP 压缩无关性及成员变化拒绝由 Runtime 的确定性回归同时覆盖。
 
 ### ACC-MAME-005：Apple IIe、SG-1000、ColecoVision 产品验证
 

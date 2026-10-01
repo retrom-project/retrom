@@ -1,13 +1,16 @@
 package launch
 
 import (
+	"context"
 	"fmt"
 
 	runtimecatalog "retrom/internal/runtime/catalog"
 	runtimelaunch "retrom/internal/runtime/launch"
 )
 
-func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket IsolationTicket) (Config, error) {
+func (service *ConfigIssuer) envelope(
+	ctx context.Context, id string, snapshot ConfigSnapshot, ticket IsolationTicket,
+) (Config, error) {
 	source := snapshot.Authority.Source
 	if service.runtimeBuilder == nil {
 		return Config{}, ErrCredential
@@ -20,6 +23,22 @@ func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket
 	resources, err := providerResources(snapshot, target, ticket)
 	if err != nil {
 		return Config{}, err
+	}
+	for _, resource := range resources {
+		if resource["kind"] != "PARENT_ARCHIVE" {
+			continue
+		}
+		if service.environment.DescribeBundle == nil {
+			return Config{}, ErrBlocked
+		}
+		archive, err := service.environment.DescribeBundle(ctx, configFilesWithRole(snapshot.Files, "PARENT"))
+		if err != nil {
+			return Config{}, fmt.Errorf("describe parent archive: %w", err)
+		}
+		if !validContentDigest(archive.SHA256) || archive.SizeBytes < 1 {
+			return Config{}, ErrBlocked
+		}
+		resource["sha256"], resource["sizeBytes"] = archive.SHA256, archive.SizeBytes
 	}
 	restore, _, err := providerRestore(id, snapshot.Authority.Restore, target)
 	if err != nil {

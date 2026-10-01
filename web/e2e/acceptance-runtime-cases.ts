@@ -3,6 +3,7 @@ import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acce
 import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
 import {verifyExitDuringProviderLoading} from "./player-loading-exit";
 import {verifyPlayerSurfaceResume} from "./player-pause-resume";
+import {verifyParentCacheReuse} from "./parent-cache-support";
 import {
   exitRuntimePlayer, runtimeFrameCount, runtimeResource, runtimeResourceURL, runtimeResourceURLs,
   type RuntimeEnvelope,
@@ -292,7 +293,7 @@ async function verifyPublicArcadeSmoke(
   const runtimeRequests: string[] = [];
   const runtimeFailures: string[] = [];
   const pageErrors: string[] = [];
-  page.on("request", (request) => {
+  page.context().on("request", (request) => {
     if (new URL(request.url()).pathname.startsWith("/runtime/")) {runtimeRequests.push(request.url());}
   });
   page.on("requestfailed", (request) => {
@@ -424,7 +425,11 @@ async function verifyPersistedArcadeCurrentSnapshotLaunch(
   ]);
   expect(configuration.session.warnings).toContain("REVIEW_SCREENSHOT_OVERRIDE");
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  await expect(page.frameLocator("iframe.player-frame").locator("canvas")).toBeVisible({ timeout: 10_000 });
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas");
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  const firstFrame = await canvas.screenshot();
+  await page.waitForTimeout(1_200);
+  expect(firstFrame.equals(await canvas.screenshot())).toBe(false);
   await page.screenshot({ path: evidencePath(testInfo, expectation.currentSnapshotScreenshotName), fullPage: true });
 }
 
@@ -441,8 +446,9 @@ function registerRun006(): void {
       currentSnapshotTitle: "MAME 2003 Current Snapshot Regression",
       currentSnapshotScreenshotName: "mame2003-current-snapshot-direct-launch.png",
     };
-    await verifyPublicArcadeSmoke(page, testInfo, expectation);
-    await verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation);
+    await verifyParentCacheReuse(page, testInfo,
+      () => verifyPublicArcadeSmoke(page, testInfo, expectation),
+      () => verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation));
   });
 }
 
@@ -459,8 +465,9 @@ function registerRun007(): void {
       currentSnapshotTitle: "FBNeo Current Snapshot Regression",
       currentSnapshotScreenshotName: "fbneo-current-snapshot-direct-launch.png",
     };
-    await verifyPublicArcadeSmoke(page, testInfo, expectation);
-    await verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation);
+    await verifyParentCacheReuse(page, testInfo,
+      () => verifyPublicArcadeSmoke(page, testInfo, expectation),
+      () => verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation));
   });
 }
 

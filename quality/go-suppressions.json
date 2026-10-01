@@ -2,18 +2,18 @@
   "version": 1,
   "exceptions": [
     {
-      "path": "internal/core/rpgmaker/materializer/mkxpz.go",
-      "line": 70,
-      "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
+      "path": "internal/zipentry/header.go",
+      "line": 14,
+      "symbol": "func StoreHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by the deterministic Store ZIP wire contract shared by launch bundles and mkxpz artifacts.",
       "invariant": "The deterministic Store ZIP header must retain the exact contract-defined DOS date and time values.",
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/core/rpgmaker/materializer/mkxpz.go",
-      "line": 71,
-      "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
+      "path": "internal/zipentry/header.go",
+      "line": 15,
+      "symbol": "func StoreHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by the deterministic Store ZIP wire contract shared by launch bundles and mkxpz artifacts.",
       "invariant": "The deterministic Store ZIP header must retain the exact contract-defined DOS date and time values.",

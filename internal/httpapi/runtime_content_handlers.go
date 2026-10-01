@@ -1,8 +1,8 @@
 package httpapi
 
 import (
-	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,14 +14,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"time"
 
 	contentprofile "retrom/internal/content/profile"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/core/rpgmaker/materializer"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
 )
@@ -409,32 +406,6 @@ func (server *Server) launchParentBundle(writer http.ResponseWriter, request *ht
 	server.launchBundle(writer, request, "PARENT")
 }
 
-func (server *Server) populateLaunchBundle(archiveWriter *zip.Writer, files []launch.BundleFile) (string, string) {
-	if _, err := launch.BundleIdentity(files); err != nil {
-		return "LAUNCH_DEPENDENCY_INVALID", "启动依赖清单无效"
-	}
-	ordered := slices.Clone(files)
-	slices.SortFunc(ordered, func(left, right launch.BundleFile) int {
-		return strings.Compare(left.LogicalName, right.LogicalName)
-	})
-	for _, entry := range ordered {
-		destination, err := archiveWriter.CreateHeader(materializer.StoreZIPHeader(entry.LogicalName))
-		if err != nil {
-			return "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖"
-		}
-		source, err := server.contentDeps.Files.OpenRecord(entry.FileRecord)
-		if err != nil {
-			return "FILE_STORAGE_UNAVAILABLE", "启动依赖不可用"
-		}
-		_, copyErr := io.Copy(destination, source)
-		cleanup.Error("close", source.Close())
-		if copyErr != nil {
-			return "FILE_STORAGE_UNAVAILABLE", "无法读取启动依赖"
-		}
-	}
-	return "", ""
-}
-
 func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Request, kind string) {
 	if rejectMultipleRanges(writer, request) {
 		return
@@ -448,7 +419,7 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 		server.databaseError(writer, request, err)
 		return
 	}
-	temporary, err := server.createLaunchBundle(files)
+	temporary, err := server.createLaunchBundle(request.Context(), files)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖", map[string]any{})
 		return
@@ -472,7 +443,7 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 	http.ServeContent(writer, request, "bundle.zip", time.Unix(0, 0), temporary)
 }
 
-func (server *Server) createLaunchBundle(files []launch.BundleFile) (*os.File, error) {
+func (server *Server) createLaunchBundle(ctx context.Context, files []launch.BundleFile) (*os.File, error) {
 	if len(files) == 0 {
 		return nil, launch.ErrBlocked
 	}
@@ -485,17 +456,10 @@ func (server *Server) createLaunchBundle(files []launch.BundleFile) (*os.File, e
 		cleanup.Remove(temporary.Name())
 		return nil, fmt.Errorf("secure launch bundle: %w", err)
 	}
-	archiveWriter := zip.NewWriter(temporary)
-	if code, _ := server.populateLaunchBundle(archiveWriter, files); code != "" {
-		cleanup.Error("close", archiveWriter.Close())
+	if err := launch.WriteDependencyBundle(ctx, temporary, files, server.contentDeps.Files.OpenRecord); err != nil {
 		cleanup.Error("close", temporary.Close())
 		cleanup.Remove(temporary.Name())
-		return nil, launch.ErrBlocked
-	}
-	if err := archiveWriter.Close(); err != nil {
-		cleanup.Error("close", temporary.Close())
-		cleanup.Remove(temporary.Name())
-		return nil, fmt.Errorf("close launch bundle: %w", err)
+		return nil, fmt.Errorf("write launch bundle: %w", err)
 	}
 	if _, err := temporary.Seek(0, io.SeekStart); err != nil {
 		cleanup.Error("close", temporary.Close())

@@ -33,7 +33,14 @@ type ConfigSource struct {
 
 type ConfigFile struct {
 	LogicalName, Format, Digest, Role, VirtualPath string
+	FileRecord                                     string
 	Size                                           int64
+}
+
+// ConfigArchive describes the canonical ZIP bytes, not its member-list identity.
+type ConfigArchive struct {
+	SHA256    string
+	SizeBytes int64
 }
 
 type ConfigRestore struct {
@@ -89,10 +96,11 @@ type IsolationTicket struct {
 }
 
 type ConfigEnvironment struct {
-	Now           func() time.Time
-	Matches       MatchCapability
-	SignIsolation func(string) (IsolationTicket, error)
-	PublicOrigin  string
+	Now            func() time.Time
+	Matches        MatchCapability
+	SignIsolation  func(string) (IsolationTicket, error)
+	PublicOrigin   string
+	DescribeBundle func(context.Context, []ConfigFile) (ConfigArchive, error)
 }
 
 type ProjectIdentityReader interface {

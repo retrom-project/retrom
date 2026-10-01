@@ -3,11 +3,12 @@ import {createHash} from "node:crypto";
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import {basename, join, resolve} from "node:path";
 import {gunzipSync} from "node:zlib";
-import {chromium} from "../../web/node_modules/playwright/index.mjs";
+import {chromium, devices} from "../../web/node_modules/playwright/index.mjs";
 import {fantasyClient, previewCart, approveCart, gamepad, saveCart} from "./fantasy_product_client.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 import {px68kLocalProxy, canvasDigest} from "./px68k_product_support.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
+import {mameParentCacheProbe} from "./mame_parent_cache.mjs";
 
 const env = process.env, baseUrl = env.RETROM_ACCEPTANCE_BASE_URL;
 const source = env.RETROM_MAME_ARCADE_ROM, machine = basename(source ?? "", ".zip").toLowerCase();
@@ -22,7 +23,11 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
   evidence.browser = browser.version();
-  const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  const display = env.RETROM_MAME_ARCADE_MOBILE === "1"
+    ? {...devices["Pixel 5"], viewport: {width: 844, height: 390}}
+    : {viewport: {width: 1280, height: 900}};
+  evidence.display = {viewport: display.viewport, mobileEmulation: display.isMobile ?? false};
+  const context = await browser.newContext({...display, ...proxy.contextOptions});
   context.setDefaultTimeout(30000);
   await installVirtualStandardGamepad(context);
   context.on("response", async response => {
@@ -49,24 +54,33 @@ try {
   if (progress.digest) {assert.equal(progress.digest, digest, "MAME_ARCADE_ROM_CHANGED");}
   let {itemId, gameId} = progress;
   if (!itemId) {
-    const uploadId = await client.upload(singleFile(source), "FILES", "GENERAL");
+    const files = [...singleFile(source), ...(env.RETROM_MAME_ARCADE_PARENT ? singleFile(env.RETROM_MAME_ARCADE_PARENT) : [])];
+    const uploadId = await client.upload(files, "FILES", "GENERAL");
     const imported = await client.json("POST", "/api/v1/admin/imports", {headers: client.writeHeaders(), expected: 202,
       data: {uploadId, targetPlatformInstanceId: instance.id, metadataProvider: "NONE", contentMode: "STANDARD", tagIds: []}});
     itemId = (await reviewForImport(client, imported.importJobId)).itemId;
     writeFileSync(progressPath, JSON.stringify({digest, itemId}));
   }
-  evidence.stages.push("import-review");
   if (!gameId) {
+    evidence.stages.push("import-review");
     const preview = await open(context, await previewCart(client, itemId), "preview");
+    await preview.page.waitForTimeout(machine === "vf2" ? 40000 : 8000);
     evidence.preview = await canvasDigest(preview.canvas);
     await preview.canvas.screenshot({path: join(directory, "preview.png")});
     await preview.page.close();
     gameId = (await approveCart(client, itemId)).gameId;
     writeFileSync(progressPath, JSON.stringify({digest, itemId, gameId}));
-  }
-  evidence.gameId = gameId; evidence.stages.push("preview-publish");
-  const launch = await launchArcade(client, gameId);
+    evidence.stages.push("preview-publish");
+  } else {evidence.stages.push("reuse-published-game");}
+  evidence.gameId = gameId;
+  const parentCache = env.RETROM_MAME_ARCADE_PARENT ? await mameParentCacheProbe(context, baseUrl) : null;
+  const launch = await launchArcade(client, gameId, env.RETROM_MAME_ARCADE_SAVE_STATE ?? null);
   const opened = await open(context, launch, "product");
+  if (env.RETROM_MAME_ARCADE_SAVE_STATE) {
+    assert.ok(opened.config.restore, "MAME_ARCADE_INITIAL_RESTORE_REQUIRED");
+    evidence.initialSaveStateId = env.RETROM_MAME_ARCADE_SAVE_STATE;
+  }
+  parentCache?.cold(opened.config);
   evidence.runtime = opened.config.runtime;
   await opened.page.waitForTimeout(machine === "vf2" ? 40000 : 8000); // Model 2's first boot takes longer.
   evidence.beforeInput = await canvasDigest(opened.canvas);
@@ -77,7 +91,7 @@ try {
   evidence.afterCoin = await canvasDigest(opened.canvas);
   await opened.canvas.screenshot({path: join(directory, "after-coin.png")});
   await gamepad(opened.page, 9, 300); // Start
-  await opened.page.waitForTimeout(machine === "vf2" ? 8000 : machine === "dkong" ? 9000 : 1800);
+  await opened.page.waitForTimeout(machine === "vf2" ? 8000 : machine === "dkong" ? 9000 : machine === "pacman" ? 5000 : 1800);
   evidence.afterStart = await canvasDigest(opened.canvas);
   await opened.canvas.screenshot({path: join(directory, "after-start.png")});
   await gamepad(opened.page, 15, 800); // Right
@@ -91,6 +105,7 @@ try {
     await opened.canvas.screenshot({path: join(directory, "after-confirm.png")});
   }
   assert.notEqual(evidence.beforeInput.sha256, evidence.afterInput.sha256, "MAME_ARCADE_INPUT_UNOBSERVABLE");
+  assert.notEqual(evidence.afterStart.sha256, evidence.afterInput.sha256, "MAME_ARCADE_DIRECTION_UNOBSERVABLE");
   if (machine === "vf2") {
     await opened.page.getByRole("status").filter({hasText: "当前场景暂不可存档"}).waitFor();
     await opened.page.close();
@@ -102,6 +117,7 @@ try {
     await opened.page.close();
     evidence.stages.push("coin-start-direction-action-save");
     const resumed = await open(context, await launchArcade(client, gameId, saved.saveStateId), "restore");
+    if (parentCache) {evidence.parentCache = parentCache.restored(resumed.config);}
     assert.equal(resumed.config.restore?.format, saved.checkpointFormat);
     const stored = await client.raw("GET", resumed.config.restore.url);
     assert.equal(stored.status(), 200);
@@ -112,6 +128,7 @@ try {
     await resumed.canvas.screenshot({path: join(directory, "restored.png")});
     await gamepad(resumed.page, 14, 800); // Left after restore
     evidence.restoredAfterInput = await canvasDigest(resumed.canvas);
+    assert.notEqual(evidence.restored.sha256, evidence.restoredAfterInput.sha256, "MAME_ARCADE_RESTORED_INPUT_UNOBSERVABLE");
     await resumed.canvas.screenshot({path: join(directory, "restored-after-input.png")});
     await resumed.page.close();
     evidence.stages.push("fresh-launch-restore-input");
@@ -187,7 +204,7 @@ async function open(context, launch, stage) {
       assert.equal(config.runtime.targetId, "mame-arcade");
       assert.equal(config.targetOptions.machine, machine);
       await canvas.click();
-      if (["mspacman", "dkong"].includes(machine)) {
+      if (["pacman", "mspacman", "dkong"].includes(machine)) {
         const dimensions = await canvas.evaluate(element => ({width: element.width, height: element.height}));
         assert.ok(dimensions.height > dimensions.width, "MAME_ARCADE_PORTRAIT_ROTATION_MISSING");
       }

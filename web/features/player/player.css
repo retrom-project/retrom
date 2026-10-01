@@ -151,10 +151,10 @@
 @media (max-width: 960px) {
   .player-sync-status span, .player-game-meta span { display: none; }
   .player-game-meta { max-width: 30vw; }
-  .player-save-button { width: 36px; padding: 0; font-size: var(--text-icon-only); }
+  .player-save-button { width: 36px; padding: 0; gap: 0; font-size: var(--text-icon-only); }
   .player-disc-button { width: 52px; padding: 0; font-size: var(--text-icon-only); }
   .player-disc-button::after { content: attr(aria-label); font-size: var(--text-caption); }
-  .player-debug-control { width: 36px; padding: 0; font-size: var(--text-icon-only); }
+  .player-debug-control { width: 36px; padding: 0; gap: 0; font-size: var(--text-icon-only); }
   .player-debug-control svg { width: 17px; height: 17px; }
 }
 @media (max-width: 680px) {
