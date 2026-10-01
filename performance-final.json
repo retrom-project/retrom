@@ -1,0 +1,842 @@
+[
+  {
+    "path": "/api/v1/home",
+    "medianMs": 392.58,
+    "maxMs": 1061.96,
+    "samples": [
+      {
+        "path": "/api/v1/home",
+        "method": "GET",
+        "status": 200,
+        "ms": 306.17,
+        "bytes": 15354
+      },
+      {
+        "path": "/api/v1/home",
+        "method": "GET",
+        "status": 200,
+        "ms": 566.98,
+        "bytes": 15354
+      },
+      {
+        "path": "/api/v1/home",
+        "method": "GET",
+        "status": 200,
+        "ms": 379.28,
+        "bytes": 15354
+      },
+      {
+        "path": "/api/v1/home",
+        "method": "GET",
+        "status": 200,
+        "ms": 1061.96,
+        "bytes": 15354
+      },
+      {
+        "path": "/api/v1/home",
+        "method": "GET",
+        "status": 200,
+        "ms": 392.58,
+        "bytes": 15354
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/games?limit=50",
+    "medianMs": 394.8,
+    "maxMs": 682.37,
+    "samples": [
+      {
+        "path": "/api/v1/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 341.16,
+        "bytes": 28139
+      },
+      {
+        "path": "/api/v1/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 394.8,
+        "bytes": 28139
+      },
+      {
+        "path": "/api/v1/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 315.78,
+        "bytes": 28139
+      },
+      {
+        "path": "/api/v1/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 682.37,
+        "bytes": 28139
+      },
+      {
+        "path": "/api/v1/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 573.98,
+        "bytes": 28139
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/recent-games?limit=50",
+    "medianMs": 311.48,
+    "maxMs": 537.72,
+    "samples": [
+      {
+        "path": "/api/v1/recent-games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 68.0,
+        "bytes": 10756
+      },
+      {
+        "path": "/api/v1/recent-games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 75.85,
+        "bytes": 10756
+      },
+      {
+        "path": "/api/v1/recent-games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 336.51,
+        "bytes": 10756
+      },
+      {
+        "path": "/api/v1/recent-games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 537.72,
+        "bytes": 10756
+      },
+      {
+        "path": "/api/v1/recent-games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 311.48,
+        "bytes": 10756
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/saves?limit=50",
+    "medianMs": 236.13,
+    "maxMs": 317.26,
+    "samples": [
+      {
+        "path": "/api/v1/saves?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 69.25,
+        "bytes": 2021
+      },
+      {
+        "path": "/api/v1/saves?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 317.26,
+        "bytes": 2021
+      },
+      {
+        "path": "/api/v1/saves?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 266.43,
+        "bytes": 2021
+      },
+      {
+        "path": "/api/v1/saves?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 236.13,
+        "bytes": 2021
+      },
+      {
+        "path": "/api/v1/saves?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 174.65,
+        "bytes": 2021
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/favorites?limit=50",
+    "medianMs": 146.41,
+    "maxMs": 307.3,
+    "samples": [
+      {
+        "path": "/api/v1/favorites?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 146.41,
+        "bytes": 1926
+      },
+      {
+        "path": "/api/v1/favorites?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 307.3,
+        "bytes": 1926
+      },
+      {
+        "path": "/api/v1/favorites?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 75.17,
+        "bytes": 1926
+      },
+      {
+        "path": "/api/v1/favorites?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 76.93,
+        "bytes": 1926
+      },
+      {
+        "path": "/api/v1/favorites?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 156.53,
+        "bytes": 1926
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/games?limit=6",
+    "medianMs": 329.4,
+    "maxMs": 849.69,
+    "samples": [
+      {
+        "path": "/api/v1/admin/games?limit=6",
+        "method": "GET",
+        "status": 200,
+        "ms": 329.4,
+        "bytes": 7871
+      },
+      {
+        "path": "/api/v1/admin/games?limit=6",
+        "method": "GET",
+        "status": 200,
+        "ms": 201.27,
+        "bytes": 7871
+      },
+      {
+        "path": "/api/v1/admin/games?limit=6",
+        "method": "GET",
+        "status": 200,
+        "ms": 788.16,
+        "bytes": 7871
+      },
+      {
+        "path": "/api/v1/admin/games?limit=6",
+        "method": "GET",
+        "status": 200,
+        "ms": 849.69,
+        "bytes": 7871
+      },
+      {
+        "path": "/api/v1/admin/games?limit=6",
+        "method": "GET",
+        "status": 200,
+        "ms": 124.4,
+        "bytes": 7871
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/imports/summary",
+    "medianMs": 156.23,
+    "maxMs": 342.08,
+    "samples": [
+      {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 58.93,
+        "bytes": 155
+      },
+      {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 156.23,
+        "bytes": 155
+      },
+      {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 342.08,
+        "bytes": 155
+      },
+      {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 78.57,
+        "bytes": 155
+      },
+      {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 172.02,
+        "bytes": 155
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/imports?limit=20",
+    "medianMs": 102.36,
+    "maxMs": 164.71,
+    "samples": [
+      {
+        "path": "/api/v1/admin/imports?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 164.71,
+        "bytes": 9109
+      },
+      {
+        "path": "/api/v1/admin/imports?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 88.05,
+        "bytes": 9109
+      },
+      {
+        "path": "/api/v1/admin/imports?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 124.2,
+        "bytes": 9109
+      },
+      {
+        "path": "/api/v1/admin/imports?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 102.36,
+        "bytes": 9109
+      },
+      {
+        "path": "/api/v1/admin/imports?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 52.5,
+        "bytes": 9109
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/source-imports?limit=10",
+    "medianMs": 150.52,
+    "maxMs": 241.1,
+    "samples": [
+      {
+        "path": "/api/v1/admin/source-imports?limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 150.52,
+        "bytes": 9627
+      },
+      {
+        "path": "/api/v1/admin/source-imports?limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 241.1,
+        "bytes": 9627
+      },
+      {
+        "path": "/api/v1/admin/source-imports?limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 140.85,
+        "bytes": 9627
+      },
+      {
+        "path": "/api/v1/admin/source-imports?limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 166.67,
+        "bytes": 9627
+      },
+      {
+        "path": "/api/v1/admin/source-imports?limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 99.27,
+        "bytes": 9627
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+    "medianMs": 73.96,
+    "maxMs": 290.63,
+    "samples": [
+      {
+        "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 32.61,
+        "bytes": 701
+      },
+      {
+        "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 73.96,
+        "bytes": 701
+      },
+      {
+        "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 4.99,
+        "bytes": 701
+      },
+      {
+        "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 220.16,
+        "bytes": 701
+      },
+      {
+        "path": "/api/v1/admin/server-imports?kind=BIOS_DIRECTORY&limit=10",
+        "method": "GET",
+        "status": 200,
+        "ms": 290.63,
+        "bytes": 701
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/platform-instances",
+    "medianMs": 118.19,
+    "maxMs": 204.64,
+    "samples": [
+      {
+        "path": "/api/v1/admin/platform-instances",
+        "method": "GET",
+        "status": 200,
+        "ms": 118.19,
+        "bytes": 45494
+      },
+      {
+        "path": "/api/v1/admin/platform-instances",
+        "method": "GET",
+        "status": 200,
+        "ms": 186.07,
+        "bytes": 45494
+      },
+      {
+        "path": "/api/v1/admin/platform-instances",
+        "method": "GET",
+        "status": 200,
+        "ms": 204.64,
+        "bytes": 45494
+      },
+      {
+        "path": "/api/v1/admin/platform-instances",
+        "method": "GET",
+        "status": 200,
+        "ms": 59.6,
+        "bytes": 45494
+      },
+      {
+        "path": "/api/v1/admin/platform-instances",
+        "method": "GET",
+        "status": 200,
+        "ms": 22.14,
+        "bytes": 45494
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/platform-instances/recommendations",
+    "medianMs": 116.44,
+    "maxMs": 232.55,
+    "samples": [
+      {
+        "path": "/api/v1/admin/platform-instances/recommendations",
+        "method": "GET",
+        "status": 200,
+        "ms": 116.44,
+        "bytes": 32262
+      },
+      {
+        "path": "/api/v1/admin/platform-instances/recommendations",
+        "method": "GET",
+        "status": 200,
+        "ms": 50.64,
+        "bytes": 32262
+      },
+      {
+        "path": "/api/v1/admin/platform-instances/recommendations",
+        "method": "GET",
+        "status": 200,
+        "ms": 161.89,
+        "bytes": 32262
+      },
+      {
+        "path": "/api/v1/admin/platform-instances/recommendations",
+        "method": "GET",
+        "status": 200,
+        "ms": 232.55,
+        "bytes": 32262
+      },
+      {
+        "path": "/api/v1/admin/platform-instances/recommendations",
+        "method": "GET",
+        "status": 200,
+        "ms": 106.77,
+        "bytes": 32262
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/users?limit=50",
+    "medianMs": 116.62,
+    "maxMs": 148.67,
+    "samples": [
+      {
+        "path": "/api/v1/admin/users?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 129.81,
+        "bytes": 276
+      },
+      {
+        "path": "/api/v1/admin/users?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 116.62,
+        "bytes": 276
+      },
+      {
+        "path": "/api/v1/admin/users?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 148.67,
+        "bytes": 276
+      },
+      {
+        "path": "/api/v1/admin/users?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 66.73,
+        "bytes": 276
+      },
+      {
+        "path": "/api/v1/admin/users?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 4.12,
+        "bytes": 276
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/tags?limit=100",
+    "medianMs": 208.25,
+    "maxMs": 222.07,
+    "samples": [
+      {
+        "path": "/api/v1/admin/tags?limit=100",
+        "method": "GET",
+        "status": 200,
+        "ms": 222.07,
+        "bytes": 3182
+      },
+      {
+        "path": "/api/v1/admin/tags?limit=100",
+        "method": "GET",
+        "status": 200,
+        "ms": 191.08,
+        "bytes": 3182
+      },
+      {
+        "path": "/api/v1/admin/tags?limit=100",
+        "method": "GET",
+        "status": 200,
+        "ms": 208.25,
+        "bytes": 3182
+      },
+      {
+        "path": "/api/v1/admin/tags?limit=100",
+        "method": "GET",
+        "status": 200,
+        "ms": 218.46,
+        "bytes": 3182
+      },
+      {
+        "path": "/api/v1/admin/tags?limit=100",
+        "method": "GET",
+        "status": 200,
+        "ms": 147.67,
+        "bytes": 3182
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/reviews?limit=20",
+    "medianMs": 167.06,
+    "maxMs": 724.62,
+    "samples": [
+      {
+        "path": "/api/v1/admin/reviews?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 240.76,
+        "bytes": 14812
+      },
+      {
+        "path": "/api/v1/admin/reviews?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 167.06,
+        "bytes": 14812
+      },
+      {
+        "path": "/api/v1/admin/reviews?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 65.2,
+        "bytes": 14812
+      },
+      {
+        "path": "/api/v1/admin/reviews?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 724.62,
+        "bytes": 14812
+      },
+      {
+        "path": "/api/v1/admin/reviews?limit=20",
+        "method": "GET",
+        "status": 200,
+        "ms": 166.42,
+        "bytes": 14812
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+    "medianMs": 41.46,
+    "maxMs": 159.01,
+    "samples": [
+      {
+        "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 41.46,
+        "bytes": 29380
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 22.13,
+        "bytes": 29380
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 22.47,
+        "bytes": 29380
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 159.01,
+        "bytes": 29380
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=REQUIRED_BY_LIBRARY&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 132.26,
+        "bytes": 29380
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+    "medianMs": 109.12,
+    "maxMs": 186.1,
+    "samples": [
+      {
+        "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 186.1,
+        "bytes": 62512
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 174.07,
+        "bytes": 62512
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 109.12,
+        "bytes": 62512
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 78.93,
+        "bytes": 62512
+      },
+      {
+        "path": "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100&quick=ALL",
+        "method": "GET",
+        "status": 200,
+        "ms": 81.89,
+        "bytes": 62512
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/immersive/destinations",
+    "medianMs": 194.21,
+    "maxMs": 253.56,
+    "samples": [
+      {
+        "path": "/api/v1/immersive/destinations",
+        "method": "GET",
+        "status": 200,
+        "ms": 194.21,
+        "bytes": 10461
+      },
+      {
+        "path": "/api/v1/immersive/destinations",
+        "method": "GET",
+        "status": 200,
+        "ms": 196.83,
+        "bytes": 10461
+      },
+      {
+        "path": "/api/v1/immersive/destinations",
+        "method": "GET",
+        "status": 200,
+        "ms": 179.16,
+        "bytes": 10461
+      },
+      {
+        "path": "/api/v1/immersive/destinations",
+        "method": "GET",
+        "status": 200,
+        "ms": 68.8,
+        "bytes": 10461
+      },
+      {
+        "path": "/api/v1/immersive/destinations",
+        "method": "GET",
+        "status": 200,
+        "ms": 253.56,
+        "bytes": 10461
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/immersive/platforms",
+    "medianMs": 134.6,
+    "maxMs": 282.79,
+    "samples": [
+      {
+        "path": "/api/v1/immersive/platforms",
+        "method": "GET",
+        "status": 200,
+        "ms": 170.64,
+        "bytes": 8332
+      },
+      {
+        "path": "/api/v1/immersive/platforms",
+        "method": "GET",
+        "status": 200,
+        "ms": 80.56,
+        "bytes": 8332
+      },
+      {
+        "path": "/api/v1/immersive/platforms",
+        "method": "GET",
+        "status": 200,
+        "ms": 282.79,
+        "bytes": 8332
+      },
+      {
+        "path": "/api/v1/immersive/platforms",
+        "method": "GET",
+        "status": 200,
+        "ms": 134.6,
+        "bytes": 8332
+      },
+      {
+        "path": "/api/v1/immersive/platforms",
+        "method": "GET",
+        "status": 200,
+        "ms": 123.81,
+        "bytes": 8332
+      }
+    ]
+  },
+  {
+    "path": "/api/v1/immersive/libraries/all/games?limit=50",
+    "medianMs": 94.5,
+    "maxMs": 483.52,
+    "samples": [
+      {
+        "path": "/api/v1/immersive/libraries/all/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 57.71,
+        "bytes": 34892
+      },
+      {
+        "path": "/api/v1/immersive/libraries/all/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 173.63,
+        "bytes": 34892
+      },
+      {
+        "path": "/api/v1/immersive/libraries/all/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 483.52,
+        "bytes": 34892
+      },
+      {
+        "path": "/api/v1/immersive/libraries/all/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 94.5,
+        "bytes": 34892
+      },
+      {
+        "path": "/api/v1/immersive/libraries/all/games?limit=50",
+        "method": "GET",
+        "status": 200,
+        "ms": 63.93,
+        "bytes": 34892
+      }
+    ]
+  }
+]
