@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { expectMobileLocalDraftNotice } from "./mobile-local-draft";
+import {expectPlayerIconsCentered} from "./player-icon-alignment";
+import {expectCircularDirectionInput} from "./player-touch-controls";
 import { evidencePath, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
 declare global {
@@ -417,6 +419,7 @@ test("ACC-MOB-006 landscape Player HUD, sheets and input ownership stay bounded"
   expect(launch.status()).toBe(201);
   await page.goto((await launch.json() as { playUrl: string }).playUrl);
   await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+  await expectCircularDirectionInput(page);
 
   for (const viewport of [
     { width: 568, height: 320 },
@@ -435,6 +438,7 @@ test("ACC-MOB-006 landscape Player HUD, sheets and input ownership stay bounded"
     await expect(handle).toHaveAttribute("aria-pressed", "true");
     const toolbarHeight = await page.locator(".player-toolbar").evaluate((element) => element.getBoundingClientRect().height);
     expect(toolbarHeight).toBe(48);
+    await expectPlayerIconsCentered(page);
     const more = page.getByRole("button", { name: "更多操作" });
     await expect(more).toBeInViewport();
     await more.click();

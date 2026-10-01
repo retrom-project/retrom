@@ -1362,10 +1362,10 @@
     #retrom-ui-review .rt-player-touch-zone { position: absolute; z-index: 2; bottom: 70px; width: 125px; height: 125px; opacity: .66; pointer-events: none; }
     #retrom-ui-review .rt-player-touch-zone.is-left { left: 10px; }
     #retrom-ui-review .rt-player-touch-zone.is-right { right: 10px; }
-    #retrom-ui-review .rt-player-touch-dpad::before,
-    #retrom-ui-review .rt-player-touch-dpad::after { content: ""; position: absolute; left: 50%; top: 50%; border: 1px solid rgb(255 255 255 / .7); border-radius: var(--radius-panel); background: rgb(255 255 255 / .18); transform: translate(-50%, -50%); }
-    #retrom-ui-review .rt-player-touch-dpad::before { width: 118px; height: 38px; }
-    #retrom-ui-review .rt-player-touch-dpad::after { width: 38px; height: 118px; }
+    #retrom-ui-review .rt-player-touch-stick::before,
+    #retrom-ui-review .rt-player-touch-stick::after { content: ""; position: absolute; left: 50%; top: 50%; border: 1px solid rgb(255 255 255 / .7); border-radius: 50%; background: rgb(255 0 0 / .25); transform: translate(-50%, -50%); }
+    #retrom-ui-review .rt-player-touch-stick::before { width: 100px; height: 100px; }
+    #retrom-ui-review .rt-player-touch-stick::after { width: 50px; height: 50px; }
     #retrom-ui-review .rt-player-touch-button { position: absolute; width: 50px; height: 50px; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / .7); border-radius: 50%; background: rgb(255 255 255 / .18); color: #fff; font-size: var(--text-section); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-player-touch-button.is-a { right: 4px; bottom: 25px; }
     #retrom-ui-review .rt-player-touch-button.is-b { right: 70px; bottom: 4px; }
@@ -1921,7 +1921,7 @@
       #retrom-ui-review .rt-player-control { min-height: 44px; }
       #retrom-ui-review .rt-player-back { width: 44px; }
       #retrom-ui-review .rt-player-actions > button,
-      #retrom-ui-review .rt-player-debug-toggle { font-size: var(--text-icon-only); width: 44px; }
+      #retrom-ui-review .rt-player-debug-toggle { font-size: var(--text-icon-only); width: 44px; gap: 0; padding: 0; }
       #retrom-ui-review .rt-player-actions .rt-player-menu-wrap { display: block; }
       #retrom-ui-review .rt-player-actions .rt-player-menu-wrap .rt-player-control { min-width: 44px; }
       #retrom-ui-review .rt-player-launch-state { font-size: var(--text-caption); }
@@ -2943,7 +2943,7 @@
         </details>
         <div class="rt-player-shell">
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
-          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-dpad is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
+          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-stick is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
           <div class="rt-player-top is-visible">
             <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
             <div class="rt-player-title"><strong id="rt-player-game">NOeL 3</strong><div class="rt-player-meta" id="rt-player-core">Yabause · Saturn</div></div>
