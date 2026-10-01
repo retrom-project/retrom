@@ -74,8 +74,12 @@ try {
   } else {evidence.stages.push("reuse-published-game");}
   evidence.gameId = gameId;
   const parentCache = env.RETROM_MAME_ARCADE_PARENT ? await mameParentCacheProbe(context, baseUrl) : null;
-  const launch = await launchArcade(client, gameId);
+  const launch = await launchArcade(client, gameId, env.RETROM_MAME_ARCADE_SAVE_STATE ?? null);
   const opened = await open(context, launch, "product");
+  if (env.RETROM_MAME_ARCADE_SAVE_STATE) {
+    assert.ok(opened.config.restore, "MAME_ARCADE_INITIAL_RESTORE_REQUIRED");
+    evidence.initialSaveStateId = env.RETROM_MAME_ARCADE_SAVE_STATE;
+  }
   parentCache?.cold(opened.config);
   evidence.runtime = opened.config.runtime;
   await opened.page.waitForTimeout(machine === "vf2" ? 40000 : 8000); // Model 2's first boot takes longer.
