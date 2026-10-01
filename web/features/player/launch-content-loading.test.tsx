@@ -35,7 +35,7 @@ it.each([false, true])("updates loading controls when the selected core changes 
   expect(screen.queryByRole("combobox", {name: "内容加载"})).toBeNull();
   expect(document.querySelector(".content-loading-field.is-placeholder")).toHaveAttribute("aria-hidden", "true");
   expect(document.querySelector(".content-loading-field.is-placeholder")).toHaveAttribute("inert");
-  expect(screen.queryByText("下载完成后开始")).toBeNull();
+  expect(screen.queryByRole("option", {name: "下载完成后开始"})).toBeNull();
   await select("dual");
   expect(screen.getByRole("combobox", {name: "内容加载"})).toHaveValue("PRELOAD");
   expect(readContentLoading("user-1")).toBe("PRELOAD");
