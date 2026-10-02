@@ -82,6 +82,10 @@ printf 'retrom deterministic pegasus acceptance fixture\n' >"$temporary_root/sou
 printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/source/Games/media/Acceptance Game/video.mp4"
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 "$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
+mkdir -p "$temporary_root/source/Basic/nested"
+cp -p "$repository_root/testdata/public-roms/gba-smoke/pegasus-smoke.gba" "$temporary_root/source/Basic/nested/basic-smoke.GBA"
+printf 'ignored text\n' >"$temporary_root/source/Basic/notes.txt"
+printf 'no extension\n' >"$temporary_root/source/Basic/README"
 cd "$repository_root"
 NEXT_WEB_E2E=true setsid make dev \
   RETROM_MODE="test" \

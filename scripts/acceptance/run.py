@@ -225,7 +225,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/persistence/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
         180,
-        "go test -tags=integration ./internal/httpapi ./internal/persistence/metadatascrape -run 'TestGameScrapeMapsIndexVersionAndStorageFailures|TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1 -timeout=30s",
+        "go test -tags=integration ./internal/httpapi ./internal/persistence/metadatascrape ./internal/libraryimport -run 'TestGameScrapeMapsIndexVersionAndStorageFailures|TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish|TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot' -count=1 -timeout=30s",
     ),
     "ACC-GAME-003": (
         180,
@@ -314,7 +314,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-003": (
         300,
-        "go test -tags=integration ./internal/sourceimport ./internal/libraryimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestReviewOwnsMedia|TestCopiedCompanion|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
+        "go test -tags=integration ./internal/sourceimport ./internal/libraryimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestUnfinishedSourceReplaysChildResultAfterChildPayloadCleanup|TestReviewPreparationReplaysPermanentBindingWithoutSourcePaths|TestImportExecutorReplaysReviewBeforeAnySourceAccess|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestReviewOwnsMedia|TestCopiedCompanion|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
     ),
     "ACC-PEG-004": (
         300,

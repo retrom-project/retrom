@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("ACC-UI-005 management media, read-only files and empty tag navigation", async ({ page }, testInfo) => {
+test("ACC-UI-005 management media, read-only files and tag navigation", async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", {
     headers: { Origin: origin }, data: { username: "test", password: "test" },
@@ -36,8 +36,26 @@ test("ACC-UI-005 management media, read-only files and empty tag navigation", as
   await expect(page.locator(".admin-game-hero-copy .tag-chips")).toHaveCount(0);
   await files.screenshot({ path: testInfo.outputPath("management-files.png") });
 
-  await page.getByRole("combobox", { name: "标签", exact: true }).click();
+  const tagsResponse = await page.request.get("/api/v1/admin/tags?status=ACTIVE&limit=100");
+  expect(tagsResponse.ok()).toBe(true);
+  const activeTags = (await tagsResponse.json()).items as Array<{ tagId: string; name: string }>;
+  const tagPicker = page.getByRole("combobox", { name: "标签", exact: true });
+  await tagPicker.click();
   const manageTags = page.getByRole("link", { name: "前往标签管理", exact: true });
+  if (activeTags.length) {
+    // The next viewport shares the catalog populated by the prior tag tests.
+    // Check the populated branch against real API facts rather than assuming
+    // the entire multi-project run still has an empty tag dictionary.
+    await expect(manageTags).toHaveCount(0);
+    await expect(page.getByRole("listbox")).toBeVisible();
+    const detailResponse = await page.request.get(`/api/v1/admin/games/${gameId}`);
+    expect(detailResponse.ok()).toBe(true);
+    const selected = new Set((await detailResponse.json()).tags.map((tag: { tagId: string }) => tag.tagId));
+    await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(activeTags.filter(tag => !selected.has(tag.tagId)).length);
+    await tagPicker.press("Escape");
+    await expect(tagPicker).toHaveAttribute("aria-expanded", "false");
+    return;
+  }
   await expect(manageTags).toBeVisible();
   await manageTags.click({ delay: 200 });
   await expect(page).toHaveURL(/\/admin\/tags$/);
