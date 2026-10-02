@@ -148,10 +148,12 @@ async function playable(page: Page) {
   const before = await canvas.screenshot(), checkpoint = await runtimeCheckpoint(page), frame = await runtimeFrameCount(page);
   await canvas.click({position: {x: 64, y: 64}});
   await page.keyboard.down("ArrowLeft");
-  try {await expect.poll(() => runtimeFrameCount(page)).toBeGreaterThan(frame + 30);}
+  try {
+    await expect.poll(() => runtimeFrameCount(page)).toBeGreaterThan(frame + 30);
+    await expect.poll(async () => (await canvas.screenshot()).equals(before), {intervals: [50, 100, 125]}).toBe(false);
+  }
   finally {await page.keyboard.up("ArrowLeft");}
   expect((await runtimeCheckpoint(page)).sha256).not.toBe(checkpoint.sha256);
-  expect((await canvas.screenshot()).equals(before)).toBe(false);
   return canvas;
 }
 
