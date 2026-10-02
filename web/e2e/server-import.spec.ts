@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { selectServerSource, serverSourcePath } from "./server-directory-support";
+import { prepareNewSourceScan, selectServerSource, serverSourcePath } from "./server-directory-support";
 import { expectSourceHandoffDuringCleanup } from "./server-import-cleanup-support";
 import {
   runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
@@ -145,6 +145,7 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toHaveCSS("display", "grid");
   expect(await page.locator(".server-import-capabilities").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
+  await prepareNewSourceScan(drawer);
   await selectServerSource(drawer, "Games");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
@@ -345,6 +346,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
     .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ })
     .click();
   const drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
+  await prepareNewSourceScan(drawer);
   await selectServerSource(drawer, "Playable");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Playable")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
