@@ -32,6 +32,17 @@ test("slow proxy preserves isolated Launch hosts and actual unknown-length core 
     const content = await get(`http://${host}:${port}/runtime/content/parent/digest/bundle.zip`);
     assert.equal(content.status, 503); assert.equal(proxy.contentRequests.length, 1);
     assert.equal(proxy.contentRequests[0].blocked, true);
+    proxy.block(false); proxy.stall(true);
+    await new Promise((resolve, reject) => {
+      const req = request({hostname: address.hostname, port: address.port,
+        path: `http://${host}:${port}/runtime/providers/emulatorjs/hash/core.data`}, response => {
+        response.once("data", () => proxy.disconnect()); response.once("aborted", resolve);
+      });
+      req.setTimeout(2000, () => req.destroy(Error("disconnect timed out")));
+      req.once("error", reject).end();
+    });
+    assert.equal(proxy.requests[2].complete, undefined);
+    assert.equal(proxy.requests[2].bytes, 16384);
   } finally {await proxy.close(); await new Promise(resolve => server.close(resolve));}
 });
 

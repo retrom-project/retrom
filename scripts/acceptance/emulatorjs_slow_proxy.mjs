@@ -4,7 +4,7 @@ import {setTimeout as delay} from "node:timers/promises";
 
 // Preserve actual immutable bytes and HTTP headers; only transport timing changes.
 export async function emulatorjsSlowProxy(base) {
-  const origin = new URL(base), sockets = new Set(), requests = [], contentRequests = [];
+  const origin = new URL(base), sockets = new Set(), transfers = new Set(), requests = [], contentRequests = [];
   if (origin.protocol !== "http:" || !origin.hostname.endsWith(".localhost")) {throw Error("EJS_SLOW_LOCAL_PFB_REQUIRED");}
   let stall = false, block = false, blockedContentRoles = [];
   const target = (value, host) => {
@@ -24,6 +24,7 @@ export async function emulatorjsSlowProxy(base) {
     const content = /^\/runtime\/content\/(?:game|parent|bios)\//u.test(url.pathname);
     const row = {path: url.pathname, bytes: 0, startedMs: performance.now()};
     if (limited) {requests.push(row);}
+    if (limited) {transfers.add(response); response.once("close", () => transfers.delete(response));}
     if (content) {contentRequests.push(row);}
     if (content && blockedContentRoles.some(role => url.pathname.startsWith(`/runtime/content/${role}/`))) {
       row.blocked = true; response.writeHead(503).end(); return;
@@ -78,5 +79,6 @@ export async function emulatorjsSlowProxy(base) {
   await new Promise((resolve, reject) => server.once("error", reject).listen(0, "127.0.0.1", resolve));
   return {requests, contentRequests, contextOptions: {proxy: {server: `http://127.0.0.1:${server.address().port}`}},
     stall(value) {stall = value;}, block(value) {block = value;}, blockContent(roles) {blockedContentRoles = roles;},
+    disconnect() {for (const response of transfers) {response.destroy();}},
     async close() {for (const socket of sockets) {socket.destroy();} await new Promise(resolve => server.close(resolve));}};
 }

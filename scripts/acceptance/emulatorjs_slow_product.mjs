@@ -10,6 +10,7 @@ import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/emulatorjs-slow");
 await mkdir(directory, {recursive: true});
+const screenshots = join(directory, "screenshots"); await mkdir(screenshots, {recursive: true});
 const report = {schemaVersion: 1, caseId: "ACC-RUN-019", status: "FAIL", bytesPerSecond: 131072, latencyMs: 300, targets: []};
 let browser;
 const flush = () => writeFile(join(directory, "emulatorjs-slow-product.json"), JSON.stringify(report, null, 2) + "\n");
@@ -49,7 +50,7 @@ async function verify(core, input) {
     const after = await checkpoint(page); assert.notEqual(before.sha256, after.sha256, "EJS_SLOW_INPUT_DID_NOT_ADVANCE_STATE");
     result.input = {before, after};
     const saved = await saveCart(page, launch.launchId, core); result.saveStateId = saved.saveStateId;
-    await page.screenshot({path: join(directory, `${core}-cold.png`)});
+    await page.screenshot({path: join(screenshots, `${core}-cold.png`)});
     await exitContentIOPlayer(page, base, launch);
     // Parent is managed by Content I/O for these targets. Their game/BIOS
     // remain upstream loader inputs, and core transport stays slow.
@@ -95,7 +96,11 @@ async function failureAndCancel(input) {
     const session = await context.newCDPSession(page);
     for (const [name, width, height, deviceScaleFactor] of [["phone", 390, 844, 1], ["4k", 2560, 1440, 1.5]]) {
       await session.send("Emulation.setDeviceMetricsOverride", {width, height, deviceScaleFactor, mobile: false});
-      await page.screenshot({path: join(directory, `${name}-startup-idle.png`)});
+      await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio])).toEqual([width, height, deviceScaleFactor]);
+      const capture = await session.send("Page.captureScreenshot", {format: "png", fromSurface: true, captureBeyondViewport: false});
+      const bytes = Buffer.from(capture.data, "base64");
+      assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], [width * deviceScaleFactor, height * deviceScaleFactor]);
+      await writeFile(join(screenshots, `${name}-startup-idle.png`), bytes);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     await session.detach(); report.idleFailure = true;
@@ -103,9 +108,9 @@ async function failureAndCancel(input) {
     await page.goto(base + second.playUrl, {waitUntil: "domcontentloaded"});
     await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(1);
     await expect.poll(() => proxy.requests[1].bytes, {timeout: 10000}).toBeGreaterThan(0);
-    await context.setOffline(true);
-    await expect(page.getByText("资源下载失败，请检查网络后重试。", {exact: true})).toBeVisible({timeout: 40000});
-    report.networkFailure = true; await context.setOffline(false);
+    proxy.disconnect();
+    await expect(page.getByText("资源下载失败，请检查网络后重试。", {exact: true})).toBeVisible({timeout: 5000});
+    report.networkFailure = true;
     const third = await launchCart(client, input.gameId);
     await page.goto(base + third.playUrl, {waitUntil: "domcontentloaded"});
     await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(2);
