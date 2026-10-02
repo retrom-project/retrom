@@ -33,7 +33,7 @@ game_count=4,failed_item_count=2,review_pending_item_count=1,completed_at_ms=2 W
 `); err != nil {
 		t.Fatal(err)
 	}
-	for index, state := range []string{"SOURCE_CHANGED", "COMMIT_FAILED", "REVIEW_PENDING", "SKIPPED_MAPPING"} {
+	for index, state := range []string{"READ_FAILED", "COMMIT_FAILED", "REVIEW_PENDING", "SKIPPED_MAPPING"} {
 		retryable := 0
 		if index == 0 {
 			retryable = 1

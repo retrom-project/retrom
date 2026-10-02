@@ -51,6 +51,7 @@ func TestCompletionRequiresCurrentWorkerAndNoPendingItems(t *testing.T) {
 				fake.counts.Blocked = 1
 			case "failed":
 				fake.counts.Failed = 1
+				fake.counts.RetryableItems = 1
 			case "worker":
 				identity.WorkerID = "previous"
 			case "pending":
@@ -88,3 +89,14 @@ func TestCompletionCountFailureRetainsCause(t *testing.T) {
 }
 
 func (*completionFake) Payload() sourcecleanup.ReleaseScope { return emptyPayloadScope() }
+
+func TestCompletionDoesNotOfferRetryForPermanentFailure(t *testing.T) {
+	fake, identity := completionFixture()
+	fake.counts.Failed = 2
+	if err := NewCompletion(fake, func() time.Time { return time.UnixMilli(10) }).Finish(t.Context(), identity); err != nil {
+		t.Fatal(err)
+	}
+	if fake.saved.Retryable || fake.saved.ImportState != "PARTIAL_FAILURE" {
+		t.Fatalf("completion = %#v", fake.saved)
+	}
+}

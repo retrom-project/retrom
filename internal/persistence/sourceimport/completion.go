@@ -49,9 +49,11 @@ count(*) FILTER(WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT
 count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),count(*) FILTER(WHERE execution_state='PUBLISHED'),
 count(*) FILTER(WHERE execution_state='REVIEW_DISCARDED'),count(*) FILTER(WHERE execution_state='SKIPPED_EXISTING'),
 count(*) FILTER(WHERE execution_state='CANCELLED'),
-count(*) FILTER(WHERE execution_state IN ('PENDING','COPYING','VALIDATING'))
+count(*) FILTER(WHERE execution_state IN ('PENDING','COPYING','VALIDATING')),
+count(*) FILTER(WHERE `+retryableItemCondition+`)
 FROM source_import_items WHERE import_id=?`, id).Scan(&result.Blocked, &result.Failed, &result.ReviewPending,
-		&result.Published, &result.ReviewDiscarded, &result.Existing, &result.Cancelled, &result.Unfinished)
+		&result.Published, &result.ReviewDiscarded, &result.Existing, &result.Cancelled, &result.Unfinished,
+		&result.RetryableItems)
 	if err != nil {
 		return application.CompletionCounts{}, fmt.Errorf("query Source final counts: %w", err)
 	}

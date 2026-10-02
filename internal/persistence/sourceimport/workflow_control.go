@@ -58,8 +58,7 @@ AND scope_id=? AND kind=?`, jobID, id, kind).
 	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT EXISTS(SELECT 1 FROM source_imports WHERE id<>?
 AND import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
-(SELECT count(*) FROM source_import_items WHERE import_id=? AND retryable=1
-AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))`, id, id).
+(SELECT count(*) FROM source_import_items WHERE import_id=? AND `+retryableItemCondition+`)`, id, id).
 		Scan(&result.OtherActive, &result.RetryableItems)
 	if err != nil {
 		return application.WorkflowSnapshot{}, fmt.Errorf("read Source retry availability: %w", err)

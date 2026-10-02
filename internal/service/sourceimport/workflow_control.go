@@ -95,11 +95,14 @@ func (service *WorkflowControl) Retry(ctx context.Context, id string, version in
 }
 
 func canRetry(before WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || before.Execution == math.MaxInt64 ||
-		before.Summary.ImportJobID == nil {
-		return false
-	}
-	if !before.Summary.Retryable || before.OtherActive || before.RetryableItems == 0 {
+	return validWorkflowVersion(before, version) && RetryAvailable(before)
+}
+
+// RetryAvailable is shared by read projections and the transaction-bound command.
+// Persisted plan retryable flags are historical summaries, never admission facts.
+func RetryAvailable(before WorkflowSnapshot) bool {
+	if !validWorkflowVersion(before, before.Summary.Version) || before.Execution == math.MaxInt64 ||
+		before.Summary.ImportJobID == nil || before.OtherActive || before.RetryableItems <= 0 {
 		return false
 	}
 	return (before.Summary.State == "FAILED" || before.Summary.State == "PARTIAL_FAILURE") &&
