@@ -1,0 +1,35 @@
+import {execFileSync} from "node:child_process";
+import path from "node:path";
+import {expect, test} from "@playwright/test";
+import {evidencePath, noPageOverflow} from "./acceptance-support";
+
+test("ACC-UI-001 overflowing platform scrollbar shows only on hover without moving the layout", async ({page}, testInfo) => {
+  const database = process.env.RETROM_E2E_DATABASE;
+  expect(database).toBeTruthy();
+  execFileSync("python3", [path.resolve("../scripts/acceptance/seed-library-platforms.py"), database!]);
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
+  expect((await page.request.post("/api/v1/auth/login", {headers: {Origin: origin}, data: {username: "test", password: "test"}})).ok()).toBe(true);
+  await page.setViewportSize({width: 1440, height: 900});
+  await page.goto("/library");
+  const row = page.locator(".library-platform-row");
+  await expect(row).toBeVisible();
+  expect(await row.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+  await page.mouse.move(1, 1);
+  await expect(row).toHaveCSS("scrollbar-width", "thin");
+  await expect(row).toHaveCSS("scrollbar-color", "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)");
+  const before = await row.boundingBox();
+  const grid = await page.locator(".library-game-grid").boundingBox();
+  await row.hover();
+  await expect(row).not.toHaveCSS("scrollbar-color", "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)");
+  expect(await row.boundingBox()).toEqual(before);
+  expect(await page.locator(".library-game-grid").boundingBox()).toEqual(grid);
+  await row.evaluate(element => {element.scrollLeft = element.scrollWidth;});
+  expect(await row.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+  await page.screenshot({path: evidencePath(testInfo, "platform-scrollbar-hover-1440.png")});
+  await page.mouse.move(1, 1);
+  await expect(row).toHaveCSS("scrollbar-color", "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)");
+  expect(await row.boundingBox()).toEqual(before);
+  expect(await page.locator(".library-game-grid").boundingBox()).toEqual(grid);
+  await noPageOverflow(page);
+  await page.screenshot({path: evidencePath(testInfo, "platform-scrollbar-hidden-1440.png")});
+});

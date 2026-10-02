@@ -293,7 +293,7 @@ if [[ "$case_id" == "ACC-UI-005" ]]; then
   specifications+=("e2e/home-description.spec.ts" "e2e/admin-game-detail.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
-  specifications+=("e2e/navigation-errors.spec.ts")
+  specifications+=("e2e/navigation-errors.spec.ts" "e2e/library-platform-scrollbar.spec.ts")
 fi
 if [[ "$case_id" == "ACC-MOB-007" ]]; then
   specifications=("e2e/mobile.spec.ts" "e2e/acceptance.spec.ts" "e2e/immersive.spec.ts")
