@@ -962,7 +962,11 @@
     #retrom-ui-review .rt-library-search svg { width: 16px; height: 16px; }
     #retrom-ui-review .rt-library-search input { min-width: 0; width: 100%; height: 100%; padding: 0; color: var(--retrom-text); border: 0; outline: 0; background: transparent; }
     #retrom-ui-review .rt-library-tool-row .rt-select { height: 44px; }
-    #retrom-ui-review .rt-library-platforms { min-height: 43px; margin-top: 12px; padding-top: 12px; overflow-x: auto; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-library-platforms { min-height: 43px; margin-top: 12px; padding-top: 12px; overflow-x: auto; display: flex; align-items: center; gap: 8px; scrollbar-width: thin; scrollbar-color: transparent transparent; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-library-platforms:hover { scrollbar-color: var(--retrom-muted) transparent; }
+    #retrom-ui-review .rt-library-platforms::-webkit-scrollbar { height: 6px; }
+    #retrom-ui-review .rt-library-platforms::-webkit-scrollbar-thumb { background: transparent; border-radius: var(--radius-control); }
+    #retrom-ui-review .rt-library-platforms:hover::-webkit-scrollbar-thumb { background: var(--retrom-muted); }
     #retrom-ui-review .rt-library-platforms > span:first-child { margin-right: 2px; flex: none; color: var(--retrom-muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-library-chip { min-height: 30px; padding: 4px 11px; flex: none; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 999px; background: transparent; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-library-chip.is-active { color: var(--purple-dark); border-color: color-mix(in srgb, var(--retrom-purple) 25%, var(--retrom-line)); background: var(--retrom-purple-soft); }
@@ -2563,6 +2567,8 @@
       <button type="button" data-review-scene="home-no-media">首页 · 无图片</button>
       <button type="button" data-review-scene="detail">详情 · 有存档</button>
       <button type="button" data-review-scene="detail-empty">详情 · 无存档</button>
+      <button type="button" data-review-scene="detail-save-only">详情 · 仅存档</button>
+      <button type="button" data-review-scene="detail-video-only">详情 · 仅视频</button>
       <button type="button" data-review-scene="launch-error">启动错误提示</button>
       <button type="button" data-review-scene="setup">首次设置</button>
       <button type="button" data-review-scene="login">登录</button>
@@ -2912,6 +2918,7 @@
             <div class="rt-launch-note" id="rt-launch-note" hidden="">开始前会自动检查游戏文件和所需系统文件</div>
           </aside></div>
 
+        <!-- Preview tabs remain inset for save-only and video-only states; render only the available tab. -->
         <aside class="rt-detail-feature-preview"><div class="rt-detail-preview-frame"><header class="rt-detail-preview-heading is-overlay"><div class="rt-detail-preview-tabs" role="tablist" aria-label="游戏预览内容"><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-0" aria-selected="true" aria-controls="rt-preview-panel-0">最近存档</button><span class="rt-detail-preview-divider" aria-hidden="true">/</span><button type="button" class="rt-button option-tab" role="tab" id="rt-preview-tab-1" aria-selected="false" aria-controls="rt-preview-panel-1" tabindex="-1">视频预览</button></div></header><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-0" aria-labelledby="rt-preview-tab-0"><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></div><div class="rt-detail-preview-panel" role="tabpanel" id="rt-preview-panel-1" aria-labelledby="rt-preview-tab-1" hidden><div class="rt-detail-video-stage"><span class="rt-detail-save-screen" role="img" aria-label="视频画面示例"></span></div></div></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap" role="region" aria-label="游戏简介" tabindex="0"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
           <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
@@ -3963,11 +3970,16 @@
           root.querySelectorAll('.rt-home-favorite-game').forEach((game, index) => { game.hidden = scene === 'home-one' && index > 0; });
           selectReviewScene(scene);
         }
-        else if (scene === 'detail' || scene === 'detail-empty') {
+        else if (['detail', 'detail-empty', 'detail-save-only', 'detail-video-only'].includes(scene)) {
           setMode('user'); showPage('detail');
-          const saved = scene === 'detail';
-          root.querySelector('.rt-detail-feature-preview').hidden = !saved;
-          root.querySelector('.rt-detail-hero').classList.toggle('has-preview', saved);
+          const saved = scene === 'detail' || scene === 'detail-save-only';
+          const video = scene === 'detail' || scene === 'detail-video-only';
+          root.querySelector('.rt-detail-feature-preview').hidden = !saved && !video;
+          root.querySelector('.rt-detail-hero').classList.toggle('has-preview', saved || video);
+          root.querySelector('#rt-preview-tab-0').hidden = !saved;
+          root.querySelector('#rt-preview-tab-1').hidden = !video;
+          root.querySelector('.rt-detail-preview-divider').hidden = !(saved && video);
+          selectDetailPreview(saved ? 0 : 1);
           root.querySelector('.rt-launch-actions [data-start-current-save]').hidden = !saved;
           root.querySelector('.rt-launch-hint').textContent = saved ? '恢复最近存档 · 使用保存时的 FBNeo' : '本次将从游戏开头启动。';
           root.querySelector('.rt-detail-restart').classList.toggle('rt-button-primary', !saved);
@@ -4085,7 +4097,9 @@
       root.querySelectorAll('.rt-launch-option-tabs button').forEach((tab, index) => {
         tab.addEventListener('click', () => { detailOptionTab = index; syncDetailOptions(); });
         tab.addEventListener('keydown', event => {
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          const tabs = [...root.querySelectorAll('.rt-detail-preview-tabs button')];
+          const available = tabs.map((button, position) => button.hidden ? -1 : position).filter(position => position >= 0);
+          const next = event.key === 'Home' ? available[0] : event.key === 'End' ? available.at(-1) : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? available[(available.indexOf(index) + 1) % available.length] : -1;
           if (next < 0) return;
           event.preventDefault(); detailOptionTab = next; syncDetailOptions();
           root.querySelectorAll('.rt-launch-option-tabs button')[next].focus();
@@ -4357,7 +4371,9 @@
       root.querySelectorAll('.rt-detail-preview-tabs button').forEach((tab, index) => {
         tab.addEventListener('click', () => selectDetailPreview(index));
         tab.addEventListener('keydown', event => {
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? 1 - index : -1;
+          const tabs = [...root.querySelectorAll('.rt-detail-preview-tabs button')];
+          const available = tabs.map((button, position) => button.hidden ? -1 : position).filter(position => position >= 0);
+          const next = event.key === 'Home' ? available[0] : event.key === 'End' ? available.at(-1) : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? available[(available.indexOf(index) + 1) % available.length] : -1;
           if (next < 0) return;
           event.preventDefault();
           selectDetailPreview(next);

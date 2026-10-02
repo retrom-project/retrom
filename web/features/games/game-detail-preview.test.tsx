@@ -47,12 +47,13 @@ it("supports keyboard preview switching with one tab in the focus order", async 
   expect(saved).toHaveFocus();
 });
 
-it.each([true, false])("shows a single heading without tabs when only one preview exists (save: %s)", (hasSave) => {
+it.each([true, false])("shows one inset tab when only one preview exists (save: %s)", (hasSave) => {
   render(<GameDetailPreview title="Sudoku" coverUrl={null} videoUrl={hasSave ? null : "/video.mp4"} save={hasSave ? save : null} />);
-  expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-  expect(screen.getByText(hasSave ? "将从这里继续" : "视频预览")).toBeVisible();
+  expect(screen.getByRole("tablist")).toBeVisible();
+  expect(screen.getAllByRole("tab")).toHaveLength(1);
+  expect(screen.getByRole("tab", {name: hasSave ? "最近存档" : "视频预览"})).toHaveAttribute("aria-selected", "true");
   if (hasSave) {expect(screen.getByAltText("Sudoku 最近存档")).toBeVisible();}
-  else {expect(screen.getByLabelText("视频预览")).toBeVisible();}
+  else {expect(screen.getByLabelText("视频预览", {selector:"video"})).toBeVisible();}
 });
 
 it("keeps missing screenshot size visible without a dead preview action", () => {
