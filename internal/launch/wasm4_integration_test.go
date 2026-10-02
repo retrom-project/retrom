@@ -44,7 +44,7 @@ type singleBlobCase struct {
 func TestSingleBlobReviewPublishesProductLaunch(t *testing.T) {
 	cases := []singleBlobCase{
 		{"ps2", "play", "play-ps2", "SEEKABLE_BLOB", "Owned.iso", bytes.Repeat([]byte{1, 2, 3, 4}, 2048)},
-		{"wasm4", "wasm4", "wasm4", "WASM4_CART", "Pong.wasm", []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}},
+		{"wasm4", "wasm4", "wasm4", "WASM4_CART", "Pong.wasm", wasm4ImportFixture(t)},
 		{"j2me", "j2me", "j2me", "ROM_BLOB", "Sample.jar", j2meImportFixture(t)},
 		{"tic80", "tic80", "tic80", "ROM_BLOB", "Sample.tic", []byte{17, 0, 0, 0, 5, 7, 0, 0, '-', '-', ' ', 't', 'e', 's', 't'}},
 		{"pico8", "fake08", "fake08", "ROM_BLOB", "Sample.p8", []byte("pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\nfunction _draw() cls(0) end\n")},
@@ -85,12 +85,6 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	}
 	// These owned byte fixtures verify the domain pipeline; browser acceptance uses executable games.
 	cart := input.bytes
-	if cartPath := os.Getenv("RETROM_WASM4_TEST_CART"); input.platform == "wasm4" && cartPath != "" {
-		cart, err = os.ReadFile(cartPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES", Files: []uploads.FileDeclaration{{
@@ -210,6 +204,19 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil || servedDigest != base64DigestHex(digest) {
 		t.Fatalf("ContentBlob(WASM-4)=%q, %v", servedDigest, err)
 	}
+}
+
+func wasm4ImportFixture(t *testing.T) []byte {
+	t.Helper()
+	path := os.Getenv("RETROM_WASM4_TEST_CART")
+	if path == "" {
+		path = "../../testdata/public-roms/wasm4-controls/controls.wasm"
+	}
+	cart, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cart
 }
 
 func waitForWASM4Job(t *testing.T, database dbapi.DB, jobID string) {
