@@ -355,7 +355,7 @@
 .review-workflow-files { min-height: 0; align-self: stretch; contain: size; display: flex; flex-direction: column; }
 .review-workflow-files .panel-head { flex: none; }
 .review-workflow-files .panel-body { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-.review-workflow-files .review-source-packages { max-height: none; overflow: visible; }
+.review-workflow-files .review-source-packages, .review-workflow-files .review-archive-entries { max-height: none; overflow: visible; }
 .arcade-dependency-card .panel-body { min-width: 0; }
 .arcade-dependency-root { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); }
 .arcade-dependency-root strong, .arcade-dependency-copy strong { min-width: 0; overflow-wrap: anywhere; }

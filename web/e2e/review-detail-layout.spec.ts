@@ -25,6 +25,42 @@ async function measureReview(page: Page) {
   });
 }
 
+async function expectArchiveUsesSourcePanel(page: Page) {
+  const panel = page.locator(".review-workflow-files .panel-body");
+  // Exercise an expanded archive's layout without changing imported source data.
+  await panel.evaluate((element) => {
+    const group = document.createElement("div");
+    group.dataset.archiveLayoutRegression = "true";
+    group.className = "review-source-packages";
+    const source = document.createElement("details");
+    source.className = "review-source-package";
+    source.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = "Archive layout fixture.zip";
+    const entries = document.createElement("div");
+    entries.className = "review-archive-entries";
+    for (let index = 0; index < 40; index += 1) {
+      const row = document.createElement("div");
+      row.textContent = `archive-entry-${index}.bin`;
+      entries.append(row);
+    }
+    source.append(summary, entries);
+    group.append(source);
+    element.append(group);
+  });
+  const entries = page.locator("[data-archive-layout-regression] .review-archive-entries");
+  const inner = await entries.evaluate((element) => ({ height: element.clientHeight, scrollHeight: element.scrollHeight }));
+  expect(inner.height).toBe(inner.scrollHeight);
+  const outer = await panel.evaluate((element) => ({ height: element.clientHeight, scrollHeight: element.scrollHeight }));
+  expect(inner.height).toBeGreaterThan(outer.height);
+  expect(outer.scrollHeight).toBeGreaterThan(outer.height);
+  await entries.locator("div").last().scrollIntoViewIfNeeded();
+  await expect(entries.locator("div").last()).toBeInViewport();
+  expect(await panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(await entries.evaluate((element) => element.scrollTop)).toBe(0);
+  await page.locator("[data-archive-layout-regression]").evaluate((element) => element.remove());
+}
+
 async function expectNaturalReviewLayout(page: Page) {
   const before = await measureReview(page);
   expect(before.metadata.top).toBeGreaterThanOrEqual(before.runtime.bottom + 12);
@@ -79,6 +115,7 @@ async function expectNaturalReviewLayout(page: Page) {
   await page.locator("[data-layout-regression]").focus();
   await page.keyboard.press("End");
   await expect.poll(() => page.locator("[data-layout-regression]").evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expectArchiveUsesSourcePanel(page);
   await page.locator("[data-layout-regression]").evaluate((element) => element.remove());
   await noPageOverflow(page);
 }
