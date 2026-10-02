@@ -51,6 +51,17 @@ export async function emulatorjsSlowProxy(base) {
     } finally {row.elapsedMs = performance.now() - row.startedMs;}
   }
   server.on("connection", track);
+  server.on("upgrade", (request, socket, head) => {
+    const url = target(request.url, request.headers.host);
+    if (!url) {socket.end("HTTP/1.1 403 Forbidden\r\n\r\n"); return;}
+    const upstream = connect(origin.port, "127.0.0.1", () => {
+      const headers = request.rawHeaders.reduce((lines, value, index, values) =>
+        index % 2 === 0 ? `${lines}${value}: ${values[index + 1]}\r\n` : lines, "");
+      upstream.write(`${request.method} ${url.pathname}${url.search} HTTP/${request.httpVersion}\r\n${headers}\r\n`);
+      if (head.length) {upstream.write(head);} socket.pipe(upstream); upstream.pipe(socket);
+    });
+    track(upstream); socket.once("close", () => upstream.destroy());
+  });
   server.on("connect", (request, socket, head) => {
     if (!target(`http://${request.url}`, origin.host)) {socket.end("HTTP/1.1 403 Forbidden\r\n\r\n"); return;}
     const upstream = connect(server.address().port, "127.0.0.1", () => {

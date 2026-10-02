@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {createServer, request} from "node:http";
+import {connect} from "node:net";
 import test from "node:test";
 import {emulatorjsSlowProxy} from "./emulatorjs_slow_proxy.mjs";
 
@@ -27,5 +28,31 @@ test("slow proxy preserves isolated Launch hosts and actual unknown-length core 
     proxy.block(true);
     const blocked = await get(`http://${host}:${port}/runtime/providers/emulatorjs/hash/core.data`);
     assert.equal(blocked.status, 503); assert.equal(proxy.requests.length, 2); assert.equal(proxy.requests[1].blocked, true);
+  } finally {await proxy.close(); await new Promise(resolve => server.close(resolve));}
+});
+
+test("slow proxy preserves the development HMR upgrade through a browser CONNECT tunnel", async () => {
+  const server = createServer();
+  server.on("upgrade", (req, socket) => {
+    socket.write("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n");
+    socket.once("data", data => socket.end(data));
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port, host = "audit-start-012345abcdef.localhost";
+  const proxy = await emulatorjsSlowProxy(`http://${host}:${port}`), address = new URL(proxy.contextOptions.proxy.server);
+  try {
+    await new Promise((resolve, reject) => {
+      const socket = connect(address.port, address.hostname), chunks = [];
+      socket.setTimeout(2000, () => socket.destroy(Error("upgrade timed out")));
+      socket.once("error", reject);
+      socket.once("connect", () => socket.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\n\r\n`));
+      let stage = 0;
+      socket.on("data", data => {
+        chunks.push(data);
+        if (stage === 0) {assert.match(data.toString(), /200 Connection/); stage++; socket.write(`GET /_next/webpack-hmr HTTP/1.1\r\nHost: ${host}:${port}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n`);}
+        else if (stage === 1) {assert.match(data.toString(), /101 Switching/); stage++; socket.write("hmr-byte-identity");}
+        else {assert.equal(data.toString(), "hmr-byte-identity"); socket.destroy(); resolve();}
+      });
+    });
   } finally {await proxy.close(); await new Promise(resolve => server.close(resolve));}
 });
