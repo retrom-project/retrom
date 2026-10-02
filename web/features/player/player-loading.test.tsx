@@ -8,6 +8,25 @@ vi.mock("@/features/auth/auth-provider", () => ({useAuth: () => ({context: {user
 afterEach(cleanup);
 
 describe("PlayerLoading", () => {
+  it("stops pending task spinners after a terminal startup failure", () => {
+    const task = {id: "core", kind: "GAME_START" as const, state: "RUNNING" as const, progress: null, summary: true};
+    const {container} = render(<PlayerLoading immersive={false} message="PLAYER_RESOURCE_IDLE_TIMEOUT" progress={null} returnTo="/library" state="error" tasks={[task]} />);
+    expect(screen.getByText("游戏启动失败")).toBeVisible();
+    expect(container.querySelector('[data-task-state="RUNNING"]')).toBeNull();
+    expect(container.querySelector(".player-startup-spinner")).toBeNull();
+    expect(task.state).toBe("RUNNING");
+  });
+  it.each([
+    ["PLAYER_RESOURCE_IDLE_TIMEOUT", "资源下载已停止推进，请检查网络后重试。"],
+    ["PLAYER_CORE_INITIALIZATION_TIMEOUT", "资源已就绪，但核心初始化超时。请重试启动。"],
+    ["PLAYER_RUNTIME_CSP_BLOCKED", "运行资源被浏览器安全策略阻止，请联系管理员更新运行依赖。"],
+  ])("explains the public startup failure %s", (message, title) => {
+    render(<PlayerLoading immersive={false} message={message} progress={null} returnTo="/library" state="error" />);
+    expect(screen.getByText(title)).toBeVisible();
+    expect(screen.getByRole("button", {name: "重试启动"})).toBeVisible();
+    expect(screen.queryByText("凭据可能已过期或依赖不兼容。")).toBeNull();
+    expect(screen.getByRole("link", {name: "返回游戏库"})).toBeVisible();
+  });
   it.each(["CACHE_UNAVAILABLE", "WORKSPACE_UNAVAILABLE", "NETWORK_FAILED", "TIMEOUT"])("offers explicit retry and streaming fallback after %s", code => {
     render(<PlayerLoading canLoadOnDemand immersive={false} message={`CONTENT_IO_${code}`} progress={null} returnTo="/library" state="error" />);
     expect(screen.getByRole("button", {name: "重试下载"})).toBeVisible();
