@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite" // Register SQLite for sql.Open in this adapter.
@@ -23,12 +24,20 @@ type Options struct {
 
 type (
 	handle struct {
-		raw *sql.DB
-		now func() time.Time
+		raw          *sql.DB
+		now          func() time.Time
+		observations observations
 	}
 	transaction struct {
-		raw *sql.Tx
-		now func() time.Time
+		raw           *sql.Tx
+		now           func() time.Time
+		database      *handle
+		context       context.Context
+		started       time.Time
+		beginDuration time.Duration
+		sqlDuration   atomic.Int64
+		observed      atomic.Bool
+		readOnly      bool
 	}
 )
 
@@ -80,13 +89,19 @@ func configure(raw *sql.DB, options Options) {
 }
 
 func (db *handle) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	defer db.observeSQL(ctx, time.Now())
 	result, err := db.raw.ExecContext(ctx, query, args...)
 	return wrapResult("execute sqlite query", result, err)
 }
 
 func (db *handle) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	started := time.Now()
 	rows, err := db.raw.QueryContext(ctx, query, args...)
-	return wrapRows("query sqlite database", rows, err)
+	db.observeSQL(ctx, started)
+	if err != nil {
+		return nil, fmt.Errorf("query sqlite database: %w", err)
+	}
+	return rows, nil
 }
 
 func (db *handle) PingContext(ctx context.Context) error {
@@ -106,7 +121,13 @@ func (db *handle) Close() error {
 func (db *handle) SetMaxOpenConns(count int) { db.raw.SetMaxOpenConns(count) }
 func (db *handle) Stats() database.Stats {
 	stats := db.raw.Stats()
-	return database.Stats{MaxOpenConnections: stats.MaxOpenConnections, InUse: stats.InUse}
+	return database.Stats{
+		MaxOpenConnections: stats.MaxOpenConnections, InUse: stats.InUse,
+		WaitCount: stats.WaitCount, WaitDuration: stats.WaitDuration,
+		SQLCalls: db.observations.sqlCalls.Load(), SQLCallDuration: time.Duration(db.observations.sqlDuration.Load()),
+		Transactions:        db.observations.transactions.Load(),
+		TransactionDuration: time.Duration(db.observations.transactionDuration.Load()),
+	}
 }
 
 func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (database.Tx, error) {
@@ -114,29 +135,46 @@ func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (dat
 	if options != nil {
 		sqlOptions = &sql.TxOptions{ReadOnly: options.ReadOnly}
 	}
+	started := time.Now()
 	raw, err := db.raw.BeginTx(ctx, sqlOptions)
+	acquisition := time.Since(started)
+	db.observeAcquisition(ctx, acquisition)
 	if err != nil {
 		return nil, fmt.Errorf("begin sqlite transaction: %w", err)
 	}
-	return &transaction{raw: raw, now: db.now}, nil
+	return &transaction{
+		raw: raw, now: db.now, database: db, context: ctx, started: time.Now(),
+		beginDuration: acquisition, readOnly: options != nil && options.ReadOnly,
+	}, nil
 }
 
 func (tx *transaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	defer tx.observeSQL(time.Now())
 	result, err := tx.raw.ExecContext(ctx, query, args...)
 	return wrapResult("execute sqlite transaction query", result, err)
 }
 
 func (tx *transaction) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	started := time.Now()
 	rows, err := tx.raw.QueryContext(ctx, query, args...)
-	return wrapRows("query sqlite transaction", rows, err)
+	tx.observeSQL(started)
+	if err != nil {
+		return nil, fmt.Errorf("query sqlite transaction: %w", err)
+	}
+	return rows, nil
 }
 
 func (tx *transaction) PrepareContext(ctx context.Context, query string) (database.Stmt, error) {
+	defer tx.observeSQL(time.Now())
 	statement, err := tx.raw.PrepareContext(ctx, query)
-	return wrapStmt("prepare sqlite transaction query", statement, err)
+	if err != nil {
+		return nil, fmt.Errorf("prepare sqlite transaction query: %w", err)
+	}
+	return &preparedStatement{raw: statement, transaction: tx}, nil
 }
 
 func (tx *transaction) Commit() error {
+	defer tx.observeEnd("commit")
 	if err := tx.raw.Commit(); err != nil {
 		return fmt.Errorf("commit sqlite transaction: %w", err)
 	}
@@ -144,6 +182,7 @@ func (tx *transaction) Commit() error {
 }
 
 func (tx *transaction) Rollback() error {
+	defer tx.observeEnd("rollback")
 	if err := tx.raw.Rollback(); err != nil {
 		return fmt.Errorf("rollback sqlite transaction: %w", err)
 	}
@@ -157,16 +196,20 @@ func wrapResult(operation string, result sql.Result, err error) (sql.Result, err
 	return result, nil
 }
 
-func wrapRows(operation string, rows *sql.Rows, err error) (*sql.Rows, error) {
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", operation, err)
-	}
-	return rows, nil
+type preparedStatement struct {
+	raw         *sql.Stmt
+	transaction *transaction
 }
 
-func wrapStmt(operation string, statement *sql.Stmt, err error) (database.Stmt, error) {
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", operation, err)
+func (statement *preparedStatement) ExecContext(ctx context.Context, args ...any) (sql.Result, error) {
+	defer statement.transaction.observeSQL(time.Now())
+	result, err := statement.raw.ExecContext(ctx, args...)
+	return wrapResult("execute prepared sqlite query", result, err)
+}
+
+func (statement *preparedStatement) Close() error {
+	if err := statement.raw.Close(); err != nil {
+		return fmt.Errorf("close prepared sqlite query: %w", err)
 	}
-	return statement, nil
+	return nil
 }

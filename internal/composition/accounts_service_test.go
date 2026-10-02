@@ -37,7 +37,7 @@ func newAccountFixture(t *testing.T, mode config.Mode) accountFixture {
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
 	clock := func() time.Time { return fixed }
-	service, err := NewAccounts(context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, func() time.Time { return clock() })
+	service, err := NewAccounts(context.Background(), database.ReadOnly, database.SQL, credentials, mode, authn.EmptyBlocklist{}, func() time.Time { return clock() })
 	testassert.False(t, err != nil, err)
 	return accountFixture{service: service, credentials: credentials, database: database, now: &fixed, setNow: func(next func() time.Time) { clock = next }}
 }
@@ -73,7 +73,7 @@ SELECT actor_kind,actor_user_id,actor_label FROM audit_events WHERE action='INST
 	loggedIn, err := fixture.service.Login(context.Background(), "test", "test")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return loggedIn.User.Username != "test" }, func() bool { return loggedIn.User.Role != "ADMIN" }), "test login = %#v, %v", loggedIn.User, err)
 	release, err := NewAccounts(
-		context.Background(), fixture.database.SQL, fixture.credentials, config.ModeRelease,
+		context.Background(), fixture.database.ReadOnly, fixture.database.SQL, fixture.credentials, config.ModeRelease,
 		authn.EmptyBlocklist{}, func() time.Time { return *fixture.now },
 	)
 	testassert.False(t, err != nil, err)
@@ -147,7 +147,7 @@ func TestAuthenticatePreservesDatabaseFailures(t *testing.T) {
 	}
 	loggedIn, err := fixture.service.Login(context.Background(), "test", "test")
 	testassert.False(t, err != nil, err)
-	if err := fixture.database.SQL.Close(); err != nil {
+	if err := fixture.database.ReadOnly.Close(); err != nil {
 		t.Fatal(err)
 	}
 	_, err = fixture.service.Authenticate(context.Background(), loggedIn.CookieToken)

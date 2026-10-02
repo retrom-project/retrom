@@ -183,8 +183,10 @@ func parseLine(fields []field, valueCount int, raw []byte, line int) ([]field, i
 }
 
 func validateValue(value string) error {
-	if strings.ContainsRune(value, '\ufeff') || hasControl(value) {
-		return errControlValue
+	for _, character := range value {
+		if character == '\ufeff' || unicode.IsControl(character) && character != '\t' {
+			return errControlValue
+		}
 	}
 	return nil
 }

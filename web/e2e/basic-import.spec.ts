@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type TestInfo } from "@playwright/test";
 import { selectServerSource } from "./server-directory-support";
@@ -14,6 +14,13 @@ function screenshotPath(info: TestInfo, name: string) {
 
 test("ACC-BASIC-001 directory extensions feed the shared receive and review flow", async ({ page }, info) => {
   test.setTimeout(120_000);
+  const source = process.env.RETROM_E2E_SERVER_SOURCE;
+  expect(source).toBeTruthy();
+  // Each viewport must prepare a new review rather than replay the game
+  // published by a preceding viewport in the shared acceptance catalog.
+  const fixture = readFileSync(new URL("../../testdata/public-roms/gba-smoke/pegasus-smoke.gba", import.meta.url));
+  writeFileSync(path.join(source!, "Basic/nested/basic-smoke.GBA"),
+    Buffer.concat([fixture, Buffer.from(`retrom-basic-e2e:${info.project.name}`)]));
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const login = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" }, headers: { Origin: origin },

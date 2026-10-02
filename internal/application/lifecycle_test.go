@@ -36,8 +36,8 @@ func newLifecycleFixture(t *testing.T) *Services {
 		t.Fatal(err)
 	}
 	services, err := New(t.Context(), Inputs{
-		Config:   config.Config{DataDir: dir, PublicOrigin: &url.URL{Scheme: "http", Host: "localhost"}},
-		Database: db, Files: files, Credentials: credentials, Now: time.Now,
+		Config: config.Config{DataDir: dir, PublicOrigin: &url.URL{Scheme: "http", Host: "localhost"}},
+		Writer: db, Reader: db, Files: files, Credentials: credentials, Now: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)
