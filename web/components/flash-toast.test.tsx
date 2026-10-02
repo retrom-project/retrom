@@ -1,5 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
 import { Toast } from "./flash-toast";
 
@@ -7,6 +9,31 @@ describe("Toast", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("hydrates an initially active server-rendered notification without replacing the page", async () => {
+    const content = <><Toast toast={{ message: "审核条目已处理", tone: "warn" }} onDismiss={() => {}} /><p>审核队列</p></>;
+    const container = document.createElement("div");
+    try {
+      vi.stubGlobal("document", undefined);
+      container.innerHTML = renderToString(content);
+    } finally { vi.unstubAllGlobals(); }
+    document.body.append(container);
+    const serverContent = container.querySelector("p");
+    const errors: unknown[] = [];
+    let root: Root | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, content, { onRecoverableError: (error) => errors.push(error) });
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("审核条目已处理");
+      expect(errors).toEqual([]);
+      expect(container.querySelector("p")).toBe(serverContent);
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+    }
   });
 
   it("portals a notification outside its card without a close button and dismisses after three seconds", async () => {
