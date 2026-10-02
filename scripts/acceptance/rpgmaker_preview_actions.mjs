@@ -180,8 +180,7 @@ export async function observeFixturePosition(page, generation, observations, che
 
 export async function observePreviewFrames(page) {
   await resumePreview(page);
-  const beforeFrame = await readRuntimeFrames(page);
-  if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {throw new Error("RPG_PREVIEW_FRAME_COUNT_MISSING");}
+  const beforeFrame = await waitForRuntimeFrameDelta(page, -1, 1, 10_000);
   try {
     await waitForRuntimeFrameDelta(page, beforeFrame, 300, 30_000);
   } catch {
