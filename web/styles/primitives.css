@@ -1,3 +1,4 @@
+.browser-time { display: inline-block; inline-size: 24ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .content { padding: 28px 24px 56px; width: 100%; max-width: 2160px; margin-inline: auto; }
 .page-layout { width: 100%; }
 .page-header { min-height: 88px; display: flex; gap: 28px; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-5); }

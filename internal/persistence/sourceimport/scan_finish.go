@@ -22,13 +22,24 @@ heartbeat_at_ms=NULL,worker_id=NULL,error_code=NULL,error_retryable=NULL,version
 		return err
 	}
 	s := summary.Shape
+	state, completed, code := summary.Completion(owner.NowMS)
+	diagnostics := summary.Diagnostics
+	if diagnostics == nil {
+		diagnostics = []application.ScanDiagnostic{}
+	}
+	encoded, err := json.Marshal(diagnostics)
+	if err != nil {
+		return fmt.Errorf("encode scan diagnostics: %w", err)
+	}
 	result, err = recordstore.UpdateSourceImports(ctx, records.tx, recordstore.Update{
-		Set: `source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,metadata_count=?,invalid_metadata_count=?,
+		Set: `source_snapshot_digest=?,state=?,completed_at_ms=?,last_error_code=?,scan_outcome=?,scan_diagnostics_json=?,
+phase=NULL,metadata_count=?,invalid_metadata_count=?,
 collection_count=?,game_count=?,estimated_source_bytes=?,processable_item_count=?,blocked_item_count=?,
 media_warning_count=?,discovered_cover_count=?,discovered_video_count=?,scan_completed_at_ms=?,
 version=version+1,updated_at_ms=?`,
 		Values: []any{
-			summary.SnapshotDigest, s.Metadata, s.InvalidMetadata, s.Collections, s.Items, s.EstimatedBytes,
+			summary.SnapshotDigest, state, completed, code, summary.Outcome(), string(encoded),
+			s.Metadata, s.InvalidMetadata, s.Collections, s.Items, s.EstimatedBytes,
 			s.Items - s.Blocked, s.Blocked, summary.MediaWarnings, s.Covers, s.Videos, owner.NowMS, owner.NowMS,
 		},
 		Scope: recordstore.Scope{

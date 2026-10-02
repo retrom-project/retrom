@@ -1,6 +1,9 @@
 "use client";
 
+import { SourceScanDiagnostics } from "./source-scan-diagnostics";
+
 import Link from "next/link";
+import { BrowserTime } from "@/components/browser-time";
 import { ImportBatchDiscard } from "@/features/imports/import-batch-discard";
 import { DirectorySelector } from "@/features/imports/directory-selector";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -122,10 +125,10 @@ function CollectionMapping({ collection, draft, instances, tags, busy, onChange 
 
 function MappingStep({ plan, collections, mappings, instances, activeTags, batchTags, batchStatus, busy, onBatchTags, onApplyBatch, onMapping }: { plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; instances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void }) {
   if (plan?.state === "SCANNING") {return <div className="source-scan-progress" aria-live="polite"><span className="button-spinner" /><h3>{plan.phase ? sourcePhaseLabels[plan.phase] : "扫描准备中"}</h3><p>任务离开页面后仍会继续。当前发现 {plan.counts.metadata} 个 metadata、{plan.counts.collections} 个集合、{plan.counts.games} 个游戏。</p></div>;}
-  if (plan?.state === "FAILED") {return <div className="runtime-inline-empty"><h3>扫描未完成</h3><p>{plan.lastErrorCode ?? "扫描任务失败"}</p></div>;}
+  if (plan?.state === "FAILED") {return <><SourceScanDiagnostics summary={plan} />{plan.scanOutcome === "PENDING" ? <p role="alert">扫描未完成：{plan.lastErrorCode}</p> : null}</>;}
   if (plan?.state !== "AWAITING_MAPPING") {return null;}
   if (instances.length === 0) {return <div className="runtime-inline-empty"><h3>还没有游戏目录</h3><p>请先进入游戏目录，使用“一键创建推荐目录”建立映射目标，再回来继续这次 游戏导入。</p><Link className="button" href="/admin/platform-instances">前往游戏目录</Link></div>;}
-  return <><div className="source-scan-summary"><div><span>Metadata</span><strong>{plan.counts.metadata}</strong></div><div><span>Collection</span><strong>{plan.counts.collections}</strong></div><div><span>Game</span><strong>{plan.counts.games}</strong></div><div><span>发现视频</span><strong>{plan.counts.videos}</strong></div></div><p className="source-mapping-note">每个集合必须明确选择游戏目录或跳过；Retrom 不会根据名称、扩展名或启动命令猜测。</p><section className="source-batch-tags" aria-labelledby="source-batch-tags-title"><header><div><h3 id="source-batch-tags-title">批量添加默认标签</h3><p>选择一次后追加到所有未跳过 Collection，不覆盖已有选择；下方仍可逐项增删。</p></div><span>{collections.reduce((total, collection) => total + collection.gameCount, 0)} 个游戏</span></header><TagPicker label="批次标签" options={activeTags} selected={batchTags} disabled={busy} onChange={onBatchTags} description="标签必须先在标签管理中建立。点击应用后，尚未选择处理方式的 Collection 也会保留这些默认标签。" /><div className="source-batch-tag-actions"><button type="button" className="button secondary compact" disabled={busy || !batchTags.length} onClick={onApplyBatch}>应用到所有未跳过 Collection</button>{batchStatus ? <p role="status">{batchStatus}</p> : null}</div></section><div className="source-collection-list">{collections.map((collection) => <CollectionMapping key={collection.id} collection={collection} draft={mappings[collection.id] ?? { action: "", platformInstanceId: "", tags: [] }} instances={instances} tags={activeTags} busy={busy} onChange={(draft) => onMapping(collection.id, draft)} />)}</div></>;
+  return <><SourceScanDiagnostics summary={plan} /><div className="source-scan-summary"><div><span>Metadata</span><strong>{plan.counts.metadata}</strong></div><div><span>Collection</span><strong>{plan.counts.collections}</strong></div><div><span>Game</span><strong>{plan.counts.games}</strong></div><div><span>发现视频</span><strong>{plan.counts.videos}</strong></div></div><p className="source-mapping-note">每个集合必须明确选择游戏目录或跳过；Retrom 不会根据名称、扩展名或启动命令猜测。</p><section className="source-batch-tags" aria-labelledby="source-batch-tags-title"><header><div><h3 id="source-batch-tags-title">批量添加默认标签</h3><p>选择一次后追加到所有未跳过 Collection，不覆盖已有选择；下方仍可逐项增删。</p></div><span>{collections.reduce((total, collection) => total + collection.gameCount, 0)} 个游戏</span></header><TagPicker label="批次标签" options={activeTags} selected={batchTags} disabled={busy} onChange={onBatchTags} description="标签必须先在标签管理中建立。点击应用后，尚未选择处理方式的 Collection 也会保留这些默认标签。" /><div className="source-batch-tag-actions"><button type="button" className="button secondary compact" disabled={busy || !batchTags.length} onClick={onApplyBatch}>应用到所有未跳过 Collection</button>{batchStatus ? <p role="status">{batchStatus}</p> : null}</div></section><div className="source-collection-list">{collections.map((collection) => <CollectionMapping key={collection.id} collection={collection} draft={mappings[collection.id] ?? { action: "", platformInstanceId: "", tags: [] }} instances={instances} tags={activeTags} busy={busy} onChange={(draft) => onMapping(collection.id, draft)} />)}</div></>;
 }
 
 function ReviewStep({ plan, mapped, skipped, taggedCollections, taggedGames, mappedTags }: { plan: SourceImportSummary; mapped: number; skipped: number; taggedCollections: number; taggedGames: number; mappedTags: TagReference[] }) {
@@ -135,7 +138,7 @@ function ReviewStep({ plan, mapped, skipped, taggedCollections, taggedGames, map
 type DrawerViewProps = {
   format: SourceFormat | "";
   extensionFilter: string; onExtensionFilter: (value: string) => void;
-  onFormat: (format: SourceFormat | "") => void; rootId: string; path: string; breadcrumbs: string[]; directories: SourceDirectory[]; directoryCursor: string | null; directoryLoading: boolean; selectedRoot?: ServerImportRoot; step: 1 | 2 | 3; plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; availableInstances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; error: string; mapped: number; skipped: number; taggedCollections: number; taggedGames: number; mappedTags: TagReference[]; mappingComplete: boolean; onPath: (path: string) => void; onMore: () => void; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void; onClose: () => void; onScan: () => void; onConfirm: () => void; onStart: () => void; onDismissError: () => void };
+  onFormat: (format: SourceFormat | "") => void; rootId: string; path: string; breadcrumbs: string[]; directories: SourceDirectory[]; directoryCursor: string | null; directoryLoading: boolean; selectedRoot?: ServerImportRoot; step: 1 | 2 | 3; plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; availableInstances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; error: string; mapped: number; skipped: number; taggedCollections: number; taggedGames: number; mappedTags: TagReference[]; mappingComplete: boolean; onEditInput: () => void; onPath: (path: string) => void; onMore: () => void; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void; onClose: () => void; onScan: () => void; onConfirm: () => void; onStart: () => void; onDismissError: () => void };
 
 function stepClass(step: number, expected: number) {
   if (step === expected) {return "is-active";}
@@ -154,8 +157,19 @@ function DrawerBody({ props }: { props: DrawerViewProps }) {
   return null;
 }
 
+function DrawerPrimaryAction({ props }: { props: DrawerViewProps }) {
+  if (props.step === 1) {
+    const unavailable = !props.format || !props.rootId || props.selectedRoot?.status !== "AVAILABLE";
+    return <button type="button" className="button" disabled={props.busy || unavailable} onClick={props.onScan}>{props.busy ? "正在创建…" : "扫描此目录"}</button>;
+  }
+  if (props.step === 3) {return <button type="button" className="button" disabled={props.busy} onClick={props.onStart}>{props.busy ? "正在启动…" : "开始准备审核事项"}</button>;}
+  if (props.plan?.state === "FAILED") {return <button type="button" className="button" disabled={props.busy} onClick={props.onScan}>修正后重新扫描</button>;}
+  if (props.plan?.state === "AWAITING_MAPPING") {return <button type="button" className="button" disabled={props.busy || !props.mappingComplete} onClick={props.onConfirm}>{props.busy ? "正在保存…" : "确认映射"}</button>;}
+  return null;
+}
+
 function DrawerFooter({ props }: { props: DrawerViewProps }) {
-  return <footer><button type="button" className="button secondary" disabled={props.busy} onClick={props.onClose}>关闭</button>{props.step === 1 ? <button type="button" className="button" disabled={props.busy || !props.format || !props.rootId || props.selectedRoot?.status !== "AVAILABLE"} onClick={props.onScan}>{props.busy ? "正在创建…" : "扫描此目录"}</button> : null}{props.step === 2 && props.plan?.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy || !props.mappingComplete} onClick={props.onConfirm}>{props.busy ? "正在保存…" : "确认映射"}</button> : null}{props.step === 3 ? <button type="button" className="button" disabled={props.busy} onClick={props.onStart}>{props.busy ? "正在启动…" : "开始准备审核事项"}</button> : null}</footer>;
+  return <footer><button type="button" className="button secondary" disabled={props.busy} onClick={props.onClose}>关闭</button>{props.step > 1 && props.plan?.state !== "SCANNING" ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onEditInput}>返回修改输入</button> : null}<DrawerPrimaryAction props={props} /></footer>;
 }
 
 export function SourceImportDrawerView(props: DrawerViewProps) {
@@ -172,6 +186,11 @@ export function SourceImportDrawerView(props: DrawerViewProps) {
     closeButton.current?.focus({ preventScroll: true });
     return () => {root.style.overflow = rootOverflow; body.style.overflow = bodyOverflow; body.style.paddingRight = bodyPadding; if (previous?.isConnected) {previous.focus({ preventScroll: true });}};
   }, []);
+  useEffect(() => {
+    if (drawer.current?.contains(document.activeElement)) {return;}
+    const input = props.step === 1 ? drawer.current?.querySelector<HTMLElement>("select:not(:disabled),input:not(:disabled)") : null;
+    (input ?? closeButton.current)?.focus({ preventScroll: true });
+  }, [props.step]);
   return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭 游戏导入" disabled={props.busy} onClick={props.onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer source-import-drawer" role="dialog" aria-modal="true" aria-labelledby="source-import-title" onKeyDown={(event) => trapFocus(drawer.current, event, props.busy, props.onClose)}><header><div><StatusBadge tone="info">游戏文件</StatusBadge><h2 id="source-import-title">从目录准备审核事项</h2><p>从服务器根目录选择来源；扫描不会复制 ROM 或创建游戏。</p></div><button ref={closeButton} type="button" className="runtime-drawer-close" aria-label="关闭" disabled={props.busy} onClick={props.onClose}><AppIcon name="x" /></button></header><DrawerSteps step={props.step} /><div className="runtime-drawer-body"><DrawerBody props={props} /></div><DrawerFooter props={props} /></aside><Toast toast={props.error ? { message: props.error, tone: "bad" } : null} onDismiss={props.onDismissError} /></>;
 }
 
@@ -206,8 +225,8 @@ function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string })
 type DetailViewProps = { onDiscarded?: () => void; summary: SourceImportSummary; items: SourceItem[]; nextCursor: string | null; draft: DetailFilters; collections: SourceCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };
 
 function DetailHeader({ props, reviewURL, phase }: { props: DetailViewProps; reviewURL: string; phase: string }) {
-  return <section className="server-import-detail-head panel"><div><StatusBadge tone={sourceStateTone(props.summary.state)}>{sourceStateLabels[props.summary.state]}</StatusBadge><h2>{props.summary.root.label} / {props.summary.sourceRelativePath || "根目录"}</h2><p aria-live="polite">{phase}</p></div><div>{["SCANNING", "QUEUED", "RUNNING"].includes(props.summary.state) ? <button type="button" className="button secondary" disabled={props.busy} onClick={() => props.onCancelOpen(true)}>取消任务</button> : null}{props.summary.retryable ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onRetry}>重试失败条目</button> : null}{props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">逐项审核 {props.summary.counts.reviewPending} 个游戏</Link> : null}{props.summary.importJobId ? <ImportBatchDiscard kind="SOURCE" importId={props.summary.id} version={props.summary.version} onCompleted={props.onDiscarded} /> : null}
-    {props.summary.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>继续映射</button> : <Link href="/admin/imports/server?action=source" className="button secondary">新建游戏导入</Link>}<SourcePlanDelete summary={props.summary} disabled={props.busy} /></div></section>;
+  return <section className="server-import-detail-head panel"><div><StatusBadge tone={sourceStateTone(props.summary.state)}>{sourceStateLabels[props.summary.state]}</StatusBadge><h2>{props.summary.root.label} / {props.summary.sourceRelativePath || "根目录"}</h2><p aria-live="polite">{phase}</p><p>创建于 <BrowserTime value={props.summary.createdAtMs} /> · 更新于 <BrowserTime value={props.summary.updatedAtMs} /></p></div><div>{["SCANNING", "QUEUED", "RUNNING"].includes(props.summary.state) ? <button type="button" className="button secondary" disabled={props.busy} onClick={() => props.onCancelOpen(true)}>取消任务</button> : null}{props.summary.retryable ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onRetry}>重试失败条目</button> : null}{props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">逐项审核 {props.summary.counts.reviewPending} 个游戏</Link> : null}{props.summary.importJobId ? <ImportBatchDiscard kind="SOURCE" importId={props.summary.id} version={props.summary.version} onCompleted={props.onDiscarded} /> : null}
+    {(props.summary.state === "AWAITING_MAPPING" || props.summary.state === "FAILED" && !props.summary.importJobId) ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>{props.summary.state === "FAILED" ? "修正后重新扫描" : "继续映射"}</button> : <Link href="/admin/imports/server?action=source" className="button secondary">新建游戏导入</Link>}<SourcePlanDelete summary={props.summary} disabled={props.busy} /></div></section>;
 }
 
 function DetailSummary({ summary }: { summary: SourceImportSummary }) {
@@ -224,6 +243,7 @@ export function SourceImportDetailView(props: DetailViewProps) {
   const phase = props.summary.phase ? sourcePhaseLabels[props.summary.phase] : terminal ? props.summary.counts.reviewPending ? `已准备 ${props.summary.counts.reviewPending} 个待审核游戏` : "后台准备任务已结束" : "等待处理";
   return <div className="server-import-detail-page source-detail-page"><DetailHeader props={props} reviewURL={reviewURL} phase={phase} />
     {props.summary.counts.reviewPending ? <section className="source-review-callout panel"><div><span>下一步 · 人工审核</span><h2>内容已准备好，但尚未进入游戏库</h2><p>请逐条核对运行检查、标题、封面和视频。只有点击“通过并发布”的游戏才会出现在游戏库；符合条件的条目也可在审核队列中使用快速审批。</p></div><Link href={reviewURL} className="button">打开这批审核队列</Link></section> : null}
+    <SourceScanDiagnostics summary={props.summary} />
     <DetailSummary summary={props.summary} />
     {props.summary.lastErrorCode ? <p className="server-import-error panel"><strong>{props.summary.lastErrorCode}</strong><span>目录变化时请按结果提示重扫或重试。</span></p> : null}
     <DetailResults props={props} reviewURL={reviewURL} />

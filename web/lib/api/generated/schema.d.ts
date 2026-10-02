@@ -3540,7 +3540,17 @@ export interface components {
             /** Format: int64 */
             videos: number;
         };
+        SourceScanDiagnostic: {
+            relativePath: string;
+            /** Format: int64 */
+            line: number | null;
+            code: string;
+            message: string;
+        };
         SourceImportSummary: {
+            /** @enum {string} */
+            scanOutcome: "PENDING" | "READY" | "PARTIAL" | "INVALID" | "EMPTY" | "NO_METADATA";
+            scanDiagnostics: components["schemas"]["SourceScanDiagnostic"][];
             extensionFilter: string;
             /** @enum {string} */
             format: "BASIC" | "PEGASUS" | "GAMELIST";

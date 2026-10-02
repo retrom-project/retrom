@@ -108,6 +108,8 @@ ScummVM 选择在带草稿版本检查的事务中更新当前 profile，不生�
 
 `source_import_metadata_files` 保存来源相对路径、实际大小、文件特征、解析状态与错误。大小不超过 8 MiB 的记录必须保存内容摘要；仅超过该上限且状态为 `INVALID/PEGASUS_METADATA_TOO_LARGE` 或 `INVALID/EMULATIONSTATION_GAMELIST_TOO_LARGE` 时允许摘要为 NULL，此时扫描和启动重验都不得读取超限内容。无摘要不能表示正常 metadata 或其他解析错误，相关组合由表级 CHECK 保证。
 
+`source_imports.scan_outcome` 冻结当前扫描结论，枚举为 `PENDING/READY/PARTIAL/INVALID/EMPTY/NO_METADATA`；`scan_diagnostics_json` 是最多 100 条的 JSON 数组，与扫描计数、摘要、计划终态、Job 成功及事件在同一租约受限事务提交。扫描正常完成但输入不可用时 Job 为 SUCCEEDED、计划为 FAILED；扫描失败计划保存完成时间和 SOURCE_SCAN 错误码。迁移 008 直接定义新格式，开发环境不兼容旧数据库，按 PFB exact-ID reset 归档后重建。
+
 ### 批次丢弃与服务器上传归属
 
 `import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 仅为 `IMPORT/SOURCE`。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库后，发布/重试事务通过 `storequery.DiscardedImportJobs` 查询与 `recordstore` 状态校验共同阻止批次再次发布、重试导入。

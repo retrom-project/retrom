@@ -468,7 +468,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 当前运行检查 的精确 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用。library import 自身发生内部失败时收口为可重试 `SOURCE_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目；原计划重检始终从当前冻结输入重新生成精确结论和详细证据。
 
-聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
+聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`007` 与 `ACC-MEDIA-001`。
 
 取消和手动重试由 来源 Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 来源 execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
 
@@ -483,6 +483,8 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 
 ## 15. 文件组织格式适配
+
+扫描没有可映射游戏时必须结束，不能以零 Collection 停在等待映射。全部 metadata 解析失败为 INVALID；没有任何文件或有效清单未声明游戏为 EMPTY；有普通文件但没有所选格式清单为 NO_METADATA。存在合法 Collection 和游戏、同时有无效 metadata 时为 PARTIAL，合法结果继续进入同一映射、接收及审核流程。解析诊断保留相对文件、可确定的物理行号、稳定错误码及静态原因，按路径最多保存 100 条，完整错误计数保留。失败计划关闭或重新打开仍可查看原因；修正源文件后以相同冻结输入创建新扫描计划，或返回第一步修改格式、来源和扩展名。终态扫描与 Item retry 各用既有领域路径，不向通用 Job 模块引入扫描规则。
 
 Pegasus 递归发现精确名称 `metadata.pegasus.txt`，以每份文件中的 segment 形成 Collection。解析器只保留允许的纯文本和相对文件引用，忽略 `launch/command/logo` 与未知执行规则。单份 metadata 上限 8 MiB，超限只保存 facts 与稳定错误，不读取内容。
 
@@ -532,7 +534,7 @@ Approve 在短事务内重新核对当前 effective source、精确文件、Core
 
 RPG Maker 项目形状、selected-core/evidence 分层、pack、普通试玩和发布绑定执行 `ACC-RPG-001`–`012`。
 
-本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与独立文件存储约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`007` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与独立文件存储约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
 
 ## Java ME JAR
 
