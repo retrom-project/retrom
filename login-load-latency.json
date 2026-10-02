@@ -1,0 +1,87 @@
+[
+  {
+    "attempt": 0,
+    "login": {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 2703.86,
+      "bytes": 349
+    },
+    "read": {
+      "path": "/api/v1/admin/imports/summary",
+      "method": "GET",
+      "status": 200,
+      "ms": 8.99,
+      "bytes": 155
+    }
+  },
+  {
+    "attempt": 1,
+    "login": {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 2008.5,
+      "bytes": 349
+    },
+    "read": {
+      "path": "/api/v1/admin/imports/summary",
+      "method": "GET",
+      "status": 200,
+      "ms": 39.35,
+      "bytes": 155
+    }
+  },
+  {
+    "attempt": 2,
+    "login": {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 1550.58,
+      "bytes": 349
+    },
+    "read": {
+      "path": "/api/v1/admin/imports/summary",
+      "method": "GET",
+      "status": 200,
+      "ms": 16.48,
+      "bytes": 155
+    }
+  },
+  {
+    "attempt": 3,
+    "login": {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 1746.25,
+      "bytes": 349
+    },
+    "read": {
+      "path": "/api/v1/admin/imports/summary",
+      "method": "GET",
+      "status": 200,
+      "ms": 48.46,
+      "bytes": 155
+    }
+  },
+  {
+    "attempt": 4,
+    "login": {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 1694.04,
+      "bytes": 349
+    },
+    "read": {
+      "path": "/api/v1/admin/imports/summary",
+      "method": "GET",
+      "status": 200,
+      "ms": 107.73,
+      "bytes": 155
+    }
+  }
+]

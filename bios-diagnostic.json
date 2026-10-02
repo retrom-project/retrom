@@ -1,0 +1,42 @@
+{
+  "reproduced": true,
+  "zipFacts": {
+    "badCRCEntry": null,
+    "members": [
+      {
+        "name": "coh-1002e.353",
+        "compressedBytes": 128635,
+        "bytes": 524288
+      }
+    ]
+  },
+  "sha256": "d50f051ae5ce21d8ca620a0c642283f55798d5dcdc3390606f464e634f3c4caf",
+  "items": [
+    {
+      "requirementId": "56f5036c-3091-5f88-8656-c0b0972845b2",
+      "coreId": "mame2003",
+      "logicalName": "psarc95.zip",
+      "state": "READ_FAILED"
+    },
+    {
+      "requirementId": "a73074ae-2826-535c-ac1d-3a95d83e5779",
+      "coreId": "mame2003_plus",
+      "logicalName": "psarc95.zip",
+      "state": "READ_FAILED"
+    }
+  ],
+  "candidates": [
+    {
+      "coreId": "mame2003",
+      "states": [
+        "ARCHIVE_UNSAFE"
+      ]
+    },
+    {
+      "coreId": "mame2003_plus",
+      "states": [
+        "ARCHIVE_UNSAFE"
+      ]
+    }
+  ]
+}
