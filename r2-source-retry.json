@@ -1,0 +1,129 @@
+{
+  "sourceImportId": "01a0fa6f-e253-770a-83e6-d130589943d2",
+  "failed": {
+    "format": "BASIC",
+    "extensionFilter": ".wasm",
+    "id": "01a0fa6f-e253-770a-83e6-d130589943d2",
+    "root": {
+      "id": "filesystem",
+      "label": "服务器文件系统"
+    },
+    "sourceRelativePath": "data/game/testgame/audit-r2-source-retry",
+    "state": "PARTIAL_FAILURE",
+    "phase": null,
+    "scanJobId": "01a0fa6f-e253-770c-9495-88d50f588e66",
+    "importJobId": "01a0fa6f-e333-783f-8723-f16861df5b68",
+    "counts": {
+      "metadata": 0,
+      "invalidMetadata": 0,
+      "collections": 1,
+      "games": 2,
+      "estimatedSourceBytes": 18212,
+      "mappedCollections": 1,
+      "skippedCollections": 0,
+      "processable": 2,
+      "blocked": 0,
+      "reviewPending": 0,
+      "published": 0,
+      "reviewDiscarded": 0,
+      "existing": 0,
+      "failed": 2,
+      "cancelled": 0,
+      "mediaWarnings": 0,
+      "covers": 0,
+      "videos": 0
+    },
+    "mappingVersion": 2,
+    "version": 9,
+    "createdBy": {
+      "id": "01a0f8de-8e2a-73d0-8795-f9e398e37f66",
+      "displayName": "sen"
+    },
+    "lastErrorCode": null,
+    "retryable": true,
+    "createdAtMs": 1790908031571,
+    "updatedAtMs": 1790908032199,
+    "expiresAtMs": 1791512831571,
+    "completedAtMs": 1790908032199
+  },
+  "beforeRetryItems": [
+    {
+      "sourceFlags": {
+        "hidden": false,
+        "adult": false,
+        "kidGame": false
+      },
+      "id": "01a0fa6f-e2aa-7072-a37f-a3b7093f877b",
+      "title": "pong",
+      "collectionId": "01a0fa6f-e2aa-706e-ae47-680a2e9890a3",
+      "collectionName": "所选目录",
+      "targetPlatformInstanceId": "01a0f8df-e59d-7876-aa7e-fd91f371da53",
+      "targetPlatformInstanceName": "专项 wasm4 / wasm4",
+      "metadataRelativePath": "pong.wasm",
+      "executionState": "SOURCE_CHANGED",
+      "payloadState": "RELEASED",
+      "payloadReleaseJobId": "01a0fa6f-e3b6-78c0-9200-648d1acda680",
+      "contentKind": null,
+      "media": {
+        "cover": "MISSING",
+        "video": "MISSING"
+      },
+      "warnings": [],
+      "discoveryCode": null,
+      "errorCode": "SOURCE_SOURCE_CHANGED",
+      "failureDetails": null,
+      "runtimeCheck": null,
+      "retryable": false,
+      "reviewItemId": null,
+      "publishedGameId": null,
+      "existingGameId": null,
+      "existingMatches": [],
+      "updatedAtMs": 1790908031924,
+      "tags": []
+    },
+    {
+      "sourceFlags": {
+        "hidden": false,
+        "adult": false,
+        "kidGame": false
+      },
+      "id": "01a0fa6f-e2aa-7089-b929-1825148d2ed7",
+      "title": "snake",
+      "collectionId": "01a0fa6f-e2aa-706e-ae47-680a2e9890a3",
+      "collectionName": "所选目录",
+      "targetPlatformInstanceId": "01a0f8df-e59d-7876-aa7e-fd91f371da53",
+      "targetPlatformInstanceName": "专项 wasm4 / wasm4",
+      "metadataRelativePath": "snake.wasm",
+      "executionState": "SOURCE_CHANGED",
+      "payloadState": "RELEASED",
+      "payloadReleaseJobId": "01a0fa6f-e46d-7748-beb6-598880eee10b",
+      "contentKind": null,
+      "media": {
+        "cover": "MISSING",
+        "video": "MISSING"
+      },
+      "warnings": [],
+      "discoveryCode": null,
+      "errorCode": "SOURCE_SOURCE_CHANGED",
+      "failureDetails": null,
+      "runtimeCheck": null,
+      "retryable": false,
+      "reviewItemId": null,
+      "publishedGameId": null,
+      "existingGameId": null,
+      "existingMatches": [],
+      "updatedAtMs": 1790908032107,
+      "tags": []
+    }
+  ],
+  "retryStatus": 409,
+  "retry": {
+    "error": {
+      "code": "SOURCE_IMPORT_NOT_RETRYABLE",
+      "details": {},
+      "message": "Source 导入请求当前不可执行",
+      "requestId": "01a0fa6f-e7d7-7c46-b42f-595ab6fe7851"
+    }
+  },
+  "success": false
+}

@@ -1,0 +1,25 @@
+{
+  "omittedLimit": {
+    "request": {
+      "coreId": "nestopia"
+    },
+    "status": 400,
+    "response": {
+      "error": {
+        "code": "INVALID_REQUEST",
+        "details": {},
+        "message": "核心预览请求无效",
+        "requestId": "01a0fa76-9f39-7449-ae6a-b9853f94a1e5"
+      }
+    }
+  },
+  "explicitLimit": {
+    "request": {
+      "coreId": "nestopia",
+      "limit": 50
+    },
+    "status": 200
+  },
+  "cleanup": 204,
+  "confirmed": true
+}

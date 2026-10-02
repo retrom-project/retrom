@@ -1,0 +1,176 @@
+{
+  "profileLocation": "private runner secrets directory",
+  "cases": [
+    {
+      "phase": "cold",
+      "key": "nes",
+      "gid": "01a0f8e9-9ffe-724f-90bc-4d5621d9c905",
+      "responses": [
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200
+        }
+      ],
+      "blockedRequests": [],
+      "running": true,
+      "runningMs": 1231,
+      "storage": {
+        "usage": 1804,
+        "quota": 10737420044
+      },
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200,
+          "bodyBytes": 131088
+        }
+      ]
+    },
+    {
+      "phase": "cold",
+      "key": "fds-bios",
+      "gid": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+      "responses": [
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+          "status": 200
+        }
+      ],
+      "blockedRequests": [],
+      "running": true,
+      "runningMs": 1185,
+      "storage": {
+        "usage": 1804,
+        "quota": 10737420044
+      },
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200,
+          "bodyBytes": 131000
+        },
+        {
+          "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+          "status": 200,
+          "bodyBytes": 8328
+        }
+      ]
+    },
+    {
+      "phase": "cold",
+      "key": "arcade-parent",
+      "gid": "01a0f90d-9ae4-76a9-974d-8085593723d5",
+      "responses": [
+        {
+          "path": "/runtime/content/parent/e50ec5b39187b69a951f93a45dac8d8dc44e0a09cca06d26a722cb5494db26bd/bundle.zip",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200
+        },
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200
+        }
+      ],
+      "blockedRequests": [],
+      "running": true,
+      "runningMs": 3171,
+      "storage": {
+        "usage": 2112190,
+        "quota": 10739530430
+      },
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/parent/e50ec5b39187b69a951f93a45dac8d8dc44e0a09cca06d26a722cb5494db26bd/bundle.zip",
+          "status": 200,
+          "bodyBytes": 2033009
+        },
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200,
+          "bodyBytes": 2005230
+        }
+      ]
+    },
+    {
+      "phase": "reopened",
+      "key": "nes",
+      "gid": "01a0f8e9-9ffe-724f-90bc-4d5621d9c905",
+      "responses": [],
+      "blockedRequests": [
+        "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+        "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes"
+      ],
+      "success": false,
+      "error": "3-D WorldRunner\nFCEUmm · NES / Famicom\n当前场景暂不可存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n错误\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\nPLAYER_RUNTIME_START_TIMEOUT\n游戏内容准备失败\n游戏内容准备失败\n游戏内容准备中\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+      "serverRequests": []
+    },
+    {
+      "phase": "reopened",
+      "key": "fds-bios",
+      "gid": "01a0f934-7584-7b07-8b75-ee190d37cd5d",
+      "responses": [],
+      "blockedRequests": [
+        "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+        "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds"
+      ],
+      "success": false,
+      "error": "Link no Bouken - The Legend of Zelda 2 (Japan)\nFCEUmm · Famicom Disk System\n当前场景暂不可存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n错误\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\nPLAYER_RUNTIME_START_TIMEOUT\n游戏内容准备失败\n游戏内容准备失败\n游戏内容准备中\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+      "serverRequests": []
+    },
+    {
+      "phase": "reopened",
+      "key": "arcade-parent",
+      "gid": "01a0f90d-9ae4-76a9-974d-8085593723d5",
+      "responses": [],
+      "blockedRequests": [
+        "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+        "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip"
+      ],
+      "success": false,
+      "error": "bjtwinp\nFinalBurn Neo · Arcade\n当前场景暂不可存档\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n错误\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制\nPLAYER_RUNTIME_START_TIMEOUT\n游戏内容准备失败\n游戏内容准备失败\n游戏内容准备中\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+      "serverRequests": []
+    }
+  ]
+}

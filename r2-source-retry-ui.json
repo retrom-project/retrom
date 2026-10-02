@@ -1,0 +1,28 @@
+{
+  "text": "R\nRetrom\n复古游戏管理平台\n游戏入库\n导入游戏\n本地扫描\n任务进度\n待审核\n游戏管理\n标签管理\n游戏目录\n用户管理\n运行依赖\nS\nsen\n返回用户侧\n来源准备任务\n\n查看来源准备、运行检查与审核进度。后台不会自动发布游戏，所有候选都由管理员逐项决定。\n\n返回导入历史\n部分需要处理\n服务器文件系统 / data/game/testgame/audit-r2-source-retry\n\n后台准备任务已结束\n\n重试失败条目\n丢弃\n新建游戏导入\n扫描范围\n2\n\n1 个 Collection · 2 项可处理\n\n等待逐项审核\n0\n\n不会自动发布到游戏库\n\n已发布 / 已丢弃 / 已存在\n0 / 0 / 0\n\n保留当前结果与计数\n\n源内容阻断 / 任务失败\n0 / 2\n\n0 个媒体警告\n\n准备与审核结果\n\n后台只准备审核事项；待审核条目必须由管理员逐项决定是否发布。\n\n2 / 2 项\n搜索标题\n结果\n全部结果\n等待处理\n复制内容\n运行检查\n已发布\n待管理员审核\n审核已丢弃\n内容已存在\n集合已跳过\n源文件阻断\n内容阻断\n源文件已变化\n读取失败\n提交失败\n已取消\n媒体警告\nCollection\n全部 Collection\n所选目录\n应用筛选\npong\n\n所选目录 → 专项 wasm4 / wasm4\n\npong.wasm · 内容类型待定\n源文件已清理\n源文件已变化\n查看原因\n—\nsnake\n\n所选目录 → 专项 wasm4 / wasm4\n\nsnake.wasm · 内容类型待定\n源文件已清理\n源文件已变化\n查看原因\n—",
+  "buttons": [
+    {
+      "text": "重试失败条目",
+      "disabled": false
+    },
+    {
+      "text": "丢弃",
+      "disabled": false
+    },
+    {
+      "text": "应用筛选",
+      "disabled": false
+    },
+    {
+      "text": "查看具体原因与处理建议",
+      "disabled": false
+    },
+    {
+      "text": "查看具体原因与处理建议",
+      "disabled": false
+    }
+  ],
+  "retryButtonCount": 1,
+  "enabled": true,
+  "errorText": "R\nRetrom\n复古游戏管理平台\n游戏入库\n导入游戏\n本地扫描\n任务进度\n待审核\n游戏管理\n标签管理\n游戏目录\n用户管理\n运行依赖\nS\nsen\n返回用户侧\n来源准备任务\n\n查看来源准备、运行检查与审核进度。后台不会自动发布游戏，所有候选都由管理员逐项决定。\n\n返回导入历史\n部分需要处理\n服务器文件系统 / data/game/testgame/audit-r2-source-retry\n\n后台准备任务已结束\n\n重试失败条目\n丢弃\n新建游戏导入\n扫描范围\n2\n\n1 个 Collection · 2 项可处理\n\n等待逐项审核\n0\n\n不会自动发布到游戏库\n\n已发布 / 已丢弃 / 已存在\n0 / 0 / 0\n\n保留当前结果与计数\n\n源内容阻断 / 任务失败\n0 / 2\n\n0 个媒体警告\n\n准备与审核结果\n\n后台只准备审核事项；待审核条目必须由管理员逐项决定是否发布。\n\n2 / 2 项\n搜索标题\n结果\n全部结果\n等待处理\n复制内容\n运行检查\n已发布\n待管理员审核\n审核已丢弃\n内容已存在\n集合已跳过\n源文件阻断\n内容阻断\n源文件已变化\n读取失败\n提交失败\n已取消\n媒体警告\nCollection\n全部 Collection\n所选目录\n应用筛选\npong\n\n所选目录 → 专项 wasm4 / wasm4\n\npong.wasm · 内容类型待定\n源文件已清理\n源文件已变化\n查看原因\n—\nsnake\n\n所选目录 → 专项 wasm4 / wasm4\n\nsnake.wasm · 内容类型待定\n源文件已清理\n源文件已变化\n查看原因\n—\n重试任务失败"
+}

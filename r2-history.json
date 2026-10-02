@@ -1,0 +1,74 @@
+[
+  {
+    "route": "/library",
+    "before": {
+      "url": "https://retrom.example.invalid/library?q=World",
+      "q": "World"
+    },
+    "afterRefresh": {
+      "url": "https://retrom.example.invalid/library?q=World",
+      "q": "World"
+    },
+    "destination": "/",
+    "afterBack": {
+      "url": "https://retrom.example.invalid/library",
+      "q": ""
+    },
+    "refreshPreserved": true,
+    "backPreserved": false
+  },
+  {
+    "route": "/favorites",
+    "before": {
+      "url": "https://retrom.example.invalid/favorites?q=World",
+      "q": "World"
+    },
+    "afterRefresh": {
+      "url": "https://retrom.example.invalid/favorites?q=World",
+      "q": "World"
+    },
+    "destination": "/library",
+    "afterBack": {
+      "url": "https://retrom.example.invalid/favorites?q=World",
+      "q": "World"
+    },
+    "refreshPreserved": true,
+    "backPreserved": true
+  },
+  {
+    "route": "/saves",
+    "before": {
+      "url": "https://retrom.example.invalid/saves?q=World",
+      "q": "World"
+    },
+    "afterRefresh": {
+      "url": "https://retrom.example.invalid/saves?q=World",
+      "q": "World"
+    },
+    "destination": "/library",
+    "afterBack": {
+      "url": "https://retrom.example.invalid/saves?q=World",
+      "q": "World"
+    },
+    "refreshPreserved": true,
+    "backPreserved": true
+  },
+  {
+    "route": "/recent",
+    "before": {
+      "url": "https://retrom.example.invalid/recent",
+      "q": "World"
+    },
+    "afterRefresh": {
+      "url": "https://retrom.example.invalid/recent",
+      "q": ""
+    },
+    "destination": "/library",
+    "afterBack": {
+      "url": "https://retrom.example.invalid/recent",
+      "q": ""
+    },
+    "refreshPreserved": false,
+    "backPreserved": false
+  }
+]

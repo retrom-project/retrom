@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "key": "nes-cache-disabled-repeat",
+      "blocked": [],
+      "running": true,
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/3df1682580f20eb677f8f27abca674a6c8625300d23522b62710372c39bbe228/3-D%20Battles%20of%20World%20Runner%2C%20The.nes",
+          "status": 200,
+          "bodyBytes": 131088
+        }
+      ]
+    },
+    {
+      "key": "bios-only-block-after-profile-reopen",
+      "blocked": [
+        "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip",
+        "/runtime/content/bios/cbb48cf3972e1d30aee32acb03225032c62f38816747dbe5f10983e5e1735ab2/bundle.zip"
+      ],
+      "running": false,
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/58f0b5f82028ec2943b5c972483d3b433f5f76aa9a1f7cf7af42dc27e626ec62/Link%20no%20Bouken%20-%20The%20Legend%20of%20Zelda%202%20%28Japan%29.fds",
+          "status": 200,
+          "bodyBytes": 131000
+        }
+      ]
+    },
+    {
+      "key": "parent-only-block-after-profile-reopen",
+      "blocked": [],
+      "running": true,
+      "success": true,
+      "serverRequests": [
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200,
+          "bodyBytes": 0
+        },
+        {
+          "path": "/runtime/content/game/7f5e61bfa6a2a1b62919df1bf5d1ea3b2c0e19c26bf9fd1c0b04d3aaefb9a422/bjtwinp.zip",
+          "status": 200,
+          "bodyBytes": 2005230
+        }
+      ]
+    }
+  ]
+}

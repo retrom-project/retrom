@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "name": "single-unfavorite-has-no-undo-toast",
+      "confirmation": "!\n取消收藏“3-D WorldRunner”？\n\n取消后将不再出现在“我的收藏”中。\n\n保留收藏\n取消收藏",
+      "observations": [
+        {
+          "ms": 50,
+          "undoButtons": 0,
+          "notices": [],
+          "cards": 0
+        },
+        {
+          "ms": 150,
+          "undoButtons": 0,
+          "notices": [],
+          "cards": 0
+        },
+        {
+          "ms": 500,
+          "undoButtons": 0,
+          "notices": [],
+          "cards": 0
+        },
+        {
+          "ms": 1000,
+          "undoButtons": 0,
+          "notices": [],
+          "cards": 0
+        }
+      ],
+      "absent": true,
+      "defect": true
+    },
+    {
+      "name": "detail-unfavorite-undo-control",
+      "success": true
+    },
+    {
+      "name": "browser-history-query-state",
+      "a": {
+        "url": "https://retrom.example.invalid/favorites?q=World",
+        "q": "World",
+        "cards": 1
+      },
+      "b": {
+        "url": "https://retrom.example.invalid/favorites",
+        "q": "",
+        "cards": 3
+      },
+      "success": false
+    },
+    {
+      "name": "client-query-503-then-retry",
+      "error": "locator.innerText: Error: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <div role=\"alert\" class=\"favorite-error\">…</div> aka getByText('无法显示收藏补测模拟暂不可用（AUDIT_503）重试')\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\">我的收藏 · Retrom</div> aka getByText('我的收藏 · Retrom')\n\nCall log:\n  - waiting for getByRole('alert')\n"
+    }
+  ]
+}

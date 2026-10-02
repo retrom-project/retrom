@@ -1,0 +1,127 @@
+{
+  "cases": [
+    {
+      "name": "create-folder-ui",
+      "folderIds": [
+        "01a0fa5c-787c-7b92-b241-08ab3be38691",
+        "01a0fa5c-7aa2-7dbc-acca-318828d41f38"
+      ],
+      "success": true
+    },
+    {
+      "name": "duplicate-folder-error-layout",
+      "before": {
+        "dialog": {
+          "x": 490,
+          "y": 332.40625,
+          "width": 460,
+          "height": 235.171875
+        },
+        "submit": {
+          "x": 822,
+          "y": 503.578125,
+          "width": 108,
+          "height": 44
+        }
+      },
+      "after": {
+        "dialog": {
+          "x": 490,
+          "y": 318.3125,
+          "width": 460,
+          "height": 263.359375
+        },
+        "submit": {
+          "x": 822,
+          "y": 517.671875,
+          "width": 108,
+          "height": 44
+        }
+      },
+      "error": "已经存在同名收藏夹。",
+      "heightDelta": 28.1875,
+      "submitYDelta": 14.09375,
+      "success": true
+    },
+    {
+      "name": "navigation-drag-keyboard-clamp-collapse",
+      "initial": {
+        "x": 1166,
+        "y": 282.1875,
+        "width": 250,
+        "height": 402.1875
+      },
+      "clamped": {
+        "x": 536,
+        "y": 8,
+        "width": 250,
+        "height": 402.1875
+      },
+      "moved": {
+        "x": 556,
+        "y": 28,
+        "width": 250,
+        "height": 402.1875
+      },
+      "collapsed": {
+        "x": 556,
+        "y": 28,
+        "width": 250,
+        "height": 52
+      },
+      "expanded": {
+        "x": 556,
+        "y": 28,
+        "width": 250,
+        "height": 402.1875
+      },
+      "success": true
+    },
+    {
+      "name": "membership-picker-exact-replacement",
+      "favorite": {
+        "favoritedAtMs": 1790906682097,
+        "folderIds": [
+          "01a0fa5c-7aa2-7dbc-acca-318828d41f38"
+        ]
+      },
+      "success": true
+    },
+    {
+      "name": "cancel-confirm-unfavorite-undo",
+      "success": false,
+      "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '撤销', exact: true })\n"
+    },
+    {
+      "name": "query-refresh-back-forward-clear",
+      "first": "https://retrom.example.invalid/favorites?scope=FOLDER&folderId=01a0fa5c-7aa2-7dbc-acca-318828d41f38&q=World",
+      "restored": "World",
+      "sorted": "https://retrom.example.invalid/favorites?scope=FOLDER&folderId=01a0fa5c-7aa2-7dbc-acca-318828d41f38&q=World&sort=TITLE_ASC",
+      "back": "https://retrom.example.invalid/favorites?q=World",
+      "forward": "https://retrom.example.invalid/favorites?scope=FOLDER&folderId=01a0fa5c-7aa2-7dbc-acca-318828d41f38&q=World&sort=TITLE_ASC",
+      "empty": true,
+      "cleared": "https://retrom.example.invalid/favorites?scope=FOLDER&folderId=01a0fa5c-7aa2-7dbc-acca-318828d41f38&sort=TITLE_ASC",
+      "success": false
+    },
+    {
+      "name": "list-read-failure-retry",
+      "success": false,
+      "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '重试', exact: true })\n"
+    },
+    {
+      "name": "stale-folder-version-retains-draft",
+      "mutationStatus": 200,
+      "error": "收藏夹已在其他页面修改；已刷新真实版本，请再次确认。",
+      "draft": "补测 R2 本地草稿",
+      "success": true
+    }
+  ],
+  "errors": [],
+  "restoreOriginal": 200,
+  "remainingFolders": [
+    {
+      "name": "专项收藏夹",
+      "folderId": "01a0f8f8-6586-75e0-95c6-84ae8efbdb3a"
+    }
+  ]
+}

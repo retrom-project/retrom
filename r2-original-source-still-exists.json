@@ -1,0 +1,21 @@
+{
+  "observedAtMs": 1790908272817,
+  "files": [
+    {
+      "name": "pong.wasm",
+      "exists": true,
+      "sizeBytes": 6818,
+      "sha256": "b79058895b708976449c4efd1b4a3e1af738478a99f401f597a00cbe7cab02cd",
+      "permissions": "0o644"
+    },
+    {
+      "name": "snake.wasm",
+      "exists": true,
+      "sizeBytes": 11394,
+      "sha256": "f99dcf9e76d3427020169d78c284f53c9e81d2e5d71c0a648da35fdfd2de9e64",
+      "permissions": "0o644"
+    }
+  ],
+  "serverPlanPayloadState": "RELEASED",
+  "uiBadge": "源文件已清理"
+}
