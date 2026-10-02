@@ -255,7 +255,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMP-008": (
         180,
-        "go test ./internal/jobinput ./internal/service/libraryimport ./internal/persistence/libraryimport ./internal/service/jobs -run 'TestAttachment|TestInterruptedAttachment|TestOldAttachmentWorker|TestMultiDiscAttachmentInputSupportsGenericRetry|TestRetryKeepsFrozenInputs|TestRetryWakesOnly' -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestAttachmentRecoveryAndManualRetryRunFrozenInputToAcceptance$' -count=1 -timeout=60s && go test ./internal/persistence/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/importing -run 'TestSevenZip' -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestImportGroupsSingleArchiveMemberAndReportsEveryFile$' -count=1",
+        "go test ./internal/jobinput ./internal/service/libraryimport ./internal/persistence/libraryimport ./internal/service/jobs -run 'TestAttachment|TestParentAdmissionRetainsReusableUploadAndWorkerUsesAdmittedInput|TestFinishedAttachmentSchedulesOnlyItsOwnInputRelease|TestInterruptedAttachment|TestOldAttachmentWorker|TestMultiDiscAttachmentInputSupportsGenericRetry|TestRetryKeepsFrozenInputs|TestRetryWakesOnly' -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestAttachmentRecoveryAndManualRetryRunFrozenInputToAcceptance$' -count=1 -timeout=60s && go test ./internal/persistence/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/importing -run 'TestSevenZip' -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestImportGroupsSingleArchiveMemberAndReportsEveryFile$' -count=1",
     ),
     "ACC-IMP-009": (
         240,

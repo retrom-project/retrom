@@ -73,18 +73,13 @@ WHERE input.job_id=?
 SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
 attachment.depth,attachment.provider_id,attachment.target_id,
-attachment.dat_version_id,attachment.upload_file_id,
-file.upload_session_id,attachment.original_filename,file.file_record,json_extract(blob.value,
-'$.sha256'),json_extract(blob.value, '$.size_bytes')
+attachment.dat_version_id,attachment.upload_file_id,attachment.original_filename
 FROM review_arcade_parent_attachments attachment
-JOIN import_files file ON file.id=attachment.upload_file_id
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE attachment.job_id=? AND attachment.state='PENDING'
 `, jobID).Scan(
 		&candidate.AttachmentID, &candidate.ItemID, &candidate.DraftID, &candidate.BaseSnapshotID,
 		&candidate.Machine, &candidate.RequiredBy, &candidate.Depth, &candidate.ProviderID, &candidate.TargetID,
-		&candidate.DATID, &candidate.UploadFileID, &candidate.UploadSessionID, &candidate.OriginalName,
-		&candidate.FileRecord, &candidate.BlobSHA, &candidate.BlobSize,
+		&candidate.DATID, &candidate.UploadFileID, &candidate.OriginalName,
 	); err != nil {
 		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, fmt.Errorf(
 			"read claimed arcade parent attachment: %w",
@@ -99,6 +94,8 @@ WHERE attachment.job_id=? AND attachment.state='PENDING'
 		return libraryservice.ArcadeParentAttachmentWorkerClaim{}, libraryservice.ErrInvalid
 	}
 	candidate.ContentPolicyDigest = result.Input.ContentPolicyDigest
+	candidate.UploadSessionID, candidate.FileRecord = result.Input.UploadSessionID, result.Input.FileRecord
+	candidate.BlobSHA, candidate.BlobSize = result.Input.SHA256, result.Input.SizeBytes
 	result.Candidate = candidate
 	return result, nil
 }

@@ -482,7 +482,7 @@ CREATE TABLE "review_arcade_parent_attachments" (
         state='ACCEPTED' AND accepted_file_record IS NULL AND payload_released_at_ms IS NOT NULL),
   CHECK((state IN ('REJECTED','CANCELLED'))=(error_code IS NOT NULL)),
   CHECK((state IN ('ACCEPTED','REJECTED','CANCELLED'))=(finished_at_ms IS NOT NULL)),
-  CHECK(state='PENDING' OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL)
+  CHECK((observed_size_bytes IS NULL)=(observed_sha256 IS NULL))
 );
 
 CREATE TABLE review_preview_bindings (

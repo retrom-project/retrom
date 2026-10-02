@@ -59,7 +59,6 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 		return err
 	}
 	diagnosticsJSON := request.DiagnosticsJSON
-	consumptionID, _ := uuid.NewV7()
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='ACCEPTED',accepted_file_record=?,
@@ -82,22 +81,6 @@ finished_at_ms=?,version=version+1,updated_at_ms=?
 	})
 	if err := requireArcadeParentCommitChange(result, err, "accept attachment"); err != nil {
 		return err
-	}
-	if _, err := recordstore.CreateUploadConsumptions(
-		ctx,
-		transaction,
-		`
-INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
-VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
-	`,
-		consumptionID.String(),
-		request.Candidate.UploadSessionID,
-		request.Candidate.UploadFileID,
-
-		request.Candidate.AttachmentID,
-		request.NowMS,
-	); err != nil {
-		return arcadeParentCommitStoreError("consume parent upload", err)
 	}
 	result, err = recordstore.UpdateReviewItems(ctx, transaction, recordstore.Update{
 		Set: `
@@ -286,31 +269,6 @@ VALUES(?,'IMPORT_ITEM',?,'FAILED',?,?)
 	}
 	if err := transaction.Commit(); err != nil {
 		return arcadeParentCommitStoreError("commit retryable attachment", err)
-	}
-	return nil
-}
-
-func (repository *ArcadeParentCommitRepository) SyncCancellation(
-	ctx context.Context,
-	request libraryservice.ArcadeParentCancellationSync,
-) error {
-	_, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, repository.database, recordstore.Update{
-		Set: `
-state='CANCELLED',error_code='CANCELLED',
-diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-job_id=? AND state='PENDING'
-AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')
-`,
-			Args: []any{request.JobID, request.JobID},
-		},
-		Values: []any{request.NowMS, request.NowMS},
-	})
-	if err != nil {
-		return arcadeParentCommitStoreError("sync attachment cancellation", err)
 	}
 	return nil
 }

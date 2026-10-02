@@ -42,8 +42,21 @@ const (
 	attachmentJobs    = ` FROM jobs job WHERE job.kind IN ('REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE')`
 	attachmentColumns = `SELECT job.id,job.kind,job.scope_id,job.state,COALESCE(job.worker_id,''),
 job.execution_no,job.attempt_count,job.max_attempts,job.version,job.available_at_ms,
-job.leased_until_ms,job.execution_deadline_at_ms`
+job.leased_until_ms,job.execution_deadline_at_ms,job.cancellable,job.error_retryable`
 )
+
+func (records attachmentRecoveryRecords) Current(
+	ctx context.Context, id string,
+) (libraryservice.AttachmentExecution, error) {
+	jobs, err := readAttachmentExecutions(ctx, records.executor, attachmentColumns+attachmentJobs+" AND job.id=?", id)
+	if err != nil {
+		return libraryservice.AttachmentExecution{}, err
+	}
+	if len(jobs) != 1 {
+		return libraryservice.AttachmentExecution{}, libraryservice.ErrInvalid
+	}
+	return jobs[0], nil
+}
 
 func (repository *AttachmentExecutions) Queued(
 	ctx context.Context, now int64,
@@ -79,7 +92,8 @@ func readAttachmentExecutions(
 	for rows.Next() {
 		var job libraryservice.AttachmentExecution
 		if err := rows.Scan(&job.ID, &job.Kind, &job.ScopeID, &job.State, &job.WorkerID, &job.ExecutionNo,
-			&job.Attempt, &job.MaxAttempts, &job.Version, &job.AvailableMS, &job.LeaseMS, &job.DeadlineMS); err != nil {
+			&job.Attempt, &job.MaxAttempts, &job.Version, &job.AvailableMS, &job.LeaseMS, &job.DeadlineMS,
+			&job.Cancellable, &job.Retryable); err != nil {
 			return nil, fmt.Errorf("scan attachment execution: %w", err)
 		}
 		result = append(result, job)
@@ -102,10 +116,16 @@ func (records attachmentRecoveryRecords) Transition(
 		code = &change.Code
 	}
 	result, err := records.executor.ExecContext(ctx, `UPDATE jobs SET state=?,available_at_ms=?,
-worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,error_code=?,error_retryable=?,finished_at_ms=?,
+worker_id=CASE WHEN ?='CANCEL_REQUESTED' THEN worker_id END,
+leased_until_ms=CASE WHEN ?='CANCEL_REQUESTED' THEN leased_until_ms END,
+heartbeat_at_ms=CASE WHEN ?='CANCEL_REQUESTED' THEN heartbeat_at_ms END,
+cancel_requested_at_ms=CASE WHEN ? IN ('CANCEL_REQUESTED','CANCELLED') THEN COALESCE(cancel_requested_at_ms,?)
+ ELSE cancel_requested_at_ms END,
+error_code=?,error_retryable=?,finished_at_ms=?,
 version=version+1,updated_at_ms=? WHERE id=? AND kind=? AND state=? AND execution_no=?
 AND attempt_count=? AND version=? AND COALESCE(worker_id,'')=?`,
-		change.State, change.AvailableMS, code, change.Retryable, finished, change.NowMS,
+		change.State, change.AvailableMS, change.State, change.State, change.State, change.State, change.NowMS,
+		code, change.Retryable, finished, change.NowMS,
 		before.ID, before.Kind, before.State, before.ExecutionNo, before.Attempt, before.Version, before.WorkerID)
 	if err := requireAttachmentChange(result, err, "recover attachment execution"); err != nil {
 		return err
@@ -129,6 +149,7 @@ AND attempt_count=? AND version=? AND COALESCE(worker_id,'')=?`,
 		event, err := json.Marshal(map[string]any{
 			"schemaVersion": 1, "executionNo": before.ExecutionNo, "attempt": before.Attempt,
 			"errorCode": change.Code, "retryAtMs": change.AvailableMS,
+			"reason": change.Reason,
 		})
 		if err != nil {
 			return fmt.Errorf("encode attachment recovery event: %w", err)

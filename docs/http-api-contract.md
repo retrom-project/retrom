@@ -94,6 +94,8 @@ AuthSession cookie 在 HTTP 开发环境名为 `retrom_session`，HTTPS 为 `__H
 
 release 密码分别做 NFC 但不 trim，最少 6 个字符且不超过 128 个 Unicode code point/512 bytes，拒绝控制字符，并拒绝固定 10,000 行常见密码列表以及与用户名、显示名称或 `retrom` 相同的 Unicode case-fold 值。存储使用严格 `ARGON2ID_V1` PHC：`$argon2id$v=19$m=19456,t=2,p=1$<16-byte-salt>$<32-byte-hash>`；最多并行执行 4 个 Argon2 计算。`--mode=test` 自动创建的 `test/test` 是唯一豁免，用户修改密码时必须立即满足 release 规则。
 
+成功登录先从只读连接检查限流，再在创建会话的写事务内复核账户/IP 限流并清除该账户失败记录。密码校验位于事务外；Argon2 参数和限流阈值保持原值。结构化日志分别记录限流读取、凭据读取、密码验证、等待写事务与事务执行耗时，不包含账户、IP、密码或 token。
+
 ### 2.1 初始化、邀请与密码重置
 
 - `POST /api/v1/auth/initialize` 只接受 release+PENDING、同源 Origin、合法用户名/显示名称和确认后的 release 密码。成功原子创建唯一 ADMIN/Profile/Credential、完成 InstanceState、写审计并签发 session；账号或密码校验失败不创建账号或会话，重复/并发初始化冲突。
@@ -690,6 +692,10 @@ BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE
 稳定错误至少包括 root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的 OpenAPI 文件集所定义的唯一机器契约。
 
 `GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。`coreOptions[{id,name}]` 返回当前 scope 下有启用 BIOS 要求的完整核心选项，不受搜索、核心、状态、依赖筛选或分页影响。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
+
+DAT_MACHINE 可安装目录只包含同一 DAT 中已定义且具有完整可校验条目的 machine。未定义依赖保留在 DAT 诊断中，不生成可上传 BIOS 槽位，也不据此认定依赖已满足。
+
+服务器 BIOS 导入条目新增 `CATALOG_INVALID`（目录依据不可用）和 `VALIDATION_FAILED`（内部校验失败）；候选还可用 `INVALID_ARCHIVE` 表示损坏压缩包。`evaluationDetails.stage` 记录 `CATALOG/ARCHIVE/VALIDATION` 阶段，`code` 保留 `DAT_UNAVAILABLE/DAT_MACHINE_UNDEFINED/DAT_ENTRIES_UNVERIFIABLE` 等稳定原因。文件无法读取、压缩包不安全和 DAT 内容不匹配分别诊断；取消和执行超时保留任务控制语义。
 
 ## 12. 统一来源导入与详情 VIDEO API
 

@@ -87,7 +87,7 @@ func TestRecoveryUsesFrozenStaticArchiveRequirements(t *testing.T) {
 		t.Fatalf("static archive: %+v %v", entries, err)
 	}
 	version, machine := "dat", "machine"
-	if _, err := service.ExpectedDATEntries(t.Context(), CatalogItem{DATVersionID: &version, DATMachineName: &machine}); !errors.Is(err, ErrCatalogInvalid) {
+	if _, err := service.ExpectedDATEntries(t.Context(), CatalogItem{DATVersionID: &version, DATMachineName: &machine}); !errors.Is(err, ErrDATEntriesUnverifiable) {
 		t.Fatalf("empty DAT: %v", err)
 	}
 }

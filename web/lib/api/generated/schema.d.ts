@@ -3466,7 +3466,7 @@ export interface components {
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
             /** @enum {string} */
-            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** Format: int64 */
             candidateCount: number;
             /** @enum {string|null} */
@@ -3501,7 +3501,7 @@ export interface components {
             sha256: string | null;
             crc32: string | null;
             /** @enum {string} */
-            state: "DISCOVERED" | "EVALUATING" | "ELIGIBLE" | "INELIGIBLE" | "SELECTED" | "SOURCE_CHANGED" | "READ_FAILED" | "ARCHIVE_UNSAFE" | "DUPLICATE_BYTES";
+            state: "DISCOVERED" | "EVALUATING" | "ELIGIBLE" | "INELIGIBLE" | "SELECTED" | "SOURCE_CHANGED" | "READ_FAILED" | "ARCHIVE_UNSAFE" | "INVALID_ARCHIVE" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "DUPLICATE_BYTES";
             /** Format: int64 */
             rankOrdinal: number | null;
             notSelectedReason: string | null;

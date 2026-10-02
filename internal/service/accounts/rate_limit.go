@@ -50,9 +50,17 @@ func (limiter *Limiter) key(subject RateLimitSubject) RateLimitKey {
 
 func (limiter *Limiter) Check(ctx context.Context, subjects ...RateLimitSubject) error {
 	now := limiter.now().UnixMilli()
-	maximum := 0
+	keys := make([]RateLimitKey, 0, len(subjects))
 	for _, subject := range subjects {
-		value, found, err := limiter.repository.Read(ctx, limiter.key(subject))
+		keys = append(keys, limiter.key(subject))
+	}
+	return checkLoginLimits(ctx, limiter.repository, keys, now)
+}
+
+func checkLoginLimits(ctx context.Context, records RateLimitReader, keys []RateLimitKey, now int64) error {
+	maximum := 0
+	for _, key := range keys {
+		value, found, err := records.Read(ctx, key)
 		if err != nil {
 			return fmt.Errorf("read authentication rate limit: %w", err)
 		}
@@ -115,13 +123,6 @@ func (limiter *Limiter) record(
 		return retryAfterSeconds(*value.BlockedUntil, now), nil
 	}
 	return 0, nil
-}
-
-func (limiter *Limiter) Clear(ctx context.Context, subject RateLimitSubject) error {
-	if err := limiter.repository.Clear(ctx, limiter.key(subject)); err != nil {
-		return fmt.Errorf("clear authentication bucket: %w", err)
-	}
-	return nil
 }
 
 func limitedError(retry int) error {

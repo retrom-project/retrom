@@ -206,7 +206,8 @@ func terminalCounts(counts map[string]int64) TerminalCounts {
 		SkippedNotBetter: counts["SKIPPED_NOT_BETTER"],
 		SameBytes:        counts["ALREADY_SAME_BYTES"],
 		Failed: counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] +
-			counts["READ_FAILED"] + counts["INVALID_ARCHIVE"] + counts["COMMIT_FAILED"],
+			counts["READ_FAILED"] + counts["INVALID_ARCHIVE"] + counts["COMMIT_FAILED"] +
+			counts["CATALOG_INVALID"] + counts["VALIDATION_FAILED"],
 		Cancelled: counts["CANCELLED"],
 	}
 }

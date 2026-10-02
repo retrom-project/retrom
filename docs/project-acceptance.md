@@ -680,7 +680,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选。重新配置无需再次上传；内部 UploadFile 可读取原输入，新的 ImportItem 准备阶段独立复制文件，保留相同 SHA-256，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、文件所有权、lease/attempt 和事务时长摘要。
 
-- 补传恢复补充：Parent 与多盘输入可走通用 Retry，保留冻结业务输入并新建 execution 身份；租约过期后同 execution 有界恢复且截止时间不延长；attempt/deadline 用尽后进入可手动重试失败；取消只收口取消；旧 worker 不得续租、写结果或追加事件，事务失败不留下局部领域状态。
+- 补传恢复补充：Parent 与多盘输入可走通用 Retry，保留冻结业务输入并新建 execution 身份；租约过期后同 execution 有界恢复且截止时间不延长；attempt/deadline 用尽后进入可手动重试失败；取消只收口取消；排队和可重试失败附件即使尚无 size/hash 观测也能原子取消，运行中请求取消保留当前 worker 租约，陈旧版本拒绝；旧 worker 不得续租、写结果或追加事件，事务失败不留下局部领域状态。Parent 在受理时取得独立上传消费，同一上传可被多个消费者复用；释放其他消费者不删除该输入，worker 在上传投影清空后仍使用受理输入；输入不可读也提交 attempt/deadline。接受、拒绝和取消后仅调度本附件消费的释放，重复恢复不重复排队，可重试失败保留输入。
 
 ### ACC-IMP-009：全局快速审批、逐项原子性与恢复
 
@@ -746,7 +746,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-004`。
 - 流程：固定 source 覆盖 STATIC exact、大小相同重命名、同名错误 hash、大文件 fallback，以及两个 Arcade Core 的同名 ZIP、完整/不一致/缺 entry；同一 bytes 同时关联两个 Requirement。执行完整发现、排序、最终复验和安装。
-- 通过标准：完整 hash 永远优先于 size/name，fallback 固定为 warning；DAT 安全且 launchable、matched/aliased 更优者获胜，非逻辑 ZIP 不被展开。独立文件存储按 SHA-256 去重，但 Installation、Candidate、ArchiveEntry 与结果按 Requirement/Provider Target 隔离；选择和未选原因稳定。
+- 通过标准：完整 hash 永远优先于 size/name，fallback 固定为 warning；DAT 安全且 launchable、matched/aliased 更优者获胜，非逻辑 ZIP 不被展开。独立文件存储按 SHA-256 去重，但 Installation、Candidate、ArchiveEntry 与结果按 Requirement/Provider Target 隔离；选择和未选原因稳定。DAT 槽位必须有同版本已定义 machine 和完整可校验条目；只有未解析依赖关系时保留 DAT 原事实且不生成槽位。有效 ZIP 的 DAT 缺失、未定义 machine 或空条目返回目录诊断，不能变成读取失败或不安全归档；损坏、文件 I/O、安全限制与内部校验故障各自保留原因，取消和超时保持任务控制语义。没有匹配证据时不显示大小推测。
 - 证据：候选 rank、hash/DAT count、独立文件存储/Installation 查询和结果投影。
 
 ### ACC-BIOS-005：覆盖防降级、漂移与原子审计

@@ -11,20 +11,23 @@ import (
 )
 
 type (
-	RateLimits       struct{ database dbapi.DB }
+	RateLimits       struct{ reader, writer dbapi.DB }
 	rateLimitRecords struct{ executor dbapi.Executor }
 )
 
-func NewRateLimits(database dbapi.DB) *RateLimits { return &RateLimits{database} }
+func NewRateLimits(reader, writer dbapi.DB) *RateLimits {
+	return &RateLimits{reader: reader, writer: writer}
+}
+
 func (repository *RateLimits) Read(
 	ctx context.Context,
 	key accounts.RateLimitKey,
 ) (accounts.RateLimitBucket, bool, error) {
-	return (rateLimitRecords{repository.database}).Read(ctx, key)
+	return (rateLimitRecords{repository.reader}).Read(ctx, key)
 }
 
-func (repository *RateLimits) Clear(ctx context.Context, key accounts.RateLimitKey) error {
-	_, err := repository.database.ExecContext(
+func (records rateLimitRecords) Clear(ctx context.Context, key accounts.RateLimitKey) error {
+	_, err := records.executor.ExecContext(
 		ctx,
 		`DELETE FROM auth_rate_limits WHERE scope=? AND subject_hash=?`,
 		key.Scope,
@@ -37,7 +40,7 @@ func (repository *RateLimits) Clear(ctx context.Context, key accounts.RateLimitK
 }
 
 func (repository *RateLimits) WithWrite(ctx context.Context, work func(accounts.RateLimitRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin authentication rate limits: %w", err)
 	}

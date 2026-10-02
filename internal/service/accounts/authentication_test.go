@@ -17,6 +17,7 @@ type authMemory struct {
 	readError, lateError error
 	writeCalls           int
 	duringWrite          func()
+	limits               *limitMemory
 }
 
 func (memory *authMemory) Credential(context.Context, string) (LoginCredential, bool, error) {
@@ -32,10 +33,47 @@ func (memory *authMemory) WithWrite(_ context.Context, work func(AuthScope) erro
 	if memory.duringWrite != nil {
 		memory.duringWrite()
 	}
-	if err := work(AuthScope{Read: memory, Write: memory}); err != nil {
+	if err := work(AuthScope{Read: memory, Write: memory, Limits: memory.limits}); err != nil {
 		return err
 	}
 	return memory.lateError
+}
+
+func TestLoginRechecksLimitsAfterWaitingForWriter(t *testing.T) {
+	key := RateLimitKey{Scope: "LOGIN_ACCOUNT"}
+	limits := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}}
+	memory := &authMemory{found: true, credential: LoginCredential{Status: "ENABLED"}, limits: limits}
+	memory.duringWrite = func() {
+		until := int64(200)
+		limits.values[key] = RateLimitBucket{Key: key, BlockedUntil: &until}
+	}
+	service := NewAuthentication(memory, &authVerifier{}, func() (SessionMaterial, error) {
+		return SessionMaterial{ID: "session"}, nil
+	}, "dummy", func() time.Time { return time.UnixMilli(100) })
+	session, err := service.login(t.Context(), "alice", "password", []RateLimitKey{key}, &loginTiming{})
+	if !errors.Is(err, ErrRateLimited) || memory.committed.ID != "" || session.CookieToken != "" || limits.cleared.Scope != "" {
+		t.Fatalf("concurrent block bypassed: session=%+v committed=%+v cleared=%+v err=%v", session, memory.committed, limits.cleared, err)
+	}
+}
+
+func TestSuccessfulLoginClearsOnlyAccountLimitInsideSessionWrite(t *testing.T) {
+	limits := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}}
+	memory := &authMemory{found: true, credential: LoginCredential{Status: "ENABLED"}, limits: limits}
+	now := func() time.Time { return time.UnixMilli(100) }
+	authentication := NewAuthentication(memory, &authVerifier{}, func() (SessionMaterial, error) {
+		return SessionMaterial{ID: "session", Token: base64.RawURLEncoding.EncodeToString(make([]byte, 32))}, nil
+	}, "dummy", now)
+	service := &Service{modules: Modules{
+		Authentication: authentication, Limiter: NewLimiter(limits, limitHasher{}, now),
+	}}
+	if _, err := service.LoginRateLimited(t.Context(), "alice", "password", "192.0.2.1"); err != nil {
+		t.Fatal(err)
+	}
+	if memory.writeCalls != 1 || memory.committed.ID != "session" ||
+		limits.cleared.Scope != "LOGIN_ACCOUNT" ||
+		limits.cleared.Digest != (limitHasher{}).RateLimitSubject("LOGIN_ACCOUNT", "alice") {
+		t.Fatalf("login scopes: writes=%d session=%s clear=%+v", memory.writeCalls, memory.committed.ID, limits.cleared)
+	}
 }
 
 func (memory *authMemory) Login(_ context.Context, _ LoginCredential, value SessionRecord) error {

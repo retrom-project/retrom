@@ -70,6 +70,10 @@ Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照与审核�
 
 `review_arcade_parent_attachments` 与 `review_multidisc_attachments` 只保存业务决定 `PENDING/ACCEPTED/REJECTED/CANCELLED`；排队、租约、尝试次数、execution deadline 与可重试失败均以关联 Job 为唯一事实源。`PENDING` 的部分唯一索引保留每类补传预约，手动 Retry 无需同步另一套业务执行状态。当前 clean schema 不兼容旧 Attachment 执行状态和裸业务输入快照；开发库通过精确 PFB ID 的 `pfb-data-reset` 归档重建，不回填旧数据。
 
+Parent 补传在受理事务内建立独立的 `upload_consumptions`，并把上传 session、FileRecord、SHA-256 与大小写入现有 Job input。一个上传文件允许多个消费者；worker 不再从可释放的 `import_files` 投影恢复输入。读取输入失败仍消耗已提交的 attempt，并受同一 execution deadline 约束。接受后先有审核目录独立副本；接受、拒绝、取消的消费记录由恢复扫描通过既有 `OWNER_CLEANUP` 释放，可重试失败保留输入。
+
+附件来源引用与实际观测互相独立：未读取文件也可取消，观测大小和 hash 同时有值或同时为空。排队/可重试失败的取消在 libraryimport 事务内同步 Job 与 Attachment；运行中先请求取消，worker 或过期租约恢复负责最终收敛，HTTP 不再补写附件状态。
+
 来源快照是不可变的输入证据，不是业务版本树：不分配 revision 序号；每个 Item 最多一份 `created_by=IDENTIFICATION` 初始来源，当前来源只由 `ReviewDraft.effective_source_snapshot_id` 选择，不按创建时间或最大序号猜测。
 
 Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。

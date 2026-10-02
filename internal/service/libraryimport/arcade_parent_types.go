@@ -53,6 +53,10 @@ type ArcadeParentAttachmentInput struct {
 	ContentPolicyDigest  string `json:"contentPolicyDigest"`
 	DATVersionID         string `json:"datVersionId"`
 	UploadFileID         string `json:"uploadFileId"`
+	UploadSessionID      string `json:"uploadSessionId"`
+	FileRecord           string `json:"fileRecord"`
+	SHA256               string `json:"sha256"`
+	SizeBytes            int64  `json:"sizeBytes"`
 }
 
 type ArcadeParentAttachmentWrite struct {
@@ -133,5 +137,6 @@ func ValidArcadeParentAttachmentInput(input ArcadeParentAttachmentInput) bool {
 	return input.SchemaVersion == 1 && input.AttachmentID != "" && input.ImportItemID != "" &&
 		input.ReviewDraftID != "" && input.BaseSourceSnapshotID != "" && input.DependencyMachine != "" &&
 		input.ProviderID != "" && input.TargetID != "" && len(input.ContentPolicyDigest) == 64 &&
-		input.DATVersionID != "" && input.UploadFileID != ""
+		input.DATVersionID != "" && input.UploadFileID != "" && input.UploadSessionID != "" &&
+		input.FileRecord != "" && len(input.SHA256) == 64 && input.SizeBytes >= 0
 }

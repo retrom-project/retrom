@@ -71,18 +71,6 @@ func (service *MultiDiscAttachmentTerminals) Retry(
 	return MultiDiscAttachmentRetryResult{}, nil
 }
 
-func (service *MultiDiscAttachmentTerminals) SyncCancellation(
-	ctx context.Context, jobID string,
-) error {
-	if jobID == "" {
-		return ErrInvalid
-	}
-	if err := service.repository.SyncCancellation(ctx, jobID, service.now().UnixMilli()); err != nil {
-		return fmt.Errorf("sync multi-disc attachment cancellation: %w", err)
-	}
-	return nil
-}
-
 func (service *MultiDiscAttachmentTerminals) FinishCancellation(
 	ctx context.Context, request MultiDiscAttachmentCancellationRequest,
 ) (bool, error) {

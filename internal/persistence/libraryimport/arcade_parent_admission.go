@@ -195,6 +195,14 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 `, write.JobID, write.ItemID, write.NowMS); err != nil {
 		return fmt.Errorf("record arcade parent queue event: %w", err)
 	}
+	// Admission and cleanup serialize on this transaction. Every accepted
+	// consumer holds the upload until its review owner releases it.
+	if _, err := recordstore.CreateUploadConsumptions(ctx, records.executor, `
+INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
+VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
+`, write.AttachmentID, write.Input.UploadSessionID, write.UploadID, write.AttachmentID, write.NowMS); err != nil {
+		return fmt.Errorf("retain parent upload input: %w", err)
+	}
 	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
 		Set: `review_version=review_version+1,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{

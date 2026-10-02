@@ -3,6 +3,7 @@ package datindex
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"retrom/internal/cleanup"
@@ -35,6 +36,7 @@ func (store Records) MachineNames(ctx context.Context, datID string) ([]string, 
 	rows, err := store.executor.QueryContext(
 		ctx,
 		`
+SELECT candidate.machine_name FROM (
 SELECT machine_name
 FROM dat_machines
 WHERE dat_version_id=?
@@ -45,8 +47,11 @@ WHERE dat_version_id=?
 AND romof IS NOT NULL
 AND romof!=COALESCE(cloneof,
 '')
-ORDER BY 1
+) candidate JOIN dat_machines defined ON defined.dat_version_id=?
+AND defined.machine_name=candidate.machine_name
+ORDER BY candidate.machine_name
 `,
+		datID,
 		datID,
 		datID,
 	)
@@ -146,7 +151,11 @@ ON CONFLICT(provider_id,target_id,logical_name) DO UPDATE SET
 }
 
 func (store Records) DisableStale(ctx context.Context, input service.Retirement) error {
-	_, err := recordstore.UpdateBiosRequirements(ctx, store.executor, recordstore.Update{
+	machines, err := json.Marshal(input.Machines)
+	if err != nil {
+		return fmt.Errorf("encode installable DAT machines: %w", err)
+	}
+	_, err = recordstore.UpdateBiosRequirements(ctx, store.executor, recordstore.Update{
 		Set: `
 enabled=0,
 version=version+1,
@@ -157,9 +166,9 @@ updated_at_ms=?
 provider_id=? AND target_id=?
 AND source_kind='DAT_MACHINE'
 AND enabled=1
-AND source_version!=?
+AND (source_version!=? OR dat_machine_name NOT IN (SELECT value FROM json_each(?)))
 `,
-			Args: []any{input.ProviderID, input.TargetID, input.CurrentVersionID},
+			Args: []any{input.ProviderID, input.TargetID, input.CurrentVersionID, string(machines)},
 		},
 		Values: []any{input.AtMS},
 	})

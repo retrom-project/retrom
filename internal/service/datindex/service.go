@@ -40,6 +40,7 @@ type Requirement struct {
 type Retirement struct {
 	ProviderID, TargetID, CurrentVersionID string
 	AtMS                                   int64
+	Machines                               []string
 }
 
 func SyncRequirements(ctx context.Context, records Records, datID string, now time.Time) error {
@@ -51,10 +52,14 @@ func SyncRequirements(ctx context.Context, records Records, datID string, now ti
 	if err != nil {
 		return fmt.Errorf("datindex/read machines: %w", err)
 	}
+	installable := make([]string, 0, len(machines))
 	for _, machine := range machines {
 		entries, err := records.RequiredEntries(ctx, datID, machine)
 		if err != nil {
 			return fmt.Errorf("datindex/read requirement entries: %w", err)
+		}
+		if !verifiableEntries(entries) {
+			continue
 		}
 		requirement, err := buildRequirement(definition, datID, machine, entries, now.UnixMilli())
 		if err != nil {
@@ -63,14 +68,27 @@ func SyncRequirements(ctx context.Context, records Records, datID string, now ti
 		if err := records.UpsertRequirement(ctx, requirement); err != nil {
 			return fmt.Errorf("datindex/sync requirement: %w", err)
 		}
+		installable = append(installable, machine)
 	}
 	if err := records.DisableStale(ctx, Retirement{
 		ProviderID: definition.ProviderID, TargetID: definition.TargetID,
-		CurrentVersionID: datID, AtMS: now.UnixMilli(),
+		CurrentVersionID: datID, AtMS: now.UnixMilli(), Machines: installable,
 	}); err != nil {
 		return fmt.Errorf("datindex/retire requirements: %w", err)
 	}
 	return nil
+}
+
+func verifiableEntries(entries []Entry) bool {
+	if len(entries) == 0 {
+		return false
+	}
+	for _, entry := range entries {
+		if (entry.CRC32 == nil || *entry.CRC32 == "") && (entry.SHA1 == nil || *entry.SHA1 == "") {
+			return false
+		}
+	}
+	return true
 }
 
 func buildRequirement(definition Definition, datID, machine string, entries []Entry, now int64) (Requirement, error) {

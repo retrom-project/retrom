@@ -27,12 +27,11 @@ func runWorkerClaim[T any](
 	if err := claimRecords(ctx, tx, jobID, workerID, now); err != nil {
 		return zero, err
 	}
-	claim, err := readClaim(ctx, tx, jobID, workerID)
-	if err != nil {
-		return zero, err
-	}
+	// A broken input must still consume an attempt. Recovery owns the lease
+	// and deadline even when the worker cannot construct its input.
+	claim, readErr := readClaim(ctx, tx, jobID, workerID)
 	if err := tx.Commit(); err != nil {
 		return zero, fmt.Errorf("commit %s claim: %w", name, err)
 	}
-	return claim, nil
+	return claim, readErr
 }

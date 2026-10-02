@@ -134,14 +134,6 @@ func (service *Service) finishRetryableParentAttachment(
 	cleanup.Error("finish retryable parent attachment", err)
 }
 
-func (service *Service) SyncParentAttachmentCancellation(ctx context.Context, jobID string) {
-	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
-	err := repository.SyncCancellation(ctx, libraryservice.ArcadeParentCancellationSync{
-		JobID: jobID, NowMS: service.now().UnixMilli(),
-	})
-	cleanup.Error("sync parent attachment cancellation", err)
-}
-
 func (service *Service) finishParentAttachmentCancellation(
 	ctx context.Context,
 	candidate parentAttachmentCandidate,

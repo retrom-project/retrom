@@ -462,6 +462,8 @@ components:
             - ALREADY_SAME_BYTES
             - SOURCE_CHANGED
             - CATALOG_CHANGED
+            - CATALOG_INVALID
+            - VALIDATION_FAILED
             - INVALID_ARCHIVE
             - READ_FAILED
             - COMMIT_FAILED
@@ -587,6 +589,9 @@ components:
             - SOURCE_CHANGED
             - READ_FAILED
             - ARCHIVE_UNSAFE
+            - INVALID_ARCHIVE
+            - CATALOG_INVALID
+            - VALIDATION_FAILED
             - DUPLICATE_BYTES
         rankOrdinal:
           type: integer

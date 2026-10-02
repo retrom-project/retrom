@@ -330,6 +330,8 @@ func (setup *parentAttachmentSetup) input(attachmentID string) parentAttachmentI
 		DependencyMachine: setup.dependency.Machine, ProviderID: setup.providerID,
 		TargetID: setup.runtimeTargetID, ContentPolicyDigest: setup.contentPolicy.DigestFor("SINGLE_FILE"),
 		DATVersionID: setup.activeDATID, UploadFileID: setup.request.UploadFileID,
+		UploadSessionID: setup.uploadSessionID, FileRecord: setup.fileRecord,
+		SHA256: setup.blobSHA, SizeBytes: setup.blobSize,
 	}
 }
 
