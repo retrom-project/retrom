@@ -1,0 +1,56 @@
+{
+  "observedAtMs": 1790965715312,
+  "jobs": [
+    {
+      "id": "01a0fdd1-b135-759f-988a-8c43d0e4cae3",
+      "scope_id": "01a0fdd1-b135-759c-925b-f1c893c1e99f",
+      "kind": "IMPORT_GROUP",
+      "state": "SUCCEEDED",
+      "attempt_count": 1,
+      "created_at_ms": 1790964773173,
+      "execution_started_at_ms": 1790965909379,
+      "finished_at_ms": 1790965909711,
+      "queueWaitMs": 1136206,
+      "executionMs": 332
+    },
+    {
+      "id": "01a0fdd0-87e8-7f01-9f1e-a929d8d0d42d",
+      "scope_id": "01a0fdd0-87e8-7efe-98c1-0d09c7e14b15",
+      "kind": "IMPORT_GROUP",
+      "state": "SUCCEEDED",
+      "attempt_count": 1,
+      "created_at_ms": 1790964697064,
+      "execution_started_at_ms": 1790965130525,
+      "finished_at_ms": 1790965908798,
+      "queueWaitMs": 433461,
+      "executionMs": 778273
+    },
+    {
+      "id": "01a0fdd0-1a5f-7d23-b0ed-bc1778c27b08",
+      "scope_id": "01a0fdd0-1a5f-7d1c-b7d0-4d128c3ed239",
+      "kind": "IMPORT_GROUP",
+      "state": "SUCCEEDED",
+      "attempt_count": 1,
+      "created_at_ms": 1790964669023,
+      "execution_started_at_ms": 1790964669365,
+      "finished_at_ms": 1790965129729,
+      "queueWaitMs": 342,
+      "executionMs": 460364
+    }
+  ],
+  "finishedObservationAtMs": 1790965982095,
+  "smallInputBytes": 6818,
+  "smallInput": "pong.wasm",
+  "apiStateBeforeClaim": "QUEUED",
+  "attemptCountBeforeClaim": 0,
+  "largeInputs": [
+    {
+      "kind": "RPG Maker MV",
+      "sourceZipBytes": 552740897
+    },
+    {
+      "kind": "RPG Maker MZ",
+      "sourceZipBytes": 616517402
+    }
+  ]
+}
