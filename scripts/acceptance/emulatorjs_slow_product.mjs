@@ -5,7 +5,7 @@ import {chromium, expect} from "../../web/node_modules/@playwright/test/index.mj
 import {fantasyClient, launchCart, saveCart} from "./fantasy_product_client.mjs";
 import {emulatorjsSlowProxy} from "./emulatorjs_slow_proxy.mjs";
 import {exitContentIOPlayer} from "./content_io_player_exit.mjs";
-import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {verifyEmulatorJsStartupFailures} from "./emulatorjs_startup_failures.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/emulatorjs-slow");
@@ -21,7 +21,7 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   for (const core of ["fbneo", "mame2003"]) {await verify(core, input[core]);}
-  await failureAndCancel(input.fbneo);
+  Object.assign(report, await verifyEmulatorJsStartupFailures({browser, base, input: input.fbneo, screenshots}));
   report.status = "PASS";
 } catch (error) {report.error = error.message; process.exitCode = 1;}
 finally {await browser?.close(); await flush(); console.log(JSON.stringify({status: report.status, error: report.error}));}
@@ -82,43 +82,4 @@ function checkpoint(page) {
     if (!runtime || !["RUNNING", "PAUSED"].includes(runtime.getState())) {throw Error("EJS_SLOW_RUNTIME_NOT_READY");}
     return runtime.checkpoint();
   });
-}
-
-async function failureAndCancel(input) {
-  const proxy = await emulatorjsSlowProxy(base); proxy.stall(true);
-  const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
-  try {
-    const client = await fantasyClient(context, base), page = await context.newPage();
-    const launch = await launchCart(client, input.gameId);
-    await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded"});
-    await expect(page.getByText("资源下载已停止推进，请检查网络后重试。", {exact: true})).toBeVisible({timeout: 40000});
-    await expect(page.getByRole("button", {name: "重试启动"})).toBeVisible();
-    const session = await context.newCDPSession(page);
-    for (const [name, width, height, deviceScaleFactor] of [["phone", 390, 844, 1], ["4k", 2560, 1440, 1.5]]) {
-      await session.send("Emulation.setDeviceMetricsOverride", {width, height, deviceScaleFactor, mobile: false});
-      await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio])).toEqual([width, height, deviceScaleFactor]);
-      const capture = await session.send("Page.captureScreenshot", {format: "png", fromSurface: true, captureBeyondViewport: false});
-      const bytes = Buffer.from(capture.data, "base64");
-      assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], [width * deviceScaleFactor, height * deviceScaleFactor]);
-      await writeFile(join(screenshots, `${name}-startup-idle.png`), bytes);
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    }
-    await session.detach(); report.idleFailure = true;
-    const second = await launchCart(client, input.gameId);
-    await page.goto(base + second.playUrl, {waitUntil: "domcontentloaded"});
-    await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(1);
-    await expect.poll(() => proxy.requests[1].bytes, {timeout: 10000}).toBeGreaterThan(0);
-    proxy.disconnect();
-    await expect(page.getByText("资源下载失败，请检查网络后重试。", {exact: true})).toBeVisible({timeout: 5000});
-    report.networkFailure = true;
-    const third = await launchCart(client, input.gameId);
-    await page.goto(base + third.playUrl, {waitUntil: "domcontentloaded"});
-    await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(2);
-    const started = performance.now(); await revealPreviewToolbar(page);
-    await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
-    await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
-    await page.waitForURL(base + `/games/${input.gameId}`);
-    report.cancelMs = performance.now() - started; assert.ok(report.cancelMs < 5000);
-    await expect.poll(() => proxy.requests.every(row => row.closed), {timeout: 5000}).toBe(true);
-  } finally {await context.close(); await proxy.close();}
 }
