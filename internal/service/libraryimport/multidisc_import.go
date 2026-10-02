@@ -12,10 +12,10 @@ import (
 
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
+	contentprepare "retrom/internal/content/prepare"
 	contentprofile "retrom/internal/content/profile"
 	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/filestore"
-	"retrom/internal/importing"
 	"retrom/internal/multidisc"
 )
 
@@ -32,9 +32,9 @@ func (service *ImportPreparation) PrepareImportFiles(
 	if platformID == "dos" {
 		dispositions, groups, archives = service.PrepareDOSFiles(ctx, sourceType, files)
 	} else {
-		profile, exists := contentprofile.ByPlatform(platformID)
+		_, exists := contentprofile.ByPlatform(platformID)
 		if exists {
-			dispositions, groups, archives = service.prepareProfileFiles(ctx, platformID, profile, files)
+			dispositions, groups, archives = service.prepareProfileFiles(ctx, platformID, files)
 		} else {
 			dispositions = prepareUnsupportedPlatformFiles(files)
 		}
@@ -62,14 +62,13 @@ func prepareUnsupportedPlatformFiles(
 func (service *ImportPreparation) prepareProfileFiles(
 	ctx context.Context,
 	platformID string,
-	profile contentprofile.Profile,
 	files []ImportFile,
 ) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive) {
 	dispositions := make([]PreparedDisposition, 0, len(files))
 	groups := make([]PreparedGroup, 0, len(files))
 	archives := make([]PreparedArchive, 0)
 	for _, file := range files {
-		disposition, group, archive := service.prepareProfileFile(ctx, platformID, profile, file)
+		disposition, group, archive := service.prepareProfileFile(ctx, platformID, file)
 		dispositions = append(dispositions, disposition)
 		if group != nil {
 			groups = append(groups, *group)
@@ -84,41 +83,32 @@ func (service *ImportPreparation) prepareProfileFiles(
 func (service *ImportPreparation) prepareProfileFile(
 	ctx context.Context,
 	platformID string,
-	profile contentprofile.Profile,
 	file ImportFile,
 ) (PreparedDisposition, *PreparedGroup, *PreparedArchive) {
 	if knownSidecar(file.Path) {
 		return ignoredDisposition(file), nil, nil
 	}
-	if contentprofile.AcceptsRaw(platformID, file.Path) {
+	result, err := contentprepare.New(service.blobs).Single(ctx, platformID, contentprepare.File{
+		LogicalName: file.Path, Record: file.FileRecord, Size: file.Size,
+	})
+	if err != nil {
+		var invalid *contentprepare.Invalid
+		if errors.As(err, &invalid) {
+			return rejectedDisposition(file, invalid.Code), nil, nil
+		}
+		return rejectedDisposition(file, ArchiveReason(err)), nil, nil
+	}
+	if result.Selected == nil {
 		return sourceDisposition(file), singleSourceGroup(file, filepath.Base(file.Path)), nil
 	}
-	archiveFormat, reason := profileArchiveFormat(file.Path)
-	if reason != "" || service.blobs == nil ||
-		profile.ArchivePolicy != contentprofile.ArchiveSinglePrimary ||
-		!contentprofile.AcceptsArchive(platformID, archiveFormat) {
-		return rejectedDisposition(file, reasonOrUnsupported(reason)), nil, nil
-	}
-	entries, err := service.scanProfileArchive(ctx, file, archiveFormat)
-	if err != nil {
-		return rejectedDisposition(file, ArchiveReason(err)), nil, nil
-	}
-	candidate, err := contentprofile.SelectArchivePrimary(platformID, entries)
-	if err != nil {
-		return rejectedDisposition(file, archiveSelectionReason(err)), nil, nil
-	}
-	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.FileRecord), candidate)
-	if err != nil {
-		return rejectedDisposition(file, ArchiveReason(err)), nil, nil
-	}
-	ordinal := candidate.Ordinal
+	ordinal := result.Selected.Ordinal
 	group := &PreparedGroup{Sources: []PreparedSource{{
-		File: file, Role: "CONTENT", LogicalName: filepath.Base(candidate.NormalizedPath),
+		File: file, Role: "CONTENT", LogicalName: result.File.LogicalName,
 		ArchiveFileRecord: file.FileRecord, ArchiveOrdinal: &ordinal,
 	}}}
 	archive := &PreparedArchive{
-		FileRecord: file.FileRecord, Entries: entries,
-		Materialized: map[int]filestore.Metadata{ordinal: selected},
+		FileRecord: file.FileRecord, Entries: result.ArchiveEntries,
+		Materialized: map[int]filestore.Metadata{ordinal: *result.Materialized},
 	}
 	return sourceDisposition(file), group, archive
 }
@@ -141,43 +131,6 @@ func singleSourceGroup(file ImportFile, logicalName string) *PreparedGroup {
 
 func profileArchiveFormat(filePath string) (contentprofile.ArchiveFormat, string) {
 	return ImportArchiveFormat(filePath)
-}
-
-func reasonOrUnsupported(reason string) string {
-	if reason == "" {
-		return "UNSUPPORTED_CONTENT_FORMAT"
-	}
-	return reason
-}
-
-func archiveSelectionReason(err error) string {
-	switch {
-	case errors.Is(err, contentprofile.ErrNoSupportedContent):
-		return "NO_SUPPORTED_CONTENT"
-	case errors.Is(err, contentprofile.ErrAmbiguousPrimaryContent):
-		return "AMBIGUOUS_PRIMARY_CONTENT"
-	default:
-		return ArchiveReason(err)
-	}
-}
-
-func (service *ImportPreparation) scanProfileArchive(
-	ctx context.Context,
-	file ImportFile,
-	archiveFormat contentprofile.ArchiveFormat,
-) ([]importing.ArchiveEntry, error) {
-	archivePath := service.blobs.Path(file.FileRecord)
-	var entries []importing.ArchiveEntry
-	var err error
-	if archiveFormat == contentprofile.ArchiveZIP {
-		entries, err = importing.ScanZIP(ctx, archivePath, importing.DefaultArchiveLimits())
-	} else {
-		entries, err = importing.ScanSevenZip(ctx, archivePath, importing.DefaultArchiveLimits())
-	}
-	if err != nil {
-		return nil, fmt.Errorf("libraryimport/service: %w", err)
-	}
-	return entries, nil
 }
 
 func (service *ImportPreparation) readMultiDiscBlob(file ImportFile, maximum int64) ([]byte, error) {

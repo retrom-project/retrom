@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"io"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
 	contentmanifest "retrom/internal/content/manifest"
-	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
 )
@@ -27,33 +25,7 @@ func (service *Service) prepareReplacement(
 		return service.prepareRPGMakerReplacement(ctx, snapshot, files)
 	}
 	if snapshot.ContentMode != contentcapability.ModeMultiDisc {
-		if len(files) == 0 || snapshot.PlatformID != "dos" && len(files) != 1 ||
-			snapshot.PlatformID == "arcade" && !strings.EqualFold(filepath.Ext(files[0].LogicalName), ".zip") {
-			return PreparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_GROUP_INVALID"}
-		}
-		replacement := PreparedReplacement{ContentKind: string(contentprofile.ContentKindSingleFile)}
-		replacement.Files = make([]ReplacementFile, 0, len(files))
-		manifestFiles := make([]contentmanifest.File, 0, len(files))
-		for index, file := range files {
-			role := "COMPANION"
-			if index == 0 {
-				role = "CONTENT"
-			}
-			replacement.Files = append(replacement.Files, ReplacementFile{
-				Role: role, LogicalName: file.LogicalName, FileRecord: file.FileRecord,
-				SHA256: file.SHA256, SizeBytes: file.SizeBytes, SortOrder: index,
-			})
-			manifestFiles = append(manifestFiles, contentmanifest.File{
-				Role: role, LogicalName: file.LogicalName, BlobSHA256: file.SHA256, SizeBytes: file.SizeBytes,
-			})
-		}
-		replacement.FirstContentLogicalName = files[0].LogicalName
-		manifest, digest, err := contentmanifest.Build(replacement.ContentKind, manifestFiles)
-		if err != nil {
-			return PreparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
-		}
-		replacement.Manifest, replacement.ManifestDigest = manifest, digest
-		return replacement, nil
+		return service.prepareStandardReplacement(ctx, snapshot, files)
 	}
 	return service.prepareMultiDiscReplacement(ctx, snapshot, files)
 }

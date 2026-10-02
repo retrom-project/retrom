@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	contentprepare "retrom/internal/content/prepare"
 	"retrom/internal/filestore"
 	"retrom/internal/importing"
 )
@@ -48,51 +49,13 @@ func ArchiveReason(err error) string {
 }
 
 func (service *ImportPreparation) materializeArchiveEntry(
-	ctx context.Context,
-	archivePath string,
-	expected importing.ArchiveEntry,
+	ctx context.Context, archivePath string, expected importing.ArchiveEntry,
 ) (filestore.Metadata, error) {
-	if err := ctx.Err(); err != nil {
-		return filestore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
+	result, err := contentprepare.Materialize(ctx, service.blobs, archivePath, expected)
+	if err != nil {
+		return filestore.Metadata{}, fmt.Errorf("materialize import content: %w", err)
 	}
-	var metadata filestore.Metadata
-	var putErr, closeErr error
-	switch expected.ArchiveFormat {
-	case "ZIP":
-		reader, err := zip.OpenReader(archivePath)
-		if err != nil {
-			return filestore.Metadata{}, importing.ErrArchiveUnsafe
-		}
-		defer func() { cleanup.Error("close", reader.Close()) }()
-		if expected.Ordinal < 0 || expected.Ordinal >= len(reader.File) {
-			return filestore.Metadata{}, importing.ErrArchiveUnsafe
-		}
-		entry, err := reader.File[expected.Ordinal].Open()
-		if err != nil {
-			return filestore.Metadata{}, importing.ErrArchiveUnsafe
-		}
-		metadata, putErr = service.blobs.Put(io.LimitReader(entry, expected.Size+1))
-		closeErr = entry.Close()
-	case "SEVEN_Z":
-		reader, writer := io.Pipe()
-		done := make(chan error, 1)
-		go func() {
-			extractErr := importing.ExtractSevenZip(ctx, archivePath, expected, writer)
-			_ = writer.CloseWithError(extractErr)
-			done <- extractErr
-		}()
-		metadata, putErr = service.blobs.Put(io.LimitReader(reader, expected.Size+1))
-		closeErr = errors.Join(reader.Close(), <-done)
-	default:
-		return filestore.Metadata{}, importing.ErrArchiveUnsafe
-	}
-	if putErr != nil || closeErr != nil || metadata.Size != expected.Size || metadata.CRC32 != expected.CRC32 ||
-		metadata.MD5 != expected.MD5 ||
-		metadata.SHA1 != expected.SHA1 ||
-		metadata.SHA256 != expected.SHA256 {
-		return filestore.Metadata{}, importing.ErrArchiveUnsafe
-	}
-	return metadata, nil
+	return result, nil
 }
 
 func DOSProgram(path string) (string, bool) {
