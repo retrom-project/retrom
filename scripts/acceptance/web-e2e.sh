@@ -153,7 +153,7 @@ emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulat
   RETROM_E2E_EMULATORJS_BUNDLE_SHA256="$emulatorjs_bundle_sha256" \
   RETROM_FBNEO_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/console-fbneo.json")" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
-  RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/console-snes9x.json" "$temporary_root/console-nestopia.json" "$temporary_root/console-mame2003_plus.json" "$temporary_root/console-fbalpha2012_cps1.json" "$temporary_root/console-fbalpha2012_cps2.json")" \
+  RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/console-fceumm.json" "$temporary_root/console-snes9x.json" "$temporary_root/console-nestopia.json" "$temporary_root/console-mame2003_plus.json" "$temporary_root/console-fbalpha2012_cps1.json" "$temporary_root/console-fbalpha2012_cps2.json")" \
   "${playwright_command[@]}")
 
 python3 scripts/acceptance/check-owned-files.py "$temporary_root/data/retrom.db"
