@@ -50,13 +50,13 @@ UZEBOX_CASES = {"ACC-UZEBOX-001"}
 O2EM_CASES = {"ACC-O2EM-001"}
 COMPUTER_CASES = {"ACC-BBC-001", "ACC-SAMCOUPE-001", "ACC-DOSBOX-001"}
 PRODUCT_CASES = WASM4_CASES | BBKRPG_CASES | UZEBOX_CASES | O2EM_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
-PRODUCT_CASES |= COMPUTER_CASES | {"ACC-DB-003", "ACC-RUN-019"}
+PRODUCT_CASES |= COMPUTER_CASES | {"ACC-DB-003", "ACC-RUN-020"}
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
 # FAIL instead of being hidden behind a broad package-level green test.
 CASE_COMMANDS: dict[str, tuple[int, str]] = {
-    "ACC-RUN-019": (600, "node scripts/acceptance/emulatorjs_slow_product.mjs"),
+    "ACC-RUN-020": (600, "node scripts/acceptance/emulatorjs_slow_product.mjs"),
     "ACC-QA-001": (900, "make ci"),
     "ACC-QA-002": (300, "scripts/acceptance/quality-sentinels.sh"),
     "ACC-PKG-001": (
@@ -1006,7 +1006,7 @@ def execute_case(case_id: str) -> int:
             product_filename = "rpgmaker-product.json"
             if case_id == "ACC-DB-003":
                 product_filename = "protected-reads-product.json"
-            elif case_id == "ACC-RUN-019":
+            elif case_id == "ACC-RUN-020":
                 product_filename = "emulatorjs-slow-product.json"
             elif case_id in STORAGE_CASES:
                 product_filename = "checkpoint-storage-product.json"

@@ -11,7 +11,7 @@ const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/emulatorjs-slow");
 await mkdir(directory, {recursive: true});
 const screenshots = join(directory, "screenshots"); await mkdir(screenshots, {recursive: true});
-const report = {schemaVersion: 1, caseId: "ACC-RUN-019", status: "FAIL", bytesPerSecond: 131072, latencyMs: 300, targets: []};
+const report = {schemaVersion: 1, caseId: "ACC-RUN-020", status: "FAIL", bytesPerSecond: 131072, latencyMs: 300, targets: []};
 let browser;
 const flush = () => writeFile(join(directory, "emulatorjs-slow-product.json"), JSON.stringify(report, null, 2) + "\n");
 try {
