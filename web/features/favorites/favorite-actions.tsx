@@ -30,7 +30,7 @@ type FavoriteActionsProps = {
   initialFavorite: FavoriteReference | null;
   variant?: "card" | "favorite-card" | "detail";
   showManageButton?: boolean;
-  onChange?: (favorite: FavoriteReference | null) => void;
+  onChange?: (favorite: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => void;
 };
 
 function messageFor(error: unknown) {
@@ -59,14 +59,14 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   const internalManageButton = useRef<HTMLButtonElement>(null);
   const pickerReturnTarget = useRef<(() => HTMLElement | null) | null>(null);
   useEffect(() => {
-    if (!notice) {return;}
+    if (!notice || busy) {return;}
     const timer = window.setTimeout(() => setNotice(null), 2_000);
     return () => window.clearTimeout(timer);
-  }, [notice]);
+  }, [notice, busy]);
 
-  const acceptFavorite = useCallback((next: FavoriteReference | null) => {
+  const acceptFavorite = useCallback((next: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => {
     setFavorite(next);
-    onChange?.(next);
+    if (removed) {onChange?.(next, removed);} else {onChange?.(next);}
   }, [onChange]);
 
   async function addFavorite() {
@@ -83,7 +83,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     setBusy(true);
     try {
       const { data } = await unfavoriteGames(authenticatedFetch, [gameId]);
-      acceptFavorite(null);
+      acceptFavorite(null, data.items);
       setConfirming(false);
       setNotice({ message: `已取消收藏“${title}”`, undo: data.items });
     } catch (error) { setNotice({ message: messageFor(error) }); }
@@ -98,7 +98,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       const { data } = await putFavorite(authenticatedFetch, gameId);
       acceptFavorite({ favoritedAtMs: data.favoritedAtMs, folderIds: data.folderIds });
       setNotice({ message: "已恢复收藏" });
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+    } catch (error) { setNotice({ message: messageFor(error), undo: notice.undo }); }
     finally { setBusy(false); }
   }
 

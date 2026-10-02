@@ -1,12 +1,15 @@
 package libraryimport
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"testing"
 
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/filestore"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 )
 
@@ -88,14 +91,17 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 		{platformID: "nintendo3ds", logicalName: "Cave Story 2D.3ds"},
 		{platformID: "nintendo3ds", logicalName: "Cave Story 2D.cci"},
 	}
-	service := &Service{}
+	service, source := rawAdmissionFixture(t)
 	for _, test := range tests {
 		t.Run(test.platformID+"/"+test.logicalName, func(t *testing.T) {
 			dispositions, groups, archives, preparationErr := service.prepareImportFiles(
 				context.Background(),
 				test.platformID,
 				"FILES",
-				[]importSourceFile{{ID: "fixture", Path: test.logicalName, FileRecord: "blob", SHA256: "digest", Size: 1}},
+				[]importSourceFile{{
+					ID: "fixture", Path: test.logicalName,
+					FileRecord: source.Record, SHA256: source.SHA256, Size: source.Size,
+				}},
 				sql.NullString{},
 			)
 			if preparationErr != nil {
@@ -114,11 +120,15 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 
 func TestExpandedPlatformsRejectUnregisteredRawExtensions(t *testing.T) {
 	t.Parallel()
-	dispositions, groups, archives, preparationErr := (&Service{}).prepareImportFiles(
+	service, source := rawAdmissionFixture(t)
+	dispositions, groups, archives, preparationErr := service.prepareImportFiles(
 		context.Background(),
 		"nintendo3ds",
 		"FILES",
-		[]importSourceFile{{ID: "fixture", Path: "game.3dsx", FileRecord: "blob", SHA256: "digest", Size: 1}},
+		[]importSourceFile{{
+			ID: "fixture", Path: "game.3dsx",
+			FileRecord: source.Record, SHA256: source.SHA256, Size: source.Size,
+		}},
 		sql.NullString{},
 	)
 	if preparationErr != nil {
@@ -130,4 +140,19 @@ func TestExpandedPlatformsRejectUnregisteredRawExtensions(t *testing.T) {
 		func() bool { return len(groups) != 0 }, func() bool { return len(archives) != 0 }),
 		"unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions,
 		groups, archives)
+}
+
+func rawAdmissionFixture(t *testing.T) (*Service, filestore.Metadata) {
+	t.Helper()
+	blobs, err := filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := blobs.Put(bytes.NewReader([]byte{1}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &Service{preparation: libraryservice.NewImportPreparation(
+		nil, nil, blobs, libraryservice.ImportPreparationOptions{},
+	)}, source
 }

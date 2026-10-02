@@ -127,8 +127,9 @@ type BatchResult struct {
 }
 
 type UnfavoriteItem struct {
-	GameID    string   `json:"gameId"`
-	FolderIDs []string `json:"folderIds"`
+	GameID        string   `json:"gameId"`
+	FavoritedAtMS int64    `json:"favoritedAtMs"`
+	FolderIDs     []string `json:"folderIds"`
 }
 
 type UnfavoriteResult struct {
@@ -136,8 +137,9 @@ type UnfavoriteResult struct {
 }
 
 type RestoreItem struct {
-	GameID    string   `json:"gameId"`
-	FolderIDs []string `json:"folderIds"`
+	GameID        string   `json:"gameId"`
+	FavoritedAtMS int64    `json:"favoritedAtMs"`
+	FolderIDs     []string `json:"folderIds"`
 }
 
 type RestoreResult struct {

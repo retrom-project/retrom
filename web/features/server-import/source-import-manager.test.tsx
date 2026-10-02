@@ -57,7 +57,7 @@ describe("SourceImportDrawer", () => {
     render(<SourceImportDetailManager initialSummary={summary("COMPLETED", 5)} initialItems={{ items: [item], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
     const row = screen.getByText(item.title).closest("article")!;
     expect(within(row).getByText("已移交审核")).toBeVisible();
-    expect(within(row).queryByText("源文件已清理")).not.toBeInTheDocument();
+    expect(within(row).queryByText("导入临时副本已清理")).not.toBeInTheDocument();
     expect(within(row).queryByText("封面 MISSING")).not.toBeInTheDocument();
     expect(within(row).queryByText("视频 MISSING")).not.toBeInTheDocument();
   });
@@ -75,10 +75,10 @@ describe("SourceImportDrawer", () => {
     vi.stubGlobal("EventSource", events);
     render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [released, releasing], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
-    expect(screen.getAllByText("源文件已清理")).toHaveLength(1);
+    expect(screen.getAllByText("导入临时副本已清理")).toHaveLength(1);
     expect(screen.getByText("封面 MISSING")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
-    expect(screen.getAllByText("源文件已清理")).toHaveLength(2);
+    expect(screen.getAllByText("导入临时副本已清理")).toHaveLength(2);
     expect(screen.queryByText("封面 MISSING")).not.toBeInTheDocument();
     expect(screen.queryByText("视频 MISSING")).not.toBeInTheDocument();
     expect(events).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("SourceImportDrawer", () => {
     expect(screen.getByText("审核事项已生成")).toBeVisible();
     expect(screen.getByText("封面 MISSING")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
-    expect(screen.getByText("源文件已清理")).toBeVisible();
+    expect(screen.getByText("导入临时副本已清理")).toBeVisible();
     expect(itemReads).toBe(2);
     for (const [index, request] of requests.entries()) {
       if (request === "items") {expect(requests[index - 1]).toBe("summary");}

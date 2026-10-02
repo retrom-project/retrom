@@ -594,6 +594,7 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-GAME-002`。
 - 流程：为当前 `fceumm` GameVariant 创建一份带截图存档和活动 Launch；创建 COMPLETE UploadSession 后调用内容替换 endpoint。先分别提交 byte-identical ROM 和损坏输入，再用不同内容执行成功替换，并在另一次运行中于验证与提交之间改变目录默认 core/version，确认 retryable conflict。比较 Upload consumption、GameFiles/ContentFiles、各 Core GameVariant、两个 current state、存档、Launch 与 后台删除 候选。多盘分支先提交相同盘序/Disc hash，再用一盘不变一盘变化、最后多盘同时变化的完整目录重复验证。RPG Maker 分支先发布固定 RPG2000 项目，再依次提交同世代但不同 filesDigest 的完整目录、固定 RPG2003 目录和依赖声明变化的 RPG2000 目录。
 - 通过标准：创建 Job 与 whole-session consumption 原子且同一 Upload 不能再被 Import/Asset 使用；相同单 ROM 或完全相同多盘以不可重试 GAME_CONTENT_UNCHANGED 结束并释放 consumption，不改变 GameFiles/GameVariant 或存档。损坏输入和快照竞态同样保持当前态；仍可重试的失败保留输入引用。只有不同的新内容 READY 且最新快照一致时，才原子替换 GameFiles 和默认 Core GameVariant/VariantFiles 并递增 Game version；旧 payload 被清理，活动 Launch/Play 被撤销，旧内容文件进入后台删除候选；新当前态持有独立上传文件，即使部分光盘内容未变也不复用旧物理文件。成功替换移除绑定旧内容的存档，失败或内容相同的提交保留存档。RPG Maker 同世代替换保留稳定 Target 和运行依赖，使用当前 Core binding 的 Target 及 checkpoint write format 重新生成派生运行文件，且 runtime_validation_id 为空；跨世代或依赖声明变化均不可重试并不得改变当前态或删除存档。其他 Core 转为 NEEDS_VALIDATION，新普通启动只使用替换后的内容。
+- WASM-4 回归：有效原始 cartridge 与含唯一主文件的 ZIP 使用相同校验；伪装成 `.wasm` 的其他字节、截断模块、错误归档 entry 在提交前失败。失败前后比较内容摘要、READY、版本、存档和活动 Launch；同字节原始文件与归档均返回 unchanged，合法不同字节的归档发布后只保留规范化 cartridge。
 - 证据：单 ROM 与多盘上传/Job 结果、原始/派生 hash、GameFiles/GameVariant 前后状态与 AuditEvent、Upload/Blob/后台删除 引用、存档与运行终止状态、快照冲突事件和兼容诊断。
 
 ### ACC-GAME-003：永久删除、版本保护与墓碑关系

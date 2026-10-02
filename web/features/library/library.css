@@ -7,7 +7,15 @@
 .library-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .library-search svg { width: 17px; height: 17px; flex: 0 0 auto; }
 .library-search input { min-width: 0; width: 100%; height: 100%; padding: 0; color: var(--ink); border: 0; outline: 0; background: transparent; font-size: var(--text-body); }
-.library-platform-row { min-height: 43px; margin-top: 12px; padding-top: 12px; overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; gap: 8px; scrollbar-color: #c5bfd8 transparent; scrollbar-width: thin; border-top: 0; }
+.library-platform-row { min-height: 43px; margin-top: 12px; padding-top: 12px; overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; gap: 8px; scrollbar-color: transparent transparent; scrollbar-width: thin; border-top: 0; }
+.library-platform-row:hover { scrollbar-color: var(--muted) transparent; }
+.library-platform-row::-webkit-scrollbar { height: 6px; }
+.library-platform-row::-webkit-scrollbar-track { background: transparent; }
+.library-platform-row::-webkit-scrollbar-thumb { background: transparent; border-radius: var(--radius-control); }
+.library-platform-row:hover::-webkit-scrollbar-thumb { background: var(--muted); }
+@supports selector(::-webkit-scrollbar) {
+  .library-platform-row, .library-platform-row:hover { scrollbar-width: auto; scrollbar-color: auto; }
+}
 .library-platform-label { flex: 0 0 auto; margin-right: 2px; color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .library-platform-row button { min-height: 30px; padding: 4px 11px; flex: 0 0 auto; color: var(--muted); border: 1px solid transparent; border-radius: 999px; background: transparent; cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .library-platform-row button:hover { color: var(--purple-dark); background: var(--surface-subtle); }

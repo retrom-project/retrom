@@ -1,6 +1,6 @@
 import { SaveManager } from "@/features/saves/save-manager";
-import { collectSavePages, type SaveFilters, type SavePage } from "@/features/saves/save-library";
-import { scalarSearchParams, withQuery } from "@/lib/backend";
+import { collectSavePages, type SavePage } from "@/features/saves/save-library";
+import { withQuery } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "我的存档" };
@@ -13,10 +13,7 @@ async function loadAllSaves() {
   })));
 }
 
-export default async function SavesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const values = scalarSearchParams(await searchParams, ["q", "gameId", "availability", "sort"]);
-  const availability: SaveFilters["availability"] = values.availability === "ALL" || values.availability === "BLOCKED" ? values.availability : "AVAILABLE";
-  const sort: SaveFilters["sort"] = values.sort === "CREATED_ASC" ? "CREATED_ASC" : "CREATED_DESC";
+export default async function SavesPage() {
   const saves = await loadAllSaves();
-  return <SaveManager saves={saves.items} nowMs={saves.generatedAtMs} initialFilters={{ query: values.q ?? "", gameId: values.gameId ?? "", availability, sort }} />;
+  return <SaveManager saves={saves.items} nowMs={saves.generatedAtMs} />;
 }

@@ -52,3 +52,13 @@ export function toggleGameSelection(selected: ReadonlySet<string>, gameId: strin
   else {next.add(gameId);}
   return next;
 }
+
+export function favoriteURLFilters(params: URLSearchParams) {
+  return favoriteQuery(Object.fromEntries(params));
+}
+
+export function favoriteURLQuery(query: FavoriteQuery) {
+  const params = new URLSearchParams(favoriteQueryString(query));
+  params.delete("limit");
+  return params.toString();
+}

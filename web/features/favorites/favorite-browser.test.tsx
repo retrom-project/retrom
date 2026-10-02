@@ -1,9 +1,18 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { ToastProvider } from "@/components/toast-provider";
+import { cleanup, render as renderUI, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FavoritePage } from "./favorite-api";
 import { FavoriteBrowser } from "./favorite-browser";
 import type { FavoriteQuery } from "./favorite-state";
+
+const render = (node: ReactNode) => renderUI(node, {wrapper: ToastProvider});
+
+vi.mock("next/navigation", async () => {
+  const { useMockSearchParams } = await import("@/lib/navigation/url-filters.test-support");
+  return {useSearchParams: useMockSearchParams, useRouter: () => ({push: vi.fn()})};
+});
 
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: auth.fetch }) }));
@@ -44,6 +53,7 @@ describe("FavoriteBrowser", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it("hides card tags and collapses navigation without losing the selected folder", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     const initialPage = page();
     initialPage.items[0]!.tags = [{ tagId: "tag", name: "掌机精选" }];
     render(<FavoriteBrowser initialPage={initialPage} initialQuery={{ ...query, scope: "FOLDER", folderId }} />);
@@ -65,9 +75,11 @@ describe("FavoriteBrowser", () => {
     expect(screen.getByRole("link", { name: "前往游戏库" })).toHaveAttribute("href", "/library");
     emptyView.unmount();
 
+    window.history.replaceState({}, "", "/favorites?q=missing");
     const filteredView = render(<FavoriteBrowser initialPage={page({ totalCount: 0, items: [] })} initialQuery={{ ...query, q: "missing" }} />);
     expect(screen.getByRole("heading", { name: "没有匹配的收藏" })).toBeInTheDocument();
     filteredView.unmount();
+    window.history.replaceState({}, "", "/favorites");
 
     auth.fetch.mockResolvedValue(json(page()));
     render(<FavoriteBrowser initialPage={null} initialQuery={query} initialError="收藏读取失败" />);
@@ -77,6 +89,7 @@ describe("FavoriteBrowser", () => {
   });
 
   it("persists URL filters and exposes folder-specific batch removal", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     const folderQuery: FavoriteQuery = { ...query, scope: "FOLDER", folderId };
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).endsWith("/organize")) {return json({ items: [] });}
@@ -107,7 +120,36 @@ describe("FavoriteBrowser", () => {
     expect(screen.getByRole("button", { name: "完成整理" })).toBePressed();
   });
 
+  it("keeps single removal undo after the card is unmounted", async () => {
+    const initial = page();
+    const item = initial.items[0];
+    const removed = [{gameId:item.gameId, favoritedAtMs:item.favorite.favoritedAtMs, folderIds:item.favorite.folderIds}];
+    let deleted = false;
+    let restoreAttempts = 0;
+    auth.fetch.mockImplementation(async (url) => {
+      if (String(url).endsWith("/unfavorite")) {deleted = true; return json({items:removed});}
+      if (String(url).endsWith("/restore")) {
+        if (++restoreAttempts === 1) {return json({error:{code:"UNAVAILABLE",message:"恢复暂时失败"}}, 503);}
+        deleted = false; return json({items:removed});
+      }
+      return json(deleted ? page({items:initial.items.slice(1),totalCount:1}) : initial);
+    });
+    const user = userEvent.setup();
+    render(<FavoriteBrowser initialPage={initial} initialQuery={query} />);
+    await user.click(screen.getAllByRole("button", {name:/取消收藏.*Game 1/})[0]);
+    const confirm = screen.getByRole("alertdialog");
+    await user.click(within(confirm).getByRole("button", {name:"取消收藏"}));
+    await waitFor(() => expect(screen.queryByRole("heading", {name:"Game 1"})).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", {name:"撤销"}));
+    expect(await screen.findByText(/恢复暂时失败/)).toBeVisible();
+    await user.click(screen.getByRole("button", {name:"撤销"}));
+    expect(await screen.findByRole("heading", {name:"Game 1"})).toBeVisible();
+    const restore = auth.fetch.mock.calls.find(([url]) => String(url).endsWith("/restore"));
+    expect(JSON.parse(String(restore?.[1]?.body))).toEqual({items:removed});
+  });
+
   it("keeps a failed folder deletion visible and retryable in the confirmation dialog", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     auth.fetch.mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {return json({ error: { code: "RESOURCE_VERSION_CONFLICT", message: "收藏夹已被修改" } }, 412);}
       return json(page());

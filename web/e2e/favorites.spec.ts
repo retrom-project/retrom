@@ -64,9 +64,8 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   page.setDefaultTimeout(10_000);
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful favorite flow runs once.");
   const admin = await login(page.request);
-  // The shared setup publishes FCEUmm and Nestopia fixtures independently of
-  // the import test selection, so this flow also runs as an isolated Case.
-  await page.goto("/library?platformId=nes");
+  // The shared setup and favorite seed publish two independent GBA games.
+  await page.goto("/library?platformId=gba");
 
   const available = page.locator('.library-game-card:has(button[aria-label^="收藏“"])');
   expect(await available.count()).toBeGreaterThanOrEqual(2);
@@ -136,8 +135,8 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await page.getByRole("searchbox", { name: "搜索收藏" }).fill("");
   await page.getByRole("combobox", { name: "排序方式" }).selectOption("TITLE_ASC");
   await expect(page).toHaveURL(/sort=TITLE_ASC/);
-  await page.getByRole("button", { name: /NES \/ Famicom 2$/ }).click();
-  await expect(page).toHaveURL(/platformId=nes/);
+  await page.getByRole("button", { name: /Game Boy Advance 2$/ }).click();
+  await expect(page).toHaveURL(/platformId=gba/);
   await page.getByRole("button", { name: /^全部 \d+$/ }).click();
   await expect(page).not.toHaveURL(/platformId=/);
   await page.getByRole("button", { name: /待通关 1$/ }).click();
@@ -177,6 +176,7 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await expect(page.getByText("已恢复收藏", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.locator(".favorite-game-card")).toHaveCount(2);
+  await verifySingleUndo(page, firstId!);
 
   const otherContext = await browser.newContext({ baseURL: origin });
   await createOtherUser(page.request, otherContext, admin.csrfToken);
@@ -188,6 +188,22 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await otherContext.close();
   await page.screenshot({ path: evidencePath(testInfo, "favorite-user-flow.png"), fullPage: true });
 });
+
+async function verifySingleUndo(page: Page, gameId: string) {
+  const snapshot = await (await page.request.get("/api/v1/favorites?limit=100")).json();
+  const original = snapshot.items.find((item: {gameId: string}) => item.gameId === gameId).favorite;
+  const card = page.locator(`[data-favorite-game="${gameId}"]`);
+  await card.locator(".favorite-heart").click();
+  await page.getByRole("alertdialog").getByRole("button", {name: "取消收藏", exact: true}).click();
+  await expect(card).toHaveCount(0);
+  const undo = page.getByRole("button", {name: "撤销", exact: true});
+  await expect(undo).toBeVisible();
+  await expect(undo).toBeFocused();
+  await undo.press("Enter");
+  await expect(card).toBeVisible();
+  const restored = await (await page.request.get("/api/v1/favorites?limit=100")).json();
+  expect(restored.items.find((item: {gameId: string}) => item.gameId === gameId).favorite).toEqual(original);
+}
 
 test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at every desktop viewport", async ({ page }, testInfo) => {
   test.setTimeout(150_000);
@@ -343,9 +359,17 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
     await page.getByRole("button", { name: "编辑收藏夹" }).click();
     const conflict = page.getByRole("dialog", { name: "编辑收藏夹" });
     await conflict.getByRole("textbox", { name: "收藏夹名称" }).fill("保留的冲突名称");
+    const beforeError = await conflict.boundingBox();
     await conflict.getByRole("button", { name: "保存" }).click();
-    await expect(conflict.getByRole("alert")).toContainText("已刷新真实版本");
+    await expect(page.locator(".app-toast")).toContainText("已刷新真实版本");
+    await expect(conflict.getByRole("alert")).toHaveCount(0);
     await expect(conflict.getByRole("textbox", { name: "收藏夹名称" })).toHaveValue("保留的冲突名称");
+    expect(await conflict.boundingBox()).toEqual(beforeError);
+    const toast = await page.locator(".app-toast").boundingBox();
+    expect(toast!.y).toBeLessThan(80);
+    expect(Math.abs(toast!.x + toast!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+    await expect(page.locator(".app-toast")).toHaveCount(0, {timeout: 4_000});
+    await expect(conflict).toBeVisible();
     await conflict.getByRole("button", { name: "取消" }).click();
     await page.unroute(`**/api/v1/favorite-folders/${folderId}`);
   }

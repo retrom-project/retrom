@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useURLFilters } from "@/lib/navigation/use-url-filters";
+import { libraryURLFilters, libraryURLQuery } from "./library-url";
 import { AppIcon } from "@/components/app-icon";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { PageHeader } from "@/components/ui";
@@ -25,11 +27,13 @@ function mergeGames(current: GamePage["items"], incoming: GamePage["items"]) {
 export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: GamePage; initialFilters: LibraryFilters }) {
   const platformScroll = usePhoneScrollActivity();
   const { authenticatedFetch } = useAuth();
-  const [query, setQuery] = useState(initialFilters.query);
-  const [platformId, setPlatformId] = useState(initialFilters.platformId);
-  const [platformInstanceId, setPlatformInstanceId] = useState(initialFilters.platformInstanceId);
-  const [tagId, setTagId] = useState(initialFilters.tagId);
-  const [sort, setSort] = useState<LibraryFilters["sort"]>(initialFilters.sort);
+  const [filters, setFilters] = useURLFilters(libraryURLFilters, libraryURLQuery);
+  const {query, platformId, platformInstanceId, tagId, sort} = filters;
+  const setQuery = (query: string) => setFilters(current => ({...current, query}));
+  const setPlatformId = (platformId: string) => setFilters(current => ({...current, platformId}));
+  const setPlatformInstanceId = (platformInstanceId: string) => setFilters(current => ({...current, platformInstanceId}));
+  const setTagId = (tagId: LibraryFilters["tagId"]) => setFilters(current => ({...current, tagId}));
+  const setSort = (sort: LibraryFilters["sort"]) => setFilters(current => ({...current, sort}));
   const [filterOpen, setFilterOpen] = useState(false);
   const [draftPlatformInstanceId, setDraftPlatformInstanceId] = useState(initialFilters.platformInstanceId);
   const [draftTagId, setDraftTagId] = useState(initialFilters.tagId);
@@ -52,8 +56,6 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
   const requestGeneration = useRef(0);
   const platformInstances = useMemo(() => facets.platformInstances.filter((item) => !platformId || item.platformId === platformId), [facets.platformInstances, platformId]);
   const hasFilters = [query.trim(), platformId, platformInstanceId, tagId].some(Boolean);
-
-  const filters = useMemo<LibraryFilters>(() => ({ query, platformId, platformInstanceId, tagId, sort }), [platformId, platformInstanceId, query, sort, tagId]);
 
   const requestPage = useCallback(async (requestedFilters: LibraryFilters, cursor: string | null, signal?: AbortSignal) => {
     const response = await authenticatedFetch(`/api/v1/games?${gamePageQuery(requestedFilters, cursor)}`, { cache: "no-store", signal });
@@ -97,17 +99,6 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
       controller.abort();
     };
   }, [filters, refreshVersion, requestPage]);
-
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (query.trim()) {params.set("q", query.trim());}
-    if (platformId) {params.set("platformId", platformId);}
-    if (platformInstanceId) {params.set("platformInstanceId", platformInstanceId);}
-    if (tagId) {params.set("tagId", tagId);}
-    if (sort !== "RECENT_DESC") {params.set("sort", sort);}
-    const search = params.toString();
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
-  }, [platformId, platformInstanceId, query, sort, tagId]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {

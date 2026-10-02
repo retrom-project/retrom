@@ -24,7 +24,9 @@ def ensure_video(db, database_path, game_id, timestamp):
     )
 
 
-def seed(path: Path) -> str:
+def seed(path: Path, media: str = "both") -> str:
+    if media not in {"both", "save", "video"}:
+        raise ValueError("unknown preview media state")
     validate_database(path)
     spec = importlib.util.spec_from_file_location("ui_home_seed", Path(__file__).with_name("seed-ui-home.py"))
     module = importlib.util.module_from_spec(spec)
@@ -48,8 +50,13 @@ def seed(path: Path) -> str:
             db.execute(f"INSERT OR REPLACE INTO save_states({','.join(columns)}) VALUES({','.join('?' for _ in columns)})", list(row.values()))
             own_rows(db, "save_states", "id", row["id"], "SAVE_STATE", row["id"], ("payload_file_record", "screenshot_file_record"))
         db.execute("UPDATE games SET description=? WHERE id=?", (("公开测试游戏的玩法说明。" * 100) + "\n\n最后一段：完整简介应在简介区域内滚动。", original["game_id"]))
+        if media == "save":
+            db.execute("DELETE FROM game_assets WHERE game_id=? AND kind='VIDEO'", (original["game_id"],))
+        if media == "video":
+            retire_save(db, "game_id=?", (original["game_id"],))
+            db.execute("DELETE FROM save_states WHERE game_id=?", (original["game_id"],))
         return original["game_id"]
 
 
 if __name__ == "__main__":
-    print(seed(Path(sys.argv[1])))
+    print(seed(Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "both"))

@@ -86,4 +86,8 @@ func TestBatchAndRestoreNormalizationBoundaries(t *testing.T) {
 	if _, err := normalizeRestoreItems(duplicate); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("duplicate restore game error = %v", err)
 	}
+	negativeTime := []RestoreItem{{GameID: games[0], FavoritedAtMS: -1}}
+	if _, err := normalizeRestoreItems(negativeTime); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("negative favorite timestamp error = %v", err)
+	}
 }

@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { filterLibraryGames, type GamePage, type GameSummary, type LibraryFilters } from "./game-library";
 import { LibraryBrowser } from "./library-browser";
 
+vi.mock("next/navigation", async () => {
+  const { useMockSearchParams } = await import("@/lib/navigation/url-filters.test-support");
+  return {useSearchParams: useMockSearchParams, useRouter: () => ({push: vi.fn()})};
+});
+
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: auth.fetch }) }));
 

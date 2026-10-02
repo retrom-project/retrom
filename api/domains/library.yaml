@@ -332,11 +332,17 @@ components:
       additionalProperties: false
       required:
         - gameId
+        - favoritedAtMs
         - folderIds
       properties:
         gameId:
           type: string
           format: uuid
+        favoritedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Original timestamp from the unfavorite snapshot.
         folderIds:
           type: array
           maxItems: 100
@@ -621,11 +627,17 @@ components:
       additionalProperties: false
       required:
         - gameId
+        - favoritedAtMs
         - folderIds
       properties:
         gameId:
           type: string
           format: uuid
+        favoritedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Original favorite timestamp returned by unfavorite and preserved by restore.
         folderIds:
           type: array
           maxItems: 100

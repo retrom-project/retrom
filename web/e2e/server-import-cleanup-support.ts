@@ -32,7 +32,7 @@ export async function expectSourceHandoffDuringCleanup(page: Page, sourceImportI
     await expect(results).toContainText("已移交审核");
     await expect(results).not.toContainText("封面 MISSING");
     await expect(results).not.toContainText("视频 MISSING");
-    await expect(results).not.toContainText("源文件已清理");
+    await expect(results).not.toContainText("导入临时副本已清理");
     await expect.poll(() => itemReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(2);
     await expect(results).toContainText("已移交审核");
     await expect(results).not.toContainText("封面 MISSING");

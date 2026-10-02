@@ -67,10 +67,12 @@ func (server *Server) previewDefaultCore(writer http.ResponseWriter, request *ht
 	var body struct {
 		CoreID string  `json:"coreId"`
 		Cursor *string `json:"cursor"`
-		Limit  int     `json:"limit"`
+		Limit  *int    `json:"limit"`
 	}
+	defaultLimit := 50
+	body.Limit = &defaultLimit
 	if err := decodeJSON(writer, request, &body, 16<<10); err != nil || body.CoreID == "" ||
-		body.Limit < 1 || body.Limit > 100 {
+		body.Limit == nil || *body.Limit < 1 || *body.Limit > 100 {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "核心预览请求无效", map[string]any{})
 		return
 	}
@@ -93,7 +95,7 @@ func (server *Server) previewDefaultCore(writer http.ResponseWriter, request *ht
 		digest,
 		items,
 		body.Cursor,
-		body.Limit,
+		*body.Limit,
 	)
 	if errors.Is(err, cursor.ErrInvalid) {
 		writeError(writer, request, http.StatusConflict, "IMPACT_PREVIEW_STALE", "目录或影响输入已变化", map[string]any{})

@@ -11,6 +11,7 @@ import (
 type (
 	CompletionCounts struct {
 		Blocked, Failed, ReviewPending, Published, ReviewDiscarded, Existing, Cancelled, Unfinished int64
+		RetryableItems                                                                              int64
 	}
 	CompletionChange struct {
 		Before      ExecutionSnapshot
@@ -62,7 +63,7 @@ func (service *Completion) Finish(ctx context.Context, identity ExecutionIdentit
 			Before:      before,
 			Counts:      counts,
 			ImportState: "COMPLETED",
-			Retryable:   counts.Failed > 0,
+			Retryable:   counts.RetryableItems > 0,
 			NowMS:       now,
 		}
 		if counts.Blocked > 0 || counts.Failed > 0 {
