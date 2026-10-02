@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
-import { selectServerSource, serverSourcePath } from "./server-directory-support";
+import { prepareNewSourceScan, selectServerSource, serverSourcePath } from "./server-directory-support";
 import {
   expect,
   test,
@@ -162,6 +162,7 @@ async function scanPublicSource(page: Page) {
     name: "从目录准备审核事项",
   });
   await expect(drawer).toBeVisible();
+  await prepareNewSourceScan(drawer);
   await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("GAMELIST");
   await selectServerSource(drawer, "EmulationStationPlayable", activateWithKeyboard);
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("EmulationStationPlayable")}`);

@@ -1,20 +1,13 @@
 import {mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
-import {expect, test, type Page, type TestInfo} from "@playwright/test";
+import {expect, type Page, type TestInfo} from "@playwright/test";
 import type {SourceImportSummary} from "../features/server-import/source-import-model";
 import {formatTime} from "../lib/backend";
 import {evidencePath} from "./acceptance-support";
 import {exitRuntimePlayer, runtimeCheckpoint, runtimeFrameCount, runtimeResource, type RuntimeEnvelope} from "./runtime-provider-support";
 import {serverSourcePath} from "./server-directory-support";
 import {persistentContentProfile} from "./persistent-content-profile";
-
-async function login(page: Page) {
-  const response = await page.request.post("/api/v1/auth/login", {data: {username: "test", password: "test"},
-    headers: {Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000"}});
-  expect(response.ok()).toBe(true);
-  const {csrfToken} = await response.json() as {csrfToken: string};
-  return {Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000", "X-Retrom-Csrf": csrfToken};
-}
+import {createOrdinaryImport, login, test} from "./issue-regression-support";
 
 async function createScan(page: Page, directory: string, requestHeaders?: Record<string, string>) {
   const headers = requestHeaders ?? await login(page);
@@ -44,7 +37,7 @@ async function waitScan(page: Page, id: string) {
   return summary;
 }
 
-test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty input and cancel", async ({page}, testInfo) => {
+test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty input and cancel", async ({page, sourceDrafts}, testInfo) => {
   test.setTimeout(150_000);
   const source = process.env.RETROM_E2E_SERVER_SOURCE;
   expect(source).toBeTruthy();
@@ -73,6 +66,7 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
   await drawer.getByRole("button", {name: "修正后重新扫描"}).click();
   const rescanned = await (await created).json() as SourceImportSummary;
   const corrected = await waitScan(page, rescanned.id);
+  sourceDrafts.push(corrected.id);
   expect(corrected.id).not.toBe(invalid.id);
   expect(corrected).toMatchObject({state: "AWAITING_MAPPING", scanOutcome: "READY", counts: {collections: 1, games: 1, invalidMetadata: 0}, scanDiagnostics: []});
   await expect(drawer.getByRole("region", {name: "扫描诊断"})).toHaveCount(0);
@@ -80,6 +74,7 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
   mkdirSync(path.join(root, "bad"));
   writeFileSync(path.join(root, "bad/metadata.pegasus.txt"), "bad syntax\n");
   const partial = await scan(page, name);
+  sourceDrafts.push(partial.id);
   expect(partial).toMatchObject({state: "AWAITING_MAPPING", scanOutcome: "PARTIAL", counts: {metadata: 2, invalidMetadata: 1, collections: 1, games: 1}});
   await page.goto(`/admin/imports/server/source/${partial.id}`);
   await page.getByRole("button", {name: "继续映射"}).click();
@@ -217,17 +212,17 @@ test("ACC-RUN-019 immutable ROM bytes survive same-core, cross-core and restore 
   } finally {await profile.close();}
 });
 
-test("ACC-UI-012 import timestamps use the browser timezone across overview, tasks and server details", async ({page, browser}, testInfo: TestInfo) => {
+test("ACC-UI-012 import timestamps use the browser timezone across overview, tasks and server details", async ({page, browser, sourceDrafts}, testInfo: TestInfo) => {
   test.setTimeout(180_000);
   const source = await scan(page, "Games");
-  const imports = await (await page.request.get("/api/v1/admin/imports?limit=3")).json() as {items: {id: string; createdAtMs: number}[]};
-  const ordinary = imports.items[0]; expect(ordinary).toBeTruthy();
+  sourceDrafts.push(source.id);
   const headers = await login(page);
   const biosResponse = await page.request.post("/api/v1/admin/server-imports", {
     headers: {...headers, "Idempotency-Key": crypto.randomUUID()}, data: {kind: "BIOS_DIRECTORY", rootId: source.root.id, sourceRelativePath: serverSourcePath("BIOS"), replaceIfBetter: false},
   });
   expect(biosResponse.ok(), await biosResponse.text()).toBe(true);
   const bios = await biosResponse.json() as {id: string; createdAtMs: number};
+  const ordinary = await createOrdinaryImport(page, headers);
   for (const zone of ["Asia/Shanghai", "UTC", "America/Los_Angeles"]) {
     const context = await browser.newContext({storageState: await page.context().storageState(), timezoneId: zone,
       viewport: {width: 2560, height: 1440}, deviceScaleFactor: 1.5});
