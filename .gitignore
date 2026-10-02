@@ -20,6 +20,7 @@
 /web/node_modules/
 /web/.next/
 /web/.next-e2e/
+/web/.next-acceptance-*/
 /web/.next-build/
 /web/.next-runtime-dev/
 /web/.next-acc-rpg-*/

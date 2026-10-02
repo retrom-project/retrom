@@ -2,6 +2,7 @@ package sourceimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"retrom/internal/format/emulationstation/gamelist"
@@ -30,7 +31,7 @@ func ScanOrganized(
 		return ScanResult{}, fmt.Errorf("gamelist reader unavailable: %w", ErrInvalid)
 	}
 	result, err := gamelist.NewScanner(gamelistReader{source, reader}).Scan(ctx, maximumYear)
-	if err != nil {
+	if err != nil && !errors.Is(err, gamelist.ErrNoValidGamelist) && !errors.Is(err, gamelist.ErrGamelistAbsent) {
 		return ScanResult{}, fmt.Errorf("scan gamelist: %w", err)
 	}
 	return normalizeGamelist(result), nil
@@ -83,7 +84,7 @@ func (source gamelistReader) Asset(
 
 func normalizeGamelist(input gamelist.ScanProjection) ScanResult {
 	result := ScanResult{
-		SnapshotDigest: input.SnapshotDigest, EstimatedBytes: input.EstimatedBytes,
+		DiscoveredFiles: input.DiscoveredFiles, SnapshotDigest: input.SnapshotDigest, EstimatedBytes: input.EstimatedBytes,
 		InvalidMetadata: input.InvalidGamelists, Blocked: input.Blocked, MediaWarnings: input.MediaWarnings,
 		Covers: input.Covers, Videos: input.Videos,
 	}
@@ -91,6 +92,7 @@ func normalizeGamelist(input gamelist.ScanProjection) ScanResult {
 		result.Metadata = append(result.Metadata, ScanMetadata{
 			Path: value.Path, Digest: value.Digest,
 			Facts: value.Facts, State: value.State, ErrorCode: value.ErrorCode, Size: value.Size,
+			Message: "Gamelist metadata failed validation: " + value.ErrorCode,
 		})
 	}
 	for _, value := range input.Collections {

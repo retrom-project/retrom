@@ -36,17 +36,27 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 		ExecutionNo: 1,
 		Attempt:     1,
 	}
+	collectionID := "collection"
 	projection := application.ScanProjection{
-		Headers: application.ScanHeaders{Metadata: []application.ScanMetadata{
-			{Path: "metadata.pegasus.txt", Size: 1, Digest: digest, Facts: digest, State: "VALID"},
-		}},
+		Headers: application.ScanHeaders{
+			Collections: []application.ScanCollection{{
+				ID: "collection", MetadataPath: "metadata.pegasus.txt", Name: "Collection",
+				GameCount: 1, IgnoredJSON: "[]", WarningJSON: "[]",
+			}},
+			Metadata: []application.ScanMetadata{
+				{Path: "metadata.pegasus.txt", Size: 1, Digest: digest, Facts: digest, State: "VALID"},
+			},
+		},
 		Items: []application.ScanItem{{
-			ID: "scanned", MetadataPath: "metadata.pegasus.txt", SourceKey: digest, Title: "Game",
+			ID: "scanned", CollectionID: collectionID, MetadataPath: "metadata.pegasus.txt", SourceKey: digest,
+			Title:          "Game",
 			DiscoveryState: "READY", MetadataJSON: "{}", WarningsJSON: "[]", SourceManifestJSON: "{}", SourceManifestDigest: digest,
 			Files: []application.ScanFile{{Ordinal: 0, Kind: "FILE", Path: "game.gba", Size: 1, Facts: digest}},
 		}},
 
-		Summary: application.ScanSummary{SnapshotDigest: digest, Shape: application.ScanShape{Metadata: 1, Items: 1, EstimatedBytes: 1}},
+		Summary: application.ScanSummary{SnapshotDigest: digest, Shape: application.ScanShape{
+			Metadata: 1, Collections: 1, Items: 1, EstimatedBytes: 1,
+		}},
 	}
 	return db, id, projection
 }

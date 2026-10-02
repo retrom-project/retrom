@@ -1,7 +1,8 @@
+import { BrowserTime } from "@/components/browser-time";
 import { ButtonLink, Kpi, PageHeader, StatusBadge } from "@/components/ui";
 import { recentImportActivities, type ImportOverviewSummary, type SourceImportSummary } from "@/features/imports/import-overview";
 import type { ImportListItem } from "@/features/imports/import-workflow";
-import { formatTime, type ListResponse } from "@/lib/backend";
+import { type ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "游戏入库" };
@@ -37,7 +38,7 @@ export default async function ImportOverviewPage() {
           <div><i>6</i><strong>发布</strong><b>{summary.publishedItems} 个已发布</b><span>实际进入用户游戏库</span></div>
         </div>
       </section>
-      <section className="panel import-recent-panel"><div className="panel-head"><div><h2>最近任务</h2><p>按用户发起的批次展示；来源目录导入只占一行。</p></div><div className="import-recent-actions"><ButtonLink href="/admin/imports/tasks" secondary>普通任务</ButtonLink><ButtonLink href="/admin/imports/server" secondary>本地扫描</ButtonLink></div></div>{recent.length ? <div className="import-recent-list">{recent.map((item) => <article key={`${item.kind}-${item.id}`}><div><h3>{formatTime(item.createdAtMs)} · {item.title}</h3><p>{item.totalItemCount} 个条目 · {item.sourceLabel}</p></div><StatusBadge tone={item.tone}>{item.stateLabel}</StatusBadge><span>{item.phase}</span><span>{item.outcome}</span><ButtonLink href={item.actionHref} secondary>{item.actionLabel}</ButtonLink></article>)}</div> : <div className="import-workflow-empty"><h2>还没有导入任务</h2><p>选择游戏文件或目录，创建第一批入库任务。</p></div>}</section>
+      <section className="panel import-recent-panel"><div className="panel-head"><div><h2>最近任务</h2><p>按用户发起的批次展示；来源目录导入只占一行。</p></div><div className="import-recent-actions"><ButtonLink href="/admin/imports/tasks" secondary>普通任务</ButtonLink><ButtonLink href="/admin/imports/server" secondary>本地扫描</ButtonLink></div></div>{recent.length ? <div className="import-recent-list">{recent.map((item) => <article key={`${item.kind}-${item.id}`}><div><h3><BrowserTime value={item.createdAtMs} /> · {item.title}</h3><p>{item.totalItemCount} 个条目 · {item.sourceLabel}</p></div><StatusBadge tone={item.tone}>{item.stateLabel}</StatusBadge><span>{item.phase}</span><span>{item.outcome}</span><ButtonLink href={item.actionHref} secondary>{item.actionLabel}</ButtonLink></article>)}</div> : <div className="import-workflow-empty"><h2>还没有导入任务</h2><p>选择游戏文件或目录，创建第一批入库任务。</p></div>}</section>
     </div>
   );
 }

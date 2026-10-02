@@ -3,6 +3,7 @@ package sourceimport
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,7 +22,7 @@ import.processable_item_count,import.blocked_item_count,import.review_pending_it
 import.published_item_count,import.review_discarded_item_count,import.existing_item_count,
 import.failed_item_count,import.cancelled_item_count,import.media_warning_count,import.discovered_cover_count,
 import.discovered_video_count,import.mapping_version,import.version,import.created_by_user_id,user.display_name,
-import.last_error_code,
+import.scan_outcome,import.scan_diagnostics_json,import.last_error_code,
 import.retryable,
 import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
 FROM source_imports import JOIN users user ON user.id=import.created_by_user_id`
@@ -35,6 +36,7 @@ func NewQueries(database dbapi.DB) *Queries { return &Queries{database: database
 
 func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 	var result application.Summary
+	var diagnostics string
 	var importJobID, phase, errorCode sql.NullString
 	var retryable int
 	if err := row.Scan(
@@ -47,9 +49,13 @@ func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 		&result.Counts.ReviewDiscarded, &result.Counts.Existing, &result.Counts.Failed,
 		&result.Counts.Cancelled, &result.Counts.MediaWarnings, &result.Counts.Covers, &result.Counts.Videos,
 		&result.MappingVersion, &result.Version, &result.CreatedBy.ID, &result.CreatedBy.DisplayName,
-		&errorCode, &retryable, &result.CreatedAtMS, &result.UpdatedAtMS, &result.ExpiresAtMS, &result.CompletedAtMS,
+		&result.ScanOutcome, &diagnostics, &errorCode, &retryable,
+		&result.CreatedAtMS, &result.UpdatedAtMS, &result.ExpiresAtMS, &result.CompletedAtMS,
 	); err != nil {
 		return application.Summary{}, fmt.Errorf("sourceimport/scan summary: %w", err)
+	}
+	if err := json.Unmarshal([]byte(diagnostics), &result.ScanDiagnostics); err != nil {
+		return application.Summary{}, fmt.Errorf("decode source scan diagnostics: %w", err)
 	}
 	result.Phase = nullableString(phase)
 	result.ImportJobID = nullableString(importJobID)

@@ -323,6 +323,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-BASIC-001": (300, "scripts/acceptance/ui-case.sh ACC-BASIC-001"),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
+    "ACC-PEG-007": (360, "scripts/acceptance/ui-case.sh ACC-PEG-007"),
     "ACC-ES-001": (
         180,
         "go test ./internal/format/emulationstation/meta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
@@ -404,6 +405,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-RUN-010": (300, "scripts/acceptance/ui-case.sh ACC-RUN-010"),
     "ACC-RUN-011": (300, "scripts/acceptance/ui-case.sh ACC-RUN-011"),
     "ACC-RUN-012": (300, "scripts/acceptance/ui-case.sh ACC-RUN-012"),
+    "ACC-RUN-019": (420, "scripts/acceptance/ui-case.sh ACC-RUN-019"),
     "ACC-RUN-005": (
         180,
         "go test -tags=integration ./internal/launch ./internal/libraryimport -run 'TestDOSLaunchLocksMenuOrSelectedDeterministicBundle|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestDOSRanking|TestPrepareDOSFilesInspectsLauncherBatch' -count=1 && go test ./internal/httpapi ./internal/service/launch -run 'TestDOSIndexDescribesVirtualZIP|TestDOSGameUsesProjectedIndexResource' -count=1 && make web-test",
@@ -458,6 +460,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-007": (180, "scripts/acceptance/ui-case.sh ACC-UI-007"),
     "ACC-UI-008": (180, "scripts/acceptance/ui-case.sh ACC-UI-008"),
     "ACC-UI-011": (300, "scripts/acceptance/ui-case.sh ACC-UI-011"),
+    "ACC-UI-012": (360, "scripts/acceptance/ui-case.sh ACC-UI-012"),
     "ACC-UI-009": (180, "scripts/acceptance/ui-case.sh ACC-UI-009"),
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     **{

@@ -292,10 +292,31 @@ components:
           type: integer
           format: int64
           minimum: 0
+    SourceScanDiagnostic:
+      type: object
+      additionalProperties: false
+      required: [relativePath, line, code, message]
+      properties:
+        relativePath:
+          type: string
+          maxLength: 4096
+        line:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        code:
+          type: string
+          maxLength: 128
+        message:
+          type: string
+          maxLength: 512
     SourceImportSummary:
       type: object
       additionalProperties: false
       required:
+        - scanOutcome
+        - scanDiagnostics
         - id
         - format
         - extensionFilter
@@ -316,6 +337,14 @@ components:
         - expiresAtMs
         - completedAtMs
       properties:
+        scanOutcome:
+          type: string
+          enum: [PENDING, READY, PARTIAL, INVALID, EMPTY, NO_METADATA]
+        scanDiagnostics:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/SourceScanDiagnostic'
         extensionFilter:
           type: string
           maxLength: 2048

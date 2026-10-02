@@ -22,9 +22,11 @@ func ContentIdentity(content ContentView) (string, error) {
 		content.Format == "RETROM_DOS_DIRECT_ZIP_V1" && content.CoreID != "dosbox_pure" {
 		return "", ErrBlocked
 	}
-	digestInput := "RETROM_RUNTIME_GAME_V3\x00" + content.Format + "\x00" + content.ProviderID + "\x00" +
-		content.TargetID + "\x00" + content.BundleSHA256 + "\x00" + content.Digest + "\x00" +
-		nullableDOSEntry(content.DOSEntry)
+	digestInput := "RETROM_RUNTIME_BYTES_V1\x00" + content.Digest
+	if content.Format == "RETROM_DOS_DIRECT_ZIP_V1" {
+		// The deterministic DOS overlay changes the served bytes with its entry selection.
+		digestInput = "RETROM_DOS_OVERLAY_V1\x00" + content.Digest + "\x00" + nullableDOSEntry(content.DOSEntry)
+	}
 	digest := sha256.Sum256([]byte(digestInput))
 	return hex.EncodeToString(digest[:]), nil
 }

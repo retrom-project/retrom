@@ -222,3 +222,6 @@
 @media (max-width: 720px) {
   .source-format-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+.source-scan-diagnostics { padding: var(--space-4); overflow-wrap: anywhere; }
+.source-scan-diagnostics li + li { margin-top: var(--space-3); }

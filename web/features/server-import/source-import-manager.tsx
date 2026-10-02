@@ -115,9 +115,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
       const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: planId } } });
       if (!data) {throw new Error(await message(response, "来源计划读取失败"));}
       if (data.state === "FAILED") {
-        setPlan(null);
-        setStep(1);
-        setError(`扫描未完成：${data.lastErrorCode ?? "扫描任务失败"}。请选择目录或文件组织格式后重新扫描。`);
+        setPlan(data); setStep(2); setCollections([]); setMappings({});
         return data;
       }
       setPlan(data);
@@ -193,7 +191,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
       const { data, response } = await api.POST("/api/v1/admin/source-imports", { params: { header: { ...writeHeaders(), "Idempotency-Key": newUuid(), "X-Retrom-Csrf": "" } }, body: { rootId, sourceRelativePath: path, format, extensionFilter: format === "BASIC" ? extensionFilter : "" } });
       if (!data) {throw new Error(await message(response, "目录扫描创建失败"));}
       hydratedPlanId.current = data.id;
-      setPlan(data); setStep(2); onStarted(data);
+      setCollections([]); setMappings({}); setPlan(data); setStep(2); onStarted(data);
     } catch (caught) {setError(caught instanceof Error ? caught.message : "目录扫描创建失败");}
     finally {setBusy(false);}
   }
@@ -247,7 +245,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
 
   const { mapped, skipped, taggedCollections, taggedGames, mappedTags, mappingComplete } = mappingSummary(collections, mappings);
   if (!open) {return null;}
-  return <SourceImportDrawerView format={format} onFormat={setFormat} extensionFilter={extensionFilter} onExtensionFilter={setExtensionFilter} rootId={rootId} path={path} breadcrumbs={breadcrumbs} directories={directories} directoryCursor={directoryCursor} directoryLoading={directoryLoading} selectedRoot={selectedRoot} step={step} plan={plan} collections={collections} mappings={mappings} availableInstances={availableInstances} activeTags={activeTags} batchTags={batchTags} batchStatus={batchTagStatus} busy={busy} error={error} mapped={mapped} skipped={skipped} taggedCollections={taggedCollections.length} taggedGames={taggedGames} mappedTags={mappedTags} mappingComplete={mappingComplete} onPath={setPath} onMore={() => void loadMoreDirectories()} onBatchTags={(tags) => {setBatchTags(tags); setBatchTagStatus("");}} onApplyBatch={applyBatchTags} onMapping={(id, draft) => setMappings((current) => ({ ...current, [id]: draft }))} onClose={onClose} onScan={() => void scan()} onConfirm={() => void confirmMappings()} onStart={() => void startImport()} onDismissError={() => setError("")} />;
+  return <SourceImportDrawerView format={format} onFormat={setFormat} extensionFilter={extensionFilter} onExtensionFilter={setExtensionFilter} rootId={rootId} path={path} breadcrumbs={breadcrumbs} directories={directories} directoryCursor={directoryCursor} directoryLoading={directoryLoading} selectedRoot={selectedRoot} step={step} plan={plan} collections={collections} mappings={mappings} availableInstances={availableInstances} activeTags={activeTags} batchTags={batchTags} batchStatus={batchTagStatus} busy={busy} error={error} mapped={mapped} skipped={skipped} taggedCollections={taggedCollections.length} taggedGames={taggedGames} mappedTags={mappedTags} mappingComplete={mappingComplete} onPath={setPath} onMore={() => void loadMoreDirectories()} onBatchTags={(tags) => {setBatchTags(tags); setBatchTagStatus("");}} onApplyBatch={applyBatchTags} onMapping={(id, draft) => setMappings((current) => ({ ...current, [id]: draft }))} onEditInput={() => { setPlan(null); setCollections([]); setMappings({}); setStep(1); setError(""); }} onClose={onClose} onScan={() => void scan()} onConfirm={() => void confirmMappings()} onStart={() => void startImport()} onDismissError={() => setError("")} />;
 }
 
 export function SourceImportDetailManager({ initialSummary, initialItems, collections, roots, platformInstances, activeTags = [], initialFilters }: {

@@ -191,8 +191,19 @@ func validateValue(value string) error {
 	return nil
 }
 
+type SyntaxError struct {
+	Line   int
+	Reason string
+}
+
+func (err *SyntaxError) Error() string {
+	return fmt.Sprintf("%s: line %d: %s", ErrSyntax, err.Line, err.Reason)
+}
+
+func (*SyntaxError) Unwrap() error { return ErrSyntax }
+
 func syntaxError(line int, detail string) error {
-	return fmt.Errorf("%w: line %d: %s", ErrSyntax, line, detail)
+	return &SyntaxError{Line: line, Reason: detail}
 }
 
 func hasControl(value string) bool {

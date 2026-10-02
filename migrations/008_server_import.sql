@@ -13,6 +13,8 @@ CREATE TABLE "source_imports" (
   phase TEXT CHECK(phase IS NULL OR phase IN ('DISCOVERING_METADATA','PARSING_METADATA','RESOLVING_SOURCES','COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS')),
   scan_job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
   import_job_id TEXT UNIQUE REFERENCES jobs(id),
+  scan_outcome TEXT NOT NULL DEFAULT 'PENDING' CHECK(scan_outcome IN ('PENDING','READY','PARTIAL','INVALID','EMPTY','NO_METADATA')),
+  scan_diagnostics_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(scan_diagnostics_json) AND json_type(scan_diagnostics_json)='array' AND json_array_length(scan_diagnostics_json)<=100),
   metadata_count INTEGER NOT NULL DEFAULT 0 CHECK(metadata_count>=0),
   invalid_metadata_count INTEGER NOT NULL DEFAULT 0 CHECK(invalid_metadata_count>=0),
   collection_count INTEGER NOT NULL DEFAULT 0 CHECK(collection_count>=0),

@@ -28,6 +28,7 @@ func (service *Scanner) projectMetadata(ctx context.Context,
 	document, err := pegasusmeta.Parse(contents)
 	if err != nil {
 		metadata.State, metadata.ErrorCode = "INVALID", parserErrorCode(err)
+		metadata.Line, metadata.Message = parserDiagnostic(err)
 		result.InvalidMetadata++
 		return nil
 	}

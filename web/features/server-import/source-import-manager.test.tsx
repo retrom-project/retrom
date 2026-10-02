@@ -13,7 +13,7 @@ const activeTag = { tagId: "77777777-7777-4777-8777-777777777770", name: "双人
 
 function summary(state: SourceImportSummary["state"], version: number, overrides: Partial<SourceImportSummary> = {}): SourceImportSummary {
   return {
-    format: "PEGASUS", extensionFilter: "",
+    scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "",
     id: "22222222-2222-4222-8222-222222222222", root: { id: root.id, label: root.label }, sourceRelativePath: "Roms/FC", state,
     phase: state === "SCANNING" ? "DISCOVERING_METADATA" : null,
     scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: state === "QUEUED" ? "44444444-4444-4444-8444-444444444444" : null,

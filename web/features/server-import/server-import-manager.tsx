@@ -10,8 +10,7 @@ import { StatusBadge } from "@/components/ui";
 import { api, writeHeaders } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
-import { formatTime } from "@/lib/backend";
-import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
+import { BrowserTime } from "@/components/browser-time";
 import { responseError } from "@/lib/upload";
 import { SourceImportDrawer, type SourceImportList, type SourceImportSummary, type SourcePlatformInstance, sourceStateLabels, sourceStateTone } from "./source-import-manager";
 import type { TagReference } from "@/components/tag-picker";
@@ -79,15 +78,13 @@ function ImportRoots({ roots }: { roots: ServerImportRoot[] }) {
 }
 
 function BIOSHistoryEntry({ item }: { item: ServerImportSummary }) {
-  const timeZone = useBrowserTimeZone();
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · {formatTime(item.createdAtMs, timeZone)}</p></div><dl tabIndex={0} aria-label="BIOS 导入统计"><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · <BrowserTime value={item.createdAtMs} /></p></div><dl tabIndex={0} aria-label="BIOS 导入统计"><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
 }
 
 function SourceHistoryEntry({ item }: { item: SourceImportSummary }) {
-  const timeZone = useBrowserTimeZone();
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/source/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">游戏文件</span><StatusBadge tone={sourceStateTone(item.state)}>{sourceStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {formatTime(item.createdAtMs, timeZone)}</p></div><dl tabIndex={0} aria-label="游戏导入统计"><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/source/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">游戏文件</span><StatusBadge tone={sourceStateTone(item.state)}>{sourceStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · <BrowserTime value={item.createdAtMs} /></p></div><dl tabIndex={0} aria-label="游戏导入统计"><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
 }
 
 
@@ -285,7 +282,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialSourc
   }
 
   const catalogSummary = initialCatalogSummary ?? { totalCount: 0, attentionCount: 0 };
-  const resumableSource = sourceImports.find((item) => item.state === "SCANNING" || item.state === "AWAITING_MAPPING");
+  const resumableSource = sourceImports.find((item) => item.state === "SCANNING" || item.state === "AWAITING_MAPPING" || item.state === "FAILED" && !item.importJobId);
   const mergedHistory = [
     ...imports.map((item) => ({ kind: "BIOS" as const, createdAtMs: item.createdAtMs, item })),
     ...sourceImports.map((item) => ({ kind: "SOURCE" as const, createdAtMs: item.createdAtMs, item })),
@@ -344,7 +341,7 @@ function DetailHeader({ busy, canCancel, canRetry, connectionLabel, onCancel, on
   summary: ServerImportSummary;
 }) {
   const title = `${summary.root.label}${summary.sourceRelativePath ? ` / ${summary.sourceRelativePath}` : " / 根目录"}`;
-  return <section className="server-import-detail-head panel"><div><StatusBadge tone={stateTone(summary.state)}>{stateLabels[summary.state]}</StatusBadge><h2>{title}</h2><p>{summary.phase ? phaseLabels[summary.phase] : "任务尚未进入处理阶段"} · <span aria-live="polite">{connectionLabel}</span></p></div><div>{canCancel ? <button type="button" className="button secondary" disabled={busy} onClick={onCancel}>取消任务</button> : null}{canRetry ? <button type="button" className="button" disabled={busy} onClick={onRetry}>重试原任务</button> : null}<Link className="button secondary" href="/admin/imports/server?action=bios">新建导入</Link></div></section>;
+  return <section className="server-import-detail-head panel"><div><StatusBadge tone={stateTone(summary.state)}>{stateLabels[summary.state]}</StatusBadge><h2>{title}</h2><p>{summary.phase ? phaseLabels[summary.phase] : "任务尚未进入处理阶段"} · <span aria-live="polite">{connectionLabel}</span></p><p>创建于 <BrowserTime value={summary.createdAtMs} /> · 更新于 <BrowserTime value={summary.updatedAtMs} /></p></div><div>{canCancel ? <button type="button" className="button secondary" disabled={busy} onClick={onCancel}>取消任务</button> : null}{canRetry ? <button type="button" className="button" disabled={busy} onClick={onRetry}>重试原任务</button> : null}<Link className="button secondary" href="/admin/imports/server?action=bios">新建导入</Link></div></section>;
 }
 
 export function ServerImportDetailManager({ initialDetail, initialFilters = { query: "", outcome: "", matchMethod: "" } }: { initialDetail: ServerImportDetail; initialFilters?: DetailFilters }) {

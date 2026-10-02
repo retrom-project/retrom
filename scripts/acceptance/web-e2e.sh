@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-web-e2e.XXXXXX")"
 backend_port=18084
 web_port=13004
@@ -29,20 +30,6 @@ fi
 export RETROM_CHROME_EXECUTABLE="$chrome_executable"
 printf 'browser=%s\n' "$chrome_version"
 
-remove_e2e_dist() {
-  local dist_directory="$repository_root/web/.next-e2e"
-  local deadline=$((SECONDS + 5))
-  while [[ -e "$dist_directory" ]]; do
-    rm -rf -- "$dist_directory" 2>/dev/null || true
-    [[ ! -e "$dist_directory" ]] && return 0
-    if (( SECONDS >= deadline )); then
-      echo "failed to remove web E2E build directory: $dist_directory" >&2
-      return 1
-    fi
-    sleep 0.1
-  done
-}
-
 cleanup() {
   local status=$?
   trap - EXIT
@@ -60,7 +47,7 @@ cleanup() {
   cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
   cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
-  if ! remove_e2e_dist; then
+  if ! remove_dev_dist "$repository_root/web/.next-e2e"; then
     status=1
   fi
   exit "$status"

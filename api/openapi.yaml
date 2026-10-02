@@ -547,6 +547,8 @@ components:
       $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportCandidateList
     SourceImportCounts:
       $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportCounts
+    SourceScanDiagnostic:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceScanDiagnostic
     SourceImportSummary:
       $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportSummary
     SourceImportList:
