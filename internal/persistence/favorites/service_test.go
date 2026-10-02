@@ -143,13 +143,18 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 	deleted, err := service.DeleteFolder(context.Background(), alice, deleteKey, folder.FolderID, folder.Version)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return deleted.Status != 204 }), "DeleteFolder() = %#v, %v", deleted, err)
 	restoreKey := "01980000-0000-7000-8000-00000000c304"
+	nowMS = 5000
 	restored, err := service.Restore(context.Background(), alice, restoreKey, []favorites.RestoreItem{
-		{GameID: snapshot.Items[0].GameID, FolderIDs: snapshot.Items[0].FolderIDs},
+		{
+			GameID: snapshot.Items[0].GameID, FavoritedAtMS: snapshot.Items[0].FavoritedAtMS,
+			FolderIDs: snapshot.Items[0].FolderIDs,
+		},
 	})
 	testassert.False(t, err != nil, err)
 	restore := decodeResponse[favorites.RestoreResult](t, restored)
 	testassert.Falsef(t, testassert.Any(func() bool { return !slices.Equal(restore.RestoredGameIDs, []string{testGameA}) }, func() bool { return !slices.Equal(restore.SkippedFolderIDs, []string{folder.FolderID}) }), "restore result = %#v", restore)
-	if reference, _ := service.Reference(context.Background(), testProfileA, testGameA); reference == nil || len(reference.FolderIDs) != 0 {
+	if reference, _ := service.Reference(context.Background(), testProfileA, testGameA); reference == nil ||
+		len(reference.FolderIDs) != 0 || reference.FavoritedAtMS != 2000 {
 		t.Fatalf("restored reference = %#v", reference)
 	}
 }

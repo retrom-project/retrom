@@ -2396,6 +2396,11 @@ export interface components {
         FavoriteRestoreItemRequest: {
             /** Format: uuid */
             gameId: string;
+            /**
+             * Format: int64
+             * @description Original timestamp from the unfavorite snapshot.
+             */
+            favoritedAtMs: number;
             folderIds: string[];
         };
         RestoreFavoritesRequest: {
@@ -2654,6 +2659,11 @@ export interface components {
         UnfavoriteItem: {
             /** Format: uuid */
             gameId: string;
+            /**
+             * Format: int64
+             * @description Original favorite timestamp returned by unfavorite and preserved by restore.
+             */
+            favoritedAtMs: number;
             folderIds: string[];
         };
         UnfavoriteResult: {

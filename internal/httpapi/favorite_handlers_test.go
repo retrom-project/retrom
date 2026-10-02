@@ -215,8 +215,9 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 		fmt.Sprintf(`{"gameIds":[%q]}`, favoriteHTTPGameA), map[string]string{"Idempotency-Key": removeKey})
 	var removed struct {
 		Items []struct {
-			GameID    string   `json:"gameId"`
-			FolderIDs []string `json:"folderIds"`
+			GameID        string   `json:"gameId"`
+			FavoritedAtMS int64    `json:"favoritedAtMs"`
+			FolderIDs     []string `json:"folderIds"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(unfavorite.Body.Bytes(), &removed); err != nil || unfavorite.Code != http.StatusOK ||
@@ -225,6 +226,12 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 	}
 	restoreBody, err := json.Marshal(map[string]any{"items": removed.Items})
 	testassert.False(t, err != nil, err)
+	missingTimestamp := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPost, "/api/v1/favorites/restore",
+		fmt.Sprintf(`{"items":[{"gameId":%q,"folderIds":[]}]}`, favoriteHTTPGameA),
+		map[string]string{"Idempotency-Key": uuid.NewString()})
+	if missingTimestamp.Code != http.StatusBadRequest {
+		t.Fatalf("restore without original timestamp = %d", missingTimestamp.Code)
+	}
 	restore := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPost, "/api/v1/favorites/restore",
 		string(restoreBody), map[string]string{"Idempotency-Key": uuid.NewString()})
 	testassert.Falsef(t, testassert.Any(func() bool { return restore.Code != http.StatusOK }, func() bool { return !strings.Contains(restore.Body.String(), favoriteHTTPGameA) }), "restore = %d %s", restore.Code, restore.Body.String())

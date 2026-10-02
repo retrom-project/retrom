@@ -309,18 +309,16 @@ func (service *Service) Unfavorite(
 		func(connection WriteScope) (int, map[string]string, any, error) {
 			result := UnfavoriteResult{Items: make([]UnfavoriteItem, 0, len(games))}
 			for _, gameID := range games {
-				_, exists, err := connection.Games.State(ctx, principal.ProfileID, gameID)
+				state, exists, err := connection.Games.State(ctx, principal.ProfileID, gameID)
 				if err != nil {
 					return 0, nil, nil, repositoryError("Unfavorite", err)
 				}
 				if !exists {
 					continue
 				}
-				folderIDs, err := connection.Memberships.FolderIDs(ctx, principal.ProfileID, gameID)
-				if err != nil {
-					return 0, nil, nil, repositoryError("Unfavorite", err)
-				}
-				result.Items = append(result.Items, UnfavoriteItem{GameID: gameID, FolderIDs: folderIDs})
+				result.Items = append(result.Items, UnfavoriteItem{
+					GameID: gameID, FavoritedAtMS: state.FavoritedAtMS, FolderIDs: state.FolderIDs,
+				})
 				if err := connection.Games.Remove(ctx, principal.ProfileID, gameID); err != nil {
 					return 0, nil, nil, repositoryError("Unfavorite", err)
 				}
@@ -357,7 +355,7 @@ func restoreItem(
 	if err != nil || !visible {
 		return false, repositoryError("restoreItem", err)
 	}
-	if err := connection.Games.Ensure(ctx, profileID, item.GameID, now); err != nil {
+	if err := connection.Games.Ensure(ctx, profileID, item.GameID, item.FavoritedAtMS); err != nil {
 		return false, repositoryError("restoreItem", err)
 	}
 	for _, folderID := range item.FolderIDs {
@@ -447,7 +445,7 @@ func normalizeRestoreItems(items []RestoreItem) ([]RestoreItem, error) {
 	edges := 0
 	canonical := make([]RestoreItem, len(items))
 	for index, item := range items {
-		if !ValidID(item.GameID) {
+		if !ValidID(item.GameID) || item.FavoritedAtMS < 0 {
 			return nil, ErrInvalid
 		}
 		if _, duplicate := gameSeen[item.GameID]; duplicate {
@@ -458,7 +456,9 @@ func normalizeRestoreItems(items []RestoreItem) ([]RestoreItem, error) {
 			return nil, repositoryError("normalizeRestoreItems", err)
 		}
 		edges += len(item.FolderIDs)
-		canonical[index] = RestoreItem{GameID: item.GameID, FolderIDs: append([]string{}, item.FolderIDs...)}
+		canonical[index] = RestoreItem{
+			GameID: item.GameID, FavoritedAtMS: item.FavoritedAtMS, FolderIDs: append([]string{}, item.FolderIDs...),
+		}
 		sort.Strings(canonical[index].FolderIDs)
 	}
 	if edges > MaxRestoreFolderEdges {

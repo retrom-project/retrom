@@ -82,9 +82,9 @@ describe("FavoriteActions", () => {
   it("confirms unfavorite and restores the server snapshot from the two-second undo", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/unfavorite")) {return json({ items: [{ gameId, folderIds: [folderId] }] });}
+      if (path.endsWith("/unfavorite")) {return json({ items: [{ gameId, favoritedAtMs: 1000, folderIds: [folderId] }] });}
       if (path.endsWith("/restore")) {return json({ restoredGameIds: [gameId], skippedGameIds: [], skippedFolderIds: [] });}
-      if (path === `/api/v1/favorites/${gameId}`) {return json({ gameId, favoritedAtMs: 1200, folderIds: [folderId] });}
+      if (path === `/api/v1/favorites/${gameId}`) {return json({ gameId, favoritedAtMs: 1000, folderIds: [folderId] });}
       throw new Error(`unexpected ${path}`);
     });
     const onChange = vi.fn();
@@ -94,9 +94,9 @@ describe("FavoriteActions", () => {
     await user.click(screen.getByRole("button", { name: "取消收藏“Metroid”" }));
     expect(screen.getByRole("alertdialog", { name: "取消收藏“Metroid”？" })).toHaveTextContent("1 个收藏夹");
     await user.click(screen.getByRole("button", { name: "取消收藏" }));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith(null, [{ gameId, folderIds: [folderId] }]));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(null, [{ gameId, favoritedAtMs: 1000, folderIds: [folderId] }]));
     await user.click(screen.getByRole("button", { name: "撤销" }));
-    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith({ favoritedAtMs: 1200, folderIds: [folderId] }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith({ favoritedAtMs: 1000, folderIds: [folderId] }));
     expect(auth.fetch.mock.calls.some(([input]) => String(input).endsWith("/restore"))).toBe(true);
   });
 

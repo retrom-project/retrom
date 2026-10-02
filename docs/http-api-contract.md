@@ -603,7 +603,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `PUT /api/v1/favorites/{gameId}/folders` | `folderIds` 必填、唯一、0–100 | `200 FavoriteState`；精确替换完整 Folder 集合并在需要时自动收藏。 |
 | `POST /api/v1/favorites/organize` | 1–50 `gameIds`；`addFolderIds/removeFolderIds` 各 0–20，互斥且总边数不超过 1000 | `200 FavoriteBatchResult`；整批原子执行，add 自动收藏，空动作或重复 ID 拒绝。 |
 | `POST /api/v1/favorites/unfavorite` | 1–100 `gameIds` | `200 UnfavoriteResult`；按稳定顺序返回删除前的 `gameId/folderIds` 快照，不返回 Folder 名称；不存在的 Favorite 不泄漏并产生空项结果。 |
-| `POST /api/v1/favorites/restore` | 1–100 个 `{gameId,folderIds}`，总 Folder 引用不超过 1000 | `200 FavoriteRestoreResult`；只恢复仍可见 Game 和仍属于 Principal 的 Folder，返回排序且去重的 restored/skipped IDs。 |
+| `POST /api/v1/favorites/restore` | 1–100 个 `{gameId,favoritedAtMs,folderIds}`，总 Folder 引用不超过 1000 | `200 FavoriteRestoreResult`；只恢复仍可见 Game 和仍属于 Principal 的 Folder，返回排序且去重的 restored/skipped IDs。 |
 | `POST /api/v1/favorite-folders` | `name` 与必填 `initialGameIds` 0–100 | `201 FavoriteFolder` + `Location` + `ETag`；原子创建 Folder，并收藏、分类显式给出的 Game；`[]` 表示创建空 Folder。 |
 | `PATCH /api/v1/favorite-folders/{folderId}` | `name` + `If-Match` + `Idempotency-Key` | `200 FavoriteFolder` + 新 `ETag`；只重命名并把版本精确加一。 |
 | `DELETE /api/v1/favorite-folders/{folderId}` | `{}` + `If-Match` + `Idempotency-Key` | `204`；删除 Membership 和 Folder，保留 Favorite。 |
@@ -638,7 +638,7 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 `FavoriteState` 固定为 `gameId/favoritedAtMs/folderIds`。`FavoriteFolder` 固定为 `folderId/name/version/visibleGameCount/createdAtMs/updatedAtMs`。`FavoriteListResponse` 固定包含 `generatedAtMs/summary/folders/platforms/totalCount/items/nextCursor`；每个 item 提供 Game、platform、PlatformInstance、defaultCore、封面、发行年份、最近游玩时间和非空 Favorite 投影。Folder ID 按 Folder `created_at_ms,id` 排序。
 
-`UnfavoriteResult.items[]` 只返回删除前的 `gameId/folderIds`，按请求 Game ID 的 UTF-8 bytes 排序。`FavoriteRestoreResult` 返回 `restoredGameIds/skippedGameIds/skippedFolderIds`，每个数组排序且不重复。
+`UnfavoriteResult.items[]` 返回删除前的 `gameId/favoritedAtMs/folderIds`，恢复时保留原收藏时间（已有收藏不被覆盖），按请求 Game ID 的 UTF-8 bytes 排序。`FavoriteRestoreResult` 返回 `restoredGameIds/skippedGameIds/skippedFolderIds`，每个数组排序且不重复。
 
 用户侧 `/api/v1/games` 列表和详情增加可空字段：
 
