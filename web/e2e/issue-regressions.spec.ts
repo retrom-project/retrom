@@ -6,6 +6,7 @@ import {formatTime} from "../lib/backend";
 import {evidencePath} from "./acceptance-support";
 import {exitRuntimePlayer, runtimeCheckpoint, runtimeFrameCount, runtimeResource, type RuntimeEnvelope} from "./runtime-provider-support";
 import {serverSourcePath} from "./server-directory-support";
+import {persistentContentProfile} from "./persistent-content-profile";
 
 async function login(page: Page) {
   const response = await page.request.post("/api/v1/auth/login", {data: {username: "test", password: "test"},
@@ -146,50 +147,64 @@ async function playable(page: Page) {
   return canvas;
 }
 
-test("ACC-RUN-019 immutable ROM bytes survive same-core, cross-core and restore launches", async ({page, context}, testInfo) => {
+test("ACC-RUN-019 immutable ROM bytes survive same-core, cross-core and restore launches", async ({}, testInfo) => {
   test.setTimeout(240_000);
   const fixtures = JSON.parse(process.env.RETROM_CORE_EXPANSION_RESULTS ?? "[]") as FixtureGame[];
   const game = fixtures.find(item => item.fixtureId === "fceumm")!, changed = fixtures.find(item => item.fixtureId === "nestopia")!;
   expect(game).toBeTruthy(); expect(changed).toBeTruthy();
-  const headers = await login(page), errors: string[] = [], requests: string[] = [];
-  page.on("pageerror", error => errors.push(error.message));
-  await page.addInitScript(() => {Object.defineProperty(Element.prototype, "requestFullscreen", {configurable: true, value: () => Promise.resolve()});});
-  let deny = false;
-  await context.route("**/runtime/content/game/**", async route => {
-    requests.push(route.request().method());
-    if (deny) {await route.abort("failed");} else {await route.continue();}
-  });
-  const evidence: object[] = [], resources: unknown[] = [];
-  let save: string | null = null;
-  for (const [core, gameId, expectedGets, restore] of [["fceumm", game.gameId, 1, false], ["fceumm", game.gameId, 0, false],
-    ["nestopia", game.gameId, 0, false], ["nestopia", game.gameId, 0, true], ["nestopia", changed.gameId, 1, false]] as const) {
-    deny = expectedGets === 0; requests.length = 0;
-    const current = await launch(page, headers, gameId, core, restore ? save : null);
-    const config = page.waitForResponse(response => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok());
-    await page.goto(current.playUrl);
-    const envelope = await (await config).json() as RuntimeEnvelope;
-    const resource = runtimeResource(envelope, "game");
-    resources.push(resource);
-    expect(envelope.runtime.targetId).toBe(core);
-    expect(envelope.runtime.capabilities.contentLoading).toBe("PRELOAD_ONLY");
-    const canvas = await playable(page);
-    expect(requests).toHaveLength(expectedGets);
-    evidence.push({core, launchId: current.launchId, gameId, romGets: requests.length, resource, restore});
-    await canvas.screenshot({path: evidencePath(testInfo, `cache-${evidence.length}-${core}.png`)});
-    if (core === "nestopia" && !restore && gameId === game.gameId) {
-      await page.mouse.move(640, 1);
-      const response = page.waitForResponse(value => /\/save-states$/.test(value.url()) && value.request().method() === "POST");
-      await page.locator(".player-save-button").click();
-      const saved = await response; expect(saved.status()).toBe(201);
-      save = (await saved.json() as {saveStateId: string}).saveStateId;
+  const profile = persistentContentProfile(testInfo), errors: string[] = [], requests: string[] = [];
+  try {
+    const interruptedContext = await profile.reopen(), interruptedPage = await interruptedContext.newPage();
+    const interruptedHeaders = await login(interruptedPage);
+    let truncated = 0;
+    await interruptedContext.route("**/runtime/content/game/**", async route => {
+      const response = await route.fetch(), body = await response.body();
+      truncated++;
+      const partial = body.subarray(0, Math.floor(body.length / 2));
+      await route.fulfill({response, body: partial, headers: {...response.headers(), "content-length": String(partial.length)}});
+    });
+    await interruptedPage.goto((await launch(interruptedPage, interruptedHeaders, game.gameId, "fceumm")).playUrl);
+    await expect(interruptedPage.locator(".player-loading").getByRole("link", {name: "返回游戏库"})).toBeVisible({timeout: 60_000});
+    expect(truncated).toBeGreaterThan(0);
+    const evidence: object[] = [], resources: unknown[] = [];
+    let save: string | null = null;
+    for (const [core, gameId, expectedGets, restore] of [["fceumm", game.gameId, 1, false], ["fceumm", game.gameId, 0, false],
+      ["nestopia", game.gameId, 0, false], ["nestopia", game.gameId, 0, true], ["nestopia", changed.gameId, 1, false]] as const) {
+      const context = await profile.reopen(), page = await context.newPage(), headers = await login(page);
+      page.on("pageerror", error => errors.push(error.message));
+      await page.addInitScript(() => {Object.defineProperty(Element.prototype, "requestFullscreen", {configurable: true, value: () => Promise.resolve()});});
+      requests.length = 0;
+      await context.route("**/runtime/content/game/**", async route => {
+        requests.push(route.request().method());
+        if (expectedGets === 0) {await route.abort("failed");} else {await route.continue();}
+      });
+      const current = await launch(page, headers, gameId, core, restore ? save : null);
+      const config = page.waitForResponse(response => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok());
+      await page.goto(current.playUrl);
+      const envelope = await (await config).json() as RuntimeEnvelope;
+      const resource = runtimeResource(envelope, "game");
+      resources.push(resource);
+      expect(envelope.runtime.targetId).toBe(core);
+      expect(envelope.runtime.capabilities.contentLoading).toBe("PRELOAD_ONLY");
+      const canvas = await playable(page);
+      expect(requests).toHaveLength(expectedGets);
+      evidence.push({core, launchId: current.launchId, gameId, romGets: requests.length, resource, restore});
+      await canvas.screenshot({path: evidencePath(testInfo, `cache-${evidence.length}-${core}.png`)});
+      if (core === "nestopia" && !restore && gameId === game.gameId) {
+        await page.mouse.move(640, 1);
+        const response = page.waitForResponse(value => /\/save-states$/.test(value.url()) && value.request().method() === "POST");
+        await page.locator(".player-save-button").click();
+        const saved = await response; expect(saved.status()).toBe(201);
+        save = (await saved.json() as {saveStateId: string}).saveStateId;
+      }
+      await exitRuntimePlayer(page);
+      await page.goto("about:blank");
     }
-    await exitRuntimePlayer(page);
-    await page.goto("about:blank");
-  }
-  expect(resources[1]).toEqual(resources[0]); expect(resources[2]).toEqual(resources[0]); expect(resources[3]).toEqual(resources[0]);
-  expect(resources[4]).not.toEqual(resources[0]);
-  expect(errors).toEqual([]);
-  await testInfo.attach("rom-cache", {contentType: "application/json", body: JSON.stringify({httpCache: "disabled", warmNetwork: "blocked", launches: evidence})});
+    expect(resources[1]).toEqual(resources[0]); expect(resources[2]).toEqual(resources[0]); expect(resources[3]).toEqual(resources[0]);
+    expect(resources[4]).not.toEqual(resources[0]);
+    expect(errors).toEqual([]);
+    await testInfo.attach("rom-cache", {contentType: "application/json", body: JSON.stringify({httpCache: "disabled", warmNetwork: "blocked", browserRestarted: true, truncatedGets: truncated, launches: evidence})});
+  } finally {await profile.close();}
 });
 
 test("ACC-UI-012 import timestamps use the browser timezone across overview, tasks and server details", async ({page, browser}, testInfo: TestInfo) => {

@@ -447,8 +447,8 @@ function registerRun006(): void {
       currentSnapshotScreenshotName: "mame2003-current-snapshot-direct-launch.png",
     };
     await verifyParentCacheReuse(page, testInfo,
-      () => verifyPublicArcadeSmoke(page, testInfo, expectation),
-      () => verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation));
+      profilePage => verifyPublicArcadeSmoke(profilePage, testInfo, expectation),
+      profilePage => verifyPersistedArcadeCurrentSnapshotLaunch(profilePage, testInfo, expectation));
   });
 }
 
@@ -466,8 +466,8 @@ function registerRun007(): void {
       currentSnapshotScreenshotName: "fbneo-current-snapshot-direct-launch.png",
     };
     await verifyParentCacheReuse(page, testInfo,
-      () => verifyPublicArcadeSmoke(page, testInfo, expectation),
-      () => verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation));
+      profilePage => verifyPublicArcadeSmoke(profilePage, testInfo, expectation),
+      profilePage => verifyPersistedArcadeCurrentSnapshotLaunch(profilePage, testInfo, expectation));
   });
 }
 
