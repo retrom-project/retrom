@@ -159,6 +159,7 @@ describe("PlayerChrome", () => {
 
     await user.click(screen.getByRole("button", { name: "光盘 1 / 2" }));
     expect(screen.getByRole("menu", { name: "选择光盘" })).toBeVisible();
+    expect(screen.getByText("切换后保持原来的运行或暂停状态。")).toBeVisible();
     expect(screen.getByRole("menuitemradio", { name: "光盘 1 · 当前" })).toHaveAttribute("aria-checked", "true");
     expect(screen.queryByText("/disc-001.chd")).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitemradio", { name: "光盘 2" }));
