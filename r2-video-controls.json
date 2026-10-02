@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "motion": "reduce",
+      "before": {
+        "paused": false,
+        "time": 1.291805,
+        "muted": true,
+        "ready": 4
+      },
+      "after": {
+        "paused": true,
+        "time": 1.321608,
+        "muted": false,
+        "ready": 4
+      },
+      "later": {
+        "paused": true,
+        "time": 1.321608,
+        "muted": false,
+        "ready": 4
+      },
+      "controls": "播放视频预览\n开启声音",
+      "muteStopsPlayback": true
+    },
+    {
+      "motion": "no-preference",
+      "before": {
+        "paused": false,
+        "time": 1.272911,
+        "muted": true,
+        "ready": 4
+      },
+      "after": {
+        "paused": true,
+        "time": 1.291215,
+        "muted": false,
+        "ready": 4
+      },
+      "later": {
+        "paused": true,
+        "time": 1.291215,
+        "muted": false,
+        "ready": 4
+      },
+      "controls": "暂停预览\n开启声音",
+      "muteStopsPlayback": true
+    }
+  ],
+  "pause": {
+    "paused": true,
+    "time": 0.771666,
+    "muted": true,
+    "ready": 4
+  },
+  "leave": {
+    "paused": true,
+    "connected": false
+  },
+  "fallback": "此视频无法在当前浏览器播放，已恢复封面",
+  "cleanup": 204
+}
