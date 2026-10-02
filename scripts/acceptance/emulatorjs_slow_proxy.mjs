@@ -4,9 +4,9 @@ import {setTimeout as delay} from "node:timers/promises";
 
 // Preserve actual immutable bytes and HTTP headers; only transport timing changes.
 export async function emulatorjsSlowProxy(base) {
-  const origin = new URL(base), sockets = new Set(), requests = [];
+  const origin = new URL(base), sockets = new Set(), requests = [], contentRequests = [];
   if (origin.protocol !== "http:" || !origin.hostname.endsWith(".localhost")) {throw Error("EJS_SLOW_LOCAL_PFB_REQUIRED");}
-  let stall = false, block = false;
+  let stall = false, block = false, blockContent = false;
   const target = (value, host) => {
     try {
       const url = new URL(value, `http://${host}`);
@@ -21,8 +21,11 @@ export async function emulatorjsSlowProxy(base) {
     const url = target(request.url, request.headers.host);
     if (!url) {response.writeHead(403).end(); return;}
     const limited = /^\/runtime\/providers\/emulatorjs\/.*\.data$/u.test(url.pathname);
+    const content = /^\/runtime\/content\/(?:game|parent|bios)\//u.test(url.pathname);
     const row = {path: url.pathname, bytes: 0, startedMs: performance.now()};
     if (limited) {requests.push(row);}
+    if (content) {contentRequests.push(row);}
+    if (content && blockContent) {row.blocked = true; response.writeHead(503).end(); return;}
     if (limited && block) {row.blocked = true; response.writeHead(503).end(); return;}
     const upstream = requestHttp({hostname: "127.0.0.1", port: origin.port, method: request.method,
       path: url.pathname + url.search, headers: {...request.headers, host: url.host}}, incoming => {
@@ -71,7 +74,7 @@ export async function emulatorjsSlowProxy(base) {
     track(upstream); socket.once("close", () => upstream.destroy());
   });
   await new Promise((resolve, reject) => server.once("error", reject).listen(0, "127.0.0.1", resolve));
-  return {requests, contextOptions: {proxy: {server: `http://127.0.0.1:${server.address().port}`}},
-    stall(value) {stall = value;}, block(value) {block = value;},
+  return {requests, contentRequests, contextOptions: {proxy: {server: `http://127.0.0.1:${server.address().port}`}},
+    stall(value) {stall = value;}, block(value) {block = value;}, blockContent(value) {blockContent = value;},
     async close() {for (const socket of sockets) {socket.destroy();} await new Promise(resolve => server.close(resolve));}};
 }

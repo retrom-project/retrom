@@ -28,7 +28,7 @@ finally {await browser?.close(); await flush(); console.log(JSON.stringify({stat
 async function verify(core, input) {
   assert.equal(input.fixtureId, core); assert.equal(input.coreId, core);
   const proxy = await emulatorjsSlowProxy(base), context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
-  const result = {core, gameId: input.gameId, requests: proxy.requests}; report.targets.push(result);
+  const result = {core, gameId: input.gameId, requests: proxy.requests, contentRequests: proxy.contentRequests}; report.targets.push(result);
   try {
     const client = await fantasyClient(context, base);
     const launch = await launchCart(client, input.gameId); launch.returnTo = `/games/${input.gameId}`;
@@ -51,16 +51,24 @@ async function verify(core, input) {
     const saved = await saveCart(page, launch.launchId, core); result.saveStateId = saved.saveStateId;
     await page.screenshot({path: join(directory, `${core}-cold.png`)});
     await exitContentIOPlayer(page, base, launch);
-    // Same persistent browser context, a fresh Launch, core transport blocked.
-    const requestCount = proxy.requests.length; proxy.block(true);
+    // Same persistent browser context and a fresh Launch; cached game and
+    // dependency bytes cannot come from transport. Core transport stays slow.
+    const contentRequestCount = proxy.contentRequests.length; proxy.blockContent(true);
+    const networkSession = await context.newCDPSession(page);
+    await networkSession.send("Network.enable");
+    await networkSession.send("Network.setCacheDisabled", {cacheDisabled: true});
     const restore = await launchCart(client, input.gameId, saved.saveStateId); restore.returnTo = launch.returnTo;
     const warm = performance.now(); await page.goto(base + restore.playUrl, {waitUntil: "domcontentloaded"});
-    await expect(page.locator(".player-loading")).toBeHidden({timeout: 60000});
+    await expect(page.locator(".player-loading")).toBeHidden({timeout: 150000});
     result.warmReadyMs = performance.now() - warm;
-    assert.equal(proxy.requests.length, requestCount, "EJS_WARM_CORE_REQUESTED");
+    assert.equal(proxy.contentRequests.length, contentRequestCount, "EJS_WARM_CONTENT_REQUESTED");
     result.restore = await checkpoint(page); assert.ok(result.restore.sizeBytes > 0);
     await page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas").press("ArrowRight", {delay: 200});
     result.restoreInput = await checkpoint(page); assert.notEqual(result.restore.sha256, result.restoreInput.sha256);
+    await context.setOffline(true);
+    await page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas").press("ArrowLeft", {delay: 200});
+    result.offlineInput = await checkpoint(page); assert.notEqual(result.offlineInput.sha256, result.restoreInput.sha256);
+    await context.setOffline(false); await networkSession.detach();
     assert.deepEqual(errors, []); await exitContentIOPlayer(page, base, restore);
     result.status = "PASS";
   } finally {await context.close(); await proxy.close(); await flush();}
@@ -93,6 +101,13 @@ async function failureAndCancel(input) {
     const second = await launchCart(client, input.gameId);
     await page.goto(base + second.playUrl, {waitUntil: "domcontentloaded"});
     await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(1);
+    await expect.poll(() => proxy.requests[1].bytes, {timeout: 10000}).toBeGreaterThan(0);
+    await context.setOffline(true);
+    await expect(page.getByText("资源下载失败，请检查网络后重试。", {exact: true})).toBeVisible({timeout: 40000});
+    report.networkFailure = true; await context.setOffline(false);
+    const third = await launchCart(client, input.gameId);
+    await page.goto(base + third.playUrl, {waitUntil: "domcontentloaded"});
+    await expect.poll(() => proxy.requests.length, {timeout: 10000}).toBeGreaterThan(2);
     const started = performance.now(); await revealPreviewToolbar(page);
     await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
     await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();

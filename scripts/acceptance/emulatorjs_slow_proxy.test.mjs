@@ -28,6 +28,10 @@ test("slow proxy preserves isolated Launch hosts and actual unknown-length core 
     proxy.block(true);
     const blocked = await get(`http://${host}:${port}/runtime/providers/emulatorjs/hash/core.data`);
     assert.equal(blocked.status, 503); assert.equal(proxy.requests.length, 2); assert.equal(proxy.requests[1].blocked, true);
+    proxy.blockContent(true);
+    const content = await get(`http://${host}:${port}/runtime/content/game/digest/game.zip`);
+    assert.equal(content.status, 503); assert.equal(proxy.contentRequests.length, 1);
+    assert.equal(proxy.contentRequests[0].blocked, true);
   } finally {await proxy.close(); await new Promise(resolve => server.close(resolve));}
 });
 
