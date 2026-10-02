@@ -15,8 +15,8 @@ async function login(page: Page) {
   return {Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000", "X-Retrom-Csrf": csrfToken};
 }
 
-async function createScan(page: Page, directory: string) {
-  const headers = await login(page);
+async function createScan(page: Page, directory: string, requestHeaders?: Record<string, string>) {
+  const headers = requestHeaders ?? await login(page);
   const roots = await (await page.request.get("/api/v1/admin/server-import-roots")).json() as {items: {id: string; status: string}[]};
   const response = await page.request.post("/api/v1/admin/source-imports", {
     headers: {...headers, "Idempotency-Key": crypto.randomUUID()},
@@ -96,7 +96,7 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
     const directory = path.join(cancelRoot, String(index)); mkdirSync(directory);
     writeFileSync(path.join(directory, "metadata.pegasus.txt"), `collection: Cancel ${index}\n${comments}`);
   }
-  const scanning = await createScan(page, cancelName);
+  const scanning = await createScan(page, cancelName, headers);
   expect(scanning.state).toBe("SCANNING");
   const cancelled = await page.request.post(`/api/v1/admin/source-imports/${scanning.id}/cancel`, {
     headers: {...headers, "If-Match": `"v${scanning.version}"`, "Idempotency-Key": crypto.randomUUID()}, data: {reason: "Acceptance cancellation"},
