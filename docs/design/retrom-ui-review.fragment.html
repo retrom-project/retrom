@@ -967,6 +967,9 @@
     #retrom-ui-review .rt-library-platforms::-webkit-scrollbar { height: 6px; }
     #retrom-ui-review .rt-library-platforms::-webkit-scrollbar-thumb { background: transparent; border-radius: var(--radius-control); }
     #retrom-ui-review .rt-library-platforms:hover::-webkit-scrollbar-thumb { background: var(--retrom-muted); }
+    @supports selector(::-webkit-scrollbar) {
+      #retrom-ui-review .rt-library-platforms, #retrom-ui-review .rt-library-platforms:hover { scrollbar-width: auto; scrollbar-color: auto; }
+    }
     #retrom-ui-review .rt-library-platforms > span:first-child { margin-right: 2px; flex: none; color: var(--retrom-muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-library-chip { min-height: 30px; padding: 4px 11px; flex: none; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 999px; background: transparent; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-library-chip.is-active { color: var(--purple-dark); border-color: color-mix(in srgb, var(--retrom-purple) 25%, var(--retrom-line)); background: var(--retrom-purple-soft); }
