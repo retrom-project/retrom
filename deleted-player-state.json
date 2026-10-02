@@ -1,0 +1,60 @@
+[
+  {
+    "case": "nes",
+    "confirmation": "!\n永久删除“1942”？\n\n此操作不可恢复，后台将删除该游戏的文件。\n\n1 个内容文件、0 个媒体、2 份存档\n预计回收 55.6 KB，共 5 个文件\n2 个活动游戏会立即终止\n来源：用户上传\n取消\n永久删除游戏",
+    "deletion": {
+      "status": 202,
+      "data": {
+        "gameId": "01a0fdec-7546-7d49-a98d-f80d7ab29a47",
+        "status": "DELETED",
+        "payloadState": "RELEASING",
+        "payloadReleaseJobId": "01a0fe0c-c41d-776f-b884-1764669a6021"
+      }
+    },
+    "publicStatus": 404,
+    "tombstone": {
+      "status": "DELETED",
+      "payloadState": "RELEASED"
+    },
+    "observedSeconds": 45,
+    "progressResponses": [
+      401
+    ],
+    "playerLeftRunning": true,
+    "playerText": "1942\nFCEUmm · NES / Famicom\n已同步\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n运行中\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制"
+  },
+  {
+    "case": "fbneo",
+    "confirmation": "!\n永久删除“bjtwinpa”？\n\n此操作不可恢复，后台将删除该游戏的文件。\n\n2 个内容文件、0 个媒体、1 份存档\n预计回收 3.94 MB，共 4 个文件\n1 个活动游戏会立即终止\n来源：用户上传\n取消\n永久删除游戏",
+    "deletion": {
+      "status": 202,
+      "data": {
+        "gameId": "01a0fde3-e1e8-73ad-affd-b7ddb307ae2e",
+        "status": "DELETED",
+        "payloadState": "RELEASING",
+        "payloadReleaseJobId": "01a0fe0f-1bf5-7d22-aa9e-756541a11c1f"
+      }
+    },
+    "publicStatus": 404,
+    "tombstone": {
+      "status": "DELETED",
+      "payloadState": "RELEASED"
+    },
+    "observedSeconds": 45,
+    "progressResponses": [
+      {
+        "status": 401,
+        "body": {
+          "error": {
+            "code": "LAUNCH_CREDENTIAL_INVALID",
+            "details": {},
+            "message": "运行会话不可用",
+            "requestId": "01a0fe0f-80a8-79fa-b640-006558918b7d"
+          }
+        }
+      }
+    ],
+    "playerLeftRunning": true,
+    "playerText": "bjtwinpa\nFinalBurn Neo · Arcade\n已同步\n调试信息\n创建存档\n实时运行诊断\n调试信息\n实时\n画面呈现率\n采样中…\n核心帧计数\n不可用\n运行状态\n运行中\n画布分辨率\n等待画面\n\n按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。\n\n运行环境与显示\n已暂停\n点击游戏画面继续\n模拟器\n控制\n▤\n显示\n⚙\nCore 设置\n画面\n清晰增强\n锐利像素\n增强锐化\n平滑增强\n原始画面\n音量\n🔊\n收起\n移到屏幕顶部显示 Retrom 控制"
+  }
+]
