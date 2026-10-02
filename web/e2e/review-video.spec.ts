@@ -53,6 +53,8 @@ test("ACC-MEDIA-001 review uploads, replaces, retains and publishes the selected
   await expect(page.getByRole("button", { name: "上传封面" })).toBeEnabled();
   expect((await page.locator(".review-workflow-metadata").boundingBox())?.height).toBeCloseTo(before!.height, 0);
   await page.getByRole("tab", { name: "视频", exact: true }).click();
+  await expect(player).toBeVisible();
+  await expect(page.getByRole("tab", { name: "视频", exact: true })).toHaveAttribute("aria-selected", "true");
   await noPageOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "review-uploaded-video.png"), fullPage: true });
   const range = await page.request.get(`/api/v1/admin/review-assets/${second}`, { headers: { Range: "bytes=0-9" } });
