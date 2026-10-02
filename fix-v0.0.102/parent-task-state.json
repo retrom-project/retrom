@@ -1,0 +1,35 @@
+{
+  "retromVersion": "v0.0.102",
+  "runtimeVersion": "v0.58.4",
+  "queueObservations": [
+    {
+      "jobId": "01a0fbf5-2136-7bea-b1d5-2345fc3851b9",
+      "attachmentState": "PENDING",
+      "jobState": "QUEUED",
+      "attemptCount": 0,
+      "uploadFileRecordPresent": false,
+      "queuedSeconds": 683.607
+    }
+  ],
+  "cancelObservations": [
+    {
+      "id": "01a0fbf5-2136-7be9-9be2-78e9e1918596",
+      "state": "PENDING",
+      "job_id": "01a0fbf5-2136-7bea-b1d5-2345fc3851b9",
+      "upload_file_id": "01a0fbf5-0695-7b71-9865-9e6c89abdac1",
+      "observed_size_bytes": null,
+      "job_state": "CANCELLED",
+      "version": 2,
+      "updated_at_ms": 1790934225547,
+      "created_at_ms": 1790933541174
+    }
+  ],
+  "cancellationConstraintError": "CHECK constraint failed: state='PENDING' OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL",
+  "admissionHttpStatuses": [
+    202,
+    202
+  ],
+  "secondFreshUploadAfterCancelStatus": 409,
+  "secondFreshUploadAfterCancelCode": "REVIEW_PARENT_ATTACHMENT_IN_PROGRESS",
+  "scope": "fresh production installation; real files and public APIs; database inspected read-only; constraint reproduced only on an in-memory copy"
+}
