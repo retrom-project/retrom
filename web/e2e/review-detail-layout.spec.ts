@@ -12,6 +12,7 @@ async function measureReview(page: Page) {
       runtime: rect(".review-workflow-left"),
       metadata: rect(".review-workflow-metadata"),
       capability: rect(".review-workflow-capability"),
+      checks: rect(".review-workflow-checks"),
       source: rect(".review-workflow-files"),
       fields: rect(".review-workflow-metadata-fields"),
       cover: rect(".review-media-stage"),
@@ -30,6 +31,7 @@ async function expectNaturalReviewLayout(page: Page) {
   expect(before.metadata.width).toBeCloseTo(before.runtime.width, 0);
   expect(before.source.left).toBeGreaterThan(before.capability.right);
   expect(Math.abs(before.source.top - before.capability.top)).toBeLessThanOrEqual(1);
+  expect(Math.abs(before.source.bottom - before.checks.bottom)).toBeLessThanOrEqual(1);
   expect(before.cover.left).toBeGreaterThan(before.fields.right);
   expect(before.cover.height).toBeGreaterThanOrEqual(320);
   expect(before.cover.height).toBeLessThanOrEqual(360);
@@ -62,6 +64,7 @@ async function expectNaturalReviewLayout(page: Page) {
     element.prepend(details);
   });
   const after = await measureReview(page);
+  expect(Math.abs(after.source.bottom - after.checks.bottom)).toBeLessThanOrEqual(1);
   expect(after.runtime.height).toBeGreaterThan(before.runtime.height);
   expect(after.metadata.top).toBeGreaterThan(before.metadata.top);
   expect(after.metadata.height).toBeCloseTo(before.metadata.height, 0);

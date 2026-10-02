@@ -352,7 +352,10 @@
 .review-capability-list > details { border-top: 1px solid var(--line); padding-top: 11px; }
 .review-capability-list > details summary { color: var(--purple-dark); cursor: pointer; font-size: var(--text-caption); }
 .review-capability-list > details > div { margin-top: 10px; }
-.review-workflow-files .panel-body { max-height: 330px; overflow-y: auto; }
+.review-workflow-files { min-height: 0; align-self: stretch; contain: size; display: flex; flex-direction: column; }
+.review-workflow-files .panel-head { flex: none; }
+.review-workflow-files .panel-body { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.review-workflow-files .review-source-packages { max-height: none; overflow: visible; }
 .arcade-dependency-card .panel-body { min-width: 0; }
 .arcade-dependency-root { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); }
 .arcade-dependency-root strong, .arcade-dependency-copy strong { min-width: 0; overflow-wrap: anywhere; }
@@ -387,6 +390,8 @@
 
 @media (max-width: 1099px) {
   .review-workflow-left, .review-workflow-publish-layout { grid-template-columns: minmax(0, 1fr); }
+  .review-workflow-files { contain: none; }
+  .review-workflow-files .panel-body { max-height: 330px; }
 }
 
 .save-head-summary { display: flex; gap: 10px; }
