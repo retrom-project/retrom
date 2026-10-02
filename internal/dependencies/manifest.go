@@ -81,7 +81,7 @@ func LoadProduction(root string, versions []string, active string) (*Set, error)
 }
 
 func loadMAMEVersion(root string) (*Version, error) {
-	datRoot := filepath.Join(root, "dat", "mame-current", "v0.58.3")
+	datRoot := filepath.Join(root, "dat", "mame-current", "v0.58.4")
 	contents, err := os.ReadFile(filepath.Join(datRoot, "manifest.json"))
 	if err != nil {
 		return nil, fmt.Errorf("%w: MAME DAT manifest unavailable", ErrInvalid)
@@ -130,7 +130,7 @@ func parseMAMEManifest(contents []byte) (Manifest, string, error) {
 
 func validMAMEProvider(provider mameReleaseIdentity) bool {
 	return provider.Repository == "https://github.com/retrom-project/retrom-runtime" &&
-		provider.Tag == "v0.58.3" && provider.Commit == "e17d8a32e0e781d616ed2b10622f1f3e49461002" &&
+		provider.Tag == "v0.58.4" && provider.Commit == "3835f1d323f5be7435847eb3b1eae3fc86f8696f" &&
 		provider.ProviderID == "retrom-runtime" && provider.TargetID == "mame-arcade"
 }
 
