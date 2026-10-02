@@ -13,6 +13,14 @@ import { expectHomePlatformTextCentered, expectLaunchFieldWidth, expectPlatformL
 // Explicit page PNGs are the visual evidence; retain DOM/source traces without a duplicate 4K filmstrip.
 test.use({ trace: { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true } });
 
+test("ACC-UI-011 default favicon resolves to the existing brand icon", async ({ request }) => {
+  const favicon = await request.get("/favicon.ico");
+  expect(favicon.ok()).toBe(true);
+  expect(favicon.headers()["content-type"]).toContain("image/svg+xml");
+  const icon = await request.get("/icon.svg");
+  expect(await favicon.text()).toBe(await icon.text());
+});
+
 test("ACC-UI-011 launch selector is aligned before hydration", async ({ page, browser }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
