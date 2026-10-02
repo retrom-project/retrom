@@ -48,8 +48,6 @@
 .review-cover-panel { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line); border-radius: var(--radius-cover); background: var(--surface-subtle); }
 .review-cover-panel img, .review-cover-panel .asset-placeholder { width: 100%; aspect-ratio: 2 / 3; object-fit: contain; background: var(--surface-subtle); }
 .review-cover-panel small { color: var(--muted); font-size: var(--text-caption); }
-.review-source-video { padding-top: 10px; display: grid; gap: 7px; border-top: 1px solid var(--line); }
-.review-source-video video { width: 100%; aspect-ratio: 16 / 9; display: block; object-fit: contain; object-position: 50% 50%; border-radius: var(--radius-panel); background: #111622; }
 .review-cover-upload { position: relative; overflow: hidden; display: block; border-radius: var(--radius-panel); cursor: pointer; }
 .review-cover-upload > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .review-cover-upload > span { position: absolute; inset: auto 8px 8px; padding: 7px 9px; opacity: 0; color: white; border-radius: var(--radius-panel); background: rgb(22 27 43 / 82%); text-align: center; font-size: var(--text-caption); transition: opacity .15s ease; }
@@ -137,3 +135,11 @@
 .step.is-active i { color: white; background: var(--purple); }
 .step.is-complete { color: var(--cyan); }
 .step.is-complete i { color: white; background: #15919b; }
+
+.review-media-tabs { display: flex; align-items: center; gap: var(--space-1); }
+.review-media-stage { height: clamp(320px, 23vw, 360px); min-width: 0; overflow: hidden; border-radius: var(--radius-panel); background: var(--canvas); }
+.review-media-panel { width: 100%; height: 100%; display: grid; place-items: center; }
+.review-media-panel[hidden] { display: none; }
+.review-media-panel img, .review-media-panel video { display: block; width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; object-fit: contain; object-position: 50% 50%; }
+.review-media-empty { padding: var(--space-4); color: var(--muted); text-align: center; }
+.review-media-footer { min-height: var(--control-height); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

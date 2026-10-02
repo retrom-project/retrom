@@ -154,9 +154,10 @@ function ReviewDetail({ activeTags, nextItemId, returnTo, review }: {
   const clientReview = reviewWorkspaceWithoutSourceEvidence(review);
   return <div className="import-workflow-page review-detail-prototype"><FlashToast />
     <PageHeader title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
-    <ReviewActions review={clientReview} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={summary.sourceDisplayName} platformInstanceName={review.platformInstance.name}>
-      <ReviewCapability review={review} summary={summary} />
-      <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
+    <ReviewActions review={clientReview} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={summary.sourceDisplayName} platformInstanceName={review.platformInstance.name} sourceEvidence={
+      <section key="source-evidence" className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
+    }>
+      <ReviewCapability key="capability" review={review} summary={summary} />
     </ReviewActions>
   </div>;
 }

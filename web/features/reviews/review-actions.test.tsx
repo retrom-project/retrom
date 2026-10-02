@@ -32,6 +32,7 @@ beforeEach(() => {
   router.replace.mockReset(); router.refresh.mockReset(); router.push.mockReset();
   upload.uploadFiles.mockReset(); upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
   sessionStorage.clear();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 });
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -263,23 +264,23 @@ describe("ReviewActions metadata continuation", () => {
     expect(screen.getByText("已实时保存")).toBeVisible();
   });
 
-  it("keeps the cover beside metadata without rendering provider summary cards", () => {
+  it("keeps media beside base fields and tags below both columns", () => {
     const { container } = render(<ReviewActions review={{ ...review, candidates: [{ candidateId: "candidate-layout", scrapeRunId: "run-layout", providerGameId: "42", metadata: { title: "Scraped title" }, evidence: {}, assets: [] }], selectedCandidateId: "candidate-layout" }} />);
 
     const layout = container.querySelector(".review-workflow-publish-layout");
     const fields = layout?.querySelector(".review-workflow-metadata-fields");
-    const tagEditor = fields?.querySelector(".review-tag-editor");
+    const tagEditor = container.querySelector(".review-tag-editor");
     expect(layout).not.toBeNull();
     expect(fields).not.toBeNull();
     expect(tagEditor).not.toBeNull();
-    expect(fields?.lastElementChild).toBe(tagEditor);
+    expect(layout?.nextElementSibling).toBe(tagEditor);
     expect(layout?.lastElementChild).toHaveClass("review-workflow-cover-side");
-    expect(screen.getByText("当前封面")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "封面" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByText("Hasheous 候选信息")).not.toBeInTheDocument();
     expect(screen.queryByText("信息来源")).not.toBeInTheDocument();
   });
 
-  it("uses Source cover and a manual centered video preview as review source media", () => {
+  it("uses Source cover and a manual video tab as review source media", async () => {
     const { container } = render(<ReviewActions review={{
       ...review,
       sourceMedia: {
@@ -297,13 +298,15 @@ describe("ReviewActions metadata continuation", () => {
     expect(screen.getByText("来源：来源文件 · FC")).toBeVisible();
     expect(screen.getByText("已读取来源信息")).toBeVisible();
     expect(screen.getByAltText("当前选择的游戏封面")).toHaveAttribute("src", expect.stringContaining("kind=COVER"));
-    const video = container.querySelector<HTMLVideoElement>(".review-source-video video");
+    expect(container.querySelector("video")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "视频" }));
+    const video = container.querySelector<HTMLVideoElement>(".review-media-panel video");
     expect(video).toHaveAttribute("src", "/api/v1/admin/review-assets/source-item-1?kind=VIDEO");
     expect(video).toHaveAttribute("controls");
     expect(video?.autoplay).toBe(false);
   });
 
-  it("labels EmulationStation source media without presenting it as scraped metadata", () => {
+  it("labels EmulationStation source media without presenting it as scraped metadata", async () => {
     const { container } = render(<ReviewActions review={{
       ...review,
       sourceMedia: {
@@ -321,9 +324,10 @@ describe("ReviewActions metadata continuation", () => {
 
     expect(screen.getByText("来源：来源文件 · NES gamelist.xml")).toBeVisible();
     expect(screen.getByText("已读取来源信息")).toBeVisible();
-    expect(screen.getByText("来源文件 视频预览")).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "视频" }));
+    expect(screen.getByLabelText("来源视频预览")).toBeVisible();
     expect(screen.getByRole("note")).toHaveTextContent("来源标记：隐藏、成人。请逐项核对。");
-    expect(container.querySelector<HTMLVideoElement>(".review-source-video video")).toHaveAttribute(
+    expect(container.querySelector<HTMLVideoElement>(".review-media-panel video")).toHaveAttribute(
       "src",
       "/api/v1/admin/review-assets/emulationstation-item-1?kind=VIDEO",
     );
