@@ -42,11 +42,13 @@ export async function verifyParentCacheReuse(page: Page, testInfo: TestInfo,
   await warmLaunch();
   const second = (await Promise.all(configs)).at(-1)!;
   expect(second.session.id).not.toBe(first.session.id);
+  expect(second.session.title).not.toBe(first.session.title);
   expect(runtimeResource(second, "parent")).toEqual(parent);
   expect(runtimeResource(second, "bios")).toEqual(biosResource);
   expect(requests, "a fresh Launch must reuse parent bytes without HTTP").toEqual([]);
   await testInfo.attach("parent-cache-reuse", {contentType: "application/json", body: JSON.stringify({
     firstLaunch: first.session.id, secondLaunch: second.session.id,
+    firstGame: first.session.title, secondGame: second.session.title,
     parent: {sizeBytes: parent.sizeBytes, sha256: parent.sha256},
     bios: {sizeBytes: bios.sizeBytes, sha256: bios.sha256}, coldGets: 2, warmRequests: 0, httpCache: "disabled",
   })});

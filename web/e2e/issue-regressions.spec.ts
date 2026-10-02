@@ -15,7 +15,7 @@ async function login(page: Page) {
   return {Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000", "X-Retrom-Csrf": csrfToken};
 }
 
-async function scan(page: Page, directory: string) {
+async function createScan(page: Page, directory: string) {
   const headers = await login(page);
   const roots = await (await page.request.get("/api/v1/admin/server-import-roots")).json() as {items: {id: string; status: string}[]};
   const response = await page.request.post("/api/v1/admin/source-imports", {
@@ -25,7 +25,11 @@ async function scan(page: Page, directory: string) {
   });
   expect(response.status(), await response.text()).toBe(202);
   const plan = await response.json() as SourceImportSummary;
-  return waitScan(page, plan.id);
+  return plan;
+}
+
+async function scan(page: Page, directory: string) {
+  return waitScan(page, (await createScan(page, directory)).id);
 }
 
 async function waitScan(page: Page, id: string) {
@@ -85,11 +89,21 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
   await page.screenshot({path: evidencePath(testInfo, "scan-partial-mobile.png"), fullPage: true});
   await page.keyboard.press("Escape");
   const headers = await login(page);
-  const cancelled = await page.request.post(`/api/v1/admin/source-imports/${partial.id}/cancel`, {
-    headers: {...headers, "If-Match": `"v${partial.version}"`, "Idempotency-Key": crypto.randomUUID()}, data: {reason: "Acceptance cancellation"},
+  const cancelName = `${name}-Cancel`, cancelRoot = path.join(source!, cancelName);
+  mkdirSync(cancelRoot);
+  const comments = ("#" + "x".repeat(4000) + "\n").repeat(128);
+  for (let index = 0; index < 50; index++) {
+    const directory = path.join(cancelRoot, String(index)); mkdirSync(directory);
+    writeFileSync(path.join(directory, "metadata.pegasus.txt"), `collection: Cancel ${index}\n${comments}`);
+  }
+  const scanning = await createScan(page, cancelName);
+  expect(scanning.state).toBe("SCANNING");
+  const cancelled = await page.request.post(`/api/v1/admin/source-imports/${scanning.id}/cancel`, {
+    headers: {...headers, "If-Match": `"v${scanning.version}"`, "Idempotency-Key": crypto.randomUUID()}, data: {reason: "Acceptance cancellation"},
   });
   expect(cancelled.ok(), await cancelled.text()).toBe(true);
-  expect(await waitScan(page, partial.id)).toMatchObject({state: "CANCELLED", scanOutcome: "PARTIAL"});
+  await expect.poll(async () => (await (await page.request.get(`/api/v1/admin/source-imports/${scanning.id}`)).json() as SourceImportSummary).state,
+    {timeout: 30_000}).toBe("CANCELLED");
   for (const [suffix, outcome, contents] of [["Empty", "EMPTY", false], ["NoMetadata", "NO_METADATA", true]] as const) {
     mkdirSync(path.join(source!, `${name}-${suffix}`));
     if (contents) {writeFileSync(path.join(source!, `${name}-${suffix}/game.nes`), "input without metadata");}
