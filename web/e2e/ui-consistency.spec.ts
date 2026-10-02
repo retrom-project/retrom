@@ -47,9 +47,11 @@ async function navigateUIPage(page: Page, route: string) {
   const link = page.locator(`a[href="${route}"]:visible`).first();
   if (await link.count()) {
     // Exercise the app's own navigation and avoid reloading the dev runtime for every route.
-    const destination = new URL(route, page.url()).href;
+    const destination = new URL(route, page.url());
     await link.click();
-    await expect(page).toHaveURL(destination);
+    // Pages may add default filters (for example BIOS scope) after navigation.
+    await expect(page).toHaveURL(url => url.pathname === destination.pathname &&
+      [...destination.searchParams].every(([key, value]) => url.searchParams.get(key) === value));
   } else {
     await page.goto(route);
   }
