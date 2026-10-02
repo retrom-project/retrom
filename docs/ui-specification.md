@@ -670,7 +670,7 @@ BIOS FULL_CATALOG 首屏和续页固定 100 条；距底部 600px 自动拉取�
 
 阻断或失败行先显示可理解的具体原因，展开“查看具体原因与处理建议”后展示稳定错误码、检查 Core/machine、缺失或不匹配条目、parent/BIOS/多盘依赖明细及对应修复动作；内部失败另展示失败阶段、内部操作、底层 cause code、对应来源 Item ID、来源相对路径、观察数量/上限、可用的内部 ImportJob/ImportItem ID 和受限技术详情。BIOS 阻断提供 BIOS 管理入口。不得只显示“运行检查阻断”或没有排查上下文的 `SOURCE_LIBRARY_IMPORT_FAILED`。可重试失败在页头提供“重新运行检查”，直接复用原计划和映射恢复诊断，不要求重新选择目录。取消不删除已生成审核事项或回滚已发布游戏；普通 retry 只为服务端声明可重试的终态提供，delete 只在服务端允许的无执行结果计划出现。
 
-游戏详情左侧始终展示静态 cover，独立横向预览在未播放时以完整适配的 cover 占位。选中视频预览且存在 VIDEO 时，视频必须 muted、inline、loop、`preload="metadata"`；仅在页面前台且 Hero 可见累计 2 秒后尝试自动播放，`playing` 后以 200ms 淡入。播放拒绝、媒体错误、stalled 或 5 秒无 `playing` 时保持封面并提供显式播放；用户暂停后本次页面不再自动恢复。`prefers-reduced-motion` 下完全禁用自动播放和淡入。游戏库卡片/列表不加载或自动播放视频。管理员媒体区提供占据封面外全部剩余空间的独立 VIDEO 槽，只接收 MP4/WebM；视频尺寸可未知，使用 `object-fit: contain` 与 `object-position: 50% 50%` 等比居中完整适配且不自动播放。上传、替换和删除都原子更新 GameAsset 当前态、递增 Game version、写 AuditEvent，并释放失去引用的旧 Asset payload。
+游戏详情左侧始终展示静态 cover，独立横向预览在未播放时以完整适配的 cover 占位。选中视频预览且存在 VIDEO 时，视频必须 muted、inline、loop、`preload="metadata"`；仅在页面前台且 Hero 可见累计 2 秒后尝试自动播放，`playing` 后以 200ms 淡入。播放拒绝、媒体错误、stalled 或 5 秒无 `playing` 时保持封面并提供显式播放；用户暂停后本次页面不再自动恢复。`prefers-reduced-motion` 下完全禁用自动播放和淡入，仍允许手动播放。声音切换只更新媒体静音属性，不重建可见性或播放生命周期，不重置播放位置、不停止手动播放。游戏库卡片/列表不加载或自动播放视频。管理员媒体区提供占据封面外全部剩余空间的独立 VIDEO 槽，只接收 MP4/WebM；视频尺寸可未知，使用 `object-fit: contain` 与 `object-position: 50% 50%` 等比居中完整适配且不自动播放。上传、替换和删除都原子更新 GameAsset 当前态、递增 Game version、写 AuditEvent，并释放失去引用的旧 Asset payload。
 
 ### 7.8 标签管理与跨页面接入
 

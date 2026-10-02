@@ -85,6 +85,25 @@ describe("GameDetailMedia", () => {
     expect(play).toHaveBeenCalledOnce();
   });
 
+  it("keeps manual playback when toggling sound with reduced motion", async () => {
+    reducedMotion = true;
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    render(<GameDetailMedia title="重装机兵" coverUrl="/cover.png" videoUrl="/video.mp4" />);
+    act(enterViewport);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "播放视频预览" })); });
+    const video = screen.getByLabelText<HTMLVideoElement>("重装机兵 视频预览");
+    fireEvent.playing(video);
+    const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "已静音" }));
+    expect(video.muted).toBe(false);
+    expect(video).toHaveClass("is-playing");
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(pauses);
+    fireEvent.click(screen.getByRole("button", { name: "开启声音" }));
+    expect(video.muted).toBe(true);
+    expect(play).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "暂停预览" })).toBeVisible();
+  });
+
   it("falls back to the cover when play is rejected", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("blocked"));
     render(<GameDetailMedia title="重装机兵" coverUrl="/cover.png" videoUrl="/video.mp4" />);

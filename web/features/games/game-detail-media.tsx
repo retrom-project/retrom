@@ -64,7 +64,6 @@ export function GameDetailMedia({ title, coverUrl, videoUrl, landscape = false }
     if (!video || !videoUrl || userPausedRef.current) {return;}
     clearSchedule();
     clearPlayingTimeout();
-    video.muted = muted;
     stateRef.current = "loading";
     if (mountedRef.current) {setState("loading");}
     playingTimeoutRef.current = window.setTimeout(() => fallBack(true), PLAYING_TIMEOUT_MS);
@@ -73,7 +72,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl, landscape = false }
     } catch {
       fallBack(true);
     }
-  }, [clearPlayingTimeout, clearSchedule, fallBack, muted, videoUrl]);
+  }, [clearPlayingTimeout, clearSchedule, fallBack, videoUrl]);
 
   const schedule = useCallback(() => {
     clearSchedule();
