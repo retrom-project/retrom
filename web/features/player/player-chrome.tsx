@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction, type RefObject } from "react";
 import {PlayerInputDebug} from "./player-input-debug";
 import {CheckpointHelp} from "./checkpoint-help";
 import {checkpointSyncText, gameSaveInstructions, nativeSaveInstructions, noSaveInstructions, type NativeSaveCapabilities, type CheckpointSemantics} from "./checkpoint-semantics";
@@ -322,7 +322,7 @@ function MoreActions({ props }: { props: ToolbarProps }) {
 }
 
 function ToolbarActions({ props }: { props: ToolbarProps }) {
-  return <div className="player-actions">{props.onScreenshot ? <button type="button" className="player-control" disabled={!props.running} onClick={props.onScreenshot}>保存审核截图</button> : null}<button className="player-control player-debug-control" type="button" aria-expanded={props.debugOpen} aria-controls="player-debug-panel" aria-pressed={props.debugOpen} onPointerDown={(event) => event.preventDefault()} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button><DiscControl props={props} /><PlayerContextActions props={props} /><button className="player-control is-icon player-mobile-overflow" type="button" aria-label={props.fullscreen ? "退出全屏" : "全屏"} title={props.fullscreen ? "退出全屏" : "全屏"} onClick={props.onToggleFullscreen}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} /></button><MoreActions props={props} /></div>;
+  return <div className="player-actions">{props.onScreenshot ? <button type="button" className="player-control" disabled={!props.running} onClick={props.onScreenshot}>保存审核截图</button> : null}<button id="player-debug-trigger" className="player-control player-debug-control" type="button" aria-expanded={props.debugOpen} aria-controls="player-debug-panel" aria-pressed={props.debugOpen} onPointerDown={(event) => event.preventDefault()} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button><DiscControl props={props} /><PlayerContextActions props={props} /><button className="player-control is-icon player-mobile-overflow" type="button" aria-label={props.fullscreen ? "退出全屏" : "全屏"} title={props.fullscreen ? "退出全屏" : "全屏"} onClick={props.onToggleFullscreen}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} /></button><MoreActions props={props} /></div>;
 }
 
 function nativeCaptureBlocked(props: ToolbarProps) {
@@ -341,9 +341,22 @@ function PlayerToolbar(props: ToolbarProps) {
 }
 
 function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, coreName, discSet, discState, inputRuntime }: { inputRuntime?: RefObject<PlayerRuntimeV1 | null>; open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; coreName: string; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null }) {
+  const panelRef = useRef<HTMLElement>(null);
+  const returnFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!open) {
+      if (returnFocus.current || panelRef.current?.contains(document.activeElement)) {
+        document.getElementById("player-debug-trigger")?.focus({preventScroll: true});
+      }
+      returnFocus.current = false;
+      return;
+    }
+    const panel = panelRef.current;
+    return () => { returnFocus.current = Boolean(panel?.contains(document.activeElement)); };
+  }, [open]);
   const runningLabel = runtimeState === "running" ? paused ? "暂停" : "运行中" : runtimeState === "loading" ? "加载中" : "错误";
   const ordinaryRpgMaker = coreName === "RPG Maker" || coreName.startsWith("RPG Maker ");
-  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open} tabIndex={open ? 0 : -1}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div></header>{open ? <PlayerInputDebug runtimeRef={inputRuntime} ready={runtimeState === "running"} coreName={coreName} version={runtime.providerVersion} /> : null}<LiveDebug metrics={metrics} runningLabel={runningLabel} /><details className="player-debug-details"><summary onPointerDown={(event) => event.preventDefault()}>运行环境与显示</summary><RuntimeDebug runtime={runtime} coreName={coreName} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} /></details></aside>;
+  return <aside ref={panelRef} inert={!open} id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open} tabIndex={open ? 0 : -1}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div></header>{open ? <PlayerInputDebug runtimeRef={inputRuntime} ready={runtimeState === "running"} coreName={coreName} version={runtime.providerVersion} /> : null}<LiveDebug metrics={metrics} runningLabel={runningLabel} /><details className="player-debug-details"><summary onPointerDown={(event) => event.preventDefault()}>运行环境与显示</summary><RuntimeDebug runtime={runtime} coreName={coreName} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} /></details></aside>;
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {

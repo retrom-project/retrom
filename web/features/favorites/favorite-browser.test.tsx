@@ -1,9 +1,13 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { ToastProvider } from "@/components/toast-provider";
+import { cleanup, render as renderUI, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FavoritePage } from "./favorite-api";
 import { FavoriteBrowser } from "./favorite-browser";
 import type { FavoriteQuery } from "./favorite-state";
+
+const render = (node: ReactNode) => renderUI(node, {wrapper: ToastProvider});
 
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: auth.fetch }) }));

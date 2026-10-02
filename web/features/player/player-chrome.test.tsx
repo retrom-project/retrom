@@ -524,3 +524,20 @@ it("uses per-game native capture and restore capabilities in ordinary controls",
     expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
     expect(screen.getByText(/平台保存游戏原生存档/)).toHaveTextContent("恢复后请从游戏菜单读档");
   });
+
+it("makes closed diagnostics inert and returns only owned focus", () => {
+  const values = props({debugOpen:true});
+  const view = render(<PlayerChrome {...values} />);
+  const panel = screen.getByRole("complementary", {name:"运行调试信息"});
+  const summary = screen.getByText("运行环境与显示");
+  summary.focus();
+  expect(summary).toHaveFocus();
+  view.rerender(<PlayerChrome {...values} debugOpen={false} />);
+  expect(panel).toHaveAttribute("inert");
+  expect(screen.getByRole("button", {name:"调试信息"})).toHaveFocus();
+  view.rerender(<PlayerChrome {...values} />);
+  const outside = screen.getByRole("button", {name:"更多操作"});
+  outside.focus();
+  view.rerender(<PlayerChrome {...values} debugOpen={false} />);
+  expect(outside).toHaveFocus();
+});

@@ -2,7 +2,15 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useToast } from "@/components/toast-provider";
 import type { FavoriteFolder } from "./favorite-api";
+
+function useFolderError(error?: string) {
+  const { notify } = useToast();
+  useEffect(() => {
+    if (error) {notify({message: error, tone: "bad"});}
+  }, [error, notify]);
+}
 
 function DialogFrame({
   open, title, description, role = "dialog", modal = true, anchor, resolveReturnFocus, dismissButton = false, children, onClose,
@@ -136,10 +144,10 @@ function OpenFolderNameDialog({
   onSubmit: (name: string) => void; onClose: () => void;
 }) {
   const [name, setName] = useState(initialName);
+  useFolderError(error);
   return <DialogFrame open title={title} description="为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。" onClose={onClose}>
     <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) {onSubmit(name);} }}>
-      <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus value={name} maxLength={160} placeholder="例如：纵版街机" onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
-      {error ? <p className="favorite-form-error" role="alert">{error}</p> : null}
+      <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus aria-invalid={Boolean(error)} value={name} maxLength={160} placeholder="例如：纵版街机" onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
       <div className="dialog-actions"><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={busy || !name.trim()}>{busy ? "保存中…" : submitLabel}</button></div>
     </form>
   </DialogFrame>;
@@ -162,10 +170,10 @@ function OpenFolderEditDialog({
   onSubmit: (name: string) => void; onDelete: () => void; onClose: () => void;
 }) {
   const [name, setName] = useState(initialName);
+  useFolderError(error);
   return <DialogFrame open title="编辑收藏夹" description="重命名只改变收藏夹名称，不影响其中的游戏。" onClose={onClose}>
     <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) {onSubmit(name);} }}>
-      <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus value={name} maxLength={160} onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
-      {error ? <p className="favorite-form-error" role="alert">{error}</p> : null}
+      <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus aria-invalid={Boolean(error)} value={name} maxLength={160} onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
       <div className="dialog-actions"><button className="button danger favorite-dialog-delete" type="button" disabled={busy} onClick={onDelete}>删除收藏夹…</button><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={busy || !name.trim()}>{busy ? "保存中…" : "保存"}</button></div>
     </form>
   </DialogFrame>;

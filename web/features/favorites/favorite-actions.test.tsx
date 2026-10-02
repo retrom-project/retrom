@@ -1,9 +1,13 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { ToastProvider } from "@/components/toast-provider";
+import { act, cleanup, fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FavoriteActions, type FavoriteActionsHandle } from "./favorite-actions";
 import { FolderEditDialog, FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
+
+const render = (node: ReactNode) => renderUI(node, {wrapper: ToastProvider});
 
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: auth.fetch }) }));
@@ -219,4 +223,21 @@ describe("favorite dialogs", () => {
     await user.click(screen.getByRole("button", { name: "删除收藏夹…" }));
     expect(remove).toHaveBeenCalledOnce();
   });
+});
+
+it("shows folder errors in the shared toast without adding dialog rows", () => {
+  vi.useFakeTimers();
+  const common = {open:true, title:"新建收藏夹", busy:false, onSubmit:vi.fn(), onClose:vi.fn()};
+  const view = render(<FolderNameDialog {...common} />);
+  const input = screen.getByRole("textbox", {name:"收藏夹名称"});
+  fireEvent.change(input, {target:{value:"想玩"}});
+  view.rerender(<FolderNameDialog {...common} error="已经存在同名收藏夹" />);
+  const alert = screen.getByRole("alert");
+  expect(alert).toHaveClass("app-toast", "bad");
+  expect(screen.getByRole("dialog")).not.toContainElement(alert);
+  expect(input).toHaveValue("想玩");
+  act(() => {vi.advanceTimersByTime(3000);});
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  cleanup();
+  vi.useRealTimers();
 });
