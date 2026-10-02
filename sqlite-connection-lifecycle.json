@@ -1,0 +1,85 @@
+{
+  "observedAt": "2026-10-03T04:13:24+0800",
+  "quickCheck": [
+    [
+      "ok"
+    ]
+  ],
+  "foreignKeyViolationCount": 91,
+  "groups": [
+    {
+      "table": "metadata_scrape_query_attempts",
+      "parent": "content_hash_evidence",
+      "foreignKeyIndex": 1,
+      "count": 1
+    },
+    {
+      "table": "metadata_scrape_query_attempts",
+      "parent": "metadata_scrape_runs",
+      "foreignKeyIndex": 2,
+      "count": 1
+    },
+    {
+      "table": "scrape_candidates",
+      "parent": "metadata_scrape_runs",
+      "foreignKeyIndex": 1,
+      "count": 1
+    },
+    {
+      "table": "game_save_versions",
+      "parent": "save_states",
+      "foreignKeyIndex": 1,
+      "count": 3
+    },
+    {
+      "table": "review_preview_bindings",
+      "parent": "import_item_source_snapshots",
+      "foreignKeyIndex": 0,
+      "count": 8
+    },
+    {
+      "table": "review_preview_bindings",
+      "parent": "runtime_preview_sessions",
+      "foreignKeyIndex": 2,
+      "count": 8
+    },
+    {
+      "table": "metadata_media_runs",
+      "parent": "metadata_scrape_runs",
+      "foreignKeyIndex": 0,
+      "count": 1
+    },
+    {
+      "table": "server_import_upload_owners",
+      "parent": "upload_sessions",
+      "foreignKeyIndex": 0,
+      "count": 68
+    }
+  ],
+  "releasedStoreReproduction": {
+    "after": {
+      "busy_timeout": 0,
+      "foreign_keys": 0,
+      "synchronous": 2
+    },
+    "before": {
+      "busy_timeout": 5000,
+      "foreign_keys": 1,
+      "synchronous": 2
+    },
+    "deleteError": "<nil>",
+    "integrityError": "sqlite foreign key check failed",
+    "orphanChildren": 1,
+    "queryError": "query sqlite database: context deadline exceeded",
+    "reopenError": "verify migrated schema foreign keys: sqlite foreign key check failed"
+  },
+  "productionCopyOpen": {
+    "method": "SQLite backup from production read-only connection; same released store.Open called on a temporary private copy; live process and database untouched",
+    "exitCode": 0,
+    "result": {
+      "opened": false,
+      "startupError": "verify migrated schema foreign keys: sqlite foreign key check failed"
+    },
+    "stderr": ""
+  }
+}
