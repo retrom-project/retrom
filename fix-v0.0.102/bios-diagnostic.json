@@ -1,0 +1,155 @@
+{
+  "summary": {
+    "id": "01a0fc20-db17-71eb-9c83-25ecb992000c",
+    "kind": "BIOS_DIRECTORY",
+    "root": {
+      "id": "filesystem",
+      "label": "服务器文件系统"
+    },
+    "sourceRelativePath": "fixtures/bios-diagnostic",
+    "replaceIfBetter": false,
+    "state": "PARTIAL_FAILURE",
+    "phase": "QUEUEING_REVALIDATION",
+    "counts": {
+      "catalogItems": 153,
+      "candidates": 2,
+      "evaluatedItems": 153,
+      "imported": 0,
+      "matched": 0,
+      "warnings": 0,
+      "notFound": 151,
+      "skipped": 0,
+      "conflicts": 0,
+      "failed": 2,
+      "cancelled": 0
+    },
+    "jobId": "01a0fc20-db17-71ee-915c-f83a4696303f",
+    "lastErrorCode": null,
+    "version": 161,
+    "createdAtMs": 1790936406807,
+    "updatedAtMs": 1790936479354,
+    "completedAtMs": 1790936479354
+  },
+  "zipFacts": {
+    "badCRCEntry": null,
+    "members": [
+      {
+        "name": "coh-1002e.353",
+        "compressedBytes": 128635,
+        "bytes": 524288
+      }
+    ]
+  },
+  "sha256": "d50f051ae5ce21d8ca620a0c642283f55798d5dcdc3390606f464e634f3c4caf",
+  "items": [
+    {
+      "requirementId": "56f5036c-3091-5f88-8656-c0b0972845b2",
+      "coreId": "mame2003",
+      "coreName": "MAME 2003",
+      "providerId": "emulatorjs",
+      "targetId": "mame2003",
+      "logicalName": "psarc95.zip",
+      "requirementMode": "REQUIRED",
+      "sourceKind": "DAT_MACHINE",
+      "state": "READ_FAILED",
+      "candidateCount": 1,
+      "matchMethod": null,
+      "outcomeCode": "SERVER_IMPORT_SOURCE_UNREADABLE",
+      "selectedRelativePath": null,
+      "previousInstallationStatus": null,
+      "newInstallationStatus": null,
+      "replaced": false
+    },
+    {
+      "requirementId": "a73074ae-2826-535c-ac1d-3a95d83e5779",
+      "coreId": "mame2003_plus",
+      "coreName": "MAME 2003 Plus",
+      "providerId": "emulatorjs",
+      "targetId": "mame2003-plus",
+      "logicalName": "psarc95.zip",
+      "requirementMode": "REQUIRED",
+      "sourceKind": "DAT_MACHINE",
+      "state": "READ_FAILED",
+      "candidateCount": 1,
+      "matchMethod": null,
+      "outcomeCode": "SERVER_IMPORT_SOURCE_UNREADABLE",
+      "selectedRelativePath": null,
+      "previousInstallationStatus": null,
+      "newInstallationStatus": null,
+      "replaced": false
+    }
+  ],
+  "candidates": [
+    {
+      "coreId": "mame2003",
+      "data": {
+        "items": [
+          {
+            "id": "01a0fc20-e0e2-759e-8e7c-048199c95e54",
+            "relativePath": "psarc95.zip",
+            "basename": "psarc95.zip",
+            "associationKind": "EXACT_NAME",
+            "sizeBytes": 128759,
+            "md5": "0b71bc253f6b021cd249a337af5eb557",
+            "sha1": "3c1a40887171d71915487cdb630d2b7fee2417cc",
+            "sha256": "d50f051ae5ce21d8ca620a0c642283f55798d5dcdc3390606f464e634f3c4caf",
+            "crc32": "5549f29d",
+            "state": "ARCHIVE_UNSAFE",
+            "rankOrdinal": null,
+            "notSelectedReason": "ARCHIVE_UNSAFE",
+            "evaluationDetails": {
+              "code": "ARCHIVE_UNSAFE",
+              "schemaVersion": 1
+            }
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "coreId": "mame2003_plus",
+      "data": {
+        "items": [
+          {
+            "id": "01a0fc20-e0fb-775e-941b-4ff34726bb8b",
+            "relativePath": "psarc95.zip",
+            "basename": "psarc95.zip",
+            "associationKind": "EXACT_NAME",
+            "sizeBytes": 128759,
+            "md5": "0b71bc253f6b021cd249a337af5eb557",
+            "sha1": "3c1a40887171d71915487cdb630d2b7fee2417cc",
+            "sha256": "d50f051ae5ce21d8ca620a0c642283f55798d5dcdc3390606f464e634f3c4caf",
+            "crc32": "5549f29d",
+            "state": "ARCHIVE_UNSAFE",
+            "rankOrdinal": null,
+            "notSelectedReason": "ARCHIVE_UNSAFE",
+            "evaluationDetails": {
+              "code": "ARCHIVE_UNSAFE",
+              "schemaVersion": 1
+            }
+          }
+        ],
+        "nextCursor": null
+      }
+    }
+  ],
+  "reproduced": true,
+  "datFacts": [
+    {
+      "core_id": "mame2003",
+      "target_id": "mame2003",
+      "parse_status": "READY",
+      "is_active": 1,
+      "machine_count": 4727,
+      "psarc95MachineCount": 0
+    },
+    {
+      "core_id": "mame2003_plus",
+      "target_id": "mame2003-plus",
+      "parse_status": "READY",
+      "is_active": 1,
+      "machine_count": 5257,
+      "psarc95MachineCount": 0
+    }
+  ]
+}

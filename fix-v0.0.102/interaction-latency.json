@@ -1,0 +1,418 @@
+{
+  "retromVersion": "v0.0.102",
+  "runtimeVersion": "v0.58.4",
+  "thresholdMs": 500,
+  "repeatedLoginAndReadSamples": [
+    {
+      "attempt": 0,
+      "login": {
+        "path": "/api/v1/auth/login",
+        "method": "POST",
+        "status": 200,
+        "ms": 1893.02,
+        "bytes": 349
+      },
+      "read": {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 39.49,
+        "bytes": 156
+      }
+    },
+    {
+      "attempt": 1,
+      "login": {
+        "path": "/api/v1/auth/login",
+        "method": "POST",
+        "status": 200,
+        "ms": 1298.68,
+        "bytes": 349
+      },
+      "read": {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 60.27,
+        "bytes": 156
+      }
+    },
+    {
+      "attempt": 2,
+      "login": {
+        "path": "/api/v1/auth/login",
+        "method": "POST",
+        "status": 200,
+        "ms": 1245.47,
+        "bytes": 349
+      },
+      "read": {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 84.65,
+        "bytes": 156
+      }
+    },
+    {
+      "attempt": 3,
+      "login": {
+        "path": "/api/v1/auth/login",
+        "method": "POST",
+        "status": 200,
+        "ms": 1095.22,
+        "bytes": 349
+      },
+      "read": {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 142.46,
+        "bytes": 156
+      }
+    },
+    {
+      "attempt": 4,
+      "login": {
+        "path": "/api/v1/auth/login",
+        "method": "POST",
+        "status": 200,
+        "ms": 1154.55,
+        "bytes": 349
+      },
+      "read": {
+        "path": "/api/v1/admin/imports/summary",
+        "method": "GET",
+        "status": 200,
+        "ms": 211.93,
+        "bytes": 156
+      }
+    }
+  ],
+  "backgroundCondition": "PEGASUS source reception, review bulk approval and/or owner/path cleanup backlog",
+  "loginRateBucketCount": 0,
+  "historicalOverThresholdSamples": [
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 518.72,
+      "bytes": 349
+    },
+    {
+      "path": "/api/v1/admin/source-imports",
+      "method": "POST",
+      "status": 202,
+      "ms": 767.18,
+      "bytes": 929
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}",
+      "method": "GET",
+      "status": 200,
+      "ms": 634.27,
+      "bytes": 925
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 751.01,
+      "bytes": 156
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 789.81,
+      "bytes": 156
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 539.11,
+      "bytes": 156
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 1034.06,
+      "bytes": 349
+    },
+    {
+      "path": "/api/v1/admin/source-imports",
+      "method": "POST",
+      "status": 202,
+      "ms": 538.16,
+      "bytes": 931
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 669.69,
+      "bytes": 349
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}",
+      "method": "GET",
+      "status": 200,
+      "ms": 517.43,
+      "bytes": 930
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}/start",
+      "method": "POST",
+      "status": 202,
+      "ms": 682.93,
+      "bytes": 950
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 200,
+      "ms": 1343.38,
+      "bytes": 349
+    },
+    {
+      "path": "/api/v1/admin/uploads/{id}/files/{id}/parts/0",
+      "method": "PUT",
+      "status": 204,
+      "ms": 594.22,
+      "bytes": 0
+    },
+    {
+      "path": "/api/v1/admin/uploads/{id}/complete",
+      "method": "POST",
+      "status": 202,
+      "ms": 524.3,
+      "bytes": 139
+    },
+    {
+      "path": "/api/v1/admin/imports",
+      "method": "POST",
+      "status": 202,
+      "ms": 504.21,
+      "bytes": 133
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}",
+      "method": "GET",
+      "status": 200,
+      "ms": 584.93,
+      "bytes": 925
+    },
+    {
+      "path": "/api/v1/admin/source-imports/{id}/items?limit=50",
+      "method": "GET",
+      "status": 200,
+      "ms": 577.73,
+      "bytes": 52737
+    },
+    {
+      "path": "/api/v1/admin/reviews/{id}/approve",
+      "method": "POST",
+      "status": 201,
+      "ms": 883.47,
+      "bytes": 71
+    },
+    {
+      "path": "/api/v1/admin/uploads/{id}/files/{id}/parts/30",
+      "method": "PUT",
+      "status": 204,
+      "ms": 507.65,
+      "bytes": 0
+    },
+    {
+      "path": "/api/v1/admin/uploads/{id}/files/{id}/parts/37",
+      "method": "PUT",
+      "status": 204,
+      "ms": 522.15,
+      "bytes": 0
+    }
+  ],
+  "sqliteDiagnostics": [
+    {
+      "time": "2026-10-02T10:11:36.40461756Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 144,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:36.788194667Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 108,
+      "sql_call_ms": 1,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:37.780574993Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 124,
+      "sql_call_ms": 4,
+      "begin_ms": 50
+    },
+    {
+      "time": "2026-10-02T10:11:37.894999541Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 114,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:38.772826679Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 191,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:39.014899986Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 241,
+      "sql_call_ms": 1,
+      "begin_ms": 148
+    },
+    {
+      "time": "2026-10-02T10:11:39.131159289Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 111,
+      "sql_call_ms": 0,
+      "begin_ms": 1
+    },
+    {
+      "time": "2026-10-02T10:11:39.757574925Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 108,
+      "sql_call_ms": 56,
+      "begin_ms": 33
+    },
+    {
+      "time": "2026-10-02T10:11:42.002628749Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 225,
+      "sql_call_ms": 15,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:42.13769753Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 133,
+      "sql_call_ms": 45,
+      "begin_ms": 135
+    },
+    {
+      "time": "2026-10-02T10:11:43.381911395Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 195,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:43.494561047Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 112,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:44.570460709Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 108,
+      "sql_call_ms": 59,
+      "begin_ms": 33
+    },
+    {
+      "time": "2026-10-02T10:11:46.366474099Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 343,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:47.398239391Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 100,
+      "sql_call_ms": 0,
+      "begin_ms": 49
+    },
+    {
+      "time": "2026-10-02T10:11:50.867742079Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 448,
+      "sql_call_ms": 3,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:51.009495438Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 106,
+      "sql_call_ms": 0,
+      "begin_ms": 35
+    },
+    {
+      "time": "2026-10-02T10:11:51.551880051Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 133,
+      "sql_call_ms": 0,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:52.185548733Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 116,
+      "sql_call_ms": 2,
+      "begin_ms": 0
+    },
+    {
+      "time": "2026-10-02T10:11:52.293973215Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 108,
+      "sql_call_ms": 44,
+      "begin_ms": 60
+    }
+  ]
+}
