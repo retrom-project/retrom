@@ -213,7 +213,7 @@ function ItemAction({ item, reviewURL }: { item: SourceItem; reviewURL: string }
 
 function ResultMedia({ item }: { item: SourceItem }) {
   if (item.executionState === "REVIEW_PENDING") {return <StatusBadge tone="good">已移交审核</StatusBadge>;}
-  if (item.payloadState === "RELEASED") {return <StatusBadge tone="good">源文件已清理</StatusBadge>;}
+  if (item.payloadState === "RELEASED") {return <StatusBadge tone="info">导入临时副本已清理</StatusBadge>;}
   const mediaTone = (state: string) => state === "READY" ? "good" as const : state === "WARNING" ? "warn" as const : "info" as const;
   return <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>;
 }
