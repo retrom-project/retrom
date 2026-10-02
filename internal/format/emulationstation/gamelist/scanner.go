@@ -80,12 +80,12 @@ func (service *Scanner) Scan(
 		return scanResult{}, fmt.Errorf("complete EmulationStation discovery: %w", err)
 	}
 	if len(index.gamelists) == 0 {
-		return scanResult{}, ErrGamelistAbsent
+		return scanResult{DiscoveredFiles: int64(len(index.files)), SnapshotDigest: snapshotDigest(nil)}, ErrGamelistAbsent
 	}
 	sort.Slice(index.gamelists, func(left, right int) bool {
 		return index.gamelists[left].Path < index.gamelists[right].Path
 	})
-	result := scanResult{Gamelists: index.gamelists}
+	result := scanResult{Gamelists: index.gamelists, DiscoveredFiles: int64(len(index.files))}
 	caches := scanCaches{discCandidates: make(map[string][]multidisc.File)}
 	valid := 0
 	for gamelistIndex := range result.Gamelists {

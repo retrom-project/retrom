@@ -30,7 +30,6 @@ func providerBundleResource(files []ConfigFile, kind string) (map[string]any, er
 	}
 	return map[string]any{"kind": kind, "files": []map[string]any{{
 		"logicalName": "bundle.zip", "virtualPath": "bundle.zip", "url": url,
-		"sha256": identity, "sizeBytes": int64(len(files)),
 	}}}, nil
 }
 

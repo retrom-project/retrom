@@ -101,14 +101,14 @@ describe("ServerImportManager", () => {
   it("returns to the styled directory picker after a failed scan and can scan again without a reload", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const scanning: SourceImportSummary = {
-      id: "22222222-2222-4222-8222-222222222222", format: "PEGASUS", extensionFilter: "", root: { id: "source", label: "Source BIOS" },
+      id: "22222222-2222-4222-8222-222222222222", scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "", root: { id: "source", label: "Source BIOS" },
       sourceRelativePath: "Other", state: "SCANNING", phase: "DISCOVERING_METADATA",
       scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: null,
       counts: { metadata: 0, invalidMetadata: 0, collections: 0, games: 0, estimatedSourceBytes: 0, mappedCollections: 0, skippedCollections: 0, processable: 0, blocked: 0, reviewPending: 0, published: 0, reviewDiscarded: 0, existing: 0, failed: 0, cancelled: 0, mediaWarnings: 0, covers: 0, videos: 0 },
       mappingVersion: 1, version: 1, createdBy: { id: "55555555-5555-4555-8555-555555555555", displayName: "Admin" },
       lastErrorCode: null, retryable: false, createdAtMs: 1, updatedAtMs: 2, expiresAtMs: 9999999999999, completedAtMs: null,
     };
-    const failed: SourceImportSummary = { ...scanning, state: "FAILED", phase: null, lastErrorCode: "PEGASUS_METADATA_NOT_FOUND", completedAtMs: 3 };
+    const failed: SourceImportSummary = { ...scanning, scanOutcome: "NO_METADATA", state: "FAILED", phase: null, lastErrorCode: "SOURCE_SCAN_NO_METADATA", completedAtMs: 3 };
     const fetchMock = vi.fn(async (request: Request) => {
       const url = new URL(request.url);
       if (url.pathname.endsWith("/directories")) {
@@ -132,12 +132,15 @@ describe("ServerImportManager", () => {
     await user.click(screen.getByRole("button", { name: "扫描此目录" }));
     expect(await screen.findByText("发现 metadata")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
-    expect(await screen.findByRole("combobox", { name: "文件组织格式" })).toBeVisible();
-    expect(screen.getByText(/PEGASUS_METADATA_NOT_FOUND/)).toBeVisible();
+    expect(await screen.findByText("目录中没有所选格式的 metadata")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "返回修改输入" }));
+    expect(screen.getByRole("combobox", { name: "文件组织格式" })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "文件组织格式" })).toHaveFocus();
 
     await user.click(within(screen.getByRole("dialog").querySelector("footer")!).getByRole("button", { name: "关闭" }));
     await user.click(screen.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }));
-    const reopened = await screen.findByRole("combobox", { name: "文件组织格式" });
+    await user.click(await screen.findByRole("button", { name: "返回修改输入" }));
+    const reopened = screen.getByRole("combobox", { name: "文件组织格式" });
     await user.selectOptions(reopened, "GAMELIST");
     await user.click(screen.getByRole("button", { name: "扫描此目录" }));
     const scans = fetchMock.mock.calls.map(([request]) => request as Request).filter((request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/source-imports"));

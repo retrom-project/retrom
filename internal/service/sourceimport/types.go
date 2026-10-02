@@ -34,25 +34,27 @@ type Counts struct {
 }
 
 type Summary struct {
-	Format             string    `json:"format"`
-	ExtensionFilter    string    `json:"extensionFilter"`
-	ID                 string    `json:"id"`
-	Root               RootRef   `json:"root"`
-	SourceRelativePath string    `json:"sourceRelativePath"`
-	State              string    `json:"state"`
-	Phase              *string   `json:"phase"`
-	ScanJobID          string    `json:"scanJobId"`
-	ImportJobID        *string   `json:"importJobId"`
-	Counts             Counts    `json:"counts"`
-	MappingVersion     int64     `json:"mappingVersion"`
-	Version            int64     `json:"version"`
-	CreatedBy          CreatedBy `json:"createdBy"`
-	LastErrorCode      *string   `json:"lastErrorCode"`
-	Retryable          bool      `json:"retryable"`
-	CreatedAtMS        int64     `json:"createdAtMs"`
-	UpdatedAtMS        int64     `json:"updatedAtMs"`
-	ExpiresAtMS        int64     `json:"expiresAtMs"`
-	CompletedAtMS      *int64    `json:"completedAtMs"`
+	ScanOutcome        string           `json:"scanOutcome"`
+	ScanDiagnostics    []ScanDiagnostic `json:"scanDiagnostics"`
+	Format             string           `json:"format"`
+	ExtensionFilter    string           `json:"extensionFilter"`
+	ID                 string           `json:"id"`
+	Root               RootRef          `json:"root"`
+	SourceRelativePath string           `json:"sourceRelativePath"`
+	State              string           `json:"state"`
+	Phase              *string          `json:"phase"`
+	ScanJobID          string           `json:"scanJobId"`
+	ImportJobID        *string          `json:"importJobId"`
+	Counts             Counts           `json:"counts"`
+	MappingVersion     int64            `json:"mappingVersion"`
+	Version            int64            `json:"version"`
+	CreatedBy          CreatedBy        `json:"createdBy"`
+	LastErrorCode      *string          `json:"lastErrorCode"`
+	Retryable          bool             `json:"retryable"`
+	CreatedAtMS        int64            `json:"createdAtMs"`
+	UpdatedAtMS        int64            `json:"updatedAtMs"`
+	ExpiresAtMS        int64            `json:"expiresAtMs"`
+	CompletedAtMS      *int64           `json:"completedAtMs"`
 }
 
 type Collection struct {

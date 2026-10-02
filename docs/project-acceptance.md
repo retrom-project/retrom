@@ -2870,3 +2870,21 @@ Parent 缓存回归：对通过 Current DAT 的 Split 样本，设置 `RETROM_MA
 1. 在 `mame_arcade` 自己的静态 BIOS 槽安装设备 ROM；原始 `vf2.zip` 经 Current DAT 审核，预览与产品启动分别提供独立 external 资源。不得把芯片文件并入游戏 ZIP，也不得借用 MAME 2003/Plus 的安装。
 2. 进入真实 Model 2 三维画面，投两枚币、按 Start、选人并进入对战；记录方向与动作输入后的可见变化。核对浏览器只取得公共 WASM 和 `arcade_model2` WASM，并记录压缩响应字节。
 3. `vf2` 的 MAME 驱动没有 `MACHINE_SUPPORTS_SAVE` 标记。对战中必须显示当前场景不可存档；不得创建表面成功但恢复后纹理缺失的存档。记录对战画面和 console；若仅到达选人画面或背景演示，不判为完整通过。
+
+### ACC-PEG-007：扫描诊断、输入修正与恢复
+
+- 执行：`make acceptance-case CASE=ACC-PEG-007`。
+- 真实来源包含全部无效、部分有效、空目录和普通文件但无 metadata；核对未截断计数、相对文件、行号、稳定码与原因。失败计划为终态；关闭重开、详情恢复、返回修改输入、修正后重扫均有效。新扫描不继承旧映射，部分合法结果可以映射；扫描进行中可以取消并结束为 CANCELLED，已经等待映射的计划沿用删除操作；重复扫描不产生发布游戏。
+- 证据：1280px 与 2560×1440 DPR 1.5 的失败 Drawer，以及 390px 的管理操作桌面引导 PNG；移动端沿用管理后台的桌面访问约束。HTTP/单元回归另验证 100 条诊断上限及扫描事务失败整体回滚。
+
+### ACC-RUN-019：不可变 ROM 跨核心复用
+
+- 执行：`make acceptance-case CASE=ACC-RUN-019`，使用当前验证的 Provider；本地开发候选通过标准 candidate 准备接口提供。
+- 使用真实 persistent profile，先将 ROM 响应截断并确认启动失败；完整关闭浏览器后允许网络重试，必须重新取得有效字节。此后每阶段均关闭、重开浏览器，同一公开 NES ROM 在 FCEUmm、Nestopia 与 Nestopia 存档恢复中复用 SHA/长度相同的资源；禁用 HTTP 缓存，暖启动阻断 ROM 网络，要求零 ROM 请求且真实输入改变画面和 checkpoint。新字节的另一个公开 NES ROM 必须重新 GET。不同 Core/Provider revision 的稳定 URL 由 Service 回归覆盖，公共 Content I/O 的取消/失败/完整提交回归保证部分字节不能成为完整缓存。
+- 证据：各阶段 canvas PNG 与 `rom-cache` JSON，记录非秘密 Launch、Core、ROM 身份、SHA/长度与请求数；不得记录凭据、profile、ROM 正文或主机路径。共享 BIOS/parent 另运行 ACC-RUN-006/007，冷响应的 SHA/长度与 Envelope 一致；完整关闭、重开同一 profile 后，在另一个游戏中必须零请求复用两种依赖。
+
+### ACC-UI-012：导入时间统一浏览器时区
+
+- 执行：`make acceptance-case CASE=ACC-UI-012`。
+- 真实普通、Source、BIOS 任务在 Asia/Shanghai、UTC、America/Los_Angeles 的总览、任务历史及详情使用同一毫秒事实和浏览器时区；容器 UTC 不影响显示，无 hydration 或页面错误。单元回归覆盖跨日、Los Angeles 春季 DST 前后及 SSR 占位到 hydration 的转换。占位与显示保持相同宽度，操作区不因时间出现而移动。
+- 证据：三时区的真实详情 PNG，包含 2560×1440 DPR 1.5；同一时间组件的 SSR/hydration 断言与 UI 控件门禁。

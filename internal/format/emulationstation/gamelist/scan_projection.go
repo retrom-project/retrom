@@ -40,6 +40,7 @@ type ScanAsset struct {
 }
 
 type ScanProjection struct {
+	DiscoveredFiles                        int64
 	Gamelists                              []ScanGamelist
 	Collections                            []ScanCollection
 	Items                                  []ScanItem

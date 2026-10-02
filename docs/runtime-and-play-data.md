@@ -101,7 +101,7 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。静态响应包含 `Cache-Control: no-transform`，防止代理压缩使 Content I/O 的原始字节与长度校验失败；PFB 开发文件同样禁止变换。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
-EmulatorJS 的 `PARENT_ARCHIVE` 在启动前由公共 Content I/O 完整读取、校验并持久缓存，再以本地 Blob URL 交给上游解包；不依赖上游文件名缓存或浏览器 HTTP 缓存。`sha256` 和 `sizeBytes` 必须描述实际 ZIP 字节，URL 中的成员清单身份独立保留。配置签发在授权读取快照后、最终激活事务前通过注入的归档描述端口计算元数据，描述与 HTTP 响应共用确定性 ZIP 编码，并校验成员摘要；不得用文件数量代替字节数。新 Launch 复用同一内容摘要的缓存，依赖变化使用新的内容身份。无 parent 时不新增依赖读取或 Worker；取消和退出释放 Blob、Reader 与租约，已提交缓存保留。默认启动在持久存储不可用时遵循公共 Content I/O 的网络降级规则，摘要或长度不匹配则失败，不把未校验内容交给核心。parent 只改变自身读取路径，不改变主 ROM 与 BIOS 的现有策略。验收见 [ACC-RUN-006/007](./project-acceptance.md)。
+EmulatorJS 的 `PARENT_ARCHIVE` 在启动前由公共 Content I/O 完整读取、校验并持久缓存，再以本地 Blob URL 交给上游解包；不依赖上游文件名缓存或浏览器 HTTP 缓存。`sha256` 和 `sizeBytes` 必须描述实际 ZIP 字节，URL 中的成员清单身份独立保留。配置签发在授权读取快照后、最终激活事务前通过注入的归档描述端口计算元数据，描述与 HTTP 响应共用确定性 ZIP 编码，并校验成员摘要；不得用文件数量代替字节数。新 Launch 复用同一内容摘要的缓存，依赖变化使用新的内容身份。无 parent 时不新增 parent 读取；取消和退出释放 Blob、Reader 与租约，已提交缓存保留。默认启动在持久存储不可用时遵循公共 Content I/O 的网络降级规则，摘要或长度不匹配则失败，不把未校验内容交给核心。ROM_BLOB 的整取和 BIOS_BUNDLE 使用同一公共 Content I/O。验收见 [ACC-RUN-006/007](./project-acceptance.md)。
 
 MAME Current（`retrom-runtime/mame-arcade`）的 parent 同样由公共 Content I/O 校验并持久缓存，使用有界字节物化后沿用嵌套 ZIP 解包和目录校验；压缩输入、展开总量均保留 128 MiB 上限。parent 纳入该 Target 的 PRELOAD 枚举，新 Launch 按同一内容摘要复用；长度、摘要错误或取消不得挂载部分内容。存档内容身份继续使用 v1 的父包成员身份编码，从已校验的成员名和字节摘要重建，不使用外层 ZIP 的传输摘要；因此修正资源元数据或改变外层压缩方式不会使已发布存档失效，父包成员、主 ROM、BIOS 或核心 build 变化仍须拒绝不匹配的存档。BIOS 的既有加载策略不在此修复范围。验收见 [ACC-MAME-004](./project-acceptance.md#acc-mame-004mame-current-arcade-兼容旧族候选验证)。
 
@@ -110,6 +110,12 @@ MAME Current（`retrom-runtime/mame-arcade`）的 parent 同样由公共 Content
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 与共享 HttpOnly 运行 Cookie 建立当前 Launch/origin 的服务端授权；项目脚本不能取得账户 Cookie、普通 API 或其他 Launch 内容。普通 cleanup 只清理对应存储，预览结束仅撤销该预览授权，均保留共享运行 Cookie。
 
 Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审核预览与正式启动只冻结项目自身文件及其派生索引/归档。Provider 的通用 RTP 可选输入与已发布声明仍属于其独立 SDK 契约，Retrom 不再向它提供资源，且不再把声明投影为可安装的产品目录。
+
+### 不可变内容跨核心复用
+
+普通 ROM 的传输身份只由实际字节摘要决定，Core/Target/Provider 与 Bundle revision 独立冻结为执行授权。DOS 派生内容的入口选项会改变服务端 ZIP 字节，继续使用独立的派生身份。共享 BIOS/parent URL 由成员清单确定，其公开 SHA-256 和长度必须描述实际确定性 ZIP 字节。
+
+EmulatorJS 的普通 ROM_BLOB 与 BIOS_BUNDLE 先通过公共 Content I/O 完整校验与持久缓存，再交给核心本地 File/Blob；ROM File 保留原文件名与扩展名，核心解包、输入及存档行为继续使用原有路径。已经声明 Range 的磁盘、Daphne、DOS、Flycast 保持按需策略；核心资产与大文件限制继续按 Target 声明执行。相同字节在新 Launch、另一 Core 或新 Provider revision 中复用内容缓存，内容替换使摘要改变并重新读取。取消或失败不得提交完整缓存或交付部分字节，退出清理 Reader/Blob，已经验证提交的持久缓存保留。缓存命中不授予新 Launch 权限；Host 仍先取得当前内容 grant，并验证 URL、SHA、长度和允许来源。验收见 [ACC-RUN-019](./project-acceptance.md)。
 
 ### 开始前完整缓存
 

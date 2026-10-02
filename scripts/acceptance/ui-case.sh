@@ -2,12 +2,13 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-PLAT-007|ACC-UI-(00[1-9]|01[01])|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-BASIC-001|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
-  echo "usage: ui-case.sh ACC-PLAT-007|ACC-UI-001..011|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-BASIC-001|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
+if [[ ! "$case_id" =~ ^(ACC-PLAT-007|ACC-UI-(00[1-9]|01[012])|ACC-RUN-(00[2346789]|01[0129])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[567]|ACC-BASIC-001|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[1-7]|ACC-MEDIA-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-PLAT-007|ACC-UI-001..012|ACC-RUN-002..004|ACC-RUN-006..012|ACC-RUN-019|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-PEG-007|ACC-BASIC-001|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-001..007|ACC-MEDIA-001|ACC-NP-014..022" >&2
   exit 2
 fi
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
 export PATH
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX")"
@@ -34,6 +35,15 @@ cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ -n "$process_id" ]]; then
+    RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
+    wait "$process_id" 2>/dev/null || true
+  fi
+  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
+  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
+  if ! remove_dev_dist "$repository_root/web/$acceptance_dist_dir"; then
+    status=1
+  fi
   if (( status != 0 )) && [[ -f "$temporary_root/server.log" ]]; then
     local failure_directory
     mkdir -p "$repository_root/.cache/retrom/acceptance"
@@ -41,14 +51,7 @@ cleanup() {
     cp -p "$temporary_root/server.log" "$failure_directory/server.log"
     printf 'ui_case_failure_evidence=%s\n' "$failure_directory" >&2
   fi
-  if [[ -n "$process_id" ]]; then
-    RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
-    wait "$process_id" 2>/dev/null || true
-  fi
-  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
-  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
-  rm -rf -- "$repository_root/web/$acceptance_dist_dir"
   exit "$status"
 }
 trap cleanup EXIT
@@ -83,7 +86,7 @@ NEXT_WEB_E2E=true setsid make dev \
   RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.rpg.localhost:${backend_port}" \
   NEXT_DEV_HOST="127.0.0.1" \
   NEXT_DEV_PORT="$web_port" \
-  NEXT_DIST_DIR="$acceptance_dist_dir" \
+  NEXT_DEV_DIST_DIR="$acceptance_dist_dir" \
   NEXT_BACKEND_ORIGIN="$backend_origin" \
   >"$temporary_root/server.log" 2>&1 &
 process_id=$!
@@ -140,6 +143,13 @@ if [[ "$case_id" == "ACC-IMM-009" ]]; then
 fi
 
 core_expansion_result="$temporary_root/core-expansion.json"
+if [[ "$case_id" == "ACC-RUN-019" ]]; then
+  for fixture_id in fceumm nestopia; do
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/$fixture_id.json" \
+      scripts/acceptance/console-flow.sh "$fixture_id"
+  done
+  cat "$temporary_root/fceumm.json" "$temporary_root/nestopia.json" >"$core_expansion_result"
+fi
 if [[ "$case_id" =~ ^ACC-RUN-0(08|09|10|11|12)$ ]]; then
   case "$case_id" in
     ACC-RUN-008) fixture_id="snes9x" ;;
@@ -267,6 +277,9 @@ fi
 if [[ "$case_id" =~ ^ACC-MOB-00[1-7]$ ]]; then
   specification="e2e/mobile.spec.ts"
 fi
+if [[ "$case_id" == "ACC-PEG-007" || "$case_id" == "ACC-RUN-019" || "$case_id" == "ACC-UI-012" ]]; then
+  specification="e2e/issue-regressions.spec.ts"
+fi
 playwright_grep="$case_id"
 if [[ "$case_id" == "ACC-UI-010" ]]; then
   # ACC-UI-008 performs the stateful draft/decision setup consumed by 010.
@@ -287,12 +300,12 @@ if [[ "$case_id" == "ACC-MOB-007" ]]; then
   playwright_grep="ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007"
 fi
 playwright_args=(playwright test "${specifications[@]}" --grep "$playwright_grep")
-if [[ "$case_id" == "ACC-UI-011" || "$case_id" == "ACC-PLAT-007" ]]; then
+if [[ "$case_id" == "ACC-UI-011" || "$case_id" == "ACC-PLAT-007" || "$case_id" == "ACC-PEG-007" ]]; then
   playwright_args+=(--project=chrome-1280 --project=chrome-4k-150)
 fi
 if [[ "$case_id" =~ ^ACC-MOB-00[1-6]$ ]]; then
   playwright_args+=(--project=chrome-mobile)
-elif [[ "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-PLAT-007" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
+elif [[ "$case_id" != "ACC-PEG-007" && "$case_id" != "ACC-UI-011" && "$case_id" != "ACC-PLAT-007" && "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

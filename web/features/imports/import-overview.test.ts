@@ -21,7 +21,7 @@ function ordinary(overrides: Partial<ImportListItem> = {}): ImportListItem {
 
 function source(overrides: Partial<SourceImportSummary> = {}): SourceImportSummary {
   return {
-    format: "PEGASUS", extensionFilter: "",
+    scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "",
     id: "01980000-0000-7000-8000-000000000002",
     root: { id: "games", label: "游戏文件" },
     sourceRelativePath: "FBNeo",

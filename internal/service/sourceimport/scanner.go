@@ -53,6 +53,7 @@ type (
 )
 
 type ScanResult struct {
+	DiscoveredFiles                                         int64
 	Metadata                                                []ScanMetadata
 	Collections                                             []ScanCollection
 	Items                                                   []ScanItem
@@ -70,9 +71,7 @@ func (service *Scanner) Scan(ctx context.Context) (ScanResult, error) {
 	if err := service.source.Discover(ctx, index.visit); err != nil {
 		return ScanResult{}, fmt.Errorf("discover Source source: %w", err)
 	}
-	if len(result.Metadata) == 0 {
-		return ScanResult{}, ErrMetadataAbsent
-	}
+	result.DiscoveredFiles = int64(len(index.files))
 	index.sort()
 	sort.Slice(result.Metadata, func(a, b int) bool { return result.Metadata[a].Path < result.Metadata[b].Path })
 	for i := range result.Metadata {
@@ -125,6 +124,7 @@ func (index *scanIndex) visit(file DiscoveredFile) error {
 	metadata := ScanMetadata{Path: file.Path, Size: file.Size, Facts: file.Facts, State: "VALID"}
 	if file.Size > pegasusmeta.MaxMetadataBytes {
 		metadata.State, metadata.ErrorCode = "INVALID", pegasusmeta.ErrTooLarge.Error()
+		metadata.Message = "Metadata exceeds the 8 MiB limit."
 		index.result.InvalidMetadata++
 	}
 	index.result.Metadata = append(index.result.Metadata, metadata)

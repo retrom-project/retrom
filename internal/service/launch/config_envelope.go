@@ -24,21 +24,8 @@ func (service *ConfigIssuer) envelope(
 	if err != nil {
 		return Config{}, err
 	}
-	for _, resource := range resources {
-		if resource["kind"] != "PARENT_ARCHIVE" {
-			continue
-		}
-		if service.environment.DescribeBundle == nil {
-			return Config{}, ErrBlocked
-		}
-		archive, err := service.environment.DescribeBundle(ctx, configFilesWithRole(snapshot.Files, "PARENT"))
-		if err != nil {
-			return Config{}, fmt.Errorf("describe parent archive: %w", err)
-		}
-		if !validContentDigest(archive.SHA256) || archive.SizeBytes < 1 {
-			return Config{}, ErrBlocked
-		}
-		resource["sha256"], resource["sizeBytes"] = archive.SHA256, archive.SizeBytes
+	if err := service.describeResourceBundles(ctx, snapshot.Files, resources); err != nil {
+		return Config{}, err
 	}
 	restore, _, err := providerRestore(id, snapshot.Authority.Restore, target)
 	if err != nil {
@@ -62,4 +49,38 @@ func (service *ConfigIssuer) envelope(
 		return Config{}, fmt.Errorf("build Provider launch envelope: %w", err)
 	}
 	return Config{contents: contents}, nil
+}
+
+func (service *ConfigIssuer) describeResourceBundles(
+	ctx context.Context, files []ConfigFile, resources []map[string]any,
+) error {
+	for _, resource := range resources {
+		if resource["kind"] != "PARENT_ARCHIVE" && resource["kind"] != "BIOS_BUNDLE" {
+			continue
+		}
+		if service.environment.DescribeBundle == nil {
+			return ErrBlocked
+		}
+		role := "PARENT"
+		if resource["kind"] == "BIOS_BUNDLE" {
+			role = "BIOS_BUNDLE"
+		}
+		archive, err := service.environment.DescribeBundle(ctx, configFilesWithRole(files, role))
+		if err != nil {
+			return fmt.Errorf("describe content bundle: %w", err)
+		}
+		if !validContentDigest(archive.SHA256) || archive.SizeBytes < 1 {
+			return ErrBlocked
+		}
+		if role == "BIOS_BUNDLE" {
+			files, ok := resource["files"].([]map[string]any)
+			if !ok || len(files) != 1 {
+				return ErrBlocked
+			}
+			files[0]["sha256"], files[0]["sizeBytes"] = archive.SHA256, archive.SizeBytes
+		} else {
+			resource["sha256"], resource["sizeBytes"] = archive.SHA256, archive.SizeBytes
+		}
+	}
+	return nil
 }

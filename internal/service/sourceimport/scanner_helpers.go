@@ -20,6 +20,18 @@ func parserErrorCode(err error) string {
 	}
 }
 
+func parserDiagnostic(err error) (*int64, string) {
+	var syntax *pegasusmeta.SyntaxError
+	if errors.As(err, &syntax) {
+		line := int64(syntax.Line)
+		return &line, syntax.Reason
+	}
+	if errors.Is(err, pegasusmeta.ErrTooLarge) {
+		return nil, "Metadata exceeds the 8 MiB limit."
+	}
+	return nil, "Metadata must contain valid UTF-8 text."
+}
+
 func asciiFold(value string) string {
 	return strings.Map(func(character rune) rune {
 		if character >= 'A' && character <= 'Z' {

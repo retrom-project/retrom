@@ -5,6 +5,8 @@ import "context"
 type ScanMetadata struct {
 	Path, Digest, Facts, State, ErrorCode string
 	Size                                  int64
+	Line                                  *int64
+	Message                               string
 }
 type ScanCollection struct {
 	ID, MetadataPath, Name, Description, IgnoredJSON, WarningJSON string
@@ -38,9 +40,11 @@ type ScanShape struct {
 	Metadata, InvalidMetadata, Collections, Items, Blocked, Covers, Videos, EstimatedBytes int64
 }
 type ScanSummary struct {
-	Shape          ScanShape
-	SnapshotDigest string
-	MediaWarnings  int64
+	Shape           ScanShape
+	SnapshotDigest  string
+	MediaWarnings   int64
+	DiscoveredFiles int64
+	Diagnostics     []ScanDiagnostic
 }
 type ScanProjection struct {
 	Headers ScanHeaders
