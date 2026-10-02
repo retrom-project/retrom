@@ -287,7 +287,7 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
 fi
 specifications=("$specification")
 if [[ "$case_id" == "ACC-UI-003" ]]; then
-  specifications+=("e2e/game-detail-layout.spec.ts")
+  specifications+=("e2e/game-detail-layout.spec.ts" "e2e/game-detail-media-regressions.spec.ts")
 fi
 if [[ "$case_id" == "ACC-UI-005" ]]; then
   specifications+=("e2e/home-description.spec.ts" "e2e/admin-game-detail.spec.ts")
