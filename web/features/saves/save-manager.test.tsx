@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SaveManager, type SaveItem } from "./save-manager";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", async () => {
+  const { useMockSearchParams } = await import("@/lib/navigation/url-filters.test-support");
+  return {useSearchParams: useMockSearchParams, useRouter: () => router};
+});
 
 const nowMs = new Date(2026, 7, 8, 22, 0).getTime();
 

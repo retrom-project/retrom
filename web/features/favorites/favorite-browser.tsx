@@ -1,5 +1,8 @@
 "use client";
 
+import { useURLFilters } from "@/lib/navigation/use-url-filters";
+import { favoriteURLFilters, favoriteURLQuery } from "./favorite-state";
+
 import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 
 import Link from "next/link";
@@ -210,7 +213,8 @@ export function FavoriteBrowser({
 }) {
   const { authenticatedFetch } = useAuth();
   const [page, setPage] = useState(initialPage);
-  const [query, setQuery] = useState(initialQuery);
+  const [query, setQuery, navigation] = useURLFilters(initialQuery, favoriteURLFilters, favoriteURLQuery);
+  const [observedNavigation, setObservedNavigation] = useState(navigation);
   const [search, setSearch] = useState(initialQuery.q);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError);
@@ -229,6 +233,15 @@ export function FavoriteBrowser({
   const initial = useRef(true);
   const requestSequence = useRef(0);
   const batchAddButton = useRef<HTMLButtonElement>(null);
+
+  if (observedNavigation !== navigation) {
+    setObservedNavigation(navigation);
+    setSearch(query.q);
+    setSelecting(false);
+    setSelected(new Set());
+    setLoading(true);
+    setError("");
+  }
 
   const currentFolder = useMemo(() => page?.folders.find((folder) => folder.folderId === query.folderId) ?? null, [page, query.folderId]);
   const currentCount = query.scope === "ALL" ? page?.summary.favoriteCount : query.scope === "UNCATEGORIZED" ? page?.summary.uncategorizedCount : currentFolder?.visibleGameCount;
@@ -256,11 +269,9 @@ export function FavoriteBrowser({
       setError("");
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [query.q, search]);
+  }, [query.q, search, setQuery]);
 
   useEffect(() => {
-    const pathQuery = favoriteQueryString(query).replace(/(?:^|&)limit=50(?:&|$)/, "").replace(/^&|&$/g, "");
-    window.history.replaceState(window.history.state, "", `/favorites${pathQuery ? `?${pathQuery}` : ""}`);
     if (initial.current) { initial.current = false; return; }
     const controller = new AbortController();
     const sequence = ++requestSequence.current;

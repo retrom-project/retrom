@@ -9,6 +9,11 @@ import type { FavoriteQuery } from "./favorite-state";
 
 const render = (node: ReactNode) => renderUI(node, {wrapper: ToastProvider});
 
+vi.mock("next/navigation", async () => {
+  const { useMockSearchParams } = await import("@/lib/navigation/url-filters.test-support");
+  return {useSearchParams: useMockSearchParams, useRouter: () => ({push: vi.fn()})};
+});
+
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: auth.fetch }) }));
 

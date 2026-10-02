@@ -1,5 +1,7 @@
 "use client";
 
+import { useURLFilters } from "@/lib/navigation/use-url-filters";
+import { saveURLFilters, saveURLQuery } from "./save-url";
 import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 import {saveDisplayTime} from "@/features/saves/save-library";
 
@@ -152,10 +154,12 @@ function SaveGameGroup({
 
 export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[]; nowMs: number; initialFilters?: Partial<SaveFilters> }) {
   const [items, setItems] = useState(saves);
-  const [query, setQuery] = useState(initialFilters?.query ?? "");
-  const [gameId, setGameId] = useState(initialFilters?.gameId ?? "");
-  const [availability, setAvailability] = useState<SaveFilters["availability"]>(initialFilters?.availability ?? "AVAILABLE");
-  const [sort, setSort] = useState<SaveFilters["sort"]>(initialFilters?.sort ?? "CREATED_DESC");
+  const [filters, setFilters] = useURLFilters<SaveFilters>({query:"", gameId:"", availability:"AVAILABLE", sort:"CREATED_DESC", ...initialFilters}, saveURLFilters, saveURLQuery);
+  const {query, gameId, availability, sort} = filters;
+  const setQuery = (query: string) => setFilters(current => ({...current, query}));
+  const setGameId = (gameId: string) => setFilters(current => ({...current, gameId}));
+  const setAvailability = (availability: SaveFilters["availability"]) => setFilters(current => ({...current, availability}));
+  const setSort = (sort: SaveFilters["sort"]) => setFilters(current => ({...current, sort}));
   const [expandedGames, setExpandedGames] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -178,15 +182,6 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
       document.removeEventListener("keydown", closeEscape);
     };
   }, [menuId]);
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (query.trim()) {params.set("q", query.trim());}
-    if (gameId) {params.set("gameId", gameId);}
-    if (availability !== "AVAILABLE") {params.set("availability", availability);}
-    if (sort !== "CREATED_DESC") {params.set("sort", sort);}
-    const search = params.toString();
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
-  }, [availability, gameId, query, sort]);
 
   const stats = useMemo(() => saveLibraryStats(items), [items]);
   const latest = useMemo(() => latestAvailableSave(items), [items]);
