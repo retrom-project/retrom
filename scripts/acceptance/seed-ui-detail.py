@@ -53,8 +53,11 @@ def seed(path: Path, media: str = "both") -> str:
         if media == "save":
             db.execute("DELETE FROM game_assets WHERE game_id=? AND kind='VIDEO'", (original["game_id"],))
         if media == "video":
-            retire_save(db, "game_id=?", (original["game_id"],))
-            db.execute("DELETE FROM save_states WHERE game_id=?", (original["game_id"],))
+            # isolate() parks real saves under another profile, retaining their
+            # Launch references. Only remove the current layout user's saves.
+            selection = (original["game_id"], original["profile_id"])
+            retire_save(db, "game_id=? AND profile_id=?", selection)
+            db.execute("DELETE FROM save_states WHERE game_id=? AND profile_id=?", selection)
         return original["game_id"]
 
 

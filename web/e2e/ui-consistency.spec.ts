@@ -6,6 +6,7 @@ import { expectChineseGlyphs, expectStatusTextCentered } from "./status-alignmen
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
+import { seedHomeState, uiLayoutState } from "./ui-layout-state";
 import { expectHomeHero, expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 import { expectHomePlatformTextCentered, expectLaunchFieldWidth, expectPlatformLabelVariants } from "./ui-polish-support";
@@ -45,10 +46,15 @@ test("ACC-UI-011 launch selector is aligned before hydration", async ({ page, br
 test("ACC-UI-011 home platform text is centered", async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
-  await page.goto("/");
-  await expectHomePlatformTextCentered(page);
-  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "home-platform-centered.png"), fullPage: true });
-  await expectPlatformLabelVariants(page);
+  uiLayoutState("isolate");
+  try {
+    // A poster must exist even when this case runs without preceding launches.
+    seedHomeState("populated");
+    await page.goto("/");
+    await expectHomePlatformTextCentered(page);
+    await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "home-platform-centered.png"), fullPage: true });
+    await expectPlatformLabelVariants(page);
+  } finally {uiLayoutState("restore");}
 });
 
 async function navigateUIPage(page: Page, route: string) {

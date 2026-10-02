@@ -29,7 +29,7 @@ AUTH_MANIFEST_PATH = AUTH_ROOT / "manifest.json"
 TARGET_CATALOG_ROOT = DATA_ROOT / "runtime-target-bindings/v1"
 TARGET_CATALOG_PATH = TARGET_CATALOG_ROOT / "catalog.json"
 TARGET_CATALOG_SCHEMA_PATH = TARGET_CATALOG_ROOT / "schema.json"
-MAME_DAT_ROOT = DATA_ROOT / "dat/mame-current/v0.58.4"
+MAME_DAT_ROOT = DATA_ROOT / "dat/mame-current/v0.58.5"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PINNED_RAW = re.compile(
@@ -185,7 +185,7 @@ def load_mame_manifest() -> dict[str, Any]:
     provider, source, core = manifest["provider_release"], manifest["core_release"], manifest["cores"][0]
     if not isinstance(provider, dict) or set(provider) != {"repository", "tag", "commit", "provider_id", "target_id"} or \
             provider["repository"] != "https://github.com/retrom-project/retrom-runtime" or \
-            provider["tag"] != "v0.58.4" or provider["commit"] != "3835f1d323f5be7435847eb3b1eae3fc86f8696f" or \
+            provider["tag"] != "v0.58.5" or provider["commit"] != "9dd577619901aef73d2e33e9d3bf658574bc1a4b" or \
             provider["provider_id"] != "retrom-runtime" or provider["target_id"] != "mame-arcade":
         raise CheckError("MAME_DAT_PROVIDER_INVALID")
     release = load_json(DATA_ROOT / "runtime-providers/release.json")
@@ -464,7 +464,7 @@ def image_export_entries(
             add(root / relative, f"dat/emulatorjs/{version}/{relative}")
     if mame_manifest is not None:
         for name in ("manifest.json", "SHA256SUMS", mame_manifest["cores"][0]["dat"]["local_path"]):
-            add(MAME_DAT_ROOT / name, f"dat/mame-current/v0.58.4/{name}")
+            add(MAME_DAT_ROOT / name, f"dat/mame-current/v0.58.5/{name}")
     add(AUTH_MANIFEST_PATH, "auth/password-blocklists/v1/manifest.json")
     for key in ("passwords", "license"):
         relative = safe_relative_path(auth_manifest[key]["output_relative_path"], "AUTH_BLOCKLIST_PATH_INVALID")

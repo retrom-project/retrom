@@ -60,7 +60,7 @@ func buildProjectIndexDocument(
 	if !markerFound || !fontFound {
 		return ProjectIndexView{}, ErrCredential
 	}
-	contents, err := marshalProjectIndex(title, policy.font, files)
+	contents, err := marshalProjectIndex(title, policy, files)
 	if err != nil {
 		return ProjectIndexView{}, err
 	}
@@ -68,7 +68,11 @@ func buildProjectIndexDocument(
 	return ProjectIndexView{Contents: contents, SHA256: hex.EncodeToString(digest[:])}, nil
 }
 
-func marshalProjectIndex(title, font string, files []runtimeProjectIndexFile) ([]byte, error) {
+func marshalProjectIndex(title string, policy projectIndexPolicy, files []runtimeProjectIndexFile) ([]byte, error) {
+	if policy.easyRPG {
+		return marshalEasyRPGProjectIndex(files)
+	}
+	font := policy.font
 	var contents []byte
 	var err error
 	if font != "" {

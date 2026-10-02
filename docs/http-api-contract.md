@@ -803,7 +803,7 @@ RPG 条目的 Review detail 额外返回可空 `rpgMaker`，包含 `selectedCore
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。Provider 的公共 Content I/O 服务负责受管游戏文件的下载、身份验证和跨 Launch 缓存；Host 只提供冻结资源、授权和标准 HTTP 语义，不复制核心的读取策略。索引项以项目 digest 与规范 logical path 标识，首次读取固定强 ETag；单文件 digest 资源要求匹配 `"sha256-<digest>"`。Range 响应必须是准确的单段 206，长度、总长度和 ETag 必须一致；变更或失效的身份必须失败，不能拼接不同版本的块。内容响应不进行传输压缩，支持 `If-Match`（不匹配返回 412），无效或多段 Range 返回 416。
+EasyRPG/ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。EasyRPG 的索引同时保留 V2 `metadata/cache`，新增的 `schemaVersion: 1/files` 不包含内部派生索引本身，文件名保留原始大小写；从冻结文件动态投影，因此既有游戏与审核预览无需重导入。Provider 的公共 Content I/O 服务负责受管游戏文件的下载、身份验证和跨 Launch 缓存；Host 只提供冻结资源、授权和标准 HTTP 语义，不复制核心的读取策略。索引项以项目 digest 与规范 logical path 标识，首次读取固定强 ETag；单文件 digest 资源要求匹配 `"sha256-<digest>"`。Range 响应必须是准确的单段 206，长度、总长度和 ETag 必须一致；变更或失效的身份必须失败，不能拼接不同版本的块。内容响应不进行传输压缩，支持 `If-Match`（不匹配返回 412），无效或多段 Range 返回 416。
 
 公共层以 256 KiB 块使用 OPFS，后端失败时依次回退有界 Cache Storage 块和内存/网络。缓存身份包含 storage origin 与内容身份，缓存不可用不妨碍普通内容读取。ONS 非视频文件在实际打开时才完整物化；KiriKiri XP3、mkxp WasmFS、PSP 和 Play 按需读取，不能在注册文件树时下载正文。ONS 视频直接把冻结 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。
 

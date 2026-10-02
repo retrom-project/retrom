@@ -2899,6 +2899,10 @@ Parent 缓存回归：对通过 Current DAT 的 Split 样本，设置 `RETROM_MA
 - 使用真实 persistent profile，先将 ROM 响应截断并确认启动失败；完整关闭浏览器后允许网络重试，必须重新取得有效字节。此后每阶段均关闭、重开浏览器，同一公开 NES ROM 在 FCEUmm、Nestopia 与 Nestopia 存档恢复中复用 SHA/长度相同的资源；禁用 HTTP 缓存，暖启动阻断 ROM 网络，要求零 ROM 请求且真实输入改变画面和 checkpoint。新字节的另一个公开 NES ROM 必须重新 GET。不同 Core/Provider revision 的稳定 URL 由 Service 回归覆盖，公共 Content I/O 的取消/失败/完整提交回归保证部分字节不能成为完整缓存。
 - 证据：各阶段 canvas PNG 与 `rom-cache` JSON，记录非秘密 Launch、Core、ROM 身份、SHA/长度与请求数；不得记录凭据、profile、ROM 正文或主机路径。共享 BIOS/parent 另运行 ACC-RUN-006/007，冷响应的 SHA/长度与 Envelope 一致；完整关闭、重开同一 profile 后，在另一个游戏中必须零请求复用两种依赖。
 
+ACC-RUN-019 的全 Target 回归补充：枚举当前 binding 的全部 Provider/Target，按各自内容格式从操作者提供的游戏与 BIOS 输入经正常导入/审核后验证。每个样本均使用全新持久 profile 冷启动，关闭浏览器后保留 profile，以新 Launch 禁用 HTTP 缓存并阻断原始 ROM、Parent ROM、BIOS bundle、外置 BIOS 与多碟各盘；暖启动必须运行成功且这些资源请求数为零。对存在独立 Parent 的街机样本，必须检查 Envelope 确实提供 Parent，不能用 merged ZIP 代替。
+
+重点回归 EasyRPG 2000/2003（默认按需和 PRELOAD）、Flycast 四个 Target、GAM4980、MelonDS、NeoCD、Quasi88、SAME-CDI、MAME Current Arcade BIOS 与 Yabause 多碟；默认按需只保证已读取文件复用，PRELOAD 验证全部索引内容。记录逐 Target 的实际资源身份、冷/暖请求数与字节、运行截图和候选摘要；缺少有效样本的 Target 必须明确列出，不能计为通过。公共存储回归还需覆盖超出旧容量预算的完整内容、超过 24 小时的有效分块与损坏内容租约清理，确认不会为了新游戏自动删除已下载的有效数据。
+
 ### ACC-UI-012：导入时间统一浏览器时区
 
 - 执行：`make acceptance-case CASE=ACC-UI-012`。
