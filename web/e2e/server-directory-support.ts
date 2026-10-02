@@ -17,9 +17,10 @@ export async function prepareNewSourceScan(drawer: Locator) {
     // the same input editor while retaining the failed plan's history.
     await edit.click();
     await expect(format).toBeVisible();
-    await format.selectOption("");
     await drawer.getByRole("button", { name: "根目录", exact: true }).click();
+    return true;
   }
+  return false;
 }
 
 export async function selectServerSource(
