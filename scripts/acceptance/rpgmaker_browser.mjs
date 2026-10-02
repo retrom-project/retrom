@@ -7,6 +7,7 @@ import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
 import { trackMkxpLoading } from "./mkxp_loading_evidence.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import {readRuntimeFrames, waitForRuntimeFrameDelta, closeFrameObservation} from "./runtime_frame_observation.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -210,7 +211,14 @@ async function generationCase(context, writeHeaders) {
     }
   });
   progress("first-launch-navigation");
-  await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
+  const documentResponse = await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
+  if (process.env.RETROM_ACCEPTANCE_PRODUCTION_WEB_ORIGIN) {
+    const policy = documentResponse?.headers()["content-security-policy"] ?? "";
+    if (!policy.includes("'wasm-unsafe-eval'") || policy.includes("'unsafe-eval'")) {
+      throw new Error("RPG_ACCEPTANCE_PRODUCTION_CSP_INVALID");
+    }
+    progress("production-csp-verified");
+  }
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
@@ -387,25 +395,18 @@ async function assertNoPlayerErrors(
 }
 
 async function assertRuntimeProgress(page) {
-  const frameCount = () => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount() ?? null;
-  const beforeFrame = await page.evaluate(frameCount);
+  const beforeFrame = await waitForRuntimeFrameDelta(page, -1, 1, 10000);
   if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_RUNTIME_PROGRESS_UNAVAILABLE");
   }
   try {
-    await page.waitForFunction(
-      (before) => {
-        const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
-        return Number.isSafeInteger(after) && after > before;
-      },
-      beforeFrame,
-      { timeout: 10_000 },
-    );
+    await waitForRuntimeFrameDelta(page, beforeFrame, 1, 10_000);
   } catch {
-    const afterFrame = await page.evaluate(frameCount);
+    const afterFrame = await readRuntimeFrames(page);
     throw new Error(`RPG_ACCEPTANCE_PRODUCT_RUNTIME_STALLED:${beforeFrame}:${afterFrame}`);
   }
-  const afterFrame = await page.evaluate(frameCount);
+  const afterFrame = await readRuntimeFrames(page);
+  await closeFrameObservation(page);
   return { beforeFrame, afterFrame };
 }
 

@@ -380,6 +380,7 @@ parser_version,parse_status,is_active,machine_count,rom_entry_count,disk_entry_c
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
 VALUES(?,?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
+ON CONFLICT(id) DO NOTHING
 `, datID, coreID, providerID, targetID,
 		"acceptance/"+coreID+"/"+filepath.Base(datPath), digestHex,
 		stats.MachineCount, stats.ROMEntryCount, stats.DiskEntryCount, stats.BIOSSetCount,

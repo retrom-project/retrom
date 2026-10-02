@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { formatPlayerBytes } from "./player-shell-model";
 import { ContentPreloadRetry } from "./content-preload-retry";
+import { PlayerStartupRetry } from "./player-startup-retry";
+import { startupFailureMessage } from "./startup-failure";
 import {PlayerStartupTasks} from "./player-startup-tasks";
 import type {RuntimeStartupTaskV1} from "./runtime/contract";
 
@@ -25,11 +27,12 @@ export function PlayerLoading({ state, message, progress, returnTo, immersive, c
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
   const retryable = cacheFailure || downloadFailure;
+  const startupFailure = startupErrorMessage(state, message);
   return <div className="player-loading" role="status" aria-live="polite">
     {state === "loading" && tasks.length === 0 ? <i aria-hidden="true" /> : null}
-    <LoadingTitle state={state} tasks={tasks} message={message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} />
-    {retryable ? <ContentPreloadRetry canLoadOnDemand={canLoadOnDemand === true} /> : null}
-    {tasks.length > 0 ? <PlayerStartupTasks tasks={tasks} /> : null}
+    <LoadingTitle state={state} tasks={tasks} message={startupFailure ?? message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} />
+    <RetryActions retryable={retryable} startupFailure={startupFailure} canLoadOnDemand={canLoadOnDemand} />
+    {tasks.length > 0 ? <PlayerStartupTasks tasks={startupTaskViews(state, tasks)} /> : null}
     {state === "loading" && tasks.length === 0 && progress && percentage !== null ? <div className="player-loading-progress">
       <div
         className="player-loading-progress-track"
@@ -41,8 +44,23 @@ export function PlayerLoading({ state, message, progress, returnTo, immersive, c
       ><span style={{ width: `${percentage}%` }} /></div>
       <small>{formatPlayerBytes(progress.loadedBytes)} / {formatPlayerBytes(progress.totalBytes)} · {percentage}%</small>
     </div> : null}
-    <LoadingNote state={state} retryable={retryable} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
+    <LoadingNote state={state} retryable={retryable || startupFailure !== undefined} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
   </div>;
+}
+
+function startupTaskViews(state: "loading" | "error", tasks: RuntimeStartupTaskV1[]) {
+  return state === "error" ? tasks.map(task => task.state === "RUNNING" ? {...task, state: "FAILED" as const} : task) : tasks;
+}
+
+function startupErrorMessage(state: PlayerLoadingProps["state"], message: string) {
+  return state === "error" ? startupFailureMessage(message) : undefined;
+}
+
+function RetryActions({retryable, startupFailure, canLoadOnDemand}: {
+  retryable: boolean; startupFailure: string | undefined; canLoadOnDemand: boolean | undefined;
+}) {
+  if (retryable) {return <ContentPreloadRetry canLoadOnDemand={canLoadOnDemand === true} />;}
+  return startupFailure ? <PlayerStartupRetry /> : null;
 }
 
 function LoadingTitle({state, tasks, message, cacheFailure, downloadFailure}: {

@@ -107,7 +107,7 @@ func runServer(lifetime context.Context, configuration config.Config,
 	}
 	catalogs := dependencyservice.New(resources.dependencies, dependencypersistence.New(resources.database.SQL))
 	services, err = application.New(startupContext, application.Inputs{
-		Config: configuration, Database: resources.database.SQL, ReadinessDatabase: resources.database.ReadOnly,
+		Config: configuration, Writer: resources.database.SQL, Reader: resources.database.ReadOnly,
 		Files: resources.blobs, Credentials: resources.credentials,
 		Accounts: accountService, Now: time.Now, ScummVMDetector: resources.scummVMDetector,
 		RuntimeProvider: resources.runtimeProviders.Builder,
@@ -258,7 +258,7 @@ func initializeAccountService(
 		return nil, fmt.Errorf("load password blocklist: %w", err)
 	}
 	accountService, err := composition.NewAccounts(
-		ctx, resources.database.SQL, resources.credentials,
+		ctx, resources.database.ReadOnly, resources.database.SQL, resources.credentials,
 		configuration.Mode, blocklist, time.Now,
 	)
 	if err != nil {

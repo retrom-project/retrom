@@ -17,7 +17,8 @@ import (
 
 func NewAccounts(
 	ctx context.Context,
-	database dbapi.DB,
+	reader dbapi.DB,
+	writer dbapi.DB,
 	credentials *runtime.Credentials,
 	mode config.Mode,
 	blocklist authn.Blocklist,
@@ -29,11 +30,11 @@ func NewAccounts(
 		return nil, fmt.Errorf("prepare dummy credential: %w", err)
 	}
 	mint := func() (accounts.SessionMaterial, error) { return accounts.MintSession(rand.Reader) }
-	links := accountpersistence.NewLinks(database)
+	links := accountpersistence.NewLinks(reader, writer)
 	modules := accounts.Modules{
 		Initialization: accounts.NewInitialization(
 			accountpersistence.NewInitialization(
-				database,
+				reader, writer,
 			),
 			accounts.InitializationOptions{
 				Mode:      mode,
@@ -43,10 +44,11 @@ func NewAccounts(
 				Now:       now,
 			},
 		),
-		Authentication: accounts.NewAuthentication(accountpersistence.NewAuthentication(database), hasher, mint, dummy, now),
-		Passwords:      accounts.NewPasswords(accountpersistence.NewPasswords(database), hasher, blocklist, mint, now),
-		Directory:      accounts.NewDirectory(accountpersistence.NewDirectory(database), now),
-		Administration: accounts.NewAdministration(accountpersistence.NewAdministration(database), now),
+		Authentication: accounts.NewAuthentication(
+			accountpersistence.NewAuthentication(reader, writer), hasher, mint, dummy, now),
+		Passwords:      accounts.NewPasswords(accountpersistence.NewPasswords(reader, writer), hasher, blocklist, mint, now),
+		Directory:      accounts.NewDirectory(accountpersistence.NewDirectory(reader), now),
+		Administration: accounts.NewAdministration(accountpersistence.NewAdministration(writer), now),
 		Links:          accounts.NewLinks(links, credentials, now),
 		Issuance:       accounts.NewLinkIssuance(links, credentials, now),
 		Consumption: accounts.NewLinkConsumption(
@@ -59,7 +61,7 @@ func NewAccounts(
 				Now:       now,
 			},
 		),
-		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(database), credentials, now),
+		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(writer), credentials, now),
 	}
 	return accounts.New(modules, mode), nil
 }

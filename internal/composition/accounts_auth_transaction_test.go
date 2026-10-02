@@ -18,7 +18,7 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT last_login_at_ms FROM users WHERE id=?`, session.User.UserID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	repository := accountpersistence.NewAuthentication(fixture.database.SQL)
+	repository := accountpersistence.NewAuthentication(fixture.database.ReadOnly, fixture.database.SQL)
 	credential, found, err := repository.Credential(t.Context(), session.User.Username)
 	if err != nil || !found {
 		t.Fatalf("credential missing: %v", err)

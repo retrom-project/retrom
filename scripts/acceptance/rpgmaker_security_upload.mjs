@@ -46,7 +46,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
     const completed = await json("POST", `/api/v1/admin/uploads/${created.uploadId}/complete`, {
       headers: { ...writeHeaders(), "If-Match": etag }, expected: 202,
     });
-    await waitForJob(json, completed.jobId, totalSizeBytes);
+    await waitForJob(json, completed.jobId, totalSizeBytes, files.length);
     return created.uploadId;
   }
 
@@ -164,12 +164,15 @@ function walk(root, directory, result, prefix) {
   }
 }
 
-export function jobWaitAttemptsForBytes(sizeBytes) {
-  return Number.isFinite(sizeBytes) && sizeBytes > 1_073_741_824 ? 6_000 : 600;
+export function jobWaitAttemptsForBytes(sizeBytes, fileCount = 1) {
+  const bytes = Number.isFinite(sizeBytes) && sizeBytes > 1_073_741_824 ? 6_000 : 600;
+  // Finalization also fsyncs each file independently, including small-file batches.
+  const files = Number.isInteger(fileCount) && fileCount > 0 ? Math.min(6_000, fileCount * 2) : 600;
+  return Math.max(bytes, files);
 }
 
-async function waitForJob(json, jobId, sizeBytes) {
-  for (let attempt = 0; attempt < jobWaitAttemptsForBytes(sizeBytes); attempt += 1) {
+async function waitForJob(json, jobId, sizeBytes, fileCount) {
+  for (let attempt = 0; attempt < jobWaitAttemptsForBytes(sizeBytes, fileCount); attempt += 1) {
     const job = await json("GET", `/api/v1/admin/jobs/${jobId}`);
     if (job.state === "SUCCEEDED") { return; }
     if (["FAILED", "CANCELLED"].includes(job.state)) {

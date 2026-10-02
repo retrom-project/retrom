@@ -12,7 +12,7 @@ import (
 )
 
 func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(accounts.LinkIssueScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin account link issuance: %w", err)
 	}

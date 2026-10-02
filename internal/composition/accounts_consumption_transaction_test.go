@@ -34,7 +34,7 @@ func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.
 }
 
 func failingConsumptionService(fixture accountFixture) *accountservice.LinkConsumptionService {
-	return accountservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountservice.LinkConsumptionOptions{
+	return accountservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.ReadOnly, fixture.database.SQL)}, accountservice.LinkConsumptionOptions{
 		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountservice.SessionMaterial, error) { return accountservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }

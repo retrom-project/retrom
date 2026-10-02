@@ -5,7 +5,7 @@ import {advanceFixture, capturePreviewCheckpoint, inspectPreviewCheckpoint, obse
 
 test("revealing the toolbar holds its real hover region before observing or clicking controls", async () => {
   const calls = [];
-  const page = {locator: (selector) => {
+  const page = {frames: () => [], evaluate: async () => false, locator: (selector) => {
     if (selector === ".player-hud-handle") {return {
       hover: async () => {calls.push("hover");},
       click: async () => {assert.fail("hover already reveals the toolbar; clicking toggles it closed");},
@@ -19,7 +19,7 @@ test("revealing the toolbar holds its real hover region before observing or clic
 
 test("an already-visible toolbar still refreshes its nearly expired idle deadline", async () => {
   const calls = [];
-  const page = {locator: (selector) => ({
+  const page = {frames: () => [], evaluate: async () => false, locator: (selector) => ({
     evaluate: async () => true,
     waitFor: async () => {calls.push("visible");},
     hover: async () => {calls.push(selector);},
@@ -33,6 +33,7 @@ test("checkpoint request rejection is observed before clicking so cleanup cannot
   let detached = false;
   const session = {on() {}, send: async () => {}, detach: async () => {detached = true;}};
   const page = {
+    frames: () => [], evaluate: async () => false,
     context: () => ({newCDPSession: async () => session}),
     url: () => "http://example.test/play/preview-1",
     locator: () => ({evaluate: async () => true, waitFor: async () => {}, hover: async () => {}}),

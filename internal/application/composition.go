@@ -67,25 +67,26 @@ import (
 )
 
 type Inputs struct {
-	Config                      config.Config
-	IndexCatalogs               func(context.Context) error
-	Database, ReadinessDatabase dbapi.DB
-	Files                       *filestore.Store
-	Credentials                 *retromruntime.Credentials
-	Accounts                    *accounts.Service
-	Now                         func() time.Time
-	ScummVMDetector             *scummvm.Detector
-	RuntimeProvider             *runtimelaunch.Builder
+	Config          config.Config
+	IndexCatalogs   func(context.Context) error
+	Reader, Writer  dbapi.DB
+	Files           *filestore.Store
+	Credentials     *retromruntime.Credentials
+	Accounts        *accounts.Service
+	Now             func() time.Time
+	ScummVMDetector *scummvm.Detector
+	RuntimeProvider *runtimelaunch.Builder
 }
 
 var ErrInvalidInputs = errors.New("application requires database, files, credentials and public origin")
 
 // New assembles services without starting background work.
 func New(ctx context.Context, input Inputs) (*Services, error) {
-	if input.Database == nil || input.Files == nil || input.Credentials == nil || input.Config.PublicOrigin == nil {
+	if input.Reader == nil || input.Writer == nil || input.Files == nil || input.Credentials == nil ||
+		input.Config.PublicOrigin == nil {
 		return nil, ErrInvalidInputs
 	}
-	config, database := input.Config, input.Database
+	config, database := input.Config, dbapi.NewAccess(input.Reader, input.Writer)
 	blobs, credentials, accountService, now := input.Files, input.Credentials, input.Accounts, input.Now
 	if now == nil {
 		now = time.Now
@@ -205,9 +206,6 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 		now,
 	)
 
-	if input.ReadinessDatabase != nil {
-		server.ReadinessService = composition.NewReadiness(input.ReadinessDatabase)
-	}
 	server.catalogs = newCatalogTask(input.IndexCatalogs)
 	server.shutdown = newShutdownGroup(server.workers(), server.CleanupJobs.Close)
 	return server, nil

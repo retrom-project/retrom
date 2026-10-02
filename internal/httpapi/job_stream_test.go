@@ -299,7 +299,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
 	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir, MultiDiscImportEnabled: multiDisc}
 	services, err := application.New(t.Context(), application.Inputs{
-		Config: settings, Database: database.SQL, ReadinessDatabase: database.ReadOnly,
+		Config: settings, Writer: database.SQL, Reader: database.ReadOnly,
 		Files: blobs, Credentials: credentials, Now: time.Now,
 		RuntimeProvider: runtimeBuilder,
 	})

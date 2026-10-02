@@ -12,17 +12,20 @@ import (
 )
 
 type (
-	LinkRepository struct{ database dbapi.DB }
+	LinkRepository struct{ reader, writer dbapi.DB }
 	linkRecords    struct{ accountOperations }
 )
 
-func NewLinks(database dbapi.DB) *LinkRepository { return &LinkRepository{database} }
+func NewLinks(reader, writer dbapi.DB) *LinkRepository {
+	return &LinkRepository{reader: reader, writer: writer}
+}
+
 func (repository *LinkRepository) Current(ctx context.Context, id string) (accounts.LinkRecord, bool, error) {
-	return (linkRecords{accountOperations{repository.database}}).Current(ctx, id)
+	return (linkRecords{accountOperations{repository.reader}}).Current(ctx, id)
 }
 
 func (repository *LinkRepository) WithWrite(ctx context.Context, work func(accounts.LinkScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin account link change: %w", err)
 	}
@@ -57,7 +60,7 @@ func (records linkRecords) Current(ctx context.Context, id string) (accounts.Lin
 
 func (repository *LinkRepository) List(ctx context.Context, query accounts.LinkQuery) ([]accounts.LinkRecord, error) {
 	statement, arguments := buildLinkListQuery(query.Filter, query.Now)
-	rows, err := repository.database.QueryContext(ctx, statement, arguments...)
+	rows, err := repository.reader.QueryContext(ctx, statement, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("query account links: %w", err)
 	}

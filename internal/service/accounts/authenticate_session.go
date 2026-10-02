@@ -3,7 +3,9 @@ package accounts
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"time"
 )
 
 func (service *Authentication) Authenticate(ctx context.Context, token string) (Session, error) {
@@ -21,12 +23,33 @@ func (service *Authentication) Authenticate(ctx context.Context, token string) (
 		return Session{}, ErrAuthenticationNeeded
 	}
 	if now-snapshot.LastSeen >= refreshInterval.Milliseconds() {
-		snapshot, err = service.refresh(ctx, digest)
+		snapshot, err = service.renew(ctx, digest)
 		if err != nil {
 			return Session{}, err
 		}
 	}
 	return snapshot.view(token, raw), nil
+}
+
+// Renewal is optional while the committed idle expiry is still valid. A busy
+// background writer must not turn an otherwise read-only request into its queue.
+func (service *Authentication) renew(ctx context.Context, digest [32]byte) (SessionSnapshot, error) {
+	renewal, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	snapshot, err := service.refresh(renewal, digest)
+	if !errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+		return snapshot, err
+	}
+	// Re-read committed security facts after a deferred renewal. Revocation,
+	// disabled accounts and password-version changes still take effect at once.
+	current, found, err := service.repository.Session(ctx, digest)
+	if err != nil {
+		return SessionSnapshot{}, fmt.Errorf("recheck deferred session renewal: %w", err)
+	}
+	if !found || !validSession(current, service.now().UnixMilli()) {
+		return SessionSnapshot{}, ErrAuthenticationNeeded
+	}
+	return current, nil
 }
 
 func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (SessionSnapshot, error) {
