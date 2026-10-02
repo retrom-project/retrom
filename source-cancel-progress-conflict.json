@@ -1,0 +1,196 @@
+{
+  "version": "v0.0.102",
+  "fixture": {
+    "format": "BASIC",
+    "items": 120,
+    "type": "valid small WASM files with distinct custom sections"
+  },
+  "attempts": [
+    {
+      "sentEtag": "\"v8\"",
+      "before": {
+        "state": "RUNNING",
+        "version": 6,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 0,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "after": {
+        "state": "RUNNING",
+        "version": 10,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 1,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "status": 409,
+      "errorCode": "SOURCE_IMPORT_NOT_CANCELLABLE"
+    },
+    {
+      "sentEtag": "\"v14\"",
+      "before": {
+        "state": "RUNNING",
+        "version": 13,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 2,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "after": {
+        "state": "RUNNING",
+        "version": 15,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 3,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "status": 409,
+      "errorCode": "SOURCE_IMPORT_NOT_CANCELLABLE"
+    },
+    {
+      "sentEtag": "\"v17\"",
+      "before": {
+        "state": "RUNNING",
+        "version": 17,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 4,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "after": {
+        "state": "RUNNING",
+        "version": 19,
+        "counts": {
+          "metadata": 0,
+          "invalidMetadata": 0,
+          "collections": 1,
+          "games": 120,
+          "estimatedSourceBytes": 821290,
+          "mappedCollections": 1,
+          "skippedCollections": 0,
+          "processable": 120,
+          "blocked": 0,
+          "reviewPending": 4,
+          "published": 0,
+          "reviewDiscarded": 0,
+          "existing": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "mediaWarnings": 0,
+          "covers": 0,
+          "videos": 0
+        }
+      },
+      "status": 409,
+      "errorCode": "SOURCE_IMPORT_NOT_CANCELLABLE"
+    }
+  ],
+  "recovery": {
+    "status": 202,
+    "state": "CANCEL_REQUESTED"
+  },
+  "final": {
+    "state": "CANCELLED",
+    "counts": {
+      "metadata": 0,
+      "invalidMetadata": 0,
+      "collections": 1,
+      "games": 120,
+      "estimatedSourceBytes": 821290,
+      "mappedCollections": 1,
+      "skippedCollections": 0,
+      "processable": 120,
+      "blocked": 0,
+      "reviewPending": 8,
+      "published": 0,
+      "reviewDiscarded": 0,
+      "existing": 0,
+      "failed": 0,
+      "cancelled": 112,
+      "mediaWarnings": 0,
+      "covers": 0,
+      "videos": 0
+    }
+  }
+}
