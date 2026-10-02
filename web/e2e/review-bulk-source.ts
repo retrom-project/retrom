@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { evidencePath } from "./acceptance-support";
@@ -12,9 +12,10 @@ export function registerSourceBulkApprovalTest() {
     const directory = path.join(source!, "BulkApproval");
     mkdirSync(directory, { recursive: true });
     const fixture = new URL("../../testdata/public-roms/gba-smoke/pegasus-smoke.gba", import.meta.url);
-    // The first item can publish; its duplicate must remain for manual review.
-    copyFileSync(fixture, path.join(directory, "First.gba"));
-    copyFileSync(fixture, path.join(directory, "Second.gba"));
+    // Keep the pair identical, but isolate it from other imports and viewports.
+    const bytes = Buffer.concat([readFileSync(fixture), Buffer.from(`retrom-bulk-e2e:${info.project.name}`)]);
+    writeFileSync(path.join(directory, "First.gba"), bytes);
+    writeFileSync(path.join(directory, "Second.gba"), bytes);
     await page.goto("/admin/imports/server?action=source");
     const drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
     await prepareNewSourceScan(drawer);
