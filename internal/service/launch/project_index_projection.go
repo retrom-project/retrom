@@ -42,6 +42,9 @@ func projectIndexProjection(snapshot ProjectIndexSnapshot) ([]runtimeProjectInde
 }
 
 func projectIndexEntry(file ConfigFile, delivery, format string) (runtimeProjectIndexFile, bool) {
+	if format == "RPG_MAKER_PROJECT" && (file.Role == "RPG_EASYRPG_INDEX" || file.LogicalName == "__retrom__/index.json") {
+		return runtimeProjectIndexFile{}, false
+	}
 	entry := runtimeProjectIndexFile{Path: file.LogicalName, SizeBytes: file.Size}
 	if delivery != "ISOLATED_WEB_PROJECT" {
 		return entry, true

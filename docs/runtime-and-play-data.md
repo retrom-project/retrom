@@ -119,6 +119,10 @@ Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审�
 
 EmulatorJS 的普通 ROM_BLOB 与 BIOS_BUNDLE 先通过公共 Content I/O 完整校验与持久缓存，再交给核心本地 File/Blob；ROM File 保留原文件名与扩展名，核心解包、输入及存档行为继续使用原有路径。已经声明 Range 的磁盘、Daphne、DOS、Flycast 保持按需策略；核心资产与大文件限制继续按 Target 声明执行。相同字节在新 Launch、另一 Core 或新 Provider revision 中复用内容缓存，内容替换使摘要改变并重新读取。取消或失败不得提交完整缓存或交付部分字节，退出清理 Reader/Blob，已经验证提交的持久缓存保留。缓存命中不授予新 Launch 权限；Host 仍先取得当前内容 grant，并验证 URL、SHA、长度和允许来源。验收见 [ACC-RUN-019](./project-acceptance.md)。
 
+EmulatorJS 的 EXTERNAL_FILE_SET BIOS 与 MULTI_DISC 中的每张盘同样由 Content I/O 取得本地 Blob URL，再交给上游挂载；MAME Current Arcade 的 BIOS bundle 在解包前走统一缓存。物化后关闭 Reader，Blob 独立租约保留到退出，避免妨碍同一会话中的 Range 光盘读取。
+
+EasyRPG 项目与可选 RTP 在 Provider 中保持 ON_OPEN，已读取文件使用项目 digest、规范路径与准确长度复用持久内容；用户可选择 PRELOAD。Retrom 的 EasyRPG 项目索引保留原生 V2 `metadata/cache` 查找树，同时提供 `schemaVersion/files` 内容清单，从当前 Launch/Preview 锁定文件生成，不要求重新导入旧游戏。Provider 在同源运行窗体内把已授权的文件请求接入 Content I/O；核心代码和索引元数据不当作原始游戏数据缓存。
+
 ### 开始前完整缓存
 
 Provider 从私有游戏内容策略投影可选公共 `capabilities.contentLoading`：RANGE / ON_OPEN 为 `ON_DEMAND_AND_PRELOAD`，EAGER 为 `PRELOAD_ONLY`，上游或浏览器原生加载器不声明。该能力随已校验的 Provider manifest、当前 Target 投影和 Launch Envelope 传递；游戏详情 `coreOptions[].contentLoading` 只读取游戏实际绑定 Target，未解析或未声明时为 null，不按虚拟 Core 名称猜测。
@@ -131,7 +135,7 @@ MV/MZ 的引擎就绪等待从上述准备完成后开始；全量缓存与按�
 
 Native Web 内容桥接（MV/MZ、TyranoScript）最多同时向 Content I/O 提交四个读取，其余请求有界排队，排队不占用实际读取的 15 秒时限。隔离 Worker 在 READ 中声明接收准入通知，收到 READ_STARTED 后才按实际读取计时；非空内容读取成功会刷新仍在排队的等待时限，元数据和重复通知不会刷新正在读取的请求。队列持续 15 秒没有内容完成仍会失败。退出立即关闭排队任务和读取器，原始内容错误不能被随后的取消错误覆盖。完整缓存及旧分块身份不变；同步 Core 的 Content I/O ABI 和时限不变。
 
-持久存储不可用或空间不足时不得假装下载完成或静默改回按需，Player 提供“重试下载”，且仅对双模式 Product Launch 提供“改为按需加载”。MV/MZ、TyranoScript 的 Native Web 运行投影也由 Content I/O 管理；全量缓存只包含可运行的 Web 文件，不包含桌面可执行文件等导入来源附件。隔离运行域的宿主 Service Worker 通过受限 MessagePort 读取主站持久缓存，脚本、图片、音频与视频分段请求共用同一内容身份。切回按需模式或创建新 Launch 时复用仍然有效的缓存，不重新下载已有完整文件。未接入 Content I/O 的其他外部加载器保持自身策略。完整缓存不等于离线启动：页面、Launch 授权、元数据和存档服务仍可能需要网络。此阶段不提供永久固定缓存、下载管理器或后台下载。
+持久存储不可用或空间不足时不得假装下载完成或静默改回按需，Player 提供“重试下载”，且仅对双模式 Product Launch 提供“改为按需加载”。MV/MZ、TyranoScript 的 Native Web 运行投影也由 Content I/O 管理；全量缓存只包含可运行的 Web 文件，不包含桌面可执行文件等导入来源附件。隔离运行域的宿主 Service Worker 通过受限 MessagePort 读取主站持久缓存，脚本、图片、音频与视频分段请求共用同一内容身份。切回按需模式或创建新 Launch 时复用仍然有效的缓存，不重新下载已有完整文件。未接入 Content I/O 的其他外部加载器保持自身策略。完整缓存不等于离线启动：页面、Launch 授权、元数据和存档服务仍可能需要网络。应用不按时间或容量预算自动淘汰已校验完整内容及有效分块，只清理隔离的损坏内容；浏览器主动清除站点数据或无法提供持久空间时仍遵循上述存储失败语义。此阶段不提供下载管理器或后台下载。
 
 ## 6. Checkpoint 与存档
 

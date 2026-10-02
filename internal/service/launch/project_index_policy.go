@@ -15,6 +15,7 @@ type projectIndexPolicy struct {
 	marker, font              string
 	maximum, minimum          int
 	allowEmpty, firstIsMarker bool
+	easyRPG                   bool
 }
 
 func projectIndexPolicyFor(format, raw string) (projectIndexPolicy, error) {
