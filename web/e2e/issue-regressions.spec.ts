@@ -95,17 +95,22 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
   const headers = await login(page);
   const cancelName = `${name}-Cancel`, cancelRoot = path.join(source!, cancelName);
   mkdirSync(cancelRoot);
-  const comments = ("#" + "x".repeat(4000) + "\n").repeat(128);
-  for (let index = 0; index < 50; index++) {
+  const gamesToScan = "game: Cancellation fixture\nfile: game.nes\n".repeat(7000);
+  for (let index = 0; index < 10; index++) {
     const directory = path.join(cancelRoot, String(index)); mkdirSync(directory);
-    writeFileSync(path.join(directory, "metadata.pegasus.txt"), `collection: Cancel ${index}\n${comments}`);
+    writeFileSync(path.join(directory, "metadata.pegasus.txt"), `collection: Cancel ${index}\n${gamesToScan}`);
   }
   const scanning = await createScan(page, cancelName, headers);
   expect(scanning.state).toBe("SCANNING");
-  const cancelled = await page.request.post(`/api/v1/admin/source-imports/${scanning.id}/cancel`, {
-    headers: {...headers, "If-Match": `"v${scanning.version}"`, "Idempotency-Key": crypto.randomUUID()}, data: {reason: "Acceptance cancellation"},
-  });
-  expect(cancelled.ok(), await cancelled.text()).toBe(true);
+  await expect.poll(async () => {
+    const current = await (await page.request.get(`/api/v1/admin/source-imports/${scanning.id}`)).json() as SourceImportSummary;
+    expect(current.state).toBe("SCANNING");
+    const cancelled = await page.request.post(`/api/v1/admin/source-imports/${scanning.id}/cancel`, {
+      headers: {...headers, "If-Match": `"v${current.version}"`, "Idempotency-Key": crypto.randomUUID()}, data: {reason: "Acceptance cancellation"},
+    });
+    if (!cancelled.ok()) {expect(cancelled.status(), await cancelled.text()).toBe(409);}
+    return cancelled.ok();
+  }, {timeout: 10_000, intervals: [50]}).toBe(true);
   await expect.poll(async () => (await (await page.request.get(`/api/v1/admin/source-imports/${scanning.id}`)).json() as SourceImportSummary).state,
     {timeout: 30_000}).toBe("CANCELLED");
   for (const [suffix, outcome, contents] of [["Empty", "EMPTY", false], ["NoMetadata", "NO_METADATA", true]] as const) {
