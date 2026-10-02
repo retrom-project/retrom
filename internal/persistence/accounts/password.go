@@ -11,21 +11,24 @@ import (
 )
 
 type (
-	PasswordRepository struct{ database dbapi.DB }
+	PasswordRepository struct{ reader, writer dbapi.DB }
 	passwordRecords    struct{ executor dbapi.Executor }
 )
 
-func NewPasswords(database dbapi.DB) *PasswordRepository { return &PasswordRepository{database} }
+func NewPasswords(reader, writer dbapi.DB) *PasswordRepository {
+	return &PasswordRepository{reader: reader, writer: writer}
+}
+
 func (repository *PasswordRepository) Current(
 	ctx context.Context,
 	actor accounts.PasswordActor,
 	now int64,
 ) (accounts.PasswordState, bool, error) {
-	return (passwordRecords{repository.database}).Current(ctx, actor, now)
+	return (passwordRecords{repository.reader}).Current(ctx, actor, now)
 }
 
 func (repository *PasswordRepository) WithWrite(ctx context.Context, work func(accounts.PasswordScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin password rotation: %w", err)
 	}

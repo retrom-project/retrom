@@ -12,7 +12,7 @@ func (repository *LinkRepository) WithConsumptionWrite(
 	ctx context.Context,
 	work func(accounts.LinkConsumptionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin account link consumption: %w", err)
 	}
@@ -28,7 +28,7 @@ func (repository *LinkRepository) WithConsumptionWrite(
 }
 
 func (repository *LinkRepository) ResetState(ctx context.Context, id string) (accounts.ResetState, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
+	tx, err := repository.reader.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return accounts.ResetState{}, false, fmt.Errorf("begin reset capability snapshot: %w", err)
 	}

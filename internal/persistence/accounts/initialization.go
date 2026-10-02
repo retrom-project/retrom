@@ -10,23 +10,23 @@ import (
 )
 
 type (
-	InitializationRepository struct{ database dbapi.DB }
+	InitializationRepository struct{ reader, writer dbapi.DB }
 	initializationRecords    struct{ executor dbapi.Executor }
 )
 
-func NewInitialization(database dbapi.DB) *InitializationRepository {
-	return &InitializationRepository{database}
+func NewInitialization(reader, writer dbapi.DB) *InitializationRepository {
+	return &InitializationRepository{reader: reader, writer: writer}
 }
 
 func (repository *InitializationRepository) State(ctx context.Context) (accounts.InitializationState, error) {
-	return (initializationRecords{repository.database}).State(ctx)
+	return (initializationRecords{repository.reader}).State(ctx)
 }
 
 func (repository *InitializationRepository) WithWrite(
 	ctx context.Context,
 	work func(accounts.InitializationScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	tx, err := repository.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin account initialization: %w", err)
 	}
@@ -59,7 +59,7 @@ func (records initializationRecords) State(ctx context.Context) (accounts.Initia
 }
 
 func (repository *InitializationRepository) Credentials(ctx context.Context) ([]accounts.StoredCredential, error) {
-	rows, err := repository.database.QueryContext(
+	rows, err := repository.reader.QueryContext(
 		ctx,
 		`SELECT COALESCE(c.password_scheme,''),COALESCE(c.password_hash,''),c.user_id IS NULL
  FROM users u LEFT JOIN user_credentials c ON c.user_id=u.id

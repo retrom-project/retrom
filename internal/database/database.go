@@ -5,6 +5,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 // Queryer is the common query capability of a pool or transaction.
@@ -33,10 +34,16 @@ type DB interface {
 	Close() error
 }
 
-// Stats contains the pool counters needed by lifecycle and leak checks.
+// Stats contains pool counters and SQL/transaction observations.
 type Stats struct {
-	MaxOpenConnections int
-	InUse              int
+	MaxOpenConnections  int
+	InUse               int
+	WaitCount           int64
+	WaitDuration        time.Duration
+	SQLCalls            int64
+	SQLCallDuration     time.Duration
+	Transactions        int64
+	TransactionDuration time.Duration
 }
 
 type Tx interface {

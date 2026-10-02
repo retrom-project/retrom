@@ -37,7 +37,7 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) *testServer {
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
 	accountService, err := composition.NewAccounts(
-		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, now,
+		context.Background(), database.ReadOnly, database.SQL, credentials, mode, authn.EmptyBlocklist{}, now,
 	)
 	testassert.False(t, err != nil, err)
 	if err := accountService.Start(context.Background()); err != nil {
@@ -54,7 +54,7 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) *testServer {
 	origin, _ := url.Parse("http://localhost:3000")
 	settings := config.Config{Mode: mode, PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: root}
 	services, err := application.New(t.Context(), application.Inputs{
-		Config: settings, Database: database.SQL, Files: blobs,
+		Config: settings, Writer: database.SQL, Reader: database.ReadOnly, Files: blobs,
 		Credentials: credentials, Accounts: accountService, Now: now,
 	})
 	testassert.False(t, err != nil, err)
