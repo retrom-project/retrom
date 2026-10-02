@@ -1,0 +1,37 @@
+[
+  {
+    "path": "/api/v1/admin/reviews/01a0fdf2-b866-7132-a173-9b37cbef6995",
+    "method": "GET",
+    "status": 200,
+    "ms": 37990.66,
+    "bytes": 380607
+  },
+  {
+    "path": "/api/v1/admin/reviews/01a0fdf2-b866-7132-a173-9b37cbef6995",
+    "method": "GET",
+    "status": 200,
+    "ms": 37397.24,
+    "bytes": 380607
+  },
+  {
+    "path": "/api/v1/admin/reviews/01a0fdf2-b866-7132-a173-9b37cbef6995",
+    "method": "GET",
+    "status": 200,
+    "ms": 29345.76,
+    "bytes": 380607
+  },
+  {
+    "path": "/api/v1/admin/reviews/01a0fdf2-b866-7132-a173-9b37cbef6995",
+    "method": "GET",
+    "status": 200,
+    "ms": 33175.74,
+    "bytes": 380607
+  },
+  {
+    "path": "/api/v1/admin/reviews/01a0fdf2-b866-7132-a173-9b37cbef6995",
+    "method": "GET",
+    "status": 200,
+    "ms": 34214.59,
+    "bytes": 380607
+  }
+]

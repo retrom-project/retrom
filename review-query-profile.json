@@ -1,0 +1,194 @@
+{
+  "snapshot": "01a0fdfa-565d-7350-b8d1-88520e823d11",
+  "platform": "tyranoscript",
+  "games": 927,
+  "samePlatformPublished": 0,
+  "incomingFiles": 4767,
+  "sqliteVersion": "3.46.1",
+  "plan": [
+    [
+      6,
+      0,
+      0,
+      "SEARCH game USING INDEX games_latest (status=?)"
+    ],
+    [
+      12,
+      0,
+      0,
+      "CORRELATED SCALAR SUBQUERY 3"
+    ],
+    [
+      15,
+      12,
+      0,
+      "CO-ROUTINE existing_difference"
+    ],
+    [
+      16,
+      15,
+      0,
+      "COMPOUND QUERY"
+    ],
+    [
+      17,
+      16,
+      0,
+      "LEFT-MOST SUBQUERY"
+    ],
+    [
+      26,
+      17,
+      0,
+      "SEARCH existing USING INDEX sqlite_autoindex_game_files_1 (game_id=?)"
+    ],
+    [
+      32,
+      17,
+      0,
+      "SCAN existing_file VIRTUAL TABLE INDEX 1:"
+    ],
+    [
+      40,
+      17,
+      0,
+      "USE TEMP B-TREE FOR GROUP BY"
+    ],
+    [
+      83,
+      16,
+      0,
+      "EXCEPT USING TEMP B-TREE"
+    ],
+    [
+      91,
+      83,
+      0,
+      "SEARCH incoming USING INDEX sqlite_autoindex_import_item_source_snapshot_files_1 (source_snapshot_id=?)"
+    ],
+    [
+      98,
+      83,
+      0,
+      "SCAN incoming_file VIRTUAL TABLE INDEX 1:"
+    ],
+    [
+      106,
+      83,
+      0,
+      "USE TEMP B-TREE FOR GROUP BY"
+    ],
+    [
+      157,
+      12,
+      0,
+      "SCAN existing_difference"
+    ],
+    [
+      166,
+      0,
+      0,
+      "CORRELATED SCALAR SUBQUERY 6"
+    ],
+    [
+      169,
+      166,
+      0,
+      "CO-ROUTINE incoming_difference"
+    ],
+    [
+      170,
+      169,
+      0,
+      "COMPOUND QUERY"
+    ],
+    [
+      171,
+      170,
+      0,
+      "LEFT-MOST SUBQUERY"
+    ],
+    [
+      180,
+      171,
+      0,
+      "SEARCH incoming USING INDEX sqlite_autoindex_import_item_source_snapshot_files_1 (source_snapshot_id=?)"
+    ],
+    [
+      187,
+      171,
+      0,
+      "SCAN incoming_file VIRTUAL TABLE INDEX 1:"
+    ],
+    [
+      195,
+      171,
+      0,
+      "USE TEMP B-TREE FOR GROUP BY"
+    ],
+    [
+      238,
+      170,
+      0,
+      "EXCEPT USING TEMP B-TREE"
+    ],
+    [
+      246,
+      238,
+      0,
+      "SEARCH existing USING INDEX sqlite_autoindex_game_files_1 (game_id=?)"
+    ],
+    [
+      252,
+      238,
+      0,
+      "SCAN existing_file VIRTUAL TABLE INDEX 1:"
+    ],
+    [
+      260,
+      238,
+      0,
+      "USE TEMP B-TREE FOR GROUP BY"
+    ],
+    [
+      311,
+      166,
+      0,
+      "SCAN incoming_difference"
+    ],
+    [
+      319,
+      0,
+      0,
+      "SEARCH instance USING INDEX sqlite_autoindex_platform_instances_3 (id=? AND platform_id=?)"
+    ]
+  ],
+  "samples": [
+    {
+      "ms": 16236.06,
+      "rows": 0
+    },
+    {
+      "ms": 15631.59,
+      "rows": 0
+    },
+    {
+      "ms": 15646.79,
+      "rows": 0
+    }
+  ],
+  "withoutUnrelatedGames": [
+    {
+      "ms": 0.14,
+      "rows": 0
+    },
+    {
+      "ms": 0.01,
+      "rows": 0
+    },
+    {
+      "ms": 0.0,
+      "rows": 0
+    }
+  ]
+}
