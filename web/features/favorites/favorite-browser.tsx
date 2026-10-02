@@ -90,7 +90,7 @@ function FavoriteContentState({ error, loading, onChooseAll, onClear, onRefresh,
 function FavoriteGames({ busy, loading, onFavoriteChange, onLoadMore, onToggle, page, selected, selecting }: {
   busy: boolean;
   loading: boolean;
-  onFavoriteChange: (gameId: string, favorite: FavoriteReference | null) => void;
+  onFavoriteChange: (gameId: string, favorite: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => void;
   onLoadMore: () => void;
   onToggle: (gameId: string) => void;
   page: FavoritePage | null;
@@ -127,7 +127,7 @@ type FavoriteBrowserViewProps = {
   onClear: () => void;
   onCreateFolder: () => void;
   onEditFolder: () => void;
-  onFavoriteChange: (gameId: string, favorite: FavoriteReference | null) => void;
+  onFavoriteChange: (gameId: string, favorite: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => void;
   onLoadMore: () => void;
   onOrganizeUncategorized: () => void;
   onRefresh: () => void;
@@ -390,7 +390,7 @@ export function FavoriteBrowser({
       onClear={() => { setSearch(""); updateQuery((current) => ({ ...current, q: "", platformId: "" })); }}
       onCreateFolder={() => { setFolderError(""); setCreating(true); }}
       onEditFolder={() => { setFolderError(""); setRenaming(true); }}
-      onFavoriteChange={(gameId, favorite) => { setPage((current) => current ? pageWithFavorite(current, gameId, favorite) : current); void refresh(); }}
+      onFavoriteChange={(gameId, favorite, removed) => { if (removed?.length) {setToast({message: "已取消收藏", undo: removed});} setPage((current) => current ? pageWithFavorite(current, gameId, favorite) : current); void refresh(); }}
       onLoadMore={() => void loadMore()} onOrganizeUncategorized={organizeUncategorized} onRefresh={() => void refresh()}
       onRemoveBatch={(folderId) => void batchOrganize([], [folderId])} onSearch={setSearch}
       onToggleSelecting={() => { setSelecting((value) => !value); setSelected(new Set()); }}

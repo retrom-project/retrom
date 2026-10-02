@@ -30,7 +30,7 @@ type FavoriteActionsProps = {
   initialFavorite: FavoriteReference | null;
   variant?: "card" | "favorite-card" | "detail";
   showManageButton?: boolean;
-  onChange?: (favorite: FavoriteReference | null) => void;
+  onChange?: (favorite: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => void;
 };
 
 function messageFor(error: unknown) {
@@ -64,9 +64,9 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const acceptFavorite = useCallback((next: FavoriteReference | null) => {
+  const acceptFavorite = useCallback((next: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => {
     setFavorite(next);
-    onChange?.(next);
+    if (removed) {onChange?.(next, removed);} else {onChange?.(next);}
   }, [onChange]);
 
   async function addFavorite() {
@@ -83,7 +83,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     setBusy(true);
     try {
       const { data } = await unfavoriteGames(authenticatedFetch, [gameId]);
-      acceptFavorite(null);
+      acceptFavorite(null, data.items);
       setConfirming(false);
       setNotice({ message: `已取消收藏“${title}”`, undo: data.items });
     } catch (error) { setNotice({ message: messageFor(error) }); }

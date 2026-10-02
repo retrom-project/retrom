@@ -111,6 +111,28 @@ describe("FavoriteBrowser", () => {
     expect(screen.getByRole("button", { name: "完成整理" })).toBePressed();
   });
 
+  it("keeps single removal undo after the card is unmounted", async () => {
+    const initial = page();
+    const item = initial.items[0];
+    const removed = [{gameId:item.gameId, favoritedAtMs:item.favorite.favoritedAtMs, folderIds:item.favorite.folderIds}];
+    let deleted = false;
+    auth.fetch.mockImplementation(async (url) => {
+      if (String(url).endsWith("/unfavorite")) {deleted = true; return json({items:removed});}
+      if (String(url).endsWith("/restore")) {deleted = false; return json({items:removed});}
+      return json(deleted ? page({items:initial.items.slice(1),totalCount:1}) : initial);
+    });
+    const user = userEvent.setup();
+    render(<FavoriteBrowser initialPage={initial} initialQuery={query} />);
+    await user.click(screen.getAllByRole("button", {name:/取消收藏.*Game 1/})[0]);
+    const confirm = screen.getByRole("alertdialog");
+    await user.click(within(confirm).getByRole("button", {name:"取消收藏"}));
+    await waitFor(() => expect(screen.queryByRole("heading", {name:"Game 1"})).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", {name:"撤销"}));
+    expect(await screen.findByRole("heading", {name:"Game 1"})).toBeVisible();
+    const restore = auth.fetch.mock.calls.find(([url]) => String(url).endsWith("/restore"));
+    expect(JSON.parse(String(restore?.[1]?.body))).toEqual({items:removed});
+  });
+
   it("keeps a failed folder deletion visible and retryable in the confirmation dialog", async () => {
     auth.fetch.mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {return json({ error: { code: "RESOURCE_VERSION_CONFLICT", message: "收藏夹已被修改" } }, 412);}

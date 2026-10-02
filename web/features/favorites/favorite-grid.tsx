@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FavoriteActions } from "./favorite-actions";
-import type { FavoriteGame, FavoriteReference } from "./favorite-api";
+import type { FavoriteGame, FavoriteReference, UnfavoriteResult } from "./favorite-api";
 import { StatusBadge } from "@/components/ui";
 
 function FavoritePoster({ game }: { game: FavoriteGame }) {
@@ -15,7 +15,7 @@ export function FavoriteGrid({
   games, selecting, selected, busy = false, onToggle, onFavoriteChange,
 }: {
   games: FavoriteGame[]; selecting: boolean; selected: ReadonlySet<string>; busy?: boolean;
-  onToggle: (gameId: string) => void; onFavoriteChange: (gameId: string, favorite: FavoriteReference | null) => void;
+  onToggle: (gameId: string) => void; onFavoriteChange: (gameId: string, favorite: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => void;
 }) {
   return <div className={`favorite-game-grid ${selecting ? "is-selecting" : ""}`}>
     {games.map((game) => {
@@ -42,7 +42,7 @@ export function FavoriteGrid({
           initialFavorite={game.favorite}
           variant="favorite-card"
           showManageButton={!deleted}
-          onChange={(favorite) => onFavoriteChange(game.gameId, favorite)}
+          onChange={(favorite, removed) => onFavoriteChange(game.gameId, favorite, removed)}
         />
       </article>;
     })}
