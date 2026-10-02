@@ -56,6 +56,7 @@ PRODUCT_CASES |= COMPUTER_CASES
 # These commands are intentionally focused. Cases omitted here are emitted as
 # FAIL instead of being hidden behind a broad package-level green test.
 CASE_COMMANDS: dict[str, tuple[int, str]] = {
+    "ACC-RUN-019": (600, "node scripts/acceptance/emulatorjs_slow_product.mjs"),
     "ACC-QA-001": (900, "make ci"),
     "ACC-QA-002": (300, "scripts/acceptance/quality-sentinels.sh"),
     "ACC-PKG-001": (
@@ -728,7 +729,7 @@ def archive_previous(case_dir: Path) -> None:
     run_dir = case_dir.parents[1]
     moved: dict[str, str] = {}
     for name in (
-        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
+        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "emulatorjs-slow-product.json", "ons-product.json",
         "content-preload-product.json", "content-loading-capability-product.json", "dos-launch-options-ui.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "wasm4-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
         "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",

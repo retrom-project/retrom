@@ -1088,6 +1088,12 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - Satellaview 选 BS/SFC/SMC 单文件，安装 `BS-X.bin` 后检查 Review Preview 和 Product Launch 使用 `emulatorjs/snes9x`。保留其既有可选 BIOS 语义；需要固件的样本应实际读取该 bundle，不以安装状态代替画面验证。
 - 三个平台分别完成导入、审核预览截图、发布、启动画面 A、方向后的 B、确认后的 C、显式存档、不同 Launch 恢复 B、恢复后方向输入与退出。浏览器注入标准手柄的映射事件和截图都需检查；`AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 只有逐图确认后才能记 PASS。实体手柄需单独人工验证。记录 Provider、Target、Bundle、内容摘要与 BIOS bundle 的身份摘要、成员数；不能把帧数、HTTP 200、静止截图或一个游戏样本外推为平台全库兼容。
 
+### ACC-RUN-019：EmulatorJS 慢下载、停滞与取消
+
+- 上限 600 秒；执行 `make acceptance-case CASE=ACC-RUN-019`。输入为当前 PFB 的 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、固定 Chrome 和绝对 `RETROM_EJS_SLOW_INPUT`，后者精确包含 `fbneo`、`mame2003` 两个由普通 `arcade-flow.sh` 生成的公开 fixture 产品结果；先用仓库 `seed-public-arcade-dat.go` 在停止的隔离 PFB 库中准备对应 test-only DAT，再启动和执行普通导入/审核。
+- 核心 `.data` 保持原始 bytes/headers，以 128 KiB/s 和 300ms 延迟流式传输。两个 Target 都必须实际等待超过 30 秒后进入 RUNNING，通过真实键盘改变 checkpoint，创建普通存档、不同 Launch 恢复并继续输入；阻断核心网络后缓存启动不得再请求核心。
+- 独立冷 context 停止字节推进：40 秒内出现明确的资源停滞提示及“重试启动”，留下 390px 与物理 4K 150% 的实际错误页截图并检查溢出。另在加载中通过普通退出按钮取消，五秒内返回，挂起传输全部关闭。结构化证据保存实际字节数、耗时、核心/模块摘要、状态摘要和取消时间，不替换资源、不提高 runtime 超时、不关闭 CSP。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -1636,6 +1642,8 @@ archive 总大小。EasyRPG 第二个 Launch 至少命中一个固定 runtime as
 均为零 HTTP 请求，以证明公共持久缓存复用。不得把零请求伪记为浏览器 HTTP 缓存命中，也不得从第一次配置复制第二次身份。
 MV/MZ 保持 unique runtime origin。默认按需时，首屏实际读取的 native project 文件数大于零且小于完整运行投影文件数；允许枚举元数据，不得因此下载整个项目。跨 Launch 复用 Content I/O 缓存；记录浏览器资源请求是否由 Service Worker 返回，并与主站内容字节下载分别计数。结构化证据只记录
 Launch ID、计数和 byte，不记录 content identity、项目路径或资源名。
+
+EasyRPG 的生产 CSP 回归使用同一 PFB 后端与实际 `next build`/`next start` 前端：生产前端在本机独立端口监听，设置 `RETROM_ACCEPTANCE_PRODUCTION_WEB_ORIGIN=http://127.0.0.1:<port>`。本地验收代理只将应用页面与 Next 资源转到该生产前端，API/内容/Provider 请求及原 PFB origin 保持实际产品路径。provision 与正式运行都检查文档 CSP 包含 `wasm-unsafe-eval` 且不含 JavaScript `unsafe-eval`；继续执行普通输入、checkpoint 与不同 Launch 精确恢复，不可用 dev 页面启动代替。
 
 002 至 008 的 fresh 产品记录统一由
 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-NNN` 创建。预置与正式 Case 均支持
