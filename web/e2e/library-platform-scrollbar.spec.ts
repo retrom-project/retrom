@@ -3,6 +3,12 @@ import path from "node:path";
 import {expect, test} from "@playwright/test";
 import {evidencePath, noPageOverflow} from "./acceptance-support";
 
+// Playwright's headless default hides native scrollbars even with custom CSS.
+test.use({launchOptions: {
+  executablePath: process.env.RETROM_CHROME_EXECUTABLE ?? path.resolve("../.cache/tools/retrom-chrome-for-testing"),
+  ignoreDefaultArgs: ["--hide-scrollbars"],
+}});
+
 test("ACC-UI-001 overflowing platform scrollbar shows only on hover without moving the layout", async ({page}, testInfo) => {
   const database = process.env.RETROM_E2E_DATABASE;
   expect(database).toBeTruthy();
@@ -17,6 +23,7 @@ test("ACC-UI-001 overflowing platform scrollbar shows only on hover without movi
   await page.mouse.move(1, 1);
   const thumb = () => row.evaluate(element => getComputedStyle(element, "::-webkit-scrollbar-thumb").backgroundColor);
   expect(await row.evaluate(element => getComputedStyle(element, "::-webkit-scrollbar").height)).toBe("6px");
+  expect(await row.evaluate(element => (element as HTMLElement).offsetHeight - element.clientHeight)).toBe(6);
   await expect.poll(thumb).toBe("rgba(0, 0, 0, 0)");
   const before = await row.boundingBox();
   const grid = await page.locator(".library-game-grid").boundingBox();
