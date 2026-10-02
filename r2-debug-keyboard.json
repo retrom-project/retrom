@@ -1,0 +1,41 @@
+{
+  "tabs": [
+    {
+      "index": 0,
+      "tag": "SUMMARY",
+      "label": "运行环境与显示",
+      "inHiddenPanel": true,
+      "rect": {
+        "x": 1465,
+        "y": 379.75,
+        "width": 320
+      }
+    }
+  ],
+  "open": "false",
+  "closed": {
+    "ariaHidden": "true",
+    "className": "player-debug-panel",
+    "opacity": "0",
+    "transform": "matrix(1, 0, 0, 1, 374, 0)",
+    "tabIndex": -1,
+    "descendantSummaries": 1
+  },
+  "anchor": {
+    "tag": "BUTTON",
+    "label": "更多操作"
+  },
+  "hiddenFocus": {
+    "tag": "SUMMARY",
+    "label": "运行环境与显示",
+    "inHiddenPanel": true,
+    "rect": {
+      "x": 1465,
+      "y": 379.75,
+      "width": 320
+    }
+  },
+  "hiddenDetailOpened": true,
+  "confirmed": true,
+  "result": "HIDDEN_PANEL_KEYBOARD_FOCUS"
+}
