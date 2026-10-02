@@ -3320,6 +3320,7 @@ export interface components {
         DefaultCorePreviewRequest: {
             coreId: string;
             cursor?: string | null;
+            /** @description Omit to use 50; null is not accepted. */
             limit?: number;
         };
         DefaultCoreRequest: {

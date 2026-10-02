@@ -1343,6 +1343,7 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+          description: Omit to use 50; null is not accepted.
     DefaultCoreRequest:
       type: object
       additionalProperties: false
