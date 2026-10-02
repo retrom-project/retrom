@@ -121,9 +121,13 @@ describe("FavoriteBrowser", () => {
     const item = initial.items[0];
     const removed = [{gameId:item.gameId, favoritedAtMs:item.favorite.favoritedAtMs, folderIds:item.favorite.folderIds}];
     let deleted = false;
+    let restoreAttempts = 0;
     auth.fetch.mockImplementation(async (url) => {
       if (String(url).endsWith("/unfavorite")) {deleted = true; return json({items:removed});}
-      if (String(url).endsWith("/restore")) {deleted = false; return json({items:removed});}
+      if (String(url).endsWith("/restore")) {
+        if (++restoreAttempts === 1) {return json({error:{code:"UNAVAILABLE",message:"恢复暂时失败"}}, 503);}
+        deleted = false; return json({items:removed});
+      }
       return json(deleted ? page({items:initial.items.slice(1),totalCount:1}) : initial);
     });
     const user = userEvent.setup();
@@ -132,6 +136,8 @@ describe("FavoriteBrowser", () => {
     const confirm = screen.getByRole("alertdialog");
     await user.click(within(confirm).getByRole("button", {name:"取消收藏"}));
     await waitFor(() => expect(screen.queryByRole("heading", {name:"Game 1"})).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", {name:"撤销"}));
+    expect(await screen.findByText(/恢复暂时失败/)).toBeVisible();
     await user.click(screen.getByRole("button", {name:"撤销"}));
     expect(await screen.findByRole("heading", {name:"Game 1"})).toBeVisible();
     const restore = auth.fetch.mock.calls.find(([url]) => String(url).endsWith("/restore"));

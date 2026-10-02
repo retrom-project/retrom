@@ -195,6 +195,14 @@ type FavoriteDialogsProps = {
 };
 
 function FavoriteDialogs(props: FavoriteDialogsProps) {
+  const undoButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!props.toast?.undo?.length || props.busy) {return;}
+    const frame = requestAnimationFrame(() => {
+      if (document.activeElement === document.body) {undoButton.current?.focus();}
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [props.toast, props.busy]);
   return <>
     <FolderNameDialog open={props.creating} title="新建收藏夹" submitLabel="创建收藏夹" busy={props.busy} error={props.folderError} onClose={props.onCreateClose} onSubmit={props.onCreateSubmit} />
     <FolderEditDialog open={props.renaming} initialName={props.currentFolder?.name ?? ""} busy={props.busy} error={props.folderError} onClose={props.onEditClose} onDelete={props.onEditDelete} onSubmit={props.onEditSubmit} />
@@ -202,7 +210,7 @@ function FavoriteDialogs(props: FavoriteDialogsProps) {
     <FolderPickerDialog open={Boolean(props.batchPickerAnchor)} anchor={props.batchPickerAnchor} title={`将 ${props.selected.size} 款游戏加入收藏夹`} folders={props.page?.folders ?? []} selectedFolderIds={props.batchFolderIds} busy={props.busy} onClose={props.onBatchPickerClose} onCreate={props.onBatchCreateFolder} onSave={props.onBatchSave} />
     <FolderNameDialog open={props.batchCreate} title="新建收藏夹" submitLabel="创建收藏夹" busy={props.busy} error={props.folderError} onClose={props.onBatchCreateClose} onSubmit={props.onBatchCreateSubmit} />
     <ConfirmDialog open={props.batchUnfavorite} title={`取消收藏 ${props.selected.size} 款游戏？`} description="这些游戏会同时从所有收藏夹移除；提交后可在两秒内撤销。" confirmLabel="取消收藏" cancelLabel="保留收藏" tone="danger" busy={props.busy} onCancel={props.onBatchUnfavoriteCancel} onConfirm={props.onBatchUnfavoriteConfirm} />
-    {props.toast ? <div className="favorite-toast" role="status" aria-live="polite"><span>{props.toast.message}</span>{props.toast.undo?.length ? <button type="button" disabled={props.busy} onClick={props.onUndo}>撤销</button> : null}<button type="button" aria-label="关闭通知" onClick={props.onToastClose}>×</button></div> : null}
+    {props.toast ? <div className="favorite-toast" role="status" aria-live="polite"><span>{props.toast.message}</span>{props.toast.undo?.length ? <button ref={undoButton} type="button" disabled={props.busy} onClick={props.onUndo}>撤销</button> : null}<button type="button" aria-label="关闭通知" onClick={props.onToastClose}>×</button></div> : null}
   </>;
 }
 
@@ -286,10 +294,10 @@ export function FavoriteBrowser({
   }, [authenticatedFetch, query]);
 
   useEffect(() => {
-    if (!toast) {return;}
+    if (!toast || busy) {return;}
     const timer = window.setTimeout(() => setToast(null), 2_000);
     return () => window.clearTimeout(timer);
-  }, [toast]);
+  }, [toast, busy]);
 
   function chooseScope(scope: FavoriteQuery["scope"], folderId = "") {
     const next = selectFavoriteScope(query, scope, folderId);
@@ -388,7 +396,7 @@ export function FavoriteBrowser({
     if (!toast?.undo?.length) {return;}
     setBusy(true);
     try { await restoreFavorites(authenticatedFetch, toast.undo); setToast({ message: "已恢复收藏" }); await refresh(); }
-    catch (restoreError) { setToast({ message: errorMessage(restoreError) }); }
+    catch (restoreError) { setToast({ message: errorMessage(restoreError), undo: toast.undo }); }
     finally { setBusy(false); }
   }
 

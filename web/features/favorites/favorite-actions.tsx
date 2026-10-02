@@ -59,10 +59,10 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   const internalManageButton = useRef<HTMLButtonElement>(null);
   const pickerReturnTarget = useRef<(() => HTMLElement | null) | null>(null);
   useEffect(() => {
-    if (!notice) {return;}
+    if (!notice || busy) {return;}
     const timer = window.setTimeout(() => setNotice(null), 2_000);
     return () => window.clearTimeout(timer);
-  }, [notice]);
+  }, [notice, busy]);
 
   const acceptFavorite = useCallback((next: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => {
     setFavorite(next);
@@ -98,7 +98,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       const { data } = await putFavorite(authenticatedFetch, gameId);
       acceptFavorite({ favoritedAtMs: data.favoritedAtMs, folderIds: data.folderIds });
       setNotice({ message: "已恢复收藏" });
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+    } catch (error) { setNotice({ message: messageFor(error), undo: notice.undo }); }
     finally { setBusy(false); }
   }
 
