@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type TestInfo } from "@playwright/test";
-import { selectServerSource } from "./server-directory-support";
+import { prepareNewSourceScan, selectServerSource } from "./server-directory-support";
 import { expectSourceHandoffDuringCleanup } from "./server-import-cleanup-support";
 
 function screenshotPath(info: TestInfo, name: string) {
@@ -28,6 +28,7 @@ test("ACC-BASIC-001 directory extensions feed the shared receive and review flow
   expect(login.ok()).toBe(true);
   await page.goto("/admin/imports/server?action=source");
   const drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
+  await prepareNewSourceScan(drawer);
   const format = drawer.getByRole("combobox", { name: "文件组织格式" });
   const extensions = drawer.getByRole("textbox", { name: "扩展名筛选" });
   await expect(format).toHaveValue("");
