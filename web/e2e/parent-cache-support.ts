@@ -10,7 +10,7 @@ export async function verifyParentCacheReuse(page: Page, testInfo: TestInfo,
   const bundleRole = (url: string) => /\/runtime\/content\/(parent|bios)\//.exec(url)?.[1];
   async function prepare(warm: boolean) {
     const context = await profile.reopen();
-    if (!warm) {await context.addCookies(await page.context().cookies());}
+    await context.addCookies(await page.context().cookies());
     // Routing disables HTTP caching; a restarted browser cannot fetch dependency bytes.
     await context.route(url => Boolean(bundleRole(url.pathname)), async route => {
       requests.push(`${bundleRole(route.request().url())}:${route.request().method()}`);

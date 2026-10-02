@@ -86,8 +86,11 @@ test("ACC-PEG-007 rejected scans retain diagnostics, recover, distinguish empty 
   await expect(drawer).toContainText("部分 metadata 被拒绝，合法集合可以继续");
   await expect(drawer.getByRole("button", {name: "确认映射"})).toBeDisabled();
   await page.setViewportSize({width: 390, height: 844});
+  await expect(page.getByText("请在电脑上管理游戏库", {exact: true})).toBeVisible();
+  await expect(drawer).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({path: evidencePath(testInfo, "scan-partial-mobile.png"), fullPage: true});
+  await page.screenshot({path: evidencePath(testInfo, "scan-mobile-desktop-guide.png"), fullPage: true});
+  await page.setViewportSize(testInfo.project.use.viewport!);
   await page.keyboard.press("Escape");
   const headers = await login(page);
   const cancelName = `${name}-Cancel`, cancelRoot = path.join(source!, cancelName);
