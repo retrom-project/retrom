@@ -202,6 +202,7 @@ data-check:
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
+	@python3 scripts/acceptance/tests/test_dist_cleanup.py
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py

@@ -8,6 +8,7 @@ if [[ ! "$case_id" =~ ^(ACC-PLAT-007|ACC-UI-(00[1-9]|01[012])|ACC-RUN-(00[234678
 fi
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
 export PATH
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX")"
@@ -34,6 +35,15 @@ cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ -n "$process_id" ]]; then
+    RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
+    wait "$process_id" 2>/dev/null || true
+  fi
+  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
+  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
+  if ! remove_dev_dist "$repository_root/web/$acceptance_dist_dir"; then
+    status=1
+  fi
   if (( status != 0 )) && [[ -f "$temporary_root/server.log" ]]; then
     local failure_directory
     mkdir -p "$repository_root/.cache/retrom/acceptance"
@@ -41,14 +51,7 @@ cleanup() {
     cp -p "$temporary_root/server.log" "$failure_directory/server.log"
     printf 'ui_case_failure_evidence=%s\n' "$failure_directory" >&2
   fi
-  if [[ -n "$process_id" ]]; then
-    RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
-    wait "$process_id" 2>/dev/null || true
-  fi
-  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
-  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
-  rm -rf -- "$repository_root/web/$acceptance_dist_dir"
   exit "$status"
 }
 trap cleanup EXIT
