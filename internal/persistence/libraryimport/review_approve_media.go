@@ -34,12 +34,12 @@ JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE a.id=? AND a.status='READY' AND r.import_item_id=? AND r.state='COMPLETED'`, assetID, itemID))
 }
 
-func (records reviewApprovalRecords) UploadedCover(
-	ctx context.Context, itemID, assetID string,
+func (records reviewApprovalRecords) UploadedAsset(
+	ctx context.Context, itemID, assetID, kind string,
 ) (libraryservice.ApprovalExternalAsset, bool, error) {
 	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT file_record,width_px,height_px,media_type FROM review_uploaded_assets
-WHERE id=? AND import_item_id=? AND kind='COVER'`, assetID, itemID))
+WHERE id=? AND import_item_id=? AND kind=?`, assetID, itemID, kind))
 }
 
 func (records reviewApprovalRecords) Screenshots(ctx context.Context, itemID string) ([]string, error) {

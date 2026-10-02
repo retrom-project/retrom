@@ -27,6 +27,7 @@ type CommandParams = {
   setJobProgress: Dispatch<SetStateAction<string>>; setNotice: Dispatch<SetStateAction<string>>; setToast: Dispatch<SetStateAction<ToastMessage | null>>;
   setCandidates: Dispatch<SetStateAction<ReviewCandidate[]>>; setUploadedAssets: Dispatch<SetStateAction<UploadedReviewAsset[]>>;
   setComparison: Dispatch<SetStateAction<Comparison | null>>; setForm: Dispatch<SetStateAction<MetadataForm>>;
+  setVideoId: Dispatch<SetStateAction<string | null>>;
   setCandidateId: Dispatch<SetStateAction<string | null>>; setCover: Dispatch<SetStateAction<CoverSelection>>;
   setBackgroundId: Dispatch<SetStateAction<string | null>>; setScreenshotIds: Dispatch<SetStateAction<string[]>>;
 };
@@ -73,16 +74,31 @@ export function useReviewCommands(params: CommandParams) {
     });
   }
 
-  async function uploadCover(file: File, target: "current" | "comparison") {
-    await params.run("上传封面", async () => {
+  async function uploadAsset(file: File, kind: "COVER" | "VIDEO", apply: (asset: UploadedReviewAsset) => void) {
+    if (!await params.flushDraft()) {return;}
+    const label = kind === "COVER" ? "封面" : "视频";
+    await params.run(`上传${label}`, async () => {
       const uploaded = await uploadOne(file, params.setNotice);
-      const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/assets`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind: "COVER" }) });
-      if (!response.ok) {throw new Error(await responseError(response, "封面上传失败"));}
+      const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/assets`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind }) });
+      if (!response.ok) {throw new Error(await responseError(response, `${label}上传失败`));}
       const asset = await response.json() as UploadedReviewAsset;
       params.setUploadedAssets((current) => current.some((entry) => entry.assetId === asset.assetId) ? current : [...current, asset]);
+      apply(asset);
+    });
+  }
+
+  async function uploadCover(file: File, target: "current" | "comparison") {
+    await uploadAsset(file, "COVER", (asset) => {
       if (target === "current") {params.setCover({ candidateId: null, uploadedId: asset.assetId });}
       else {params.setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: asset.assetId } } : null);}
       params.setNotice(target === "current" ? "新封面已上传，正在实时保存。" : "新封面已放入右侧对比结果，点击应用后生效。");
+    });
+  }
+
+  async function uploadVideo(file: File) {
+    await uploadAsset(file, "VIDEO", (asset) => {
+      params.setVideoId(asset.assetId);
+      params.setNotice("新视频已上传，正在实时保存。");
     });
   }
 
@@ -150,7 +166,7 @@ export function useReviewCommands(params: CommandParams) {
     });
   }
 
-  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, applyComparison, approve, launchPreview, restorePreviewId, confirmDuplicatePublish, discard };
+  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, uploadVideo, applyComparison, approve, launchPreview, restorePreviewId, confirmDuplicatePublish, discard };
 }
 
 function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: string, updated: ReviewWorkspace, params: CommandParams) {

@@ -363,7 +363,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   const reviewCover = page.getByRole("img", { name: "当前选择的游戏封面" });
   await expect(reviewCover).toBeVisible();
   await expect(reviewCover).toHaveAttribute("src", reviewDetail.sourceMedia.coverUrl!);
-  const reviewVideo = page.getByLabel("来源视频预览");
+  const reviewVideo = page.getByLabel("视频预览");
   await expect(reviewVideo).toHaveCount(0);
   const reviewGeometry = await page.locator(".review-workflow-metadata").boundingBox();
   await page.getByRole("tab", { name: "视频", exact: true }).click();

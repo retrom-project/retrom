@@ -51,17 +51,17 @@ type ApprovalExternalAsset struct {
 }
 
 type ReviewApprovalHead struct {
-	DraftID, State, ImportID, PlatformID, PlatformInstanceID   string
-	ValidationStatus, MetadataJSON                             string
-	SourceSnapshotID, SourceManifestJSON, SourceManifestDigest string
-	ContentKind, CoreID, ProviderID, TargetID, DependencyJSON  string
-	Policy                                                     contentcapability.Policy
-	DraftVersion, ParentVersion                                int64
-	DATID, ValidationDOS, DraftDOS, CandidateID                *string
-	CoverID, UploadedCoverID, BackgroundID, ScreenshotID       *string
-	SourceBusy                                                 bool
-	Progress                                                   importprogress.Snapshot
-	RuntimeFiles                                               []PreparedValidationFile
+	DraftID, State, ImportID, PlatformID, PlatformInstanceID              string
+	ValidationStatus, MetadataJSON                                        string
+	SourceSnapshotID, SourceManifestJSON, SourceManifestDigest            string
+	ContentKind, CoreID, ProviderID, TargetID, DependencyJSON             string
+	Policy                                                                contentcapability.Policy
+	DraftVersion, ParentVersion                                           int64
+	DATID, ValidationDOS, DraftDOS, CandidateID                           *string
+	CoverID, UploadedCoverID, UploadedVideoID, BackgroundID, ScreenshotID *string
+	SourceBusy                                                            bool
+	Progress                                                              importprogress.Snapshot
+	RuntimeFiles                                                          []PreparedValidationFile
 }
 
 type ApprovalOrigin struct {
@@ -96,7 +96,7 @@ type ReviewApprovalReader interface {
 
 type ApprovalMediaReader interface {
 	Candidate(context.Context, string, string) (ApprovalExternalAsset, bool, error)
-	UploadedCover(context.Context, string, string) (ApprovalExternalAsset, bool, error)
+	UploadedAsset(context.Context, string, string, string) (ApprovalExternalAsset, bool, error)
 	Screenshots(context.Context, string) ([]string, error)
 	RuntimeScreenshot(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 }

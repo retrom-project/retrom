@@ -86,6 +86,7 @@ type draftPatchRun struct {
 	candidateID         sql.NullString
 	coverID             sql.NullString
 	uploadedCoverID     sql.NullString
+	uploadedVideoID     sql.NullString
 	backgroundID        sql.NullString
 	dosEntry            sql.NullString
 	metadata            map[string]any
@@ -98,7 +99,7 @@ func (run *draftPatchRun) load() error {
 	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT d.id,d.target_platform_instance_id,
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
-  d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
+  d.cover_uploaded_asset_id,d.video_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
   d.metadata_json,d.review_version,
   COALESCE(json_extract(d.review_profile_json,'$.kind')='RPG_MAKER_PROJECT',0)
 FROM import_items i
@@ -106,7 +107,7 @@ JOIN import_items d ON d.id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, run.itemID).Scan(
 		&run.draftID, &run.targetID, &run.effectiveSnapshotID,
-		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
+		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.uploadedVideoID, &run.backgroundID,
 		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.isRPG,
 	)
 	if err != nil {
@@ -284,12 +285,17 @@ func (run *draftPatchRun) applySelectedAssets() error {
 	}
 	run.coverID = nullableCandidate(assets.CoverCandidateAssetID)
 	run.uploadedCoverID = nullableCandidate(assets.CoverUploadedAssetID)
+	run.uploadedVideoID = nullableCandidate(assets.VideoUploadedAssetID)
 	run.backgroundID = nullableCandidate(assets.BackgroundCandidateAssetID)
 	if run.coverID.Valid && run.uploadedCoverID.Valid {
 		return libraryservice.ErrInvalid
 	}
 	if run.uploadedCoverID.Valid &&
-		!run.repository.validUploadedAsset(run.ctx, run.transaction, run.itemID, run.uploadedCoverID.String) {
+		!run.repository.validUploadedAsset(run.ctx, run.transaction, run.itemID, run.uploadedCoverID.String, "COVER") {
+		return libraryservice.ErrInvalid
+	}
+	if run.uploadedVideoID.Valid &&
+		!run.repository.validUploadedAsset(run.ctx, run.transaction, run.itemID, run.uploadedVideoID.String, "VIDEO") {
 		return libraryservice.ErrInvalid
 	}
 	for _, assetID := range []sql.NullString{run.coverID, run.backgroundID} {
@@ -401,7 +407,7 @@ func (run *draftPatchRun) updateDraft(encoded []byte, searchParts []string, now 
 	result, err := recordstore.UpdateReviewItems(run.ctx, run.transaction, recordstore.Update{
 		Set: `
 target_platform_instance_id=?,
-  selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
+  selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,video_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
   review_version=review_version+1,review_updated_at_ms=?
 `,
@@ -414,6 +420,7 @@ target_platform_instance_id=?,
 			nullable(run.candidateID),
 			nullable(run.coverID),
 			nullable(run.uploadedCoverID),
+			nullable(run.uploadedVideoID),
 			nullable(run.backgroundID),
 			nullable(run.dosEntry),
 			string(encoded),
@@ -476,9 +483,9 @@ func (repository *ReviewDraftPatches) validCandidateAsset(
 }
 
 func (repository *ReviewDraftPatches) validUploadedAsset(
-	ctx context.Context, transaction dbapi.Tx, itemID, assetID string,
+	ctx context.Context, transaction dbapi.Tx, itemID, assetID, kind string,
 ) bool {
-	valid, err := BindReviewDraftAssets(transaction).ValidUploaded(ctx, itemID, assetID)
+	valid, err := BindReviewDraftAssets(transaction).ValidUploaded(ctx, itemID, assetID, kind)
 	return err == nil && valid
 }
 

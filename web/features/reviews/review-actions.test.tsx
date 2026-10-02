@@ -20,7 +20,7 @@ const review: ReviewWorkspace = {
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
   readiness: { status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
-  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
+  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, videoUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
 };
 
@@ -325,7 +325,7 @@ describe("ReviewActions metadata continuation", () => {
     expect(screen.getByText("来源：来源文件 · NES gamelist.xml")).toBeVisible();
     expect(screen.getByText("已读取来源信息")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "视频" }));
-    expect(screen.getByLabelText("来源视频预览")).toBeVisible();
+    expect(screen.getByLabelText("视频预览")).toBeVisible();
     expect(screen.getByRole("note")).toHaveTextContent("来源标记：隐藏、成人。请逐项核对。");
     expect(container.querySelector<HTMLVideoElement>(".review-media-panel video")).toHaveAttribute(
       "src",
@@ -739,4 +739,46 @@ describe("ReviewActions decisions", () => {
       acknowledgedGameIds: ["game-race"],
     });
   });
+});
+
+it.each([null, "/source.webm"])("persists an uploaded video over source %s and preserves it after failed replacement", async (source) => {
+  upload.uploadOne.mockResolvedValue({ uploadId: "upload-video", uploadFileId: "file-video" });
+  const asset = { assetId: "video-1", kind: "VIDEO" as const, widthPx: null, heightPx: null, mediaType: "video/webm", url: "/video-1.webm", createdAtMs: 1 };
+  const original: ReviewWorkspace = { ...review, sourceMedia: { sourceKind: "SOURCE", sourceImportId: "source", sourceRefId: "ref", sourceLabel: null, coverUrl: null, coverWidthPx: null, coverHeightPx: null, videoUrl: source } };
+  let current = original;
+  let failUpload = false;
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/assets")) {
+      expect(JSON.parse(String(init?.body)).kind).toBe("VIDEO");
+      return Promise.resolve(failUpload ? jsonResponse({ error: { message: "视频格式无效" } }, 422) : jsonResponse(asset, 201));
+    }
+    if (init?.method === "PATCH") {
+      const draft = JSON.parse(String(init.body)) as Pick<ReviewWorkspace, "selectedAssets" | "metadata">;
+      current = { ...current, ...draft, version: current.version + 1, uploadedAssets: [asset] };
+      return Promise.resolve(jsonResponse({ version: current.version }));
+    }
+    return Promise.resolve(jsonResponse(current));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  const view = render(<ReviewActions review={original} />);
+  await user.click(screen.getByRole("tab", { name: "视频" }));
+  expect(screen.getByRole("button", { name: source ? "替换视频" : "上传视频" })).toBeEnabled();
+  const file = new File(["video"], "video.webm", { type: "video/webm" });
+  await user.upload(screen.getByLabelText("上传视频", { selector: "input" }), file);
+  await waitFor(() => expect(current.selectedAssets.videoUploadedAssetId).toBe("video-1"));
+  expect(screen.getByLabelText("视频预览")).toHaveAttribute("src", asset.url);
+  view.unmount();
+  render(<ReviewActions review={current} />);
+  await user.click(screen.getByRole("tab", { name: "视频" }));
+  expect(screen.getByLabelText("视频预览")).toHaveAttribute("src", asset.url);
+  failUpload = true;
+  await user.upload(screen.getByLabelText("上传视频", { selector: "input" }), file);
+  expect(await screen.findByText("视频格式无效")).toBeVisible();
+  expect(screen.getByLabelText("视频预览")).toHaveAttribute("src", asset.url);
+  await user.click(screen.getByRole("button", { name: source ? "恢复来源视频" : "移除视频" }));
+  await waitFor(() => expect(current.selectedAssets.videoUploadedAssetId).toBeNull());
+  if (source) {expect(screen.getByLabelText("视频预览")).toHaveAttribute("src", source);}
+  else {expect(screen.getByText("暂无视频")).toBeVisible();}
 });

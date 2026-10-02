@@ -23,7 +23,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
+func TestReviewAssetSQLFailuresRemainServerErrors(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
 		{"source read", "FROM import_files"}, {"draft authority read", "FROM import_items"},
@@ -32,7 +32,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 			t.Parallel()
 			server := newTestServer(t)
 			itemID := createReviewSnapshotItem(t, server)
-			fileID := createReviewCoverUpload(t, server)
+			fileID := createReviewAssetUpload(t, server)
 			cause := errors.New("review cover database unavailable")
 			hits := 0
 			faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
@@ -44,8 +44,8 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 					return nil
 				},
 			})
-			server.reviewDeps.CoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
-			response := requestReviewCover(t, server, itemID, fileID)
+			server.reviewDeps.AssetUploads = librarycomposition.NewReviewAssetUploads(faultDB, server.contentDeps.Files, server.now)
+			response := requestReviewAsset(t, server, itemID, fileID)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s",
 					response.Code, hits, response.Body.String())
@@ -54,7 +54,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 	}
 }
 
-func requestReviewCover(t *testing.T, server *testServer, itemID, fileID string) *httptest.ResponseRecorder {
+func requestReviewAsset(t *testing.T, server *testServer, itemID, fileID string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets",
 		strings.NewReader(`{"uploadFileId":"`+fileID+`","kind":"COVER"}`))
@@ -67,7 +67,7 @@ func requestReviewCover(t *testing.T, server *testServer, itemID, fileID string)
 	return response
 }
 
-func createReviewCoverUpload(t *testing.T, server *testServer) string {
+func createReviewAssetUpload(t *testing.T, server *testServer) string {
 	t.Helper()
 	var contents bytes.Buffer
 	if err := png.Encode(&contents, image.NewNRGBA(image.Rect(0, 0, 2, 3))); err != nil {

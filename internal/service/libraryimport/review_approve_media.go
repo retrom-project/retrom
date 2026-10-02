@@ -30,6 +30,7 @@ func (run *reviewApprovalRun) prepareAssets() error {
 	}{
 		{run.head.CoverID, "COVER", false},
 		{run.head.UploadedCoverID, "COVER", true},
+		{run.head.UploadedVideoID, "VIDEO", true},
 		{run.head.BackgroundID, "BACKGROUND", false},
 	} {
 		if selection.id != nil {
@@ -76,7 +77,7 @@ func (run *reviewApprovalRun) appendSelectedAsset(id, kind string, ordinal int, 
 	var found bool
 	var err error
 	if uploaded {
-		asset, found, err = run.scope.Media.UploadedCover(run.ctx, run.request.ItemID, id)
+		asset, found, err = run.scope.Media.UploadedAsset(run.ctx, run.request.ItemID, id, kind)
 	} else {
 		asset, found, err = run.scope.Media.Candidate(run.ctx, run.request.ItemID, id)
 	}
@@ -94,6 +95,9 @@ func (run *reviewApprovalRun) appendSelectedAsset(id, kind string, ordinal int, 
 func (run *reviewApprovalRun) appendExternalAssets() error {
 	selected := make([]ApprovalExternalAsset, 0, len(run.origin.Assets))
 	for _, asset := range run.origin.Assets {
+		if asset.Kind == "VIDEO" && run.request.Decision.SourceKind == "" && run.head.UploadedVideoID != nil {
+			continue
+		}
 		if run.request.Decision.SourceKind == "" && asset.Kind == "COVER" &&
 			(run.head.CoverID != nil || run.head.UploadedCoverID != nil) {
 			continue

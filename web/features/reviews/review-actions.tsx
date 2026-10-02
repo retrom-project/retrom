@@ -21,7 +21,7 @@ import { useReviewCommands } from "./review-commands";
 import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
 import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
+  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -39,6 +39,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const [form, setForm] = useState<MetadataForm>(initial.form);
   const [candidateId, setCandidateId] = useState<string | null>(initial.candidateId);
   const [cover, setCover] = useState<CoverSelection>(initial.cover);
+  const [videoId, setVideoId] = useState<string | null>(review.selectedAssets.videoUploadedAssetId);
   const [backgroundId, setBackgroundId] = useState<string | null>(review.selectedAssets.backgroundCandidateAssetId);
   const [screenshotIds, setScreenshotIds] = useState(review.selectedAssets.screenshotCandidateAssetIds);
   const [defaultDosEntry, setDefaultDosEntry] = useState<string | null>(review.defaultDosEntry);
@@ -64,9 +65,9 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const versionRef = useRef(review.version);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
+  const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.videoUploadedAssetId, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
-  const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
+  const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
   const validationStatus = currentValidation ? currentValidation.status : null;
@@ -178,19 +179,20 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     review, returnTo, nextItemId, versionRef,
     draftKey, draftPayload, form, cover, uploadedAssets, comparison, refreshReview, flushDraft,
     enqueueSave, run, setJobProgress, setNotice, setToast, setCandidates, setUploadedAssets,
-    setComparison, setForm, setCandidateId, setCover, setBackgroundId, setScreenshotIds,
+    setComparison, setForm, setCandidateId, setCover, setVideoId, setBackgroundId, setScreenshotIds,
   });
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
   const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
   const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, [rpgMaker, scummvm].some(Boolean));
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
 
 type ReviewViewModel = {
   review: ReviewWorkspace; activeTags: TagReference[]; sourceDisplayName: string; platformInstanceName: string; children?: ReactNode; sourceEvidence?: ReactNode;
   form: MetadataForm; updateField: (key: keyof MetadataForm, value: string) => void; candidateId: string | null;
+  videoId: string | null; videoUrl: string | null; setVideoId: Dispatch<SetStateAction<string | null>>;
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
   notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
@@ -287,7 +289,7 @@ function MetadataEditor({ model }: { model: ReviewViewModel }) {
 }
 
 function MetadataHeader({ model }: { model: ReviewViewModel }) {
-  return <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介、封面和标签；修改会实时保存。</p></div><div className="review-workflow-query-actions">{model.jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{model.jobProgress}</p> : null}<button type="button" className="button secondary" disabled={model.busy !== null} aria-busy={model.busy === "重新查询 Hasheous"} onClick={() => void model.commands.rescrape("HASHEOUS")}>{model.busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>;
+  return <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介、封面、视频和标签；修改会实时保存。</p></div><div className="review-workflow-query-actions">{model.jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{model.jobProgress}</p> : null}<button type="button" className="button secondary" disabled={model.busy !== null} aria-busy={model.busy === "重新查询 Hasheous"} onClick={() => void model.commands.rescrape("HASHEOUS")}>{model.busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>;
 }
 
 function MetadataFields({ model }: { model: ReviewViewModel }) {
@@ -296,7 +298,7 @@ function MetadataFields({ model }: { model: ReviewViewModel }) {
 
 function CoverEditor({ model }: { model: ReviewViewModel }) {
   const restoreLabel = model.cover.candidateId || model.cover.uploadedId ? model.sourceCover ? `恢复 ${serverSourceName()} 封面` : "移除封面" : null;
-  return <ReviewMediaEditor cover={model.selectedCover} videoUrl={model.review.sourceMedia?.videoUrl ?? null} disabled={model.busy !== null} restoreLabel={restoreLabel} onUpload={(file) => void model.commands.uploadCover(file, "current")} onRestore={() => model.setCover({ candidateId: null, uploadedId: null })} />;
+  return <ReviewMediaEditor cover={model.selectedCover} videoUrl={model.videoUrl} videoRestoreLabel={model.videoId ? model.review.sourceMedia?.videoUrl ? "恢复来源视频" : "移除视频" : null} onUploadVideo={(file) => void model.commands.uploadVideo(file)} onRestoreVideo={() => model.setVideoId(null)} disabled={model.busy !== null} restoreLabel={restoreLabel} onUpload={(file) => void model.commands.uploadCover(file, "current")} onRestore={() => model.setCover({ candidateId: null, uploadedId: null })} />;
 }
 
 function ComparisonDialog({ model }: { model: ReviewViewModel }) {

@@ -75,7 +75,8 @@ func (value *optionalNullableString) UnmarshalJSON(contents []byte) error {
 
 type SelectedAssets struct {
 	CoverCandidateAssetID       *string  `json:"coverCandidateAssetId,omitempty"`
-	CoverUploadedAssetID        *string  `json:"coverUploadedAssetId,omitempty"`
+	CoverUploadedAssetID        *string  `json:"coverUploadedAssetId"`
+	VideoUploadedAssetID        *string  `json:"videoUploadedAssetId"`
 	BackgroundCandidateAssetID  *string  `json:"backgroundCandidateAssetId,omitempty"`
 	ScreenshotCandidateAssetIDs []string `json:"screenshotCandidateAssetIds,omitempty"`
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,43 +22,43 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
+func TestReviewAssetRollbackPreservesCauseAndCanReplay(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
-	fileID := createReviewCoverUpload(t, server)
-	fault := &reviewCoverWriteFault{
+	fileID := createReviewAssetUpload(t, server)
+	fault := &reviewAssetWriteFault{
 		fileID: fileID,
 		cause:  errors.New("cover consumption write unavailable"), enabled: true,
 	}
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
 		AfterQuery: fault.afterQuery, BeforeQuery: fault.beforeQuery,
 	})
-	service := librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
-	request := libraryservice.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
+	service := librarycomposition.NewReviewAssetUploads(faultDB, server.contentDeps.Files, server.now)
+	request := libraryservice.ReviewAssetRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
 	result, err := service.Upload(t.Context(), request)
-	if !errors.Is(err, fault.cause) || errors.Is(err, libraryservice.ErrReviewCoverConsumed) ||
-		result != (libraryservice.ReviewCoverResult{}) || fault.inserted != 1 || fault.failed != 1 {
+	if !errors.Is(err, fault.cause) || errors.Is(err, libraryservice.ErrReviewAssetConsumed) ||
+		result != (libraryservice.ReviewAssetResult{}) || fault.inserted != 1 || fault.failed != 1 {
 		t.Fatalf("failure lost cause or returned partial success: result=%+v err=%v fault.inserted=%d fault.failed=%d", result, err, fault.inserted, fault.failed)
 	}
-	assertReviewCoverCounts(t, server, itemID, 0)
+	assertReviewAssetCounts(t, server, itemID, 0)
 	fault.enabled = false
 	saved, err := service.Upload(t.Context(), request)
-	if err != nil || saved.AssetID == "" || saved.Width != 2 || saved.Height != 3 ||
+	if err != nil || saved.AssetID == "" || saved.Width == nil || *saved.Width != 2 || saved.Height == nil || *saved.Height != 3 ||
 		saved.MediaType != "image/png" || saved.Version != 1 {
 		t.Fatalf("retry=%+v err=%v", saved, err)
 	}
-	assertReviewCoverCounts(t, server, itemID, 1)
-	server.reviewDeps.CoverUploads = service
-	assertReviewCoverReplay(t, server, itemID, fileID, saved, fault)
+	assertReviewAssetCounts(t, server, itemID, 1)
+	server.reviewDeps.AssetUploads = service
+	assertReviewAssetReplay(t, server, itemID, fileID, saved, fault)
 }
 
-type reviewCoverBarrierBlobs struct {
+type reviewAssetBarrierBlobs struct {
 	store      *filestore.Store
 	beforeOpen func()
 }
 
-func (blobs reviewCoverBarrierBlobs) OpenRecord(digest string) (io.ReadCloser, error) {
+func (blobs reviewAssetBarrierBlobs) OpenRecord(digest string) (io.ReadCloser, error) {
 	blobs.beforeOpen()
 	file, err := blobs.store.OpenRecord(digest)
 	if err != nil {
@@ -66,23 +67,23 @@ func (blobs reviewCoverBarrierBlobs) OpenRecord(digest string) (io.ReadCloser, e
 	return file, nil
 }
 
-func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) {
+func TestReviewAssetRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name, query string
 		expected    error
 	}{
-		{"draft edit", `UPDATE import_items SET review_version=version+1 WHERE id=?`, libraryservice.ErrReviewCoverVersion},
-		{"upload release", `UPDATE import_files SET file_record=NULL,released_at_ms=1 WHERE id=?`, libraryservice.ErrReviewCoverUploadInvalid},
-		{"concurrent discard", `UPDATE import_items SET state='DISCARDED' WHERE id=?`, libraryservice.ErrReviewCoverVersion},
+		{"draft edit", `UPDATE import_items SET review_version=version+1 WHERE id=?`, libraryservice.ErrReviewAssetVersion},
+		{"upload release", `UPDATE import_files SET file_record=NULL,released_at_ms=1 WHERE id=?`, libraryservice.ErrReviewAssetUploadInvalid},
+		{"concurrent discard", `UPDATE import_items SET state='DISCARDED' WHERE id=?`, libraryservice.ErrReviewAssetVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			server := newTestServer(t)
 			itemID := createReviewSnapshotItem(t, server)
-			fileID := createReviewCoverUpload(t, server)
+			fileID := createReviewAssetUpload(t, server)
 			changed := false
-			blobs := reviewCoverBarrierBlobs{store: server.contentDeps.Files, beforeOpen: func() {
+			blobs := reviewAssetBarrierBlobs{store: server.contentDeps.Files, beforeOpen: func() {
 				id := itemID
 				if test.name == "upload release" {
 					id = fileID
@@ -97,12 +98,12 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 				}
 				changed = count == 1
 			}}
-			service := libraryservice.NewReviewCoverUploads(repository.NewReviewCoverUploads(server.database), blobs, server.now)
-			result, err := service.Upload(t.Context(), libraryservice.ReviewCoverRequest{
+			service := libraryservice.NewReviewAssetUploads(repository.NewReviewAssetUploads(server.database), blobs, server.now)
+			result, err := service.Upload(t.Context(), libraryservice.ReviewAssetRequest{
 				ItemID:       itemID,
 				UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1,
 			})
-			if !changed || !errors.Is(err, test.expected) || result != (libraryservice.ReviewCoverResult{}) {
+			if !changed || !errors.Is(err, test.expected) || result != (libraryservice.ReviewAssetResult{}) {
 				t.Fatalf("preparation drift accepted: changed=%v result=%+v err=%v", changed, result, err)
 			}
 			var retained int
@@ -116,14 +117,14 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 	}
 }
 
-type reviewCoverWriteFault struct {
+type reviewAssetWriteFault struct {
 	fileID           string
 	cause            error
 	enabled          bool
 	inserted, failed int
 }
 
-func (fault *reviewCoverWriteFault) afterQuery(
+func (fault *reviewAssetWriteFault) afterQuery(
 	_ context.Context, query string, args []driver.NamedValue, rows driver.Rows,
 ) (driver.Rows, error) {
 	if strings.Contains(query, "INSERT INTO review_uploaded_assets") && len(args) > 2 && args[2].Value == fault.fileID {
@@ -132,7 +133,7 @@ func (fault *reviewCoverWriteFault) afterQuery(
 	return rows, nil
 }
 
-func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string, args []driver.NamedValue) error {
+func (fault *reviewAssetWriteFault) beforeQuery(_ context.Context, query string, args []driver.NamedValue) error {
 	if fault.enabled && strings.Contains(query, "INSERT INTO upload_consumptions") &&
 		strings.Contains(query, "'REVIEW_ASSET'") && len(args) > 2 && args[2].Value == fault.fileID {
 		fault.failed++
@@ -141,25 +142,25 @@ func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string,
 	return nil
 }
 
-func assertReviewCoverReplay(
-	t *testing.T, server *testServer, itemID, fileID string, saved libraryservice.ReviewCoverResult, fault *reviewCoverWriteFault,
+func assertReviewAssetReplay(
+	t *testing.T, server *testServer, itemID, fileID string, saved libraryservice.ReviewAssetResult, fault *reviewAssetWriteFault,
 ) {
 	t.Helper()
-	response := requestReviewCover(t, server, itemID, fileID)
+	response := requestReviewAsset(t, server, itemID, fileID)
 	var replay struct {
-		libraryservice.ReviewCoverResult
+		libraryservice.ReviewAssetResult
 		URL string `json:"url"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &replay); err != nil {
 		t.Fatal(err)
 	}
-	if response.Code != http.StatusCreated || response.Header().Get("ETag") != `"v1"` || replay.ReviewCoverResult != saved || replay.URL != "/api/v1/admin/review-assets/"+saved.AssetID || fault.inserted != 2 {
+	if response.Code != http.StatusCreated || response.Header().Get("ETag") != `"v1"` || !reflect.DeepEqual(replay.ReviewAssetResult, saved) || replay.URL != "/api/v1/admin/review-assets/"+saved.AssetID || fault.inserted != 2 {
 		t.Fatalf("replay changed identity/shape or inserted duplicate: status=%d body=%s inserted=%d saved=%+v", response.Code, response.Body.String(), fault.inserted, saved)
 	}
-	assertReviewCoverCounts(t, server, itemID, 1)
+	assertReviewAssetCounts(t, server, itemID, 1)
 }
 
-func (blobs reviewCoverBarrierBlobs) CopyTo(ctx context.Context, value, directory,
+func (blobs reviewAssetBarrierBlobs) CopyTo(ctx context.Context, value, directory,
 	name string,
 ) (filestore.Metadata, error) {
 	return blobs.store.CopyTo(ctx, value, directory, name)

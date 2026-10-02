@@ -28,7 +28,7 @@ source_snapshot.source_manifest_json,
 source_snapshot.content_kind,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
-d.cover_uploaded_asset_id,
+d.cover_uploaded_asset_id,d.video_uploaded_asset_id,
 d.background_candidate_asset_id,
 d.default_dos_entry,d.id,pi.platform_id
 FROM import_items i
@@ -75,6 +75,7 @@ func (records ReviewDrafts) Head(ctx context.Context, itemID string) (libraryser
 		&result.SelectedCandidateID,
 		&result.CoverID,
 		&result.UploadedCoverID,
+		&result.UploadedVideoID,
 		&result.BackgroundID,
 		&result.DefaultDOSEntry,
 

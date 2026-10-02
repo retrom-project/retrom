@@ -35,12 +35,13 @@ DELETE FROM review_draft_screenshot_assets WHERE rowid IN
 		recordstore.UpdateReviewItems, recordstore.Update{
 			Set: `
 cover_candidate_asset_id=NULL,background_candidate_asset_id=NULL,cover_uploaded_asset_id=NULL,
+video_uploaded_asset_id=NULL,
 review_version=CASE WHEN review_version>0 THEN review_version+1 ELSE 0 END,
 review_updated_at_ms=CASE WHEN review_version>0 THEN ? ELSE NULL END
 `,
 			Scope: recordstore.Scope{
 				Where: `id=? AND (cover_candidate_asset_id IS NOT NULL OR background_candidate_asset_id IS NOT NULL
- OR cover_uploaded_asset_id IS NOT NULL)`,
+ OR cover_uploaded_asset_id IS NOT NULL OR video_uploaded_asset_id IS NOT NULL)`,
 				Args: []any{itemID},
 			},
 			Values: []any{now},

@@ -13,13 +13,13 @@ import (
 var ErrReviewNotFound = errors.New("REVIEW_NOT_FOUND")
 
 type ReviewHead struct {
-	ItemID, ImportJobID, DraftID, SnapshotID, ContentKind, PlatformID            string
-	PlatformInstance                                                             ReviewPlatformInstance
-	MetadataJSON, SourceManifestJSON                                             string
-	Version, UpdatedAtMS                                                         int64
-	Policy                                                                       contentcapability.Policy
-	ValidationStatus, CompatibilityCode, DependencyJSON                          *string
-	SelectedCandidateID, CoverID, UploadedCoverID, BackgroundID, DefaultDOSEntry *string
+	ItemID, ImportJobID, DraftID, SnapshotID, ContentKind, PlatformID                             string
+	PlatformInstance                                                                              ReviewPlatformInstance
+	MetadataJSON, SourceManifestJSON                                                              string
+	Version, UpdatedAtMS                                                                          int64
+	Policy                                                                                        contentcapability.Policy
+	ValidationStatus, CompatibilityCode, DependencyJSON                                           *string
+	SelectedCandidateID, CoverID, UploadedCoverID, UploadedVideoID, BackgroundID, DefaultDOSEntry *string
 }
 
 type ReviewDetailRepository interface {
@@ -80,6 +80,7 @@ type ReviewReadinessView struct {
 type ReviewSelectedAssets struct {
 	CoverID         *string  `json:"coverCandidateAssetId"`
 	UploadedCoverID *string  `json:"coverUploadedAssetId"`
+	UploadedVideoID *string  `json:"videoUploadedAssetId"`
 	BackgroundID    *string  `json:"backgroundCandidateAssetId"`
 	ScreenshotIDs   []string `json:"screenshotCandidateAssetIds"`
 }

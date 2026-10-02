@@ -4,9 +4,12 @@ import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import type { PreviewAsset } from "./review-actions-model";
 
-export function ReviewMediaEditor({ cover, videoUrl, disabled, restoreLabel, onUpload, onRestore }: {
+export function ReviewMediaEditor({ cover, videoUrl, disabled, restoreLabel, onUpload, onRestore, videoRestoreLabel, onUploadVideo, onRestoreVideo }: {
   cover: PreviewAsset | null;
   videoUrl: string | null;
+  videoRestoreLabel: string | null;
+  onUploadVideo: (file: File) => void;
+  onRestoreVideo: () => void;
   disabled: boolean;
   restoreLabel: string | null;
   onUpload: (file: File) => void;
@@ -38,19 +41,18 @@ export function ReviewMediaEditor({ cover, videoUrl, disabled, restoreLabel, onU
         {cover ? <Image src={cover.url} alt="当前选择的游戏封面" width={cover.width} height={cover.height} unoptimized /> : <span className="review-media-empty">暂无封面</span>}
       </div>
       <div className="review-media-panel" role="tabpanel" id={`${id}-panel-1`} aria-labelledby={`${id}-tab-1`} hidden={selected !== 1} tabIndex={0}>
-        {selected === 1 && videoUrl ? <ReviewVideo url={videoUrl} /> : <span className="review-media-empty">暂无来源视频</span>}
+        {selected === 1 && videoUrl ? <ReviewVideo key={videoUrl} url={videoUrl} /> : <span className="review-media-empty">暂无视频</span>}
       </div>
     </div>
     <footer className="review-media-footer">
-      {selected === 0 ? <>
-        <input ref={upload} hidden type="file" aria-label="上传封面" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          if (file) {onUpload(file);}
-          event.currentTarget.value = "";
-        }} />
-        <button type="button" className="button secondary" disabled={disabled} onClick={() => upload.current?.click()}>{cover ? "替换封面" : "上传封面"}</button>
-        {restoreLabel ? <button type="button" className="button secondary" disabled={disabled} onClick={onRestore}>{restoreLabel}</button> : null}
-      </> : <small>{videoUrl ? "通过审核后会随游戏一并发布。" : "此条目没有来源视频。"}</small>}
+      <input ref={upload} hidden type="file" aria-label={selected === 0 ? "上传封面" : "上传视频"} accept={selected === 0 ? "image/png,image/jpeg,image/webp" : "video/mp4,video/webm"} disabled={disabled} onChange={(event) => {
+        const file = event.currentTarget.files?.[0];
+        if (file) {(selected === 0 ? onUpload : onUploadVideo)(file);}
+        event.currentTarget.value = "";
+      }} />
+      <button type="button" className="button secondary" disabled={disabled} onClick={() => upload.current?.click()}>{selected === 0 ? cover ? "替换封面" : "上传封面" : videoUrl ? "替换视频" : "上传视频"}</button>
+      {(selected === 0 ? restoreLabel : videoRestoreLabel) ? <button type="button" className="button secondary" disabled={disabled} onClick={selected === 0 ? onRestore : onRestoreVideo}>{selected === 0 ? restoreLabel : videoRestoreLabel}</button> : null}
+      <small>{selected === 0 ? "PNG / JPEG / WebP · 最大 10 MiB" : "MP4 / WebM · 最大 256 MiB"}</small>
     </footer>
   </aside>;
 }
@@ -61,5 +63,5 @@ function ReviewVideo({ url }: { url: string }) {
     const player = ref.current;
     return () => player?.pause();
   }, []);
-  return <video ref={ref} controls playsInline preload="metadata" src={url} aria-label="来源视频预览">浏览器无法播放这段视频。</video>;
+  return <video ref={ref} controls playsInline preload="metadata" src={url} aria-label="视频预览">浏览器无法播放这段视频。</video>;
 }

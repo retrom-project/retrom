@@ -868,7 +868,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-MEDIA-001`。
-- 流程：上传合法 MP4/WebM 与伪装/超限媒体；读取 GET/HEAD/single Range；检查管理员媒体区只显示封面和视频、视频槽布局与等比适配；编辑元信息、替换并删除 VIDEO；在详情模拟累计可见、切换后台、播放拒绝、5 秒无 `playing`、用户暂停和 reduced-motion，并监控游戏列表请求。
+- 流程：在空视频审核页上传、替换、刷新、恢复空态并保留原封面；校验失败保留视频选择，发布后核对仅一个所选视频及审核资源权限收回。上传合法 MP4/WebM 与伪装/超限媒体；读取 GET/HEAD/single Range；检查管理员媒体区只显示封面和视频、视频槽布局与等比适配；编辑元信息、替换并删除 VIDEO；在详情模拟累计可见、切换后台、播放拒绝、5 秒无 `playing`、用户暂停和 reduced-motion，并监控游戏列表请求。
 - 通过标准：VIDEO 尺寸允许 NULL，magic/MIME/大小严格校验；Range/HEAD 和私有缓存契约正确；管理员媒体区不展示背景图/游戏截图，VIDEO 槽占满封面外的剩余宽高并以 `contain` 等比完整适配、以 `50% 50%` 在槽内水平和垂直居中，1920px 及以上双栏高度由左侧发布信息决定且媒体面板不得反向撑高；元信息编辑保留视频，替换/删除产生GameAsset 当前态 且历史引用保留。详情只有前台可见累计 2 秒才 muted/inline/loop 自动播放，`playing` 后 200ms 淡入；失败保持封面和手动播放，用户暂停不再自动恢复，reduced-motion 完全手动；列表无 VIDEO 请求或 autoplay。
 - 证据：媒体/HTTP/React/Playwright 聚焦结果和请求断言。
 

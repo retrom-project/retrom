@@ -1023,7 +1023,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Validates a completed local image upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH. */
+        /** @description Validates a completed local cover (PNG/JPEG/WebP, 10 MiB) or video (MP4/WebM, 256 MiB) upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH. */
         post: operations["postAdminReviewAsset"];
         delete?: never;
         options?: never;
@@ -3163,6 +3163,8 @@ export interface components {
             /** Format: uuid */
             coverUploadedAssetId: string | null;
             /** Format: uuid */
+            videoUploadedAssetId: string | null;
+            /** Format: uuid */
             backgroundCandidateAssetId: string | null;
             screenshotCandidateAssetIds: string[];
         };
@@ -3208,7 +3210,7 @@ export interface components {
             /** Format: uuid */
             uploadFileId: string;
             /** @enum {string} */
-            kind: "COVER";
+            kind: "COVER" | "VIDEO";
         };
         ReviewArcadeParentAttachmentRequest: {
             /** Format: uuid */

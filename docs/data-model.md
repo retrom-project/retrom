@@ -78,6 +78,8 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 运行包安装、选包与运行挂载已退出产品。当前建库基线不再创建 `runtime_asset_pack_definitions`、`runtime_asset_pack_installations`、`runtime_asset_pack_files`、`game_variant_runtime_packs` 和 `review_draft_runtime_pack_selections`，也不接受对应的上传用途、消费类型或后台任务类型。外部 RTP 声明继续由项目校验阻断，管理员只能按自包含确认规则继续发布。
 
+`review_uploaded_assets` 是 Item 独占且不可变的人工媒体，kind 为 COVER 或 VIDEO；COVER 有正数尺寸与图片 MIME，VIDEO 尺寸为 NULL 且 MIME 为 video/mp4 或 video/webm。`import_items.cover_uploaded_asset_id/video_uploaded_asset_id` 分别选择本 Item 同种媒体；候选封面与人工封面互斥，视频空选择沿用来源。上传只创建资产与消费，不改变选择或草稿版本；草稿 PATCH 原子验证 owner/kind 并推进版本。Item 释放先清空两种选择，再删除人工媒体和对应上传消费。
+
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。当前有效的运行截图复制成 Game 自有 SCREENSHOT，标签及内容/运行 profile 写入 Game/Variant；临时预览 checkpoint 不转为产品存档。最终提交同时撤销所有关联 Preview 与隔离凭据、关闭审核媒体授权、清空审核 profile/标签并解除 Source 的工作关联。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
 `import_items.review_profile_json` 保存审核阶段内容类型专属的一对一扩展。三个 profile 字段均为可空 JSON；数据库只校验 JSON 合法、`kind` 是字符串且 `data` 是对象，不把任何具体核心的字段结构写进 schema。当前 RPG Maker 使用 `{"kind":"RPG_MAKER_PROJECT","data":{...}}`；代码按 owner 与 `kind` 映射到对应的 model，并由对应核心校验业务字段。RPG Maker 审核 profile 保存检测代际、证据、项目文件统计与 fingerprint、要求摘要、分析结果、自包含确认、稳定 Provider/Target 和依赖摘要；发布时将内容证据复制到 Game 的 `content_profile_json`，将运行代际及依赖摘要写入 Variant 的 `runtime_profile_json`。`metadata_json` 与 `source_manifest_json` 继续承担各自通用职责；文件、Blob、校验和依赖等一对多实体保持独立。profile 不保存运行 gate、位置证明或独立验证决定。所有审核通过中立的 `runtime_preview_sessions` 试运行，`review_preview_bindings` 单向关联 Item/来源快照到 Preview；运行表没有审核或导入外键，使用不透明 scope/revision、冻结的返回路径、Provider/Target、Bundle 和文件授权。来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核 Item 的派生产物，不能借试运行读取其他来源的 Blob。

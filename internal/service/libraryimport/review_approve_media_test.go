@@ -19,7 +19,7 @@ func (stub *approvalMediaStub) Candidate(context.Context, string, string) (Appro
 	return stub.asset, stub.found, stub.cause
 }
 
-func (stub *approvalMediaStub) UploadedCover(context.Context, string, string) (ApprovalExternalAsset, bool, error) {
+func (stub *approvalMediaStub) UploadedAsset(context.Context, string, string, string) (ApprovalExternalAsset, bool, error) {
 	stub.reads++
 	return stub.asset, stub.found, stub.cause
 }

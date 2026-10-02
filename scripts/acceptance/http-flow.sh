@@ -82,7 +82,8 @@ review_payload="$(jq -c --arg description "$long_description" '{
   selectedCandidateId,
   selectedAssets:{
     coverCandidateAssetId:.selectedAssets.coverCandidateAssetId,
-    coverUploadedAssetId:(.selectedAssets.coverUploadedAssetId // null),
+    coverUploadedAssetId:.selectedAssets.coverUploadedAssetId,
+    videoUploadedAssetId:.selectedAssets.videoUploadedAssetId,
     backgroundCandidateAssetId:.selectedAssets.backgroundCandidateAssetId,
     screenshotCandidateAssetIds:.selectedAssets.screenshotCandidateAssetIds
   },

@@ -15,13 +15,14 @@ func UpdateReviewItems(
 		db,
 		change,
 		"import_items",
-		"id,cover_candidate_asset_id,cover_uploaded_asset_id,effective_source_snapshot_id",
+		"id,cover_candidate_asset_id,cover_uploaded_asset_id,video_uploaded_asset_id,effective_source_snapshot_id",
 		ReviewItemsUpdateRule,
 	)
 }
 
 const ReviewItemsUpdateRule = `
-WITH previous(id,cover_candidate_asset_id,cover_uploaded_asset_id,effective_source_snapshot_id) AS (VALUES(?,?,?,?))
+WITH previous(id,cover_candidate_asset_id,cover_uploaded_asset_id,video_uploaded_asset_id,
+effective_source_snapshot_id) AS (VALUES(?,?,?,?,?))
 SELECT CASE
 -- import_items_final_source_snapshot_update
 WHEN ((candidate.effective_source_snapshot_id IS NOT previous.effective_source_snapshot_id) AND
@@ -51,6 +52,11 @@ AND (
     AND a.kind='COVER'
   )
 ))) THEN 'invalid review uploaded cover'
+WHEN (candidate.video_uploaded_asset_id IS NOT previous.video_uploaded_asset_id
+ AND candidate.video_uploaded_asset_id IS NOT NULL AND NOT EXISTS (
+ SELECT 1 FROM review_uploaded_assets a WHERE a.id=candidate.video_uploaded_asset_id
+ AND a.import_item_id=candidate.id AND a.kind='VIDEO'
+)) THEN 'invalid review uploaded video'
 ELSE '' END
 FROM import_items candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`

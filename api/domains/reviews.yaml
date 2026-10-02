@@ -129,7 +129,7 @@ paths:
     post:
       operationId: postAdminReviewAsset
       x-retrom-max-body-bytes: 8192
-      description: Validates a completed local image upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH.
+      description: Validates a completed local cover (PNG/JPEG/WebP, 10 MiB) or video (MP4/WebM, 256 MiB) upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -501,6 +501,7 @@ components:
       required:
         - coverCandidateAssetId
         - coverUploadedAssetId
+        - videoUploadedAssetId
         - backgroundCandidateAssetId
         - screenshotCandidateAssetIds
       properties:
@@ -509,6 +510,10 @@ components:
           format: uuid
           nullable: true
         coverUploadedAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        videoUploadedAssetId:
           type: string
           format: uuid
           nullable: true
@@ -572,6 +577,7 @@ components:
           type: string
           enum:
             - COVER
+            - VIDEO
     ReviewArcadeParentAttachmentRequest:
       type: object
       additionalProperties: false

@@ -87,7 +87,7 @@ type ImportDependencies struct {
 type ReviewDependencies struct {
 	Queue         *libraryservice.ReviewQueue
 	Details       *libraryservice.ReviewDetails
-	CoverUploads  *libraryservice.ReviewCoverUploads
+	AssetUploads  *libraryservice.ReviewAssetUploads
 	Discards      *libraryservice.ReviewDiscards
 	Approvals     *libraryservice.ReviewApprovals
 	BulkApprovals *libraryservice.ReviewBulk

@@ -16,15 +16,15 @@ import (
 )
 
 type coverRepositoryFixture struct {
-	source, current                         ReviewCoverSource
-	draft                                   ReviewCoverDraft
-	existing                                ReviewCoverExisting
+	source, current                         ReviewAssetSource
+	draft                                   ReviewAssetDraft
+	existing                                ReviewAssetExisting
 	sourceError, draftError, commitError    error
 	assetWrites, consumptions, transactions int
 	insideTransaction                       bool
 }
 
-func (fixture *coverRepositoryFixture) Source(context.Context, string) (ReviewCoverSource, bool, error) {
+func (fixture *coverRepositoryFixture) Source(context.Context, string) (ReviewAssetSource, bool, error) {
 	source := fixture.source
 	if fixture.insideTransaction {
 		source = fixture.current
@@ -32,30 +32,30 @@ func (fixture *coverRepositoryFixture) Source(context.Context, string) (ReviewCo
 	return source, source.FileID != "", fixture.sourceError
 }
 
-func (fixture *coverRepositoryFixture) WithWrite(_ context.Context, work func(ReviewCoverScope) error) error {
+func (fixture *coverRepositoryFixture) WithWrite(_ context.Context, work func(ReviewAssetScope) error) error {
 	fixture.transactions++
 	fixture.insideTransaction = true
 	defer func() { fixture.insideTransaction = false }()
-	if err := work(ReviewCoverScope{Reader: fixture, Writer: fixture}); err != nil {
+	if err := work(ReviewAssetScope{Reader: fixture, Writer: fixture}); err != nil {
 		return err
 	}
 	return fixture.commitError
 }
 
-func (fixture *coverRepositoryFixture) Draft(context.Context, string) (ReviewCoverDraft, bool, error) {
+func (fixture *coverRepositoryFixture) Draft(context.Context, string) (ReviewAssetDraft, bool, error) {
 	return fixture.draft, fixture.draft.Version != 0, fixture.draftError
 }
 
-func (fixture *coverRepositoryFixture) ExistingByUpload(context.Context, string) (ReviewCoverExisting, bool, error) {
+func (fixture *coverRepositoryFixture) ExistingByUpload(context.Context, string) (ReviewAssetExisting, bool, error) {
 	return fixture.existing, fixture.existing.Record.ID != "", nil
 }
 
-func (fixture *coverRepositoryFixture) InsertAsset(context.Context, ReviewCoverRecord) error {
+func (fixture *coverRepositoryFixture) InsertAsset(context.Context, ReviewAssetRecord) error {
 	fixture.assetWrites++
 	return nil
 }
 
-func (fixture *coverRepositoryFixture) Consume(context.Context, ReviewCoverConsumption) error {
+func (fixture *coverRepositoryFixture) Consume(context.Context, ReviewAssetConsumption) error {
 	fixture.consumptions++
 	return nil
 }
@@ -84,19 +84,19 @@ type coverFailedReader struct{ err error }
 
 func (reader coverFailedReader) Read([]byte) (int, error) { return 0, reader.err }
 
-func coverRequest() ReviewCoverRequest {
-	return ReviewCoverRequest{ItemID: "item", UploadFileID: "upload", Kind: "COVER", ExpectedVersion: 1}
+func coverRequest() ReviewAssetRequest {
+	return ReviewAssetRequest{ItemID: "item", UploadFileID: "upload", Kind: "COVER", ExpectedVersion: 1}
 }
 
 func coverFixture(t *testing.T) (*coverRepositoryFixture, coverBlobFixture) {
 	t.Helper()
-	source := ReviewCoverSource{
+	source := ReviewAssetSource{
 		FileID: "upload", UploadID: "session",
 		FileRecord: testsupport.FileMetadata("cover").Record, Digest: "digest", Purpose: "GENERAL",
 	}
 	repository := &coverRepositoryFixture{
 		source: source, current: source,
-		draft: ReviewCoverDraft{Version: 1, State: "REVIEW_PENDING"},
+		draft: ReviewAssetDraft{Version: 1, State: "REVIEW_PENDING"},
 	}
 	var contents bytes.Buffer
 	if err := png.Encode(&contents, image.NewNRGBA(image.Rect(0, 0, 2, 3))); err != nil {
@@ -105,21 +105,21 @@ func coverFixture(t *testing.T) (*coverRepositoryFixture, coverBlobFixture) {
 	return repository, coverBlobFixture{reader: io.NopCloser(bytes.NewReader(contents.Bytes()))}
 }
 
-func coverService(repository ReviewCoverRepository, blobs ReviewCoverBlobs) *ReviewCoverUploads {
-	return NewReviewCoverUploads(repository, blobs, func() time.Time { return time.UnixMilli(100) })
+func coverService(repository ReviewAssetRepository, blobs ReviewAssetBlobs) *ReviewAssetUploads {
+	return NewReviewAssetUploads(repository, blobs, func() time.Time { return time.UnixMilli(100) })
 }
 
-func TestReviewCoverPreservesSourceReadCause(t *testing.T) {
+func TestReviewAssetPreservesSourceReadCause(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("source query unavailable")
 	service := coverService(&coverRepositoryFixture{sourceError: cause}, nil)
 	result, err := service.Upload(t.Context(), coverRequest())
-	if !errors.Is(err, cause) || errors.Is(err, ErrReviewCoverUploadInvalid) || result != (ReviewCoverResult{}) {
+	if !errors.Is(err, cause) || errors.Is(err, ErrReviewAssetUploadInvalid) || result != (ReviewAssetResult{}) {
 		t.Fatalf("source failure changed classification or leaked result: result=%+v err=%v", result, err)
 	}
 }
 
-func TestReviewCoverPreparationErrorsPreserveCause(t *testing.T) {
+func TestReviewAssetPreparationErrorsPreserveCause(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("CAS unavailable")
 	for _, test := range []struct {
@@ -134,15 +134,15 @@ func TestReviewCoverPreparationErrorsPreserveCause(t *testing.T) {
 			t.Parallel()
 			repository, _ := coverFixture(t)
 			result, err := coverService(repository, test.blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewCoverStorageUnavailable) ||
-				result != (ReviewCoverResult{}) || repository.transactions != 0 {
+			if !errors.Is(err, cause) || !errors.Is(err, ErrReviewAssetStorageUnavailable) ||
+				result != (ReviewAssetResult{}) || repository.transactions != 0 {
 				t.Fatalf("CAS failure lost cause or entered transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
 			}
 		})
 	}
 }
 
-func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
+func TestReviewAssetInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name     string
@@ -152,26 +152,26 @@ func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 		{"missing", func(repo *coverRepositoryFixture,
 			_ *coverBlobFixture,
 		) {
-			repo.source = ReviewCoverSource{}
-		}, ErrReviewCoverUploadInvalid},
+			repo.source = ReviewAssetSource{}
+		}, ErrReviewAssetUploadInvalid},
 		{"project upload", func(repo *coverRepositoryFixture,
 			_ *coverBlobFixture,
 		) {
 			repo.source.Purpose = "PROJECT"
-		}, ErrReviewCoverConsumed},
+		}, ErrReviewAssetConsumed},
 		{"invalid image", func(_ *coverRepositoryFixture, blobs *coverBlobFixture) {
 			blobs.reader = io.NopCloser(strings.NewReader("not an image"))
-		}, ErrReviewCoverImageInvalid},
+		}, ErrReviewAssetImageInvalid},
 		{"oversized image", func(_ *coverRepositoryFixture, blobs *coverBlobFixture) {
 			blobs.reader = io.NopCloser(strings.NewReader(strings.Repeat("x", (10<<20)+1)))
-		}, ErrReviewCoverImageInvalid},
+		}, ErrReviewAssetImageInvalid},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			repository, blobs := coverFixture(t)
 			test.mutate(repository, &blobs)
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, test.expected) || result != (ReviewCoverResult{}) || repository.transactions != 0 {
+			if !errors.Is(err, test.expected) || result != (ReviewAssetResult{}) || repository.transactions != 0 {
 				t.Fatalf("invalid preparation reached transaction: result=%+v err=%v transactions=%d",
 					result, err, repository.transactions)
 			}
@@ -179,7 +179,7 @@ func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 	}
 }
 
-func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
+func TestReviewAssetRechecksAuthorityAfterPreparation(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name     string
@@ -188,15 +188,15 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 	}{
 		{
 			"changed blob", func(repo *coverRepositoryFixture) { repo.current.FileRecord = "new-blob" },
-			ErrReviewCoverUploadInvalid,
+			ErrReviewAssetUploadInvalid,
 		},
 		{
-			"lost upload", func(repo *coverRepositoryFixture) { repo.current = ReviewCoverSource{} },
-			ErrReviewCoverUploadInvalid,
+			"lost upload", func(repo *coverRepositoryFixture) { repo.current = ReviewAssetSource{} },
+			ErrReviewAssetUploadInvalid,
 		},
-		{"stale draft", func(repo *coverRepositoryFixture) { repo.draft.Version++ }, ErrReviewCoverVersion},
-		{"terminal item", func(repo *coverRepositoryFixture) { repo.draft.State = "DISCARDED" }, ErrReviewCoverVersion},
-		{"busy owner", func(repo *coverRepositoryFixture) { repo.draft.SourceBusy = true }, ErrReviewCoverVersion},
+		{"stale draft", func(repo *coverRepositoryFixture) { repo.draft.Version++ }, ErrReviewAssetVersion},
+		{"terminal item", func(repo *coverRepositoryFixture) { repo.draft.State = "DISCARDED" }, ErrReviewAssetVersion},
+		{"busy owner", func(repo *coverRepositoryFixture) { repo.draft.SourceBusy = true }, ErrReviewAssetVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -208,7 +208,7 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 				test.mutate(repository)
 			}
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, test.expected) || result != (ReviewCoverResult{}) ||
+			if !errors.Is(err, test.expected) || result != (ReviewAssetResult{}) ||
 				repository.assetWrites != 0 || repository.consumptions != 0 {
 				t.Fatalf("stale preparation accepted: result=%+v err=%v writes=%d/%d", result, err,
 					repository.assetWrites, repository.consumptions)
@@ -217,7 +217,7 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 	}
 }
 
-func TestReviewCoverOwnershipReplay(t *testing.T) {
+func TestReviewAssetOwnershipReplay(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name, owner string
@@ -225,15 +225,15 @@ func TestReviewCoverOwnershipReplay(t *testing.T) {
 		expected    error
 	}{
 		{"same owner", "item", true, nil},
-		{"different owner", "other", true, ErrReviewCoverConsumed},
-		{"lost consumption", "item", false, ErrReviewCoverIntegrity},
+		{"different owner", "other", true, ErrReviewAssetConsumed},
+		{"lost consumption", "item", false, ErrReviewAssetIntegrity},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			repository, blobs := coverFixture(t)
-			repository.existing = ReviewCoverExisting{HasConsumption: test.retained, Record: ReviewCoverRecord{
+			repository.existing = ReviewAssetExisting{HasConsumption: test.retained, Record: ReviewAssetRecord{
 				ID: "original", ItemID: test.owner, FileRecord: testsupport.FileMetadata("cover").Record,
-				Width: 2, Height: 3, MediaType: "image/png", CreatedAtMS: 42,
+				Kind: "COVER", Width: new(2), Height: new(3), MediaType: "image/png", CreatedAtMS: 42,
 			}}
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
 			if !errors.Is(err, test.expected) || repository.assetWrites != 0 || repository.consumptions != 0 {
@@ -247,7 +247,7 @@ func TestReviewCoverOwnershipReplay(t *testing.T) {
 	}
 }
 
-func TestReviewCoverIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
+func TestReviewAssetIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("cover persistence unavailable")
 	for _, test := range []struct {
@@ -273,7 +273,7 @@ func TestReviewCoverIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
 				repository.commitError = cause
 			}
 			result, err := service.Upload(t.Context(), coverRequest())
-			if !errors.Is(err, cause) || result != (ReviewCoverResult{}) {
+			if !errors.Is(err, cause) || result != (ReviewAssetResult{}) {
 				t.Fatalf("failed commit leaked result: %+v err=%v", result, err)
 			}
 			if !test.commit && (repository.assetWrites != 0 || repository.consumptions != 0) {
@@ -283,14 +283,14 @@ func TestReviewCoverIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
 	}
 }
 
-func TestReviewCoverReadySourceAndDraftErrors(t *testing.T) {
+func TestReviewAssetReadySourceAndDraftErrors(t *testing.T) {
 	t.Parallel()
 	t.Run("ready source", func(t *testing.T) {
 		t.Parallel()
 		repository, blobs := coverFixture(t)
 		repository.draft.SourceBusy = false
 		result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-		if err != nil || result.Width != 2 || result.Height != 3 || result.CreatedAtMS != 100 ||
+		if err != nil || result.Width == nil || *result.Width != 2 || result.Height == nil || *result.Height != 3 || result.CreatedAtMS != 100 ||
 			repository.assetWrites != 1 || repository.consumptions != 1 {
 			t.Fatalf("ready review not accepted: %+v err=%v", result, err)
 		}
@@ -301,7 +301,7 @@ func TestReviewCoverReadySourceAndDraftErrors(t *testing.T) {
 		cause := errors.New("draft SQL failure")
 		repository.draftError = cause
 		result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-		if !errors.Is(err, cause) || errors.Is(err, ErrReviewCoverVersion) || result != (ReviewCoverResult{}) {
+		if !errors.Is(err, cause) || errors.Is(err, ErrReviewAssetVersion) || result != (ReviewAssetResult{}) {
 			t.Fatalf("draft query error mapped to conflict: %+v err=%v", result, err)
 		}
 	})

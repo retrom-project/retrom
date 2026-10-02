@@ -77,7 +77,7 @@ async function expectNaturalReviewLayout(page: Page) {
   expect(before.description.height).toBeLessThanOrEqual(240);
   expect(before.resize).toBe("vertical");
   await page.getByRole("tab", { name: "视频", exact: true }).click();
-  await expect(page.getByText("暂无来源视频")).toBeVisible();
+  await expect(page.getByText("暂无视频")).toBeVisible();
   const video = await measureReview(page);
   expect(video.cover.height).toBeCloseTo(before.cover.height, 0);
   expect(video.metadata.height).toBeCloseTo(before.metadata.height, 0);
