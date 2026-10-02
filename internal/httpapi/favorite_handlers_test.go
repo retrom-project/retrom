@@ -229,9 +229,8 @@ func TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection(t *testing.T)
 	missingTimestamp := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPost, "/api/v1/favorites/restore",
 		fmt.Sprintf(`{"items":[{"gameId":%q,"folderIds":[]}]}`, favoriteHTTPGameA),
 		map[string]string{"Idempotency-Key": uuid.NewString()})
-	if missingTimestamp.Code != http.StatusBadRequest {
-		t.Fatalf("restore without original timestamp = %d", missingTimestamp.Code)
-	}
+	testassert.Falsef(t, missingTimestamp.Code != http.StatusBadRequest,
+		"restore without original timestamp = %d", missingTimestamp.Code)
 	restore := favoriteHTTPRequest(t, handler, cookie, csrf, http.MethodPost, "/api/v1/favorites/restore",
 		string(restoreBody), map[string]string{"Idempotency-Key": uuid.NewString()})
 	testassert.Falsef(t, testassert.Any(func() bool { return restore.Code != http.StatusOK }, func() bool { return !strings.Contains(restore.Body.String(), favoriteHTTPGameA) }), "restore = %d %s", restore.Code, restore.Body.String())
