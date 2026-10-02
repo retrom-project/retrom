@@ -25,6 +25,17 @@ afterEach(() => {
 });
 
 describe("ReviewQueue", () => {
+  it.each<Record<string, string>>([{}, { sourceImportId: "source-1" }])("replaces stale pages after a server refresh with filters %j", async (values) => {
+    const remaining = { ...item, itemId: "remaining", draftTitle: "Still pending" };
+    const { rerender } = render(<ReviewQueue initial={{ items: [item, remaining], nextCursor: "old-cursor" }} values={values} />);
+    expect(screen.getByText(item.draftTitle)).toBeVisible();
+    rerender(<ReviewQueue initial={{ items: [remaining], nextCursor: null }} values={values} />);
+    await waitFor(() => expect(screen.queryByText(item.draftTitle)).not.toBeInTheDocument());
+    expect(screen.getByText(remaining.draftTitle)).toBeVisible();
+    expect(screen.getByText("已加载 1 条")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "继续加载" })).not.toBeInTheDocument();
+  });
+
   it("hydrates with a UTC server before showing the browser-local update time", async () => {
     const previousTimeZone = process.env.TZ;
     const timestamp = Date.parse("2026-09-02T12:43:00.000Z");

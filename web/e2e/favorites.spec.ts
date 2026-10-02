@@ -189,6 +189,44 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await page.screenshot({ path: evidencePath(testInfo, "favorite-user-flow.png"), fullPage: true });
 });
 
+test("ACC-FAV-003 library undo stays fixed while hovering its transformed card and notification", async ({ page }, testInfo) => {
+  await login(page.request);
+  await page.goto("/library");
+  const card = page.locator(".library-game-card").first();
+  await expect(card).toBeVisible();
+  const heart = card.locator(".favorite-heart");
+  if (await heart.getAttribute("aria-pressed") === "false") {
+    await heart.click();
+    await page.getByRole("button", { name: "关闭通知" }).click();
+  }
+  await heart.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "取消收藏", exact: true }).click();
+  const toast = page.locator(".favorite-toast");
+  await expect(toast).toBeVisible();
+  const before = (await toast.boundingBox())!;
+  expect(before.x + before.width).toBeCloseTo(page.viewportSize()!.width - 24, 0);
+  expect(before.y + before.height).toBeCloseTo(page.viewportSize()!.height - 24, 0);
+  await card.hover();
+  const undo = toast.getByRole("button", { name: "撤销" });
+  await undo.hover();
+  const positions = await toast.evaluate(async element => {
+    const samples = [];
+    for (let frame = 0; frame < 12; frame++) {
+      await new Promise(requestAnimationFrame);
+      const box = element.getBoundingClientRect();
+      samples.push({ x: box.x, y: box.y });
+    }
+    return samples;
+  });
+  for (const position of positions) {
+    expect(position.x).toBeCloseTo(before.x, 1);
+    expect(position.y).toBeCloseTo(before.y, 1);
+  }
+  await page.screenshot({ path: evidencePath(testInfo, "library-undo-hover.png") });
+  await undo.click();
+  await expect(heart).toHaveAttribute("aria-pressed", "true");
+});
+
 async function verifySingleUndo(page: Page, gameId: string) {
   const snapshot = await (await page.request.get("/api/v1/favorites?limit=100")).json();
   const original = snapshot.items.find((item: {gameId: string}) => item.gameId === gameId).favorite;

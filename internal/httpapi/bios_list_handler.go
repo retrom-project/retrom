@@ -102,6 +102,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 				"optionalCount": result.Summary.OptionalCount,
 			},
 			"filteredCount": result.FilteredCount,
+			"coreOptions":   result.CoreOptions,
 			"items":         items,
 			"nextCursor":    next,
 		},

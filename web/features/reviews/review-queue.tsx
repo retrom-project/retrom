@@ -64,6 +64,16 @@ export function ReviewQueueRecovery({ active, values }: { active: boolean; value
 }
 
 export function ReviewQueue({ initial, values, resetPersisted = false }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string>; resetPersisted?: boolean }) {
+  // A router refresh preserves client state. A new server page must also retire
+  // accumulated pages, pending pagination responses and the old persisted list.
+  const [snapshot, setSnapshot] = useState({ initial, revision: 0 });
+  if (snapshot.initial !== initial) {
+    setSnapshot({ initial, revision: snapshot.revision + 1 });
+  }
+  return <ReviewQueueContents key={snapshot.revision} initial={initial} values={values} resetPersisted={resetPersisted || snapshot.revision > 0} />;
+}
+
+function ReviewQueueContents({ initial, values, resetPersisted }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string>; resetPersisted: boolean }) {
   const timeZone = useBrowserTimeZone();
   const { context } = useAuth();
   const listQuery = useMemo(() => queryString(values), [values]);

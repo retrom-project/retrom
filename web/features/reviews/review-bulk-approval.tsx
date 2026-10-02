@@ -104,6 +104,15 @@ export function ReviewBulkApproval({ restoreBulkApprovalId }: { restoreBulkAppro
     return () => window.clearInterval(timer);
   }, [loadSummary, summary]);
 
+  const bulkApprovalId = summary?.bulkApprovalId;
+  useEffect(() => {
+    if (!bulkApprovalId) {return;}
+    const url = new URL(window.location.href);
+    url.searchParams.set("bulkApprovalId", bulkApprovalId);
+    // Let Next synchronize its canonical URL before a subsequent router.refresh().
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [bulkApprovalId]);
+
   useEffect(() => {
     if (!summary || active(summary) || refreshed.current === summary.bulkApprovalId) {return;}
     refreshed.current = summary.bulkApprovalId;
@@ -134,9 +143,6 @@ export function ReviewBulkApproval({ restoreBulkApprovalId }: { restoreBulkAppro
       }
       const created = await response.json() as ReviewBulkSummary;
       setSummary(created);
-      const url = new URL(window.location.href);
-      url.searchParams.set("bulkApprovalId", created.bulkApprovalId);
-      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法开始快速审批");
     } finally {

@@ -95,6 +95,7 @@ describe("FavoriteActions", () => {
     expect(screen.getByRole("alertdialog", { name: "取消收藏“Metroid”？" })).toHaveTextContent("1 个收藏夹");
     await user.click(screen.getByRole("button", { name: "取消收藏" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(null, [{ gameId, favoritedAtMs: 1000, folderIds: [folderId] }]));
+    expect(screen.getByRole("status").parentElement).toBe(document.body);
     await user.click(screen.getByRole("button", { name: "撤销" }));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith({ favoritedAtMs: 1000, folderIds: [folderId] }));
     expect(auth.fetch.mock.calls.some(([input]) => String(input).endsWith("/restore"))).toBe(true);

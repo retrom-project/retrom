@@ -529,7 +529,8 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("textbox", { name: "标题" }).fill("实时保存的标题");
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
   await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
-  await page.getByRole("link", { name: "返回待审核列表" }).click();
+  await expect(page.getByRole("link", { name: "返回待审核列表", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "返回待审核列表", exact: true }).click();
   await page.locator(`[data-review-item="${itemId(3)}"]`).getByRole("link", { name: "审核条目" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}`));
   await page.getByRole("textbox", { name: "标题" }).fill("Batch 1 Game 03 Saved");
@@ -558,7 +559,8 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}(?:\\?|$)`));
   await expect(page.locator(".app-toast")).toContainText("游戏已成功发布");
 
-  await page.getByRole("link", { name: "返回待审核列表" }).click();
+  await expect(page.getByRole("link", { name: "返回待审核列表", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "返回待审核列表", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
   await expect(rows).toHaveCount(20);
   await page.goto(`/admin/reviews/${itemId(3)}?returnTo=${encodeURIComponent(`/admin/reviews?importJobId=${primaryJob}`)}`);
@@ -592,7 +594,8 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
 
 test("ACC-UI-010 global quick approval preserves filters and restores its completed summary", async ({ page }, testInfo) => {
   const primaryJob = "20000000-0000-7000-8000-000000000001";
-  await page.goto(`/admin/reviews?importJobId=${primaryJob}`);
+  await page.goto(`/admin/reviews?importJobId=${primaryJob}&sort=UPDATED_DESC`);
+  await expect(page.getByText("实时保存的标题", { exact: true })).toBeVisible();
   const created = page.waitForResponse((response) =>
     response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/admin/review-bulk-approvals");
   const start = page.getByRole("button", {name: "快速审批全部待审"});
@@ -605,12 +608,14 @@ test("ACC-UI-010 global quick approval preserves filters and restores its comple
   const task = await response.json() as {bulkApprovalId: string; initialPendingCount: number};
   // The filtered batch has 58 pending items; the other batch contributes three.
   expect(task.initialPendingCount).toBe(61);
-  await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}&bulkApprovalId=${task.bulkApprovalId}`));
+  await expect.poll(() => new URL(page.url()).searchParams.get("bulkApprovalId")).toBe(task.bulkApprovalId);
   const result = page.locator(".review-bulk-status");
   await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible({timeout: 10_000});
   await expect(result.getByText("已发布", {exact: true}).locator("..")).toHaveText("已发布1");
   await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审60");
   await expect(result.getByText("已扫描", {exact: true}).locator("..")).toHaveText("已扫描61");
+  await expect(page.getByText("实时保存的标题", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".review-workflow-row")).toHaveCount(20);
   const published = await page.request.get("/api/v1/games?q=" + encodeURIComponent("实时保存的标题"));
   expect(published.ok()).toBe(true);
   const games = await published.json() as {items: Array<{title: string}>};
@@ -619,9 +624,12 @@ test("ACC-UI-010 global quick approval preserves filters and restores its comple
   await page.reload();
   await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible();
   await expect(page.getByRole("textbox", {name: "导入批次", exact: true})).toHaveValue(primaryJob);
+  await expect(page.getByRole("combobox", { name: "排列顺序" })).toHaveValue("UPDATED_DESC");
   await expect(start).toBeEnabled();
   await page.screenshot({path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true});
 });
 
+registerSourceBulkApprovalTest();
 registerRuntimeAcceptanceTests();
 registerCoreExpansionAcceptanceTests();
+import { registerSourceBulkApprovalTest } from "./review-bulk-source";

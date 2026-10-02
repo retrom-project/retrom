@@ -25,7 +25,7 @@ async function verifyHomeStates(page: Page, testInfo: TestInfo) {
     }
     await expect(page.locator(".home-scene-caption")).toHaveCount(0);
     await expectNaturalHomeFlow(page);
-    await page.screenshot({ path: evidencePath(testInfo, `ui-home-${state}.png`), fullPage: true });
+    await page.screenshot({ caret: "initial", path: evidencePath(testInfo, `ui-home-${state}.png`), fullPage: true });
   }
   await expectLandscapeAndEmptyMedia(page, testInfo);
 }
@@ -38,7 +38,7 @@ async function expectLandscapeAndEmptyMedia(page: Page, testInfo: TestInfo) {
   await page.reload();
   await expect(page.locator(".home-scene-caption")).toBeVisible();
   const before = await heroGeometry(page);
-  await page.screenshot({ path: evidencePath(testInfo, "ui-home-landscape.png"), fullPage: true });
+  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-home-landscape.png"), fullPage: true });
   await page.unroute(screenshot);
   await page.route(screenshot, (route) => route.abort());
   await page.route("**/images/platforms/**", (route) => route.abort());
@@ -49,7 +49,7 @@ async function expectLandscapeAndEmptyMedia(page: Page, testInfo: TestInfo) {
   expect(await platformArt.count()).toBeGreaterThan(0);
   for (const art of await platformArt.all()) {await expect(art).toBeVisible();}
   expect(await heroGeometry(page)).toEqual(before);
-  await page.screenshot({ path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
+  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
   await page.unroute(screenshot);
   await page.unroute("**/images/platforms/**");
 }

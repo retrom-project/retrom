@@ -62,12 +62,40 @@ func (repository *Repository) list(
 	if err != nil {
 		return application.ListResult{}, err
 	}
+	cores, err := coreOptions(ctx, executor, request.Scope)
+	if err != nil {
+		return application.ListResult{}, err
+	}
 	return application.ListResult{
 		ScopeCounts:   counts,
 		Summary:       summary,
+		CoreOptions:   cores,
 		FilteredCount: filteredCount,
 		Items:         items,
 	}, nil
+}
+
+func coreOptions(ctx context.Context, executor dbapi.Executor, scope string) ([]application.CoreOption, error) {
+	rows, err := executor.QueryContext(ctx, `
+SELECT DISTINCT core.id,core.name FROM bios_requirements requirement
+JOIN cores core ON core.id=requirement.core_id
+WHERE requirement.enabled=1 AND `+scopeSQL(scope)+` ORDER BY core.name COLLATE BINARY,core.id COLLATE BINARY`)
+	if err != nil {
+		return nil, fmt.Errorf("query BIOS core options: %w", err)
+	}
+	defer func() { cleanup.Error("close BIOS core options", rows.Close()) }()
+	items := make([]application.CoreOption, 0)
+	for rows.Next() {
+		var item application.CoreOption
+		if err := rows.Scan(&item.ID, &item.Name); err != nil {
+			return nil, fmt.Errorf("scan BIOS core option: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate BIOS core options: %w", err)
+	}
+	return items, nil
 }
 
 func scopeCounts(ctx context.Context, executor dbapi.Executor) (application.ScopeCounts, error) {
