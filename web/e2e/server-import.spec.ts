@@ -119,6 +119,19 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
   await expect(page.getByRole("row")).toHaveCount(286);
   await expectNoPageOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "bios-full-catalog-286.png"), fullPage: true });
+  const core = page.getByRole("combobox", { name: "运行方式", exact: true });
+  const options = await core.locator("option").evaluateAll(elements => elements.map(option => ({ value: option.getAttribute("value"), label: option.textContent })));
+  expect(options.length).toBeGreaterThan(2);
+  await core.selectOption("yabause");
+  await expect(page.getByRole("row").filter({ hasNotText: "Yabause" })).toHaveCount(0);
+  expect(await core.locator("option").evaluateAll(elements => elements.map(option => ({ value: option.getAttribute("value"), label: option.textContent })))).toEqual(options);
+  await page.getByRole("searchbox", { name: "搜索 BIOS 文件" }).fill("no-such-bios-ui-regression");
+  await expect(page.getByRole("row")).toHaveCount(0);
+  expect(await core.locator("option").count()).toBe(options.length);
+  await page.reload();
+  await expect(core).toHaveValue("yabause");
+  expect(await core.locator("option").evaluateAll(elements => elements.map(option => ({ value: option.getAttribute("value"), label: option.textContent })))).toEqual(options);
+
 });
 
 test("ACC-PEG-005 three-step Source import recovers and remains bounded at desktop viewports", async ({ page }, testInfo) => {

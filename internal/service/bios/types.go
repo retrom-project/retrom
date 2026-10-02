@@ -60,7 +60,13 @@ type Summary struct {
 type ListResult struct {
 	ScopeCounts   ScopeCounts
 	Summary       Summary
+	CoreOptions   []CoreOption
 	FilteredCount int64
 	Items         []Item
 	NextCursor    *Cursor
+}
+
+type CoreOption struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }

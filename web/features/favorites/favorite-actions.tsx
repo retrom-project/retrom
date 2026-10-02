@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -275,10 +276,10 @@ function FavoriteToast({ busy, notice, onCloseNotice, onManage, onUndo }: {
   onUndo: () => void;
 }) {
   if (!notice) {return null;}
-  return <div className="favorite-toast" role="status" aria-live="polite">
+  return createPortal(<div className="favorite-toast" role="status" aria-live="polite">
     <span>{notice.message}</span>
     {notice.offerManage ? <button type="button" disabled={busy} onClick={() => {onCloseNotice(); onManage();}}>加入收藏夹</button> : null}
     {notice.undo?.length ? <button type="button" disabled={busy} onClick={onUndo}>撤销</button> : null}
     <button type="button" aria-label="关闭通知" onClick={onCloseNotice}>×</button>
-  </div>;
+  </div>, document.body);
 }

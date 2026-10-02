@@ -689,7 +689,7 @@ BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE
 
 稳定错误至少包括 root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的 OpenAPI 文件集所定义的唯一机器契约。
 
-`GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
+`GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。`coreOptions[{id,name}]` 返回当前 scope 下有启用 BIOS 要求的完整核心选项，不受搜索、核心、状态、依赖筛选或分页影响。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
 
 ## 12. 统一来源导入与详情 VIDEO API
 

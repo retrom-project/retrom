@@ -12,8 +12,8 @@ import { formatLibraryPlayedAt, type GameSummary } from "./game-library";
 
 export type { GameSummary } from "./game-library";
 
-function GamePoster({ game }: { game: GameSummary }) {
-  if (game.coverUrl) {return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;}
+function GamePoster({ game, eager }: { game: GameSummary; eager: boolean }) {
+  if (game.coverUrl) {return <Image loading={eager ? "eager" : "lazy"} src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;}
   return <span className="library-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong title={game.title}>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
 }
 
@@ -43,9 +43,9 @@ export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummar
   if (games.length === 0 && filtered) {return <EmptyState title="没有找到游戏" description="当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。" action={<ButtonLink href="/library" secondary>清除筛选</ButtonLink>} />;}
   if (games.length === 0) {return <EmptyState title="游戏库还是空的" description={phone ? "游戏添加好后就会出现在这里，请在电脑上添加游戏。" : "从管理后台选择游戏文件或目录，完成验证与审核后即可在这里游玩。"} />;}
   return <div className="library-game-grid">
-    {games.map((game) => <article className="library-game-card" data-library-game={game.gameId} key={game.gameId}>
+    {games.map((game, index) => <article className="library-game-card" data-library-game={game.gameId} key={game.gameId}>
       <div className="library-game-cover">
-        <Link href={`/games/${game.gameId}`} aria-label={`查看${game.title}游戏详情`}><GamePoster game={game} /><span className="library-platform-tag">{game.platform.name}</span><span className="library-card-hover"><strong>查看游戏详情</strong></span></Link>
+        <Link href={`/games/${game.gameId}`} aria-label={`查看${game.title}游戏详情`}><GamePoster game={game} eager={index === 0} /><span className="library-platform-tag">{game.platform.name}</span><span className="library-card-hover"><strong>查看游戏详情</strong></span></Link>
         <FavoriteActions
           ref={(handle) => {
             if (handle) {favoriteManagers.current.set(game.gameId, handle);}

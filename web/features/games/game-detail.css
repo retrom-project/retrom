@@ -54,19 +54,23 @@
 .game-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-body); }
 .game-detail-playtime strong { font-weight: var(--weight-regular); }
 .game-detail-playtime span { color: var(--ink); }
-.launch-panel { min-width: 0; margin-top: var(--space-3); }
-.launch-panel .content-loading-field select { width: min(100%, var(--launch-control-width, 100%)); }
-.launch-options { min-width: 0; }
+.launch-panel { min-width: 0; margin-top: var(--space-3); display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
+.launch-panel > * { grid-column: 1 / -1; }
+/* Share the buttons' intrinsic column from the first server-rendered frame.
+   Labels and hints span the panel without widening the controls. */
+.launch-options, .launch-option-panel, .launch-option-panel > .field { min-width: 0; display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 0; }
+.launch-option-panel > .field > * { grid-column: 1 / -1; }
+.launch-panel .launch-option-panel select { grid-column: 1; width: 0; min-width: 100%; }
 .content-loading-field.is-placeholder { visibility: hidden; }
 .launch-options:has(.field) { margin-bottom: var(--space-3); }
 .launch-option-panel { min-width: 0; }
 .launch-option-panel > .field + .field { margin-top: var(--space-3); }
-.launch-options.is-tabbed { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "panel"; row-gap: var(--space-2); }
-.launch-option-tabs { grid-area: tabs; display: flex; align-items: center; gap: var(--space-1); }
+.launch-options.is-tabbed { row-gap: var(--space-2); }
+.launch-option-tabs { grid-column: 1 / -1; grid-row: 1; display: flex; align-items: center; gap: var(--space-1); }
 .launch-option-divider { color: var(--muted); }
-.launch-options.is-tabbed > .launch-option-panel { grid-area: panel; }
+.launch-options.is-tabbed > .launch-option-panel { grid-row: 2; }
 .launch-options.is-tabbed .is-inactive { visibility: hidden; pointer-events: none; }
-.launch-options.is-tabbed .dos-program-field select { width: min(100%, var(--launch-control-width, 100%)); }
+.launch-panel > .launch-actions { grid-column: 1; }
 .launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .launch-actions > .button { min-width: 148px; }
 .launch-actions > .status { flex-basis: 100%; white-space: normal; }
