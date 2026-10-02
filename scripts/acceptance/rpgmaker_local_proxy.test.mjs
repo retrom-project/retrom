@@ -53,11 +53,11 @@ function close(server) {
   return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
 }
 
-function proxyGet(proxyUrl, targetPort, host = "retrom-app.rpg.localhost") {
+function proxyGet(proxyUrl, targetPort, host = "retrom-app.rpg.localhost", pathname = "/") {
   return new Promise((resolve, reject) => {
     const request = requestHttp({
       hostname: proxyUrl.hostname, port: proxyUrl.port,
-      path: `http://${host}:${targetPort}/`,
+      path: `http://${host}:${targetPort}${pathname}`,
     }, (response) => {
       const chunks = [];
       response.on("data", (chunk) => chunks.push(chunk));
@@ -96,4 +96,19 @@ test("PFB acceptance resolves only the bounded PFB localhost family", async () =
     assert.equal(await proxyGet(url, port, runtime), `${runtime}:${port}`);
     assert.equal(await proxyGet(url, port, "unrelated.localhost"), "");
   } finally {await proxy.close(); await close(target);}
+});
+
+test("production acceptance uses the actual web server while preserving API and runtime origins", async () => {
+  const app = createServer((request, response) => response.end(`api:${request.headers.host}`));
+  const web = createServer((request, response) => response.end(`web:${request.headers.host}`));
+  await listen(app); await listen(web);
+  const port = app.address().port, host = "audit-012345abcdef.localhost";
+  const proxy = await localRpgAcceptanceProxy(`http://${host}:${port}`, `http://127.0.0.1:${web.address().port}`);
+  try {
+    const url = new URL(proxy.contextOptions.proxy.server);
+    assert.equal(await proxyGet(url, port, host, "/play/launch"), `web:${host}:${port}`);
+    assert.equal(await proxyGet(url, port, host, "/_next/static/client.js"), `web:${host}:${port}`);
+    assert.equal(await proxyGet(url, port, host, "/api/v1/auth/context"), `api:${host}:${port}`);
+    assert.equal(await proxyGet(url, port, host, "/runtime/providers/file"), `api:${host}:${port}`);
+  } finally {await proxy.close(); await close(app); await close(web);}
 });

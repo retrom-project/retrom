@@ -1,3 +1,4 @@
+import {readRuntimeFrames, waitForRuntimeFrameDelta, closeFrameObservation} from "./runtime_frame_observation.mjs";
 import {createHash} from "node:crypto";
 import {readEasyRpgPosition, readRgssFixtureLine} from "./rpgmaker_fixture_observation.mjs";
 import {observeCheckpointUpload, readCheckpointMultipart} from "./rpgmaker_checkpoint_upload.mjs";
@@ -179,18 +180,15 @@ export async function observeFixturePosition(page, generation, observations, che
 
 export async function observePreviewFrames(page) {
   await resumePreview(page);
-  const beforeFrame = await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount());
+  const beforeFrame = await readRuntimeFrames(page);
   if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {throw new Error("RPG_PREVIEW_FRAME_COUNT_MISSING");}
   try {
-    await page.waitForFunction((before) => {
-      const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
-      return Number.isSafeInteger(after) && after - before >= 300;
-    }, beforeFrame, {timeout: 30_000});
+    await waitForRuntimeFrameDelta(page, beforeFrame, 300, 30_000);
   } catch {
     const trim = (value) => String(value).trim().slice(0, 600);
     const diagnostics = {
       beforeFrame,
-      afterFrame: await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount()).catch(() => null),
+      afterFrame: await readRuntimeFrames(page).catch(() => null),
       alerts: (await page.getByRole("alert").allInnerTexts().catch(() => [])).map(trim).slice(0, 5),
       statuses: (await page.getByRole("status").allInnerTexts().catch(() => [])).map(trim).slice(0, 10),
       pageErrors: (page.__retromPageErrors ?? []).map(trim).slice(0, 5),
@@ -199,7 +197,8 @@ export async function observePreviewFrames(page) {
     };
     throw new Error("RPG_PREVIEW_FRAMES_STALLED:" + JSON.stringify(diagnostics));
   }
-  const afterFrame = await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount());
+  const afterFrame = await readRuntimeFrames(page);
+  await closeFrameObservation(page);
   return {beforeFrame, afterFrame};
 }
 
@@ -214,12 +213,27 @@ export async function captureOptionalReviewScreenshot(page, previewId) {
 }
 
 export async function finishPreview(page, previewId) {
+  const path = "/runtime/launches/" + previewId;
+  const configUrl = new URL(path + "/config", page.url()).href;
+  if ((await page.context().request.get(configUrl)).status() !== 200) {
+    throw new Error("RPG_PREVIEW_FINISH_CONFIG_NOT_ACTIVE");
+  }
   await revealPreviewToolbar(page);
   await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
-  const responseTask = page.waitForResponse((response) => response.request().method() === "POST" &&
-    new URL(response.url()).pathname === "/runtime/launches/" + previewId + "/finish");
+  const requestTask = page.waitForRequest(request => request.method() === "POST" &&
+    new URL(request.url()).pathname === path + "/finish");
   await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
-  const response = await responseTask;
-  if (!response.ok()) {throw new Error("RPG_PREVIEW_FINISH_FAILED");}
+  await requestTask;
+  // Navigation can detach the response to the ordinary keepalive finish. Verify
+  // the real server boundary instead: this previously valid config must close.
+  const deadline = Date.now() + 5000;
+  let closed = false;
+  while (Date.now() < deadline) {
+    const response = await page.context().request.get(configUrl);
+    if ([401, 404, 410].includes(response.status())) {closed = true; break;}
+    if (response.status() !== 200) {throw new Error("RPG_PREVIEW_FINISH_FAILED");}
+    await page.waitForTimeout(100);
+  }
+  if (!closed) {throw new Error("RPG_PREVIEW_FINISH_NOT_COMMITTED");}
   if (!page.isClosed()) {await page.close();}
 }

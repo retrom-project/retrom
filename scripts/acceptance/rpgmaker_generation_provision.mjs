@@ -556,7 +556,14 @@ async function openPlayer(context, playerUrl) {
   const configResponse = page.waitForResponse((response) =>
     response.request().method() === "GET" && /\/runtime\/launches\/[^/]+\/config$/.test(response.url()),
   );
-  await page.goto(`${baseUrl}${playerUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  const documentResponse = await page.goto(`${baseUrl}${playerUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  if (process.env.RETROM_ACCEPTANCE_PRODUCTION_WEB_ORIGIN) {
+    const policy = documentResponse?.headers()["content-security-policy"] ?? "";
+    if (!policy.includes("'wasm-unsafe-eval'") || policy.includes("'unsafe-eval'")) {
+      throw new Error("RPG_PROVISION_PRODUCTION_CSP_INVALID");
+    }
+    process.stdout.write("RPG_PROVISION_PRODUCTION_CSP:PASS\n");
+  }
   const config = await configResponse;
   if (config.status() !== 200) {
     throw new Error(`RPG_PROVISION_LAUNCH_CONFIG_${config.status()}`);

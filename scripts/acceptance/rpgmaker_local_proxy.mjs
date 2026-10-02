@@ -1,15 +1,21 @@
 import { createServer, request as requestHttp } from "node:http";
 import { connect as connectTcp } from "node:net";
 
-export async function localRpgAcceptanceProxy(origin) {
+export async function localRpgAcceptanceProxy(origin, productionWebOrigin = process.env.RETROM_ACCEPTANCE_PRODUCTION_WEB_ORIGIN) {
   const parsed = new URL(origin);
+  const web = productionWebOrigin ? new URL(productionWebOrigin) : null;
+  if (web && (web.protocol !== "http:" || web.hostname !== "127.0.0.1" || !web.port ||
+      web.pathname !== "/" || web.search || web.hash || web.username || web.password)) {
+    throw new Error("RPG_ACCEPTANCE_PRODUCTION_WEB_ORIGIN_INVALID");
+  }
   if (parsed.protocol !== "http:" || !isRpgLocalhost(parsed.hostname)) {
     return { contextOptions: {}, close: async () => {} };
   }
   const sockets = new Set();
-  const server = createServer((request, response) => proxyHttpRequest(request, response));
+  const server = createServer((request, response) => proxyHttpRequest(request, response, parsed, web));
   server.on("connection", (socket) => trackSocket(sockets, socket));
-  server.on("connect", (request, socket, head) => proxyTunnel(request, socket, head, sockets));
+  server.on("connect", (request, socket, head) =>
+    proxyTunnel(request, socket, head, sockets, web ? server.address().port : null));
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
@@ -25,11 +31,12 @@ export async function localRpgAcceptanceProxy(origin) {
   };
 }
 
-function proxyHttpRequest(request, response) {
-  const target = parseTarget(request.url);
+function proxyHttpRequest(request, response, origin, web) {
+  const target = parseTarget(request.url, request.headers.host);
   if (!target) { response.writeHead(403).end(); return; }
+  const webPage = web && target.host === origin.host && !/^\/(?:api|health|content|runtime)(?:\/|$)/u.test(target.pathname);
   const upstream = requestHttp({
-    hostname: "127.0.0.1", port: target.port, method: request.method,
+    hostname: "127.0.0.1", port: webPage ? Number(web.port) : target.port, method: request.method,
     path: `${target.pathname}${target.search}`, headers: { ...request.headers, host: target.host },
   }, (upstreamResponse) => {
     response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
@@ -42,10 +49,10 @@ function proxyHttpRequest(request, response) {
   request.pipe(upstream);
 }
 
-function proxyTunnel(request, socket, head, sockets) {
+function proxyTunnel(request, socket, head, sockets, proxyPort) {
   const target = parseTarget(`http://${request.url}`);
   if (!target) { socket.end("HTTP/1.1 403 Forbidden\r\n\r\n"); return; }
-  const upstream = connectTcp(target.port, "127.0.0.1", () => {
+  const upstream = connectTcp(proxyPort ?? target.port, "127.0.0.1", () => {
     socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
     if (head.length) { upstream.write(head); }
     socket.pipe(upstream);
@@ -56,9 +63,9 @@ function proxyTunnel(request, socket, head, sockets) {
   upstream.on("error", () => socket.destroy());
 }
 
-function parseTarget(value) {
+function parseTarget(value, host) {
   let target;
-  try { target = new URL(value); } catch { return null; }
+  try { target = new URL(value, host ? `http://${host}` : undefined); } catch { return null; }
   const port = Number(target.port || 80);
   if (target.protocol !== "http:" || !isRpgLocalhost(target.hostname) ||
       !Number.isInteger(port) || port < 1 || port > 65_535) {
