@@ -51,9 +51,10 @@ async function verify(core, input) {
     const saved = await saveCart(page, launch.launchId, core); result.saveStateId = saved.saveStateId;
     await page.screenshot({path: join(directory, `${core}-cold.png`)});
     await exitContentIOPlayer(page, base, launch);
-    // Same persistent browser context and a fresh Launch; cached game and
-    // dependency bytes cannot come from transport. Core transport stays slow.
-    const contentRequestCount = proxy.contentRequests.length; proxy.blockContent(true);
+    // Parent is managed by Content I/O for these targets. Their game/BIOS
+    // remain upstream loader inputs, and core transport stays slow.
+    const parentRequests = () => proxy.contentRequests.filter(row => row.path.startsWith("/runtime/content/parent/"));
+    const parentRequestCount = parentRequests().length; proxy.blockContent(["parent"]);
     const networkSession = await context.newCDPSession(page);
     await networkSession.send("Network.enable");
     await networkSession.send("Network.setCacheDisabled", {cacheDisabled: true});
@@ -61,7 +62,7 @@ async function verify(core, input) {
     const warm = performance.now(); await page.goto(base + restore.playUrl, {waitUntil: "domcontentloaded"});
     await expect(page.locator(".player-loading")).toBeHidden({timeout: 150000});
     result.warmReadyMs = performance.now() - warm;
-    assert.equal(proxy.contentRequests.length, contentRequestCount, "EJS_WARM_CONTENT_REQUESTED");
+    assert.equal(parentRequests().length, parentRequestCount, "EJS_WARM_PARENT_REQUESTED");
     result.restore = await checkpoint(page); assert.ok(result.restore.sizeBytes > 0);
     await page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas").press("ArrowRight", {delay: 200});
     result.restoreInput = await checkpoint(page); assert.notEqual(result.restore.sha256, result.restoreInput.sha256);

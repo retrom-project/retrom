@@ -6,7 +6,7 @@ import {setTimeout as delay} from "node:timers/promises";
 export async function emulatorjsSlowProxy(base) {
   const origin = new URL(base), sockets = new Set(), requests = [], contentRequests = [];
   if (origin.protocol !== "http:" || !origin.hostname.endsWith(".localhost")) {throw Error("EJS_SLOW_LOCAL_PFB_REQUIRED");}
-  let stall = false, block = false, blockContent = false;
+  let stall = false, block = false, blockedContentRoles = [];
   const target = (value, host) => {
     try {
       const url = new URL(value, `http://${host}`);
@@ -25,7 +25,9 @@ export async function emulatorjsSlowProxy(base) {
     const row = {path: url.pathname, bytes: 0, startedMs: performance.now()};
     if (limited) {requests.push(row);}
     if (content) {contentRequests.push(row);}
-    if (content && blockContent) {row.blocked = true; response.writeHead(503).end(); return;}
+    if (content && blockedContentRoles.some(role => url.pathname.startsWith(`/runtime/content/${role}/`))) {
+      row.blocked = true; response.writeHead(503).end(); return;
+    }
     if (limited && block) {row.blocked = true; response.writeHead(503).end(); return;}
     const upstream = requestHttp({hostname: "127.0.0.1", port: origin.port, method: request.method,
       path: url.pathname + url.search, headers: {...request.headers, host: url.host}}, incoming => {
@@ -75,6 +77,6 @@ export async function emulatorjsSlowProxy(base) {
   });
   await new Promise((resolve, reject) => server.once("error", reject).listen(0, "127.0.0.1", resolve));
   return {requests, contentRequests, contextOptions: {proxy: {server: `http://127.0.0.1:${server.address().port}`}},
-    stall(value) {stall = value;}, block(value) {block = value;}, blockContent(value) {blockContent = value;},
+    stall(value) {stall = value;}, block(value) {block = value;}, blockContent(roles) {blockedContentRoles = roles;},
     async close() {for (const socket of sockets) {socket.destroy();} await new Promise(resolve => server.close(resolve));}};
 }
