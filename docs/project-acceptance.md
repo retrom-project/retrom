@@ -368,6 +368,12 @@ make acceptance-case CASE=<case-id>
 - 通过标准：全新库到 014 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
+### ACC-DB-003：大库导入与审批期间的受保护读取
+
+- 上限 900 秒；在命名 PFB 中设置 `RETROM_ACCEPTANCE_BASE_URL`、测试账号，执行 `make acceptance-case CASE=ACC-DB-003`。只使用项目自有 `gba-smoke.gba`，在程序末尾附加唯一标识区分来源，全部生成输入与运行数据保留在当前 PFB。首次准备 2,272 条来源，随后增加两批各 136 条，不读取操作者私有游戏，不直接插入业务表。
+- 使用普通上传、导入、快速审批 API 建立至少 2,272 款游戏，再同时执行后续审批和上传/导入。home、games、favorites、reviews、users 各串行采样五次，四个阶段共 100 次；每次保留 HTTP 状态、耗时、当时任务状态与审批进度。必须覆盖大库形成后的实际活动任务，全部 HTTP 200，单次低于 500ms，记录 p95/最大值。批量发布须正常完成；`TestProtectedListsReadWhileBackgroundWriterIsOccupied` 另以持有实际写事务验证相同 GET 的 writer pool 等待增量为零。
+- 大批量小文件的上传终验按文件数提供有界等待，不能只按总字节数估计。测试中断后，可显式提供当前 PFB 已完成的 `RETROM_READ_LOAD_PREPARED_UPLOAD`，或该次 `RETROM_READ_LOAD_INITIAL_APPROVAL` 继续后续采样；先通过公开接口验证其状态、文件范围或初始待审规模，不伪造完成。证据为 `protected-reads-product.json` 与独立读写池、续期失败、禁用/密码变化/角色变更、原子审批和 fencing 回归结果。
+
 ### ACC-CAS-001：游戏目录与独立文件
 
 - 上限：120 秒。
@@ -1092,7 +1098,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限 600 秒；执行 `make acceptance-case CASE=ACC-RUN-019`。输入为当前 PFB 的 `RETROM_ACCEPTANCE_BASE_URL`、测试账号、固定 Chrome 和绝对 `RETROM_EJS_SLOW_INPUT`，后者精确包含 `fbneo`、`mame2003` 两个由普通 `arcade-flow.sh` 生成的公开 fixture 产品结果；在本 PFB 的 Provider 初始化完成且无活动任务时，用仓库 `seed-public-arcade-dat.go` 准备对应 test-only DAT，再执行普通导入/审核。该数据仅供隔离验收使用。
 - 核心 `.data` 保持原始 bytes/headers，以 128 KiB/s 和 300ms 延迟流式传输。两个 Target 都必须实际等待超过 30 秒后进入 RUNNING，通过真实键盘改变 checkpoint，创建普通存档、不同 Launch 恢复并继续输入。恢复时禁用 HTTP 缓存并阻断受管 Parent 内容网络，已缓存 Parent 不得再请求；核心资源继续使用慢网，游戏与 BIOS 保留这些 Target 的 `UPSTREAM_LOADER` 传输契约。运行后切换离线，输入与 checkpoint 仍推进，再恢复网络退出。
-- 独立冷 context 停止字节推进：40 秒内出现明确的资源停滞提示及“重试启动”，留下 390px 与物理 4K 150% 的实际错误页截图并检查溢出。另在加载中通过普通退出按钮取消，五秒内返回，挂起传输全部关闭。结构化证据保存实际字节数、耗时、核心/模块摘要、状态摘要和取消时间，不替换资源、不提高 runtime 超时、不关闭 CSP。
+- 独立冷 context 禁用 HTTP 缓存并停止字节推进：40 秒内出现明确的资源停滞提示及“重试启动”，留下 390px 与物理 4K 150% 的实际错误页截图并检查溢出。点击重试并确认新的实际传输尚未关闭、浏览器已收到字节后中断响应，五秒内显示独立断网提示；不能把部分缓存的 Range 探测当作实际下载。另在加载中通过普通退出按钮取消，五秒内返回，挂起传输全部关闭，失败请求均未完整下载。结构化证据保存实际字节数、耗时、核心/模块摘要、状态摘要和取消时间，不替换资源、不提高 runtime 超时、不关闭 CSP。
 
 ### ACC-SAVE-001：手动状态存档与截图
 

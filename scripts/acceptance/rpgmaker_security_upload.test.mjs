@@ -83,4 +83,6 @@ test("product client forwards a bounded timeout for large import requests", asyn
 test("large uploads receive a bounded extended finalization window", () => {
   assert.equal(jobWaitAttemptsForBytes(1_073_741_824), 600);
   assert.equal(jobWaitAttemptsForBytes(1_073_741_825), 6_000);
+  assert.equal(jobWaitAttemptsForBytes(2_500_000, 2272), 4544);
+  assert.equal(jobWaitAttemptsForBytes(10_000_000, 10000), 6000);
 });

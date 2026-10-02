@@ -50,7 +50,7 @@ UZEBOX_CASES = {"ACC-UZEBOX-001"}
 O2EM_CASES = {"ACC-O2EM-001"}
 COMPUTER_CASES = {"ACC-BBC-001", "ACC-SAMCOUPE-001", "ACC-DOSBOX-001"}
 PRODUCT_CASES = WASM4_CASES | BBKRPG_CASES | UZEBOX_CASES | O2EM_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
-PRODUCT_CASES |= COMPUTER_CASES
+PRODUCT_CASES |= COMPUTER_CASES | {"ACC-DB-003", "ACC-RUN-019"}
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -115,6 +115,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
     "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
     "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1"),
+    "ACC-DB-003": (900, "node scripts/acceptance/protected_reads_product.mjs"),
     "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/filestore -count=1"),
     "ACC-CAS-002": (120, "go test -tags=integration ./internal/persistence/filedeletion ./internal/libraryimport -run 'TestDirectory|TestApprovalLateFailure|TestPublicationRecovery|TestReviewBulkResumes' -count=1"),
@@ -729,7 +730,7 @@ def archive_previous(case_dir: Path) -> None:
     run_dir = case_dir.parents[1]
     moved: dict[str, str] = {}
     for name in (
-        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "emulatorjs-slow-product.json", "ons-product.json",
+        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "emulatorjs-slow-product.json", "protected-reads-product.json", "ons-product.json",
         "content-preload-product.json", "content-loading-capability-product.json", "dos-launch-options-ui.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "wasm4-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
         "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
@@ -1000,7 +1001,11 @@ def execute_case(case_id: str) -> int:
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
             product_filename = "rpgmaker-product.json"
-            if case_id in STORAGE_CASES:
+            if case_id == "ACC-DB-003":
+                product_filename = "protected-reads-product.json"
+            elif case_id == "ACC-RUN-019":
+                product_filename = "emulatorjs-slow-product.json"
+            elif case_id in STORAGE_CASES:
                 product_filename = "checkpoint-storage-product.json"
             elif case_id in BBKRPG_CASES:
                 product_filename = "bbkrpg-product.json"
