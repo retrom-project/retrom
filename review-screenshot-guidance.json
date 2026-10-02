@@ -1,0 +1,33 @@
+{
+  "version": "v0.0.102",
+  "core": "nxengine",
+  "previewRunning": true,
+  "before": {
+    "canApprove": false,
+    "readiness": {
+      "status": "BLOCKED",
+      "compatibilityCode": "NXENGINE_RUNTIME_TRIAL_REQUIRED",
+      "dependencySnapshot": {
+        "nxengine": {
+          "markerPath": "Doukutsu.exe",
+          "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+        },
+        "schemaVersion": 1
+      }
+    }
+  },
+  "afterScreenshot": {
+    "canApprove": true,
+    "readiness": {
+      "status": "BLOCKED",
+      "compatibilityCode": "NXENGINE_RUNTIME_TRIAL_REQUIRED",
+      "dependencySnapshot": {
+        "nxengine": {
+          "markerPath": "Doukutsu.exe",
+          "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+        },
+        "schemaVersion": 1
+      }
+    }
+  }
+}
