@@ -221,9 +221,9 @@ export function FavoriteBrowser({
 }) {
   const { authenticatedFetch } = useAuth();
   const [page, setPage] = useState(initialPage);
-  const [query, setQuery, navigation] = useURLFilters(initialQuery, favoriteURLFilters, favoriteURLQuery);
+  const [query, setQuery, navigation] = useURLFilters(favoriteURLFilters, favoriteURLQuery);
   const [observedNavigation, setObservedNavigation] = useState(navigation);
-  const [search, setSearch] = useState(initialQuery.q);
+  const [search, setSearch] = useState(query.q);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError);
   const [selecting, setSelecting] = useState(false);
@@ -238,7 +238,7 @@ export function FavoriteBrowser({
   const [batchCreate, setBatchCreate] = useState(false);
   const [batchUnfavorite, setBatchUnfavorite] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const initial = useRef(true);
+  const initial = useRef(favoriteURLQuery(initialQuery) === favoriteURLQuery(query));
   const requestSequence = useRef(0);
   const batchAddButton = useRef<HTMLButtonElement>(null);
 

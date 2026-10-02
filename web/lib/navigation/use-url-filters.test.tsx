@@ -10,7 +10,7 @@ afterEach(cleanup);
 const parse = (params: URLSearchParams) => ({q:params.get("q") ?? "", sort:params.get("sort") ?? "DESC"});
 const serialize = (value: ReturnType<typeof parse>) => new URLSearchParams(value).toString();
 function Page() {
-  const [filters, update] = useURLFilters(parse(new URLSearchParams(window.location.search)), parse, serialize);
+  const [filters, update] = useURLFilters(parse, serialize);
   return <><input aria-label="搜索" value={filters.q} onChange={event => update(current => ({...current,q:event.target.value}))} />
     <output>{filters.sort}</output><button onClick={() => {
       update(current => ({...current, q:"new"})); update(current => ({...current,sort:"ASC"}));

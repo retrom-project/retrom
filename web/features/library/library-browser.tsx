@@ -27,7 +27,7 @@ function mergeGames(current: GamePage["items"], incoming: GamePage["items"]) {
 export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: GamePage; initialFilters: LibraryFilters }) {
   const platformScroll = usePhoneScrollActivity();
   const { authenticatedFetch } = useAuth();
-  const [filters, setFilters] = useURLFilters(initialFilters, libraryURLFilters, libraryURLQuery);
+  const [filters, setFilters] = useURLFilters(libraryURLFilters, libraryURLQuery);
   const {query, platformId, platformInstanceId, tagId, sort} = filters;
   const setQuery = (query: string) => setFilters(current => ({...current, query}));
   const setPlatformId = (platformId: string) => setFilters(current => ({...current, platformId}));

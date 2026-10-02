@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 // Writes originate in user actions. Navigation only restores state, so a cached
 // page can never overwrite a Back/Forward URL with its previous filters.
-export function useURLFilters<T>(initial: T, parse: (search: URLSearchParams) => T, serialize: (value: T) => string) {
+export function useURLFilters<T>(parse: (search: URLSearchParams) => T, serialize: (value: T) => string) {
   const search = useSearchParams().toString();
-  const [state, setState] = useState({value: initial, observed: search, written: search, navigation: 0});
+  const [state, setState] = useState(() => ({value: parse(new URLSearchParams(search)), observed: search, written: search, navigation: 0}));
   const external = state.observed !== search && state.written !== search;
   const value = external ? parse(new URLSearchParams(search)) : state.value;
   const navigation = state.navigation + Number(external);

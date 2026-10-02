@@ -152,9 +152,9 @@ function SaveGameGroup({
   </section>;
 }
 
-export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[]; nowMs: number; initialFilters?: Partial<SaveFilters> }) {
+export function SaveManager({ saves, nowMs }: { saves: SaveItem[]; nowMs: number }) {
   const [items, setItems] = useState(saves);
-  const [filters, setFilters] = useURLFilters<SaveFilters>({query:"", gameId:"", availability:"AVAILABLE", sort:"CREATED_DESC", ...initialFilters}, saveURLFilters, saveURLQuery);
+  const [filters, setFilters] = useURLFilters(saveURLFilters, saveURLQuery);
   const {query, gameId, availability, sort} = filters;
   const setQuery = (query: string) => setFilters(current => ({...current, query}));
   const setGameId = (gameId: string) => setFilters(current => ({...current, gameId}));

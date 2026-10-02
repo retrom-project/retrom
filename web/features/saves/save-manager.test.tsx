@@ -139,7 +139,8 @@ describe("SaveManager", () => {
   });
 
   it("shows availability details only for blocked saves", () => {
-    render(<SaveManager saves={[makeSave({ availability: { status: "BLOCKED", reasons: [{ logicalName: "neogeo.zip" }] } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />, { wrapper: ToastProvider });
+    window.history.replaceState({}, "", "/saves?availability=ALL");
+    render(<SaveManager saves={[makeSave({ availability: { status: "BLOCKED", reasons: [{ logicalName: "neogeo.zip" }] } })]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(screen.getAllByText("当前不可用").length).toBeGreaterThan(0);
     expect(screen.getByRole("alert")).toHaveTextContent("neogeo.zip 当前不可用");
@@ -147,9 +148,10 @@ describe("SaveManager", () => {
   });
 
   it("explains that an incompatible runtime save is retained but cannot be restored", () => {
+    window.history.replaceState({}, "", "/saves?availability=ALL");
     render(<SaveManager saves={[makeSave({ availability: {
       status: "BLOCKED", reasons: [{ code: "SAVE_RUNTIME_INCOMPATIBLE" }],
-    } })]} nowMs={nowMs} initialFilters={{ availability: "ALL" }} />, { wrapper: ToastProvider });
+    } })]} nowMs={nowMs} />, { wrapper: ToastProvider });
 
     expect(screen.getByRole("alert")).toHaveTextContent("旧版运行时存档已保留，但当前版本无法恢复");
     expect(screen.getByRole("button", { name: "当前不可继续" })).toBeDisabled();

@@ -55,3 +55,38 @@ test("ACC-UI-001 document bootstrap never cancels an error based on a DevTools-s
   });
   expect(observation).toEqual({ accepted: true, reachedListener: true, defaultPrevented: false });
 });
+
+test("ACC-UI-001 library favorites and saves restore filters on cached Back and Forward navigation", async ({page}) => {
+  test.setTimeout(90_000);
+  for (const scenario of [
+    {route: "/library", search: "搜索游戏", sort: "排列顺序", value: "TITLE_ASC"},
+    {route: "/favorites", search: "搜索收藏", sort: "排序方式", value: "TITLE_ASC"},
+    {route: "/saves", search: "搜索", sort: "排列", value: "CREATED_ASC"},
+  ]) {
+    await page.goto(scenario.route);
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const search = page.getByRole("searchbox", {name: scenario.search, exact: true});
+    const sort = page.getByRole("combobox", {name: scenario.sort, exact: true});
+    await search.fill("old-query");
+    await search.fill("latest-query");
+    await sort.selectOption(scenario.value);
+    await expect(page).toHaveURL(/q=latest-query/);
+    await expect(page).toHaveURL(new RegExp(`sort=${scenario.value}`));
+    const filteredURL = page.url();
+    await page.getByRole("navigation", {name: "主要导航"}).getByRole("link", {name: "首页", exact: true}).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goBack();
+    await expect(page).toHaveURL(filteredURL);
+    await expect(search).toHaveValue("latest-query");
+    await expect(sort).toHaveValue(scenario.value);
+    // Wait beyond both feature debounces: a stale effect must not rewrite Back.
+    await page.waitForTimeout(400);
+    await expect(page).toHaveURL(filteredURL);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goBack();
+    await expect(search).toHaveValue("latest-query");
+    await expect(sort).toHaveValue(scenario.value);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
+  }
+});

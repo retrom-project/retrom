@@ -53,6 +53,7 @@ describe("FavoriteBrowser", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it("hides card tags and collapses navigation without losing the selected folder", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     const initialPage = page();
     initialPage.items[0]!.tags = [{ tagId: "tag", name: "掌机精选" }];
     render(<FavoriteBrowser initialPage={initialPage} initialQuery={{ ...query, scope: "FOLDER", folderId }} />);
@@ -74,9 +75,11 @@ describe("FavoriteBrowser", () => {
     expect(screen.getByRole("link", { name: "前往游戏库" })).toHaveAttribute("href", "/library");
     emptyView.unmount();
 
+    window.history.replaceState({}, "", "/favorites?q=missing");
     const filteredView = render(<FavoriteBrowser initialPage={page({ totalCount: 0, items: [] })} initialQuery={{ ...query, q: "missing" }} />);
     expect(screen.getByRole("heading", { name: "没有匹配的收藏" })).toBeInTheDocument();
     filteredView.unmount();
+    window.history.replaceState({}, "", "/favorites");
 
     auth.fetch.mockResolvedValue(json(page()));
     render(<FavoriteBrowser initialPage={null} initialQuery={query} initialError="收藏读取失败" />);
@@ -86,6 +89,7 @@ describe("FavoriteBrowser", () => {
   });
 
   it("persists URL filters and exposes folder-specific batch removal", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     const folderQuery: FavoriteQuery = { ...query, scope: "FOLDER", folderId };
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).endsWith("/organize")) {return json({ items: [] });}
@@ -145,6 +149,7 @@ describe("FavoriteBrowser", () => {
   });
 
   it("keeps a failed folder deletion visible and retryable in the confirmation dialog", async () => {
+    window.history.replaceState({}, "", `/favorites?scope=FOLDER&folderId=${folderId}`);
     auth.fetch.mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {return json({ error: { code: "RESOURCE_VERSION_CONFLICT", message: "收藏夹已被修改" } }, 412);}
       return json(page());
