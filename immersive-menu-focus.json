@@ -1,0 +1,34 @@
+{
+  "open": {
+    "url": "/play/01a0fe1c-2d68-7b97-8f52-49bbbf9b9e33",
+    "focus": "IFRAME"
+  },
+  "escapeClosed": false,
+  "afterEscape": "游戏已暂停\n\n游戏菜单\n\n可以在这里创建存档；退出游戏不会自动保存当前进度。\n\n取消\n创建存档\n退出游戏\nA 确认 · B 取消",
+  "selectionBefore": [
+    "取消"
+  ],
+  "selectionAfter": [
+    "取消"
+  ],
+  "frames": [
+    {
+      "path": "/play/01a0fe1c-2d68-7b97-8f52-49bbbf9b9e33",
+      "keys": [],
+      "focus": true,
+      "active": "IFRAME"
+    },
+    {
+      "path": "blank",
+      "keys": [
+        "m",
+        "Escape",
+        "ArrowRight"
+      ],
+      "focus": true,
+      "active": "DIV"
+    }
+  ],
+  "clickCancelClosed": true,
+  "exitDestination": "/immersive/library/all"
+}
