@@ -64,5 +64,5 @@ export async function createOrdinaryImport(page: Page, headers: Record<string, s
   const {importJobId} = await imported.json() as {importJobId: string};
   const detail = await page.request.get(`/api/v1/admin/imports/${importJobId}`);
   expect(detail.ok()).toBe(true);
-  return await detail.json() as {id: string; createdAtMs: number};
+  return await detail.json() as {importJobId: string; createdAtMs: number};
 }
