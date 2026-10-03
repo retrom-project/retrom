@@ -1653,6 +1653,33 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-player-emulator-rendering select { width: 126px; min-height: 34px; padding: 0 25px 0 9px; color: #e4e8ef; border: 1px solid #394355; border-radius: var(--radius-control); background: #171e2a; font-size: var(--text-caption); }
     #retrom-ui-review .rt-player-emulator-volume { display: flex; align-items: center; gap: 5px; }
     #retrom-ui-review .rt-player-emulator-volume input { width: 84px; accent-color: #8b7bf1; }
+    #retrom-ui-review .rt-player-emulator-audio { display: flex; align-items: center; gap: 5px; }
+    #retrom-ui-review .rt-settings-heading, #retrom-ui-review .rt-settings-advanced-toggle { display: none; }
+    #retrom-ui-review .rt-player-emulator-volume output { font-size: var(--text-caption); }
+    #retrom-ui-review .rt-native-settings[hidden] { display: none; }
+    #retrom-ui-review .rt-native-settings { position: absolute; z-index: 25; inset: 0; background: rgb(0 0 0 / .65); }
+    #retrom-ui-review .rt-native-settings nav { height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #111722; border-bottom: 1px solid #343d4f; }
+    #retrom-ui-review .rt-native-settings nav button { min-height: 44px; padding: 0 12px; }
+    #retrom-ui-review .rt-native-settings nav button:last-child { margin-left: auto; }
+    #retrom-ui-review .rt-native-panel { position: absolute; right: 5%; bottom: 52px; width: min(280px, 85vw); padding: 16px; border: 1px solid #343d4f; border-radius: var(--radius-panel); background: #171e2a; }
+    #retrom-ui-review .rt-native-panel label { display: grid; gap: 8px; margin-top: 12px; }
+    @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+      #retrom-ui-review .rt-player-emulator-controls { z-index: 24; inset: 0 0 0 auto; width: min(300px, 100vw); height: 100dvh; padding: calc(10px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)); flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 12px; border-radius: 0; overflow-y: auto; transform: translateX(100%); }
+      #retrom-ui-review .rt-player-emulator-controls.is-open { transform: none; }
+      #retrom-ui-review .rt-settings-heading { display: flex; align-items: center; justify-content: space-between; }
+      #retrom-ui-review .rt-player-emulator-controls button { min-height: 44px; }
+      #retrom-ui-review .rt-player-emulator-rendering { min-height: 44px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+      #retrom-ui-review .rt-player-emulator-rendering select { width: 100%; }
+      #retrom-ui-review .rt-player-emulator-volume { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+      #retrom-ui-review .rt-player-emulator-volume input { width: 100%; min-width: 0; min-height: 44px; }
+      #retrom-ui-review .rt-player-emulator-label { margin: 0; }
+      #retrom-ui-review .rt-player-emulator-advanced { padding-top: 4px; border-top: 1px solid #343d4f; }
+      #retrom-ui-review .rt-settings-advanced-toggle { width: 100%; display: flex; }
+      #retrom-ui-review .rt-settings-advanced-toggle span { margin-left: auto; }
+      #retrom-ui-review .rt-player-emulator-group { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+      #retrom-ui-review .rt-player-emulator-advanced.is-expanded .rt-player-emulator-group { display: grid; }
+      #retrom-ui-review .rt-player-emulator-controls .rt-settings-controls, #retrom-ui-review .rt-settings-desktop-close { display: none; }
+    }
     #retrom-ui-review .rt-player-pause-overlay { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 22%); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease; }
     #retrom-ui-review .rt-player-pause-overlay.is-open { opacity: 1; visibility: visible; }
     #retrom-ui-review .rt-player-pause-pill { min-width: 150px; padding: 18px 24px; display: grid; justify-items: center; gap: 7px; border: 1px solid #343d4f; border-radius: var(--radius-panel); background: rgb(17 23 34 / 88%); box-shadow: 0 18px 48px rgb(0 0 0 / 35%); }
@@ -2470,6 +2497,11 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       #retrom-ui-review .rt-phone-links button { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--retrom-line); color: var(--retrom-text); background: transparent; font-size: var(--text-body); text-align: left; }
       #retrom-ui-review .rt-phone-links button:last-child { border-bottom: 0; }
     }
+    @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+      #retrom-ui-review .rt-app.is-playing .rt-player-debug-toggle,
+      #retrom-ui-review .rt-player-debug { display: none; }
+    }
+
     @media (min-width: 480px) and (max-width: 767px), (pointer: coarse) and (min-width: 480px) and (max-width: 1023px) and (max-height: 767px) {
       #retrom-ui-review .rt-phone-games, #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
     }
@@ -3124,7 +3156,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;detail&quot;&gt;
         &lt;div class=&quot;rt-phone-launch&quot;&gt;&lt;button type=&quot;button&quot; data-phone-options=&quot;&quot;&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;&lt;span&gt;启动选项&lt;/span&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-current-save=&quot;&quot;&gt;从存档继续&lt;/button&gt;&lt;/div&gt;
-        &lt;dialog class=&quot;rt-phone-option-dialog&quot; data-phone-option-dialog=&quot;&quot; aria-label=&quot;启动选项&quot;&gt;&lt;h2&gt;启动选项&lt;/h2&gt;&lt;label class=&quot;rt-field&quot; data-content-loading=&quot;&quot; hidden=&quot;&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;内容加载&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;按需加载&lt;/option&gt;&lt;option&gt;下载完成后开始&lt;/option&gt;&lt;/select&gt;&lt;small&gt;偏好保存在当前设备，已缓存的内容会直接复用。&lt;/small&gt;&lt;/label&gt;&lt;label&gt;运行方式&lt;select class=&quot;rt-select&quot; data-phone-core=&quot;&quot;&gt;&lt;option&gt;FBNeo · 推荐&lt;/option&gt;&lt;option&gt;MAME 2003 Plus · 可选&lt;/option&gt;&lt;option&gt;MAME 2003 · 开始时检查&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;p&gt;从头开始不会删除已有存档。&lt;/p&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-phone-close-options=&quot;&quot;&gt;关闭&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-game=&quot;&quot;&gt;从头开始&lt;/button&gt;&lt;/div&gt;&lt;/dialog&gt;
+        &lt;dialog class=&quot;rt-phone-option-dialog&quot; data-phone-option-dialog=&quot;&quot; aria-label=&quot;启动选项&quot;&gt;&lt;h2&gt;启动选项&lt;/h2&gt;&lt;label class=&quot;rt-field&quot; data-content-loading=&quot;&quot; hidden=&quot;&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;内容加载&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;按需加载&lt;/option&gt;&lt;option&gt;下载完成后开始&lt;/option&gt;&lt;/select&gt;&lt;small&gt;偏好保存在当前设备，已缓存的内容会直接复用。&lt;/small&gt;&lt;/label&gt;&lt;label&gt;运行方式&lt;select class=&quot;rt-select&quot; data-phone-core=&quot;&quot;&gt;&lt;option&gt;FBNeo&lt;/option&gt;&lt;option&gt;MAME 2003 Plus&lt;/option&gt;&lt;option&gt;MAME 2003&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;p&gt;从头开始不会删除已有存档。&lt;/p&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-phone-close-options=&quot;&quot;&gt;关闭&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-game=&quot;&quot;&gt;从头开始&lt;/button&gt;&lt;/div&gt;&lt;/dialog&gt;
         &lt;div class=&quot;rt-detail-content&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-detail-breadcrumb&quot; data-page-link=&quot;library&quot;&gt;返回游戏库&lt;/button&gt;&lt;div class=&quot;rt-detail-hero has-preview&quot;&gt;
           &lt;div class=&quot;rt-detail-poster-shell&quot;&gt;&lt;div class=&quot;rt-cover rt-cover-b rt-detail-cover&quot; id=&quot;rt-detail-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot; id=&quot;rt-detail-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-detail-copy&quot;&gt;
@@ -3206,7 +3238,14 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           &lt;/div&gt;
           &lt;aside class=&quot;rt-player-debug&quot; id=&quot;rt-player-debug-panel&quot; aria-label=&quot;运行调试信息&quot; aria-hidden=&quot;true&quot;&gt;&lt;header&gt;&lt;div&gt;&lt;span&gt;实时运行诊断&lt;/span&gt;&lt;h2&gt;调试信息&lt;/h2&gt;&lt;/div&gt;&lt;/header&gt;&lt;section&gt;&lt;h3&gt;输入诊断&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;键盘焦点&lt;/dt&gt;&lt;dd&gt;游戏画布&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;按键观测&lt;/dt&gt;&lt;dd&gt;已开启&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;手柄取样观测&lt;/dt&gt;&lt;dd&gt;已开启&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心读取回执&lt;/dt&gt;&lt;dd&gt;未接入&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;p style=&quot;font-size:12px;color:#c7f5de&quot;&gt;手柄 0 · Button 0 按下&lt;/p&gt;&lt;p style=&quot;font-size:12px&quot;&gt;手柄 · Button 0 松开 → MouseLeft · 已投递 · 126 ms&lt;/p&gt;&lt;p style=&quot;font-size:11px;line-height:1.6&quot;&gt;已投递仅确认画布事件或输入接口调用，不代表游戏执行了动作。手柄仅观察运行时已有的取样；未显示不等于按键未按下。&lt;/p&gt;&lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;button type=&quot;button&quot; style=&quot;pointer-events:auto&quot; data-design-copy-input&gt;复制记录&lt;/button&gt;&lt;button type=&quot;button&quot; style=&quot;pointer-events:auto&quot; data-design-clear-input&gt;清空记录&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;实时&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;画面呈现率&lt;/dt&gt;&lt;dd&gt;59.9 FPS&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心帧计数&lt;/dt&gt;&lt;dd&gt;4,210&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;运行状态&lt;/dt&gt;&lt;dd&gt;运行中&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;游戏分辨率&lt;/dt&gt;&lt;dd&gt;704 × 480&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;p style=&quot;margin:10px 0 0;color:#929cad;font-size:11px;line-height:1.6&quot;&gt;按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。&lt;/p&gt;&lt;/section&gt;&lt;details style=&quot;padding:0 14px 12px&quot;&gt;&lt;summary style=&quot;pointer-events:auto;padding:8px 0;font-size:11px&quot;&gt;运行环境与显示&lt;/summary&gt;&lt;section&gt;&lt;h3&gt;运行环境&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;Core&lt;/dt&gt;&lt;dd&gt;Yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Provider&lt;/dt&gt;&lt;dd&gt;emulatorjs 1.0.0&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Target&lt;/dt&gt;&lt;dd&gt;yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;输入模式&lt;/dt&gt;&lt;dd&gt;STANDARD&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;隔离能力&lt;/dt&gt;&lt;dd&gt;COOP/COEP + SAB&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player 模式&lt;/dt&gt;&lt;dd&gt;单机&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;显示&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;视口&lt;/dt&gt;&lt;dd&gt;2560 × 1440&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;像素比&lt;/dt&gt;&lt;dd&gt;1.00&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;光盘&lt;/dt&gt;&lt;dd&gt;2 / 3&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;/details&gt;&lt;/aside&gt;
           &lt;div class=&quot;rt-player-pause-overlay&quot; id=&quot;rt-player-pause-overlay&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-pause-pill&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;strong&gt;已暂停&lt;/strong&gt;&lt;small&gt;点击游戏画面继续&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
-          &lt;div class=&quot;rt-player-emulator-controls&quot; id=&quot;rt-player-emulator-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;模拟器&lt;/span&gt;&lt;button type=&quot;button&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;控制&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;▤ 显示&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;⚙ Core 设置&lt;/button&gt;&lt;/div&gt;&lt;label class=&quot;rt-player-emulator-rendering&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;画面&lt;/span&gt;&lt;select aria-label=&quot;画面模式&quot;&gt;&lt;option&gt;清晰增强&lt;/option&gt;&lt;option selected&gt;锐利像素&lt;/option&gt;&lt;option&gt;增强锐化&lt;/option&gt;&lt;option&gt;平滑增强&lt;/option&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;label class=&quot;rt-player-emulator-volume&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;音量&lt;/span&gt;&lt;input type=&quot;range&quot; min=&quot;0&quot; max=&quot;100&quot; value=&quot;72&quot; aria-label=&quot;模拟器音量&quot;&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; aria-label=&quot;静音&quot;&gt;🔊&lt;/button&gt;&lt;button type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-player-emulator-controls&quot; id=&quot;rt-player-emulator-controls&quot; aria-hidden=&quot;true&quot;&gt;
+            &lt;header class=&quot;rt-settings-heading&quot;&gt;&lt;strong&gt;模拟器设置&lt;/strong&gt;&lt;button type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;&lt;/header&gt;
+            &lt;label class=&quot;rt-player-emulator-rendering&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;画面&lt;/span&gt;&lt;select aria-label=&quot;画面模式&quot;&gt;&lt;option&gt;清晰增强&lt;/option&gt;&lt;option selected&gt;锐利像素&lt;/option&gt;&lt;option&gt;增强锐化&lt;/option&gt;&lt;option&gt;平滑增强&lt;/option&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
+            &lt;div class=&quot;rt-player-emulator-audio&quot;&gt;&lt;label class=&quot;rt-player-emulator-volume&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;音量&lt;/span&gt;&lt;input type=&quot;range&quot; min=&quot;0&quot; max=&quot;100&quot; value=&quot;72&quot; aria-label=&quot;模拟器音量&quot;&gt;&lt;output&gt;72%&lt;/output&gt;&lt;/label&gt;&lt;button type=&quot;button&quot;&gt;静音&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-player-emulator-advanced&quot;&gt;&lt;button class=&quot;rt-settings-advanced-toggle&quot; type=&quot;button&quot; aria-expanded=&quot;false&quot;&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;高级设置&lt;span&gt;+&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;button class=&quot;rt-settings-controls&quot; type=&quot;button&quot; data-native-panel=&quot;控制&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot;&gt;&lt;/i&gt;控制&lt;/button&gt;&lt;button type=&quot;button&quot; data-native-panel=&quot;显示&quot;&gt;&lt;i data-lucide=&quot;maximize&quot;&gt;&lt;/i&gt;显示&lt;/button&gt;&lt;button type=&quot;button&quot; data-native-panel=&quot;Core 设置&quot;&gt;&lt;i data-lucide=&quot;cpu&quot;&gt;&lt;/i&gt;Core 设置&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;button class=&quot;rt-settings-desktop-close&quot; type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;rt-native-settings&quot; hidden&gt;&lt;nav&gt;&lt;button type=&quot;button&quot; data-native-back&gt;&lt;i data-lucide=&quot;arrow-left&quot;&gt;&lt;/i&gt;返回设置&lt;/button&gt;&lt;strong data-native-title&gt;显示&lt;/strong&gt;&lt;button type=&quot;button&quot; data-native-close aria-label=&quot;关闭模拟器设置&quot;&gt;&lt;i data-lucide=&quot;x&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/nav&gt;&lt;section class=&quot;rt-native-panel&quot;&gt;&lt;h3 data-native-heading&gt;Graphics Settings&lt;/h3&gt;&lt;label&gt;着色器&lt;select&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;option&gt;锐利像素&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/section&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-hint&quot;&gt;移到屏幕顶部显示 Retrom 控制&lt;/div&gt;
           &lt;span class=&quot;rt-player-stage-state&quot; id=&quot;rt-player-stage-state&quot;&gt;一次点击后已自动运行&lt;/span&gt;
           &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;
@@ -4468,7 +4507,28 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         favoritePopover.hidden = false;
         favoritePopover.querySelector('input[type=&quot;search&quot;]').focus();
       }));
+      const cardActions = document.createElement('dialog');
+      cardActions.className = 'rt-phone-option-dialog';
+      cardActions.innerHTML = '&lt;h2&gt;更多操作&lt;/h2&gt;&lt;div class=&quot;rt-dialog-actions&quot; style=&quot;display:grid&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-card-detail&gt;查看游戏详情&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-card-saves&gt;查看相关存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-card-folders&gt;管理收藏夹&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-card-close&gt;关闭&lt;/button&gt;&lt;/div&gt;';
+      root.append(cardActions);
+      let cardActionTrigger = null;
+      cardActions.addEventListener('close', () =&gt; cardActionTrigger?.focus());
+      cardActions.querySelector('[data-card-close]').addEventListener('click', () =&gt; cardActions.close());
+      cardActions.querySelector('[data-card-detail]').addEventListener('click', () =&gt; {
+        cardActions.close(); cardActionTrigger.closest('[data-library-card]').querySelector('[data-open-game]').click();
+      });
+      cardActions.querySelector('[data-card-saves]').addEventListener('click', () =&gt; {cardActions.close(); showPage('saves');});
+      cardActions.querySelector('[data-card-folders]').addEventListener('click', () =&gt; {
+        cardActions.close(); showPage('favorites');
+        favoritePopover.querySelector('.rt-subtitle').textContent = cardActionTrigger.dataset.openSharedFavoriteManager;
+        favoritePopover.hidden = false; favoritePopover.querySelector('input[type=&quot;search&quot;]').focus();
+      });
       root.querySelectorAll('[data-open-shared-favorite-manager]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        if (phoneQuery.matches) {
+          cardActionTrigger = button;
+          cardActions.querySelector('h2').textContent = `游戏“${button.dataset.openSharedFavoriteManager}”的更多操作`;
+          cardActions.showModal(); return;
+        }
         showPage('favorites');
         favoritePopover.querySelector('.rt-subtitle').textContent = button.dataset.openSharedFavoriteManager;
         favoritePopover.hidden = false;
@@ -4756,11 +4816,28 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         controls.classList.add('is-open');
         controls.setAttribute('aria-hidden', 'false');
       });
-      root.querySelector('[data-close-emulator-controls]').addEventListener('click', () =&gt; {
+      root.querySelectorAll('[data-close-emulator-controls]').forEach(button =&gt; button.addEventListener('click', () =&gt; {
         const controls = root.querySelector('#rt-player-emulator-controls');
         controls.classList.remove('is-open');
         controls.setAttribute('aria-hidden', 'true');
+      }));
+      root.querySelector('.rt-settings-advanced-toggle').addEventListener('click', event =&gt; {
+        const button = event.currentTarget;
+        const open = button.parentElement.classList.toggle('is-expanded');
+        button.setAttribute('aria-expanded', String(open));
+        button.querySelector('span').textContent = open ? '−' : '+';
       });
+      root.querySelectorAll('[data-native-panel]').forEach(button =&gt; button.addEventListener('click', () =&gt; {
+        root.querySelector('#rt-player-emulator-controls').classList.remove('is-open');
+        root.querySelector('.rt-native-settings').hidden = false;
+        root.querySelector('[data-native-title]').textContent = button.dataset.nativePanel;
+        root.querySelector('[data-native-heading]').textContent = button.dataset.nativePanel === '显示' ? 'Graphics Settings' : button.dataset.nativePanel;
+      }));
+      root.querySelector('[data-native-back]').addEventListener('click', () =&gt; {
+        root.querySelector('.rt-native-settings').hidden = true;
+        root.querySelector('#rt-player-emulator-controls').classList.add('is-open');
+      });
+      root.querySelector('[data-native-close]').addEventListener('click', () =&gt; {root.querySelector('.rt-native-settings').hidden = true;});
       const playerExitDialog = root.querySelector('[data-player-exit-dialog]');
       root.querySelectorAll('[data-player-exit]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
         root.querySelector('#rt-player-menu').classList.remove('is-open');

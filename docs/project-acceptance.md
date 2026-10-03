@@ -1418,7 +1418,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-003`。
 - 前置：通过正常 Upload/Import/Review 发布项目自有公开 GBA smoke，沿用 `http-flow.sh` 的 Sudoku 游戏；不得用伪造 Launch 或业务 handler 代替用户流程。
-- 流程：首页搜索 Sudoku，收藏、应用排序、刷新恢复 query，进入详情、阅读完整简介与打开启动选项；从头开始经过竖屏门禁后横屏运行，退出对话框创建真实手动存档并退出，再由手机首页恢复该存档并返回首页。
+- 流程：首页搜索 Sudoku，收藏、应用排序、刷新恢复 query，打开卡片更多操作，确认 Sheet 与遮罩覆盖收藏图标并可进入收藏夹选择器、关闭返回焦点；进入详情、阅读完整简介与打开启动选项，运行方式选项只包含核心名；从头开始经过竖屏门禁后横屏运行，退出对话框创建真实手动存档并退出，再由手机首页恢复该存档并返回首页。
 - 通过标准：从头开始 `saveStateId=null`，手动存档返回 201；首页恢复精确绑定该 `saveStateId` 和 `returnTo=/`，两次 Player 均装载真实核心 canvas，关闭后回到正确来源。简介默认完整显示并可在固定高度区域内滚动、运行方式仍可选；原有存档、收藏权限/确认语义不变，DOS 程序选项由启动控件回归覆盖。
 - 证据：HTTP 请求/响应、真实 canvas、启动 Sheet/首页继续截图与 `launch-controls.test.tsx`。
 
@@ -1438,9 +1438,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 ### ACC-MOB-006：Player 多盘状态
 
-- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
-- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet 并用确定性多盘夹具完成一次换盘；以聚焦 Player reducer/adapter 测试驱动方向门禁、暂停和本地输入状态。
-- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。仅图标布局的“调试信息”和“创建存档”图标中心与按钮中心误差小于 1px；方向触控为圆形，拖动覆盖四向、斜向、松手及取消，A/B/Start 等按钮布局与映射保留。暂停与恢复只作用于当前运行会话。
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。 EmulatorJS adapter 尚未发布时，可在已导入同一公开夹具且健康的 PFB 上运行等价浏览器命令：`RETROM_WEB_ORIGIN=<pfb-origin> RETROM_CHROME_EXECUTABLE=<pinned-chrome> timeout 180s web/node_modules/.bin/playwright test -c web/playwright.config.ts web/e2e/mobile.spec.ts --project=chrome-mobile --grep ACC-MOB-006`；先选择该 PFB 的 `emulatorjs` loose Provider，核对模块摘要，记录截图/JSON 报告并运行本 Case 登记的聚焦单元与 Provider 回归。
+- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet 并用确定性多盘夹具完成一次换盘；同时逐尺寸打开紧凑模拟器设置，经高级设置进入 Core/显示面板、点击原生返回项、返回宿主设置并关闭；以聚焦 Player reducer/adapter 测试驱动方向门禁、暂停和本地输入状态。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。移动 Player 的“调试信息”按钮和面板均不挂载，“更多”无诊断入口；仅图标布局的“创建存档”图标中心与按钮中心误差小于 1px；方向触控为圆形，拖动覆盖四向、斜向、松手及取消，A/B/Start 等按钮布局与映射保留。模拟器设置侧栏宽不超过 320px，音量/画面无溢出；默认不显示控制，高级项初始折叠；原生面板不仅可见，其命中点必须穿过宿主层到达 iframe，原生面板完整位于 iframe 内，虚拟手柄在设置期间隐藏、关闭后恢复；返回/关闭不推进核心帧，显式继续后恢复帧计数。能力缺失、手柄连接/断开、打开/关闭失败与重复点击由组件回归覆盖。暂停与恢复只作用于当前运行会话。
 - 证据：四 viewport 尺寸/命中断言、DOM/network trace 与 pause/input 状态测试输出。
 
 ### ACC-MOB-007：可访问性与视觉回归

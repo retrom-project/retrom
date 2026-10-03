@@ -1,11 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameGrid, type GameSummary } from "./game-grid";
 
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: vi.fn() }) }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const game: GameSummary = {
   gameId: "01980000-0000-7000-8000-000000000001",
@@ -67,4 +67,26 @@ describe("GameGrid", () => {
     render(<GameGrid games={[{ ...game, status: "DELETED", coverUrl: null }]} nowMs={new Date(2026, 7, 8, 12).getTime()} />);
     expect(screen.getByLabelText("游戏当前不可见")).toBeInTheDocument();
   });
+});
+
+
+it("opens phone card actions outside cards and restores focus when dismissed", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn()})));
+  const user = userEvent.setup();
+  render(<GameGrid games={[game]} nowMs={0} />);
+  const trigger = screen.getByRole("button", {name: "游戏“Metroid”的更多操作"});
+  await user.click(trigger);
+  const sheet = screen.getByRole("dialog", {name: "游戏“Metroid”的更多操作"});
+  expect(sheet.closest(".library-game-card")).toBeNull();
+  expect(within(sheet).getByRole("link", {name: "查看游戏详情"})).toHaveAttribute("href", `/games/${game.gameId}`);
+  expect(within(sheet).getByRole("link", {name: "查看相关存档"})).toHaveAttribute("href", `/saves?gameId=${game.gameId}`);
+  fireEvent.pointerDown(within(sheet).getByRole("button", {name: "管理收藏夹"}));
+  expect(sheet).toBeInTheDocument();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+  await user.click(trigger);
+  await user.click(document.querySelector<HTMLButtonElement>(".responsive-sheet-backdrop")!);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
 });

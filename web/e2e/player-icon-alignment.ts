@@ -1,7 +1,9 @@
 import {expect, type Page} from "@playwright/test";
 
 export async function expectPlayerIconsCentered(page: Page) {
-  for (const name of ["调试信息", "创建存档"]) {
+  await expect(page.getByRole("button", {name: "调试信息"})).toHaveCount(0);
+  await expect(page.locator("#player-debug-panel")).toHaveCount(0);
+  for (const name of ["创建存档"]) {
     const button = page.getByRole("button", {name, exact: true});
     await expect(button).toBeVisible();
     // Read both boxes in one frame while the toolbar reveal animation is running.
