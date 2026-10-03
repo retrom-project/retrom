@@ -114,6 +114,8 @@ Parent ROM 补传准备新目录时必须保留每个文件的旧→新记录映
 
 重复内容采用两个阶段约束。内容身份固定为“基础 `platform_id` + Item 当前全部 source file 的 `(role, Blob SHA-256, occurrence count)` 规范排序摘要”，不包含上传任务、文件名、逻辑名、ZIP/7z wrapper 名或目标 PlatformInstance；因此同一平台内改名或换 archive wrapper 不能绕过判断，不同基础平台不互相误判。识别阶段在 SourceFile 已闭合、内容观察、ReviewDraft 与刮削尚未创建时，查询是否已有 `PUBLISHED`（即未软删除）Game 的 current GameFiles 使用完全相同内容身份：命中则把 Item 原子转为 `DISCARDED`，记录全部已有 Game/当时 GameFiles 的不可变匹配证据，并把任务计数投影为“已导入并跳过”；不会创建待审核条目或重复游戏。底层 ImportJobFile 仍为可追溯的 `SOURCE`，详情 API 仅将参与该匹配的上传文件投影为 `ALREADY_IMPORTED`。
 
+重复候选查询先物化同基础平台内当前已发布 Game，之后只计算一次输入的文件多重集，以数量预筛并执行双向精确差集；多盘按 DISC 顺序比较且忽略来源 playlist wrapper。使用已有 Game/来源文件索引，不对其他平台反复展开输入，不增加跨模块摘要投影或缓存。内容替换、Parent 补传、目录变化和删除均直接反映当前事实。
+
 审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 SQLite 写事务，单写者下并发首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
 
 ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。

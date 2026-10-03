@@ -16,7 +16,7 @@ func (records *ContentDuplicates) PublishedMatches(
 	if query.ContentKind == "MULTI_DISC" {
 		statement = orderedDuplicateQuery
 	}
-	rows, err := records.executor.QueryContext(ctx, statement, query.PlatformID, query.SnapshotID, query.SnapshotID)
+	rows, err := records.executor.QueryContext(ctx, statement, query.PlatformID, query.SnapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query published duplicates: %w", err)
 	}
@@ -35,60 +35,50 @@ func (records *ContentDuplicates) PublishedMatches(
 	return result, nil
 }
 
-const unorderedDuplicateQuery = `
-SELECT game.id,game.title,instance.id,instance.name FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-WHERE game.status='PUBLISHED' AND instance.platform_id=?
+// Materializing the platform candidates prevents SQLite from running correlated
+// content comparisons before the platform predicate. The incoming multiset is
+// also computed once, not once for every published game.
+const duplicateCandidates = `
+WITH candidates AS MATERIALIZED (
+ SELECT game.id,game.title,game.created_at_ms,game.content_kind,instance.id AS instance_id,instance.name AS instance_name
+ FROM platform_instances instance JOIN games game ON game.platform_instance_id=instance.id
+ WHERE instance.platform_id=? AND game.status='PUBLISHED'
+), incoming AS MATERIALIZED (`
+
+const unorderedDuplicateQuery = duplicateCandidates + `
+ SELECT role,json_extract(file_record,'$.sha256') AS sha256,count(*) AS file_count
+ FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
+ GROUP BY role,json_extract(file_record,'$.sha256')
+)
+SELECT game.id,game.title,game.instance_id,game.instance_name FROM candidates game
+WHERE (SELECT count(*) FROM game_files WHERE game_id=game.id)=(SELECT coalesce(sum(file_count),0) FROM incoming)
 AND NOT EXISTS(
- SELECT 1 FROM (
-  SELECT existing.role,json_extract(existing_file.value, '$.sha256'),count(*) AS file_count FROM
-game_files existing
-  JOIN json_each(json_array(existing.file_record)) existing_file ON existing_file.value IS NOT NULL
-  WHERE existing.game_id=game.id GROUP BY existing.role,json_extract(existing_file.value, '$.sha256')
-  EXCEPT
-  SELECT incoming.role,json_extract(incoming_file.value, '$.sha256'),count(*) AS file_count FROM
-import_item_source_snapshot_files incoming
-  JOIN json_each(json_array(incoming.file_record)) incoming_file ON incoming_file.value IS NOT NULL
-  WHERE incoming.source_snapshot_id=? GROUP BY incoming.role,json_extract(incoming_file.value, '$.sha256')
- ) existing_difference
+ SELECT role,json_extract(file_record,'$.sha256'),count(*) FROM game_files WHERE game_id=game.id
+ GROUP BY role,json_extract(file_record,'$.sha256')
+ EXCEPT SELECT role,sha256,file_count FROM incoming
 )
 AND NOT EXISTS(
- SELECT 1 FROM (
-  SELECT incoming.role,json_extract(incoming_file.value, '$.sha256'),count(*) AS file_count FROM
-import_item_source_snapshot_files incoming
-  JOIN json_each(json_array(incoming.file_record)) incoming_file ON incoming_file.value IS NOT NULL
-  WHERE incoming.source_snapshot_id=? GROUP BY incoming.role,json_extract(incoming_file.value, '$.sha256')
-  EXCEPT
-  SELECT existing.role,json_extract(existing_file.value, '$.sha256'),count(*) AS file_count FROM
-game_files existing
-  JOIN json_each(json_array(existing.file_record)) existing_file ON existing_file.value IS NOT NULL
-  WHERE existing.game_id=game.id GROUP BY existing.role,json_extract(existing_file.value, '$.sha256')
- ) incoming_difference
+ SELECT role,sha256,file_count FROM incoming
+ EXCEPT
+ SELECT role,json_extract(file_record,'$.sha256'),count(*) FROM game_files WHERE game_id=game.id
+ GROUP BY role,json_extract(file_record,'$.sha256')
 )
 ORDER BY game.created_at_ms,game.id`
 
-const orderedDuplicateQuery = `
-SELECT game.id,game.title,instance.id,instance.name FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-WHERE game.status='PUBLISHED' AND instance.platform_id=? AND game.content_kind='MULTI_DISC'
+const orderedDuplicateQuery = duplicateCandidates + `
+ SELECT sort_order,json_extract(file_record,'$.sha256') AS sha256
+ FROM import_item_source_snapshot_files WHERE source_snapshot_id=? AND role='DISC'
+)
+SELECT game.id,game.title,game.instance_id,game.instance_name FROM candidates game
+WHERE game.content_kind='MULTI_DISC'
+AND (SELECT count(*) FROM game_files WHERE game_id=game.id AND role='DISC')=(SELECT count(*) FROM incoming)
 AND NOT EXISTS(
- SELECT incoming.sort_order,json_extract(incoming_file.value, '$.sha256') FROM
-import_item_source_snapshot_files incoming
-  JOIN json_each(json_array(incoming.file_record)) incoming_file ON incoming_file.value IS NOT NULL
- WHERE incoming.source_snapshot_id=? AND incoming.role='DISC'
+ SELECT sort_order,sha256 FROM incoming
  EXCEPT
- SELECT existing.sort_order,json_extract(existing_file.value, '$.sha256') FROM game_files existing
-  JOIN json_each(json_array(existing.file_record)) existing_file ON existing_file.value IS NOT NULL
- WHERE existing.game_id=game.id AND existing.role='DISC'
+ SELECT sort_order,json_extract(file_record,'$.sha256') FROM game_files WHERE game_id=game.id AND role='DISC'
 )
 AND NOT EXISTS(
- SELECT existing.sort_order,json_extract(existing_file.value, '$.sha256') FROM game_files existing
-  JOIN json_each(json_array(existing.file_record)) existing_file ON existing_file.value IS NOT NULL
- WHERE existing.game_id=game.id AND existing.role='DISC'
- EXCEPT
- SELECT incoming.sort_order,json_extract(incoming_file.value, '$.sha256') FROM
-import_item_source_snapshot_files incoming
-  JOIN json_each(json_array(incoming.file_record)) incoming_file ON incoming_file.value IS NOT NULL
- WHERE incoming.source_snapshot_id=? AND incoming.role='DISC'
+ SELECT sort_order,json_extract(file_record,'$.sha256') FROM game_files WHERE game_id=game.id AND role='DISC'
+ EXCEPT SELECT sort_order,sha256 FROM incoming
 )
 ORDER BY game.created_at_ms,game.id`
