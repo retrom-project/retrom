@@ -205,11 +205,13 @@ export function useImmersivePlayer(params: Params) {
       filter.reset();
       closingGate.current.reset();
     };
+    // Focusing the game iframe blurs the host window while the document retains focus.
+    const blur = () => {if (!document.hasFocus()) {suspend();}};
     const visibility = () => {if (document.hidden) {suspend();}};
-    window.addEventListener("blur", suspend);
+    window.addEventListener("blur", blur);
     document.addEventListener("visibilitychange", visibility);
     return () => {
-      window.removeEventListener("blur", suspend);
+      window.removeEventListener("blur", blur);
       document.removeEventListener("visibilitychange", visibility);
       filter.setBlocked(true);
       filter.reset();

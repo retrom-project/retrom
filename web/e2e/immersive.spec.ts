@@ -461,6 +461,7 @@ test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", a
 });
 
 async function verifyKeyboardMenuFocus(page: Page) {
+  await setGamepadButtons(page, 0, []);
   const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   await canvas.click();
   await page.keyboard.press("m");
@@ -474,7 +475,8 @@ async function verifyKeyboardMenuFocus(page: Page) {
   await expect(menu.getByRole("button", {name: "取消"})).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
-  await expect(page.locator("iframe.player-frame")).toBeFocused();
+  await expect.poll(() => page.evaluate(() => ({tag: document.activeElement?.tagName,
+    className: document.activeElement?.className, hasFocus: document.hasFocus()}))).toEqual({tag: "IFRAME", className: "player-frame", hasFocus: true});
   const frame = await runtimeFrameCount(page);
   await page.keyboard.press("ArrowLeft");
   await expect.poll(() => runtimeFrameCount(page)).toBeGreaterThan(frame + 10);
@@ -482,7 +484,8 @@ async function verifyKeyboardMenuFocus(page: Page) {
   await expect(menu.getByRole("button", {name: "取消"})).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(menu).toBeHidden();
-  await expect(page.locator("iframe.player-frame")).toBeFocused();
+  await expect.poll(() => page.evaluate(() => ({tag: document.activeElement?.tagName,
+    className: document.activeElement?.className, hasFocus: document.hasFocus()}))).toEqual({tag: "IFRAME", className: "player-frame", hasFocus: true});
 }
 
 test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the active pad", async ({ page }, testInfo) => {

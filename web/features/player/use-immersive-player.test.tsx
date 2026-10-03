@@ -46,6 +46,17 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
+  it("keeps input active when host focus moves into the game iframe", () => {
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    const {result, unmount} = renderImmersivePlayer(vi.fn(async () => true));
+    expect(result.current.filter.getPolicy().suppressInput).toBe(false);
+    act(() => {window.dispatchEvent(new Event("blur"));});
+    expect(result.current.filter.getPolicy().suppressInput).toBe(false);
+    focus.mockReturnValue(false);
+    act(() => {window.dispatchEvent(new Event("blur"));});
+    expect(result.current.filter.getPolicy().suppressInput).toBe(true);
+    unmount();
+  });
   it("preserves a manual pause when the menu closes", async () => {
     vi.useFakeTimers();
     const {result, current, params, unmount} = renderImmersivePlayer(vi.fn(async () => true));
