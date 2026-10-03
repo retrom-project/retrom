@@ -258,6 +258,7 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   initialFilters: DetailFilters;
 }) {
   const [summary, setSummary] = useState(initialSummary);
+  const summaryRequest = useRef(0);
   const [items, setItems] = useState(initialItems.items);
   const [nextCursor, setNextCursor] = useState(initialItems.nextCursor);
   const [filters, setFilters] = useState(initialFilters);
@@ -269,9 +270,10 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   const cleanupPending = items.some((item) => item.payloadState === "RELEASING");
 
   const requestSummary = useCallback(async () => {
+    const revision = ++summaryRequest.current;
     const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: initialSummary.id } } });
     if (!data) {throw new Error(await message(response, "任务摘要读取失败"));}
-    setSummary(data);
+    if (revision === summaryRequest.current) {setSummary(data);}
   }, [initialSummary.id]);
 
   const requestItems = useCallback(async (active: DetailFilters, cursor?: string, append = false) => {
@@ -292,14 +294,14 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
 
   useEffect(() => {
     const processing = ["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(summary.state);
-    if (!processing && !cleanupPending) {return;}
+    if (!processing && !cleanupPending && summary.discard.state !== "REQUESTED") {return;}
     const update = () => {void requestSummary().then(() => requestItems(filters)).catch(() => undefined);};
     const timer = window.setInterval(update, 4_000);
     const jobId = summary.importJobId ?? summary.scanJobId;
     const source = !processing || typeof EventSource === "undefined" ? null : new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
     for (const event of ["progress", "succeeded", "failed", "cancelled"]) {source?.addEventListener(event, update);}
     return () => {window.clearInterval(timer); source?.close();};
-  }, [cleanupPending, filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state]);
+  }, [cleanupPending, filters, requestItems, requestSummary, summary.importJobId, summary.scanJobId, summary.state, summary.discard.state]);
 
   async function applyFilters() {
     setBusy(true); setError("");
@@ -336,7 +338,7 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   }
 
   const mappingDrawer = <SourceImportDrawer open roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={summary} onClose={() => setMappingOpen(false)} onStarted={setSummary} />;
-  return <SourceImportDetailView onDiscarded={() => { void Promise.all([requestSummary(), requestItems(filters)]).catch(() => setError("请刷新查看最新任务状态")); }} summary={summary} items={items} nextCursor={nextCursor} draft={draft} collections={collections} busy={busy} error={error} cancelOpen={cancelOpen} mappingOpen={mappingOpen} mappingDrawer={mappingDrawer} onDraft={setDraft} onApplyFilters={() => void applyFilters()} onCancelOpen={setCancelOpen} onCancel={() => void cancel()} onRetry={() => void retry()} onMappingOpen={setMappingOpen} onLoadMore={loadMore} onDismissError={() => setError("")} />;
+  return <SourceImportDetailView onDiscardChange={(discard) => { summaryRequest.current++; setSummary((current) => ({ ...current, discard })); }} summary={summary} items={items} nextCursor={nextCursor} draft={draft} collections={collections} busy={busy} error={error} cancelOpen={cancelOpen} mappingOpen={mappingOpen} mappingDrawer={mappingDrawer} onDraft={setDraft} onApplyFilters={() => void applyFilters()} onCancelOpen={setCancelOpen} onCancel={() => void cancel()} onRetry={() => void retry()} onMappingOpen={setMappingOpen} onLoadMore={loadMore} onDismissError={() => setError("")} />;
 }
 
 function mappingSummary(collections: SourceCollection[], mappings: Record<string, MappingDraft>) {

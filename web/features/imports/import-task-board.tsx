@@ -18,6 +18,7 @@ import {
   importTaskPhase,
   importTaskProgress,
   type ImportDetail,
+  type ImportDiscardStatus,
   type ImportListItem,
   type ImportTaskFilters,
 } from "./import-workflow";
@@ -73,6 +74,7 @@ function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportList
   return {
     ...item,
     state: detail.state,
+    discard: detail.discard,
     platformInstanceName: detail.targetPlatformInstance.name,
     metadataProvider: detail.metadataProvider,
     contentMode: detail.configSnapshot?.contentMode ?? item.contentMode,
@@ -189,16 +191,14 @@ function TaskPrimaryAction({ expanded, isMultiDisc, issueCount, item, onToggle }
   return null;
 }
 
-function TaskActions(props: Parameters<typeof TaskPrimaryAction>[0]) {
+function TaskActions(props: Parameters<typeof TaskPrimaryAction>[0] & { onDiscard: (value: ImportDiscardStatus) => void }) {
   return <div className="import-task-actions">
     <TaskPrimaryAction {...props} />
-    <ImportBatchDiscard kind="IMPORT" importId={props.item.id} version={props.item.version} onCompleted={() => {
-      window.dispatchEvent(new CustomEvent("retrom:import-batch-discarded", { detail: props.item.id }));
-    }} />
+    <ImportBatchDiscard disposition={props.item.discard} onChange={props.onDiscard} />
   </div>;
 }
 
-function ImportTaskEntry({ detail, expanded, item, onToggle }: { detail: DetailState | undefined; expanded: boolean; item: ImportListItem; onToggle: () => void }) {
+function ImportTaskEntry({ detail, expanded, item, onToggle, onDiscard }: { detail: DetailState | undefined; expanded: boolean; item: ImportListItem; onToggle: () => void; onDiscard: (value: ImportDiscardStatus) => void }) {
   const progress = importTaskProgress(item);
   const stageIndex = importStageIndex(item);
   const attention = item.state === "PARTIAL_FAILURE" || item.state === "FAILED";
@@ -211,7 +211,7 @@ function ImportTaskEntry({ detail, expanded, item, onToggle }: { detail: DetailS
       <StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge>
       <div className="import-task-progress"><div><strong>{importTaskPhase(item)}</strong><span>{progress}%</span></div><div className="import-task-track"><i style={{ width: `${progress}%` }} /></div><div className="import-task-distribution"><span className="good">{item.reviewPendingItemCount} 待审核</span>{issueCount ? <button className="bad" type="button" aria-expanded={expanded} onClick={onToggle}>{issueCount} 异常</button> : <span className="neutral">0 异常</span>}</div></div>
       <TaskNextStep attention={attention} item={item} />
-      <TaskActions expanded={expanded} isMultiDisc={isMultiDisc} issueCount={issueCount} item={item} onToggle={onToggle} />
+      <TaskActions onDiscard={onDiscard} expanded={expanded} isMultiDisc={isMultiDisc} issueCount={issueCount} item={item} onToggle={onToggle} />
     </article>
     {expanded ? <TaskDetail attention={attention} detail={detail} isMultiDisc={isMultiDisc} issueCount={issueCount} item={item} stageIndex={stageIndex} /> : null}
   </div>;
@@ -222,6 +222,7 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
   const [nextCursor, setNextCursor] = useState(initial.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [progressError, setProgressError] = useState("");
   const [filters, setFilters] = useState<ImportTaskFilters>({ query: initialQuery, directory: "", state: initialState });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, DetailState>>({});
@@ -264,9 +265,10 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
     return () => observer.disconnect();
   }, [loadMore, nextCursor]);
 
-  const pollingKey = useMemo(() => items.filter((item) => activeImportStates.has(item.state)).map((item) => item.id).join(","), [items]);
+  // A discard state change invalidates task reads started before the command was accepted.
+  const pollingKey = useMemo(() => items.filter((item) => activeImportStates.has(item.state) || item.discard.state === "REQUESTED").map((item) => `${item.id}:${item.discard.state}`).join(","), [items]);
   useEffect(() => {
-    const pollingIds = pollingKey ? pollingKey.split(",") : [];
+    const pollingIds = pollingKey ? pollingKey.split(",").map((entry) => entry.split(":")[0]) : [];
     if (!pollingIds.length) {return;}
     let disposed = false;
     let polling = false;
@@ -276,16 +278,22 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       try {
         const results = await Promise.all(pollingIds.map(async (id) => {
           const response = await fetch(`/api/v1/admin/imports/${id}`, { cache: "no-store", headers: { Accept: "application/json" } });
-          return response.ok ? await response.json() as ImportDetail : null;
+          if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
+          return await response.json() as ImportDetail;
         }));
         if (!disposed) {
-          const byId = new Map(results.filter((detail): detail is ImportDetail => detail !== null).map((detail) => [detail.importJobId, detail]));
+          setProgressError("");
+          const byId = new Map(results.map((detail) => [detail.importJobId, detail]));
           setItems((current) => current.map((item) => byId.has(item.id) ? refreshListItem(item, byId.get(item.id)!) : item));
+          setDetails((current) => Object.fromEntries(Object.entries(current).map(([id, detail]) =>
+            [id, byId.has(id) ? { status: "ready", value: byId.get(id) } : detail])));
           if (pollingIds.every((id) => {
             const detail = byId.get(id);
-            return detail && !activeImportStates.has(detail.state);
+            return detail && !activeImportStates.has(detail.state) && detail.discard.state !== "REQUESTED";
           })) {window.clearInterval(timer);}
         }
+      } catch {
+        if (!disposed) {setProgressError("任务进度暂时无法读取，正在重试");}
       } finally {
         polling = false;
       }
@@ -294,22 +302,6 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
     void poll();
     return () => { disposed = true; window.clearInterval(timer); };
   }, [pollingKey]);
-
-  useEffect(() => {
-    const refreshDiscarded = (event: Event) => {
-      if (!(event instanceof CustomEvent) || typeof event.detail !== "string") { return; }
-      const id = event.detail;
-      void fetch(`/api/v1/admin/imports/${encodeURIComponent(id)}`, { cache: "no-store" })
-        .then(async (response) => response.ok ? await response.json() as ImportDetail : null)
-        .then((detail) => {
-          if (!detail) { return; }
-          setItems((current) => current.map((item) => item.id === id ? refreshListItem(item, detail) : item));
-          setDetails((current) => ({ ...current, [id]: { status: "ready", value: detail } }));
-        }).catch(() => setLoadError("丢弃已完成，请刷新查看最新结果"));
-    };
-    window.addEventListener("retrom:import-batch-discarded", refreshDiscarded);
-    return () => window.removeEventListener("retrom:import-batch-discarded", refreshDiscarded);
-  }, []);
 
   async function toggleDetails(item: ImportListItem) {
     if (expandedId === item.id) {
@@ -337,8 +329,9 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       <label><span>任务状态</span><select value={filters.state} onChange={(event) => selectState(event.target.value)}><option value="">所有状态</option><option value="RUNNING">运行中</option><option value="QUEUED">排队中</option><option value="ATTENTION">需要处理</option><option value="REVIEW_PENDING">等待审核</option><option value="COMPLETED">已完成</option></select></label>
     </section>
     {visible.length
-      ? <div className="import-task-list">{visible.map((item) => <ImportTaskEntry detail={details[item.id]} expanded={expandedId === item.id} item={item} onToggle={() => void toggleDetails(item)} key={item.id} />)}</div>
+      ? <div className="import-task-list">{visible.map((item) => <ImportTaskEntry detail={details[item.id]} expanded={expandedId === item.id} item={item} onDiscard={(discard) => setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, discard } : entry))} onToggle={() => void toggleDetails(item)} key={item.id} />)}</div>
       : <div className="import-workflow-empty"><h2>没有匹配的导入任务</h2><p>请调整搜索内容、目标目录或任务状态。</p></div>}
+    {progressError ? <p role="alert">{progressError}</p> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
     <footer className="import-workflow-footer"><span>当前显示 {visible.length} / 已加载 {items.length} 个任务</span>{loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载全部任务</span>}{loadError ? <button type="button" onClick={() => void loadMore()}>{loadError}，点击重试</button> : null}</footer>
   </div>;

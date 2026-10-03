@@ -2200,6 +2200,44 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        ImportTaskList: {
+            items: components["schemas"]["ImportTaskListItem"][];
+            nextCursor: string | null;
+        };
+        ImportTaskListItem: {
+            id: string;
+            state: string;
+            platformInstanceName: string;
+            metadataProvider: string;
+            contentMode: string;
+            /** Format: int64 */
+            totalItemCount: number;
+            /** Format: int64 */
+            reviewPendingItemCount: number;
+            /** Format: int64 */
+            failedItemCount: number;
+            /** Format: int64 */
+            rejectedFileCount: number;
+            /** Format: int64 */
+            unresolvedRejectedFileCount: number;
+            /** Format: int64 */
+            alreadyImportedItemCount: number;
+            /** Format: int64 */
+            alreadyImportedFileCount: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            lastErrorCode: string | null;
+            discard: components["schemas"]["ImportBatchDiscard"];
+        };
+        ImportTaskDetail: {
+            discard: components["schemas"]["ImportBatchDiscard"];
+        } & {
+            [key: string]: unknown;
+        };
         ImportBatchDiscard: {
             /** @enum {string} */
             kind: "IMPORT" | "SOURCE";
@@ -3545,6 +3583,7 @@ export interface components {
             message: string;
         };
         SourceImportSummary: {
+            discard: components["schemas"]["ImportBatchDiscard"];
             /** @enum {string} */
             scanOutcome: "PENDING" | "READY" | "PARTIAL" | "INVALID" | "EMPTY" | "NO_METADATA";
             scanDiagnostics: components["schemas"]["SourceScanDiagnostic"][];
@@ -6159,7 +6198,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Import tasks with authoritative discard state, read in a bounded batch for this page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTaskList"];
+                };
+            };
         };
     };
     postAdminImport: {
@@ -6205,7 +6252,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Current task details including authoritative discard state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTaskDetail"];
+                };
+            };
         };
     };
     getAdminImportEvents: {

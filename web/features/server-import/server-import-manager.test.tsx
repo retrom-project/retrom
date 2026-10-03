@@ -101,6 +101,7 @@ describe("ServerImportManager", () => {
   it("returns to the styled directory picker after a failed scan and can scan again without a reload", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const scanning: SourceImportSummary = {
+      discard: { kind: "SOURCE", importId: "source", state: "UNAVAILABLE", errorCode: null },
       id: "22222222-2222-4222-8222-222222222222", scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "", root: { id: "source", label: "Source BIOS" },
       sourceRelativePath: "Other", state: "SCANNING", phase: "DISCOVERING_METADATA",
       scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: null,

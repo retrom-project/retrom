@@ -3,6 +3,7 @@ import { filterImportTasks, importStageIndex, importTaskIssueCount, importTaskIs
 
 function task(overrides: Partial<ImportListItem> & Pick<ImportListItem, "id" | "state">): ImportListItem {
   return {
+    discard: { kind: "IMPORT", importId: overrides.id, state: "UNAVAILABLE", errorCode: null },
     platformInstanceName: "FBNeo 游戏",
     metadataProvider: "HASHEOUS",
     totalItemCount: 10,

@@ -259,6 +259,12 @@ components:
   schemas:
     GameScrapeCandidates:
       $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
+    ImportTaskList:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskList
+    ImportTaskListItem:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskListItem
+    ImportTaskDetail:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskDetail
     ImportBatchDiscard:
       $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:

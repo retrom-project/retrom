@@ -298,6 +298,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - discard
         - scanOutcome
         - scanDiagnostics
         - id
@@ -320,6 +321,8 @@ components:
         - expiresAtMs
         - completedAtMs
       properties:
+        discard:
+          $ref: imports.yaml#/components/schemas/ImportBatchDiscard
         scanOutcome:
           type: string
           enum: [PENDING, READY, PARTIAL, INVALID, EMPTY, NO_METADATA]

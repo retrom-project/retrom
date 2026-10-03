@@ -13,6 +13,7 @@ const activeTag = { tagId: "77777777-7777-4777-8777-777777777770", name: "双人
 
 function summary(state: SourceImportSummary["state"], version: number, overrides: Partial<SourceImportSummary> = {}): SourceImportSummary {
   return {
+    discard: { kind: "SOURCE", importId: "22222222-2222-4222-8222-222222222222", state: "UNAVAILABLE", errorCode: null },
     scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "",
     id: "22222222-2222-4222-8222-222222222222", root: { id: root.id, label: root.label }, sourceRelativePath: "Roms/FC", state,
     phase: state === "SCANNING" ? "DISCOVERING_METADATA" : null,
@@ -120,6 +121,26 @@ describe("SourceImportDrawer", () => {
     render(<SourceImportDetailManager initialSummary={summary("COMPLETED", 5)} initialItems={{ items: [cleanupItem(payloadState)], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
     await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("restores pending discard for a completed source and stops polling after completion", async () => {
+    vi.useFakeTimers();
+    const pending = summary("COMPLETED", 5, { importJobId: "44444444-4444-4444-8444-444444444444",
+      discard: { kind: "SOURCE", importId: "22222222-2222-4222-8222-222222222222", state: "REQUESTED", errorCode: null } });
+    const completed = { ...pending, discard: { ...pending.discard, state: "COMPLETED" as const } };
+    const fetch = vi.fn(async (request: Request) => {
+      const path = new URL(request.url).pathname;
+      expect(path).not.toContain("/discard");
+      return json(path.endsWith("/items") ? { items: [], nextCursor: null } : completed);
+    });
+    vi.stubGlobal("fetch", fetch);
+    render(<SourceImportDetailManager initialSummary={pending} initialItems={{ items: [], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+    expect(screen.getByRole("button", { name: "正在丢弃…" })).toBeDisabled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
+    expect(screen.getByRole("status")).toHaveTextContent("未发布内容已丢弃");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("scans, requires an explicit collection mapping, then starts the frozen plan", async () => {
@@ -309,6 +330,7 @@ describe("SourceImportDetailManager", () => {
     expect(screen.getAllByText("1944.zip")[0]).toBeVisible();
     expect(screen.getByText(/把缺失的父 ROM ZIP 放入同一来源目录/)).toBeVisible();
     expect(screen.getByRole("dialog", { name: "原因与处理建议" })).toBeVisible();
+    await waitFor(() => expect(within(screen.getByRole("dialog", { name: "原因与处理建议" })).getByRole("button", { name: "关闭原因与处理建议" })).toHaveFocus());
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "原因与处理建议" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看具体原因与处理建议" })).toHaveFocus();

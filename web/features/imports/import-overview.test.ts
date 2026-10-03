@@ -4,6 +4,7 @@ import type { ImportListItem } from "./import-workflow";
 
 function ordinary(overrides: Partial<ImportListItem> = {}): ImportListItem {
   return {
+    discard: { kind: "IMPORT", importId: "ordinary", state: "UNAVAILABLE", errorCode: null },
     id: "01980000-0000-7000-8000-000000000001",
     state: "COMPLETED",
     platformInstanceName: "GBA 游戏",
@@ -21,6 +22,7 @@ function ordinary(overrides: Partial<ImportListItem> = {}): ImportListItem {
 
 function source(overrides: Partial<SourceImportSummary> = {}): SourceImportSummary {
   return {
+    discard: { kind: "SOURCE", importId: "source", state: "UNAVAILABLE", errorCode: null },
     scanOutcome: "READY", scanDiagnostics: [], format: "PEGASUS", extensionFilter: "",
     id: "01980000-0000-7000-8000-000000000002",
     root: { id: "games", label: "游戏文件" },
