@@ -1,0 +1,134 @@
+[
+  {
+    "name": "batch-discard-focus-1280",
+    "fault": [
+      {
+        "path": "/api/v1/admin/import-batches/SOURCE/01a10172-25f4-7d80-91eb-b34f0d75084f/discard",
+        "method": "POST",
+        "status": 503
+      }
+    ],
+    "beforeFocus": {
+      "tag": "BUTTON",
+      "text": "确认丢弃",
+      "insideDialog": true
+    },
+    "retryEnabled": true,
+    "afterFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "escapeClosed": false,
+    "tabFocus": {
+      "tag": "A",
+      "text": "新建游戏导入",
+      "insideDialog": false
+    },
+    "mouseCancelCloses": true,
+    "returnFocus": {
+      "tag": "BUTTON",
+      "text": "丢弃",
+      "insideDialog": false
+    }
+  },
+  {
+    "name": "tag-delete-focus-1280",
+    "fault": [
+      {
+        "path": "/api/v1/admin/tags/01a1013f-b226-7241-915c-bbdb35ccb335",
+        "method": "DELETE",
+        "status": 503
+      }
+    ],
+    "beforeFocus": {
+      "tag": "BUTTON",
+      "text": "删除标签",
+      "insideDialog": true
+    },
+    "retryEnabled": true,
+    "afterFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "escapeClosed": false,
+    "tabFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "mouseCancelCloses": true,
+    "returnFocus": {
+      "tag": "BUTTON",
+      "text": "删除",
+      "insideDialog": false
+    }
+  },
+  {
+    "name": "batch-discard-focus-2560",
+    "fault": [
+      {
+        "path": "/api/v1/admin/import-batches/SOURCE/01a10172-25f4-7d80-91eb-b34f0d75084f/discard",
+        "method": "POST",
+        "status": 503
+      }
+    ],
+    "beforeFocus": {
+      "tag": "BUTTON",
+      "text": "确认丢弃",
+      "insideDialog": true
+    },
+    "retryEnabled": true,
+    "afterFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "escapeClosed": false,
+    "tabFocus": {
+      "tag": "A",
+      "text": "新建游戏导入",
+      "insideDialog": false
+    },
+    "mouseCancelCloses": true,
+    "returnFocus": {
+      "tag": "BUTTON",
+      "text": "丢弃",
+      "insideDialog": false
+    }
+  },
+  {
+    "name": "tag-delete-focus-2560",
+    "fault": [
+      {
+        "path": "/api/v1/admin/tags/01a1013f-b226-7241-915c-bbdb35ccb335",
+        "method": "DELETE",
+        "status": 503
+      }
+    ],
+    "beforeFocus": {
+      "tag": "BUTTON",
+      "text": "删除标签",
+      "insideDialog": true
+    },
+    "retryEnabled": true,
+    "afterFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "escapeClosed": false,
+    "tabFocus": {
+      "tag": "BODY",
+      "text": "",
+      "insideDialog": false
+    },
+    "mouseCancelCloses": true,
+    "returnFocus": {
+      "tag": "BUTTON",
+      "text": "删除",
+      "insideDialog": false
+    }
+  }
+]
