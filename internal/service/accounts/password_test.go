@@ -36,9 +36,12 @@ func (memory *passwordMemory) Rotate(_ context.Context, plan PasswordPlan) error
 type passwordHasher struct {
 	memory     *passwordMemory
 	duringHash func()
+	reject     bool
 }
 
-func (hasher passwordHasher) Verify(context.Context, string, string) (bool, error) { return true, nil }
+func (hasher passwordHasher) Verify(context.Context, string, string) (bool, error) {
+	return !hasher.reject, nil
+}
 
 func (hasher passwordHasher) Hash(context.Context, string) (string, error) {
 	if hasher.duringHash != nil {
@@ -51,6 +54,19 @@ func passwordFixture() (*passwordMemory, PasswordActor) {
 	return &passwordMemory{state: PasswordState{SessionCurrent: true, Credential: LoginCredential{User: User{UserID: "user", Username: "alice", DisplayName: "Alice"}, Status: "ENABLED", SessionVersion: 2, PasswordHash: "old-hash"}}}, PasswordActor{UserID: "user", SessionID: "session", SessionVersion: 2}
 }
 func passwordMinter() (SessionMaterial, error) { return SessionMaterial{ID: "replacement"}, nil }
+
+func TestWrongCurrentPasswordDoesNotInvalidateSession(t *testing.T) {
+	memory, actor := passwordFixture()
+	service := NewPasswords(memory, passwordHasher{memory: memory, reject: true}, authn.EmptyBlocklist{}, passwordMinter, time.Now)
+	_, err := service.Change(t.Context(), actor, "incorrect password", "replacement passphrase", "replacement passphrase")
+	if err == nil || err.Error() != "CURRENT_PASSWORD_INVALID" || memory.writeCalls != 0 {
+		t.Fatalf("wrong current password: %v; writes=%d", err, memory.writeCalls)
+	}
+	if !memory.state.SessionCurrent || memory.state.Credential.SessionVersion != actor.SessionVersion {
+		t.Fatal("invalidated a valid session")
+	}
+}
+
 func TestPasswordChangeRechecksCredentialAfterHashing(t *testing.T) {
 	memory, actor := passwordFixture()
 	hasher := passwordHasher{memory: memory, duringHash: func() { memory.state.Credential.PasswordHash = "concurrent-hash" }}
