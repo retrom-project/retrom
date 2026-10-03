@@ -14,6 +14,7 @@ import (
 	_ "modernc.org/sqlite" // Register SQLite for sql.Open in this adapter.
 
 	"retrom/internal/database"
+	"retrom/internal/telemetry"
 )
 
 type Options struct {
@@ -26,19 +27,25 @@ type Options struct {
 type (
 	handle struct {
 		raw          *sql.DB
+		readOnly     bool
 		now          func() time.Time
 		observations observations
 	}
 	transaction struct {
-		raw           *sql.Tx
-		now           func() time.Time
-		database      *handle
-		context       context.Context
-		started       time.Time
-		beginDuration time.Duration
-		sqlDuration   atomic.Int64
-		observed      atomic.Bool
-		readOnly      bool
+		raw              *sql.Tx
+		connection       *sql.Conn
+		stopCancellation func() bool
+		owner            string
+		now              func() time.Time
+		database         *handle
+		context          context.Context
+		started          time.Time
+		beginDuration    time.Duration
+		sqlDuration      atomic.Int64
+		rowsDuration     atomic.Int64
+		commitDuration   time.Duration
+		observed         atomic.Bool
+		readOnly         bool
 	}
 )
 
@@ -65,7 +72,7 @@ func Open(dsn string, options Options) (database.DB, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	configure(raw, options)
-	return &handle{raw: raw, now: clock(options)}, nil
+	return &handle{raw: raw, now: clock(options), readOnly: query.Get("mode") == "ro"}, nil
 }
 
 // OpenConnector supports driver-boundary fault injection without exposing a SQL pool.
@@ -94,20 +101,54 @@ func configure(raw *sql.DB, options Options) {
 	}
 }
 
+func (db *handle) connection(ctx context.Context) (*sql.Conn, error) {
+	started := time.Now()
+	connection, err := db.raw.Conn(ctx)
+	elapsed := time.Since(started)
+	telemetry.RecordTiming(ctx, telemetry.PoolWait, elapsed)
+	phase := telemetry.WriterPoolWait
+	if db.readOnly {
+		phase = telemetry.ReaderPoolWait
+	}
+	telemetry.RecordTiming(ctx, phase, elapsed)
+	if err != nil {
+		return nil, fmt.Errorf("acquire sqlite connection: %w", err)
+	}
+	return connection, nil
+}
+
 func (db *handle) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	connection, err := db.connection(ctx)
+	if err != nil {
+		db.observeSQL(ctx, time.Now())
+		return nil, err
+	}
+	defer func() { _ = connection.Close() }()
 	defer db.observeSQL(ctx, time.Now())
-	result, err := db.raw.ExecContext(ctx, query, args...)
+	result, err := connection.ExecContext(ctx, query, args...)
 	return wrapResult("execute sqlite query", result, err)
 }
 
-func (db *handle) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (db *handle) QueryContext(ctx context.Context, query string, args ...any) (database.Rows, error) {
+	connection, err := db.connection(ctx)
+	if err != nil {
+		db.observeSQL(ctx, time.Now())
+		return nil, err
+	}
 	started := time.Now()
-	rows, err := db.raw.QueryContext(ctx, query, args...)
+	rows, err := connection.QueryContext(ctx, query, args...)
 	db.observeSQL(ctx, started)
 	if err != nil {
+		_ = connection.Close()
 		return nil, fmt.Errorf("query sqlite database: %w", err)
 	}
-	return rows, nil
+	if err := rows.Err(); err != nil {
+		defer func() { _ = rows.Close() }()
+		_ = connection.Close()
+		return nil, fmt.Errorf("open sqlite rows: %w", err)
+	}
+	stopCancellation := context.AfterFunc(ctx, func() { _ = rows.Close(); _ = connection.Close() })
+	return &observedRows{Rows: rows, ctx: ctx, connection: connection, stopCancellation: stopCancellation}, nil
 }
 
 func (db *handle) PingContext(ctx context.Context) error {
@@ -142,14 +183,27 @@ func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (dat
 		sqlOptions = &sql.TxOptions{ReadOnly: options.ReadOnly}
 	}
 	started := time.Now()
-	raw, err := db.raw.BeginTx(ctx, sqlOptions)
+	connection, err := db.connection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	beginStarted := time.Now()
+	raw, err := connection.BeginTx(ctx, sqlOptions)
+	telemetry.RecordTiming(ctx, telemetry.Begin, time.Since(beginStarted))
 	acquisition := time.Since(started)
 	db.observeAcquisition(ctx, acquisition)
 	if err != nil {
+		_ = connection.Close()
 		return nil, fmt.Errorf("begin sqlite transaction: %w", err)
 	}
+	stopCancellation := context.AfterFunc(ctx, func() {
+		_ = raw.Rollback()
+		_ = connection.Close()
+	})
 	return &transaction{
-		raw: raw, now: db.now, database: db, context: ctx, started: time.Now(),
+		stopCancellation: stopCancellation,
+		raw:              raw, connection: connection, owner: transactionOwner(), now: db.now,
+		database: db, context: ctx, started: time.Now(),
 		beginDuration: acquisition, readOnly: options != nil && options.ReadOnly,
 	}, nil
 }
@@ -160,14 +214,18 @@ func (tx *transaction) ExecContext(ctx context.Context, query string, args ...an
 	return wrapResult("execute sqlite transaction query", result, err)
 }
 
-func (tx *transaction) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (tx *transaction) QueryContext(ctx context.Context, query string, args ...any) (database.Rows, error) {
 	started := time.Now()
 	rows, err := tx.raw.QueryContext(ctx, query, args...)
 	tx.observeSQL(started)
 	if err != nil {
 		return nil, fmt.Errorf("query sqlite transaction: %w", err)
 	}
-	return rows, nil
+	if err := rows.Err(); err != nil {
+		defer func() { _ = rows.Close() }()
+		return nil, fmt.Errorf("open sqlite transaction rows: %w", err)
+	}
+	return &observedRows{Rows: rows, ctx: ctx, tx: tx}, nil
 }
 
 func (tx *transaction) PrepareContext(ctx context.Context, query string) (database.Stmt, error) {
@@ -181,6 +239,11 @@ func (tx *transaction) PrepareContext(ctx context.Context, query string) (databa
 
 func (tx *transaction) Commit() error {
 	defer tx.observeEnd("commit")
+	started := time.Now()
+	defer func() {
+		tx.commitDuration = time.Since(started)
+		telemetry.RecordTiming(tx.context, telemetry.Commit, tx.commitDuration)
+	}()
 	if err := tx.raw.Commit(); err != nil {
 		return fmt.Errorf("commit sqlite transaction: %w", err)
 	}

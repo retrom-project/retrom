@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
@@ -100,7 +99,7 @@ ORDER BY entry.ordinal`, snapshotID)
 	return result, nil
 }
 
-func scanContentIdentityDisc(rows *sql.Rows) (libraryservice.ContentIdentityDisc, error) {
+func scanContentIdentityDisc(rows dbapi.Rows) (libraryservice.ContentIdentityDisc, error) {
 	var disc libraryservice.ContentIdentityDisc
 	if err := rows.Scan(&disc.State, &disc.SHA256); err != nil {
 		return libraryservice.ContentIdentityDisc{}, fmt.Errorf("scan content identity row: %w", err)

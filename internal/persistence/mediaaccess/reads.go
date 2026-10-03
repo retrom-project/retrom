@@ -61,7 +61,7 @@ func (reader reader) Sources(ctx context.Context, id, kind string) ([]service.Re
 	return readReviewAssets(rows)
 }
 
-func readReviewAssets(rows *sql.Rows) ([]service.ReviewAsset, error) {
+func readReviewAssets(rows dbapi.Rows) ([]service.ReviewAsset, error) {
 	defer func() { cleanup.Error("close review media rows", rows.Close()) }()
 	assets := []service.ReviewAsset{}
 	for rows.Next() {

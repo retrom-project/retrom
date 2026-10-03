@@ -13,6 +13,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/config"
 	"retrom/internal/service/accounts"
+	"retrom/internal/telemetry"
 )
 
 // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.
@@ -31,6 +32,9 @@ func (server *Server) serveBaseMiddleware(
 		return
 	}
 	requestContext := context.WithValue(request.Context(), requestIDKey, requestID.String())
+	_, operation := routes.Handler(request)
+	requestContext, trace := telemetry.StartTrace(requestContext, requestID.String(), operation)
+	defer trace.Report(requestContext)
 	request = request.WithContext(requestContext)
 	setBaseResponseHeaders(writer, requestID.String())
 	if !server.requestReady(requestContext, writer, request) || !server.validRequest(writer, request) {

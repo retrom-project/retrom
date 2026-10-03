@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	service "retrom/internal/service/uploads"
 )
 
-func scanFinalizationManifest(rows *sql.Rows) ([]service.FrozenFile, error) {
+func scanFinalizationManifest(rows dbapi.Rows) ([]service.FrozenFile, error) {
 	files := []service.FrozenFile{}
 	for rows.Next() {
 		var id string
