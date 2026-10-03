@@ -286,6 +286,12 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 specifications=("$specification")
+if [[ "$case_id" == "ACC-MEDIA-001" ]]; then
+  specifications+=("e2e/review-video.spec.ts")
+fi
+if [[ "$case_id" == "ACC-UI-008" ]]; then
+  specifications+=("e2e/review-detail-layout.spec.ts")
+fi
 if [[ "$case_id" == "ACC-UI-003" ]]; then
   specifications+=("e2e/game-detail-layout.spec.ts" "e2e/game-detail-media-regressions.spec.ts")
 fi

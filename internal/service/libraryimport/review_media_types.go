@@ -10,8 +10,8 @@ type ReviewMediaReader interface {
 type ReviewUploadedAsset struct {
 	ID          string `json:"assetId"`
 	Kind        string `json:"kind"`
-	WidthPX     int64  `json:"widthPx"`
-	HeightPX    int64  `json:"heightPx"`
+	WidthPX     *int64 `json:"widthPx"`
+	HeightPX    *int64 `json:"heightPx"`
 	MediaType   string `json:"mediaType"`
 	CreatedAtMS int64  `json:"createdAtMs"`
 	URL         string `json:"url"`

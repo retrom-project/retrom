@@ -177,7 +177,7 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	server.ReviewPreviews = librarycomposition.NewReviewPreviews(database, launchSources, launchservice.PreviewEnvironment{
 		Now: now, SignCapability: launchSources.SignCapability, SignIsolation: launchSources.SignIsolation,
 	}, blobs)
-	server.ReviewCoverUploads = librarycomposition.NewReviewCoverUploads(database, blobs, now)
+	server.ReviewAssetUploads = librarycomposition.NewReviewAssetUploads(database, blobs, now)
 	server.ReviewDiscards = importDeps.Discards
 	server.ReviewApprovals = importDeps.Approvals
 	server.ReviewBulkApprovals = librarycomposition.NewReviewBulk(database, server.ReviewApprovals, now)

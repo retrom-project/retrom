@@ -363,10 +363,24 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   const reviewCover = page.getByRole("img", { name: "当前选择的游戏封面" });
   await expect(reviewCover).toBeVisible();
   await expect(reviewCover).toHaveAttribute("src", reviewDetail.sourceMedia.coverUrl!);
-  const reviewVideo = page.locator(".review-source-video video");
+  const reviewVideo = page.getByLabel("视频预览");
+  await expect(reviewVideo).toHaveCount(0);
+  const reviewGeometry = await page.locator(".review-workflow-metadata").boundingBox();
+  await page.getByRole("tab", { name: "视频", exact: true }).click();
   await expect(reviewVideo).toBeVisible();
   await expect(reviewVideo).toHaveAttribute("src", reviewDetail.sourceMedia.videoUrl!);
   await expectVideoMetadata(reviewVideo);
+  expect((await page.locator(".review-workflow-metadata").boundingBox())!.height).toBeCloseTo(reviewGeometry!.height, 0);
+  await expect(reviewVideo).not.toHaveAttribute("autoplay");
+  const reviewPlayer = await reviewVideo.elementHandle();
+  expect(await reviewVideo.evaluate(async (element: HTMLVideoElement) => {
+    await element.play();
+    return element.paused;
+  })).toBe(false);
+  await page.getByRole("tab", { name: "封面", exact: true }).click();
+  await expect(reviewVideo).toHaveCount(0);
+  expect(await reviewPlayer!.evaluate((element) => (element as HTMLVideoElement).paused)).toBe(true);
+  await expect(reviewCover).toBeVisible();
   await page.reload();
   await expect(page.getByText(/来源：来源文件/)).toBeVisible();
   await expect(page.getByRole("button", { name: "通过并发布" })).toBeEnabled();

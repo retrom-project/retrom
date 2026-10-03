@@ -149,9 +149,9 @@ WHERE provider_id=?
 	testassert.Falsef(t, anyTrue(uploadedCover.Code != http.StatusBadRequest,
 		!strings.Contains(uploadedCover.Body.String(), `"code":"INVALID_REQUEST"`)),
 		"reject non-cover review asset = %d %s", uploadedCover.Code, uploadedCover.Body.String())
-	uploadedCoverAssetID := createReviewCoverFixture(t, server, itemID, coverUploadFileID)
+	uploadedCoverAssetID := createReviewAssetFixture(t, server, itemID, coverUploadFileID)
 	patch := httptest.NewRecorder()
-	patchRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/api/v1/admin/reviews/"+itemID, strings.NewReader(`{"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":"`+uploadedCoverAssetID+`","backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]},"tagIds":[]}`))
+	patchRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/api/v1/admin/reviews/"+itemID, strings.NewReader(`{"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":"`+uploadedCoverAssetID+`","videoUploadedAssetId":null,"backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]},"tagIds":[]}`))
 	patchRequest.SetPathValue("importItemId", itemID)
 	patchRequest.Header.Set("Content-Type", "application/json")
 	patchRequest.Header.Set("If-Match", `"v1"`)
@@ -224,7 +224,7 @@ WHERE import_item_id=? AND provider_id=? AND target_id=?
 	), "current runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
-func createReviewCoverFixture(t *testing.T, server *testServer, itemID, uploadFileID string) string {
+func createReviewAssetFixture(t *testing.T, server *testServer, itemID, uploadFileID string) string {
 	t.Helper()
 	response := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,

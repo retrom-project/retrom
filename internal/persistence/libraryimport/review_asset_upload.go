@@ -12,42 +12,42 @@ import (
 )
 
 type (
-	ReviewCoverUploads struct{ database dbapi.DB }
-	reviewCoverRecords struct{ executor dbapi.Executor }
+	ReviewAssetUploads struct{ database dbapi.DB }
+	reviewAssetRecords struct{ executor dbapi.Executor }
 )
 
-func NewReviewCoverUploads(database dbapi.DB) *ReviewCoverUploads {
-	return &ReviewCoverUploads{database: database}
+func NewReviewAssetUploads(database dbapi.DB) *ReviewAssetUploads {
+	return &ReviewAssetUploads{database: database}
 }
 
-func (repository *ReviewCoverUploads) Source(
+func (repository *ReviewAssetUploads) Source(
 	ctx context.Context, fileID string,
-) (libraryservice.ReviewCoverSource, bool, error) {
-	return (reviewCoverRecords{repository.database}).Source(ctx, fileID)
+) (libraryservice.ReviewAssetSource, bool, error) {
+	return (reviewAssetRecords{repository.database}).Source(ctx, fileID)
 }
 
-func (repository *ReviewCoverUploads) WithWrite(
-	ctx context.Context, work func(libraryservice.ReviewCoverScope) error,
+func (repository *ReviewAssetUploads) WithWrite(
+	ctx context.Context, work func(libraryservice.ReviewAssetScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin review cover transaction: %w", err)
+		return fmt.Errorf("begin review asset transaction: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
-	records := reviewCoverRecords{transaction}
-	if err := work(libraryservice.ReviewCoverScope{Reader: records, Writer: records}); err != nil {
+	records := reviewAssetRecords{transaction}
+	if err := work(libraryservice.ReviewAssetScope{Reader: records, Writer: records}); err != nil {
 		return err
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit review cover transaction: %w", err)
+		return fmt.Errorf("commit review asset transaction: %w", err)
 	}
 	return nil
 }
 
-func (records reviewCoverRecords) Source(
+func (records reviewAssetRecords) Source(
 	ctx context.Context, fileID string,
-) (libraryservice.ReviewCoverSource, bool, error) {
-	var source libraryservice.ReviewCoverSource
+) (libraryservice.ReviewAssetSource, bool, error) {
+	var source libraryservice.ReviewAssetSource
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT f.id,f.upload_session_id,b.value,json_extract(b.value, '$.sha256'),upload.purpose,
 json_extract(b.value, '$.size_bytes')
@@ -64,18 +64,18 @@ WHERE f.id=? AND f.released_at_ms IS NULL
 		&source.SizeBytes,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return libraryservice.ReviewCoverSource{}, false, nil
+		return libraryservice.ReviewAssetSource{}, false, nil
 	}
 	if err != nil {
-		return libraryservice.ReviewCoverSource{}, false, fmt.Errorf("query review cover source: %w", err)
+		return libraryservice.ReviewAssetSource{}, false, fmt.Errorf("query review asset source: %w", err)
 	}
 	return source, true, nil
 }
 
-func (records reviewCoverRecords) Draft(
+func (records reviewAssetRecords) Draft(
 	ctx context.Context, itemID string,
-) (libraryservice.ReviewCoverDraft, bool, error) {
-	var draft libraryservice.ReviewCoverDraft
+) (libraryservice.ReviewAssetDraft, bool, error) {
+	var draft libraryservice.ReviewAssetDraft
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.review_version,i.state,
 (EXISTS(SELECT 1 FROM source_import_items source
@@ -83,24 +83,24 @@ SELECT d.review_version,i.state,
 FROM import_items d JOIN import_items i ON i.id=d.id WHERE i.id=?
 `, itemID).Scan(&draft.Version, &draft.State, &draft.SourceBusy)
 	if errors.Is(err, sql.ErrNoRows) {
-		return libraryservice.ReviewCoverDraft{}, false, nil
+		return libraryservice.ReviewAssetDraft{}, false, nil
 	}
 	if err != nil {
-		return libraryservice.ReviewCoverDraft{}, false, fmt.Errorf("query review cover draft: %w", err)
+		return libraryservice.ReviewAssetDraft{}, false, fmt.Errorf("query review asset draft: %w", err)
 	}
 	return draft, true, nil
 }
 
-func (records reviewCoverRecords) ExistingByUpload(
+func (records reviewAssetRecords) ExistingByUpload(
 	ctx context.Context, fileID string,
-) (libraryservice.ReviewCoverExisting, bool, error) {
-	var existing libraryservice.ReviewCoverExisting
+) (libraryservice.ReviewAssetExisting, bool, error) {
+	var existing libraryservice.ReviewAssetExisting
 	asset := &existing.Record
 	err := dbapi.QueryRowContext(
 		ctx,
 		records.executor,
 		`
-SELECT a.id,a.import_item_id,a.upload_file_id,a.file_record,a.media_type,a.width_px,a.height_px,
+SELECT a.id,a.import_item_id,a.upload_file_id,a.file_record,a.kind,a.media_type,a.width_px,a.height_px,
 a.created_at_ms,
 EXISTS(SELECT 1 FROM upload_consumptions c JOIN import_files f ON f.id=a.upload_file_id
  WHERE c.consumer_type='REVIEW_ASSET' AND c.consumer_id=a.id AND c.upload_file_id=a.upload_file_id
@@ -113,6 +113,7 @@ FROM review_uploaded_assets a WHERE a.upload_file_id=?
 		&asset.ItemID,
 		&asset.UploadFileID,
 		&asset.FileRecord,
+		&asset.Kind,
 		&asset.MediaType,
 		&asset.Width,
 		&asset.Height,
@@ -120,17 +121,17 @@ FROM review_uploaded_assets a WHERE a.upload_file_id=?
 		&existing.HasConsumption,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return libraryservice.ReviewCoverExisting{}, false, nil
+		return libraryservice.ReviewAssetExisting{}, false, nil
 	}
 	if err != nil {
-		return libraryservice.ReviewCoverExisting{}, false, fmt.Errorf("query review cover owner: %w", err)
+		return libraryservice.ReviewAssetExisting{}, false, fmt.Errorf("query review asset owner: %w", err)
 	}
 	return existing, true, nil
 }
 
-func (records reviewCoverRecords) InsertAsset(
+func (records reviewAssetRecords) InsertAsset(
 	ctx context.Context,
-	asset libraryservice.ReviewCoverRecord,
+	asset libraryservice.ReviewAssetRecord,
 ) error {
 	_, err := recordstore.InsertRows(
 		ctx,
@@ -139,12 +140,13 @@ func (records reviewCoverRecords) InsertAsset(
 		`
 INSERT INTO review_uploaded_assets(
 id,import_item_id,upload_file_id,file_record,kind,width_px,height_px,media_type,created_at_ms
-) VALUES(?,?,?,?,'COVER',?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?)
 `,
 		asset.ID,
 		asset.ItemID,
 		asset.UploadFileID,
 		asset.FileRecord,
+		asset.Kind,
 		asset.Width,
 		asset.Height,
 		asset.MediaType,
@@ -156,9 +158,9 @@ id,import_item_id,upload_file_id,file_record,kind,width_px,height_px,media_type,
 	return nil
 }
 
-func (records reviewCoverRecords) Consume(
+func (records reviewAssetRecords) Consume(
 	ctx context.Context,
-	consumption libraryservice.ReviewCoverConsumption,
+	consumption libraryservice.ReviewAssetConsumption,
 ) error {
 	_, err := recordstore.CreateUploadConsumptions(
 		ctx,
@@ -175,7 +177,7 @@ VALUES(?,?,?,'REVIEW_ASSET',?,?)
 		consumption.CreatedAtMS,
 	)
 	if err != nil {
-		return fmt.Errorf("insert review cover consumption: %w", err)
+		return fmt.Errorf("insert review asset consumption: %w", err)
 	}
 	return nil
 }

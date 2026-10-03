@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 export type ToastMessage = { message: string; tone: "good" | "warn" | "bad"; action?: { href: string; label: string } };
 
 const flashKey = "retrom:flash-toast";
+const subscribe = () => () => undefined;
 
 export function queueFlashToast(toast: ToastMessage) {
   sessionStorage.setItem(flashKey, JSON.stringify(toast));
 }
 
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
   const dismiss = useEffectEvent(onDismiss);
   useEffect(() => {
     if (!toast) {return;}
@@ -20,7 +22,7 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDism
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  if (!toast || typeof document === "undefined") {return null;}
+  if (!toast || !hydrated) {return null;}
   return createPortal(<div className={`app-toast ${toast.tone}`} role={toast.tone === "bad" ? "alert" : "status"} aria-live={toast.tone === "bad" ? "assertive" : "polite"}>
     <span>{toast.message}</span>
     {toast.action ? <Link href={toast.action.href}>{toast.action.label}</Link> : null}

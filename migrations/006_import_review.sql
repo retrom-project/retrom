@@ -54,6 +54,7 @@ CREATE TABLE import_items (
   cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
   background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
   cover_uploaded_asset_id TEXT REFERENCES review_uploaded_assets(id),
+  video_uploaded_asset_id TEXT REFERENCES review_uploaded_assets(id),
   effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
   default_dos_entry TEXT,
   metadata_json TEXT,
@@ -187,11 +188,16 @@ CREATE TABLE review_uploaded_assets (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   upload_file_id TEXT NOT NULL UNIQUE REFERENCES upload_files(id),
   file_record TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK(kind = 'COVER'),
-  width_px INTEGER NOT NULL CHECK(width_px > 0),
-  height_px INTEGER NOT NULL CHECK(height_px > 0),
-  media_type TEXT NOT NULL CHECK(media_type IN ('image/png','image/jpeg','image/webp')),
-  created_at_ms INTEGER NOT NULL
+  kind TEXT NOT NULL CHECK(kind IN ('COVER','VIDEO')),
+  width_px INTEGER,
+  height_px INTEGER,
+  media_type TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  CHECK ((kind='COVER' AND width_px IS NOT NULL AND width_px>0
+    AND height_px IS NOT NULL AND height_px>0
+    AND media_type IN ('image/png','image/jpeg','image/webp'))
+    OR (kind='VIDEO' AND width_px IS NULL AND height_px IS NULL
+    AND media_type IN ('video/mp4','video/webm')))
 );
 
 CREATE TABLE review_multidisc_attachments (

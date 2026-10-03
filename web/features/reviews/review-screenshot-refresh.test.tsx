@@ -12,7 +12,7 @@ const review: ReviewWorkspace = {
   metadata: { title: "ONS Project", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
   readiness: { status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
-  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
+  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, videoUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
 };
 

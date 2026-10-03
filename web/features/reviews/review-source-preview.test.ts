@@ -15,7 +15,7 @@ describe("review source preview", () => {
       itemId: "item", importJobId: "job", version: 1, effectiveSourceSnapshotId: "snapshot",
       metadata: { title: "Game", description: "", developer: "", publisher: "", genre: "", players: 1, releaseYear: 2000 },
       readiness: null, candidates: [], selectedCandidateId: null,
-      selectedAssets: { coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
+      selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, videoUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
       defaultDosEntry: null, dosEntries: [],
       sourceFiles: [{ archiveEntries: Array.from({ length: 4033 }, (_, index) => index) }],
       sourceManifest: { files: Array.from({ length: 3253 }, (_, index) => index) },

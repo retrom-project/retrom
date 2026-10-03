@@ -21,37 +21,40 @@ func (server *Server) createReviewAsset(writer http.ResponseWriter, request *htt
 		UploadFileID string `json:"uploadFileId"`
 		Kind         string `json:"kind"`
 	}
-	if decodeJSON(writer, request, &body, 8<<10) != nil || body.Kind != "COVER" {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核封面参数无效", map[string]any{})
+	if decodeJSON(writer, request, &body, 8<<10) != nil || (body.Kind != "COVER" && body.Kind != "VIDEO") {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核媒体参数无效", map[string]any{})
 		return
 	}
-	result, err := server.reviewDeps.CoverUploads.Upload(request.Context(), libraryservice.ReviewCoverRequest{
+	result, err := server.reviewDeps.AssetUploads.Upload(request.Context(), libraryservice.ReviewAssetRequest{
 		ItemID: request.PathValue("importItemId"), UploadFileID: body.UploadFileID,
 		Kind: body.Kind, ExpectedVersion: expected,
 	})
 	if err != nil {
-		server.reviewCoverError(writer, request, err)
+		server.reviewAssetError(writer, request, err)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(writer, http.StatusCreated, struct {
-		libraryservice.ReviewCoverResult
+		libraryservice.ReviewAssetResult
 		URL string `json:"url"`
-	}{ReviewCoverResult: result, URL: "/api/v1/admin/review-assets/" + result.AssetID})
+	}{ReviewAssetResult: result, URL: "/api/v1/admin/review-assets/" + result.AssetID})
 }
 
-func (server *Server) reviewCoverError(writer http.ResponseWriter, request *http.Request, err error) {
+func (server *Server) reviewAssetError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, libraryservice.ErrReviewCoverUploadInvalid):
+	case errors.Is(err, libraryservice.ErrReviewAssetUploadInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity, "ASSET_UPLOAD_INVALID", "上传文件不可用", map[string]any{})
-	case errors.Is(err, libraryservice.ErrReviewCoverStorageUnavailable):
+	case errors.Is(err, libraryservice.ErrReviewAssetStorageUnavailable):
 		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "媒体字节不可用", map[string]any{})
-	case errors.Is(err, libraryservice.ErrReviewCoverImageInvalid):
+	case errors.Is(err, libraryservice.ErrReviewAssetVideoInvalid):
+		writeError(writer, request, http.StatusUnprocessableEntity,
+			"ASSET_VIDEO_INVALID", "视频必须是 MP4 或 WebM，且不超过 256 MiB", map[string]any{})
+	case errors.Is(err, libraryservice.ErrReviewAssetImageInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity,
 			"ASSET_IMAGE_INVALID", "封面必须是受限 PNG、JPEG 或 WebP", map[string]any{})
-	case errors.Is(err, libraryservice.ErrReviewCoverVersion):
+	case errors.Is(err, libraryservice.ErrReviewAssetVersion):
 		writeError(writer, request, http.StatusConflict, "REVIEW_VERSION_CONFLICT", "审核条目已发生变化", map[string]any{})
-	case errors.Is(err, libraryservice.ErrReviewCoverConsumed):
+	case errors.Is(err, libraryservice.ErrReviewAssetConsumed):
 		writeError(writer, request, http.StatusConflict, "UPLOAD_ALREADY_CONSUMED", "上传文件已被其他操作占用", map[string]any{})
 	default:
 		server.databaseError(writer, request, err)

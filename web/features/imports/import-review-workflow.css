@@ -273,7 +273,7 @@
 .review-workflow-preview-actions .review-launch-preview:hover { color: var(--purple-dark); border-color: var(--purple-line); background: var(--purple-soft); }
 .review-workflow-decision-actions { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .review-workflow-feedback { position: fixed; z-index: 80; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); display: grid; gap: 8px; filter: drop-shadow(0 14px 30px rgb(24 32 51 / 16%)); }
-.review-workflow-columns { display: grid; grid-template-columns: minmax(380px, .72fr) minmax(620px, 1.28fr); align-items: stretch; gap: 16px; }
+.review-workflow-columns { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 16px; }
 .review-preview-player { width: 100vw; height: 100dvh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); color: #f2f4f8; background: #05070b; }
 .review-preview-status { min-height: 62px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid #262c38; background: #10141d; }
 .review-preview-status > div { min-width: 0; display: grid; gap: 2px; }
@@ -286,7 +286,8 @@
 .review-preview-status button { min-height: 34px; flex: 0 0 auto; padding: 0 12px; color: #e8ebf1; border: 1px solid #3a4250; border-radius: var(--radius-control); background: #1b202b; cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .review-preview-status button:hover { border-color: var(--purple-line); background: #242a37; }
 .review-preview-frame { width: 100%; height: 100%; border: 0; background: #05060a; }
-.review-workflow-left { min-width: 0; display: grid; gap: 16px; }
+.review-workflow-left { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 16px; }
+.review-workflow-checks { min-width: 0; display: grid; align-content: start; gap: 16px; }
 .review-rpg-validation .panel-body { display: grid; gap: 14px; }
 .review-rpg-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .review-rpg-facts > div { min-width: 0; padding: 9px 10px; display: grid; gap: 3px; border-radius: var(--radius-panel); background: var(--surface-subtle); }
@@ -343,14 +344,18 @@
 .review-workflow-capability, .review-workflow-files, .review-workflow-metadata { min-width: 0; overflow: hidden; }
 .review-workflow-capability .review-validation-guidance { max-height: clamp(220px, 36vh, 360px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 5px; }
 .review-workflow-capability .review-validation-guidance:focus-visible { outline: 3px solid color-mix(in srgb, var(--purple) 52%, transparent); outline-offset: 2px; border-radius: var(--radius-panel); }
-.review-capability-list { display: grid; gap: 9px; }
-.review-capability-list > div { padding: 11px 12px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
+.review-capability-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.review-capability-list > .feedback-banner, .review-capability-list > .review-validation-guidance { grid-column: 1 / -1; }
+.review-capability-list > div { min-width: 0; padding: 11px 12px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .review-capability-list > div strong { font-size: var(--text-caption); }
-.review-capability-list > div span { color: var(--muted); font-size: var(--text-caption); }
+.review-capability-list > div span { color: var(--muted); font-size: var(--text-caption); overflow-wrap: anywhere; }
 .review-capability-list > details { border-top: 1px solid var(--line); padding-top: 11px; }
 .review-capability-list > details summary { color: var(--purple-dark); cursor: pointer; font-size: var(--text-caption); }
 .review-capability-list > details > div { margin-top: 10px; }
-.review-workflow-files .panel-body { max-height: 330px; overflow-y: auto; }
+.review-workflow-files { min-height: 0; align-self: stretch; contain: size; display: flex; flex-direction: column; }
+.review-workflow-files .panel-head { flex: none; }
+.review-workflow-files .panel-body { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.review-workflow-files .review-source-packages, .review-workflow-files .review-archive-entries { max-height: none; overflow: visible; }
 .arcade-dependency-card .panel-body { min-width: 0; }
 .arcade-dependency-root { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); }
 .arcade-dependency-root strong, .arcade-dependency-copy strong { min-width: 0; overflow-wrap: anywhere; }
@@ -371,22 +376,23 @@
 .arcade-parent-selection { margin: 10px 0 0 !important; display: flex; justify-content: space-between; gap: 12px; }
 .arcade-parent-selection strong { min-width: 0; overflow-wrap: anywhere; }
 .arcade-parent-selection span { flex: 0 0 auto; color: var(--muted); }
-.review-workflow-metadata { height: 100%; display: flex; flex-direction: column; }
-.review-workflow-metadata > .panel-body { min-height: 0; flex: 1; }
-.review-workflow-editor { display: block; }
-.review-workflow-publish-layout { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 40%, 400px); align-items: stretch; gap: 20px; }
-.review-workflow-metadata-fields { height: 100%; min-height: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: auto minmax(140px, 1fr) auto auto; align-content: stretch; }
+.review-workflow-editor { display: grid; gap: 20px; }
+.review-workflow-publish-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 28%, 400px); align-items: start; gap: 20px; }
+.review-workflow-metadata-fields { min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); align-content: start; }
 .review-workflow-metadata-fields .field.full { grid-column: 1 / -1; }
-.review-workflow-metadata-fields .field:has(textarea) { min-height: 0; grid-template-rows: auto minmax(120px, 1fr); row-gap: var(--space-1); }
-.review-workflow-metadata-fields textarea { height: 100%; min-height: 120px; resize: none; }
+.review-workflow-metadata-fields .field:has(textarea) { row-gap: var(--space-1); }
+.review-workflow-metadata-fields textarea { height: 180px; min-height: 120px; resize: vertical; }
 .review-workflow-query-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .review-workflow-query-actions .scrape-live { min-width: 0; max-width: min(420px, 34vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .review-workflow-field-half { grid-column: span 3; }
 .review-workflow-field-third { grid-column: span 2; }
-.review-workflow-cover-side { position: relative; width: 100%; min-height: 100%; grid-template-rows: auto minmax(0, 1fr); align-content: stretch; }
-.review-workflow-cover-side .review-cover-upload { min-height: 0; height: 100%; display: grid; place-items: center; background: var(--surface-subtle); }
-.review-workflow-cover-side .review-cover-upload .asset-placeholder, .review-workflow-cover-side .review-cover-upload img { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; object-position: center bottom; }
-.review-workflow-cover-side > .button { position: absolute; z-index: 2; top: 43px; right: 20px; }
+.review-workflow-cover-side { min-width: 0; width: 100%; max-width: 400px; align-content: start; }
+
+@media (max-width: 1099px) {
+  .review-workflow-left, .review-workflow-publish-layout { grid-template-columns: minmax(0, 1fr); }
+  .review-workflow-files { contain: none; }
+  .review-workflow-files .panel-body { max-height: 330px; }
+}
 
 .save-head-summary { display: flex; gap: 10px; }
 .save-head-summary > div { min-width: 108px; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 2px 8px rgb(34 41 58 / 3%); }

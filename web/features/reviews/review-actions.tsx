@@ -13,6 +13,7 @@ import { responseError } from "@/lib/upload";
 import { ArcadeDependencyCard } from "./arcade-dependencies";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
+import { ReviewMediaEditor } from "./review-media-editor";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { useReviewCurrentFacts } from "./use-review-current-facts";
 import { useReviewAttachments } from "./review-attachments";
@@ -20,7 +21,7 @@ import { useReviewCommands } from "./review-commands";
 import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
 import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
+  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -31,13 +32,14 @@ function AssetPreview({ asset, label }: { asset: PreviewAsset | null; label: str
   return asset ? <Image src={asset.url} alt={label} width={asset.width} height={asset.height} unoptimized /> : <div className="asset-placeholder">暂无封面</div>;
 }
 
-export function ReviewActions({ review, activeTags = [], returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; activeTags?: TagReference[]; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
+export function ReviewActions({ review, activeTags = [], returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children, sourceEvidence }: { review: ReviewWorkspace; activeTags?: TagReference[]; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode; sourceEvidence?: ReactNode }) {
   const router = useRouter();
   const initial = initialDraftState(review);
   const initialRuntime = initialRuntimeState(review);
   const [form, setForm] = useState<MetadataForm>(initial.form);
   const [candidateId, setCandidateId] = useState<string | null>(initial.candidateId);
   const [cover, setCover] = useState<CoverSelection>(initial.cover);
+  const [videoId, setVideoId] = useState<string | null>(review.selectedAssets.videoUploadedAssetId);
   const [backgroundId, setBackgroundId] = useState<string | null>(review.selectedAssets.backgroundCandidateAssetId);
   const [screenshotIds, setScreenshotIds] = useState(review.selectedAssets.screenshotCandidateAssetIds);
   const [defaultDosEntry, setDefaultDosEntry] = useState<string | null>(review.defaultDosEntry);
@@ -63,9 +65,9 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const versionRef = useRef(review.version);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
+  const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.videoUploadedAssetId, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
-  const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
+  const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
   const validationStatus = currentValidation ? currentValidation.status : null;
@@ -177,19 +179,20 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     review, returnTo, nextItemId, versionRef,
     draftKey, draftPayload, form, cover, uploadedAssets, comparison, refreshReview, flushDraft,
     enqueueSave, run, setJobProgress, setNotice, setToast, setCandidates, setUploadedAssets,
-    setComparison, setForm, setCandidateId, setCover, setBackgroundId, setScreenshotIds,
+    setComparison, setForm, setCandidateId, setCover, setVideoId, setBackgroundId, setScreenshotIds,
   });
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
   const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
   const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, [rpgMaker, scummvm].some(Boolean));
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
 
 type ReviewViewModel = {
-  review: ReviewWorkspace; activeTags: TagReference[]; sourceDisplayName: string; platformInstanceName: string; children?: ReactNode;
+  review: ReviewWorkspace; activeTags: TagReference[]; sourceDisplayName: string; platformInstanceName: string; children?: ReactNode; sourceEvidence?: ReactNode;
   form: MetadataForm; updateField: (key: keyof MetadataForm, value: string) => void; candidateId: string | null;
+  videoId: string | null; videoUrl: string | null; setVideoId: Dispatch<SetStateAction<string | null>>;
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
   notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
@@ -269,25 +272,33 @@ function ReviewColumns({ model }: { model: ReviewViewModel }) {
 }
 
 function RuntimeDependencies({ model }: { model: ReviewViewModel }) {
-  return <div id="review-step-runtime" className="review-workflow-left">{model.scummvm ? <ScummVMSelection value={model.scummvm} disabled={model.busy !== null} onChange={model.setScummvmCandidateId} /> : null}{model.rpgMaker ? <RPGDependenciesCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
+  return <div id="review-step-runtime" className="review-workflow-left">
+    <div className="review-workflow-checks">
+      {model.children}
+      {model.scummvm ? <ScummVMSelection value={model.scummvm} disabled={model.busy !== null} onChange={model.setScummvmCandidateId} /> : null}
+      {model.rpgMaker ? <RPGDependenciesCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}
+      {model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}
+      {model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}
+    </div>
+    {model.sourceEvidence}
+  </div>;
 }
 
 function MetadataEditor({ model }: { model: ReviewViewModel }) {
-  return <section id="review-step-publish" className="panel review-workflow-metadata"><MetadataHeader model={model} /><div className="panel-body review-workflow-editor"><div className="review-workflow-publish-layout"><MetadataFields model={model} /><CoverEditor model={model} /></div></div></section>;
+  return <section id="review-step-publish" className="panel review-workflow-metadata"><MetadataHeader model={model} /><div className="panel-body review-workflow-editor"><SourceFlagNotice media={model.review.sourceMedia} /><div className="review-workflow-publish-layout"><MetadataFields model={model} /><CoverEditor model={model} /></div><div className="review-tag-editor"><TagPicker label="游戏标签" options={model.activeTags} selected={model.tags} onChange={model.setTags} disabled={model.busy !== null} description="与其他发布信息一起实时保存；通过审核后会原子复制到游戏。" /></div></div></section>;
 }
 
 function MetadataHeader({ model }: { model: ReviewViewModel }) {
-  return <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介、封面和标签；修改会实时保存。</p></div><div className="review-workflow-query-actions">{model.jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{model.jobProgress}</p> : null}<button type="button" className="button secondary" disabled={model.busy !== null} aria-busy={model.busy === "重新查询 Hasheous"} onClick={() => void model.commands.rescrape("HASHEOUS")}>{model.busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>;
+  return <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介、封面、视频和标签；修改会实时保存。</p></div><div className="review-workflow-query-actions">{model.jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{model.jobProgress}</p> : null}<button type="button" className="button secondary" disabled={model.busy !== null} aria-busy={model.busy === "重新查询 Hasheous"} onClick={() => void model.commands.rescrape("HASHEOUS")}>{model.busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>;
 }
 
 function MetadataFields({ model }: { model: ReviewViewModel }) {
-  return <div className="form-grid review-workflow-metadata-fields"><label className="field full">标题<input value={model.form.title} onChange={(event) => model.updateField("title", event.target.value)} maxLength={200} /></label><label className="field full">简介<textarea value={model.form.description} onChange={(event) => model.updateField("description", event.target.value)} maxLength={10000} /></label><label className="field review-workflow-field-half">开发商<input value={model.form.developer} onChange={(event) => model.updateField("developer", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-half">发行商<input value={model.form.publisher} onChange={(event) => model.updateField("publisher", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">类型<input value={model.form.genre} onChange={(event) => model.updateField("genre", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">玩家数<input type="number" min={1} max={64} value={model.form.players} onChange={(event) => model.updateField("players", event.target.value)} /></label><label className="field review-workflow-field-third">发行年份<input type="number" min={1950} value={model.form.releaseYear} onChange={(event) => model.updateField("releaseYear", event.target.value)} /></label>{model.review.dosEntries.length ? <label className="field full">DOS 默认程序<select value={model.defaultDosEntry ?? ""} onChange={(event) => model.setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{model.review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}<div className="field full review-tag-editor"><TagPicker label="游戏标签" options={model.activeTags} selected={model.tags} onChange={model.setTags} disabled={model.busy !== null} description="与其他发布信息一起实时保存；通过审核后会原子复制到游戏。" /></div></div>;
+  return <div className="form-grid review-workflow-metadata-fields"><label className="field full">标题<input value={model.form.title} onChange={(event) => model.updateField("title", event.target.value)} maxLength={200} /></label><label className="field full">简介<textarea value={model.form.description} onChange={(event) => model.updateField("description", event.target.value)} maxLength={10000} /></label><label className="field review-workflow-field-half">开发商<input value={model.form.developer} onChange={(event) => model.updateField("developer", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-half">发行商<input value={model.form.publisher} onChange={(event) => model.updateField("publisher", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">类型<input value={model.form.genre} onChange={(event) => model.updateField("genre", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">玩家数<input type="number" min={1} max={64} value={model.form.players} onChange={(event) => model.updateField("players", event.target.value)} /></label><label className="field review-workflow-field-third">发行年份<input type="number" min={1950} value={model.form.releaseYear} onChange={(event) => model.updateField("releaseYear", event.target.value)} /></label>{model.review.dosEntries.length ? <label className="field full">DOS 默认程序<select value={model.defaultDosEntry ?? ""} onChange={(event) => model.setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{model.review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}</div>;
 }
 
 function CoverEditor({ model }: { model: ReviewViewModel }) {
-  const upload = (file: File | undefined) => {if (file) {void model.commands.uploadCover(file, "current");}};
-  const sourceName = serverSourceName();
-  return <aside className="review-cover-panel review-workflow-cover-side"><SourceFlagNotice media={model.review.sourceMedia} /><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? `恢复 ${sourceName} 封面` : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">{sourceName} 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
+  const restoreLabel = model.cover.candidateId || model.cover.uploadedId ? model.sourceCover ? `恢复 ${serverSourceName()} 封面` : "移除封面" : null;
+  return <ReviewMediaEditor cover={model.selectedCover} videoUrl={model.videoUrl} videoRestoreLabel={model.videoId ? model.review.sourceMedia?.videoUrl ? "恢复来源视频" : "移除视频" : null} onUploadVideo={(file) => void model.commands.uploadVideo(file)} onRestoreVideo={() => model.setVideoId(null)} disabled={model.busy !== null} restoreLabel={restoreLabel} onUpload={(file) => void model.commands.uploadCover(file, "current")} onRestore={() => model.setCover({ candidateId: null, uploadedId: null })} />;
 }
 
 function ComparisonDialog({ model }: { model: ReviewViewModel }) {

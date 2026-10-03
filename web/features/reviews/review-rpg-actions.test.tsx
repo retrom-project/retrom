@@ -13,7 +13,7 @@ const review: ReviewWorkspace = {
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
   readiness: { status: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
-  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
+  selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, videoUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
   rpgMaker: {
     selectedCoreId: "rpgmaker", generation: "RPGMV", evidenceGeneration: "RPGMV",

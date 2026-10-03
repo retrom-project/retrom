@@ -84,7 +84,7 @@ type Services struct {
 	TagService          *tagging.Service
 	ReviewQueue         *libraryservice.ReviewQueue
 	ReviewDetails       *libraryservice.ReviewDetails
-	ReviewCoverUploads  *libraryservice.ReviewCoverUploads
+	ReviewAssetUploads  *libraryservice.ReviewAssetUploads
 	ReviewDiscards      *libraryservice.ReviewDiscards
 	ReviewApprovals     *libraryservice.ReviewApprovals
 	ReviewBulkApprovals *libraryservice.ReviewBulk

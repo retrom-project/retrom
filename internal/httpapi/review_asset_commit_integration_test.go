@@ -16,11 +16,11 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
+func TestReviewAssetConsumptionFailureRemainsServerError(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
-	fileID := createReviewCoverUpload(t, server)
+	fileID := createReviewAssetUpload(t, server)
 	cause := errors.New("review cover consumption failed")
 	inserted, failed := 0, 0
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
@@ -38,30 +38,30 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewDeps.CoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.contentDeps.Files, server.now)
-	response := requestReviewCover(t, server, itemID, fileID)
+	server.reviewDeps.AssetUploads = librarycomposition.NewReviewAssetUploads(faultDB, server.contentDeps.Files, server.now)
+	response := requestReviewAsset(t, server, itemID, fileID)
 	if response.Code != http.StatusInternalServerError || inserted != 1 || failed != 1 {
 		t.Fatalf("consumption SQL failure misclassified: status=%d inserted=%d failed=%d body=%s", response.Code, inserted, failed, response.Body.String())
 	}
-	assertReviewCoverCounts(t, server, itemID, 0)
+	assertReviewAssetCounts(t, server, itemID, 0)
 }
 
-func TestReviewCoverDiscardedDraftCannotConsumeUpload(t *testing.T) {
+func TestReviewAssetDiscardedDraftCannotConsumeUpload(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
-	fileID := createReviewCoverUpload(t, server)
+	fileID := createReviewAssetUpload(t, server)
 	if _, err := server.database.ExecContext(t.Context(), `UPDATE import_items SET state='DISCARDED' WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
-	response := requestReviewCover(t, server, itemID, fileID)
+	response := requestReviewAsset(t, server, itemID, fileID)
 	if response.Code != http.StatusConflict {
 		t.Fatalf("discarded review accepted cover: status=%d body=%s", response.Code, response.Body.String())
 	}
-	assertReviewCoverCounts(t, server, itemID, 0)
+	assertReviewAssetCounts(t, server, itemID, 0)
 }
 
-func assertReviewCoverCounts(t *testing.T, server *testServer, itemID string, want int) {
+func assertReviewAssetCounts(t *testing.T, server *testServer, itemID string, want int) {
 	t.Helper()
 	var assets, consumptions int
 	var version int64
@@ -78,7 +78,7 @@ d.review_version,d.cover_uploaded_asset_id IS NOT NULL FROM import_items d WHERE
 	}
 }
 
-func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
+func TestReviewAssetUploadCannotMoveBetweenReviews(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	firstItemID := createReviewSnapshotItem(t, server)
@@ -86,16 +86,16 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 	if firstItemID == secondItemID {
 		t.Fatal("fixture did not create independent reviews")
 	}
-	fileID := createReviewCoverUpload(t, server)
-	first := requestReviewCover(t, server, firstItemID, fileID)
+	fileID := createReviewAssetUpload(t, server)
+	first := requestReviewAsset(t, server, firstItemID, fileID)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first cover=%d %s", first.Code, first.Body.String())
 	}
-	second := requestReviewCover(t, server, secondItemID, fileID)
+	second := requestReviewAsset(t, server, secondItemID, fileID)
 	if second.Code != http.StatusConflict || !strings.Contains(second.Body.String(), `"UPLOAD_ALREADY_CONSUMED"`) {
 		t.Fatalf("cover moved to second review: %d %s", second.Code, second.Body.String())
 	}
-	assertReviewCoverCounts(t, server, firstItemID, 1)
+	assertReviewAssetCounts(t, server, firstItemID, 1)
 	var count int
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
 		t.Fatal(err)
@@ -105,18 +105,18 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 	}
 }
 
-func TestReviewCoverProjectUploadRemainsIneligible(t *testing.T) {
+func TestReviewAssetProjectUploadRemainsIneligible(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
-	fileID := createReviewCoverUpload(t, server)
+	fileID := createReviewAssetUpload(t, server)
 	if _, err := server.database.ExecContext(t.Context(), `
 UPDATE upload_sessions SET purpose='PROJECT' WHERE id=(SELECT upload_session_id FROM upload_files WHERE id=?)`, fileID); err != nil {
 		t.Fatal(err)
 	}
-	response := requestReviewCover(t, server, itemID, fileID)
+	response := requestReviewAsset(t, server, itemID, fileID)
 	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"UPLOAD_ALREADY_CONSUMED"`) {
 		t.Fatalf("project upload accepted as media: status=%d body=%s", response.Code, response.Body.String())
 	}
-	assertReviewCoverCounts(t, server, itemID, 0)
+	assertReviewAssetCounts(t, server, itemID, 0)
 }

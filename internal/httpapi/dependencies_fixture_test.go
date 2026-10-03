@@ -52,7 +52,7 @@ func testHTTPDependencies(services *application.Services, auth Authenticator, pr
 		Review: ReviewDependencies{
 			Queue:         services.ReviewQueue,
 			Details:       services.ReviewDetails,
-			CoverUploads:  services.ReviewCoverUploads,
+			AssetUploads:  services.ReviewAssetUploads,
 			Discards:      services.ReviewDiscards,
 			Approvals:     services.ReviewApprovals,
 			BulkApprovals: services.ReviewBulkApprovals,

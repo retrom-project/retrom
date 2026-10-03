@@ -87,6 +87,7 @@ func projectReviewHead(head ReviewHead) (ReviewDetail, error) {
 		SelectedAssets: ReviewSelectedAssets{
 			CoverID:         head.CoverID,
 			UploadedCoverID: head.UploadedCoverID,
+			UploadedVideoID: head.UploadedVideoID,
 			BackgroundID:    head.BackgroundID,
 		},
 	}, nil

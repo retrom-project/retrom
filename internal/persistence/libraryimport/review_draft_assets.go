@@ -34,13 +34,13 @@ WHERE a.id=? AND r.import_item_id=? AND r.state='COMPLETED' AND a.status='READY'
 }
 
 func (records ReviewDraftAssets) ValidUploaded(
-	ctx context.Context, itemID, assetID string,
+	ctx context.Context, itemID, assetID, kind string,
 ) (bool, error) {
 	var count int
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FROM review_uploaded_assets
-WHERE id=? AND import_item_id=? AND kind='COVER'
-`, assetID, itemID).Scan(&count)
+WHERE id=? AND import_item_id=? AND kind=?
+`, assetID, itemID, kind).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("query review uploaded asset: %w", err)
 	}
