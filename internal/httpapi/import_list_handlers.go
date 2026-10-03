@@ -165,7 +165,12 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 		server.databaseError(writer, request, err)
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
+	views, err := server.importListViews(request.Context(), items)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": views, "nextCursor": nextCursor})
 }
 
 func (server *Server) createImport(writer http.ResponseWriter, request *http.Request) {

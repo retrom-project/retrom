@@ -45,4 +45,20 @@ describe("review validation guidance", () => {
     expect(screen.getByText("make prepare-deps")).toBeVisible();
     expect(screen.queryByRole("link", { name: /街机数据目录/ })).not.toBeInTheDocument();
   });
+  it("keeps Parent diagnostics visible while a screenshot authorizes publication", () => {
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="LAUNCH_PARENT_MISSING" screenshotApproval snapshot={{dependencies: [{kind: "PARENT", machine: "parent", state: "MISSING"}], mismatchedEntries: ["wrong.bin"]}} />);
+    expect(screen.getByText("缺少街机父级或依赖文件")).toBeVisible();
+    expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();
+    expect(screen.getByText("parent.zip")).toBeVisible();
+    expect(screen.getByText("wrong.bin")).toBeVisible();
+    expect(screen.getByText(/已保存运行截图，可由管理员确认发布/)).toBeVisible();
+    expect(screen.queryByText(/发布已暂停/)).not.toBeInTheDocument();
+    expect(screen.queryByText("运行检查已通过")).not.toBeInTheDocument();
+  });
+  it("explains trial-required projects without inventing missing dependencies", () => {
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="TRIAL_REQUIRED" screenshotApproval />);
+    expect(screen.getByText("需要试运行确认")).toBeVisible();
+    expect(screen.getByText(/已保存运行截图/)).toBeVisible();
+  });
+
 });

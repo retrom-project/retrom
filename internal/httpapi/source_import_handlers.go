@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,7 +22,7 @@ func (server *Server) createSourceImport(writer http.ResponseWriter, request *ht
 		"/api/v1/admin/source-imports/",
 		server.importDeps.Source.Create,
 		func(summary sourceimport.Summary) string { return summary.ID },
-		writeSourceSummary,
+		server.sourceSummaryWriter(request.Context(), request),
 		server.writeSourceImportError,
 	)
 }
@@ -77,7 +76,12 @@ func (server *Server) sourceImportList(writer http.ResponseWriter, request *http
 		)
 		next = &token
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
+	views, err := server.sourceListViews(request.Context(), items)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": views, "nextCursor": next})
 }
 
 func (server *Server) sourceImportDetail(writer http.ResponseWriter, request *http.Request) {
@@ -86,7 +90,7 @@ func (server *Server) sourceImportDetail(writer http.ResponseWriter, request *ht
 		server.writeSourceImportError(writer, request, err)
 		return
 	}
-	writeSourceSummary(writer, http.StatusOK, summary)
+	server.sourceSummaryWriter(request.Context(), request)(writer, http.StatusOK, summary)
 }
 
 func (server *Server) sourceImportCollections(writer http.ResponseWriter, request *http.Request) {
@@ -158,7 +162,7 @@ func (server *Server) updateSourceMappings(writer http.ResponseWriter, request *
 			principal, _ := authn.PrincipalFromContext(ctx)
 			return server.importDeps.Source.UpdateMappings(ctx, id, version, mappings, principal.UserID)
 		},
-		writeSourceSummary,
+		server.sourceSummaryWriter(request.Context(), request),
 		server.writeSourceImportError,
 	)
 }
@@ -172,7 +176,7 @@ func (server *Server) startSourceImport(writer http.ResponseWriter, request *htt
 			principal, _ := authn.PrincipalFromContext(ctx)
 			return server.importDeps.Source.StartImport(ctx, id, version, principal.UserID)
 		},
-		writeSourceSummary,
+		server.sourceSummaryWriter(request.Context(), request),
 		server.writeSourceImportError,
 	)
 }
@@ -230,24 +234,13 @@ func (server *Server) sourceImportItems(writer http.ResponseWriter, request *htt
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
 }
 
-func (server *Server) cancelSourceImport(writer http.ResponseWriter, request *http.Request) {
-	cancelFormatImport(
-		writer,
-		request,
-		"sourceImportId",
-		server.importDeps.Source.Cancel,
-		writeSourceSummary,
-		server.writeSourceImportError,
-	)
-}
-
 func (server *Server) retrySourceImport(writer http.ResponseWriter, request *http.Request) {
 	retryFormatImport(
 		writer,
 		request,
 		"sourceImportId",
 		server.importDeps.Source.Retry,
-		writeSourceSummary,
+		server.sourceSummaryWriter(request.Context(), request),
 		server.writeSourceImportError,
 	)
 }
@@ -273,11 +266,6 @@ func (server *Server) deleteSourceImport(writer http.ResponseWriter, request *ht
 		return
 	}
 	writer.WriteHeader(http.StatusNoContent)
-}
-
-func writeSourceSummary(writer http.ResponseWriter, status int, summary sourceimport.Summary) {
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, summary.Version))
-	writeJSON(writer, status, summary)
 }
 
 func validSourceState(value string) bool {

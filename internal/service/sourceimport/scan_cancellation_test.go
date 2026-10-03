@@ -11,42 +11,25 @@ func (memory *workflowMemory) CurrentJob(context.Context, string) (WorkflowSnaps
 	return memory.before, memory.err
 }
 
-func TestScanCancellationUsesOriginalJobVersionInDomainTransaction(t *testing.T) {
-	t.Parallel()
+func TestScanCancellationUsesLatestExecutionAndIsIdempotent(t *testing.T) {
 	memory := workflowFixture()
 	memory.before.Summary.State = "SCANNING"
 	memory.before.Summary.ImportJobID = nil
 	memory.before.Summary.ScanJobID = "scan"
+	memory.before.Summary.Version = 99
 	memory.before.JobState = "RUNNING"
+	memory.before.JobVersion = 42
+	memory.before.Execution = 7
 	service := NewWorkflowControl(memory, func() time.Time { return time.UnixMilli(10) })
-	if result, pending, err := service.CancelJob(
-		t.Context(),
-		JobCancellationRequest{
-			JobID:           "scan",
-			ScopeID:         "import",
-			Kind:            "IMPORT_SCAN",
-			ExpectedVersion: 4,
-			Reason:          "Stop",
-			ActorID:         "actor",
-		},
-	); !errors.Is(
-		err,
-		ErrVersionConflict,
-	) || pending || result.JobID != "" || memory.cancellation != nil {
-		t.Fatalf("used plan ETag instead of job ETag: %#v %v %v", result, pending, err)
+	command := JobCancellationRequest{JobID: "scan", ScopeID: "import", Kind: "IMPORT_SCAN", Reason: "Stop", ActorID: "actor"}
+	first, pending, err := service.CancelJob(t.Context(), command)
+	if err != nil || !pending || first.State != "CANCEL_REQUESTED" || first.Version != 43 || first.ExecutionNo != 7 {
+		t.Fatalf("latest execution cancellation: %#v %v %v", first, pending, err)
 	}
-	if result, pending, err := service.CancelJob(
-		t.Context(),
-		JobCancellationRequest{
-			JobID:           "scan",
-			ScopeID:         "import",
-			Kind:            "IMPORT_SCAN",
-			ExpectedVersion: 3,
-			Reason:          "Stop",
-			ActorID:         "actor",
-		},
-	); err != nil || !pending || result.State != "CANCEL_REQUESTED" {
-		t.Fatalf("correct job ETag rejected: %#v %v %v", result, pending, err)
+	memory.cancellation = nil
+	second, pending, err := service.CancelJob(t.Context(), command)
+	if err != nil || !pending || second != first || memory.cancellation != nil {
+		t.Fatalf("repeat cancellation changed state: %#v %v %v", second, pending, err)
 	}
 }
 
@@ -68,12 +51,11 @@ func TestScanCancellationPreservesReadAndCommitFailures(t *testing.T) {
 		result, pending, err := service.CancelJob(
 			t.Context(),
 			JobCancellationRequest{
-				JobID:           "scan",
-				ScopeID:         "import",
-				Kind:            "IMPORT_SCAN",
-				ExpectedVersion: 3,
-				Reason:          "Stop",
-				ActorID:         "actor",
+				JobID:   "scan",
+				ScopeID: "import",
+				Kind:    "IMPORT_SCAN",
+				Reason:  "Stop",
+				ActorID: "actor",
 			},
 		)
 		if !errors.Is(err, cause) || result.JobID != "" || pending {

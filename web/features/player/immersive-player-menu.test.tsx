@@ -1,8 +1,48 @@
-import { fireEvent, render, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 
+afterEach(cleanup);
+
 describe("ImmersivePlayerMenu", () => {
+  it("owns keyboard focus until the closing gate finishes, then returns it to the iframe", () => {
+    const iframe = document.createElement("iframe");
+    document.body.append(iframe);
+    iframe.focus();
+    const props = {saveAvailable: true, onCancel: vi.fn(), onSelect: vi.fn(), onConfirm: vi.fn()};
+    const menu = {kind: "menu" as const, selected: 0 as const, error: "", notice: "", pending: false};
+    const view = render(<ImmersivePlayerMenu {...props} overlay={menu} />);
+    const buttons = within(view.container).getAllByRole("button");
+    expect(buttons[0]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, {key: "Tab", shiftKey: true});
+    expect(buttons[2]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, {key: "Tab"});
+    expect(buttons[0]).toHaveFocus();
+    act(() => iframe.focus());
+    expect(buttons[0]).toHaveFocus();
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={{...menu, selected: 1}} />);
+    expect(buttons[1]).toHaveFocus();
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={{kind: "closing"}} />);
+    expect(iframe).not.toHaveFocus();
+    expect(view.container.querySelector("section")).toHaveFocus();
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={{kind: "closed"}} />);
+    expect(iframe).toHaveFocus();
+    iframe.remove();
+  });
+
+  it("keeps focus through pending saves and restores the selected action after failure", () => {
+    const props = {saveAvailable: true, onCancel: vi.fn(), onSelect: vi.fn(), onConfirm: vi.fn()};
+    const menu = {kind: "menu" as const, selected: 1 as const, error: "", notice: "", pending: false};
+    const view = render(<ImmersivePlayerMenu {...props} overlay={menu} />);
+    expect(within(view.container).getByRole("button", {name: "创建存档"})).toHaveFocus();
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={{...menu, pending: true}} />);
+    const dialog = within(view.container).getByRole("dialog");
+    expect(dialog).toHaveFocus();
+    fireEvent.keyDown(dialog, {key: "Tab"});
+    expect(dialog).toHaveFocus();
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={{...menu, error: "保存失败"}} />);
+    expect(within(view.container).getByRole("button", {name: "创建存档"})).toHaveFocus();
+  });
   it("puts the cursor switch between cancel and save without invoking exit", () => {
     const onSelect = vi.fn(); const onConfirm = vi.fn();
     const view = render(<ImmersivePlayerMenu gamepadCursor={{enabled: true, toggle: vi.fn()}} saveAvailable

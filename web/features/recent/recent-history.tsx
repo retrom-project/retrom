@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { AppIcon } from "@/components/app-icon";
-import { EmptyState, StatusBadge } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { LaunchButton } from "@/features/player/launch-button";
 import { TagChips } from "@/components/tag-picker";
 import { useCursorPage } from "@/lib/use-cursor-page";
@@ -35,7 +35,7 @@ function RecentGameRow({ game, timeZone }: { game: RecentGame; timeZone: string 
     </Link>}
     <div className="recent-history-content">
       <div className="recent-history-main">
-        {deleted ? <div><h2>{game.title}</h2><StatusBadge tone="bad">已删除</StatusBadge></div> : <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>}
+        {deleted ? <h2>{game.title}</h2> : <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>}
         <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的标签`} />
         <p><AppIcon name="library" />{game.platform.name} · {game.platformInstance.name}</p>
       </div>

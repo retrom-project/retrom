@@ -61,22 +61,14 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	if err := ensureParent(path); err != nil {
 		return nil, err
 	}
-	database, err := sqlite.Open(path, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1, Now: now})
+	database, err := sqlite.Open(path, connectionOptions(1, now))
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	// Retrom has one write handle. Serializing it prevents per-connection PRAGMA drift
-	// and follows the documented single-writer SQLite contract.
-	for _, pragma := range []string{
-		"PRAGMA foreign_keys = ON",
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA busy_timeout = 5000",
-		"PRAGMA synchronous = FULL",
-	} {
-		if _, err := database.ExecContext(ctx, pragma); err != nil {
-			cleanup.Error("close", database.Close())
-			return nil, fmt.Errorf("configure sqlite: %w", err)
-		}
+	// WAL is database state; connection policy is applied by the driver on open.
+	if _, err := database.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
+		cleanup.Error("close", database.Close())
+		return nil, fmt.Errorf("configure sqlite journal: %w", err)
 	}
 	if err := applyMigrations(ctx, database, now); err != nil {
 		cleanup.Error("close", database.Close())
@@ -90,13 +82,18 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	return &DB{SQL: database, ReadOnly: readOnly}, nil
 }
 
+func connectionOptions(maxConnections int, now func() time.Time) sqlite.Options {
+	return sqlite.Options{
+		MaxOpenConns: maxConnections, MaxIdleConns: maxConnections, Now: now,
+		Pragmas: []string{"foreign_keys(1)", "busy_timeout(5000)", "synchronous(FULL)"},
+	}
+}
+
 func openReadOnlyDatabase(ctx context.Context, path string) (dbapi.DB, error) {
 	query := url.Values{}
 	query.Set("mode", "ro")
-	query.Add("_pragma", "foreign_keys(1)")
-	query.Add("_pragma", "busy_timeout(5000)")
 	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: query.Encode()}).String()
-	database, err := sqlite.Open(dsn, sqlite.Options{MaxOpenConns: 4, MaxIdleConns: 4})
+	database, err := sqlite.Open(dsn, connectionOptions(4, nil))
 	if err != nil {
 		return nil, fmt.Errorf("open read-only sqlite: %w", err)
 	}

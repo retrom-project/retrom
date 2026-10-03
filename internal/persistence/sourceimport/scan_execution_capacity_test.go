@@ -25,7 +25,7 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 	}
 	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := service.CancelJob(t.Context(), application.JobCancellationRequest{
-		JobID: "job-1", ScopeID: "import-1", Kind: "IMPORT_SCAN", ExpectedVersion: 1, Reason: "Stop", ActorID: "actor",
+		JobID: "job-1", ScopeID: "import-1", Kind: "IMPORT_SCAN", Reason: "Stop", ActorID: "actor",
 	}); err != nil || !pending {
 		t.Fatalf("request scan cancellation: %v %v", pending, err)
 	}

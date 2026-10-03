@@ -429,6 +429,8 @@ test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", a
   await selectGameByTitle(page, "Sudoku");
   const { frame } = await launchSelectedGame(page);
 
+  await verifyKeyboardMenuFocus(page);
+
   await setGamepadButtons(page, 0, [standardButton.select]);
   await page.waitForTimeout(140);
   expect(await frame.evaluate(() => navigator.getGamepads()[0]?.buttons[8]?.pressed)).toBe(true);
@@ -457,6 +459,34 @@ test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", a
   await exitFromPlayerMenu(page);
   expect(saveWrites).toHaveLength(1);
 });
+
+async function verifyKeyboardMenuFocus(page: Page) {
+  await setGamepadButtons(page, 0, []);
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
+  await canvas.click();
+  await page.keyboard.press("m");
+  const menu = page.getByRole("dialog", {name: "游戏菜单"});
+  await expect(menu.getByRole("button", {name: "取消"})).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(menu.getByRole("button", {name: "创建存档"})).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(menu.getByRole("button", {name: "退出游戏"})).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(menu.getByRole("button", {name: "取消"})).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect.poll(() => page.evaluate(() => ({tag: document.activeElement?.tagName,
+    className: document.activeElement?.className, hasFocus: document.hasFocus()}))).toEqual({tag: "IFRAME", className: "player-frame", hasFocus: true});
+  const frame = await runtimeFrameCount(page);
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(() => runtimeFrameCount(page)).toBeGreaterThan(frame + 10);
+  await page.keyboard.press("m");
+  await expect(menu.getByRole("button", {name: "取消"})).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await expect.poll(() => page.evaluate(() => ({tag: document.activeElement?.tagName,
+    className: document.activeElement?.className, hasFocus: document.hasFocus()}))).toEqual({tag: "IFRAME", className: "player-frame", hasFocus: true});
+}
 
 test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the active pad", async ({ page }, testInfo) => {
   test.setTimeout(180_000);

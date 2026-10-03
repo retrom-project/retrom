@@ -347,6 +347,7 @@ describe("UploadPicker", () => {
       { id: "gba", name: "GBA 游戏", platformName: "Game Boy Advance", coreName: "mGBA" },
       { id: "psp", name: "PSP 游戏", platformName: "PlayStation Portable", coreName: "PPSSPP" },
     ]} activeTags={[{ tagId: "tag-handheld", name: "掌机" }]} reconfigureSource={{
+      discard: { kind: "IMPORT", importId: "source-import", state: "AVAILABLE", errorCode: null },
       importJobId: "source-import",
       state: "PARTIAL_FAILURE",
       payloadState: "RETAINED",

@@ -103,7 +103,7 @@ func TestFinalizationStartRecoversQueuedAndCancelledJobs(t *testing.T) {
 			job := fixture.complete(t, session)
 			if cancelled {
 				_, _, err := jobservice.New(jobpersistence.New(fixture.database),
-					finalizationNow).Cancel(t.Context(), job, 1, "user cancelled")
+					finalizationNow).Cancel(t.Context(), job, "user cancelled")
 				if err != nil {
 					t.Fatal(err)
 				}

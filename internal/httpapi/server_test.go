@@ -466,6 +466,7 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		!strings.Contains(list.Body.String(), `"rejectedFileCount":1`),
 		!strings.Contains(list.Body.String(), `"contentMode":"STANDARD"`)),
 		"import list = %d %s", list.Code, list.Body.String())
+	assertImportDiscardPage(t, list.Body.Bytes(), importID)
 	var firstPage struct {
 		Items []struct {
 			ID string `json:"id"`
@@ -502,6 +503,7 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		"/api/v1/admin/imports/"+importID, nil)
 	detailRequest.SetPathValue("importJobId", importID)
 	server.importDetail(detail, detailRequest)
+	assertImportDiscardDetail(t, detail.Body.Bytes(), importID, "AVAILABLE")
 	testassert.Falsef(t, anyTrue(detail.Code != http.StatusOK,
 		!strings.Contains(detail.Body.String(), `"disposition":"REJECTED"`),
 		!strings.Contains(detail.Body.String(), `"name":"fc/8只眼.zip"`),

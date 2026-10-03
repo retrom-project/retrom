@@ -96,12 +96,12 @@ CREATE INDEX idx_play_sessions_started_at_ms
 
 一期固定使用 pure-Go `modernc.org/sqlite`，避免后端镜像隐式依赖 CGO/系统 SQLite。精确 module 版本由 `go.mod/go.sum` 锁定；更换 driver 属于数据库基线变更，必须重跑全部 migration、并发与完整性 Case。
 
-每个数据库连接初始化：
+写 handle 打开数据库时设置持久的 `journal_mode=WAL`。每个物理连接（包括中断后连接池重建的连接）通过驱动 DSN `_pragma` 初始化：
 
 ~~~sql
-PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 PRAGMA busy_timeout = 5000;
+PRAGMA synchronous = FULL;
 ~~~
 
 规则：
@@ -110,7 +110,7 @@ PRAGMA busy_timeout = 5000;
 - 事务统一通过 `database.DB.BeginTx` 开始。SQLite 接入层固定驱动参数 `_txlock=immediate`，非只读事务在开始时取得写保留，避免先读后写的锁升级冲突；只读事务必须显式传入 `ReadOnly: true`，由驱动使用普通 `BEGIN`，不预占写锁。提交、回滚、context 取消和连接归还统一由 `database/sql` 与驱动管理，不另行持有 `sql.Conn` 手写事务状态机。驱动故障注入连接也必须使用相同事务策略。
 - 隔离性沿用 SQLite 自身的事务语义；`TxOptions` 只提供 `ReadOnly`，不暴露逐事务隔离级别选择。`_txlock` 控制取得写锁的时机，不用于切换隔离级别。
 - SQLite 数据库和 WAL 必须位于本机磁盘；不支持把数据库放在 NFS/SMB/分布式文件系统。独立文件存储可单独挂载，但必须满足原子 rename 语义。
-- 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；独立只读 handle 使用 `mode=ro` 且最多 4 个连接，健康探测等只读控制面查询不能排在唯一写连接之后。每个新连接都执行 `foreign_keys=ON` 和 `busy_timeout=5000`，不能只在首个连接设置。
+- 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；独立只读 handle 使用 `mode=ro` 且最多 4 个连接，健康探测等只读控制面查询不能排在唯一写连接之后。两种 handle 的连接初始化策略由存储入口统一传入 SQLite 适配器；单连接池同样可能换连接，不能只对池执行一次 PRAGMA。只读连接不设置 journal mode。完整性验收同时检查 `foreign_key_check` 和数据库重新打开，不能仅以 `quick_check` 通过判断健康。
 - 组合层必须显式注入 reader 和 writer。独立账户事实、会话鉴权与业务列表/详情查询走 reader；显式 `ReadOnly` 快照也走 reader。写事务内的事实重验、收据、领域变更、租约与 fencing 继续共享该 writer 事务，不能跨池拆开原子提交，也不缓存授权事实。
 - 有效会话的定期续期最多等待写事务 100ms；续期超时但请求仍有效时重新读取当前账户/会话事实，并仅使用已提交的 idle/absolute expiry。停用、撤销、密码版本变化或到期仍立即拒绝。续期不会排队拖住普通 GET，也不会在写入失败时伪造延期；其他存储故障及请求取消保持失败语义。
 - 连接池统计暴露等待次数/累计等待时间，SQLite 适配器分别记录 SQL 调用次数/累计调用耗时与事务次数/累计持有时间，包括批量导入使用的 prepared statements。普通 SQL 调用耗时包括池等待，不等于纯 SQL 执行时间；事务中的 SQL 调用不再经过池排队，持有时间包含业务回调、行扫描与提交。慢调用或事务取得（500ms）和慢写事务（100ms）输出结构化耗时日志，日志不含 SQL、参数或凭据；以池等待、事务内 SQL 和事务持有时间判断瓶颈，不能从总请求时间猜测缺失索引。

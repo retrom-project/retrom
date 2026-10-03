@@ -22,6 +22,19 @@ type PlayerLoadingProps = {
 };
 
 export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = [] }: PlayerLoadingProps) {
+  return message === "RUNTIME_SESSION_UNAVAILABLE" ? <UnavailableSession returnTo={returnTo} immersive={immersive} /> :
+    <StartupLoading state={state} message={message} progress={progress} returnTo={returnTo} immersive={immersive} canLoadOnDemand={canLoadOnDemand} tasks={tasks} />;
+}
+
+function UnavailableSession({returnTo, immersive}: Pick<PlayerLoadingProps, "returnTo" | "immersive">) {
+  return <div className="player-loading" role="alert">
+    <strong>运行会话已不可用</strong>
+    <p>服务器已拒绝继续此会话，游戏已停止。游戏可能已被删除，或运行凭据已失效。</p>
+    <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link>
+  </div>;
+}
+
+function StartupLoading({state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = []}: PlayerLoadingProps) {
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
   const retryable = cacheFailure || downloadFailure;

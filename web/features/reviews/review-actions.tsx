@@ -21,7 +21,7 @@ import { useReviewCommands } from "./review-commands";
 import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
 import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
+  activeAttachmentJobId, compareFields, draftPatchPayload, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -67,6 +67,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.videoUploadedAssetId, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
+  const savedMetadataRef = useRef(serverPayload.metadata);
   const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
@@ -110,10 +111,11 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
       if (!force && lastSavedKeyRef.current === key) {return true;}
       if (latestKeyRef.current === key) {setSaveState("saving");}
       try {
-        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(payload) });
+        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(draftPatchPayload(payload, savedMetadataRef.current)) });
         if (!response.ok) {throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));}
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
+        savedMetadataRef.current = payload.metadata;
         await refreshReview();
         lastSavedKeyRef.current = key;
         if (latestKeyRef.current === key) {setSaveState("saved");}
@@ -184,7 +186,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
   const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
-  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, [rpgMaker, scummvm].some(Boolean));
+  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state);
 
   return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
@@ -260,7 +262,7 @@ function ReviewDecision({ model }: { model: ReviewViewModel }) {
 function reviewDecisionMessage(model: ReviewViewModel) {
   if (model.validationReady) {return "运行检查已经通过，可以发布。";}
   if (model.screenshotOverride) {return "已取得运行截图，可由管理员确认后发布。";}
-  return "可先运行游戏；游戏初始化、文件和依赖必须有效；试玩不会代替这些检查。";
+  return "可修正检查发现的问题，或试运行确认可以游玩并保存截图，再由管理员确认发布。";
 }
 
 function ReviewFeedback({ model }: { model: ReviewViewModel }) {

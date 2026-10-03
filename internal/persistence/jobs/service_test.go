@@ -88,7 +88,7 @@ VALUES(?,1,?,?,?)
 	testassert.False(t, err != nil, err)
 }
 
-func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
+func TestCancellationIsIdempotentAndRetryRetainsVersionGuard(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
@@ -97,13 +97,13 @@ func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	service := jobs.New(New(database.SQL), func() time.Time { return now })
 	insertJob(t, database, "cancel-job", "MEDIA_FETCH", "QUEUED", nil, now.UnixMilli())
-	canceled, pending, err := service.Cancel(ctx, "cancel-job", 1, "operator canceled")
+	canceled, pending, err := service.Cancel(ctx, "cancel-job", "operator canceled")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" }, func() bool { return canceled.Version != 2 }), "cancel = %#v, pending=%v, error=%v", canceled, pending, err)
-	if _, _, err := service.Cancel(ctx, "cancel-job", 2, "again"); !errors.Is(err, jobs.ErrConflict) {
-		t.Fatalf("terminal cancellation = %v", err)
+	if repeated, pending, err := service.Cancel(ctx, "cancel-job", "again"); err != nil || pending || repeated != canceled {
+		t.Fatalf("repeated cancellation = %+v %v %v", repeated, pending, err)
 	}
 	insertJob(t, database, "failed-cancel-job", "MEDIA_FETCH", "FAILED", int64(1), now.UnixMilli())
-	failedCanceled, pending, err := service.Cancel(ctx, "failed-cancel-job", 1, "discard retryable attachment")
+	failedCanceled, pending, err := service.Cancel(ctx, "failed-cancel-job", "discard retryable attachment")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return failedCanceled.State != "CANCELLED" }, func() bool { return failedCanceled.Version != 2 }), "failed cancel = %#v, pending=%v, error=%v", failedCanceled, pending, err)
 
 	insertJob(t, database, "retry-job", "MEDIA_FETCH", "FAILED", int64(1), now.UnixMilli())

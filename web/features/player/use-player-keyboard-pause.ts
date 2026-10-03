@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type {PlayerRuntimeV1} from "./runtime/contract";
 
 type Params = {
@@ -48,4 +48,24 @@ export function usePlayerKeyboardPause(params: Params) {
     pausePending, pausedRef, running, setControlsVisible, setPaused,
     showControls, showToast,
   ]);
+}
+
+
+export function usePauseForToolbar({runtime: runtimeRef, running: runningRef, pausePending: pendingRef, pausedRef,
+  setPaused, setControlsVisible, clearControlsTimer, showToast,
+}: Pick<Params, "runtime" | "running" | "pausePending" | "pausedRef" | "setPaused" | "setControlsVisible" | "clearControlsTimer" | "showToast">) {
+  return useCallback(() => {
+    if (!runningRef.current || pausedRef.current || pendingRef.current) {return;}
+    const active = runtimeRef.current;
+    if (!active?.getCapabilities().pause) {return;}
+    pendingRef.current = true;
+    void active.pause().then(() => {
+      if (!runningRef.current) {return;}
+      pausedRef.current = true;
+      setPaused(true);
+      showToast("游戏已暂停，点击游戏画面继续");
+      setControlsVisible(true);
+      clearControlsTimer();
+    }).catch(() => showToast("无法暂停游戏", 3_000)).finally(() => {pendingRef.current = false;});
+  }, [runtimeRef, runningRef, pendingRef, pausedRef, setPaused, setControlsVisible, clearControlsTimer, showToast]);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { api, writeHeaders } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
@@ -8,47 +8,13 @@ import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 
 type Disposition = components["schemas"]["ImportBatchDiscard"];
-type Props = { kind: Disposition["kind"]; importId: string; version?: number; onCompleted?: () => void };
+type Props = { disposition: Disposition; onChange: (value: Disposition) => void };
 
-export function ImportBatchDiscard({ kind, importId, version, onCompleted }: Props) {
-  const [state, setState] = useState<Disposition["state"]>("UNAVAILABLE");
+export function ImportBatchDiscard({ disposition, onChange }: Props) {
+  const { kind, importId, state, errorCode: failureCode } = disposition;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [failureCode, setFailureCode] = useState<string | null>(null);
-  const previousState = useRef<Disposition["state"]>("AVAILABLE");
-  const complete = useRef(onCompleted);
-  useEffect(() => { complete.current = onCompleted; }, [onCompleted]);
-
-  const accept = useCallback((next: Disposition) => {
-    if (!next.state || (next.state === "AVAILABLE" && ["REQUESTED", "COMPLETED", "FAILED"].includes(previousState.current))) { return; }
-    const wasRequested = previousState.current === "REQUESTED";
-    previousState.current = next.state;
-    setState(next.state);
-    setFailureCode(next.errorCode);
-    setError("");
-    if (next.state === "COMPLETED" && wasRequested) { complete.current?.(); }
-  }, []);
-
-  const refresh = useCallback(async () => {
-    const { data, response } = await api.GET("/api/v1/admin/import-batches/{kind}/{importId}/discard", {
-      params: { path: { kind, importId } }, cache: "no-store",
-    });
-    if (!data) { throw new Error(await responseError(response, "无法读取丢弃进度")); }
-    accept(data);
-  }, [accept, kind, importId]);
-
-  useEffect(() => {
-    void refresh().catch(() => undefined);
-  }, [refresh, version]);
-
-  useEffect(() => {
-    if (state !== "REQUESTED") { return; }
-    const timer = window.setInterval(() => {
-      void refresh().catch(() => setError("进度暂时无法读取；后台仍会继续处理。"));
-    }, 1_000);
-    return () => window.clearInterval(timer);
-  }, [refresh, state]);
 
   async function discard() {
     setBusy(true);
@@ -59,7 +25,7 @@ export function ImportBatchDiscard({ kind, importId, version, onCompleted }: Pro
         body: {},
       });
       if (!data) { throw new Error(await responseError(response, "丢弃请求未成功，请重试")); }
-      accept(data);
+      onChange(data);
       setOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "丢弃请求未成功，请重试");

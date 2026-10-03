@@ -93,23 +93,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/SourceItemListResponse'
-  /api/v1/admin/source-imports/{sourceImportId}/cancel:
-    parameters:
-      - $ref: '#/components/parameters/SourceImportID'
-    post:
-      operationId: postAdminSourceImportCancel
-      x-retrom-max-body-bytes: 2097152
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: ../components/common.yaml#/components/requestBodies/Reason
-      responses:
-        '200':
-          $ref: '#/components/responses/SourceImportResponse'
-        '202':
-          $ref: '#/components/responses/SourceImportResponse'
   /api/v1/admin/source-imports/{sourceImportId}/retry:
     parameters:
       - $ref: '#/components/parameters/SourceImportID'
@@ -315,6 +298,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - discard
         - scanOutcome
         - scanDiagnostics
         - id
@@ -337,6 +321,8 @@ components:
         - expiresAtMs
         - completedAtMs
       properties:
+        discard:
+          $ref: imports.yaml#/components/schemas/ImportBatchDiscard
         scanOutcome:
           type: string
           enum: [PENDING, READY, PARTIAL, INVALID, EMPTY, NO_METADATA]

@@ -138,7 +138,11 @@ paths:
         - $ref: ../components/common.yaml#/components/parameters/Limit20
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Import tasks with authoritative discard state, read in a bounded batch for this page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportTaskList'
     post:
       operationId: postAdminImport
       x-retrom-max-body-bytes: 65536
@@ -169,7 +173,11 @@ paths:
       operationId: getAdminImport
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Current task details including authoritative discard state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportTaskDetail'
   /api/v1/admin/imports/{importJobId}/events:
     parameters:
       - $ref: '#/components/parameters/ImportJobID'
@@ -245,13 +253,15 @@ paths:
       - $ref: '#/components/parameters/JobID'
     post:
       operationId: postAdminJobCancel
+      description: Cancel current work by jobId; no client version or execution precondition. Repeated cancellation is idempotent.
       x-retrom-max-body-bytes: 8192
       parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
         $ref: ../components/common.yaml#/components/requestBodies/Reason
       responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/jobs/{jobId}/retry:
@@ -270,6 +280,75 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
 components:
   schemas:
+    ImportTaskList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportTaskListItem'
+        nextCursor:
+          type: string
+          nullable: true
+    ImportTaskDetail:
+      type: object
+      additionalProperties: true
+      required: [discard]
+      properties:
+        discard:
+          $ref: '#/components/schemas/ImportBatchDiscard'
+    ImportTaskListItem:
+      type: object
+      additionalProperties: false
+      required: [id, state, platformInstanceName, metadataProvider, contentMode, totalItemCount, reviewPendingItemCount, failedItemCount, rejectedFileCount, unresolvedRejectedFileCount, alreadyImportedItemCount, alreadyImportedFileCount, lastErrorCode, version, createdAtMs, updatedAtMs, discard]
+      properties:
+        id:
+          type: string
+        state:
+          type: string
+        platformInstanceName:
+          type: string
+        metadataProvider:
+          type: string
+        contentMode:
+          type: string
+        totalItemCount:
+          type: integer
+          format: int64
+        reviewPendingItemCount:
+          type: integer
+          format: int64
+        failedItemCount:
+          type: integer
+          format: int64
+        rejectedFileCount:
+          type: integer
+          format: int64
+        unresolvedRejectedFileCount:
+          type: integer
+          format: int64
+        alreadyImportedItemCount:
+          type: integer
+          format: int64
+        alreadyImportedFileCount:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        createdAtMs:
+          type: integer
+          format: int64
+        updatedAtMs:
+          type: integer
+          format: int64
+        lastErrorCode:
+          type: string
+          nullable: true
+        discard:
+          $ref: '#/components/schemas/ImportBatchDiscard'
     ImportBatchDiscard:
       type: object
       additionalProperties: false

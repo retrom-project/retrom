@@ -1,10 +1,18 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode, useState } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureAuthenticatedClient } from "@/lib/api/client";
 import { ImportBatchDiscard } from "./import-batch-discard";
+import type { ImportDiscardStatus } from "./import-workflow";
 
 const importId = "01980000-0000-7000-8000-000000000101";
+const status = (state: ImportDiscardStatus["state"]): ImportDiscardStatus => ({ kind: "IMPORT", importId, state, errorCode: null });
+
+function ControlledDiscard({ initial }: { initial: ImportDiscardStatus }) {
+  const [disposition, setDisposition] = useState(initial);
+  return <ImportBatchDiscard disposition={disposition} onChange={setDisposition} />;
+}
 
 describe("ImportBatchDiscard", () => {
   afterEach(() => {
@@ -13,65 +21,60 @@ describe("ImportBatchDiscard", () => {
     configureAuthenticatedClient({ csrfToken: null, onAuthenticationFailure: null });
   });
 
-  it("confirms the exact batch, submits once and refreshes when background disposition completes", async () => {
+  it("uses supplied status without reads on mount, rerender or remount in Strict Mode", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const view = render(<StrictMode><ImportBatchDiscard disposition={status("AVAILABLE")} onChange={vi.fn()} /></StrictMode>);
+    expect(screen.getByRole("button", { name: "丢弃" })).toBeEnabled();
+    view.rerender(<StrictMode><ImportBatchDiscard disposition={status("UNAVAILABLE")} onChange={vi.fn()} /></StrictMode>);
+    expect(screen.getByRole("button", { name: "丢弃" })).toBeDisabled();
+    view.unmount();
+    render(<StrictMode><ImportBatchDiscard disposition={status("COMPLETED")} onChange={vi.fn()} /></StrictMode>);
+    expect(screen.getByRole("status")).toHaveTextContent("未发布内容已丢弃");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("confirms the exact batch and submits once without polling from the button", async () => {
     const requests: Request[] = [];
-    let state = "AVAILABLE";
     configureAuthenticatedClient({ csrfToken: "test-csrf", onAuthenticationFailure: null });
     vi.stubGlobal("fetch", vi.fn(async (request: Request) => {
       requests.push(request);
-      if (request.method === "POST") { state = "REQUESTED"; }
-      return Response.json({ kind: "SOURCE", importId, state, errorCode: null });
+      return Response.json(status("REQUESTED"));
     }));
-    const completed = vi.fn();
     const user = userEvent.setup();
-    render(<ImportBatchDiscard kind="SOURCE" importId={importId} onCompleted={completed} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "丢弃" })).toBeEnabled());
+    render(<ControlledDiscard initial={status("AVAILABLE")} />);
     await user.click(screen.getByRole("button", { name: "丢弃" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent("已发布游戏和服务器原始文件保留");
-    expect(requests.filter((request) => request.method === "POST")).toHaveLength(0);
+    expect(requests).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "确认丢弃" }));
     expect(await screen.findByRole("button", { name: "正在丢弃…" })).toBeDisabled();
-    const writes = requests.filter((request) => request.method === "POST");
-    expect(writes).toHaveLength(1);
-    expect(new URL(writes[0].url).pathname).toBe(`/api/v1/admin/import-batches/SOURCE/${importId}/discard`);
-    expect(writes[0].headers.get("X-Retrom-Csrf")).toBe("test-csrf");
-    expect(writes[0].headers.get("Idempotency-Key")).toBeTruthy();
-    state = "COMPLETED";
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("未发布内容已丢弃"), { timeout: 2_000 });
-    expect(completed).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].method).toBe("POST");
+    expect(new URL(requests[0].url).pathname).toBe(`/api/v1/admin/import-batches/IMPORT/${importId}/discard`);
+    expect(requests[0].headers.get("X-Retrom-Csrf")).toBe("test-csrf");
+    expect(requests[0].headers.get("Idempotency-Key")).toBeTruthy();
   });
 
-  it("restores completed progress after reload without repeating the action", async () => {
-    const fetch = vi.fn(async () => Response.json({ kind: "IMPORT", importId, state: "COMPLETED", errorCode: null }));
+  it("shows the supplied cleanup error and allows retry of the same disposition", async () => {
+    const fetch = vi.fn(async () => Response.json(status("REQUESTED")));
     vi.stubGlobal("fetch", fetch);
-    render(<ImportBatchDiscard kind="IMPORT" importId={importId} />);
-    expect(await screen.findByRole("status")).toHaveTextContent("未发布内容已丢弃");
-    expect(screen.getByRole("button", { name: "丢弃" })).toBeDisabled();
+    const user = userEvent.setup();
+    render(<ControlledDiscard initial={{ ...status("FAILED"), errorCode: "IMPORT_BATCH_DISCARD_RELEASE_FAILED" }} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("源文件清理任务失败");
+    await user.click(screen.getByRole("button", { name: "重试丢弃" }));
+    await user.click(screen.getByRole("button", { name: "确认丢弃" }));
+    expect(await screen.findByRole("button", { name: "正在丢弃…" })).toBeDisabled();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps a failed batch actionable and allows retry of the same disposition", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (request: Request) => Response.json({
-      kind: "SOURCE", importId, state: request.method === "POST" ? "REQUESTED" : "FAILED",
-      errorCode: request.method === "POST" ? null : "IMPORT_BATCH_DISCARD_FAILED",
-    })));
+  it("keeps the current state actionable when the command fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: { message: "处置失败" } }, { status: 500 })));
     const user = userEvent.setup();
-    render(<ImportBatchDiscard kind="SOURCE" importId={importId} />);
-    await user.click(await screen.findByRole("button", { name: "重试丢弃" }));
+    render(<ControlledDiscard initial={status("AVAILABLE")} />);
+    await user.click(screen.getByRole("button", { name: "丢弃" }));
     await user.click(screen.getByRole("button", { name: "确认丢弃" }));
-    expect(await screen.findByRole("button", { name: "正在丢弃…" })).toBeDisabled();
+    expect(await screen.findByText("丢弃请求未成功，请重试")).toBeVisible();
+    expect(screen.getByRole("button", { name: "确认丢弃" })).toBeEnabled();
   });
-  it("disables discard when every item already has a final decision", async () => {
-    const fetch = vi.fn(async () => Response.json({ kind: "IMPORT", importId, state: "UNAVAILABLE", errorCode: null }));
-    vi.stubGlobal("fetch", fetch);
-    const user = userEvent.setup();
-    render(<ImportBatchDiscard kind="IMPORT" importId={importId} />);
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    const button = screen.getByRole("button", { name: "丢弃" });
-    expect(button).toBeDisabled();
-    await user.click(button);
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
-
 });

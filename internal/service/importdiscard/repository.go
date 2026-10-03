@@ -18,6 +18,10 @@ type Disposition struct {
 	State     string
 	ErrorCode *string
 }
+type StatusFacts struct {
+	Batch       Batch
+	Disposition *Disposition
+}
 type Request struct {
 	Key
 	UserID, AuditID string
@@ -37,6 +41,7 @@ type Repository interface {
 	WithWrite(context.Context, func(WriteScope) error) error
 }
 type Reader interface {
+	StatusFacts(context.Context, string, []string) (map[string]StatusFacts, error)
 	Batch(context.Context, Key) (Batch, error)
 	Disposition(context.Context, Key) (Disposition, bool, error)
 	Pending(context.Context) (Request, bool, error)

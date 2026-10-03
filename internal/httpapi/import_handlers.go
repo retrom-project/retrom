@@ -187,8 +187,13 @@ func (server *Server) importDetail(writer http.ResponseWriter, request *http.Req
 		server.databaseError(writer, request, err)
 		return
 	}
+	discard, err := server.importDeps.Discards.Get(request.Context(), "IMPORT", item.ImportJobID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, item.Version))
-	writeJSON(writer, http.StatusOK, item)
+	writeJSON(writer, http.StatusOK, importDetailView{item, discard})
 }
 
 func (server *Server) reconfigureImport(writer http.ResponseWriter, request *http.Request) {

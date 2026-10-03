@@ -198,7 +198,6 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	)
 	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/start", server.startSourceImport)
 	mux.HandleFunc("GET /api/v1/admin/source-imports/{sourceImportId}/items", server.sourceImportItems)
-	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/cancel", server.cancelSourceImport)
 	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/retry", server.retrySourceImport)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)

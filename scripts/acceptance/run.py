@@ -116,7 +116,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
     "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1"),
     "ACC-DB-003": (900, "node scripts/acceptance/protected_reads_product.mjs"),
-    "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
+    "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx features/imports/import-task-discard.test.tsx features/server-import/source-import-manager.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/filestore -count=1"),
     "ACC-CAS-002": (120, "go test -tags=integration ./internal/persistence/filedeletion ./internal/libraryimport -run 'TestDirectory|TestApprovalLateFailure|TestPublicationRecovery|TestReviewBulkResumes' -count=1"),
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/format/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),

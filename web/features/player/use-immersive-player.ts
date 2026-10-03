@@ -152,7 +152,7 @@ export function useImmersivePlayer(params: Params) {
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, Boolean(gamepadCursor), editorAvailable)) {
-      updateOverlay({ ...current, selected });
+      if (current.selected !== selected) {updateOverlay({ ...current, selected });}
     }
   }, [editorAvailable, gamepadCursor, saveAvailable, updateOverlay]);
   const menuMove = useCallback((direction: "left" | "right") => {
@@ -165,6 +165,7 @@ export function useImmersivePlayer(params: Params) {
   useEffect(() => {
     if (!enabled) {return;}
     const keydown = (event: KeyboardEvent) => {
+      if (!runningRef.current) {return;}
       if (overlayRef.current.kind === "closed" && event.key.toLowerCase() === "m") {
         event.preventDefault(); requestMenu(); return;
       }
@@ -204,11 +205,13 @@ export function useImmersivePlayer(params: Params) {
       filter.reset();
       closingGate.current.reset();
     };
+    // Focusing the game iframe blurs the host window while the document retains focus.
+    const blur = () => {if (!document.hasFocus()) {suspend();}};
     const visibility = () => {if (document.hidden) {suspend();}};
-    window.addEventListener("blur", suspend);
+    window.addEventListener("blur", blur);
     document.addEventListener("visibilitychange", visibility);
     return () => {
-      window.removeEventListener("blur", suspend);
+      window.removeEventListener("blur", blur);
       document.removeEventListener("visibilitychange", visibility);
       filter.setBlocked(true);
       filter.reset();

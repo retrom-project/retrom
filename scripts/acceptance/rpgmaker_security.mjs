@@ -61,8 +61,10 @@ async function contentSafetyCase(context, client, instances) {
   const unsafe = [];
   let opaqueReview = null;
   for (const test of matrix.unsafe) {
-    const files = unsafeFiles(test);
+    const input = unsafeFiles(test);
     const sourceType = test.sourceType === "FILES" ? "FILES" : "DIRECTORY";
+    const files = test.accepted && sourceType === "DIRECTORY"
+      ? input.map(file => ({...file, relativePath: `project/${file.relativePath}`})) : input;
     const outcome = await client.importProject(files, sourceType, instance(instances, test.coreId));
     if (test.accepted) {
       exact(outcome.status, 202, `RPG_ACCEPTANCE_UNSAFE_${test.name}_STATUS`);
@@ -95,7 +97,8 @@ async function contentSafetyCase(context, client, instances) {
     const base = directoryFiles(join(fixtureRoot, test.fixture));
     const sidecarPath = join(fixtureRoot, test.sidecar);
     const logicalName = `RetromNested/${basename(sidecarPath)}`;
-    const files = overlayFile(base, sidecarPath, logicalName);
+    const files = overlayFile(base, sidecarPath, logicalName)
+      .map(file => ({...file, relativePath: `project/${file.relativePath}`}));
     const outcome = await client.importProject(files, "DIRECTORY", instance(instances, test.coreId));
     exact(outcome.status, 202, `RPG_ACCEPTANCE_NESTED_${test.generation}_STATUS`);
     const review = await reviewForImport(client, outcome.body.importJobId);
@@ -144,7 +147,7 @@ async function isolationCase(context, client, instances) {
     { fixture: "malicious-rpgmz", coreId: "rpgmaker_mz", generation: "RPGMZ" },
   ]) {
     const outcome = await client.importProject(
-      directoryFiles(join(fixtureRoot, input.fixture)), "DIRECTORY", instance(instances, input.coreId),
+      directoryFiles(join(fixtureRoot, input.fixture), `${input.fixture}/`), "DIRECTORY", instance(instances, input.coreId),
     );
     exact(outcome.status, 202, `RPG_ACCEPTANCE_ISOLATION_${input.generation}_IMPORT`);
     const review = await reviewForImport(client, outcome.body.importJobId);
