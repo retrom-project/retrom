@@ -43,9 +43,10 @@ describe("PlayerLoading", () => {
       state="loading"
     />);
 
-    const progress = screen.getByRole("progressbar", { name: "游戏内容加载进度" });
+    const progress = screen.getByRole("progressbar", { name: "游戏内容进度" });
     expect(progress).toHaveAttribute("aria-valuenow", "50");
-    expect(screen.getByText("384.0 MiB / 768.0 MiB · 50%")).toBeInTheDocument();
+    expect(progress.querySelectorAll(".is-filled")).toHaveLength(5);
+    expect(screen.getByText("游戏启动中", {selector: "strong"})).toBeVisible();
     expect(screen.getByText(/首次加载会写入本地缓存/u)).toBeInTheDocument();
   });
 

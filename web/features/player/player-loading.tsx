@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { formatPlayerBytes } from "./player-shell-model";
 import { ContentPreloadRetry } from "./content-preload-retry";
 import { PlayerStartupRetry } from "./player-startup-retry";
 import { startupFailureMessage } from "./startup-failure";
@@ -23,33 +22,27 @@ type PlayerLoadingProps = {
 };
 
 export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = [] }: PlayerLoadingProps) {
-  const percentage = progressPercentage(progress);
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
   const retryable = cacheFailure || downloadFailure;
   const startupFailure = startupErrorMessage(state, message);
+  const visibleTasks = startupTaskViews(state, tasks, progress);
   return <div className="player-loading" role="status" aria-live="polite">
-    {state === "loading" && tasks.length === 0 ? <i aria-hidden="true" /> : null}
-    <LoadingTitle state={state} tasks={tasks} message={startupFailure ?? message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} />
+    <strong>{state === "loading" ? "游戏启动中" : "游戏启动失败"}</strong>
+    {state === "loading" && visibleTasks.length === 0 ? <i aria-hidden="true" /> : null}
+    {state === "error" ? <LoadingError message={startupFailure ?? message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} /> : null}
     <RetryActions retryable={retryable} startupFailure={startupFailure} canLoadOnDemand={canLoadOnDemand} />
-    {tasks.length > 0 ? <PlayerStartupTasks tasks={startupTaskViews(state, tasks)} /> : null}
-    {state === "loading" && tasks.length === 0 && progress && percentage !== null ? <div className="player-loading-progress">
-      <div
-        className="player-loading-progress-track"
-        role="progressbar"
-        aria-label="游戏内容加载进度"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percentage}
-      ><span style={{ width: `${percentage}%` }} /></div>
-      <small>{formatPlayerBytes(progress.loadedBytes)} / {formatPlayerBytes(progress.totalBytes)} · {percentage}%</small>
-    </div> : null}
+    {visibleTasks.length > 0 ? <PlayerStartupTasks tasks={visibleTasks} /> : null}
     <LoadingNote state={state} retryable={retryable || startupFailure !== undefined} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
   </div>;
 }
 
-function startupTaskViews(state: "loading" | "error", tasks: RuntimeStartupTaskV1[]) {
-  return state === "error" ? tasks.map(task => task.state === "RUNNING" ? {...task, state: "FAILED" as const} : task) : tasks;
+function startupTaskViews(state: "loading" | "error", tasks: RuntimeStartupTaskV1[], progress: PlayerLoadProgress | null): RuntimeStartupTaskV1[] {
+  if (tasks.length) {
+    return state === "error" ? tasks.map(task => task.state === "RUNNING" ? {...task, state: "FAILED" as const} : task) : tasks;
+  }
+  return progress && progressPercentage(progress) !== null
+    ? [{id: "host:content-progress", kind: "GAME_CONTENT", state: state === "error" ? "FAILED" : "RUNNING", progress}] : [];
 }
 
 function startupErrorMessage(state: PlayerLoadingProps["state"], message: string) {
@@ -63,13 +56,9 @@ function RetryActions({retryable, startupFailure, canLoadOnDemand}: {
   return startupFailure ? <PlayerStartupRetry /> : null;
 }
 
-function LoadingTitle({state, tasks, message, cacheFailure, downloadFailure}: {
-  state: PlayerLoadingProps["state"]; tasks: RuntimeStartupTaskV1[]; message: string; cacheFailure: boolean; downloadFailure: boolean;
-}) {
-  return <strong>{state === "loading" && tasks.length > 0 && tasks.every(task => task.state !== "RUNNING")
-    ? <svg className="player-startup-spinner player-startup-pending" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /></svg> : null}
-    {cacheFailure ? "无法完成本地缓存，请检查浏览器存储权限和可用空间。"
-      : downloadFailure ? "内容下载未完成，请检查网络后重试。" : message}</strong>;
+function LoadingError({message, cacheFailure, downloadFailure}: {message: string; cacheFailure: boolean; downloadFailure: boolean}) {
+  return <p className="player-loading-error">{cacheFailure ? "无法完成本地缓存，请检查浏览器存储权限和可用空间。"
+    : downloadFailure ? "内容下载未完成，请检查网络后重试。" : message}</p>;
 }
 
 function LoadingNote({state, retryable, returnTo, immersive, tasks, progress}: Pick<PlayerLoadingProps, "state" | "returnTo" | "immersive" | "progress"> & {retryable: boolean; tasks: RuntimeStartupTaskV1[]}) {

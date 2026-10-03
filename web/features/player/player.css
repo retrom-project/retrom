@@ -106,24 +106,31 @@
 .player-loading strong { display: block; color: #edf0f5; font-size: var(--text-body); }
 .player-loading p { margin: 9px 0 0; color: #909aab; font-size: var(--text-caption); }
 .player-loading a { color: #b9adff; }
-.player-loading-progress { margin-top: 15px; display: grid; gap: 7px; }
-.player-loading-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: #343c4b; }
-.player-loading-progress-track > span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #7464da, #a99cff); transition: width 140ms ease-out; }
-.player-loading-progress small { color: #b7c0ce; font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
+.player-loading .player-loading-error { color: var(--danger); }
 /* Startup history uses the same shell for every Provider and Target. */
-.player-startup-tasks { --startup-step: calc(var(--space-4) + var(--space-3) + var(--space-2)); position: relative; height: calc(var(--startup-step) * 3); margin: var(--space-4) 0 0; padding: 0; min-height: 108px; display: grid; align-content: end; gap: var(--space-2); list-style: none; overflow: hidden; text-align: left; }
-.player-startup-row { position: absolute; inset-inline: 0; top: 0; transform: translateY(calc(var(--startup-step) * var(--startup-row))); min-height: 28px; display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--ink); font-size: var(--text-body); animation: player-task-enter 180ms ease-out; transition: transform 180ms ease, opacity 260ms ease; }
-.player-startup-row.is-completed { opacity: .8; transform: translateY(calc(var(--startup-step) * var(--startup-row) - 2px)); }
+.player-startup-viewport { --startup-step: calc(var(--space-4) + var(--space-3) + var(--space-2)); height: calc(var(--startup-step) * 3); margin-top: var(--space-4); overflow: hidden; }
+.player-startup-tasks { height: 100%; margin: 0; padding: 0; display: grid; grid-auto-rows: var(--startup-step); align-content: end; list-style: none; text-align: left; }
+.player-startup-row { display: grid; grid-template-columns: 4em max-content 1.25em; align-items: center; justify-content: center; gap: var(--space-3); color: var(--ink); font-size: var(--text-body); transition: opacity 220ms ease; }
+.player-startup-row.is-completed { opacity: .8; }
 .player-startup-row.is-completed:first-child { opacity: .65; }
 .player-startup-row.is-failed { color: var(--danger); }
-.player-startup-indicator { flex: 0 0 48px; display: flex; align-items: center; justify-content: center; color: var(--purple-dark); font-size: var(--text-body); font-variant-numeric: tabular-nums; }
-.player-startup-indicator [role="progressbar"] { font-size: var(--text-small); }
-.player-startup-indicator svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.player-startup-label { min-width: 0; overflow: hidden; white-space: nowrap; }
+.player-startup-label > span { width: max-content; display: block; }
+.player-startup-label[data-overflow="true"] > span { animation: player-startup-label-scroll 6s ease-in-out infinite; }
+.player-startup-progress { width: 12ch; display: grid; grid-template-columns: repeat(12, 1ch); align-items: center; text-align: center; font-family: var(--font-mono); color: var(--muted); }
+.player-startup-cell { display: grid; place-items: center; font-size: var(--text-lead); line-height: 1; }
+.player-startup-cell.is-filled { color: var(--purple-dark); }
+.player-startup-row.is-completed .player-startup-cell.is-filled { color: var(--success); }
+.player-startup-row.is-failed .player-startup-cell.is-filled { color: var(--danger); }
+.player-startup-progress.is-indeterminate .player-startup-cell { animation: player-startup-scan 1.8s ease-in-out infinite; animation-delay: calc(var(--startup-cell) * 120ms); }
+.player-startup-indicator { display: grid; place-items: center; color: var(--purple-dark); }
+.player-startup-row.is-failed .player-startup-indicator { color: var(--danger); }
+.player-startup-indicator svg { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .player-startup-check { color: var(--success); }
 .player-startup-spinner { animation: spin 1s linear infinite; stroke-dasharray: 42 18; }
-.player-startup-pending { width: 16px; height: 16px; margin-right: var(--space-2); vertical-align: middle; fill: none; stroke: var(--purple-dark); stroke-width: 2; }
-@keyframes player-task-enter { from { opacity: 0; transform: translateY(calc(var(--startup-step) * var(--startup-row) + 12px)); } to { opacity: 1; transform: translateY(calc(var(--startup-step) * var(--startup-row))); } }
-@media (prefers-reduced-motion: reduce) { .player-startup-row, .player-startup-spinner { animation: none; transition: none; } }
+@keyframes player-startup-label-scroll { 0%, 20%, 100% { transform: translateX(0); } 50%, 70% { transform: translateX(var(--startup-label-travel)); } }
+@keyframes player-startup-scan { 0%, 35%, 100% { color: var(--muted); opacity: .5; transform: scale(1); } 15% { color: var(--purple-dark); opacity: 1; transform: scale(1.8); } }
+@media (prefers-reduced-motion: reduce) { .player-startup-row, .player-startup-spinner, .player-startup-label[data-overflow="true"] > span, .player-startup-progress.is-indeterminate .player-startup-cell { animation: none; transition: none; } }
 .immersive-player-overlay { position: absolute; z-index: 90; inset: 0; padding: 32px; display: grid; place-items: center; background: rgb(0 0 0 / 68%); }
 .immersive-player-panel { width: min(620px, calc(100vw - 48px)); padding: 40px; display: grid; justify-items: center; gap: 14px; border: 1px solid rgb(255 255 255 / 15%); border-radius: var(--radius-dialog); background: rgb(14 18 27 / 96%); box-shadow: 0 28px 90px rgb(0 0 0 / 62%); text-align: center; }
 .immersive-player-panel.has-gamepad-cursor { width: min(760px, calc(100vw - 48px)); }
