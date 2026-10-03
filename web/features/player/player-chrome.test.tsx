@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerChrome } from "./player-chrome";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("offers a checked cursor switch in more actions only when supported", () => {
   const toggle = vi.fn();
@@ -35,6 +35,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     toast: "",
     warnings: [],
     emulatorToolbarOpen: false,
+    settingsCapabilities: {nativeSettings: true, volume: true, standardGamepad: true, videoModes: ["pixel", "smooth", "adaptive-sharpen"]},
     emulatorVolume: 0.72,
     emulatorMuted: false,
     videoRenderingMode: "pixel",
@@ -54,8 +55,8 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onPauseForToolbarInteraction: vi.fn(),
     onToggleFullscreen: vi.fn(),
     onOpenEmulatorSettings: vi.fn(),
-    onCloseEmulatorSettings: vi.fn(),
-    onOpenEmulatorPanel: vi.fn(),
+    onCloseEmulatorSettings: vi.fn().mockResolvedValue(true),
+    onOpenEmulatorPanel: vi.fn().mockResolvedValue(true),
     onChangeEmulatorVolume: vi.fn(),
     onToggleEmulatorMute: vi.fn(),
     onChangeVideoRenderingMode: vi.fn(),
@@ -370,6 +371,7 @@ describe("PlayerChrome settings and exit", () => {
 
     await user.click(screen.getByRole("button", { name: "显示" }));
     expect(values.onOpenEmulatorPanel).toHaveBeenCalledWith("display");
+    await user.click(screen.getByRole("button", {name: "返回设置"}));
     await user.selectOptions(screen.getByRole("combobox", { name: "画面模式" }), "adaptive-sharpen");
     expect(values.onChangeVideoRenderingMode).toHaveBeenCalledWith("adaptive-sharpen");
     await user.click(screen.getByRole("button", { name: "静音" }));
@@ -540,4 +542,55 @@ it("makes closed diagnostics inert and returns only owned focus", () => {
   outside.focus();
   view.rerender(<PlayerChrome {...values} debugOpen={false} />);
   expect(outside).toHaveFocus();
+});
+
+
+it("removes mobile diagnostics and releases its toolbar hold even if opened on desktop", () => {
+  let mobile = false;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    get matches() {return mobile;},
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  })));
+  const values = props({debugOpen: true});
+  render(<PlayerChrome {...values} />);
+  expect(screen.getByRole("button", {name: "调试信息"})).toBeInTheDocument();
+  expect(screen.getByRole("complementary", {name: "运行调试信息"})).toBeInTheDocument();
+  vi.mocked(values.onReleaseControls).mockClear();
+  act(() => {mobile = true; listeners.forEach(listener => listener());});
+  expect(screen.queryByRole("button", {name: "调试信息"})).not.toBeInTheDocument();
+  expect(document.querySelector("#player-debug-panel")).toBeNull();
+  expect(values.onReleaseControls).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", {name: "更多操作"}));
+  expect(screen.queryByRole("menuitem", {name: /调试信息/})).not.toBeInTheDocument();
+});
+
+
+describe("capability-aware mobile settings", () => {
+  it("hides unsupported settings instead of offering no-op controls", () => {
+    render(<PlayerChrome {...props({emulatorToolbarOpen: true, settingsCapabilities: {nativeSettings: false, volume: false, standardGamepad: false, videoModes: ["original"]}})} />);
+    expect(screen.queryByRole("button", {name: "控制"})).toBeNull();
+    expect(screen.queryByRole("slider", {name: "模拟器音量"})).toBeNull();
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["原始画面"]);
+  });
+
+  it("hides the entire settings entry when the runtime has no settings", () => {
+    render(<PlayerChrome {...props({settingsCapabilities: undefined})} />);
+    fireEvent.click(screen.getByRole("button", {name: "更多操作"}));
+    expect(screen.queryByRole("menuitem", {name: "模拟器设置"})).toBeNull();
+  });
+
+  it("replaces the host toolbar with native navigation and returns without resuming", async () => {
+    const values = props({emulatorToolbarOpen: true, paused: true});
+    render(<PlayerChrome {...values} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", {name: "显示"}));
+    expect(screen.queryByRole("region", {name: "模拟器设置工具栏"})).toBeNull();
+    await user.click(screen.getByRole("button", {name: "返回设置"}));
+    expect(values.onOpenEmulatorPanel).toHaveBeenLastCalledWith(null);
+    expect(screen.getByRole("region", {name: "模拟器设置工具栏"})).toBeVisible();
+    expect(screen.getByRole("button", {name: "显示"})).toHaveFocus();
+    expect(values.onGameSurface).not.toHaveBeenCalled();
+  });
 });

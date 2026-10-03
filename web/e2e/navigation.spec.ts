@@ -230,6 +230,8 @@ test("one click creates a capability launch and advances real emulator frames", 
   }
   await emulatorToolbar.getByRole("button", { name: "Core 设置" }).click();
   await expect(player.getByRole("button", { name: /Backend Core Options|Core Options|核心选项|核心设置/ })).toBeVisible();
+  await expect(emulatorToolbar).toHaveCount(0);
+  await page.getByRole("button", {name: "返回设置"}).click();
   await emulatorToolbar.getByRole("button", { name: "显示" }).click();
   await expect(player.getByRole("button", { name: /Graphics Settings|图形设置|显示设置/ })).toBeVisible();
   await expect(player.getByRole("button", { name: /Backend Core Options|Core Options|核心选项|核心设置/ })).toBeHidden();
@@ -237,7 +239,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   const pausedAt = await runtimeFrameCount(page);
   await page.waitForTimeout(350);
   expect(await runtimeFrameCount(page)).toBeLessThanOrEqual(pausedAt + 1);
-  await emulatorToolbar.getByRole("button", { name: "收起" }).click();
+  await page.getByRole("button", {name: "关闭模拟器设置"}).click();
   await expect(emulatorToolbar).toBeHidden();
   await expect(nativeMenu).toBeHidden();
   await page.getByRole("button", { name: "继续游戏" }).click();

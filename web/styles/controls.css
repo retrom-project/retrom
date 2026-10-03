@@ -21,6 +21,9 @@
 .button.secondary.option-tab { padding: var(--space-2) var(--space-3); border-color: transparent; background: transparent; color: var(--muted); }
 .button.secondary.option-tab:hover { color: var(--ink); background: var(--surface-subtle); }
 .button.secondary.option-tab[aria-selected="true"] { color: var(--purple-dark); text-decoration: underline; text-underline-offset: var(--space-2); }
+.button.ghost { background: transparent; border-color: transparent; color: inherit; }
+.button.ghost:hover:not(:disabled) { background: var(--surface-subtle); color: inherit; }
+.button.icon-only { width: var(--control-height); height: var(--control-height); padding: 0; display: grid; place-items: center; gap: 0; flex: 0 0 auto; }
 .button.danger { background: var(--danger-fill); color: white; }
 .button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .button svg { width: 18px; height: 18px; flex-shrink: 0; }

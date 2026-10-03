@@ -1,5 +1,7 @@
 "use client";
 
+import {usePlayerDebugState} from "./player-layout";
+
 import {useRouter} from "next/navigation";
 import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject, type ReactNode} from "react";
 import {useAuth} from "@/features/auth/auth-provider";
@@ -92,7 +94,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     () => "pixel",
   );
   const [discState, setDiscState] = useState<RuntimeDiscStateV1 | null>(null);
-  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = usePlayerDebugState();
   const [orientationState, setOrientationState] = useState<PlayerOrientationState>(initialPlayerOrientationState);
   const [orientationHelp, setOrientationHelp] = useState("若浏览器不能自动锁定方向，请手动旋转设备。");
   const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
@@ -248,7 +250,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
     orientationButtonRef, running, pausedRef, chromePinned, controlsTimer,
     clearControlsTimer, setControlsVisible, setFullscreen, setDebugOpen, setDebugMetrics,
-  }), [clearControlsTimer, debugOpen, orientationState.phase, state]);
+  }), [clearControlsTimer, debugOpen, orientationState.phase, setDebugOpen, state]);
   const {toggleDebug} = usePlayerRuntimeEffects(runtimeEffectParams);
 
   const runtimeActionParams = useMemo(() => ({

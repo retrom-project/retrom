@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
 import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
+import {observeStartupHistory, expectStartupHistorySeparated} from "./player-startup-layout";
 import {verifyExitDuringProviderLoading} from "./player-loading-exit";
 import {verifyPlayerSurfaceResume} from "./player-pause-resume";
 import {verifyParentCacheReuse} from "./parent-cache-support";
@@ -43,6 +44,7 @@ function registerRun002(): void {
         return originalFetch(input, init);
       };
     });
+    await observeStartupHistory(page);
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
     const libraryResponse = await page.goto("/library");
@@ -72,6 +74,7 @@ function registerRun002(): void {
     await expect(page.locator(".player-shell")).toBeVisible();
     await expect(page.getByRole("button", { name: "开始游戏" })).toHaveCount(0);
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 30_000 });
+    await expectStartupHistorySeparated(page);
     const playerCanvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
     await expect(playerCanvas).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => playerCanvas.evaluate((element) =>
@@ -254,7 +257,7 @@ function registerRun004(): void {
     await page.goBack();
     await expect(page).toHaveURL(/\/library$/);
     await expect(page.locator(".player-shell")).toHaveCount(0);
-    await verifyExitDuringProviderLoading(page);
+    await verifyExitDuringProviderLoading(page, testInfo);
   
     await page.goto("/library");
     await page.locator(".library-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).getByRole("link").first().click();

@@ -200,6 +200,7 @@ describe("LaunchControls", () => {
     const trigger = screen.getByRole("button", { name: "启动选项" });
     await user.click(trigger);
     const sheet = screen.getByRole("dialog", { name: "启动选项" });
+    expect(within(sheet).getAllByRole("option").map(option => option.textContent)).toEqual(["mGBA", "Gambatte"]);
     await user.selectOptions(within(sheet).getByRole("combobox", { name: "运行方式" }), "gambatte");
     await user.click(within(sheet).getByRole("button", { name: "从头开始" }));
     await waitFor(() => expect(requests).toHaveLength(2));

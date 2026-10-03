@@ -131,7 +131,7 @@ function MobileLaunchDock(props: LaunchViewProps) {
       <div className="phone-launch-fields">
         <LaunchContentLoading selectedCore={props.selectedCore} savedCore={props.latestSave ? props.coreOptions.find(core => core.coreId === props.latestSave?.coreId) ?? {} : undefined} />
         <label><span>运行方式</span><select aria-label="运行方式" value={props.coreId} onChange={(event) => props.onCoreSelect(event.target.value)}>
-          {props.coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
+          {props.coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}</option>)}
         </select></label>
         <RuntimeStatus blocked={props.blocked} selectedCore={props.selectedCore} />
         {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}

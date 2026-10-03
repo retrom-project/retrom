@@ -1,6 +1,7 @@
-import {expect, type Page, type Route} from "@playwright/test";
+import {expect, type Page, type Route, type TestInfo} from "@playwright/test";
+import {verifyStartupLoadingLayout} from "./player-startup-layout";
 
-export async function verifyExitDuringProviderLoading(page: Page) {
+export async function verifyExitDuringProviderLoading(page: Page, testInfo: TestInfo) {
   const pattern = "**/runtime/providers/*/*/client.mjs";
   let release!: () => void;
   const held = new Promise<void>((resolve) => {release = resolve;});
@@ -37,6 +38,7 @@ export async function verifyExitDuringProviderLoading(page: Page) {
     await page.getByRole("button", {name: "开始游戏"}).click();
     await requested;
     await expect(page.locator(".player-loading")).toBeVisible();
+    await verifyStartupLoadingLayout(page, testInfo);
     await page.getByRole("button", {name: "返回并退出游戏"}).click();
     await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);

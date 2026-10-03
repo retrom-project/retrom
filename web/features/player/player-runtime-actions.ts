@@ -83,17 +83,29 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
     params.setEmulatorToolbarOpen(true); params.holdControls();
   }
 
-  function closeEmulatorSettings() {
-    const runtime = params.runtime.current;
-    if (runtime?.getCapabilities().nativeSettings) {void runtime.closeNativeSettings();}
+  async function closeEmulatorSettings() {
+    if (!await openEmulatorPanel(null)) {return false;}
     params.setEmulatorToolbarOpen(false); params.releaseControls();
+    return true;
   }
 
-  function openEmulatorPanel(panel: EmulatorSettingsPanel) {
+  async function openEmulatorPanel(panel: EmulatorSettingsPanel | null) {
     const runtime = params.runtime.current;
-    if (!runtime?.getCapabilities().nativeSettings) {params.showToast("当前运行时未提供这项设置。", 3_000); return;}
-    void runtime.openNativeSettings(panel).catch(() => params.showToast("无法打开运行时设置。", 3_000));
+    if (!runtime?.getCapabilities().nativeSettings) {
+      if (panel === null) {return true;}
+      params.showToast("当前运行时未提供这项设置。", 3_000);
+      return false;
+    }
     params.holdControls();
+    try {
+      if (panel === null) {await runtime.closeNativeSettings();}
+      else {await runtime.openNativeSettings(panel);}
+      params.showToast("");
+      return true;
+    } catch {
+      params.showToast(panel === null ? "无法关闭运行时设置，请重试。" : "无法打开运行时设置，请重试。", 3_000);
+      return false;
+    }
   }
 
   function changeEmulatorVolume(volume: number) {
@@ -113,10 +125,12 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
 
   function changeVideoRenderingMode(mode: VideoRenderingMode) {
     const runtime = params.runtime.current;
-    params.videoRenderingModeRef.current = mode;
-    writeVideoRenderingMode(params.userId, mode);
     if (!runtime?.getCapabilities().videoModes.includes(mode)) {params.showToast("当前运行时不支持这项画面模式"); return;}
-    void setRuntimeVideoMode(runtime, mode).then(() => params.showToast("画面模式已应用"));
+    void setRuntimeVideoMode(runtime, mode).then(() => {
+      params.videoRenderingModeRef.current = mode;
+      writeVideoRenderingMode(params.userId, mode);
+      params.showToast("画面模式已应用");
+    }).catch(() => params.showToast("无法应用画面模式，请重试。", 3_000));
   }
 
 

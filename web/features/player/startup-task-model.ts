@@ -16,6 +16,13 @@ export const startupLabels: Record<RuntimeStartupKindV1, [string, string]> = {
   PLAYER_SETUP: ["画面与控制准备中", "画面与控制已就绪"],
 };
 
+export const startupTaskNames: Record<RuntimeStartupKindV1, string> = {
+  LAUNCH_CONFIG: "启动信息", PROVIDER_MODULE: "运行时模块", ENVIRONMENT: "运行环境",
+  BIOS: "BIOS", GAME_CONTENT: "游戏内容", DEPENDENCIES: "依赖资源", CORE_ASSETS: "核心资源",
+  CORE_INITIALIZATION: "核心初始化", CONTENT_MOUNT: "内容装载", RESTORE_LOAD: "存档加载",
+  RESTORE_APPLY: "存档恢复", GAME_START: "游戏启动", PLAYER_SETUP: "画面与控制",
+};
+
 /** Bounded visible history; hidden active tasks cannot reappear on progress updates. */
 export class StartupTimeline {
   private rows: RuntimeStartupTaskV1[] = [];

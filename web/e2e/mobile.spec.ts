@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { expectMobileLocalDraftNotice } from "./mobile-local-draft";
+import {expectPhoneGameActions} from "./phone-game-actions";
 import {expectPlayerIconsCentered} from "./player-icon-alignment";
+import {expectMobileSettings} from "./player-mobile-settings";
 import {expectCircularDirectionInput} from "./player-touch-controls";
 import { evidencePath, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
@@ -241,6 +243,7 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   await expectLibraryFilterAlignment(page);
   await page.reload();
   await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toHaveValue("Sudoku");
+  await expectPhoneGameActions(page, card, testInfo);
   await card.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   const detailURL = page.url();
@@ -255,6 +258,8 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   await page.getByRole("button", { name: "启动选项" }).click();
   const options = page.getByRole("dialog", { name: "启动选项" });
   await expect(options.getByRole("combobox", { name: "运行方式" })).toBeVisible();
+  const detail = await (await page.request.get(new URL(detailURL).pathname.replace("/games/", "/api/v1/games/"))).json();
+  await expect(options.getByRole("combobox", {name: "运行方式"}).locator("option")).toHaveText(detail.coreOptions.map((core: {name: string}) => core.name));
   await expectNoDocumentOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "phone-launch-options.png") });
   const launchRequest = page.waitForRequest((request) => request.method() === "POST" && /\/api\/v1\/launches$/.test(request.url()));
@@ -449,6 +454,7 @@ test("ACC-MOB-006 landscape Player HUD, sheets and input ownership stay bounded"
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
     await page.screenshot({ path: evidencePath(testInfo, `player-${viewport.width}x${viewport.height}.png`) });
+    await expectMobileSettings(page, testInfo, viewport.width);
   }
 });
 

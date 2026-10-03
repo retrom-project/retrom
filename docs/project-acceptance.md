@@ -939,6 +939,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
 - 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 runtime 启动事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；中断一次游玩时长上报并检查核心帧继续推进；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
 - 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/游玩时长统计的暂停状态；游玩时长请求中断后核心帧仍继续推进，产品 Player 不发送 start、heartbeat 或 finish 请求。默认“锐利像素”使用无滤波、颜色直通的 `retrom-passthrough` shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面使用同一颜色直通 shader 并恢复浏览器默认缩放；核心启动或读档切换原生分辨率后不得出现纯色或裁切。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 Bundle digest，蒙层背景半透明且无关闭按钮，再次点击顶部调试按钮收起，更多菜单不含重复调试入口或仅介绍 Esc 的快捷键项；关闭后不残留可聚焦控件。支持输入诊断的 Provider 显示短按的按下/松开与投递位置，开启前后核心继续推进且无重复输入，关闭恢复原观察函数；未支持时明确未接入。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 及 Target 明确要求的输入布局再加载固定 loader；Mega Drive 必须保留 Start 与六键映射，启动前已连接的手柄应自动分配空闲玩家且不覆盖既有分配，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
+- 加载布局回归：标题在阶段切换时保持“游戏启动中”，异常改为“游戏启动失败”且保留原因和重试入口。最近最多三行按四汉字名称、括号内十格进度、状态图标对齐；0/9/10/72/99/100% 分别点亮 0/0/1/7/9/10 格，100% 的 RUNNING 项仍旋转，COMPLETED 才勾选；未知进度不设置 `aria-valuenow`，循环扫动不累计填满。失败停止扫动和转圈。窄视口不溢出，长名称实际溢出才往返滚动，减少动态效果时所有持续动画停止；完整阶段名仍可访问。真实启动逐帧采样行间距，阶段更新和快速完成过程中不得重叠；固定 Provider 请求等待期间从真实详情/Launch 路径复核布局和退出，具体进度/失败边界由 PlayerLoading 组件回归覆盖。
 - 证据：Playwright trace、两份 config/network 摘要、事件顺序、Player/调试信息截图和按钮断言。
 
 ### ACC-RUN-014：输入诊断旁路与透明蒙层
@@ -1418,7 +1419,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-003`。
 - 前置：通过正常 Upload/Import/Review 发布项目自有公开 GBA smoke，沿用 `http-flow.sh` 的 Sudoku 游戏；不得用伪造 Launch 或业务 handler 代替用户流程。
-- 流程：首页搜索 Sudoku，收藏、应用排序、刷新恢复 query，进入详情、阅读完整简介与打开启动选项；从头开始经过竖屏门禁后横屏运行，退出对话框创建真实手动存档并退出，再由手机首页恢复该存档并返回首页。
+- 流程：首页搜索 Sudoku，收藏、应用排序、刷新恢复 query，打开卡片更多操作，确认 Sheet 与遮罩覆盖收藏图标并可进入收藏夹选择器、关闭返回焦点；进入详情、阅读完整简介与打开启动选项，运行方式选项只包含核心名；从头开始经过竖屏门禁后横屏运行，退出对话框创建真实手动存档并退出，再由手机首页恢复该存档并返回首页。
 - 通过标准：从头开始 `saveStateId=null`，手动存档返回 201；首页恢复精确绑定该 `saveStateId` 和 `returnTo=/`，两次 Player 均装载真实核心 canvas，关闭后回到正确来源。简介默认完整显示并可在固定高度区域内滚动、运行方式仍可选；原有存档、收藏权限/确认语义不变，DOS 程序选项由启动控件回归覆盖。
 - 证据：HTTP 请求/响应、真实 canvas、启动 Sheet/首页继续截图与 `launch-controls.test.tsx`。
 
@@ -1438,9 +1439,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 ### ACC-MOB-006：Player 多盘状态
 
-- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
-- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet 并用确定性多盘夹具完成一次换盘；以聚焦 Player reducer/adapter 测试驱动方向门禁、暂停和本地输入状态。
-- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。仅图标布局的“调试信息”和“创建存档”图标中心与按钮中心误差小于 1px；方向触控为圆形，拖动覆盖四向、斜向、松手及取消，A/B/Start 等按钮布局与映射保留。暂停与恢复只作用于当前运行会话。
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。 EmulatorJS adapter 尚未发布时，可在已导入同一公开夹具且健康的 PFB 上运行等价浏览器命令：`RETROM_WEB_ORIGIN=<pfb-origin> RETROM_CHROME_EXECUTABLE=<pinned-chrome> timeout 180s web/node_modules/.bin/playwright test -c web/playwright.config.ts web/e2e/mobile.spec.ts --project=chrome-mobile --grep ACC-MOB-006`；先选择该 PFB 的 `emulatorjs` loose Provider，核对模块摘要，记录截图/JSON 报告并运行本 Case 登记的聚焦单元与 Provider 回归。
+- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet 并用确定性多盘夹具完成一次换盘；同时逐尺寸打开紧凑模拟器设置，经高级设置进入 Core/显示面板、点击原生返回项、返回宿主设置并关闭；以聚焦 Player reducer/adapter 测试驱动方向门禁、暂停和本地输入状态。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为存档、光盘且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。移动 Player 的“调试信息”按钮和面板均不挂载，“更多”无诊断入口；左侧返回按钮为透明无边框的 44px 正方形，箭头与按钮及游戏信息的垂直中心误差小于 1px；仅图标布局的“创建存档”图标中心与按钮中心误差小于 1px；方向触控为圆形，拖动覆盖四向、斜向、松手及取消，A/B/Start 等按钮布局与映射保留。模拟器设置侧栏宽不超过 320px，音量/画面无溢出，滑条与下拉框左边缘误差小于 1px；原生设置返回/关闭为无边框纯图标按钮，触控区至少 44px、图标中心偏差小于 1px，标题字形与返回箭头的垂直中心偏差小于 1px；默认不显示控制，高级项初始折叠；原生面板不仅可见，其命中点必须穿过宿主层到达 iframe，原生面板完整位于 iframe 内，虚拟手柄在设置期间隐藏、关闭后恢复；返回/关闭不推进核心帧，显式继续后恢复帧计数。能力缺失、手柄连接/断开、打开/关闭失败与重复点击由组件回归覆盖。暂停与恢复只作用于当前运行会话。
 - 证据：四 viewport 尺寸/命中断言、DOM/network trace 与 pause/input 状态测试输出。
 
 ### ACC-MOB-007：可访问性与视觉回归
