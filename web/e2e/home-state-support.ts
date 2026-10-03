@@ -25,7 +25,7 @@ async function verifyHomeStates(page: Page, testInfo: TestInfo) {
     }
     await expect(page.locator(".home-scene-caption")).toHaveCount(0);
     await expectNaturalHomeFlow(page);
-    await page.screenshot({ path: evidencePath(testInfo, `ui-home-${state}.png`), fullPage: true });
+    await page.screenshot({ caret: "initial", path: evidencePath(testInfo, `ui-home-${state}.png`), fullPage: true });
   }
   await expectLandscapeAndEmptyMedia(page, testInfo);
 }
@@ -38,18 +38,23 @@ async function expectLandscapeAndEmptyMedia(page: Page, testInfo: TestInfo) {
   await page.reload();
   await expect(page.locator(".home-scene-caption")).toBeVisible();
   const before = await heroGeometry(page);
-  await page.screenshot({ path: evidencePath(testInfo, "ui-home-landscape.png"), fullPage: true });
+  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-home-landscape.png"), fullPage: true });
   await page.unroute(screenshot);
   await page.route(screenshot, (route) => route.abort());
   await page.route("**/images/platforms/**", (route) => route.abort());
   await page.reload();
   await expect(page.locator(".home-featured-media")).toHaveAttribute("data-kind", "empty");
+  // Offscreen lazy images have not attempted a request yet. Exercise every
+  // image's error fallback before checking that all art slots are preserved.
+  await page.locator(".home-platform-card img").evaluateAll((images) => {
+    for (const image of images) {image.setAttribute("loading", "eager");}
+  });
   await expect(page.locator(".home-platform-card img")).toHaveCount(0);
   const platformArt = page.locator(".home-platform-card .home-platform-art");
   expect(await platformArt.count()).toBeGreaterThan(0);
   for (const art of await platformArt.all()) {await expect(art).toBeVisible();}
   expect(await heroGeometry(page)).toEqual(before);
-  await page.screenshot({ path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
+  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
   await page.unroute(screenshot);
   await page.unroute("**/images/platforms/**");
 }

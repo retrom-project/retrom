@@ -14,6 +14,7 @@ function page(items: BIOSRequirement[], options: { scope?: BIOSListResponse["sco
   const total = options.total ?? items.length;
   return {
     generatedAtMs: 1,
+    coreOptions: [{ id: "mgba", name: "mGBA" }, { id: "pcsx_rearmed", name: "PCSX ReARMed" }],
     scope: options.scope ?? "REQUIRED_BY_LIBRARY",
     scopeCounts: { requiredByLibrary: options.scope === "FULL_CATALOG" ? 8 : total, fullCatalog: 286 },
     summary: {
@@ -77,6 +78,34 @@ describe("BIOSManager", () => {
     expect(filter).toHaveValue("ALL");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(window.location.search).not.toContain("quick=");
+  });
+
+  it("retains every core option after filtering down to one core or no results", async () => {
+    const user = userEvent.setup();
+    const mgba = item("gba");
+    const psx = item("psx", { coreId: "pcsx_rearmed", coreName: "PCSX ReARMed" });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(page([mgba])))
+      .mockResolvedValueOnce(jsonResponse(page([])));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BIOSManager initialResponse={page([mgba, psx])} />);
+    const core = screen.getByRole("combobox", { name: "运行方式" });
+    await user.selectOptions(core, "mgba");
+    await waitFor(() => expect(screen.queryByText("psx.bin")).not.toBeInTheDocument());
+    expect(within(core).getAllByRole("option")).toHaveLength(3);
+    await user.selectOptions(core, "pcsx_rearmed");
+    await waitFor(() => expect(screen.queryByText("gba.bin")).not.toBeInTheDocument());
+    expect(within(core).getAllByRole("option")).toHaveLength(3);
+    expect(core).toHaveValue("pcsx_rearmed");
+    expect(within(screen.getByRole("combobox", { name: "文件状态" })).getAllByRole("option")).toHaveLength(6);
+    expect(within(screen.getByRole("combobox", { name: "依赖筛选" })).getAllByRole("option")).toHaveLength(4);
+  });
+
+  it("includes cores beyond the first result page on a filtered page load", () => {
+    render(<BIOSManager initialFilters={{ coreId: "mgba" }} initialResponse={page([item("gba")], { next: "more" })} />);
+    const core = screen.getByRole("combobox", { name: "运行方式" });
+    expect(core).toHaveValue("mgba");
+    expect(within(core).getByRole("option", { name: "PCSX ReARMed" })).toBeInTheDocument();
   });
 
   it("switches scope with one server request and keeps server aggregate counts", async () => {

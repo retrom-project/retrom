@@ -3783,6 +3783,11 @@ export interface components {
             activeInstallation: components["schemas"]["BIOSInstallationSummary"] | null;
         };
         BIOSListResponseBody: {
+            /** @description All distinct cores with enabled BIOS requirements in the selected scope, independent of search, other filters and pagination. */
+            coreOptions: {
+                id: string;
+                name: string;
+            }[];
             /** Format: int64 */
             generatedAtMs: number;
             /** @enum {string} */

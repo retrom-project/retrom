@@ -6,20 +6,66 @@ import { expectChineseGlyphs, expectStatusTextCentered } from "./status-alignmen
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
+import { seedHomeState, uiLayoutState } from "./ui-layout-state";
 import { expectHomeHero, expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
+import { expectHomePlatformTextCentered, expectLaunchFieldWidth, expectPlatformLabelVariants } from "./ui-polish-support";
 
 // Explicit page PNGs are the visual evidence; retain DOM/source traces without a duplicate 4K filmstrip.
 test.use({ trace: { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true } });
+
+test("ACC-UI-011 default favicon resolves to the existing brand icon", async ({ request }) => {
+  const favicon = await request.get("/favicon.ico");
+  expect(favicon.ok()).toBe(true);
+  expect(favicon.headers()["content-type"]).toContain("image/svg+xml");
+  const icon = await request.get("/icon.svg");
+  expect(await favicon.text()).toBe(await icon.text());
+});
+
+test("ACC-UI-011 launch selector is aligned before hydration", async ({ page, browser }, testInfo) => {
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
+  expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
+  const games = await (await page.request.get("/api/v1/games?limit=1")).json() as { items: Array<{ gameId: string }> };
+  const route = `/games/${games.items[0]!.gameId}`;
+  const serverOnly = await browser.newContext({ baseURL: origin,
+    storageState: await page.context().storageState(), viewport: page.viewportSize(), deviceScaleFactor: testInfo.project.use.deviceScaleFactor });
+  try {
+    // Let inline streaming instructions reveal server HTML, while blocking React hydration.
+    await serverOnly.route(/\/_next\/.*\.js(?:\?|$)/, route => route.abort());
+    const firstPaint = await serverOnly.newPage();
+    await firstPaint.goto(route);
+    await expect(firstPaint.getByRole("combobox", { name: "内容加载", exact: true })).toBeDisabled();
+    await expectLaunchFieldWidth(firstPaint);
+    await firstPaint.screenshot({ caret: "initial", path: evidencePath(testInfo, "launch-before-hydration.png"), fullPage: true });
+  } finally { await serverOnly.close(); }
+  await page.goto(route);
+  await expect(page.getByRole("combobox", { name: "内容加载", exact: true })).toBeEnabled();
+  await expectLaunchFieldWidth(page);
+});
+
+test("ACC-UI-011 home platform text is centered", async ({ page }, testInfo) => {
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
+  expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
+  uiLayoutState("isolate");
+  try {
+    // A poster must exist even when this case runs without preceding launches.
+    seedHomeState("populated");
+    await page.goto("/");
+    await expectHomePlatformTextCentered(page);
+    await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "home-platform-centered.png"), fullPage: true });
+    await expectPlatformLabelVariants(page);
+  } finally {uiLayoutState("restore");}
+});
 
 async function navigateUIPage(page: Page, route: string) {
   const link = page.locator(`a[href="${route}"]:visible`).first();
   if (await link.count()) {
     // Exercise the app's own navigation and avoid reloading the dev runtime for every route.
-    await Promise.all([
-      page.waitForURL(new URL(route, page.url()).href),
-      link.click(),
-    ]);
+    const destination = new URL(route, page.url());
+    await link.click();
+    // Pages may add default filters (for example BIOS scope) after navigation.
+    await expect(page).toHaveURL(url => url.pathname === destination.pathname &&
+      [...destination.searchParams].every(([key, value]) => url.searchParams.get(key) === value));
   } else {
     await page.goto(route);
   }
@@ -147,6 +193,9 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   const gameId: string = (await response.json()).items[0].gameId;
   await page.setViewportSize({ width: testInfo.project.name === "chrome-4k-150" ? 2560 : 1440, height: 1440 });
   await expectHomeStates(page, testInfo);
+  const pageErrors: string[] = [];
+  page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("console", message => { if (message.type() === "error") {pageErrors.push(message.text());} });
   const userRoutes = ["/", "/library", `/games/${gameId}`, "/saves", "/favorites", "/recent", "/account"];
   const adminRoutes = ["/admin/imports", "/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios"];
   await page.goto("/admin/imports/server");
@@ -171,11 +220,11 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
       await expectSearchComposition(page);
       await expectRouteComposition(page, route, width!);
       if (route === "/favorites" && width! < 768) { await expectMobileFavorites(page); }
-      await page.screenshot({ path: evidencePath(testInfo, `ui-consistency-${width}-${route.replaceAll("/", "-") || "home"}.png`), fullPage: true });
+      await page.screenshot({ caret: "initial", path: evidencePath(testInfo, `ui-consistency-${width}-${route.replaceAll("/", "-") || "home"}.png`), fullPage: true });
     }
     if (width! >= 1440) {
       await expectImmersiveHeader(page, width!);
-      await page.screenshot({ path: evidencePath(testInfo, `ui-consistency-${width}-immersive.png`), fullPage: true });
+      await page.screenshot({ caret: "initial", path: evidencePath(testInfo, `ui-consistency-${width}-immersive.png`), fullPage: true });
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -184,12 +233,13 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   await expect(page.getByRole("dialog")).toBeVisible();
   await expectControlStyles(page, false);
   await expectPaletteContrast(page);
-  await page.screenshot({ path: evidencePath(testInfo, "ui-consistency-directory-drawer.png"), fullPage: true });
+  await page.screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-consistency-directory-drawer.png"), fullPage: true });
   await page.keyboard.press("Escape");
   await page.goto("/library");
   await page.getByRole("combobox").first().focus();
   await expect(page.getByRole("combobox").first()).toBeFocused();
   expect(await page.getByRole("combobox").first().evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+  expect(pageErrors, "pages must render and navigate without hydration or runtime errors").toEqual([]);
 });
 
 test("ACC-UI-011 server import statistics stay readable over hero gradients", async ({ page }) => {
@@ -226,11 +276,11 @@ test("ACC-UI-011 missing cover keeps descending title letters visible", async ({
   });
   expect(spacing.lineHeight).toBeGreaterThanOrEqual(spacing.fontSize * 1.2);
   expect(spacing.overflow).toBe("hidden");
-  await page.locator(".library-game-card").screenshot({ path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp.png") });
+  await page.locator(".library-game-card").screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp.png") });
   if (testInfo.project.name === "chrome-1280") {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator(".library-game-card").evaluate((element) => { element.setAttribute("style", "width:180px"); });
     await expect(title).toHaveCSS("-webkit-line-clamp", "2");
-    await page.locator(".library-game-card").screenshot({ path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp-mobile.png") });
+    await page.locator(".library-game-card").screenshot({ caret: "initial", path: evidencePath(testInfo, "ui-consistency-cover-fallback-gyp-mobile.png") });
   }
 });

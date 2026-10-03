@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   poweredByHeader: false,
+  redirects() {
+    return [{ source: "/favicon.ico", destination: "/icon.svg", permanent: true }];
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${backend}/api/:path*` },

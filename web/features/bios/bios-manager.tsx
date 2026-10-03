@@ -269,7 +269,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
 
   const attention = response.items.filter(isBIOSAttention);
   const ready = response.items.filter((item) => !isBIOSAttention(item));
-  const cores = useMemo(() => [...new Map(response.items.map((item) => [item.coreId, item.coreName])).entries()].sort((left, right) => left[1].localeCompare(right[1], "zh-CN")), [response.items]);
+  const cores = useMemo(() => [...response.coreOptions].sort((left, right) => left.name.localeCompare(right.name, "zh-CN")), [response.coreOptions]);
 
   useEffect(() => updateURL(scope, filters), [scope, filters]);
 
@@ -414,7 +414,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
 
     <section className="runtime-toolbar panel" aria-label="筛选 BIOS 文件">
       <label className="runtime-search"><span>搜索文件或运行方式</span><span className="search"><AppIcon name="search" /><input type="search" aria-label="搜索 BIOS 文件" placeholder="例如 gba_bios.bin 或 mGBA" value={filters.query} onChange={(event) => patchFilters({ query: event.target.value })} /></span></label>
-      <label><span>运行方式</span><select className="select" aria-label="运行方式" value={filters.coreId} onChange={(event) => patchFilters({ coreId: event.target.value })}><option value="">全部运行方式</option>{cores.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>
+      <label><span>运行方式</span><select className="select" aria-label="运行方式" value={filters.coreId} onChange={(event) => patchFilters({ coreId: event.target.value })}><option value="">全部运行方式</option>{cores.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}</select></label>
       <label><span>文件状态</span><select className="select" aria-label="文件状态" value={filters.status} onChange={(event) => patchFilters({ status: event.target.value })}><option value="">所有状态</option><option value="MISSING">缺少文件</option><option value="MISSING_ENTRY">归档不完整</option><option value="HASH_WARNING">校验值不一致</option><option value="MATCHED">已安装并匹配</option><option value="OPTIONAL_MISSING">可选文件未安装</option></select></label>
       <label><span>依赖筛选</span><select className="select" aria-label="依赖筛选" value={filters.quick} onChange={(event) => patchFilters({ quick: event.target.value as BIOSQuickFilter })}><option value="ALL">全部依赖</option><option value="ATTENTION">需要处理</option><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>
     </section>

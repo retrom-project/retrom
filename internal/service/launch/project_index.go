@@ -3,6 +3,7 @@ package launch
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -56,6 +57,16 @@ func buildProjectIndex(snapshot ProjectIndexSnapshot) (ProjectIndexView, error) 
 	if snapshot.Source.Delivery == "ISOLATED_WEB_PROJECT" &&
 		(format == "RPG_MAKER_PROJECT" || format == "TYRANOSCRIPT_PROJECT") {
 		policy, err = projectIndexPolicy{minimum: 1, maximum: 100_000, marker: "index.html", allowEmpty: true}, nil
+	}
+	if format == "RPG_MAKER_PROJECT" && snapshot.Source.Delivery == "FILE_TREE_PROJECT" &&
+		(snapshot.Source.DetectorProfile == "RPG2000" || snapshot.Source.DetectorProfile == "RPG2003") {
+		policy, err = projectIndexPolicy{minimum: 1, maximum: 100_000, allowEmpty: true, easyRPG: true}, nil
+		for _, file := range files {
+			if strings.EqualFold(file.Path, "RPG_RT.ldb") {
+				policy.marker = file.Path
+				break
+			}
+		}
 	}
 	if err != nil {
 		return ProjectIndexView{}, err

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewBulkApproval } from "./review-bulk-approval";
@@ -31,9 +31,35 @@ afterEach(() => {
   navigation.refresh.mockClear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("ReviewBulkApproval", () => {
+  it.each(["COMPLETED", "FAILED"])("follows a discovered source-page task until %s and refreshes once", async (state) => {
+    vi.useFakeTimers();
+    window.history.replaceState({}, "", "/admin/reviews?sourceImportId=source-1");
+    sessionStorage.setItem("retrom:v2:user:user-1:reviews:queue:sourceImportId=source-1", "old page");
+    const fetchMock = vi.fn().mockResolvedValueOnce(respond({ activeBulkApproval: queued }))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(respond({ ...queued, state: "RUNNING" }))
+      .mockResolvedValueOnce(respond({ ...queued, state, scannedCount: 3 }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderApproval();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(window.location.search).toContain("sourceImportId=source-1");
+    expect(window.location.search).toContain(`bulkApprovalId=${queued.bulkApprovalId}`);
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(screen.getByRole("alert")).toHaveTextContent("连接中断");
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(navigation.refresh).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(screen.getByRole("heading", { name: state === "COMPLETED" ? "快速审批已完成" : "快速审批失败" })).toBeVisible();
+    expect(sessionStorage.getItem("retrom:v2:user:user-1:reviews:queue:sourceImportId=source-1")).toBeNull();
+    expect(navigation.refresh).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("discovers the global active task and disables a second creation", async () => {
     const fetchMock = vi.fn().mockResolvedValue(respond({ activeBulkApproval: queued }));
     vi.stubGlobal("fetch", fetchMock);

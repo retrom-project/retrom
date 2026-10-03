@@ -37,5 +37,5 @@ export function HomeFeatured({ game, gameCount = 0, phone = false }: { game: Fea
 
 function FeaturedMetadata({ game }: { game: FeaturedGame }) {
   const save = game.lastSessionSave;
-  return <div className="home-featured-meta"><span className="home-featured-platform">{game.platform.name}</span><span>{save ? <>手动存档 · <HomeTime value={save.createdAtMs} /></> : <><HomeTime value={game.lastPlayedAtMs} /> 玩过</>}{save?.discLabel ? ` · ${save.discLabel}` : ""}</span></div>;
+  return <div className="home-featured-meta"><span className="home-featured-platform"><span>{game.platform.name}</span></span><span>{save ? <>手动存档 · <HomeTime value={save.createdAtMs} /></> : <><HomeTime value={game.lastPlayedAtMs} /> 玩过</>}{save?.discLabel ? ` · ${save.discLabel}` : ""}</span></div>;
 }
