@@ -4,6 +4,7 @@ import type { ImmersivePlayerOverlay } from "./use-immersive-player";
 import type { ImmersiveMenuSelection } from "./immersive-player-menu-model";
 
 type Props = {
+  returnTarget?: RefObject<HTMLElement | null>;
   gamepadCursor?: PlayerGamepadCursorControl | null;
   checkpointSemantics?: CheckpointSemantics;
   nativeSave?: NativeSaveCapabilities;
@@ -17,10 +18,11 @@ type Props = {
   onConfirm: () => void;
 };
 
-export function ImmersivePlayerMenu({ gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, saveStatus, onCancel, onSelect, onConfirm }: Props) {
+export function ImmersivePlayerMenu({ returnTarget, gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, saveStatus, onCancel, onSelect, onConfirm }: Props) {
+  const dialog = useImmersiveMenuFocus(overlay, returnTarget);
   if (overlay.kind === "closed" || overlay.kind === "editor") {return null;}
   if (overlay.kind === "reconnect") {
-    return <section className="immersive-player-overlay" role="alertdialog" aria-modal="true" aria-labelledby="immersive-reconnect-title">
+    return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" role="alertdialog" aria-modal="true" aria-labelledby="immersive-reconnect-title">
       <div className="immersive-player-panel">
         <p className="immersive-player-eyebrow">控制器连接已中断</p>
         <h1 id="immersive-reconnect-title">请重新连接手柄</h1>
@@ -29,9 +31,9 @@ export function ImmersivePlayerMenu({ gamepadCursor, checkpointSemantics, native
     </section>;
   }
   if (overlay.kind === "closing") {
-    return <section className="immersive-player-overlay" aria-live="polite"><div className="immersive-player-panel"><p>请松开手柄按键…</p></div></section>;
+    return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" aria-live="polite"><div className="immersive-player-panel"><p>请松开手柄按键…</p></div></section>;
   }
-  return <section className="immersive-player-overlay" role="dialog" aria-modal="true" aria-labelledby="immersive-player-menu-title">
+  return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" role="dialog" aria-modal="true" aria-labelledby="immersive-player-menu-title">
     <div className={`immersive-player-panel${gamepadCursor ? " has-gamepad-cursor" : ""}`}>
       <p className="immersive-player-eyebrow">游戏已暂停</p>
       <h1 id="immersive-player-menu-title">游戏菜单</h1>
@@ -97,3 +99,5 @@ function confirmMenuItem(selected: ImmersiveMenuSelection, onSelect: Props["onSe
   onSelect(selected);
   onConfirm();
 }
+import type {RefObject} from "react";
+import {useImmersiveMenuFocus} from "./use-immersive-menu-focus";

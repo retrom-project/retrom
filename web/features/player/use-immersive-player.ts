@@ -152,7 +152,7 @@ export function useImmersivePlayer(params: Params) {
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, Boolean(gamepadCursor), editorAvailable)) {
-      updateOverlay({ ...current, selected });
+      if (current.selected !== selected) {updateOverlay({ ...current, selected });}
     }
   }, [editorAvailable, gamepadCursor, saveAvailable, updateOverlay]);
   const menuMove = useCallback((direction: "left" | "right") => {

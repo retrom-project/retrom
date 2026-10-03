@@ -325,7 +325,7 @@ function PlayerShellView({startupTasks, canLoadOnDemand, nativeExitDialog, exper
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
     <NativeSaveToast visible={interactive && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
-    {interactive && isImmersive ? <ImmersivePlayerMenu gamepadCursor={chromeProps.gamepadCursor} nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
+    {interactive && isImmersive ? <ImmersivePlayerMenu returnTarget={stage} gamepadCursor={chromeProps.gamepadCursor} nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     <ImmersiveGameEditorLayer blocked={!interactive} immersive={isImmersive} overlay={immersive.overlay} runtime={chromeProps.inputRuntime} onClose={immersive.menuCancel} />
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
@@ -349,7 +349,7 @@ export function PlayerStage({startupTasks = [], canLoadOnDemand = false, blocked
   loadProgress: PlayerLoadProgress | null; returnTo: string; immersive: boolean; onSurface: () => void;
 }) {
   return <div className="player-stage" inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
-    <div className="player-runtime-mount" ref={stage} />
+    <div className="player-runtime-mount" ref={stage} tabIndex={-1} />
     {state !== "running" ? <PlayerLoading tasks={startupTasks} canLoadOnDemand={canLoadOnDemand} state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
   </div>;
 }

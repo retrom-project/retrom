@@ -46,6 +46,20 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
+  it("preserves a manual pause when the menu closes", async () => {
+    vi.useFakeTimers();
+    const {result, current, params, unmount} = renderImmersivePlayer(vi.fn(async () => true));
+    params.pausedRef.current = true;
+    act(() => result.current.requestMenu());
+    expect(current.pause).not.toHaveBeenCalled();
+    act(() => result.current.menuCancel());
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    expect(result.current.overlay.kind).toBe("closed");
+    expect(current.resume).not.toHaveBeenCalled();
+    expect(params.pausedRef.current).toBe(true);
+    unmount();
+    vi.useRealTimers();
+  });
   it("ignores a transient missing gamepad sample before showing reconnect", async () => {
     vi.useFakeTimers();
     let gamepads: Gamepad[] = [gamepad()];
