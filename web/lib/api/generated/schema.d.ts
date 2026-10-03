@@ -865,6 +865,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Cancel current work by jobId; no client version or execution precondition. Repeated cancellation is idempotent. */
         post: operations["postAdminJobCancel"];
         delete?: never;
         options?: never;
@@ -1745,24 +1746,6 @@ export interface paths {
         get: operations["getAdminSourceImportItems"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminSourceImportCancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6325,7 +6308,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "If-Match": components["parameters"]["IfMatch"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -6335,6 +6317,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["Reason"];
         responses: {
+            200: components["responses"]["JSONResponse"];
             202: components["responses"]["JSONResponse"];
         };
     };
@@ -7451,25 +7434,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["SourceItemListResponse"];
-        };
-    };
-    postAdminSourceImportCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["SourceImportResponse"];
-            202: components["responses"]["SourceImportResponse"];
         };
     };
     postAdminSourceImportRetry: {

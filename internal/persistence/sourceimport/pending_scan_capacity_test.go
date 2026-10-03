@@ -27,7 +27,7 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	}
 	control := application.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := control.CancelJob(t.Context(), application.JobCancellationRequest{
-		JobID: "job-1", ScopeID: "import-1", Kind: "IMPORT_SCAN", ExpectedVersion: 1,
+		JobID: "job-1", ScopeID: "import-1", Kind: "IMPORT_SCAN",
 		Reason: "Stop queued scan", ActorID: "actor",
 	}); err != nil || pending {
 		t.Fatalf("close queued scan: pending=%v err=%v", pending, err)
@@ -80,7 +80,7 @@ heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadline_at_ms=100 WHERE i
 	}
 	control := application.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := control.CancelJob(t.Context(), application.JobCancellationRequest{
-		JobID: "job-0", ScopeID: "import-0", Kind: "IMPORT_SCAN", ExpectedVersion: 1,
+		JobID: "job-0", ScopeID: "import-0", Kind: "IMPORT_SCAN",
 		Reason: "Stop running scan", ActorID: "actor",
 	}); err != nil || !pending {
 		t.Fatalf("request running scan cancellation: pending=%v err=%v", pending, err)

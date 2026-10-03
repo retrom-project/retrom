@@ -31,7 +31,7 @@ func testAttachmentCancellation(t *testing.T, kind, state string) {
 	}
 	service := libraryservice.NewAttachmentExecutions(NewAttachmentExecutions(db), func() time.Time { return time.UnixMilli(5) })
 	result, err := service.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
-		JobID: "parent-job", ImportID: "item", ExpectedVersion: 1, Reason: "cancel before reading",
+		JobID: "parent-job", ImportID: "item", Reason: "cancel before reading",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -45,10 +45,10 @@ func testAttachmentCancellation(t *testing.T, kind, state string) {
 	}
 	assertAttachmentCancellationState(t, db, state)
 
-	if _, err := service.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
-		JobID: "parent-job", ImportID: "item", ExpectedVersion: 1, Reason: "stale request",
-	}); err == nil {
-		t.Fatal("stale cancellation accepted")
+	if repeated, err := service.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
+		JobID: "parent-job", ImportID: "item", Reason: "repeat request",
+	}); err != nil || repeated != result {
+		t.Fatalf("repeat cancellation changed result: %+v %v", repeated, err)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestFinishedAttachmentSchedulesOnlyItsOwnInputRelease(t *testing.T) {
  ('input-two','upload','parent-upload','REVIEW_ARCADE_PARENT','other-attachment',1)`)
 	service := libraryservice.NewAttachmentExecutions(NewAttachmentExecutions(db), func() time.Time { return time.UnixMilli(5) })
 	if _, err := service.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
-		JobID: "parent-job", ImportID: "item", ExpectedVersion: 1, Reason: "cancel",
+		JobID: "parent-job", ImportID: "item", Reason: "cancel",
 	}); err != nil {
 		t.Fatal(err)
 	}

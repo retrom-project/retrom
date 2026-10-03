@@ -187,11 +187,15 @@ func TestQueuedCancellationKeepsReviewItemsAndSchedulesTerminalPayloads(t *testi
 	db := workflowDatabase(t)
 	prepareQueuedCancellation(t, db)
 	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
-	result, pending, err := service.Cancel(t.Context(), "import-0", 1, "Stop", "actor")
+	result, pending, err := service.CancelJob(t.Context(), application.JobCancellationRequest{JobID: "work", ScopeID: "import-0", Kind: "IMPORT_RECEIVE", Reason: "Stop", ActorID: "actor"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pending || result.State != "CANCELLED" || result.Counts.Cancelled != 1 || result.Counts.ReviewPending != 1 {
+	var cancelled, reviewPending int
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT count(*) FROM source_import_items WHERE execution_state='CANCELLED'), (SELECT count(*) FROM source_import_items WHERE execution_state='REVIEW_PENDING')`).Scan(&cancelled, &reviewPending); err != nil {
+		t.Fatal(err)
+	}
+	if pending || result.State != "CANCELLED" || cancelled != 1 || reviewPending != 1 {
 		t.Fatalf("cancel result: %#v pending=%v", result, pending)
 	}
 	var state, payload string

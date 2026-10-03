@@ -230,17 +230,6 @@ func (server *Server) sourceImportItems(writer http.ResponseWriter, request *htt
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
 }
 
-func (server *Server) cancelSourceImport(writer http.ResponseWriter, request *http.Request) {
-	cancelFormatImport(
-		writer,
-		request,
-		"sourceImportId",
-		server.importDeps.Source.Cancel,
-		writeSourceSummary,
-		server.writeSourceImportError,
-	)
-}
-
 func (server *Server) retrySourceImport(writer http.ResponseWriter, request *http.Request) {
 	retryFormatImport(
 		writer,

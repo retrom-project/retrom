@@ -75,7 +75,7 @@ func (sources discardSources) Cancel(ctx context.Context, kind, id string, versi
 	var err error
 	switch kind {
 	case "SOURCE":
-		_, _, err = sources.source.Cancel(ctx, id, version, reason, userID)
+		_, _, err = sources.source.CancelForDiscard(ctx, id, version, reason, userID)
 	default:
 		return importdiscard.ErrInvalid
 	}

@@ -9,43 +9,35 @@ import (
 	"github.com/google/uuid"
 )
 
-type cancellationRequest struct {
-	ID, Reason, ActorID, ScopeID, Kind string
-	Version                            int64
-	ByJob                              bool
-}
 type JobCancellationRequest struct {
 	JobID, Kind, ScopeID, Reason, ActorID string
-	ExpectedVersion                       int64
 }
+type workflowCancellationRequest struct {
+	JobCancellationRequest
+	ImportID      string
+	ImportVersion int64
+}
+
+// CancelForDiscard retains the aggregate guard for the distinct destructive discard operation.
+func (service *WorkflowControl) CancelForDiscard(ctx context.Context, id string, version int64, reason, actorID string) (Summary, bool, error) {
+	after, pending, err := service.cancel(ctx, workflowCancellationRequest{
+		JobCancellationRequest: JobCancellationRequest{Reason: reason, ActorID: actorID},
+		ImportID:               id, ImportVersion: version,
+	})
+	return after.Summary, pending, err
+}
+
 type JobCancellationResult struct {
 	JobID, State         string
 	ExecutionNo, Version int64
 }
 
-func (service *WorkflowControl) Cancel(
-	ctx context.Context,
-	id string,
-	version int64,
-	reason, actorID string,
-) (Summary, bool, error) {
-	after, pending, err := service.cancel(
-		ctx,
-		cancellationRequest{ID: id, Version: version, Reason: reason, ActorID: actorID},
-	)
-	return after.Summary, pending, err
-}
-
-// CancelJob checks the caller's original Job version within the same transaction
-// that changes the domain aggregate; it never translates an ETag outside that transaction.
+// CancelJob reads the latest execution in the same transaction as domain cancellation.
 func (service *WorkflowControl) CancelJob(
 	ctx context.Context,
 	request JobCancellationRequest,
 ) (JobCancellationResult, bool, error) {
-	after, pending, err := service.cancel(ctx, cancellationRequest{
-		ID: request.JobID, Version: request.ExpectedVersion,
-		Reason: request.Reason, ActorID: request.ActorID, ByJob: true, ScopeID: request.ScopeID, Kind: request.Kind,
-	})
+	after, pending, err := service.cancel(ctx, workflowCancellationRequest{JobCancellationRequest: request})
 	if err != nil {
 		return JobCancellationResult{}, false, err
 	}
@@ -59,7 +51,7 @@ func (service *WorkflowControl) CancelJob(
 
 func (service *WorkflowControl) cancel(
 	ctx context.Context,
-	request cancellationRequest,
+	request workflowCancellationRequest,
 ) (WorkflowSnapshot, bool, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.Reason == "" || utf8.RuneCountInString(request.Reason) > 500 {
@@ -72,7 +64,11 @@ func (service *WorkflowControl) cancel(
 		if err != nil {
 			return err
 		}
-		plan, err := service.cancellationPlan(before, request)
+		if before.JobState == "CANCEL_REQUESTED" || before.JobState == "CANCELLED" {
+			result, pending = before, before.JobState == "CANCEL_REQUESTED"
+			return nil
+		}
+		plan, err := service.cancellationPlan(before, request.JobCancellationRequest)
 		if err != nil {
 			return err
 		}
@@ -100,29 +96,26 @@ func (service *WorkflowControl) cancel(
 func readCancellation(
 	ctx context.Context,
 	reader WorkflowReader,
-	request cancellationRequest,
+	request workflowCancellationRequest,
 ) (WorkflowSnapshot, error) {
-	var before WorkflowSnapshot
-	var err error
-	if request.ByJob {
-		before, err = reader.CurrentJob(ctx, request.ID)
-	} else {
-		before, err = reader.Current(ctx, request.ID)
+	if request.ImportID != "" {
+		before, err := reader.Current(ctx, request.ImportID)
+		if err != nil {
+			return WorkflowSnapshot{}, fmt.Errorf("read discard cancellation: %w", err)
+		}
+		if !validWorkflowVersion(before, request.ImportVersion) || !canCancel(before) {
+			return WorkflowSnapshot{}, ErrNotCancellable
+		}
+		return before, nil
 	}
+	before, err := reader.CurrentJob(ctx, request.JobID)
 	if err != nil {
 		return WorkflowSnapshot{}, fmt.Errorf("read Source cancellation: %w", err)
 	}
-	version := request.Version
-	if request.ByJob {
-		if !matchesCancellationJob(before, request) {
-			return WorkflowSnapshot{}, ErrNotCancellable
-		}
-		if request.Version != before.JobVersion || request.Version < 1 {
-			return WorkflowSnapshot{}, ErrVersionConflict
-		}
-		version = before.Summary.Version
+	if !matchesCancellationJob(before, request.JobCancellationRequest) {
+		return WorkflowSnapshot{}, ErrNotCancellable
 	}
-	if !canCancel(before, version) {
+	if before.JobState != "CANCEL_REQUESTED" && before.JobState != "CANCELLED" && !canCancel(before) {
 		return WorkflowSnapshot{}, ErrNotCancellable
 	}
 	return before, nil
@@ -130,7 +123,7 @@ func readCancellation(
 
 func (service *WorkflowControl) cancellationPlan(
 	before WorkflowSnapshot,
-	request cancellationRequest,
+	request JobCancellationRequest,
 ) (CancellationPlan, error) {
 	auditID, err := uuid.NewV7()
 	if err != nil {
@@ -149,8 +142,8 @@ func (service *WorkflowControl) cancellationPlan(
 	return plan, nil
 }
 
-func canCancel(before WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || (before.JobState != "QUEUED" && before.JobState != "RUNNING") {
+func canCancel(before WorkflowSnapshot) bool {
+	if before.JobState != "QUEUED" && before.JobState != "RUNNING" {
 		return false
 	}
 	if before.Summary.ImportJobID == nil {
@@ -159,12 +152,12 @@ func canCancel(before WorkflowSnapshot, version int64) bool {
 	return before.Summary.State == "QUEUED" || before.Summary.State == "RUNNING"
 }
 
-func matchesCancellationJob(before WorkflowSnapshot, request cancellationRequest) bool {
+func matchesCancellationJob(before WorkflowSnapshot, request JobCancellationRequest) bool {
 	if before.Summary.ID != request.ScopeID {
 		return false
 	}
 	if before.Summary.ImportJobID != nil {
-		return *before.Summary.ImportJobID == request.ID && request.Kind == "IMPORT_RECEIVE"
+		return *before.Summary.ImportJobID == request.JobID && request.Kind == "IMPORT_RECEIVE"
 	}
-	return before.Summary.ScanJobID == request.ID && request.Kind == "IMPORT_SCAN"
+	return before.Summary.ScanJobID == request.JobID && request.Kind == "IMPORT_SCAN"
 }

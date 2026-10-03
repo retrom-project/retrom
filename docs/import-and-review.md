@@ -476,7 +476,9 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`007` 与 `ACC-MEDIA-001`。
 
-取消和手动重试由 来源 Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 来源 execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
+取消只由 `jobId` 定位任务，来源详情与任务入口统一调用通用 Job 取消命令，不携带前端版本或 executionNo。组合层按 kind 注入领域取消端口，来源 Service 在事务内读取最新计划与 Job，并由 Repository 原子保存；内部版本、execution、worker/lease 围栏继续保护写入。扫描与导入 Job 未领取时直接取消，运行时进入 CANCEL_REQUESTED 并保留 owner 直至安全停止；重复取消不推进版本、不重复写事件。进度更新、自动重试或 UI 滞后不能阻断取消。手动重试和批次废弃是独立命令，保留各自版本保护；取消并不取消已经交接的审核项或回滚已发布结果。
+
+自动重试、进程恢复和失败收口都以已持久化取消为优先事实：CANCEL_REQUESTED 只允许收敛到 CANCELLED；CANCELLED 不可被手动重试、旧计时器、队列通知或旧 worker 重新拉起。临时错误的自动重排队保留原 execution/attempt/deadline；普通进程中断的 context.Canceled 不是用户取消，只有持久化取消命令才阻止恢复。可重试失败任务仍允许显式取消来释放占用，不可重试终态保持不变。
 
 执行领取、续租、子项领取/恢复/结果以及导入完成由 Service 决定，Repository 在事务内检查当前 worker、execution、attempt、Job/计划/子项版本和未过期的租约及 deadline。每次领取生成独立且经过错误检查的 worker 身份；自动接管返回原先持久化的执行截止时刻，续租不能越过它。心跳失败或上下文结束时停止续租，执行返回前等待心跳退出。队列和维护由独立循环运行，扫描或复制不能阻塞过期恢复。启动幂等；关闭时取消队列、维护与当前执行的上下文，并等待操作和心跳全部退出。运行中的取消通过提交后通知与每秒持久状态检查传递到执行上下文；确认取消后使用独立的 30 秒清理上下文，并在收口事务重新核对当前归属。失去归属或到期只能停止执行，不能据此冒充取消权限。完成导入前必须确认没有 PENDING/COPYING/VALIDATING 子项，结果计数、终态释放与事件整体提交；重复结果不追加事件，旧 worker 不得领取子项、写审核元数据或关闭当前执行。
 

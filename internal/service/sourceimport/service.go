@@ -13,7 +13,7 @@ type (
 		Start(context.Context, string, int64, string) (Summary, bool, error)
 	}
 	PlanController interface {
-		Cancel(context.Context, string, int64, string, string) (Summary, bool, error)
+		CancelForDiscard(context.Context, string, int64, string, string) (Summary, bool, error)
 		CancelJob(context.Context, JobCancellationRequest) (JobCancellationResult, bool, error)
 		Retry(context.Context, string, int64, string) (Summary, error)
 	}
@@ -90,12 +90,10 @@ func (service *Service) Delete(ctx context.Context, id string, version int64, ac
 	return service.dependencies.Lifecycle.Delete(ctx, id, version, actorID)
 }
 
-func (service *Service) Cancel(
-	ctx context.Context, id string, version int64, reason, actorID string,
-) (Summary, bool, error) {
-	result, pending, err := service.dependencies.Control.Cancel(ctx, id, version, reason, actorID)
+func (service *Service) CancelForDiscard(ctx context.Context, id string, version int64, reason, actorID string) (Summary, bool, error) {
+	result, pending, err := service.dependencies.Control.CancelForDiscard(ctx, id, version, reason, actorID)
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("cancel Source import: %w", err)
+		return Summary{}, false, fmt.Errorf("cancel Source import for discard: %w", err)
 	}
 	service.dependencies.Worker.Signal()
 	return result, pending, nil

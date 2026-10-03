@@ -64,7 +64,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 		},
 	)
 	handler := composition.WithJobCancellation(jobs.New(jobpersistence.New(fault), service.now), composition.NewExecutions(fault, service.now))
-	result, pending, err := handler.Cancel(t.Context(), created.JobID, 1, "operator request")
+	result, pending, err := handler.Cancel(t.Context(), created.JobID, "operator request")
 	if !errors.Is(err, cause) || result != (jobs.Result{}) || pending || writes != 1 || attempts != 1 {
 		t.Fatalf(
 			"cancel atomicity: result=%+v pending=%t writes=%d attempts=%d error=%v",
@@ -77,7 +77,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 	}
 	assertImportCancellationState(t, service, created, "QUEUED", "QUEUED", "RETAINED", 1)
 	handler = composition.WithJobCancellation(jobs.New(jobpersistence.New(source), service.now), composition.NewExecutions(source, service.now))
-	result, pending, err = handler.Cancel(t.Context(), created.JobID, 1, "operator request")
+	result, pending, err = handler.Cancel(t.Context(), created.JobID, "operator request")
 	if err != nil || pending || result.State != "CANCELLED" || result.Version != 2 {
 		t.Fatalf("cancel retry=%+v pending=%t error=%v", result, pending, err)
 	}
@@ -92,7 +92,7 @@ func TestImportWorkerDomainCancelKeepsOwnerUntilExecutionStops(t *testing.T) {
 		t.Fatalf("claim found=%t error=%v", found, err)
 	}
 	result, err := executions.CancelJob(t.Context(), libraryservice.ImportJobCancellation{
-		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 2, Reason: "operator stop",
+		JobID: created.JobID, ImportID: created.ImportJobID, Reason: "operator stop",
 	})
 	if err != nil || !result.Pending || result.State != "CANCEL_REQUESTED" {
 		t.Fatalf("pending cancel=%+v error=%v", result, err)
@@ -157,7 +157,7 @@ SELECT job.state,parent.state,parent.payload_state,job.version FROM jobs job JOI
 func TestImportWorkerQueuedCancellationPreservesAbsentExecutionTimes(t *testing.T) {
 	service, created := queuedCancellationFixture(t)
 	_, err := service.testExecutions().CancelJob(t.Context(), libraryservice.ImportJobCancellation{
-		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 1, Reason: "operator stop",
+		JobID: created.JobID, ImportID: created.ImportJobID, Reason: "operator stop",
 	})
 	if err != nil {
 		t.Fatal(err)

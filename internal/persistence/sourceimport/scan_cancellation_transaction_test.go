@@ -15,7 +15,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
+func TestScanCancellationRechecksOwnershipAndUsesLatestVersion(t *testing.T) {
 	t.Parallel()
 	db, id, _ := publicationDatabase(t)
 	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
@@ -23,33 +23,37 @@ func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 	if result, pending, err := service.CancelJob(
 		t.Context(),
 		application.JobCancellationRequest{
-			JobID:           id.JobID,
-			ScopeID:         id.ImportID,
-			Kind:            "IMPORT_SCAN",
-			ExpectedVersion: 2,
-			Reason:          "Stop",
-			ActorID:         "actor",
+			JobID:   id.JobID,
+			ScopeID: "other-import",
+			Kind:    "IMPORT_SCAN",
+			Reason:  "Stop",
+			ActorID: "actor",
 		},
 	); !errors.Is(
 		err,
-		application.ErrVersionConflict,
+		application.ErrNotCancellable,
 	) || pending || result.JobID != "" {
-		t.Fatalf("wrong Job version: %#v %v %v", result, pending, err)
+		t.Fatalf("wrong Job owner: %#v %v %v", result, pending, err)
 	}
 	if !reflect.DeepEqual(before, publicationRows(t, db)) {
-		t.Fatal("stale cancellation changed rows")
+		t.Fatal("wrong-owner cancellation changed rows")
+	}
+	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET version=42 WHERE id=?`, id.JobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(t.Context(), `UPDATE source_imports SET version=99 WHERE id=?`, id.ImportID); err != nil {
+		t.Fatal(err)
 	}
 	if result, pending, err := service.CancelJob(
 		t.Context(),
 		application.JobCancellationRequest{
-			JobID:           id.JobID,
-			ScopeID:         id.ImportID,
-			Kind:            "IMPORT_SCAN",
-			ExpectedVersion: 1,
-			Reason:          "Stop",
-			ActorID:         "actor",
+			JobID:   id.JobID,
+			ScopeID: id.ImportID,
+			Kind:    "IMPORT_SCAN",
+			Reason:  "Stop",
+			ActorID: "actor",
 		},
-	); err != nil || !pending || result.State != "CANCEL_REQUESTED" {
+	); err != nil || !pending || result.State != "CANCEL_REQUESTED" || result.Version != 43 {
 		t.Fatalf("current scan Job rejected: %#v %v %v", result, pending, err)
 	}
 }
@@ -70,12 +74,11 @@ leased_until_ms=NULL,heartbeat_at_ms=NULL WHERE id='job-0'`); err != nil {
 	result, pending, err := service.CancelJob(
 		t.Context(),
 		application.JobCancellationRequest{
-			JobID:           id.JobID,
-			ScopeID:         id.ImportID,
-			Kind:            "IMPORT_SCAN",
-			ExpectedVersion: 1,
-			Reason:          "Stop",
-			ActorID:         "actor",
+			JobID:   id.JobID,
+			ScopeID: id.ImportID,
+			Kind:    "IMPORT_SCAN",
+			Reason:  "Stop",
+			ActorID: "actor",
 		},
 	)
 	if !errors.Is(err, cause) || result.JobID != "" || pending || deleted != 1 || audits != 1 {

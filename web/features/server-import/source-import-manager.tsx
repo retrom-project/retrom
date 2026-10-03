@@ -311,9 +311,9 @@ export function SourceImportDetailManager({ initialSummary, initialItems, collec
   async function cancel() {
     setBusy(true); setError("");
     try {
-      const { data, response } = await api.POST("/api/v1/admin/source-imports/{sourceImportId}/cancel", { params: { path: { sourceImportId: summary.id }, header: { ...writeHeaders(), "If-Match": `"v${summary.version}"`, "Idempotency-Key": newUuid(), "X-Retrom-Csrf": "" } }, body: { reason: "管理员停止 游戏文件 导入" } });
-      if (!data) {throw new Error(await message(response, "取消任务失败"));}
-      setSummary(data); setCancelOpen(false);
+      const { response } = await api.POST("/api/v1/admin/jobs/{jobId}/cancel", { params: { path: { jobId: summary.importJobId ?? summary.scanJobId }, header: { ...writeHeaders(), "Idempotency-Key": newUuid() } }, body: { reason: "管理员停止游戏文件导入" } });
+      if (!response.ok) {throw new Error(await message(response, "取消任务失败"));}
+      setCancelOpen(false); await requestSummary();
     } catch (caught) {setError(caught instanceof Error ? caught.message : "取消任务失败");}
     finally {setBusy(false);}
   }

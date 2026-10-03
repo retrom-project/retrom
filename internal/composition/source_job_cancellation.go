@@ -32,7 +32,7 @@ func (handler sourceCancellation) CancelJob(
 		return jobs.Result{}, false, jobs.ErrConflict
 	}
 	result, pending, err := handler.source.CancelJob(ctx, source.JobCancellationRequest{
-		JobID: command.JobID, Kind: command.Kind, ScopeID: command.ScopeID, ExpectedVersion: command.ExpectedVersion,
+		JobID: command.JobID, Kind: command.Kind, ScopeID: command.ScopeID,
 		Reason: command.Reason, ActorID: principal.UserID,
 	})
 	if err != nil {

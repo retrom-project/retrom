@@ -245,13 +245,15 @@ paths:
       - $ref: '#/components/parameters/JobID'
     post:
       operationId: postAdminJobCancel
+      description: Cancel current work by jobId; no client version or execution precondition. Repeated cancellation is idempotent.
       x-retrom-max-body-bytes: 8192
       parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
         $ref: ../components/common.yaml#/components/requestBodies/Reason
       responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/jobs/{jobId}/retry:

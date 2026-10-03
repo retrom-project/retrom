@@ -34,7 +34,7 @@ func (handler attachmentCancellation) CancelJob(
 	ctx context.Context, request jobs.DomainCancellation,
 ) (jobs.Result, bool, error) {
 	result, err := handler.executions.CancelJob(ctx, libraryservice.ImportJobCancellation{
-		JobID: request.JobID, ImportID: request.ScopeID, ExpectedVersion: request.ExpectedVersion, Reason: request.Reason,
+		JobID: request.JobID, ImportID: request.ScopeID, Reason: request.Reason,
 	})
 	if err != nil {
 		if errors.Is(err, libraryservice.ErrInvalid) || errors.Is(err, libraryservice.ErrVersionConflict) {
@@ -68,7 +68,7 @@ func (handler importCancellation) CancelJob(
 		ctx,
 		libraryservice.ImportJobCancellation{
 			JobID: request.JobID, ImportID: request.ScopeID,
-			ExpectedVersion: request.ExpectedVersion, Reason: request.Reason,
+			Reason: request.Reason,
 		},
 	)
 	if err != nil {

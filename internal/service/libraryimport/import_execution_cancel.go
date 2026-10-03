@@ -23,10 +23,18 @@ func (service *ImportExecutions) CancelJob(
 			if err != nil {
 				return fmt.Errorf("read import cancellation: %w", err)
 			}
-			if !found || before.Creation.Execution.ImportID != request.ImportID ||
-				before.Creation.JobVersion != request.ExpectedVersion ||
-				!before.Cancellable ||
-				!importCancellable(before) {
+			if !found || before.Creation.Execution.ImportID != request.ImportID {
+				return ErrVersionConflict
+			}
+			if before.Creation.JobState == "CANCEL_REQUESTED" || before.Creation.JobState == "CANCELLED" {
+				result = ImportCancellationResult{
+					JobID: request.JobID, State: before.Creation.JobState,
+					ExecutionNo: before.Creation.Execution.ExecutionNo, Version: before.Creation.JobVersion,
+					Pending: before.Creation.JobState == "CANCEL_REQUESTED",
+				}
+				return nil
+			}
+			if !before.Cancellable || !importCancellable(before) {
 				return ErrVersionConflict
 			}
 			now := service.now().UnixMilli()
@@ -134,7 +142,7 @@ func importCancellationProjection(
 
 func normalizeImportCancellation(request ImportJobCancellation) (ImportJobCancellation, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
-	if request.JobID == "" || request.ImportID == "" || request.ExpectedVersion < 1 || request.Reason == "" ||
+	if request.JobID == "" || request.ImportID == "" || request.Reason == "" ||
 		utf8.RuneCountInString(request.Reason) > 500 {
 		return ImportJobCancellation{}, ErrInvalid
 	}
