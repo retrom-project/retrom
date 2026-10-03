@@ -109,7 +109,8 @@ func (run *reviewApprovalRun) prepareRPG() error {
 	if err != nil {
 		return err
 	}
-	if !run.screenshotOverride && (dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON) {
+	if !run.screenshotOverride &&
+		(dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON) {
 		return ErrInvalid
 	}
 	run.rpgProfile, run.rpgDependencies = profile, dependencies
