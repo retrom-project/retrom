@@ -124,6 +124,7 @@ function summarizeReview(review: Review): ReviewDetailSummary {
 }
 
 function ReviewCapability({ review, summary }: { review: Review; summary: ReviewDetailSummary }) {
+  const screenshotApproval = review.canApprove && Boolean(review.runtimeScreenshot) && summary.validationStatus !== "READY";
   const sourceSize = review.sourceFiles?.[0]
     ? formatBytes(review.sourceFiles[0].sizeBytes)
     : `${review.sourceManifest.files.length} 个来源文件`;
@@ -134,9 +135,9 @@ function ReviewCapability({ review, summary }: { review: Review; summary: Review
     ? `${summary.dependencyCount} 项运行依赖 · ${summary.dependencyIssueCount ? `${summary.dependencyIssueCount} 项需要处理` : "没有发现异常"}`
     : "检查结果尚未生成";
   return <section className="panel review-workflow-capability">
-    <div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(summary.compatibilityCode)}>{summary.compatibilityLabel}</StatusBadge></div>
+    <div className="panel-head"><div><h2>① 能不能发布？</h2><p>检查结论与管理员发布依据分别展示。</p></div><StatusBadge tone={screenshotApproval ? "info" : statusTone(summary.compatibilityCode)}>{screenshotApproval ? "可凭截图发布" : summary.compatibilityLabel}</StatusBadge></div>
     <div className="panel-body review-capability-list">
-      {summary.suppressGenericGuidance ? null : <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />}
+      {summary.suppressGenericGuidance ? null : <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} screenshotApproval={screenshotApproval} />}
       <div><strong>游戏文件</strong><span>{summary.sourceDisplayName} · {sourceSize}</span></div>
       <div><strong>运行检查</strong><span>{runtimeCheck}</span></div>
       <div><strong>依赖检查</strong><span>{dependencyCheck}</span></div>

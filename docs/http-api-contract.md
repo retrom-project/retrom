@@ -264,7 +264,7 @@ POST /api/v1/admin/imports
 
 ScummVM 项目使用现有 `POST /api/v1/admin/imports`，`contentMode=SCUMMVM_PROJECT`、上传用途 `PROJECT`、目标基础平台/Core `scummvm`，刮削规范化为 `NONE`。只接受完整目录或单个 ZIP/7z；202 后由 worker 调用已验证的同版原生检测器。未知游戏/变体进入有明确阻断原因的审核结果；检测器缺失、输出非法或执行超时使任务失败，不能伪装为零候选。首版不在 Game 内容替换接口声明此模式，更新游戏数据需重新导入审核。
 
-ScummVM 审核仍使用现有详情、PATCH、预览和批准路由。`readiness.dependencySnapshot` 的 `kind=SCUMMVM`，包含 `schemaVersion=1`、完整 `detection` 和 `selectedCandidateId`；检测结果保留来源摘要、固定上游 commit、候选根目录/引擎/游戏/语言/平台/版本及 blocker。只有唯一且可运行的候选自动选定；其余候选必须由 `PATCH /api/v1/admin/reviews/{id}` 的可选 `scummvmCandidateId` 明确选择（64 位小写十六进制，沿用 If-Match）。服务端只接受当前来源检测结果内的可运行 ID，生成新的不可变 Validation，不能接受任意 CLI、目录或客户端自造参数。来源更新后客户端清除旧选择。未选择、候选受阻或选择与来源摘要不一致时，预览与发布都不能被截图放行。
+ScummVM 审核仍使用现有详情、PATCH、预览和批准路由。`readiness.dependencySnapshot` 的 `kind=SCUMMVM`，包含 `schemaVersion=1`、完整 `detection` 和 `selectedCandidateId`；检测结果保留来源摘要、固定上游 commit、候选根目录/引擎/游戏/语言/平台/版本及 blocker。只有唯一且可运行的候选自动选定；其余候选必须由 `PATCH /api/v1/admin/reviews/{id}` 的可选 `scummvmCandidateId` 明确选择（64 位小写十六进制，沿用 If-Match）。服务端只接受当前来源检测结果内的可运行 ID，更新当前审核选择，不能接受任意 CLI、目录或客户端自造参数。来源更新后客户端清除旧选择。预览需要完整运行选择；发布权限统一为当前检查通过或存在当前运行截图。截图放行仍返回原始 readiness 诊断，不改写候选选择或来源摘要。
 
 ScummVM 的预览和 Product Launch 使用现有 `/runtime/launches/{id}/config`、授权项目 index/content、`state` 与 `save-states`。保存仍为公共 `GAME_SAVE` 不透明包，不新增 ScummVM 专用保存路由，Host 不解析原生槽位。
 

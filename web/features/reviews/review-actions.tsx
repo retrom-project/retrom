@@ -184,7 +184,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
   const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
-  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, [rpgMaker, scummvm].some(Boolean));
+  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state);
 
   return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
@@ -260,7 +260,7 @@ function ReviewDecision({ model }: { model: ReviewViewModel }) {
 function reviewDecisionMessage(model: ReviewViewModel) {
   if (model.validationReady) {return "运行检查已经通过，可以发布。";}
   if (model.screenshotOverride) {return "已取得运行截图，可由管理员确认后发布。";}
-  return "可先运行游戏；游戏初始化、文件和依赖必须有效；试玩不会代替这些检查。";
+  return "可修正检查发现的问题，或试运行确认可以游玩并保存截图，再由管理员确认发布。";
 }
 
 function ReviewFeedback({ model }: { model: ReviewViewModel }) {

@@ -158,7 +158,7 @@ export function saveStateLabel(state: "saved" | "pending" | "saving" | "error") 
   return "已实时保存";
 }
 
-export function reviewReadiness(validationStatus: string | null, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined, rpgMaker = false) {
+export function reviewReadiness(validationStatus: string | null, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined) {
   const active = (state: string | undefined) => state === "QUEUED" || state === "RUNNING";
   const parentAttachmentActive = active(parentState);
   const multiDiscAttachmentActive = active(multiDiscState);
@@ -167,7 +167,7 @@ export function reviewReadiness(validationStatus: string | null, runtimeScreensh
     parentAttachmentActive,
     multiDiscAttachmentActive,
     validationReady,
-    screenshotOverride: !rpgMaker && Boolean(runtimeScreenshot) && !validationReady,
+    screenshotOverride: serverCanApprove && Boolean(runtimeScreenshot) && !validationReady,
     publishReady: serverCanApprove && !parentAttachmentActive && !multiDiscAttachmentActive,
   };
 }

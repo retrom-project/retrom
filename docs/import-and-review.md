@@ -217,7 +217,7 @@ Unicode／大小写冲突和大小校验，再从独立文件存储校验摘要�
 同根多版本或多根目录保留歧义，在现有审核草稿中显式选择后才能预览和批准。选择不会丢弃其他来源文件；
 多游戏合集也可拆分后分别导入。未知变体、缺少构建引擎和不支持的游戏保持可见并阻止选择。
 
-`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并更新草稿的当前选择；来源改变后旧候选不能复用。运行截图不能绕过此选择约束。批准将选定快照复制到游戏变体，
+`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并更新草稿的当前选择；来源改变后旧候选不能复用。预览仍需要可用的运行选择；若已有当前运行截图，管理员可确认发布，原始选择诊断保留。批准将当前快照复制到游戏变体，
 后续重新校验核对来源摘要并保留原始选项。工具超时／失败属于可重试任务故障，不得转成正常空识别结果。
 ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.ini` 不作为可执行入口或受信配置。
 
@@ -386,7 +386,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 ### 10.1 管理后台页面职责
 
-普通审核 Preview 与 Player 由各类项目共用。本小节 `REVIEW_SCREENSHOT_OVERRIDE` 的截图人工放行只适用于非 RPG Maker 条目；RPG Maker 按第 17 节的真实来源、Target 和依赖检查决定能否发布，截图或试运行成功不覆盖缺失依赖。管理员可按需试运行、保存审核截图及会话级临时 checkpoint，但不需要专用运行证明。
+普通审核 Preview 与 Player 由各类项目共用。所有内容类型统一允许当前运行截图作为管理员发布依据，标记 `REVIEW_SCREENSHOT_OVERRIDE`；没有截图时按当前运行检查通过决定能否发布。截图放行与诊断事实分离：保留原始 readiness status、compatibilityCode 和完整依赖详情，不伪造 READY、不清空缺少 Parent/BIOS/文件/RTP 的原因，不增加截图防伪、额外机器证明或人工重检任务。文件归属、当前来源绑定和发布事务完整性继续由对应领域保证。
 
 游戏入库使用“父级总览 + 四个同级子页”，不能再用一个页面内的 Tab 同时承载导入、任务和历史：
 
@@ -412,7 +412,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 审核预览创建由 `internal/service/libraryimport.ReviewPreviews` 编排，审核持久化层提供来源、当前依赖和实际文件，并在创建会话的同一写事务内重新读取、比较完整输入；来源、目录、运行绑定或实际资源变化均阻止旧准备结果提交。`internal/service/launch.PreviewCreator` 只接收准备好的运行输入，负责内容装配、签发凭证、恢复兼容性和会话资源固定，不读取审核工作流；Provider 与签名仍在写事务外调用。HTTP 审核预览入口调用审核用例，已创建会话的运行、内容读取与结束由 Launch 处理。
 
-截图由管理员按需保存并通知原审核页刷新，以审核 Item 关联而不是 validation_id。允许人工放行的非 RPG 内容在发布事务中核对截图所属 Item、来源快照、目录与 Provider/Target，记录 REVIEW_SCREENSHOT_OVERRIDE 和截图 ID。BIOS 变化不清除截图，来源或目标变化时旧截图不投影。已有 Preview 保持创建时资源；新的 Preview 使用当前资源。临时 checkpoint 到期或审核结束时释放，不进入持久 /saves。
+截图由管理员按需保存并通知原审核页刷新，以审核 Item 关联而不是 validation_id。所有内容类型在发布事务中核对截图所属 Item、来源快照、目录与 Provider/Target，记录 REVIEW_SCREENSHOT_OVERRIDE 和截图 ID。BIOS 变化不清除截图，来源或目标变化时旧截图不投影。已有 Preview 保持创建时资源；新的 Preview 使用当前资源。临时 checkpoint 到期或审核结束时释放，不进入持久 /saves。
 
 截图保存由 `internal/service/libraryimport.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、当前来源和运行绑定、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。所属领域的文件记录、替换 Item 当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
@@ -536,9 +536,9 @@ MV 根 marker 恰为两个公共文件 `index.html`/`data/System.json` 和八个
 
 RPG Maker 游戏只使用随项目上传的资源，不安装或挂载外部 RTP。2000/2003 的 `FullPackageFlag=1` 表示作者声明完整打包；未声明时标记 `BLOCKED/RPG_EXTERNAL_RTP_REQUIRED`。XP/VX/VX Ace 检查 `Game.ini` 的 `RTP/RTP1/RTP2/RTP3`，存在非空声明时同样阻断；无外部声明的项目及 MV/MZ 按原有内容检测继续处理。这是声明检查，不能证明动态脚本的所有素材引用都存在，不能仅凭目录存在认定资源完整。
 
-所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布由当前检查通过或管理员基于当前运行截图确认放行。
 
-Approve 在短事务内重新核对当前 effective source、精确文件、Core、Provider/Target 声明、资源声明与显式自包含确认。未确认的外部 RTP 依赖阻断发布；管理员可勾选“确认项目自包含 RTP”强制放行，取消确认后恢复阻断。确认只改变审核决策，不补充素材、不绕过文件安全或引擎识别，也不保证游戏运行成功。确认值写入依赖快照并参与摘要，发布时再次核对；截图或试玩本身不解除依赖阻断。普通试运行、截图、checkpoint、发布与存档恢复保留。
+Approve 在短事务内重新核对当前 effective source、精确文件、Core、Provider/Target 声明、资源声明与显式自包含确认。未确认的外部 RTP 依赖阻断发布；管理员可勾选“确认项目自包含 RTP”强制放行，取消确认后恢复阻断。确认只改变审核决策，不补充素材、不绕过文件安全或引擎识别，也不保证游戏运行成功。确认值写入依赖快照并参与摘要，发布时再次核对；当前运行截图可作为另一独立发布依据；它不改写 RTP 声明、自包含确认或原始诊断。普通试运行、截图、checkpoint、发布与存档恢复保留。
 
 ## 18. 统一验收入口
 

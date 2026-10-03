@@ -29,7 +29,7 @@ func readReviewValidation(ctx context.Context, scope ReviewReadScope, head Revie
 		result.RuntimeScreenshot = &screenshot
 	}
 	ready := optionalTextValue(head.ValidationStatus) == "READY"
-	result.CanApprove = head.Policy.Supports(head.ContentKind) && ReviewApproval(head.ContentKind, ready, found)
+	result.CanApprove = ReviewApproval(ready && head.Policy.Supports(head.ContentKind), found)
 	profile, found, err := scope.Profiles.Profile(ctx, head.DraftID)
 	if err != nil {
 		return fmt.Errorf("read review RPG profile: %w", err)
@@ -65,6 +65,6 @@ func ProjectReviewRPGMaker(profile RPGReviewProfile) (*ReviewRPGMaker, error) {
 	}, nil
 }
 
-func ReviewApproval(contentKind string, selectedReady, hasCurrentScreenshot bool) bool {
-	return selectedReady || contentKind != "SCUMMVM_PROJECT" && hasCurrentScreenshot
+func ReviewApproval(selectedReady, hasCurrentScreenshot bool) bool {
+	return selectedReady || hasCurrentScreenshot
 }

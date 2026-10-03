@@ -4020,7 +4020,7 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
-            /** @description True when the current source, target and actual dependencies allow approval. RPG Maker does not require a preview, checkpoint or screenshot proof before publication. */
+            /** @description True when current readiness passes or a current runtime screenshot authorizes administrator approval, for every content kind. Screenshot approval does not change readiness diagnostics. */
             canApprove?: unknown;
             canAttachMissingDiscs?: unknown;
             canRetry?: unknown;

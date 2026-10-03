@@ -3093,7 +3093,7 @@
             <section class="rt-rpg-state-panel" data-rpg-import-panel="selected" hidden><h3>等待确认目标</h3><p>尚未读取或上传内容；服务器扫描入口对 RPG 项目不可用。</p></section>
             <section class="rt-rpg-state-panel" data-rpg-import-panel="scanning" hidden><h3>正在校验 1,284 个文件</h3><p>有界检查项目根、家族证据、路径和归档限制；不会执行其中的脚本或 native 文件。</p></section>
             <section class="rt-rpg-state-panel is-danger" data-rpg-import-panel="blocked" hidden><h3>内容证据与所选版本冲突</h3><p>检测到 MV 入口，但目标目录选择 MZ。请更换目标目录后重新确认，Retrom 不会自动切换。</p></section>
-            <section class="rt-rpg-state-panel" data-rpg-import-panel="ready"><span class="rt-badge rt-badge-green">PREPARED</span><h3>准备完成</h3><p>上传校验已完成。条目进入统一审核，可按需在普通 Player 试运行；截图不能绕过 RPG 项目缺失依赖。</p></section>
+            <section class="rt-rpg-state-panel" data-rpg-import-panel="ready"><span class="rt-badge rt-badge-green">PREPARED</span><h3>准备完成</h3><p>上传校验已完成。条目进入统一审核，可按需在普通 Player 试运行；已有运行截图可由管理员确认发布，原始依赖检查原因仍保留。</p></section>
             <button type="button" class="rt-button rt-button-primary">上传并创建审核条目</button>
             <p class="rt-subtitle">服务器目录导入首版不支持 RPG Maker 项目。</p>
           </aside>
@@ -3259,7 +3259,7 @@
               <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 5 / 5" data-review-file="shocktro.zip" data-review-preview="SHOCK TROOPERS" data-review-title="Shock Troopers" data-review-year="1997" data-review-developer="Saurus" data-review-players="1–2" data-review-description="小队深入敌后，营救被绑架的科学家与家人。" data-review-candidate="Shock Troopers" data-review-candidate-meta="World · 1997 · Saurus" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布">
                 <span class="rt-review-thumb" style="background:var(--retrom-cover-e)">ST</span><span><span class="rt-review-item-title">Shock Troopers</span><span class="rt-review-item-source">shocktro.zip</span><span class="rt-review-item-meta"><span>24.9 MiB · MD5 4c09…a016</span></span></span><span>FBNeo 游戏列表</span><span class="rt-badge rt-badge-green">可以发布</span><span>1 个候选</span><span>9 分钟前</span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-source="scummvm" data-review-position-value="ScummVM 项目" data-review-file="Adventure Collection.zip" data-review-preview="Adventure Collection" data-review-title="Adventure Collection" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-validation-status="BLOCKED" data-review-validation="请选择要运行的游戏版本；运行截图不能代替候选选择。">
+              <button type="button" class="rt-review-item" data-review-item data-review-source="scummvm" data-review-position-value="ScummVM 项目" data-review-file="Adventure Collection.zip" data-review-preview="Adventure Collection" data-review-title="Adventure Collection" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-validation-status="BLOCKED" data-review-validation="请选择要运行的游戏版本；已有运行截图可由管理员确认发布，当前选择诊断仍保留。">
                 <span class="rt-review-thumb">SCUMM</span><span><span class="rt-review-item-title">Adventure Collection</span><span class="rt-review-item-source">Adventure Collection.zip</span></span><span>ScummVM 游戏</span><span class="rt-badge rt-badge-amber">选择运行版本</span><span>2 个游戏根目录</span><span>刚刚</span>
               </button>
               <button type="button" class="rt-review-item" data-review-item data-review-source="source" data-review-position-value="已选 1 / 1" data-review-file="来源文件 · nes/gamelist.xml" data-review-preview="FLAGGED ADVENTURE" data-review-title="Flagged Adventure" data-review-year="1991" data-review-developer="Example Studio" data-review-players="1" data-review-description="从 gamelist.xml 读取的受限元信息，等待管理员核对来源标记与媒体。" data-review-candidate="Gamelist 信息" data-review-candidate-meta="NES 清单 · 来源 flag 需核对" data-review-candidate-badge="来源文件" data-review-validation-status="READY" data-review-validation="✓ 当前来源文件和运行依赖均已就绪；hidden 来源标记仍需人工决定" hidden>
@@ -4754,7 +4754,7 @@
           runtimeShot.classList.remove('is-ready');
           runtimeShot.innerHTML = '<strong>等待运行检查</strong><small>校验完成后才会执行真实运行截图</small>';
         } else if (state === 'override') {
-          root.querySelector('[data-review-decision-copy]').textContent = '已取得运行截图，可由管理员确认后发布。';
+          root.querySelector('[data-review-decision-copy]').textContent = '已取得运行截图，可由管理员确认后发布；检查发现的问题仍保留供审核参考。';
           root.querySelector('[data-review-approve]').disabled = false;
           runtimeShot.classList.add('is-ready');
           runtimeShot.innerHTML = '<strong>截图已生成 · 5.0s</strong><small>依赖阻断下的实际运行画面 · 人工放行依据</small>';
