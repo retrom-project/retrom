@@ -94,7 +94,7 @@
 .player-emulator-volume output { font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
 .player-settings-backdrop { position: absolute; z-index: 61; inset: 0; border: 0; padding: 0; background: rgb(0 0 0 / 24%); }
 .player-native-settings { position: absolute; z-index: 62; inset: 0 0 auto; height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 12px; background: var(--player-bar); border-bottom: 1px solid var(--player-line); }
-.player-native-settings > strong { font-size: var(--text-small); }
+.player-native-settings > strong { font-size: var(--text-small); line-height: 1; text-box: trim-both cap alphabetic; }
 .player-native-settings > button { min-height: 44px; }
 .player-native-settings > button:last-child { margin-left: auto; }
 .player-shell:has(.player-native-settings) .player-stage { top: calc(48px + env(safe-area-inset-top)); }
@@ -229,8 +229,8 @@
   .player-emulator-label { display: block; margin: 0; }
   .player-emulator-toolbar button { min-height: 44px; }
   .player-emulator-audio { display: flex; gap: 8px; }
-  .player-emulator-volume { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
-  .player-emulator-volume input { width: 100%; min-height: 44px; }
+  .player-emulator-volume { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+  .player-emulator-volume input { width: 100%; min-height: 44px; margin: 0; }
   .player-emulator-rendering { min-height: 44px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
   .player-emulator-rendering select { width: 100%; }
   .player-emulator-advanced { border-top: 1px solid var(--player-line); padding-top: 4px; }

@@ -120,6 +120,9 @@
 .rt-button:not(.rt-button-primary).option-tab { padding: var(--space-2) var(--space-3); border-color: transparent; background: transparent; color: var(--muted); }
 .rt-button:not(.rt-button-primary).option-tab:hover { color: var(--ink); background: var(--surface-subtle); }
 .rt-button:not(.rt-button-primary).option-tab[aria-selected=&quot;true&quot;] { color: var(--purple-dark); text-decoration: underline; text-underline-offset: var(--space-2); }
+.rt-button.ghost { background: transparent; border-color: transparent; color: inherit; }
+.rt-button.ghost:hover:not(:disabled) { background: var(--surface-subtle); color: inherit; }
+.rt-button.icon-only { width: var(--control-height); height: var(--control-height); padding: 0; display: grid; place-items: center; gap: 0; flex: 0 0 auto; }
 .rt-button-danger { background: var(--danger-fill); color: white; }
 .rt-button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .rt-button svg { width: 18px; height: 18px; flex-shrink: 0; }
@@ -1659,7 +1662,10 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-native-settings[hidden] { display: none; }
     #retrom-ui-review .rt-native-settings { position: absolute; z-index: 25; inset: 0; background: rgb(0 0 0 / .65); }
     #retrom-ui-review .rt-native-settings nav { height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #111722; border-bottom: 1px solid #343d4f; }
-    #retrom-ui-review .rt-native-settings nav button { min-height: 44px; padding: 0 12px; }
+    #retrom-ui-review .rt-native-settings nav strong { font-size: var(--text-small); line-height: 1; text-box: trim-both cap alphabetic; }
+    #retrom-ui-review .rt-native-settings nav button { width: 44px; height: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; flex: 0 0 auto; color: inherit; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; }
+    #retrom-ui-review .rt-native-settings nav button:hover { background: var(--surface-subtle); }
+    #retrom-ui-review .rt-native-settings nav button svg { width: 18px; height: 18px; }
     #retrom-ui-review .rt-native-settings nav button:last-child { margin-left: auto; }
     #retrom-ui-review .rt-native-panel { position: absolute; right: 5%; bottom: 52px; width: min(280px, 85vw); padding: 16px; border: 1px solid #343d4f; border-radius: var(--radius-panel); background: #171e2a; }
     #retrom-ui-review .rt-native-panel label { display: grid; gap: 8px; margin-top: 12px; }
@@ -1670,8 +1676,8 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       #retrom-ui-review .rt-player-emulator-controls button { min-height: 44px; }
       #retrom-ui-review .rt-player-emulator-rendering { min-height: 44px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
       #retrom-ui-review .rt-player-emulator-rendering select { width: 100%; }
-      #retrom-ui-review .rt-player-emulator-volume { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
-      #retrom-ui-review .rt-player-emulator-volume input { width: 100%; min-width: 0; min-height: 44px; }
+      #retrom-ui-review .rt-player-emulator-volume { flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+      #retrom-ui-review .rt-player-emulator-volume input { width: 100%; min-width: 0; min-height: 44px; margin: 0; }
       #retrom-ui-review .rt-player-emulator-label { margin: 0; }
       #retrom-ui-review .rt-player-emulator-advanced { padding-top: 4px; border-top: 1px solid #343d4f; }
       #retrom-ui-review .rt-settings-advanced-toggle { width: 100%; display: flex; }
@@ -3245,7 +3251,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
             &lt;div class=&quot;rt-player-emulator-advanced&quot;&gt;&lt;button class=&quot;rt-settings-advanced-toggle&quot; type=&quot;button&quot; aria-expanded=&quot;false&quot;&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;高级设置&lt;span&gt;+&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;button class=&quot;rt-settings-controls&quot; type=&quot;button&quot; data-native-panel=&quot;控制&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot;&gt;&lt;/i&gt;控制&lt;/button&gt;&lt;button type=&quot;button&quot; data-native-panel=&quot;显示&quot;&gt;&lt;i data-lucide=&quot;maximize&quot;&gt;&lt;/i&gt;显示&lt;/button&gt;&lt;button type=&quot;button&quot; data-native-panel=&quot;Core 设置&quot;&gt;&lt;i data-lucide=&quot;cpu&quot;&gt;&lt;/i&gt;Core 设置&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
             &lt;button class=&quot;rt-settings-desktop-close&quot; type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;
           &lt;/div&gt;
-          &lt;div class=&quot;rt-native-settings&quot; hidden&gt;&lt;nav&gt;&lt;button type=&quot;button&quot; data-native-back&gt;&lt;i data-lucide=&quot;arrow-left&quot;&gt;&lt;/i&gt;返回设置&lt;/button&gt;&lt;strong data-native-title&gt;显示&lt;/strong&gt;&lt;button type=&quot;button&quot; data-native-close aria-label=&quot;关闭模拟器设置&quot;&gt;&lt;i data-lucide=&quot;x&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/nav&gt;&lt;section class=&quot;rt-native-panel&quot;&gt;&lt;h3 data-native-heading&gt;Graphics Settings&lt;/h3&gt;&lt;label&gt;着色器&lt;select&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;option&gt;锐利像素&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/section&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-native-settings&quot; hidden&gt;&lt;nav&gt;&lt;button type=&quot;button&quot; data-native-back aria-label=&quot;返回设置&quot; title=&quot;返回设置&quot;&gt;&lt;i data-lucide=&quot;arrow-left&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;strong data-native-title&gt;显示&lt;/strong&gt;&lt;button type=&quot;button&quot; data-native-close aria-label=&quot;关闭模拟器设置&quot;&gt;&lt;i data-lucide=&quot;x&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/nav&gt;&lt;section class=&quot;rt-native-panel&quot;&gt;&lt;h3 data-native-heading&gt;Graphics Settings&lt;/h3&gt;&lt;label&gt;着色器&lt;select&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;option&gt;锐利像素&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/section&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-hint&quot;&gt;移到屏幕顶部显示 Retrom 控制&lt;/div&gt;
           &lt;span class=&quot;rt-player-stage-state&quot; id=&quot;rt-player-stage-state&quot;&gt;一次点击后已自动运行&lt;/span&gt;
           &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;

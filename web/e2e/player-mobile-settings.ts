@@ -13,6 +13,11 @@ export async function expectMobileSettings(page: Page, testInfo: TestInfo, width
   await expect(settings.getByRole("button", {name: "显示"})).toHaveCount(0);
   const volume = settings.getByRole("slider", {name: "模拟器音量"});
   await expect(volume).toBeInViewport();
+  const fieldAlignment = await settings.evaluate((element) => ({
+    picture: element.querySelector("select")!.getBoundingClientRect().left,
+    volume: element.querySelector('input[type="range"]')!.getBoundingClientRect().left,
+  }));
+  expect(Math.abs(fieldAlignment.picture - fieldAlignment.volume)).toBeLessThan(1);
   await settings.getByRole("combobox", {name: "画面模式"}).selectOption("pixel");
   await settings.getByRole("button", {name: "静音", exact: true}).click();
   await expect(settings.getByRole("button", {name: "取消静音"})).toHaveAttribute("aria-pressed", "true");
@@ -30,6 +35,7 @@ export async function expectMobileSettings(page: Page, testInfo: TestInfo, width
     await settings.getByRole("button", {name: panel.name, exact: true}).click();
     await expect(settings).toHaveCount(0);
     await expect(page.getByRole("region", {name: "原生设置导航"})).toBeVisible();
+    await expectNativeSettingsNavigation(page);
     const heading = frame.getByRole("button", {name: panel.heading});
     await expect(heading).toBeVisible();
     await expect(heading).toBeInViewport();
@@ -66,4 +72,45 @@ export async function expectMobileSettings(page: Page, testInfo: TestInfo, width
   await expect.poll(() => runtimeFrameCount(page)).toBeGreaterThan(pausedAt + 5);
   await expect(frame.locator(".ejs_virtualGamepad_left")).toBeVisible();
   await expect(frame.locator(".ejs_virtualGamepad_right")).toBeVisible();
+}
+
+
+export async function expectNativeSettingsNavigation(page: Page) {
+  await expectNativeSettingsHeading(page);
+  for (const name of ["返回设置", "关闭模拟器设置"]) {
+    const button = page.getByRole("button", {name, exact: true});
+    const layout = await button.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const icon = element.querySelector("svg")!.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {width: bounds.width, height: bounds.height, text: element.textContent,
+        background: style.backgroundColor, border: style.borderTopColor,
+        x: Math.abs(icon.x + icon.width / 2 - bounds.x - bounds.width / 2),
+        y: Math.abs(icon.y + icon.height / 2 - bounds.y - bounds.height / 2)};
+    });
+    expect(layout.text).toBe("");
+    expect(layout.width).toBeGreaterThanOrEqual(44);
+    expect(layout.height).toBeGreaterThanOrEqual(44);
+    expect(layout.background).toBe("rgba(0, 0, 0, 0)");
+    expect(layout.border).toBe("rgba(0, 0, 0, 0)");
+    expect(layout.x).toBeLessThan(1);
+    expect(layout.y).toBeLessThan(1);
+  }
+}
+
+async function expectNativeSettingsHeading(page: Page) {
+  const offset = await page.getByRole("region", {name: "原生设置导航"}).evaluate((navigation) => {
+    const title = navigation.querySelector("strong")!;
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.font = getComputedStyle(title).font;
+    const metrics = context.measureText(title.textContent!);
+    // Compare visible glyphs, not the line box whose font leading is asymmetric.
+    const baseline = range.getBoundingClientRect().bottom - metrics.fontBoundingBoxDescent;
+    const textCenter = baseline - (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+    const icon = navigation.querySelector("svg")!.getBoundingClientRect();
+    return Math.abs(textCenter - icon.y - icon.height / 2);
+  });
+  expect(offset, "settings title and back arrow share a visual center").toBeLessThan(1);
 }

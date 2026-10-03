@@ -128,9 +128,9 @@ export function PlayerEmulatorSettings(props: Props) {
 
   if (panel) {
     return <section ref={container} className="player-native-settings" aria-label="原生设置导航" aria-busy={busy} onKeyDown={onKeyDown}>
-      <button className="player-control" type="button" disabled={busy} onClick={() => void navigate(null)}><AppIcon name="arrow-left" />返回设置</button>
+      <button className="button ghost icon-only" type="button" disabled={busy} aria-label="返回设置" title="返回设置" onClick={() => void navigate(null)}><AppIcon name="arrow-left" /></button>
       <strong>{panel === "display" ? "显示" : panel === "core" ? "Core 设置" : "控制"}</strong>
-      <button className="player-control is-icon" type="button" disabled={busy} aria-label="关闭模拟器设置" onClick={() => void navigate("close")}><AppIcon name="x" /></button>
+      <button className="button ghost icon-only" type="button" disabled={busy} title="关闭模拟器设置" aria-label="关闭模拟器设置" onClick={() => void navigate("close")}><AppIcon name="x" /></button>
     </section>;
   }
 
