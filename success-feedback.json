@@ -1,0 +1,1410 @@
+[
+  {
+    "name": "tag-defaults-feedback-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "successStatus": 200,
+    "delta": {
+      "buttonY": 62,
+      "buttonDocumentY": 62,
+      "panelHeight": 62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "successText": "10 个常用标签已全部存在。",
+    "pendingDelta": {
+      "buttonY": -62,
+      "buttonDocumentY": -62,
+      "panelHeight": -62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "failureDelta": {
+      "buttonY": 62,
+      "buttonDocumentY": 62,
+      "panelHeight": 62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 1046.015625,
+        "y": 446.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": 140,
+        "width": 1008,
+        "height": 1012.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1046.015625,
+        "y": 508.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": 140,
+        "width": 1008,
+        "height": 1074.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "pending": {
+      "button": {
+        "x": 1046.015625,
+        "y": 446.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": 140,
+        "width": 1008,
+        "height": 1012.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 1046.015625,
+        "y": 508.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": 140,
+        "width": 1008,
+        "height": 1074.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "account-success-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "trigger": "browser-only successful response using current valid auth context; no server password change",
+    "delta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 638.796875,
+        "y": 569.359375,
+        "width": 592.1875,
+        "height": 44
+      },
+      "panel": {
+        "x": 638.796875,
+        "y": 262.78125,
+        "width": 592.1875,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 638.796875,
+        "y": 613.359375,
+        "width": 592.1875,
+        "height": 44
+      },
+      "panel": {
+        "x": 638.796875,
+        "y": 306.78125,
+        "width": 592.1875,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "tag-defaults-feedback-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "successStatus": 200,
+    "delta": {
+      "buttonY": 62,
+      "buttonDocumentY": 62,
+      "panelHeight": 62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "successText": "10 个常用标签已全部存在。",
+    "pendingDelta": {
+      "buttonY": -62,
+      "buttonDocumentY": -62,
+      "panelHeight": -62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "failureDelta": {
+      "buttonY": 62,
+      "buttonDocumentY": 62,
+      "panelHeight": 62,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 2000.9375,
+        "y": 454.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1020.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 2000.9375,
+        "y": 516.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1082.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "pending": {
+      "button": {
+        "x": 2000.9375,
+        "y": 454.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1020.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 2000.9375,
+        "y": 516.0625,
+        "width": 66,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1082.0625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "account-success-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "trigger": "browser-only successful response using current valid auth context; no server password change",
+    "delta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 1127.59375,
+        "y": 569.359375,
+        "width": 1299.390625,
+        "height": 44
+      },
+      "panel": {
+        "x": 1127.59375,
+        "y": 262.78125,
+        "width": 1299.390625,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1127.59375,
+        "y": 613.359375,
+        "width": 1299.390625,
+        "height": 44
+      },
+      "panel": {
+        "x": 1127.59375,
+        "y": 306.78125,
+        "width": 1299.390625,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "account-success-390",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "trigger": "browser-only successful response using current valid auth context; no server password change",
+    "delta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 49,
+        "y": 674.71875,
+        "width": 292,
+        "height": 44
+      },
+      "panel": {
+        "x": 33,
+        "y": 328.953125,
+        "width": 324,
+        "height": 409.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 233
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    "after": {
+      "button": {
+        "x": 49,
+        "y": 718.71875,
+        "width": 292,
+        "height": 44
+      },
+      "panel": {
+        "x": 33,
+        "y": 372.953125,
+        "width": 324,
+        "height": 409.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 233
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  },
+  {
+    "name": "invitation-success-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "resultInViewport": {
+      "height": 427.140625,
+      "top": 186.421875,
+      "bottom": 613.5625,
+      "inViewport": true
+    },
+    "createdCount": 1,
+    "delta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": -22.796875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "real create then revoke own temporary invitation",
+    "failureDelta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": -22.796875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 249,
+        "y": 397.375,
+        "width": 1006,
+        "height": 62
+      },
+      "panel": {
+        "x": 248,
+        "y": 396.375,
+        "width": 1008,
+        "height": 247.1875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 249,
+        "y": 441.375,
+        "width": 1006,
+        "height": 62
+      },
+      "panel": {
+        "x": 248,
+        "y": 440.375,
+        "width": 1008,
+        "height": 224.390625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 249,
+        "y": 441.375,
+        "width": 1006,
+        "height": 62
+      },
+      "panel": {
+        "x": 248,
+        "y": 440.375,
+        "width": 1008,
+        "height": 224.390625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "invitation-success-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "resultInViewport": {
+      "height": 427.140625,
+      "top": 506.421875,
+      "bottom": 933.5625,
+      "inViewport": true
+    },
+    "createdCount": 1,
+    "delta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": -22.796875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "real create then revoke own temporary invitation",
+    "failureDelta": {
+      "buttonY": 44,
+      "buttonDocumentY": 44,
+      "panelHeight": -22.796875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "before": {
+      "button": {
+        "x": 357,
+        "y": 411.375,
+        "width": 2094,
+        "height": 62
+      },
+      "panel": {
+        "x": 356,
+        "y": 410.375,
+        "width": 2096,
+        "height": 247.1875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 357,
+        "y": 455.375,
+        "width": 2094,
+        "height": 62
+      },
+      "panel": {
+        "x": 356,
+        "y": 454.375,
+        "width": 2096,
+        "height": 224.390625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 357,
+        "y": 455.375,
+        "width": 2094,
+        "height": 62
+      },
+      "panel": {
+        "x": 356,
+        "y": 454.375,
+        "width": 2096,
+        "height": 224.390625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "immersive-success-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 18.203125,
+      "buttonDocumentY": 18.203125,
+      "panelHeight": 36.390625,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "failureDelta": {
+      "buttonY": 17.84375,
+      "buttonDocumentY": 17.84375,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "successToErrorDelta": {
+      "buttonY": -0.359375,
+      "buttonDocumentY": -0.359375,
+      "panelHeight": -0.703125,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "real save success then browser-injected failure",
+    "before": {
+      "button": {
+        "x": 556.328125,
+        "y": 418.1875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 330,
+        "y": 230,
+        "width": 620,
+        "height": 339.984375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 556.328125,
+        "y": 436.390625,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 330,
+        "y": 211.8125,
+        "width": 620,
+        "height": 376.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 556.328125,
+        "y": 436.03125,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 330,
+        "y": 212.15625,
+        "width": 620,
+        "height": 375.671875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "immersive-success-844",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "delta": {
+      "buttonY": 36.390625,
+      "buttonDocumentY": 36.390625,
+      "panelHeight": 36.390625,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "failureDelta": {
+      "buttonY": 35.6875,
+      "buttonDocumentY": 35.6875,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "successToErrorDelta": {
+      "buttonY": -0.703125,
+      "buttonDocumentY": -0.703125,
+      "panelHeight": -0.703125,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "real save success then browser-injected failure",
+    "before": {
+      "button": {
+        "x": 338.328125,
+        "y": 220.1875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 112,
+        "y": 32,
+        "width": 620,
+        "height": 339.984375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    },
+    "after": {
+      "button": {
+        "x": 338.328125,
+        "y": 256.578125,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 112,
+        "y": 32,
+        "width": 620,
+        "height": 376.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 338.328125,
+        "y": 255.875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 112,
+        "y": 32,
+        "width": 620,
+        "height": 375.671875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    }
+  },
+  {
+    "name": "immersive-success-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 18.1875,
+      "buttonDocumentY": 18.1875,
+      "panelHeight": 36.390625,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "failureDelta": {
+      "buttonY": 17.84375,
+      "buttonDocumentY": 17.84375,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "successToErrorDelta": {
+      "buttonY": -0.34375,
+      "buttonDocumentY": -0.34375,
+      "panelHeight": -0.703125,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "real save success then browser-injected failure",
+    "before": {
+      "button": {
+        "x": 1196.328125,
+        "y": 744.59375,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 970,
+        "y": 543.609375,
+        "width": 620,
+        "height": 352.78125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1196.328125,
+        "y": 762.78125,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 970,
+        "y": 525.40625,
+        "width": 620,
+        "height": 389.171875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "failed": {
+      "button": {
+        "x": 1196.328125,
+        "y": 762.4375,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 970,
+        "y": 525.765625,
+        "width": 620,
+        "height": 388.46875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "game-update-success-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "browser-only success for changed metadata; original server metadata retained",
+    "before": {
+      "button": {
+        "x": 1117,
+        "y": 377.859375,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": -664,
+        "width": 1008,
+        "height": 2218.125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 804
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1117,
+        "y": 377.859375,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 248,
+        "y": -664,
+        "width": 1008,
+        "height": 2218.125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 804
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "game-update-success-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "trigger": "browser-only success for changed metadata; original server metadata retained",
+    "before": {
+      "button": {
+        "x": 1424.546875,
+        "y": 1181.859375,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1691.15625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1424.546875,
+        "y": 1181.859375,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 356,
+        "y": 140,
+        "width": 2096,
+        "height": 1691.15625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "tag-create-feedback-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "shortStatus": 201,
+    "shortDelta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "shortFeedback": {
+      "text": "已创建“UI提示-1280-94415”，可继续添加。",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "longStatus": 201,
+    "longDelta": {
+      "buttonY": -22.390625,
+      "buttonDocumentY": -22.390625,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "longFeedback": {
+      "text": "已创建“正常提示专项-1280-5038-标签标签标签标签标签标签标签标签标签标签标签标”，可继续添加。",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "duplicateStatus": 409,
+    "duplicateDelta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "duplicateFeedback": {
+      "text": "已存在同名活动标签",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "trigger": "real create short/40-char tags, natural duplicate conflict",
+    "before": {
+      "button": {
+        "x": 1170,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "shortBefore": {
+      "button": {
+        "x": 1170,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "longBefore": {
+      "button": {
+        "x": 1170,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "duplicateBefore": {
+      "button": {
+        "x": 1170,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "short": {
+      "button": {
+        "x": 1170,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "long": {
+      "button": {
+        "x": 1170,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "duplicate": {
+      "button": {
+        "x": 1170,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "tag-create-feedback-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "shortStatus": 201,
+    "shortDelta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "shortFeedback": {
+      "text": "已创建“UI提示-2560-96646”，可继续添加。",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "longStatus": 201,
+    "longDelta": {
+      "buttonY": -22.390625,
+      "buttonDocumentY": -22.390625,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "longFeedback": {
+      "text": "已创建“正常提示专项-2560-7945-标签标签标签标签标签标签标签标签标签标签标签标”，可继续添加。",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "duplicateStatus": 409,
+    "duplicateDelta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false,
+      "occludedAlerts": []
+    },
+    "duplicateFeedback": {
+      "text": "已存在同名活动标签",
+      "clientHeight": 36,
+      "scrollHeight": 36
+    },
+    "trigger": "real create short/40-char tags, natural duplicate conflict",
+    "before": {
+      "button": {
+        "x": 2450,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "shortBefore": {
+      "button": {
+        "x": 2450,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "longBefore": {
+      "button": {
+        "x": 2450,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "duplicateBefore": {
+      "button": {
+        "x": 2450,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "short": {
+      "button": {
+        "x": 2450,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "long": {
+      "button": {
+        "x": 2450,
+        "y": 338.859375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "duplicate": {
+      "button": {
+        "x": 2450,
+        "y": 361.25,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  }
+]
