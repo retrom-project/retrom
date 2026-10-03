@@ -1,0 +1,303 @@
+{
+  "version": "v0.0.104",
+  "note": "Independent HTTP and SQLite observations, not request-correlated; upload bytes excluded from control API table",
+  "endpointGroups": [
+    {
+      "evidenceFile": "project-metrics.json",
+      "endpoint": "POST /api/v1/admin/uploads",
+      "sampleCount": 12,
+      "over500ms": 6,
+      "maxMs": 3260.38,
+      "statuses": [
+        201
+      ]
+    },
+    {
+      "evidenceFile": "project-metrics.json",
+      "endpoint": "POST /api/v1/admin/uploads/<id>/complete",
+      "sampleCount": 12,
+      "over500ms": 5,
+      "maxMs": 1657.26,
+      "statuses": [
+        202
+      ]
+    },
+    {
+      "evidenceFile": "project-metrics.json",
+      "endpoint": "GET /api/v1/admin/jobs/<id>",
+      "sampleCount": 87,
+      "over500ms": 11,
+      "maxMs": 2508.45,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "project-metrics.json",
+      "endpoint": "POST /api/v1/admin/imports",
+      "sampleCount": 12,
+      "over500ms": 4,
+      "maxMs": 817.57,
+      "statuses": [
+        202
+      ]
+    },
+    {
+      "evidenceFile": "project-metrics.json",
+      "endpoint": "GET /api/v1/admin/reviews?importJobId=<id>&limit=20",
+      "sampleCount": 1415,
+      "over500ms": 3,
+      "maxMs": 1485.56,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "extra-import-metrics.json",
+      "endpoint": "POST /api/v1/admin/uploads",
+      "sampleCount": 9,
+      "over500ms": 7,
+      "maxMs": 3576.66,
+      "statuses": [
+        201
+      ]
+    },
+    {
+      "evidenceFile": "extra-import-metrics.json",
+      "endpoint": "POST /api/v1/admin/uploads/<id>/complete",
+      "sampleCount": 9,
+      "over500ms": 5,
+      "maxMs": 1403.19,
+      "statuses": [
+        202
+      ]
+    },
+    {
+      "evidenceFile": "extra-import-metrics.json",
+      "endpoint": "GET /api/v1/admin/jobs/<id>",
+      "sampleCount": 52,
+      "over500ms": 3,
+      "maxMs": 1455.84,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "extra-import-metrics.json",
+      "endpoint": "POST /api/v1/admin/imports",
+      "sampleCount": 8,
+      "over500ms": 4,
+      "maxMs": 1157.66,
+      "statuses": [
+        202
+      ]
+    },
+    {
+      "evidenceFile": "extra-import-metrics.json",
+      "endpoint": "POST /api/v1/admin/reviews/<id>/approve",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 1633.45,
+      "statuses": [
+        201
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "POST /api/v1/admin/platform-instances/<id>/default-core-preview",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 630.73,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "POST /api/v1/admin/platform-instances/<id>/default-core",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 880.42,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "DELETE /api/v1/admin/platform-instances/<id>",
+      "sampleCount": 2,
+      "over500ms": 1,
+      "maxMs": 795.98,
+      "statuses": [
+        204
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "POST /api/v1/admin/source-imports",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 692.02,
+      "statuses": [
+        202
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "PUT /api/v1/admin/source-imports/<id>/collection-mappings",
+      "sampleCount": 2,
+      "over500ms": 2,
+      "maxMs": 966.72,
+      "statuses": [
+        200
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "POST /api/v1/admin/source-imports/<id>/start",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 643.48,
+      "statuses": [
+        409
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "DELETE /api/v1/admin/source-imports/<id>",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 1298.63,
+      "statuses": [
+        204
+      ]
+    },
+    {
+      "evidenceFile": "r2-api-branches-metrics.json",
+      "endpoint": "DELETE /api/v1/admin/tags/<id>",
+      "sampleCount": 1,
+      "over500ms": 1,
+      "maxMs": 1971.25,
+      "statuses": [
+        204
+      ]
+    }
+  ],
+  "readMonitor": [
+    {
+      "atMs": 1791024126280,
+      "games": [
+        [
+          "DELETED",
+          1
+        ],
+        [
+          "PUBLISHED",
+          186
+        ]
+      ],
+      "samples": [
+        {
+          "path": "/api/v1/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 965.65,
+          "bytes": 13261
+        },
+        {
+          "path": "/api/v1/games?limit=50",
+          "method": "GET",
+          "status": 200,
+          "ms": 207.98,
+          "bytes": 26146
+        },
+        {
+          "path": "/api/v1/admin/reviews?limit=20",
+          "method": "GET",
+          "status": 200,
+          "ms": 255.58,
+          "bytes": 15275
+        },
+        {
+          "path": "/api/v1/admin/imports/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 211.56,
+          "bytes": 154
+        }
+      ]
+    },
+    {
+      "atMs": 1791024375109,
+      "games": [
+        [
+          "DELETED",
+          1
+        ],
+        [
+          "PUBLISHED",
+          238
+        ]
+      ],
+      "samples": [
+        {
+          "path": "/api/v1/home",
+          "method": "GET",
+          "status": 200,
+          "ms": 1755.31,
+          "bytes": 16477
+        },
+        {
+          "path": "/api/v1/games?limit=50",
+          "method": "GET",
+          "status": 200,
+          "ms": 25.8,
+          "bytes": 26307
+        },
+        {
+          "path": "/api/v1/admin/reviews?limit=20",
+          "method": "GET",
+          "status": 200,
+          "ms": 56.9,
+          "bytes": 15275
+        },
+        {
+          "path": "/api/v1/admin/imports/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 6.34,
+          "bytes": 154
+        }
+      ]
+    }
+  ],
+  "sqliteObservations": [
+    {
+      "time": "2026-10-03T10:47:01.673232132Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 3019,
+      "sql_call_ms": 3,
+      "begin_ms": 2746
+    },
+    {
+      "time": "2026-10-03T10:46:55.907269606Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 2790,
+      "sql_call_ms": 10,
+      "begin_ms": 1175
+    },
+    {
+      "time": "2026-10-03T10:46:58.653811566Z",
+      "level": "WARN",
+      "msg": "slow SQLite write transaction",
+      "outcome": "commit",
+      "hold_ms": 2745,
+      "sql_call_ms": 1,
+      "begin_ms": 0
+    }
+  ]
+}
