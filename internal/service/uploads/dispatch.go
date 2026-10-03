@@ -2,10 +2,12 @@ package uploads
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/telemetry"
 )
 
 func (service *Service) register(parent context.Context, id string) (context.Context, func(), bool) {
@@ -31,7 +33,13 @@ func (service *Service) Resume(parent context.Context, id string) bool {
 	if !ok {
 		return false
 	}
-	go func() { defer finish(); cleanup.Error("finalize upload", service.Run(ctx, id)) }()
+	// Finalization outlives its admission request and owns a separate timing scope.
+	ctx, trace := telemetry.StartTrace(ctx, rand.Text(), "BACKGROUND uploads.finalize")
+	go func() {
+		defer finish()
+		defer trace.Report(ctx)
+		cleanup.Error("finalize upload", service.Run(ctx, id))
+	}()
 	return true
 }
 
