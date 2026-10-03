@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"retrom/internal/telemetry"
 )
 
 // Timings describe only the request's work; no credentials or subject identifiers
@@ -20,7 +22,7 @@ func (timing *loginTiming) report(ctx context.Context, err error) {
 	}
 	millis := func(value time.Duration) float64 { return float64(value) / float64(time.Millisecond) }
 	slog.InfoContext(ctx, "authentication login timing",
-		"outcome", outcome, "total_ms", millis(time.Since(timing.started)),
+		"request_id", telemetry.TraceID(ctx), "outcome", outcome, "total_ms", millis(time.Since(timing.started)),
 		"limit_read_ms", millis(timing.limits), "credential_read_ms", millis(timing.credential),
 		"password_verify_ms", millis(timing.password), "writer_wait_ms", millis(timing.writerWait),
 		"transaction_ms", millis(timing.transaction))

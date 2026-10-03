@@ -33,13 +33,11 @@ export function ImmersivePlayerMenu({ returnTarget, gamepadCursor, checkpointSem
   if (overlay.kind === "closing") {
     return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" aria-live="polite"><div className="immersive-player-panel"><p>请松开手柄按键…</p></div></section>;
   }
-  return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" role="dialog" aria-modal="true" aria-labelledby="immersive-player-menu-title">
+  return <section ref={dialog} tabIndex={-1} className="immersive-player-overlay" role="dialog" aria-modal="true" aria-busy={overlay.pending} aria-labelledby="immersive-player-menu-title">
     <div className={`immersive-player-panel${gamepadCursor ? " has-gamepad-cursor" : ""}`}>
       <p className="immersive-player-eyebrow">游戏已暂停</p>
       <h1 id="immersive-player-menu-title">游戏菜单</h1>
       <p>{checkpointSemantics === "NO_SAVE" ? noSaveInstructions : checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(nativeSave) : "可以在这里创建存档；退出游戏不会自动保存当前进度。"}</p>
-      {overlay.notice ? <p className="immersive-player-notice" role="status">{overlay.notice}</p> : null}
-      {overlay.error ? <p className="immersive-player-error" role="alert">{overlay.error}</p> : null}
       <MenuActions gamepadCursor={gamepadCursor} nativeSave={nativeSave} nativeRetryAvailable={nativeRetryAvailable} checkpointSemantics={checkpointSemantics} overlay={overlay} saveAvailable={saveAvailable} editorAvailable={editorAvailable}
         onCancel={onCancel} onSelect={onSelect} onConfirm={onConfirm} />
       {checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !saveAvailable ? <p id="immersive-save-unavailable" className="immersive-player-unavailable">{unavailableSaveText(checkpointSemantics, saveStatus)}</p> : null}
@@ -55,15 +53,18 @@ function GamepadCursorInstructions({control}: {control: Props["gamepadCursor"]})
 
 function MenuActions({gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, onCancel, onSelect, onConfirm}:
   Omit<Props, "overlay"> & {overlay: Extract<ImmersivePlayerOverlay, {kind: "menu"}>}) {
+  const savingLabel = pendingMenuLabel(overlay, 1, "创建存档", "正在保存…");
+  const nativeLabel = pendingMenuLabel(overlay, 1, "重试暂存", "正在暂存…");
+  const exitLabel = pendingMenuLabel(overlay, 2, "退出游戏", "正在退出…");
   const retryOnly = nativeRetryOnly(checkpointSemantics, nativeSave, nativeRetryAvailable);
   return (
       <div className="immersive-player-actions">
         <button type="button" disabled={overlay.pending} className={overlay.selected === 0 ? "is-selected" : ""} aria-current={overlay.selected === 0} onFocus={() => onSelect(0)} onClick={onCancel}>取消</button>
         <CursorMenuAction control={gamepadCursor} overlay={overlay} onSelect={onSelect} onConfirm={onConfirm} />
-        <button type="button" disabled={checkpointSemantics === "NO_SAVE" || retryOnly || overlay.pending || !saveAvailable} className={!retryOnly && overlay.selected === 1 ? "is-selected" : ""} aria-current={!retryOnly && overlay.selected === 1} aria-describedby={checkpointSemantics === "NO_SAVE" || retryOnly || !saveAvailable ? "immersive-save-unavailable" : undefined} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>创建存档</button>
-        {retryOnly && saveAvailable ? <button type="button" disabled={overlay.pending} className={overlay.selected === 1 ? "is-selected" : ""} aria-current={overlay.selected === 1} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>重试暂存</button> : null}
+        <button type="button" disabled={checkpointSemantics === "NO_SAVE" || retryOnly || overlay.pending || !saveAvailable} className={!retryOnly && overlay.selected === 1 ? "is-selected" : ""} aria-current={!retryOnly && overlay.selected === 1} aria-describedby={checkpointSemantics === "NO_SAVE" || retryOnly || !saveAvailable ? "immersive-save-unavailable" : undefined} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>{savingLabel}</button>
+        {retryOnly && saveAvailable ? <button type="button" disabled={overlay.pending} className={overlay.selected === 1 ? "is-selected" : ""} aria-current={overlay.selected === 1} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>{nativeLabel}</button> : null}
         <EditorMenuAction available={editorAvailable} pending={overlay.pending} selected={overlay.selected} onSelect={onSelect} onConfirm={onConfirm} />
-        <button type="button" disabled={overlay.pending} className={overlay.selected === 2 ? "is-selected" : ""} aria-current={overlay.selected === 2} onFocus={() => onSelect(2)} onClick={() => confirmMenuItem(2, onSelect, onConfirm)}>退出游戏</button>
+        <button type="button" disabled={overlay.pending} className={overlay.selected === 2 ? "is-selected" : ""} aria-current={overlay.selected === 2} onFocus={() => onSelect(2)} onClick={() => confirmMenuItem(2, onSelect, onConfirm)}>{exitLabel}</button>
       </div>
   );
 }
@@ -101,3 +102,7 @@ function confirmMenuItem(selected: ImmersiveMenuSelection, onSelect: Props["onSe
 }
 import type {RefObject} from "react";
 import {useImmersiveMenuFocus} from "./use-immersive-menu-focus";
+
+function pendingMenuLabel(overlay: Extract<ImmersivePlayerOverlay, {kind: "menu"}>, selected: ImmersiveMenuSelection, idle: string, pending: string) {
+  return overlay.pending && overlay.selected === selected ? pending : idle;
+}

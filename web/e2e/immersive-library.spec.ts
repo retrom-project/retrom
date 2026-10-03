@@ -194,7 +194,7 @@ async function createSaveFromMenu(page: Page, menu: Locator) {
     candidate.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(candidate.url()));
   await pressGamepad(page, standardButton.a);
   expect((await response).status()).toBe(201);
-  await expect(menu.getByRole("status")).toHaveText("存档已创建。", { timeout: 20_000 });
+  await expect(page.locator(".app-toast.good")).toHaveText("存档已创建。", { timeout: 20_000 });
 }
 
 async function exitPlayer(page: Page, menu: Locator) {

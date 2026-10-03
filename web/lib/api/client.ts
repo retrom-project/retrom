@@ -26,8 +26,16 @@ export function writeHeaders(extra: Record<string, string> = {}) {
   return csrfToken ? { ...extra, "X-Retrom-Csrf": csrfToken } : extra;
 }
 
-export function handleAuthenticationResponse(response: Response) {
-  if (response.status === 401) {authenticationFailure?.();}
+export async function handleAuthenticationResponse(response: Response) {
+  if (response.status === 401) {
+    const payload: unknown = await response.clone().json().catch(() => null);
+    if (payload && typeof payload === "object" && "error" in payload) {
+      const error = payload.error;
+      if (error && typeof error === "object" && "code" in error && error.code === "AUTHENTICATION_REQUIRED") {
+        authenticationFailure?.();
+      }
+    }
+  }
   return response;
 }
 
@@ -38,6 +46,6 @@ api.use({
     }
   },
   onResponse({ response }) {
-    handleAuthenticationResponse(response);
+    return handleAuthenticationResponse(response);
   }
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Toast, type ToastMessage } from "@/components/flash-toast";
+import { useToast } from "@/components/toast-provider";
 import { FeedbackBanner } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { formatBytes } from "@/lib/backend";
@@ -51,7 +51,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(initial.saveState);
   const [notice, setNotice] = useState(initial.notice);
   const [jobProgress, setJobProgress] = useState("");
-  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const { notify: setToast } = useToast();
   const [currentValidation, setCurrentValidation] = useState(initialRuntime.readiness);
   const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(initialRuntime.effectiveSourceSnapshotId);
   const [arcadeDependencies, setArcadeDependencies] = useState(initialRuntime.arcadeDependencies);
@@ -188,7 +188,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
   const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state);
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, sourceEvidence, form, updateField, candidateId, cover, setCover, videoId, setVideoId, videoUrl: reviewVideoURL(review, uploadedAssets, videoId), defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands }} />;
 }
 
 type ReviewViewModel = {
@@ -203,7 +203,7 @@ type ReviewViewModel = {
   sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
   comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;
   parentAttachmentActive: boolean; multiDiscAttachmentActive: boolean; validationReady: boolean; screenshotOverride: boolean; publishReady: boolean; saveLabel: string;
-  attachments: ReturnType<typeof useReviewAttachments>; commands: ReturnType<typeof useReviewCommands>; toast: ToastMessage | null; setToast: Dispatch<SetStateAction<ToastMessage | null>>;
+  attachments: ReturnType<typeof useReviewAttachments>; commands: ReturnType<typeof useReviewCommands>;
 };
 
 function ReviewActionsView({ model }: { model: ReviewViewModel }) {
@@ -214,7 +214,6 @@ function ReviewActionsView({ model }: { model: ReviewViewModel }) {
     <ReviewColumns model={model} />
     <ComparisonDialog model={model} />
     <DuplicateDialog model={model} />
-    <Toast toast={model.toast} onDismiss={() => model.setToast(null)} />
   </div>;
 }
 

@@ -1,11 +1,12 @@
 package metadatascrape
 
 import (
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 )
 
-func readRecoveryIDs(rows *sql.Rows) ([]string, error) {
+func readRecoveryIDs(rows dbapi.Rows) ([]string, error) {
 	ids := make([]string, 0)
 	for rows.Next() {
 		var id string

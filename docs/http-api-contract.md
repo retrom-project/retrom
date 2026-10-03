@@ -898,3 +898,7 @@ save-states；成功返回 201。此端点只在用户明确选择保存本地�
 `ON_DEMAND_AND_PRELOAD`、`PRELOAD_ONLY` 或 null。未绑定 Target 和未声明能力均为 null；
 不得从产品 Core 名称推断 RPG Maker 世代或缓存行为。Launch Envelope 中的同名能力由冻结的
 Target 提供，启动与存档恢复以该次 Envelope 为准。枚举和可选性以 Runtime Provider schema 为事实源。
+
+### 密码更新的账号会话边界
+
+`POST /api/v1/auth/change-password` 的当前密码错误返回 `422 CURRENT_PASSWORD_INVALID`，`details.field=currentPassword`，保留当前有效 AuthSession，不清 cookie。`401 AUTHENTICATION_REQUIRED` 只表示请求缺少有效账号会话；浏览器将并发失效通知合并为一次有界的 context 读取，确认匿名后才清理该用户本地状态并转到登录。登录凭据错误的 `401 AUTHENTICATION_FAILED` 及 runtime Launch capability 的 401 不触发账号全局退出。密码更新成功仍轮换当前会话、撤销其他设备，成功与失败共用 ToastProvider。

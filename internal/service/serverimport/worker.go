@@ -74,8 +74,11 @@ func (service *Service) execute(ctx context.Context, unit work) {
 		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(unit.DeadlineAtMS))
 		defer cancel()
 	}
+	unit.progress = &progressThrottle{}
+	ctx, stopExecution := context.WithCancelCause(ctx)
+	defer stopExecution(nil)
 	heartbeatStop, heartbeatDone := make(chan struct{}), make(chan struct{})
-	go func() { defer close(heartbeatDone); service.heartbeatLoop(ctx, unit, heartbeatStop) }()
+	go func() { defer close(heartbeatDone); service.monitorExecution(ctx, unit, heartbeatStop, stopExecution) }()
 	defer func() { close(heartbeatStop); <-heartbeatDone }()
 	root, exists := service.roots[unit.RootID]
 	if !exists || root.digest != unit.RootDigest {
@@ -148,6 +151,13 @@ func (service *Service) executeDiscovery(
 }
 
 func (service *Service) failDiscovery(ctx context.Context, unit work, err error) {
+	if errors.Is(context.Cause(ctx), ErrWorkerCancelled) {
+		service.cancelTask(ctx, unit)
+		return
+	}
+	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return
+	}
 	switch {
 	case errors.Is(err, errCancelled):
 		service.cancelTask(ctx, unit)
@@ -245,23 +255,5 @@ func (service *Service) commitCandidate(
 			"BIOS_REQUIREMENT_CATALOG_CHANGED")
 	case err != nil:
 		service.completeItem(ctx, unit, item.RequirementID, "COMMIT_FAILED", selected, "INTERNAL_ERROR")
-	}
-}
-
-func (service *Service) heartbeatLoop(ctx context.Context, unit work, done <-chan struct{}) {
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-service.stop:
-			return
-		case <-ticker.C:
-			if err := service.leases.Heartbeat(ctx, unit); err != nil {
-				service.workerError("heartbeat", err)
-				return
-			}
-		}
 	}
 }

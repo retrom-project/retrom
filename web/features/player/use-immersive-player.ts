@@ -1,15 +1,16 @@
 "use client";
 
+import { useToast } from "@/components/toast-provider";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { getActiveImmersiveGamepadIndex, setActiveImmersiveGamepadIndex } from "@/features/immersive/active-gamepad";
 import {
   ImmersiveMenuInputReader,
   ImmersiveNeutralGate,
-  gamepadButtonPressed,
   isNeutralGamepads,
   isStandardImmersiveGamepad,
 } from "./immersive-controls";
 import { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
+import { ImmersiveReconnectConfirmation } from "./immersive-reconnect";
 import type {PlayerRuntimeV1} from "./runtime/contract";
 import {
   moveImmersiveMenuSelection,
@@ -20,7 +21,7 @@ import {
 export type ImmersivePlayerOverlay =
   | { kind: "closed" }
   | { kind: "closing" }
-  | { kind: "menu"; error: string; notice: string; pending: boolean; selected: ImmersiveMenuSelection }
+  | { kind: "menu"; pending: boolean; selected: ImmersiveMenuSelection }
   | { kind: "editor" }
   | { kind: "reconnect"; ready: boolean };
 
@@ -48,6 +49,7 @@ export function useImmersivePlayer(params: Params) {
   const {
     enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError, gamepadCursor,
   } = params;
+  const { notify } = useToast();
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const editorAvailable = running && Boolean(runtime.current?.getGameEditor?.());
   const overlayRef = useRef(overlay);
@@ -58,9 +60,8 @@ export function useImmersivePlayer(params: Params) {
   const activeIndex = useRef<number | null>(getActiveImmersiveGamepadIndex());
   const menuReader = useRef(new ImmersiveMenuInputReader());
   const closingGate = useRef(new ImmersiveNeutralGate());
-  const reconnectGate = useRef(new ImmersiveNeutralGate());
+  const reconnectGate = useRef(new ImmersiveReconnectConfirmation());
   const previousPressed = useRef(new Map<number, boolean>());
-  const previousReconnectA = useRef(false);
   const missingSinceMs = useRef<number | null>(null);
   const suspended = useRef(false);
   const [filter] = useState(() => new ImmersiveGamepadFilter({
@@ -89,7 +90,7 @@ export function useImmersivePlayer(params: Params) {
       }
     }
     menuReader.current.reset();
-    updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
+    updateOverlay({ kind: "menu", pending: false, selected: 0 });
   }, [beforeMenuPause, enabled, filter, onFatalError, pausedRef, runtime, setPaused, updateOverlay]);
 
   useEffect(() => {
@@ -108,23 +109,19 @@ export function useImmersivePlayer(params: Params) {
 
   const saveFromMenu = useCallback((current: Extract<ImmersivePlayerOverlay, { kind: "menu" }>) => {
     if (!saveAvailable) {
-      updateOverlay({ ...current, error: "当前游戏无法创建可恢复存档。", notice: "" });
+      notify({ tone: "bad", message: "当前游戏无法创建可恢复存档。" });
       return;
     }
-    updateOverlay({ ...current, error: "", notice: params.nativeSync ? "正在重试本地暂存…" : "正在创建存档…", pending: true });
-    void saveGame().then((saved) => {
+    updateOverlay({ ...current, pending: true });
+    const complete = (saved: boolean) => {
+      notify({ tone: saved ? "good" : "bad", message: saved
+        ? params.nativeSync ? "游戏数据已暂存在此浏览器。" : "存档已创建。"
+        : params.nativeSync ? "本地暂存失败，请重试。" : "创建存档失败，请重试。" });
       const latest = overlayRef.current;
-      if (latest.kind !== "menu") {return;}
-      updateOverlay(saved
-        ? { ...latest, error: "", notice: params.nativeSync ? "游戏数据已暂存在此浏览器。" : "存档已创建。", pending: false }
-        : { ...latest, error: params.nativeSync ? "本地暂存失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
-    }).catch(() => {
-      const latest = overlayRef.current;
-      if (latest.kind === "menu") {
-        updateOverlay({ ...latest, error: params.nativeSync ? "本地暂存失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
-      }
-    });
-  }, [params.nativeSync, saveAvailable, saveGame, updateOverlay]);
+      if (latest.kind === "menu") {updateOverlay({ ...latest, pending: false });}
+    };
+    void saveGame().then(complete).catch(() => complete(false));
+  }, [notify, params.nativeSync, saveAvailable, saveGame, updateOverlay]);
 
   const runSelectedMenuAction = useCallback(() => {
     const current = overlayRef.current;
@@ -133,20 +130,21 @@ export function useImmersivePlayer(params: Params) {
     if (current.selected === 3 && gamepadCursor) {gamepadCursor.toggle(); return;}
     if (current.selected === 1) {saveFromMenu(current); return;}
     if (current.selected === 4 && editorAvailable) {updateOverlay({kind: "editor"}); return;}
-    updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
+    updateOverlay({ ...current, pending: true });
     void exitStrictRef.current().then((exited) => {
       if (exited === false) {beginClose("menu");}
     }).catch(() => {
       const failed = overlayRef.current;
       if (failed.kind === "menu") {
-        updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });
+        updateOverlay({ ...failed, pending: false });
+        notify({ tone: "bad", message: "退出失败。按 A 重试，或按 B 继续游戏。" });
       }
     });
-  }, [beginClose, editorAvailable, gamepadCursor, saveFromMenu, updateOverlay]);
+  }, [beginClose, editorAvailable, gamepadCursor, notify, saveFromMenu, updateOverlay]);
 
   const menuCancel = useCallback(() => {
     const current = overlayRef.current;
-    if (current.kind === "editor") {menuReader.current.reset(); updateOverlay({kind: "menu", error: "", notice: "", pending: false, selected: 4});}
+    if (current.kind === "editor") {menuReader.current.reset(); updateOverlay({kind: "menu", pending: false, selected: 4});}
     else if (current.kind === "menu" && !current.pending) {beginClose("menu");}
   }, [beginClose, updateOverlay]);
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
@@ -190,7 +188,7 @@ export function useImmersivePlayer(params: Params) {
     if (!running) {missingSinceMs.current = null; return;}
     return startImmersivePoll({
       filter, activeIndex, overlayRef, pauseOwner, reconnectTarget, menuReader, closingGate,
-      reconnectGate, previousPressed, previousReconnectA, missingSinceMs, suspended, runtime,
+      reconnectGate, previousPressed, missingSinceMs, suspended, runtime,
       pausedRef, setPaused, updateOverlay, beginClose,
       menuCancel, menuMove, runSelectedMenuAction, onFatalError,
     });
@@ -229,9 +227,8 @@ type PollParams = {
   reconnectTarget: MutableRefObject<"game" | "menu">;
   menuReader: MutableRefObject<ImmersiveMenuInputReader>;
   closingGate: MutableRefObject<ImmersiveNeutralGate>;
-  reconnectGate: MutableRefObject<ImmersiveNeutralGate>;
+  reconnectGate: MutableRefObject<ImmersiveReconnectConfirmation>;
   previousPressed: MutableRefObject<Map<number, boolean>>;
-  previousReconnectA: MutableRefObject<boolean>;
   missingSinceMs: MutableRefObject<number | null>;
   suspended: MutableRefObject<boolean>;
   runtime: MutableRefObject<PlayerRuntimeV1 | null>;
@@ -351,7 +348,6 @@ function enterReconnect(params: PollParams, target: "game" | "menu") {
   setActiveImmersiveGamepadIndex(null);
   params.reconnectGate.current.reset();
   params.previousPressed.current.clear();
-  params.previousReconnectA.current = false;
   params.missingSinceMs.current = null;
   params.updateOverlay({ kind: "reconnect", ready: false });
 }
@@ -369,17 +365,19 @@ function pollReconnect(params: PollParams, gamepads: (Gamepad | null)[], nowMs: 
     return;
   }
   const active = gamepads.find((gamepad) => gamepad?.index === params.activeIndex.current);
-  if (!isStandardImmersiveGamepad(active)) {params.activeIndex.current = null; return;}
-  const ready = params.reconnectGate.current.update(isNeutralGamepads(gamepads), nowMs);
-  const current = gamepadButtonPressed(active, 0);
-  const confirmed = ready && current && !params.previousReconnectA.current;
-  params.previousReconnectA.current = current;
+  if (!isStandardImmersiveGamepad(active)) {
+    params.activeIndex.current = null;
+    params.reconnectGate.current.reset();
+    params.updateOverlay({ kind: "reconnect", ready: false });
+    return;
+  }
+  const { ready, confirmed } = params.reconnectGate.current.update(gamepads, active, nowMs);
   const overlay = params.overlayRef.current;
   if (overlay.kind === "reconnect" && ready !== overlay.ready) {params.updateOverlay({ kind: "reconnect", ready });}
   if (!confirmed) {return;}
   if (params.reconnectTarget.current === "menu") {
     params.menuReader.current.reset();
-    params.updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
+    params.updateOverlay({ kind: "menu", pending: false, selected: 0 });
     return;
   }
   params.beginClose("disconnect");

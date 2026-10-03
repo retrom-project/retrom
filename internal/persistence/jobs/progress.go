@@ -87,7 +87,7 @@ WHERE item.id=e.scope_id AND item.import_job_id=?))) ORDER BY e.id LIMIT ?`,
 	return scanEvents(rows, err)
 }
 
-func scanEvents(rows *sql.Rows, err error) ([]jobs.Event, error) {
+func scanEvents(rows dbapi.Rows, err error) ([]jobs.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query job events: %w", err)
 	}

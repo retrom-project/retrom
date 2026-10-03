@@ -336,7 +336,7 @@ func favoriteItemsQuery(options favorites.ListOptions) (string, []any, error) {
 	}
 }
 
-func scanFavoriteGame(rows *sql.Rows) (favorites.GameItem, error) {
+func scanFavoriteGame(rows dbapi.Rows) (favorites.GameItem, error) {
 	var item favorites.GameItem
 	var platformID, platformName, instanceID, instanceName, coreID, coreName string
 	var coverAssetID sql.NullString

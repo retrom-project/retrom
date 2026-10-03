@@ -105,8 +105,12 @@ test("ACC-UI-009 authentication entry routing and user management layout remain 
   await expect(page.getByText("测试模式已启用，默认管理员为 test / test。")).toBeVisible();
   await page.getByLabel("用户名").fill("unknown-user");
   await page.getByLabel("密码").fill("not-the-password");
+  const loginForm = page.locator(".auth-form");
+  const beforeError = await loginForm.boundingBox();
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page.locator(".form-error")).toContainText("用户名或密码不正确");
+  await expect(page.locator(".app-toast.bad")).toContainText("用户名或密码不正确");
+  expect(await loginForm.boundingBox()).toEqual(beforeError);
+  await expect(page.getByLabel("密码")).toHaveAttribute("aria-invalid", "true");
   await page.getByLabel("用户名").fill("test");
   await page.getByLabel("密码").fill("test");
   await page.getByRole("button", { name: "登录" }).click();
@@ -213,7 +217,7 @@ test("ACC-UI-009 filtering, keyboard drawer focus, concurrency refresh, role, st
   await drawer.getByLabel("角色").selectOption("ADMIN");
   await drawer.getByRole("button", { name: "保存更改" }).click();
   await page.getByRole("alertdialog", { name: "确认授予管理员权限" }).getByRole("button", { name: "确认升级" }).click();
-  await expect(drawer).toContainText("账号已被其他管理员修改，请确认最新状态后重试");
+  await expect(page.locator(".app-toast.warn")).toContainText("账号已被其他管理员修改，请确认最新状态后重试");
 
   await drawer.getByLabel("状态").selectOption("ENABLED");
   await drawer.getByRole("button", { name: "保存更改" }).click();

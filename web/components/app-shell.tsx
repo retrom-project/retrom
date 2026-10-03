@@ -152,7 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function StandardAppShell({ children, pathname }: { children: ReactNode; pathname: string }) {
-  const { context, logout } = useAuth();
+  const { context, logout, recovery } = useAuth();
   const health = useServiceHealth();
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
@@ -173,6 +173,7 @@ function StandardAppShell({ children, pathname }: { children: ReactNode; pathnam
     return () => document.removeEventListener("pointerdown", closeAccountMenu);
   }, []);
   const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
+  if (recovery === "failed") {return <FullScreenLoading />;}
   if (context.instanceState === "INITIALIZATION_REQUIRED") {
     return pathname === "/setup" ? <>{children}</> : <FullScreenLoading />;
   }
@@ -380,7 +381,13 @@ function CompactAccountSheet({ accountButtonRef, compactPanel, logout, setCompac
 }
 
 function FullScreenLoading() {
-  return <div className="auth-route-loading" role="status"><span className="button-spinner" />正在确认账号状态…</div>;
+  const { recovery, recover } = useAuth();
+  return <div className="auth-route-loading" role="status">
+    {recovery === "pending" ? <><span className="button-spinner" />正在确认账号状态…</> : <>
+      <span>{recovery === "failed" ? "无法确认账号状态，请重试。" : "账号状态需要重新确认。"}</span>
+      <button className="button" type="button" onClick={() => void recover()}>重新确认账号状态</button>
+    </>}
+  </div>;
 }
 
 function Forbidden() {

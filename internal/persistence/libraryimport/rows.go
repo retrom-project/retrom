@@ -1,13 +1,14 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 )
 
 func collectRows[T any](
-	rows *sql.Rows,
-	scan func(*sql.Rows) (T, error),
+	rows dbapi.Rows,
+	scan func(dbapi.Rows) (T, error),
 	scanLabel, iterateLabel string,
 ) ([]T, error) {
 	result := make([]T, 0)

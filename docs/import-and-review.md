@@ -596,3 +596,9 @@ Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确�
 批准分为冻结、移动、提交三个步骤：先在短事务中核对版本、确认重复游戏、冻结元信息/校验/媒体及 Game UUID，并写入 `PUBLISHING`；再于同一文件系统内把 payload 原子移动到 Game 目录；最后事务写入 Game、Variant 与领域结果，Item 改为 `PUBLISHED`，同时关闭所有 Preview/隔离凭据与审核媒体授权，清空草稿 profile/标签并解除 Source 工作关联。所需内容、派生文件、媒体、当前运行截图、标签与 profile 均由 Game/Variant 独立持有；产品存档不继承审核临时 checkpoint。异步清理删除剩余审核材料和临时目录，完成记录不再提供运行数据或权限。`PUBLISHING` 仍是未完成工作，最终提交失败时必须继续恢复同一决定。冻结后不再接受草稿、丢弃或来源变更。中断后后台恢复同一决定，已完成批准重试返回同一 Game UUID。批量批准逐项使用这条流程，进度保存失败也不产生第二个 Game。
 
 发布过程中 Item 仍计入批次的未完成待处理计数，但不属于可编辑的待审核列表。任务详情显示“正在发布”。发布完成后的来源和 Item 清理只能删除各自 staging 目录，不能影响 Game 目录。
+
+### Parent 重新提交与 BIOS 扫描控制
+
+Parent Attachment 的任务去重身份包含本次 `uploadFileId`、Item、当前来源快照、依赖 machine 和 DAT 身份。同一字节的新上传是独立提交，先前 CANCELLED/REJECTED 任务不能占据它的去重键；同一 HTTP 幂等键仍重放原结果，陈旧审核版本继续被拒绝。取消和恢复仍由 execution/worker/lease fencing 控制；归档索引随已接纳内容保存。审核始终重算当前内容/依赖事实，不创建不可变 validation 实体或重新建立审核对底层编排的反向依赖。
+
+BIOS 扫描由每次执行自己的监控循环每秒读取一次持久取消/归属状态、每 15 秒续租。遍历非候选文件、哈希读取只检查本地 context，不为每个文件写心跳；逐项进度每秒最多写一次，阶段切换和完成立即持久化。失去租约、执行号/worker 变化或关闭服务都会停止本地工作，最终写入仍在事务内检查 fencing。验收见 `ACC-BIOS-006`。

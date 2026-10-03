@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 )
 
@@ -18,7 +17,7 @@ func NewAccess(reader, writer DB) DB {
 	return &access{DB: writer, reader: reader}
 }
 
-func (db *access) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (db *access) QueryContext(ctx context.Context, query string, args ...any) (Rows, error) {
 	rows, err := db.reader.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query reader: %w", err)

@@ -22,6 +22,7 @@ type attachmentRecoveryFixture struct {
 	database            *store.DB
 	files               *filestore.Store
 	jobID, itemID, kind string
+	root                string
 }
 
 func TestAttachmentRecoveryAndManualRetryRunFrozenInputToAcceptance(t *testing.T) {
@@ -71,7 +72,7 @@ func TestAttachmentRecoveryAndManualRetryRunFrozenInputToAcceptance(t *testing.T
 func newAttachmentRecoveryFixture(t *testing.T, kind string) attachmentRecoveryFixture {
 	t.Helper()
 	ctx, root, database, files, importer := newMultiDiscImportFixture(t)
-	fixture := attachmentRecoveryFixture{ctx: ctx, database: database, files: files, kind: kind}
+	fixture := attachmentRecoveryFixture{ctx: ctx, database: database, files: files, kind: kind, root: root}
 	if kind == "REVIEW_ARCADE_PARENT_VALIDATE" {
 		insertArcadeParentCatalog(t, database.SQL)
 		uploadID := completeMultiDiscUpload(t, ctx, database, files, root, "FILES", []multiDiscUploadFile{{path: "a.zip", contents: arcadeZIP(t, "a.bin", []byte("child"))}})

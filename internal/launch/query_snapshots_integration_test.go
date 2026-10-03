@@ -4,7 +4,6 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
@@ -19,7 +18,7 @@ type launchQueryCounter struct {
 	statements int
 }
 
-func (counter *launchQueryCounter) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (counter *launchQueryCounter) QueryContext(ctx context.Context, query string, args ...any) (dbapi.Rows, error) {
 	counter.statements++
 	return counter.Executor.QueryContext(ctx, query, args...)
 }

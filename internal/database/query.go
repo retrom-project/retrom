@@ -10,7 +10,7 @@ import (
 // Row keeps QueryContext's error until Scan, like database/sql.QueryRowContext.
 // Scan reads the first row and closes the result set, including on failure.
 type Row struct {
-	rows *sql.Rows
+	rows Rows
 	err  error
 }
 
@@ -56,7 +56,7 @@ func (row *Row) Scan(destinations ...any) error {
 }
 
 // ColumnMap exposes the returned column order for dynamic result projections.
-func ColumnMap(rows *sql.Rows) (map[string]int, error) {
+func ColumnMap(rows Rows) (map[string]int, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("read query columns: %w", err)

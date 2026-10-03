@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+var ErrCurrentPasswordInvalid = errors.New("CURRENT_PASSWORD_INVALID")
 
 type PasswordService struct {
 	repository PasswordRepository
@@ -92,7 +95,7 @@ func (service *PasswordService) prepare(
 ) (preparedPassword, error) {
 	normalized, err := authn.NormalizeLoginPassword(current)
 	if err != nil {
-		return preparedPassword{}, ErrAuthentication
+		return preparedPassword{}, ErrCurrentPasswordInvalid
 	}
 	state, found, err := service.repository.Current(ctx, actor, service.now().UnixMilli())
 	if err != nil {
@@ -106,7 +109,7 @@ func (service *PasswordService) prepare(
 		return preparedPassword{}, fmt.Errorf("verify current password: %w", err)
 	}
 	if !verified {
-		return preparedPassword{}, ErrAuthentication
+		return preparedPassword{}, ErrCurrentPasswordInvalid
 	}
 	validated, err := authn.ValidatePassword(
 		password,

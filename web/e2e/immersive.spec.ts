@@ -451,7 +451,7 @@ test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", a
   await expect(saveMenu.getByRole("button", { name: "创建存档" })).toHaveAttribute("aria-current", "true");
   await pressGamepad(page, standardButton.a);
   expect((await saveResponse).status()).toBe(201);
-  await expect(saveMenu.getByRole("status")).toHaveText("存档已创建。", { timeout: 20_000 });
+  await expect(page.locator(".app-toast.good")).toHaveText("存档已创建。", { timeout: 20_000 });
   await page.screenshot({ path: evidencePath(testInfo, "immersive-pause-menu.png"), fullPage: true });
   await pressGamepad(page, standardButton.b);
   await expect(saveMenu).toBeHidden();

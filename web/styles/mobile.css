@@ -9,13 +9,13 @@
 .responsive-sheet-left { top: 0; bottom: 0; left: 0; width: min(320px, 88vw); height: 100dvh; border-width: 0 1px 0 0; }
 .responsive-sheet-right { top: 0; right: 0; bottom: 0; width: min(520px, 90vw); height: 100dvh; border-width: 0 0 0 1px; }
 .responsive-sheet-fullscreen { inset: 0; width: 100%; height: 100dvh; border: 0; }
-.responsive-sheet-head { position: sticky; z-index: 2; top: 0; min-height: 68px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); background: var(--surface-raised); }
+.responsive-sheet-head { flex: none; position: sticky; z-index: 2; top: 0; min-height: 68px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); background: var(--surface-raised); }
 .responsive-sheet-head h2 { margin: 0; font-size: var(--text-title); line-height: 1.3; }
 .responsive-sheet-head p { margin: 4px 0 0; color: var(--muted); font-size: var(--text-caption); }
 .responsive-sheet-close { width: 44px; height: 44px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); cursor: pointer; }
 .responsive-sheet-close svg { width: 19px; height: 19px; }
-.responsive-sheet-body { min-width: 0; min-height: 0; padding: 16px; overflow: auto; overscroll-behavior: contain; }
-.responsive-sheet-footer { position: sticky; bottom: 0; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: var(--surface-raised); }
+.responsive-sheet-body { flex: 1 1 auto; min-width: 0; min-height: 0; padding: 16px; overflow: auto; overscroll-behavior: contain; }
+.responsive-sheet-footer { flex: none; position: sticky; bottom: 0; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: var(--surface-raised); }
 
 .compact-navigation-content { min-height: 100%; display: flex; flex-direction: column; color: #c8ceda; background: linear-gradient(180deg, var(--navy-950), #151c2d 70%); }
 .compact-navigation-sheet .responsive-sheet-head { color: white; border-color: #30394d; background: #171e2d; }

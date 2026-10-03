@@ -16,11 +16,11 @@ describe("authentication browser boundaries", () => {
     expect(safeReturnTo("/login?returnTo=/admin")).toBe("/");
   });
 
-  it("adds the in-memory CSRF token and reacts to authentication expiry", () => {
+  it("adds the in-memory CSRF token and reacts to authentication expiry", async () => {
     const expired = vi.fn();
     configureAuthenticatedClient({ csrfToken: "csrf-memory-only", onAuthenticationFailure: expired });
     expect(writeHeaders({ "If-Match": '"v1"' })).toEqual({ "If-Match": '"v1"', "X-Retrom-Csrf": "csrf-memory-only" });
-    handleAuthenticationResponse(new Response(null, { status: 401 }));
+    await handleAuthenticationResponse(new Response(JSON.stringify({ error: { code: "AUTHENTICATION_REQUIRED" } }), { status: 401 }));
     expect(expired).toHaveBeenCalledOnce();
   });
 

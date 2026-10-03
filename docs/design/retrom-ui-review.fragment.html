@@ -1801,7 +1801,6 @@
     #retrom-ui-review .rt-tag-table .rt-button { min-height: 32px; padding: 0 12px; font-size: var(--text-caption); }
     #retrom-ui-review [data-open-tag-delete] { color: var(--danger); border-color: var(--danger-line); background: var(--surface-subtle); }
     #retrom-ui-review .rt-tag-mobile-card .rt-button { min-height: 44px; }
-    #retrom-ui-review .rt-tag-editor-feedback { flex-basis: 100%; height: 36px; overflow-y: auto; margin: 0; color: var(--cyan); text-align: right; font-size: var(--text-caption); }
     #retrom-ui-review .rt-detail-tag-options { max-height: 240px; overflow-y: auto; border: 1px solid var(--retrom-line); border-radius: var(--radius-control); background: var(--retrom-panel); }
     #retrom-ui-review .rt-detail-tag-options button { display: block; width: 100%; min-height: 38px; padding: 8px 12px; border: 0; text-align: left; background: transparent; color: var(--retrom-text); cursor: pointer; }
     #retrom-ui-review .rt-detail-tag-options button:hover { background: var(--retrom-purple-soft); }
@@ -2486,7 +2485,7 @@
 #retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-3); }
 #retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
-#retrom-ui-review .rt-launch-toast { position: fixed; z-index: 220; top: 24px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: var(--space-4); border: 1px solid var(--danger-line); border-radius: var(--radius-panel); color: var(--danger); background: var(--surface-subtle); font-size: var(--text-body); overflow-wrap: anywhere; }
+#retrom-ui-review .rt-launch-toast { position: fixed; z-index: 400; top: 24px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: var(--space-4); border: 1px solid var(--danger-line); border-radius: var(--radius-panel); color: var(--danger); background: var(--surface-subtle); font-size: var(--text-body); overflow-wrap: anywhere; }
 #retrom-ui-review [data-content-loading].is-placeholder { visibility: hidden; }
 #retrom-ui-review .rt-launch-panel { min-width: 0; margin-top: var(--space-3); display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
 #retrom-ui-review .rt-launch-panel > * { grid-column: 1 / -1; }
@@ -3974,16 +3973,20 @@
       root.querySelectorAll('[data-close-tag-drawer]').forEach((button) => button.addEventListener('click', closeTagDrawer));
       tagDrawerBackdrop.addEventListener('click', closeTagDrawer);
       const tagNameInput = root.querySelector('[data-tag-name-input]');
-      const tagCreateNotice = document.createElement('p');
-      tagCreateNotice.className = 'rt-tag-editor-feedback'; tagCreateNotice.setAttribute('role', 'status');
-      tagDrawer.querySelector('footer').append(tagCreateNotice);
+      const tagCreateNotice = root.querySelector('[data-launch-toast]');
+      let tagNoticeTimer;
+      const showTagNotice = (message, failed) => {
+        clearTimeout(tagNoticeTimer); tagCreateNotice.textContent = message; tagCreateNotice.setAttribute('role', failed ? 'alert' : 'status');
+        tagCreateNotice.style.color = failed ? 'var(--danger)' : 'var(--success)'; tagCreateNotice.hidden = false;
+        tagNoticeTimer = setTimeout(() => {tagCreateNotice.hidden = true;}, 3000);
+      };
       const createdReviewTags = new Set(['双人', '清版动作', '适合聚会', '掌机', '高难度']);
       tagDrawer.querySelector('footer .rt-button-primary').addEventListener('click', () => {
         const name = tagNameInput.value.trim();
         if (!name) return;
-        if (createdReviewTags.has(name)) { tagCreateNotice.setAttribute('role', 'alert'); tagCreateNotice.style.color = '#a63745'; tagCreateNotice.textContent = '已存在同名活动标签'; return; }
-        createdReviewTags.add(name); tagCreateNotice.setAttribute('role', 'status'); tagCreateNotice.style.color = '#247561';
-        tagCreateNotice.textContent = `已创建“${name}”，可继续添加。`;
+        if (createdReviewTags.has(name)) { showTagNotice('已存在同名活动标签', true); return; }
+        createdReviewTags.add(name);
+        showTagNotice(`已创建“${name}”，可继续添加。`, false);
         tagNameInput.value = ''; tagNameInput.focus();
       });
       const detailTagPicker = root.querySelector('.rt-admin-detail-tags .rt-tag-picker');

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useId, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useModalFocus } from "./modal-focus";
 
 type DialogTone = "default" | "danger";
 
@@ -61,13 +62,7 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const locked = busy || leadingBusy || interactionDisabled;
 
-  useEffect(() => {
-    if (!open) {return;}
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const safeCancel = cancelRef.current && !cancelRef.current.disabled ? cancelRef.current : null;
-    (safeCancel ?? dialogRef.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? dialogRef.current)?.focus();
-    return () => previous?.focus();
-  }, [open]);
+  useModalFocus({ open, locked, panel: dialogRef, initial: cancelRef, onCancel });
 
   if (!open) {return null;}
 
@@ -86,7 +81,6 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        onKeyDown={(event) => handleDialogKey(event, dialogRef, locked, onCancel)}
       >
         <div className="dialog-copy">
           <span className="dialog-mark" aria-hidden="true">{tone === "danger" ? "!" : "i"}</span>
@@ -105,24 +99,6 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
     </div>
   );
   return portalToBody ? createPortal(layer, document.body) : layer;
-}
-
-function handleDialogKey(
-  event: KeyboardEvent<HTMLElement>,
-  dialogRef: RefObject<HTMLElement | null>,
-  locked: boolean,
-  onCancel: () => void,
-) {
-  if (event.key === "Escape" && !locked) {onCancel();}
-  if (event.key !== "Tab") {return;}
-  const selector = "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), "
-    + "textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
-  const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(selector) ?? []);
-  if (!focusable.length) {return;}
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {event.preventDefault(); last.focus();}
-  else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first.focus();}
 }
 
 type DialogActionsProps = Pick<ConfirmDialogProps,

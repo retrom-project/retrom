@@ -129,6 +129,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Changes the password of the current authenticated account. An incorrect current password returns 422 CURRENT_PASSWORD_INVALID without revoking the session; only AUTHENTICATION_REQUIRED indicates a missing or invalid account session. */
         post: operations["postAuthChangePassword"];
         delete?: never;
         options?: never;
@@ -5451,6 +5452,15 @@ export interface operations {
         requestBody: components["requestBodies"]["AuthChangePassword"];
         responses: {
             200: components["responses"]["AuthContextResponse"];
+            /** @description CURRENT_PASSWORD_INVALID or PASSWORD_POLICY_VIOLATION; the authenticated session remains valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     postAuthAccountLinkInspect: {

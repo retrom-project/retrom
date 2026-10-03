@@ -55,12 +55,19 @@ paths:
   /api/v1/auth/change-password:
     post:
       operationId: postAuthChangePassword
+      description: Changes the password of the current authenticated account. An incorrect current password returns 422 CURRENT_PASSWORD_INVALID without revoking the session; only AUTHENTICATION_REQUIRED indicates a missing or invalid account session.
       x-retrom-max-body-bytes: 32768
       requestBody:
         $ref: '#/components/requestBodies/AuthChangePassword'
       responses:
         '200':
           $ref: '#/components/responses/AuthContextResponse'
+        '422':
+          description: CURRENT_PASSWORD_INVALID or PASSWORD_POLICY_VIOLATION; the authenticated session remains valid.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
   /api/v1/auth/account-links/inspect:
     post:
       security: []

@@ -1,5 +1,6 @@
 import { StrictMode, useState } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureAuthenticatedClient } from "@/lib/api/client";

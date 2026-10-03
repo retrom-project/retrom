@@ -1,4 +1,5 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArcadeDependencyCard } from "./arcade-dependencies";
@@ -37,8 +38,10 @@ describe("ArcadeDependencyCard", () => {
     const dialog = screen.getByRole("alertdialog", { name: "补充 b.zip" });
     const picker = within(dialog).getByLabelText("选择一个 ZIP");
     await user.click(within(dialog).getByRole("button", { name: "开始上传并校验" }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("请选择一个 ZIP");
+    expect(screen.getByRole("alert")).toHaveTextContent("请选择一个 ZIP");
     expect(onAttach).not.toHaveBeenCalled();
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect(picker).toHaveAttribute("aria-invalid", "true");
 
     await user.upload(picker, new File(["parent"], "anything.zip", { type: "application/zip" }));
     await user.click(within(dialog).getByRole("button", { name: "开始上传并校验" }));

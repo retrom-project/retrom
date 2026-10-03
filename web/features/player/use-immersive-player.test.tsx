@@ -1,4 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
+import { renderHook } from "@/components/toast-test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setActiveImmersiveGamepadIndex } from "@/features/immersive/active-gamepad";
 import type {PlayerRuntimeV1} from "./runtime/contract";
@@ -11,10 +12,11 @@ function playerRuntime(): PlayerRuntimeV1 {
   } as unknown as PlayerRuntimeV1;
 }
 
-function gamepad(select = false, start = false): Gamepad {
+function gamepad(select = false, start = false, confirm = false): Gamepad {
   const buttons = Array.from({ length: 16 }, () => ({ pressed: false, touched: false, value: 0 }));
   buttons[8] = { pressed: select, touched: select, value: select ? 1 : 0 };
   buttons[9] = { pressed: start, touched: start, value: start ? 1 : 0 };
+  buttons[0] = { pressed: confirm, touched: confirm, value: confirm ? 1 : 0 };
   return {
     axes: [0, 0, 0, 0], buttons, connected: true, hapticActuators: [], id: "test-pad",
     index: 0, mapping: "standard", timestamp: 1, vibrationActuator: null,
@@ -46,6 +48,39 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
+  it.each(["game", "menu", "manual-pause"])("reconnects through neutral, new A and release back to %s", async (target) => {
+    vi.useFakeTimers();
+    let pads: Gamepad[] = [gamepad()];
+    const previous = Object.getOwnPropertyDescriptor(navigator, "getGamepads");
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => pads });
+    setActiveImmersiveGamepadIndex(0);
+    const { result, current, params, unmount } = renderImmersivePlayer(vi.fn(async () => true));
+    const sample = async (next: Gamepad[], milliseconds = 200) => {
+      pads = next;
+      await act(() => vi.advanceTimersByTimeAsync(milliseconds));
+    };
+    try {
+      if (target === "manual-pause") {params.pausedRef.current = true;}
+      if (target === "menu") {await act(async () => result.current.requestMenu());}
+      await sample([] , 350);
+      expect(result.current.overlay).toMatchObject({ kind: "reconnect", ready: false });
+      await sample([gamepad(false, false, true)]);
+      expect(result.current.overlay).toMatchObject({ kind: "reconnect", ready: false });
+      await sample([gamepad()]);
+      expect(result.current.overlay).toMatchObject({ kind: "reconnect", ready: true });
+      await sample([gamepad(false, false, true)], 30);
+      expect(result.current.overlay.kind).toBe(target === "menu" ? "menu" : "closing");
+      await sample([gamepad()]);
+      expect(result.current.overlay.kind).toBe(target === "menu" ? "menu" : "closed");
+      expect(current.resume).toHaveBeenCalledTimes(target === "game" ? 1 : 0);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+      if (previous) {Object.defineProperty(navigator, "getGamepads", previous);}
+      else {Reflect.deleteProperty(navigator, "getGamepads");}
+    }
+  });
+
   it("keeps input active when host focus moves into the game iframe", () => {
     const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
     const {result, unmount} = renderImmersivePlayer(vi.fn(async () => true));
@@ -151,7 +186,7 @@ describe("useImmersivePlayer save menu", () => {
       result.current.menuCancel();
     });
     expect(saveGame).toHaveBeenCalledOnce();
-    expect(result.current.overlay).toMatchObject({ kind: "menu", pending: true, notice: "正在创建存档…" });
+    expect(result.current.overlay).toMatchObject({ kind: "menu", pending: true });
     expect(current.pause).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(params.setPaused).toHaveBeenCalledWith(true));
     expect(params.beforeMenuPause).toHaveBeenCalledOnce();
@@ -160,7 +195,8 @@ describe("useImmersivePlayer save menu", () => {
     );
 
     await act(async () => {resolveSave(true); await pendingSave;});
-    expect(result.current.overlay).toMatchObject({ kind: "menu", pending: false, notice: "存档已创建。" });
+    expect(result.current.overlay).toMatchObject({ kind: "menu", pending: false });
+    expect(screen.getByRole("status")).toHaveTextContent("存档已创建。");
     expect(params.pausedRef.current).toBe(true);
     expect(current.pause).toHaveBeenCalledTimes(1);
   });
@@ -176,9 +212,9 @@ describe("useImmersivePlayer save menu", () => {
     expect(result.current.overlay).toMatchObject({
       kind: "menu",
       pending: false,
-      error: "创建存档失败，请重试。",
     });
     await act(async () => result.current.runSelectedMenuAction());
     expect(saveGame).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert")).toHaveTextContent("创建存档失败，请重试。");
   });
 });

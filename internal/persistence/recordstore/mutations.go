@@ -87,7 +87,7 @@ func previousRecords(ctx context.Context, db dbapi.Executor, table, columns stri
 	return scanRecords(rows)
 }
 
-func scanRecords(rows *sql.Rows) ([][]any, error) {
+func scanRecords(rows dbapi.Rows) ([][]any, error) {
 	names, err := rows.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("read snapshot columns: %w", err)

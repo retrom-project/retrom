@@ -11,6 +11,19 @@ afterEach(() => {
 });
 
 describe("ResponsiveSheet", () => {
+  it("announces busy state and contains focus until the action settles", async () => {
+    const user = userEvent.setup();
+    const close = vi.fn();
+    const view = render(<ResponsiveSheet open busy title="保存" onClose={close}><input disabled /></ResponsiveSheet>);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-busy", "true");
+    expect(dialog).toHaveFocus();
+    await user.tab(); await user.keyboard("{Escape}");
+    expect(dialog).toHaveFocus(); expect(close).not.toHaveBeenCalled();
+    view.rerender(<ResponsiveSheet open title="保存" onClose={close}><input /></ResponsiveSheet>);
+    expect(dialog).toHaveAttribute("aria-busy", "false");
+    await user.keyboard("{Escape}"); expect(close).toHaveBeenCalledOnce();
+  });
   it("locks background scrolling, traps focus, and restores the trigger", async () => {
     const user = userEvent.setup();
     const trigger = createRef<HTMLButtonElement>();

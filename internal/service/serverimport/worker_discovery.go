@@ -49,7 +49,7 @@ func (service *Service) discoverCandidates(
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	index := newCandidateIndex(items)
-	tasks, results := service.startCandidateHashWorkers(ctx, unit)
+	tasks, results := service.startCandidateHashWorkers(ctx)
 	walkDone := service.startCandidateWalk(ctx, unit, directory, index, tasks)
 	grouped, firstErr := service.collectCandidateResults(cancel, results)
 	walked := <-walkDone
@@ -61,7 +61,6 @@ func (service *Service) discoverCandidates(
 
 func (service *Service) startCandidateHashWorkers(
 	ctx context.Context,
-	unit work,
 ) (chan<- candidateHashTask, <-chan candidateHashResult) {
 	tasks := make(chan candidateHashTask, 4)
 	results := make(chan candidateHashResult, 4)
@@ -71,7 +70,7 @@ func (service *Service) startCandidateHashWorkers(
 		go func() {
 			defer workers.Done()
 			for task := range tasks {
-				result := service.hashDiscoveredCandidate(ctx, unit, task)
+				result := service.hashDiscoveredCandidate(ctx, task)
 				cleanup.Error("close", task.file.Parent.Close())
 				results <- result
 			}
@@ -163,7 +162,6 @@ func (service *Service) collectCandidateResults(
 // Read, re-stat and per-association evaluation branches are independent source-safety checks.
 func (service *Service) hashDiscoveredCandidate(
 	ctx context.Context,
-	unit work,
 	task candidateHashTask,
 ) candidateHashResult {
 	result := candidateHashResult{}
@@ -178,7 +176,7 @@ func (service *Service) hashDiscoveredCandidate(
 		return failedCandidateResult(task, "READ_FAILED")
 	}
 	metadata, putErr := service.blobs.Put(&cancelReader{
-		ctx: ctx, reader: handle, check: func() bool { return service.pollCancellation(ctx, unit) },
+		ctx: ctx, reader: handle,
 	})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
@@ -404,7 +402,7 @@ func (service *Service) verifySelected(
 		return nil, errSourceChanged
 	}
 	metadata, putErr := service.blobs.Put(&cancelReader{
-		ctx: ctx, reader: handle, check: func() bool { return service.pollCancellation(ctx, unit) },
+		ctx: ctx, reader: handle,
 	})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
@@ -451,7 +449,6 @@ func failedCandidate(item catalogItem, file discoveredFile, association, state s
 type cancelReader struct {
 	ctx    context.Context
 	reader io.Reader
-	check  func() bool
 	since  int64
 }
 
@@ -465,9 +462,6 @@ func (reader *cancelReader) Read(buffer []byte) (int, error) {
 	}
 	if reader.since >= 8<<20 {
 		reader.since = 0
-		if reader.check != nil && reader.check() {
-			return 0, errCancelled
-		}
 	}
 	remaining := int64(8<<20) - reader.since
 	if int64(len(buffer)) > remaining {

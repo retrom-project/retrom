@@ -117,6 +117,25 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	handler.ServeHTTP(changeRecorder, change)
 	testassert.Falsef(t, testassert.Any(func() bool { return changeRecorder.Code != http.StatusForbidden }, func() bool { return !strings.Contains(changeRecorder.Body.String(), "CSRF_VALIDATION_FAILED") }), "missing csrf = %d %s", changeRecorder.Code, changeRecorder.Body.String())
 
+	wrongPassword := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/change-password",
+		strings.NewReader(`{"currentPassword":"wrong password","newPassword":"new secret phrase","newPasswordConfirmation":"new secret phrase"}`))
+	wrongPassword.Header.Set("Content-Type", "application/json")
+	wrongPassword.Header.Set("Origin", "http://localhost:3000")
+	wrongPassword.Header.Set("X-Retrom-Csrf", csrfToken)
+	wrongPassword.AddCookie(cookies[0])
+	wrongRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(wrongRecorder, wrongPassword)
+	if wrongRecorder.Code != http.StatusUnprocessableEntity || !strings.Contains(wrongRecorder.Body.String(), "CURRENT_PASSWORD_INVALID") || wrongRecorder.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("wrong current password: status=%d body=%s", wrongRecorder.Code, wrongRecorder.Body.String())
+	}
+	stillAuthenticated := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/context", nil)
+	stillAuthenticated.AddCookie(cookies[0])
+	stillRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(stillRecorder, stillAuthenticated)
+	if stillRecorder.Code != http.StatusOK || !strings.Contains(stillRecorder.Body.String(), `"authenticationState":"AUTHENTICATED"`) {
+		t.Fatal("a rejected current password invalidated the account session")
+	}
+
 	logout := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/logout", strings.NewReader(`{}`))
 	logout.Header.Set("Content-Type", "application/json")
 	logout.Header.Set("Origin", "http://localhost:3000")

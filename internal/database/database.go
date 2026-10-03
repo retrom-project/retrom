@@ -10,7 +10,17 @@ import (
 
 // Queryer is the common query capability of a pool or transaction.
 type Queryer interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryContext(context.Context, string, ...any) (Rows, error)
+}
+
+// Rows keeps SQL iteration inside the adapter so connection occupancy and row
+// consumption can be observed independently of query submission.
+type Rows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+	Close() error
+	Columns() ([]string, error)
 }
 
 // Execer is the common write capability of a pool or transaction.

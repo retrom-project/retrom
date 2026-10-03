@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/toast-provider";
+import { useModalFocus } from "@/components/modal-focus";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, FeedbackBanner, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -19,7 +21,7 @@ export type LinkPage = components["schemas"]["AccountLinkList"];
 type OneTimeResult = { kind: "INVITATION" | "PASSWORD_RESET"; url: string; role?: AccountRole; expiresAtMs: number };
 type ManageState = {
   user: AdminUser; etag: string; lastEnabledAdmin: boolean; role: AccountRole; status: "ENABLED" | "DISABLED";
-  error: string; requestId?: string; busy: boolean; key: string;
+  busy: boolean; key: string;
 };
 
 const roleLabels: Record<AccountRole, string> = { ADMIN: "管理员", USER: "普通用户" };
@@ -34,25 +36,13 @@ function responseETag(response: Response, version: number) {
   return response.headers.get("ETag") ?? `"v${version}"`;
 }
 
-function Drawer({ open, title, description, children, onClose }: { open: boolean; title: string; description: string; children: ReactNode; onClose: () => void }) {
+function Drawer({ busy = false, open, title, description, children, onClose }: { busy?: boolean; open: boolean; title: string; description: string; children: ReactNode; onClose: () => void }) {
   const panel = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!open) {return;}
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panel.current?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus();
-    return () => previous?.focus();
-  }, [open]);
+  useModalFocus({ open, locked: busy, panel, onCancel: onClose });
   if (!open) {return null;}
-  return <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) {onClose();} }}>
-    <section className="app-drawer" ref={panel} role="dialog" aria-modal="true" aria-labelledby="drawer-title" onKeyDown={(event) => {
-      if (event.key === "Escape") {onClose();}
-      if (event.key !== "Tab") {return;}
-      const focusable = Array.from(panel.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), [href], [tabindex]:not([tabindex='-1'])") ?? []);
-      if (!focusable.length) {return;} const first = focusable[0]; const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }}>
-      <header><div><h2 id="drawer-title">{title}</h2><p>{description}</p></div><button aria-label="关闭" type="button" onClick={onClose}>×</button></header>
+  return <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) {onClose();} }}>
+    <section className="app-drawer" ref={panel} role="dialog" aria-modal="true" aria-busy={busy} aria-labelledby="drawer-title" tabIndex={-1}>
+      <header><div><h2 id="drawer-title">{title}</h2><p>{description}</p></div><button aria-label="关闭" type="button" disabled={busy} onClick={onClose}>×</button></header>
       <div className="drawer-body">{children}</div>
     </section>
   </div>;
@@ -68,7 +58,6 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
   const [inviteRole, setInviteRole] = useState<AccountRole>("USER");
   const [inviteConfirmed, setInviteConfirmed] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteError, setInviteError] = useState("");
   const [inviteKey, setInviteKey] = useState(newUuid);
   const [oneTime, setOneTime] = useState<OneTimeResult | null>(null);
   const [manage, setManage] = useState<ManageState | null>(null);
@@ -78,7 +67,7 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
   const [deleteKey, setDeleteKey] = useState(newUuid);
   const [revoke, setRevoke] = useState<AccountLink | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const { notify } = useToast();
   const [online, setOnline] = useState(true);
   const resetKey = useRef(newUuid());
 
@@ -99,31 +88,36 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
   async function loadMoreUsers() {
     if (!users.nextCursor) {return;}
     const query = new URLSearchParams(filterValues); query.set("cursor", users.nextCursor); query.set("limit", "50");
-    const response = await authenticatedFetch(`/api/v1/admin/users?${query}`, { cache: "no-store" });
-    if (!response.ok) { setNotice("无法加载更多用户，请重试"); return; }
+    const response = await authenticatedFetch(`/api/v1/admin/users?${query}`, { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) { notify({ tone: "bad", message: "无法加载更多用户，请重试" }); return; }
     const page = await response.json() as UserPage;
     setUsers((current) => ({ ...page, items: [...current.items, ...page.items] }));
   }
 
   async function loadInvitations(state = invitationState) {
-    const response = await authenticatedFetch(`/api/v1/admin/invitations?state=${state}&limit=50`, { cache: "no-store" });
-    if (!response.ok) { setNotice("无法刷新邀请列表，请重试"); return; }
+    const response = await authenticatedFetch(`/api/v1/admin/invitations?state=${state}&limit=50`, { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) { notify({ tone: "bad", message: "无法刷新邀请列表，请重试" }); return; }
     setInvitations(await response.json() as LinkPage);
   }
 
   async function openUser(userId: string, concurrencyMessage = "") {
-    setNotice("");
+    if (concurrencyMessage) {notify({ tone: "warn", message: concurrencyMessage });}
     const [detailResponse, adminsResponse] = await Promise.all([
       authenticatedFetch(`/api/v1/admin/users/${userId}`, { cache: "no-store" }),
       authenticatedFetch("/api/v1/admin/users?role=ADMIN&status=ENABLED&limit=2", { cache: "no-store" })
-    ]);
-    if (!detailResponse.ok || !adminsResponse.ok) { setNotice("无法读取用户最新状态，请重试"); return; }
+    ]).catch(() => [null, null]);
+    if (!detailResponse?.ok || !adminsResponse?.ok) { managedFailure("无法读取用户最新状态，请重试"); return; }
     const user = await detailResponse.json() as AdminUser; const admins = await adminsResponse.json() as UserPage;
-    setManage({ user, etag: responseETag(detailResponse, user.version), lastEnabledAdmin: user.role === "ADMIN" && user.status === "ENABLED" && admins.items.length === 1 && admins.items[0]?.userId === user.userId, role: user.role, status: user.status === "DISABLED" ? "DISABLED" : "ENABLED", error: concurrencyMessage, busy: false, key: newUuid() });
+    setManage({ user, etag: responseETag(detailResponse, user.version), lastEnabledAdmin: user.role === "ADMIN" && user.status === "ENABLED" && admins.items.length === 1 && admins.items[0]?.userId === user.userId, role: user.role, status: user.status === "DISABLED" ? "DISABLED" : "ENABLED", busy: false, key: newUuid() });
+  }
+
+  function managedFailure(message: string, requestId?: string) {
+    setManage((current) => current ? { ...current, busy: false } : current);
+    notify({ tone: "bad", message: `${message}${requestId ? `（请求 ID：${requestId}）` : ""}` });
   }
 
   function changeManaged(values: Partial<Pick<ManageState, "role" | "status">>) {
-    setManage((current) => current ? { ...current, ...values, key: newUuid(), error: "" } : current);
+    setManage((current) => current ? { ...current, ...values, key: newUuid() } : current);
   }
 
   function requestManagedSave() {
@@ -134,49 +128,51 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
   }
 
   async function patchManaged() {
-    if (!manage) {return;} setManageConfirmation(null); setManage((current) => current ? { ...current, busy: true, error: "" } : current);
+    if (!manage) {return;} setManageConfirmation(null); setManage((current) => current ? { ...current, busy: true } : current);
     const body: { role?: AccountRole; status?: "ENABLED" | "DISABLED"; confirmAdminRole: boolean } = { confirmAdminRole: manage.user.role !== "ADMIN" && manage.role === "ADMIN" };
     if (manage.role !== manage.user.role) {body.role = manage.role;}
     if (manage.status !== manage.user.status) {body.status = manage.status;}
     const response = await authenticatedFetch(`/api/v1/admin/users/${manage.user.userId}`, { method: "PATCH", headers: { "Content-Type": "application/json", "If-Match": manage.etag, "Idempotency-Key": manage.key }, body: JSON.stringify(body) }).catch(() => null);
-    if (!response) { setManage((current) => current ? { ...current, busy: false, error: "网络结果未知；请先检查账号最新状态，再决定是否重试" } : current); return; }
+    if (!response) { managedFailure("网络结果未知；请先检查账号最新状态，再决定是否重试"); return; }
     if (response.status === 412) { await openUser(manage.user.userId, "账号已被其他管理员修改，请确认最新状态后重试"); return; }
-    if (!response.ok) { const issue = await readAPIError(response, "无法更新账号"); setManage((current) => current ? { ...current, busy: false, error: issue.message, requestId: issue.requestId } : current); return; }
+    if (!response.ok) { const issue = await readAPIError(response, "无法更新账号"); managedFailure(issue.message, issue.requestId); return; }
     const updated = await response.json() as AdminUser;
     setUsers((current) => ({ ...current, items: current.items.map((item) => item.userId === updated.userId ? updated : item) }));
     setManage((current) => current ? { ...current, user: updated, role: updated.role, status: updated.status === "DISABLED" ? "DISABLED" : "ENABLED", etag: responseETag(response, updated.version), busy: false, key: newUuid() } : current);
-    setNotice("账号安全状态已更新");
+    notify({ tone: "good", message: "账号安全状态已更新" });
   }
 
   async function deleteManaged() {
     if (!manage || deleteConfirmation !== manage.user.username) {return;}
     setManage((current) => current ? { ...current, busy: true } : current);
     const response = await authenticatedFetch(`/api/v1/admin/users/${manage.user.userId}`, { method: "DELETE", headers: { "Content-Type": "application/json", "If-Match": manage.etag, "Idempotency-Key": deleteKey }, body: JSON.stringify({ confirmUsername: deleteConfirmation }) }).catch(() => null);
-    if (!response) { setManage((current) => current ? { ...current, busy: false, error: "网络结果未知；请检查用户列表后再重试" } : current); return; }
+    if (!response) { managedFailure("网络结果未知；请检查用户列表后再重试"); return; }
     if (response.status === 412) { setDeleteOpen(false); await openUser(manage.user.userId, "账号已被其他管理员修改，请确认最新状态后重试"); return; }
-    if (!response.ok) { const issue = await readAPIError(response, "无法删除账号"); setManage((current) => current ? { ...current, busy: false, error: issue.message } : current); return; }
-    setDeleteOpen(false); setManage(null); setUsers((current) => ({ ...current, items: current.items.filter((item) => item.userId !== manage.user.userId) })); setNotice("账号已删除"); router.refresh();
+    if (!response.ok) { const issue = await readAPIError(response, "无法删除账号"); managedFailure(issue.message); return; }
+    setDeleteOpen(false); setManage(null); setUsers((current) => ({ ...current, items: current.items.filter((item) => item.userId !== manage.user.userId) })); notify({ tone: "good", message: "账号已删除" }); router.refresh();
   }
 
   async function createResetLink() {
-    if (!manage) {return;} setManage((current) => current ? { ...current, busy: true, error: "" } : current);
+    if (!manage) {return;} setManage((current) => current ? { ...current, busy: true } : current);
     const response = await authenticatedFetch(`/api/v1/admin/users/${manage.user.userId}/password-reset-links`, { method: "POST", headers: { "Content-Type": "application/json", "If-Match": manage.etag, "Idempotency-Key": resetKey.current }, body: "{}" }).catch(() => null);
-    if (!response) { setManage((current) => current ? { ...current, busy: false, error: "网络结果未知；请检查该用户最新状态后再重试" } : current); return; }
+    if (!response) { managedFailure("网络结果未知；请检查该用户最新状态后再重试"); return; }
     if (response.status === 412) { await openUser(manage.user.userId, "账号已被其他管理员修改，请确认最新状态后重试"); return; }
-    if (!response.ok) { const issue = await readAPIError(response, "无法创建密码重置链接"); setManage((current) => current ? { ...current, busy: false, error: issue.message } : current); return; }
+    if (!response.ok) { const issue = await readAPIError(response, "无法创建密码重置链接"); managedFailure(issue.message); return; }
     const result = await response.json() as { url: string; expiresAtMs: number; targetUserVersion: number };
     setManage((current) => current ? { ...current, user: { ...current.user, version: result.targetUserVersion }, etag: responseETag(response, result.targetUserVersion), busy: false } : current);
     resetKey.current = newUuid(); setOneTime({ kind: "PASSWORD_RESET", url: result.url, expiresAtMs: result.expiresAtMs });
+    notify({ tone: "good", message: "密码重置链接已创建，请保存一次性链接" });
   }
 
   async function createInvitation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (inviteRole === "ADMIN" && !inviteConfirmed) {return;}
-    setInviteBusy(true); setInviteError("");
+    setInviteBusy(true);
     const response = await authenticatedFetch("/api/v1/admin/invitations", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": inviteKey }, body: JSON.stringify({ role: inviteRole, confirmAdminRole: inviteRole === "ADMIN" && inviteConfirmed }) }).catch(() => null);
-    if (!response) { setInviteBusy(false); setInviteError("网络结果未知；请检查邀请列表后再决定是否重试"); return; }
-    if (!response.ok) { const issue = await readAPIError(response, "无法创建邀请"); setInviteBusy(false); setInviteError(issue.message); return; }
+    if (!response) { setInviteBusy(false); notify({ tone: "bad", message: "网络结果未知；请检查邀请列表后再决定是否重试" }); return; }
+    if (!response.ok) { const issue = await readAPIError(response, "无法创建邀请"); setInviteBusy(false); notify({ tone: "bad", message: issue.message }); return; }
     const result = await response.json() as { url: string; role: AccountRole; expiresAtMs: number };
     setInviteBusy(false); setInvitationDrawer(false); setOneTime({ kind: "INVITATION", url: result.url, role: result.role, expiresAtMs: result.expiresAtMs });
+    notify({ tone: "good", message: "邀请已创建，请保存一次性链接" });
   }
 
   function closeOneTime() {
@@ -188,8 +184,8 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
     if (!revoke) {return;} setRevokeBusy(true);
     const response = await authenticatedFetch(`/api/v1/admin/account-links/${revoke.accountLinkId}`, { method: "DELETE", headers: { "Content-Type": "application/json", "If-Match": `"v${revoke.version}"`, "Idempotency-Key": newUuid() }, body: "{}" }).catch(() => null);
     setRevokeBusy(false);
-    if (!response?.ok) { setNotice(response ? "邀请状态已变化，请刷新列表" : "网络结果未知，请刷新邀请列表确认状态"); setRevoke(null); await loadInvitations(); return; }
-    setRevoke(null); setNotice("邀请已撤销"); await loadInvitations();
+    if (!response?.ok) { notify({ tone: "bad", message: response ? "邀请状态已变化，请刷新列表" : "网络结果未知，请刷新邀请列表确认状态" }); setRevoke(null); await loadInvitations(); return; }
+    setRevoke(null); notify({ tone: "good", message: "邀请已撤销" }); await loadInvitations();
   }
 
   const managedIsSelf = manage?.user.userId === currentUserID;
@@ -199,9 +195,8 @@ export function UserAdmin({ initialUsers, initialInvitations, filterValues }: { 
   return <div className="page-layout page-layout-admin user-admin-page">
     <UserListView users={users} filterValues={filterValues} online={online} onInvite={() => setInvitationDrawer(true)} onFilters={applyFilters} onOpen={openUser} onLoadMore={loadMoreUsers} />
     {!online ? <FeedbackBanner tone="bad">当前处于离线状态；已显示的非秘密信息会保留，写操作已暂停。</FeedbackBanner> : null}
-    {notice ? <FeedbackBanner tone="info">{notice}</FeedbackBanner> : null}
     <InvitationList page={invitations} state={invitationState} onState={(value) => { setInvitationState(value); void loadInvitations(value); }} onRevoke={setRevoke} />
-    <InvitationCreation open={invitationDrawer} role={inviteRole} confirmed={inviteConfirmed} busy={inviteBusy} online={online} error={inviteError} onClose={() => {if (!inviteBusy) {setInvitationDrawer(false);}}} onRole={(role) => {setInviteRole(role); setInviteConfirmed(false); setInviteKey(newUuid());}} onConfirmed={(confirmed) => {setInviteConfirmed(confirmed); setInviteKey(newUuid());}} onSubmit={createInvitation} />
+    <InvitationCreation open={invitationDrawer} role={inviteRole} confirmed={inviteConfirmed} busy={inviteBusy} online={online} onClose={() => {if (!inviteBusy) {setInvitationDrawer(false);}}} onRole={(role) => {setInviteRole(role); setInviteConfirmed(false); setInviteKey(newUuid());}} onConfirmed={(confirmed) => {setInviteConfirmed(confirmed); setInviteKey(newUuid());}} onSubmit={createInvitation} />
     <ManagedUserDrawer manage={manage} self={managedIsSelf} locked={managedLocked} changed={managedChanged} online={online} onClose={() => {if (!manage?.busy) {setManage(null);}}} onChange={changeManaged} onReset={() => void createResetLink()} onSave={requestManagedSave} onDelete={() => {setDeleteConfirmation(""); setDeleteKey(newUuid()); setDeleteOpen(true);}} />
     <UserAdminDialogs manage={manage} confirmation={manageConfirmation} deleteOpen={deleteOpen} deleteConfirmation={deleteConfirmation} revoke={revoke} revokeBusy={revokeBusy} onConfirmation={setManageConfirmation} onPatch={() => void patchManaged()} onDeleteOpen={setDeleteOpen} onDeleteConfirmation={setDeleteConfirmation} onDelete={() => void deleteManaged()} onRevokeClose={() => setRevoke(null)} onRevoke={() => void revokeInvitation()} />
     <OneTimeLinkDialog key={oneTime?.url ?? "closed"} result={oneTime} onClose={closeOneTime} />
@@ -225,13 +220,13 @@ function UserListView({ users, filterValues, online, onInvite, onFilters, onOpen
   return <><header className="page-header"><div><h1 ref={title} tabIndex={-1}>用户管理</h1><p>创建邀请并管理谁可以登录；游玩记录和存档始终保持私有。</p></div><div className="header-actions"><button className="button" type="button" disabled={!online} onClick={onInvite}>创建邀请</button></div></header><form className="filter-bar user-filters" onSubmit={onFilters}><div className="filter-controls"><label className="filter-control filter-search"><span className="filter-label">搜索</span><input className="select filter-text" name="q" defaultValue={filterValues.q ?? ""} placeholder="用户名或显示名称" /></label><label className="filter-control"><span className="filter-label">角色</span><select className="select" name="role" defaultValue={filterValues.role ?? ""}><option value="">全部</option><option value="ADMIN">管理员</option><option value="USER">普通用户</option></select></label><label className="filter-control"><span className="filter-label">状态</span><select className="select" name="status" defaultValue={filterValues.status ?? ""}><option value="">启用与停用</option><option value="ENABLED">启用</option><option value="DISABLED">停用</option><option value="DELETED">已删除</option><option value="ALL">全部</option></select></label><label className="filter-control"><span className="filter-label">排序</span><select className="select" name="sort" defaultValue={filterValues.sort ?? ""}><option value="">最近创建</option><option value="USERNAME_ASC">用户名 A–Z</option><option value="LAST_LOGIN_DESC">最近登录</option></select></label><button className="button filter-submit" type="submit">应用筛选</button></div></form>{users.items.length ? <section className="panel user-table-panel"><div className="table-wrap user-table-wrap"><table className="user-table"><thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th><th>创建时间</th><th>活跃会话</th><th>操作</th></tr></thead><tbody>{users.items.map((user) => <UserRow key={user.userId} user={user} onOpen={onOpen} />)}</tbody></table></div>{users.nextCursor ? <div className="load-more-row"><button className="button secondary" type="button" onClick={() => void onLoadMore()}>加载更多用户</button></div> : null}</section> : <EmptyState title="无法读取用户列表" description="实例必须至少有一名启用管理员。请重试；若问题持续存在，请检查服务器状态。" />}</>;
 }
 
-function InvitationCreation({ open, role, confirmed, busy, online, error, onClose, onRole, onConfirmed, onSubmit }: { open: boolean; role: AccountRole; confirmed: boolean; busy: boolean; online: boolean; error: string; onClose: () => void; onRole: (role: AccountRole) => void; onConfirmed: (confirmed: boolean) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void> }) {
-  return <Drawer open={open} title="创建邀请" description="完整链接只会在创建成功后显示一次。" onClose={onClose}><form className="drawer-form" onSubmit={(event) => void onSubmit(event)}><label className="form-field"><span>账号角色</span><select value={role} onChange={(event) => onRole(event.target.value as AccountRole)}><option value="USER">普通用户</option><option value="ADMIN">管理员</option></select></label>{role === "ADMIN" ? <div className="admin-role-warning"><strong>管理员可管理共享游戏内容、服务器设置和账号。</strong><label><input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} />我确认此邀请将创建管理员账号</label></div> : null}{error ? <div className="form-error" role="alert">{error}</div> : null}<div className="drawer-actions"><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={!online || busy || role === "ADMIN" && !confirmed}>{busy ? "正在创建…" : "创建邀请"}</button></div></form></Drawer>;
+function InvitationCreation({ open, role, confirmed, busy, online, onClose, onRole, onConfirmed, onSubmit }: { open: boolean; role: AccountRole; confirmed: boolean; busy: boolean; online: boolean; onClose: () => void; onRole: (role: AccountRole) => void; onConfirmed: (confirmed: boolean) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void> }) {
+  return <Drawer open={open} busy={busy} title="创建邀请" description="完整链接只会在创建成功后显示一次。" onClose={onClose}><form className="drawer-form" onSubmit={(event) => void onSubmit(event)}><label className="form-field"><span>账号角色</span><select value={role} onChange={(event) => onRole(event.target.value as AccountRole)}><option value="USER">普通用户</option><option value="ADMIN">管理员</option></select></label>{role === "ADMIN" ? <div className="admin-role-warning"><strong>管理员可管理共享游戏内容、服务器设置和账号。</strong><label><input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} />我确认此邀请将创建管理员账号</label></div> : null}<div className="drawer-actions"><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={!online || busy || role === "ADMIN" && !confirmed}>{busy ? "正在创建…" : "创建邀请"}</button></div></form></Drawer>;
 }
 
 function ManagedUserDrawer({ manage, self, locked, changed, online, onClose, onChange, onReset, onSave, onDelete }: { manage: ManageState | null; self: boolean; locked: boolean; changed: boolean; online: boolean; onClose: () => void; onChange: (values: Partial<Pick<ManageState, "role" | "status">>) => void; onReset: () => void; onSave: () => void; onDelete: () => void }) {
   if (!manage) {return <Drawer open={false} title="管理用户" description="" onClose={onClose}>{null}</Drawer>;}
-  return <Drawer open title="管理用户" description="只管理账号与安全状态，不提供他人的私有游戏数据。" onClose={onClose}><div className="drawer-form"><div className="managed-identity"><span>{manage.user.displayName.slice(0, 1).toUpperCase()}</span><div><strong>{manage.user.displayName}</strong><small>@{manage.user.username}</small></div></div>{self ? <FeedbackBanner tone="info">不能修改当前登录账号</FeedbackBanner> : null}{manage.lastEnabledAdmin ? <FeedbackBanner tone="info">服务器必须保留至少一名启用管理员</FeedbackBanner> : null}{manage.error ? <div className="form-error" role="alert"><strong>{manage.error}</strong>{manage.requestId ? <small>请求 ID：{manage.requestId}</small> : null}</div> : null}<label className="form-field"><span>角色</span><select value={manage.role} disabled={locked || manage.busy} onChange={(event) => onChange({ role: event.target.value as AccountRole })}><option value="USER">普通用户</option><option value="ADMIN">管理员</option></select></label><label className="form-field"><span>状态</span><select value={manage.status} disabled={locked || manage.busy} onChange={(event) => onChange({ status: event.target.value as "ENABLED" | "DISABLED" })}><option value="ENABLED">启用</option><option value="DISABLED">停用</option></select></label><div className="drawer-actions"><button className="button secondary" type="button" disabled={manage.busy} onClick={onReset}>创建密码重置链接</button><button className="button" type="button" disabled={!online || locked || manage.busy || !changed} onClick={onSave}>{manage.busy ? "正在保存…" : "保存更改"}</button></div><div className="danger-zone"><h3>删除账号</h3><p>删除不可恢复；私有数据会保留，但管理员不能查看。</p><button className="button danger" type="button" disabled={!online || locked || manage.busy} onClick={onDelete}>删除账号</button></div></div></Drawer>;
+  return <Drawer open busy={manage.busy} title="管理用户" description="只管理账号与安全状态，不提供他人的私有游戏数据。" onClose={onClose}><div className="drawer-form"><div className="managed-identity"><span>{manage.user.displayName.slice(0, 1).toUpperCase()}</span><div><strong>{manage.user.displayName}</strong><small>@{manage.user.username}</small></div></div>{self ? <FeedbackBanner tone="info">不能修改当前登录账号</FeedbackBanner> : null}{manage.lastEnabledAdmin ? <FeedbackBanner tone="info">服务器必须保留至少一名启用管理员</FeedbackBanner> : null}<label className="form-field"><span>角色</span><select value={manage.role} disabled={locked || manage.busy} onChange={(event) => onChange({ role: event.target.value as AccountRole })}><option value="USER">普通用户</option><option value="ADMIN">管理员</option></select></label><label className="form-field"><span>状态</span><select value={manage.status} disabled={locked || manage.busy} onChange={(event) => onChange({ status: event.target.value as "ENABLED" | "DISABLED" })}><option value="ENABLED">启用</option><option value="DISABLED">停用</option></select></label><div className="drawer-actions"><button className="button secondary" type="button" disabled={manage.busy} onClick={onReset}>创建密码重置链接</button><button className="button" type="button" disabled={!online || locked || manage.busy || !changed} onClick={onSave}>{manage.busy ? "正在保存…" : "保存更改"}</button></div><div className="danger-zone"><h3>删除账号</h3><p>删除不可恢复；私有数据会保留，但管理员不能查看。</p><button className="button danger" type="button" disabled={!online || locked || manage.busy} onClick={onDelete}>删除账号</button></div></div></Drawer>;
 }
 
 function UserAdminDialogs({ manage, confirmation, deleteOpen, deleteConfirmation, revoke, revokeBusy, onConfirmation, onPatch, onDeleteOpen, onDeleteConfirmation, onDelete, onRevokeClose, onRevoke }: { manage: ManageState | null; confirmation: "PROMOTE" | "DISABLE" | null; deleteOpen: boolean; deleteConfirmation: string; revoke: AccountLink | null; revokeBusy: boolean; onConfirmation: (value: "PROMOTE" | "DISABLE" | null) => void; onPatch: () => void; onDeleteOpen: (open: boolean) => void; onDeleteConfirmation: (value: string) => void; onDelete: () => void; onRevokeClose: () => void; onRevoke: () => void }) {

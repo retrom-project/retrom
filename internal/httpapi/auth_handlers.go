@@ -208,6 +208,9 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusTooManyRequests, "AUTH_RATE_LIMITED", "认证请求过于频繁", map[string]any{})
 	case errors.Is(err, accounts.ErrAuthentication):
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "用户名或密码不正确", map[string]any{})
+	case errors.Is(err, accounts.ErrCurrentPasswordInvalid):
+		writeError(writer, request, http.StatusUnprocessableEntity, "CURRENT_PASSWORD_INVALID",
+			"当前密码不正确", map[string]any{"field": "currentPassword"})
 	case errors.Is(err, accounts.ErrInitializationDone):
 		writeError(writer, request, http.StatusConflict, "INITIALIZATION_ALREADY_COMPLETED", "实例已完成初始化", map[string]any{})
 	case errors.Is(err, accounts.ErrAccountLinkUnavailable):

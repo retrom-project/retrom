@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ContentPreloadRetry } from "./content-preload-retry";
 import { PlayerStartupRetry } from "./player-startup-retry";
-import { startupFailureMessage } from "./startup-failure";
+import { startupFailure } from "./startup-failure";
 import {PlayerStartupTasks} from "./player-startup-tasks";
 import type {RuntimeStartupTaskV1} from "./runtime/contract";
 
@@ -12,6 +12,7 @@ export type PlayerLoadProgress = {
 };
 
 type PlayerLoadingProps = {
+  onRetry: () => void;
   tasks?: RuntimeStartupTaskV1[];
   immersive: boolean;
   canLoadOnDemand?: boolean;
@@ -21,9 +22,9 @@ type PlayerLoadingProps = {
   state: "loading" | "error";
 };
 
-export function PlayerLoading({ state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = [] }: PlayerLoadingProps) {
+export function PlayerLoading({ onRetry, state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = [] }: PlayerLoadingProps) {
   return message === "RUNTIME_SESSION_UNAVAILABLE" ? <UnavailableSession returnTo={returnTo} immersive={immersive} /> :
-    <StartupLoading state={state} message={message} progress={progress} returnTo={returnTo} immersive={immersive} canLoadOnDemand={canLoadOnDemand} tasks={tasks} />;
+    <StartupLoading onRetry={onRetry} state={state} message={message} progress={progress} returnTo={returnTo} immersive={immersive} canLoadOnDemand={canLoadOnDemand} tasks={tasks} />;
 }
 
 function UnavailableSession({returnTo, immersive}: Pick<PlayerLoadingProps, "returnTo" | "immersive">) {
@@ -34,19 +35,19 @@ function UnavailableSession({returnTo, immersive}: Pick<PlayerLoadingProps, "ret
   </div>;
 }
 
-function StartupLoading({state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = []}: PlayerLoadingProps) {
+function StartupLoading({onRetry, state, message, progress, returnTo, immersive, canLoadOnDemand, tasks = []}: PlayerLoadingProps) {
   const cacheFailure = state === "error" && /^CONTENT_IO_(?:CACHE_UNAVAILABLE|WORKSPACE_UNAVAILABLE)$/u.test(message);
   const downloadFailure = state === "error" && /^CONTENT_IO_(?:NETWORK_FAILED|TIMEOUT|PRELOAD_FAILED)$/u.test(message);
   const retryable = cacheFailure || downloadFailure;
-  const startupFailure = startupErrorMessage(state, message);
+  const failure = startupFailure(message);
   const visibleTasks = startupTaskViews(state, tasks, progress);
   return <div className="player-loading" role="status" aria-live="polite">
     <strong>{state === "loading" ? "游戏启动中" : "游戏启动失败"}</strong>
     {state === "loading" && visibleTasks.length === 0 ? <i aria-hidden="true" /> : null}
-    {state === "error" ? <LoadingError message={startupFailure ?? message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} /> : null}
-    <RetryActions retryable={retryable} startupFailure={startupFailure} canLoadOnDemand={canLoadOnDemand} />
+    {state === "error" ? <LoadingError message={failure.message} cacheFailure={cacheFailure} downloadFailure={downloadFailure} /> : null}
+    <RetryActions onRetry={onRetry} retryable={retryable} startupRetryable={state === "error" && failure.retryable} canLoadOnDemand={canLoadOnDemand} />
     {visibleTasks.length > 0 ? <PlayerStartupTasks tasks={visibleTasks} /> : null}
-    <LoadingNote state={state} retryable={retryable || startupFailure !== undefined} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
+    <LoadingNote state={state} retryable={retryable || state === "error" && failure.retryable} returnTo={returnTo} immersive={immersive} tasks={tasks} progress={progress} />
   </div>;
 }
 
@@ -58,15 +59,11 @@ function startupTaskViews(state: "loading" | "error", tasks: RuntimeStartupTaskV
     ? [{id: "host:content-progress", kind: "GAME_CONTENT", state: state === "error" ? "FAILED" : "RUNNING", progress}] : [];
 }
 
-function startupErrorMessage(state: PlayerLoadingProps["state"], message: string) {
-  return state === "error" ? startupFailureMessage(message) : undefined;
-}
-
-function RetryActions({retryable, startupFailure, canLoadOnDemand}: {
-  retryable: boolean; startupFailure: string | undefined; canLoadOnDemand: boolean | undefined;
+function RetryActions({retryable, startupRetryable, canLoadOnDemand, onRetry}: {
+  retryable: boolean; startupRetryable: boolean; canLoadOnDemand: boolean | undefined; onRetry: () => void;
 }) {
   if (retryable) {return <ContentPreloadRetry canLoadOnDemand={canLoadOnDemand === true} />;}
-  return startupFailure ? <PlayerStartupRetry /> : null;
+  return startupRetryable ? <PlayerStartupRetry onRetry={onRetry} /> : null;
 }
 
 function LoadingError({message, cacheFailure, downloadFailure}: {message: string; cacheFailure: boolean; downloadFailure: boolean}) {
@@ -76,7 +73,7 @@ function LoadingError({message, cacheFailure, downloadFailure}: {message: string
 
 function LoadingNote({state, retryable, returnTo, immersive, tasks, progress}: Pick<PlayerLoadingProps, "state" | "returnTo" | "immersive" | "progress"> & {retryable: boolean; tasks: RuntimeStartupTaskV1[]}) {
   return <p>{state === "error"
-    ? <><span>{retryable ? "已下载的有效内容会在重试时复用。" : "凭据可能已过期或依赖不兼容。"}</span> <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link></>
+    ? <><span>{retryable ? "已下载的有效内容会在重试时复用。" : "返回后可重新发起启动。"}</span> <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link></>
     : tasks.length > 0 ? "正在准备本次启动所需内容，已缓存的资源会直接复用。"
       : progress ? "首次加载会写入本地缓存；再次启动相同版本时将直接复用。"
         : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p>;

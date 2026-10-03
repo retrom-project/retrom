@@ -2,10 +2,14 @@ package serverimport
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
 func (service *Service) progress(ctx context.Context, unit work, phase string, current, total int64) {
+	if unit.progress != nil && !unit.progress.allow(phase, current, total, service.now()) {
+		return
+	}
 	service.workerError("progress", service.leases.Progress(ctx, unit, phase, current, total))
 }
 
@@ -32,15 +36,15 @@ func (service *Service) failTask(ctx context.Context, unit work, code string) {
 }
 
 func (service *Service) cancelTask(ctx context.Context, unit work) {
+	if ctx.Err() != nil {
+		if !errors.Is(context.Cause(ctx), ErrWorkerCancelled) {
+			return
+		}
+		ctx = context.WithoutCancel(ctx)
+	}
 	service.workerError("cancel", service.outcomes.Cancel(ctx, unit))
 }
 
-func (service *Service) cancelRequested(ctx context.Context, unit work) bool {
-	return service.pollCancellation(ctx, unit)
-}
-
-func (service *Service) pollCancellation(ctx context.Context, unit work) bool {
-	err := service.leases.Heartbeat(ctx, unit)
-	service.workerError("poll cancellation", err)
-	return err != nil
+func (service *Service) cancelRequested(ctx context.Context, _ work) bool {
+	return ctx.Err() != nil
 }

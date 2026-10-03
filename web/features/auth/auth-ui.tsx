@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/toast-provider";
 import { FeedbackBanner, StatusBadge } from "@/components/ui";
 import { safeReturnTo, useAuth } from "./auth-provider";
 import { readAPIError, type AuthContext } from "./types";
@@ -17,10 +18,10 @@ export function AuthPanel({ title, eyebrow, description, width = "narrow", child
   </section></main>;
 }
 
-function PasswordField({ name, label, autoComplete, required = true }: { name: string; label: string; autoComplete: string; required?: boolean }) {
+function PasswordField({ name, label, autoComplete, required = true, invalid = false }: { invalid?: boolean; name: string; label: string; autoComplete: string; required?: boolean }) {
   const [visible, setVisible] = useState(false);
   return <div className="form-field"><label htmlFor={name}>{label}</label><div className="password-control">
-    <input autoComplete={autoComplete} id={name} minLength={autoComplete === "new-password" ? minimumPasswordCharacters : undefined} name={name} required={required} type={visible ? "text" : "password"} />
+    <input aria-invalid={invalid} aria-describedby={invalid ? "auth-operation-error" : undefined} autoComplete={autoComplete} id={name} minLength={autoComplete === "new-password" ? minimumPasswordCharacters : undefined} name={name} required={required} type={visible ? "text" : "password"} />
     <button aria-label={visible ? `隐藏${label}` : `显示${label}`} type="button" onClick={() => setVisible((value) => !value)}>{visible ? "隐藏" : "显示"}</button>
   </div></div>;
 }
@@ -29,19 +30,28 @@ function PasswordPolicy() {
   return <p className="password-policy">至少 6 个字符，可以使用空格；不要求特定字符组合。</p>;
 }
 
-function ErrorSummary({ message, requestId, errorRef }: { message: string | null; requestId?: string; errorRef: React.RefObject<HTMLDivElement | null> }) {
-  useEffect(() => { if (message) {errorRef.current?.focus();} }, [errorRef, message]);
-  return message ? <div className="form-error" role="alert" tabIndex={-1} ref={errorRef}><strong>{message}</strong>{requestId ? <small>请求 ID：{requestId}</small> : null}</div> : null;
+function ErrorSummary({ message, requestId }: { message: string | null; requestId?: string }) {
+  return <span id="auth-operation-error" className="sr-only">{message}{message && requestId ? `（请求 ID：${requestId}）` : ""}</span>;
 }
 
-type SubmitState = { busy: boolean; error: string | null; requestId?: string };
+type SubmitState = { busy: boolean; error: string | null; requestId?: string; invalidField?: string };
 const initialSubmit: SubmitState = { busy: false, error: null };
+
+function useSubmitState() {
+  const [state, setState] = useState(initialSubmit);
+  const { notify } = useToast();
+  const update = useCallback((next: SubmitState) => {
+    setState(next);
+    if (next.error) {notify({ tone: "bad", message: `${next.error}${next.requestId ? `（请求 ID：${next.requestId}）` : ""}` });}
+  }, [notify]);
+  return [state, update] as const;
+}
 
 export function SetupForm() {
   const { acceptContext } = useAuth();
   const router = useRouter();
-  const [state, setState] = useState(initialSubmit);
-  const errorRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useSubmitState();
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setState({ busy: true, error: null });
     const form = event.currentTarget;
@@ -61,7 +71,7 @@ export function SetupForm() {
   }
   return <AuthPanel eyebrow="首次设置" title="创建首位管理员" description="创建此服务器的首位管理员。初始化完成后，其他账号只能通过邀请创建。" width="wide">
     <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}>
-      <ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
+      <ErrorSummary message={state.error} requestId={state.requestId} />
       <div className="form-field"><label htmlFor="username">管理员用户名</label><input autoComplete="username" id="username" name="username" required /></div>
       <div className="form-field"><label htmlFor="displayName">显示名称</label><input autoComplete="name" id="displayName" name="displayName" required /></div>
       <PasswordField autoComplete="new-password" label="密码" name="password" />
@@ -75,16 +85,16 @@ export function SetupForm() {
 export function LoginForm() {
   const { context, acceptContext } = useAuth();
   const router = useRouter();
-  const [state, setState] = useState(initialSubmit);
+  const [state, setState] = useSubmitState();
   const [retryAt, setRetryAt] = useState<number | null>(null);
   const [rateLimited, setRateLimited] = useState(false);
-  const errorRef = useRef<HTMLDivElement>(null);
+
   const passwordRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!retryAt) {return;}
     const timer = window.setInterval(() => { if (Date.now() >= retryAt) { setRetryAt(null); setRateLimited(false); setState(initialSubmit); } }, 1000);
     return () => window.clearInterval(timer);
-  }, [retryAt]);
+  }, [retryAt, setState]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (retryAt && Date.now() < retryAt) {return;}
     setState({ busy: true, error: null }); const values = new FormData(event.currentTarget);
@@ -97,7 +107,7 @@ export function LoginForm() {
         setState({ busy: false, error: `尝试次数过多，请在 ${new Intl.DateTimeFormat("zh-CN", { timeStyle: "medium" }).format(at)} 后重试` }); return;
       }
       const issue = await readAPIError(response, "用户名或密码不正确");
-      setState({ busy: false, error: [401, 403].includes(response.status) ? "用户名或密码不正确" : issue.message, requestId: issue.requestId }); return;
+      setState({ busy: false, error: [401, 403].includes(response.status) ? "用户名或密码不正确" : issue.message, requestId: issue.requestId, invalidField: [401, 403].includes(response.status) ? "credentials" : undefined }); return;
     }
     acceptContext(await response.json() as AuthContext);
     const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
@@ -106,12 +116,13 @@ export function LoginForm() {
   return <AuthPanel eyebrow="欢迎回来" title="登录">
     {context.mode === "test" && context.testDefaultAccountActive ? <FeedbackBanner tone="info"><strong>测试模式已启用，默认管理员为 test / test。</strong><br />请勿将此服务器暴露到不受信网络。</FeedbackBanner> : null}
     <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}>
-      <ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
+      <ErrorSummary message={state.error} requestId={state.requestId} />
       <div className="form-field"><label htmlFor="username">用户名</label><input autoComplete="username" id="username" name="username" required /></div>
-      <div className="form-field"><label htmlFor="password">密码</label><input autoComplete="current-password" id="password" name="password" ref={passwordRef} required type="password" /></div>
+      <div className="form-field"><label htmlFor="password">密码</label><input autoComplete="current-password" id="password" name="password" aria-invalid={state.invalidField === "credentials"} aria-describedby={state.invalidField === "credentials" ? "auth-operation-error" : undefined} ref={passwordRef} required type="password" /></div>
       <button className="button auth-submit" disabled={state.busy || rateLimited} type="submit">{state.busy ? "正在登录…" : "登录"}</button>
     </form>
-    <p className="auth-footnote">新账号需要管理员邀请。本阶段不提供自助找回密码。</p>
+    <p className="auth-footnote" role="status">{rateLimited ? state.error : "新账号需要管理员邀请。本阶段不提供自助找回密码。"}</p>
+    <p className="sr-only">新账号需要管理员邀请。本阶段不提供自助找回密码。</p>
   </AuthPanel>;
 }
 
@@ -143,7 +154,7 @@ function LinkUnavailable({ kind }: { kind: "invite" | "reset" }) {
 export function RegisterForm() {
   const capability = useCapability("invite", "INVITATION");
   const { acceptContext } = useAuth(); const router = useRouter();
-  const [state, setState] = useState(initialSubmit); const errorRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useSubmitState();
   if (capability.state === "loading") {return <AuthPanel eyebrow="账号邀请" title="正在检查邀请"><div className="auth-skeleton" role="status" aria-label="正在检查邀请" /></AuthPanel>;}
   if (capability.state !== "ready" || !capability.token || !capability.inspection) {return <LinkUnavailable kind="invite" />;}
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -157,7 +168,7 @@ export function RegisterForm() {
     <div className="link-facts"><span>账号角色</span><strong>{capability.inspection.role === "ADMIN" ? "管理员" : "普通用户"}</strong><span>到期时间</span><strong>{formatAbsolute(capability.inspection.expiresAtMs)}</strong></div>
     {capability.inspection.role === "ADMIN" ? <FeedbackBanner tone="info">管理员可管理服务器内容和其他账号</FeedbackBanner> : null}
     <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}>
-      <ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
+      <ErrorSummary message={state.error} requestId={state.requestId} />
       <div className="form-field"><label htmlFor="username">用户名</label><input autoComplete="username" id="username" name="username" required /></div>
       <div className="form-field"><label htmlFor="displayName">显示名称</label><input autoComplete="name" id="displayName" name="displayName" required /></div>
       <PasswordField autoComplete="new-password" label="密码" name="password" /><PasswordField autoComplete="new-password" label="确认密码" name="passwordConfirmation" />
@@ -170,7 +181,7 @@ export function RegisterForm() {
 export function ResetPasswordForm() {
   const capability = useCapability("reset", "PASSWORD_RESET");
   const { acceptContext } = useAuth(); const router = useRouter();
-  const [state, setState] = useState(initialSubmit); const [disabledComplete, setDisabledComplete] = useState(false); const errorRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useSubmitState(); const [disabledComplete, setDisabledComplete] = useState(false);
   if (capability.state === "loading") {return <AuthPanel eyebrow="账号恢复" title="正在检查链接"><div className="auth-skeleton" role="status" aria-label="正在检查链接" /></AuthPanel>;}
   if (capability.state !== "ready" || !capability.token || !capability.inspection) {return <LinkUnavailable kind="reset" />;}
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -185,7 +196,7 @@ export function ResetPasswordForm() {
   if (disabledComplete) {return <AuthPanel eyebrow="密码已更新" title="账号仍处于停用状态"><FeedbackBanner tone="info">密码已更新，但账号仍处于停用状态，请联系管理员</FeedbackBanner></AuthPanel>;}
   return <AuthPanel eyebrow="账号恢复" title="设置新密码">
     <div className="link-facts"><span>账号</span><strong>@{capability.inspection.username}</strong><span>到期时间</span><strong>{formatAbsolute(capability.inspection.expiresAtMs)}</strong></div>
-    <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
+    <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} />
       <PasswordField autoComplete="new-password" label="新密码" name="password" /><PasswordField autoComplete="new-password" label="确认密码" name="passwordConfirmation" />
       <PasswordPolicy />
       <button className="button auth-submit" disabled={state.busy} type="submit">{state.busy ? "正在更新密码…" : "更新密码"}</button>
@@ -195,18 +206,18 @@ export function ResetPasswordForm() {
 
 export function AccountSettings() {
   const { context, acceptContext, authenticatedFetch } = useAuth();
-  const [state, setState] = useState(initialSubmit); const [success, setSuccess] = useState(false); const errorRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useSubmitState(); const { notify } = useToast();
   const user = context.user;
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setState({ busy: true, error: null }); setSuccess(false); const form = event.currentTarget; const values = new FormData(form);
+    event.preventDefault(); setState({ busy: true, error: null }); const form = event.currentTarget; const values = new FormData(form);
     const response = await authenticatedFetch("/api/v1/auth/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: values.get("currentPassword"), newPassword: values.get("newPassword"), newPasswordConfirmation: values.get("newPasswordConfirmation") }) }).catch(() => null);
     if (!response) { setState({ busy: false, error: "无法连接服务器，请检查网络后重试" }); return; }
-    if (!response.ok) { const issue = await readAPIError(response, "密码更新失败，请重试"); setState({ busy: false, error: issue.message, requestId: issue.requestId }); return; }
-    acceptContext(await response.json() as AuthContext); form.reset(); setState(initialSubmit); setSuccess(true);
+    if (!response.ok) { const issue = await readAPIError(response, "密码更新失败，请重试"); setState({ busy: false, error: issue.message, requestId: issue.requestId, invalidField: issue.code === "CURRENT_PASSWORD_INVALID" ? "currentPassword" : undefined }); return; }
+    acceptContext(await response.json() as AuthContext); form.reset(); setState(initialSubmit); notify({ tone: "good", message: "密码已更新，其他设备已退出登录" });
   }
   return <div className="page-layout page-layout-detail"><header className="page-header"><div><h1 tabIndex={-1}>账户设置</h1><p>查看当前账号资料并更新登录密码。</p></div></header>
     <div className="account-settings-grid"><section className="panel"><div className="panel-head"><div><h2>账号资料</h2><p>本版本不提供自行修改用户名或显示名称。</p></div></div><dl className="account-facts"><div><dt>用户名</dt><dd>@{user?.username}</dd></div><div><dt>显示名称</dt><dd>{user?.displayName}</dd></div><div><dt>角色</dt><dd><StatusBadge tone={user?.role === "ADMIN" ? "info" : "neutral"}>{user?.role === "ADMIN" ? "管理员" : "普通用户"}</StatusBadge></dd></div><div><dt>账号状态</dt><dd><StatusBadge tone="good">启用</StatusBadge></dd></div></dl></section>
-      <section className="panel"><div className="panel-head"><div><h2>修改密码</h2><p>更新后，其他设备上的会话将立即退出。</p></div></div><div className="panel-body">{success ? <FeedbackBanner tone="good">密码已更新，其他设备已退出登录</FeedbackBanner> : null}<form className="auth-form account-password-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} /><PasswordField autoComplete="current-password" label="当前密码" name="currentPassword" /><PasswordField autoComplete="new-password" label="新密码" name="newPassword" /><PasswordField autoComplete="new-password" label="确认密码" name="newPasswordConfirmation" /><PasswordPolicy /><button className="button" disabled={state.busy} type="submit">{state.busy ? "正在更新…" : "更新密码"}</button></form></div></section></div>
+      <section className="panel"><div className="panel-head"><div><h2>修改密码</h2><p>更新后，其他设备上的会话将立即退出。</p></div></div><div className="panel-body"><form className="auth-form account-password-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} /><PasswordField autoComplete="current-password" label="当前密码" name="currentPassword" invalid={state.invalidField === "currentPassword"} /><PasswordField autoComplete="new-password" label="新密码" name="newPassword" /><PasswordField autoComplete="new-password" label="确认密码" name="newPasswordConfirmation" /><PasswordPolicy /><button className="button" disabled={state.busy} type="submit">{state.busy ? "正在更新…" : "更新密码"}</button></form></div></section></div>
   </div>;
 }
 
