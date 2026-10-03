@@ -53,8 +53,6 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-name-field .select { width: 100%; min-width: 0; }
 .tag-editor-footer-content { width: 100%; display: grid; gap: 8px; }
 .tag-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.tag-editor-feedback { height: 36px; overflow-y: auto; margin: 0; color: var(--cyan); font-size: var(--text-caption); line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
-.tag-editor-feedback[data-tone="bad"] { color: var(--danger); }
 .tag-name-field small { justify-self: end; color: var(--muted); }
 .tag-normalized-preview { margin-top: 16px; padding: 14px; display: grid; gap: 5px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); }
 .tag-normalized-preview span { color: var(--muted); font-size: var(--text-caption); }

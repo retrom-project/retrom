@@ -374,6 +374,8 @@ make acceptance-case CASE=<case-id>
 - 使用普通上传、导入、快速审批 API 建立至少 2,272 款游戏，再同时执行后续审批和上传/导入。home、games、favorites、reviews、users 各串行采样五次，四个阶段共 100 次；每次保留 HTTP 状态、耗时、当时任务状态与审批进度。必须覆盖大库形成后的实际活动任务，全部 HTTP 200，单次低于 500ms，记录 p95/最大值。批量发布须正常完成；`TestProtectedListsReadWhileBackgroundWriterIsOccupied` 另以持有实际写事务验证相同 GET 的 writer pool 等待增量为零。
 - 大批量小文件的上传终验按文件数提供有界等待，不能只按总字节数估计。测试中断后，可显式提供当前 PFB 已完成的 `RETROM_READ_LOAD_PREPARED_UPLOAD`，或该次 `RETROM_READ_LOAD_INITIAL_APPROVAL` 继续后续采样；先通过公开接口验证其状态、文件范围或初始待审规模，不伪造完成。证据为 `protected-reads-product.json` 与独立读写池、续期失败、禁用/密码变化/角色变更、原子审批和 fencing 回归结果。
 
+- 写入竞争专项：除上述 100 次读取门禁外，保留小库空闲、仅导入、导入与发布/清理、大项目上传和大库空闲的完整持续样本；每阶段至少 20 次独立会话登录。记录控制请求 p50/p95/max 与全部超过 500ms 的单次请求，以 request ID 关联连接等待、Begin、SQL、Rows、Commit 和事务内非 SQL 时间。不能降低哈希强度、放宽 500ms 阈值或提高普通导入并发；大批量结束后必须验证外键及复制库重开。
+
 ### ACC-CAS-001：游戏目录与独立文件
 
 - 上限：120 秒。
@@ -471,6 +473,8 @@ make acceptance-case CASE=<case-id>
 - 流程：覆盖正确/错误/停用登录、logout、idle 8h、absolute 24h、并发改密、当前/其他 session rotation、Argon2 参数、10,000 项 blocklist、Origin/Fetch Metadata/CSRF 和 username+IP 双维限流；用 fake clock 和可信/不可信代理矩阵，不真实等待。
 - 通过标准：登录错误通用且等时路径不泄露账号状态；所有包含密码或一次性账号 capability 的 HTML form 都声明原生 `method=post`，即使用户在 React hydration 完成前提交也不得把凭据编码进 URL、查询参数、浏览器历史或代理 access log；hydration 完成后的请求仍使用契约规定的 JSON API。session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码最少 6 个 Unicode 字符，5 个字符稳定拒绝，长度边界与物化 blocklist 均 fail-closed；限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
 - 证据：cookie 属性、受控时钟、密码校验与请求负向矩阵、blocklist hash。
+
+- 改密错误分支：错误当前密码返回 `422/CURRENT_PASSWORD_INVALID`，Cookie 和当前会话不变；浏览器在 390px 与桌面/4K 中保留输入、表单几何和当前路由，用 ToastProvider 显示错误及改密成功提示。只有业务认证 `401/AUTHENTICATION_REQUIRED` 启动一次共享的上下文恢复；网络失败提供重试，确认匿名后才清理当前用户状态。
 
 ### ACC-AUTH-004：邀请与密码重置 capability
 
@@ -1241,6 +1245,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
+- 操作反馈回归：邀请、重置、状态与删除的正常/异常提示均通过 ToastProvider，完整一次性链接仍只在结果对话框中出现。ConfirmDialog、Drawer、Sheet 在 busy 时由容器持有焦点，Tab/Shift+Tab 不离开当前最上层，Escape 不关闭；失败后恢复可操作控件，关闭后返回触发器。
+
 ### ACC-UI-010：全局快速审批进度恢复
 
 - 上限：180 秒。
@@ -1396,6 +1402,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过：“添加常用标签”报告新建/已存在数量，列表展示完整模板且第二次执行报告全部存在；`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
 - 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
 
+- 标签顺序与布局：混合中文、数字、Latin 名称及超过 100 条分页数据，以服务端排序为准；无新增的常用标签操作不改变顺序或 cursor，实际增删改后重读当前筛选范围再继续分页。失败保留输入、页首和 Sheet footer 位置，成功/失败共用 ToastProvider，长名称仅在 body 内换行/滚动。
+
 ## 20. 移动端与横屏 Player
 
 本节可在已启动的同一 PFB 上做等价验证：设置 `RETROM_WEB_ORIGIN` 为该 PFB 稳定 origin，从 `web/` 使用仓库固定 Node/Chrome 执行 `playwright test e2e/mobile.spec.ts --project=chrome-mobile`，结合 `features/mobile/`、`features/library/library-browser.test.tsx` 和 `features/player/launch-controls.test.tsx`。公开游戏须先经正常产品导入；不得把缺少夹具导致的 skip 记为通过。PC/沉浸式隔离同时运行 `ACC-UI-001/003/005/006/007` 与 `ACC-IMM-001/004/007/008`。实际证据留在本次 PFB 的忽略目录，不提交游戏或截图。
@@ -1503,6 +1511,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 流程：覆盖手柄断开、页面隐藏、API 错误/重试、游戏删除和媒体漂移、`prefers-reduced-motion`，并在 1280×720、1920×1080、2560×1440 与物理 4K 150% scale 检查入口、平台、列表和菜单。
 - 通过标准：断开/隐藏立即清零输入和待定 chord；隐藏/轮询暂停及 Player 返回不清除仍连接的活动手柄，不显示瞬时“等待手柄”，真实连续断连超过 `250ms` 后才进入重新认领。失败页可用手柄重试或返回，已删除游戏不能 Launch，媒体漂移只降级展示。服务端和客户端首屏时钟 HTML 一致且控制台无 hydration mismatch。所有视口零横向溢出、焦点清晰、文本可读，reduced-motion 无非必要动画，axe 无 serious/critical；沉浸独立壳不泄漏普通导航。
 - 证据：四 viewport 截图、DOM 尺寸、axe 报告、错误/恢复和 visibility/disconnect trace。
+
+- Player 故障回归：配置 503、网络错误、凭据失效、配置非法按原因展示；仅可恢复故障提供重试，旧 runtime 退出后才允许下一次挂载。844×390 横屏和原生全屏内，存档失败/成功共用 ToastProvider 且不改变菜单几何。断连覆盖游戏、菜单和手动暂停三种来源：持有 A 重连不确认，稳定中立后新的 A 边沿才能恢复；再次断连清除就绪状态，恢复菜单不误执行存档或退出。
 
 ### ACC-IMM-008：adapter、依赖与普通 UI 回归
 

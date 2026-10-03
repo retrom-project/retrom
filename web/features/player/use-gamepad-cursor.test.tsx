@@ -1,4 +1,5 @@
-import {act, renderHook} from "@testing-library/react";
+import { act } from "@testing-library/react";
+import { renderHook } from "@/components/toast-test-utils";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {useGamepadCursor} from "./use-gamepad-cursor";
 import {rememberPlayerGame, readGamepadCursorPreference, readPlayerGame} from "./gamepad-cursor-preference";

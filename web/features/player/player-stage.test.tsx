@@ -6,7 +6,7 @@ import {PlayerStage} from "./player-shell";
 describe("PlayerStage", () => {
   it("keeps the provider mount outside React-owned loading content", () => {
     const runtimeTarget = createRef<HTMLDivElement>();
-    const view = render(<PlayerStage blocked={false} stage={runtimeTarget} state="loading"
+    const view = render(<PlayerStage onRetryStartup={() => undefined} blocked={false} stage={runtimeTarget} state="loading"
       message="loading" loadProgress={null} returnTo="/library" immersive={false}
       onSurface={() => undefined} />);
 
@@ -14,7 +14,7 @@ describe("PlayerStage", () => {
     const canvas = document.createElement("canvas");
     runtimeTarget.current?.replaceChildren(canvas);
 
-    expect(() => view.rerender(<PlayerStage blocked={false} stage={runtimeTarget} state="running"
+    expect(() => view.rerender(<PlayerStage onRetryStartup={() => undefined} blocked={false} stage={runtimeTarget} state="running"
       message="running" loadProgress={null} returnTo="/library" immersive={false}
       onSurface={() => undefined} />)).not.toThrow();
     expect(runtimeTarget.current?.firstElementChild).toBe(canvas);

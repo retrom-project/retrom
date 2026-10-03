@@ -24,7 +24,7 @@ type CommandParams = {
   draftKey: string; draftPayload: DraftPayload; form: MetadataForm; cover: CoverSelection;
   uploadedAssets: UploadedReviewAsset[]; comparison: Comparison | null;
   refreshReview: () => Promise<ReviewWorkspace>; flushDraft: () => Promise<boolean>; enqueueSave: SaveDraft; run: Runner;
-  setJobProgress: Dispatch<SetStateAction<string>>; setNotice: Dispatch<SetStateAction<string>>; setToast: Dispatch<SetStateAction<ToastMessage | null>>;
+  setJobProgress: Dispatch<SetStateAction<string>>; setNotice: Dispatch<SetStateAction<string>>; setToast: (toast: ToastMessage) => void;
   setCandidates: Dispatch<SetStateAction<ReviewCandidate[]>>; setUploadedAssets: Dispatch<SetStateAction<UploadedReviewAsset[]>>;
   setComparison: Dispatch<SetStateAction<Comparison | null>>; setForm: Dispatch<SetStateAction<MetadataForm>>;
   setVideoId: Dispatch<SetStateAction<string | null>>;
@@ -199,7 +199,7 @@ function duplicateGamesFrom(payload: ApprovalErrorPayload) {
   return payload.error.details?.games?.length ? payload.error.details.games : null;
 }
 
-function openPreviewWindow(setToast: Dispatch<SetStateAction<ToastMessage | null>>) {
+function openPreviewWindow(setToast: (toast: ToastMessage) => void) {
   const popup = window.open("about:blank", "_blank", "popup=yes,width=1280,height=820,resizable=yes,scrollbars=no");
   if (!popup) {setToast({ message: "浏览器阻止了游戏子窗体，请允许本站弹出窗口后重试", tone: "warn" }); return null;}
   popup.document.title = "正在准备审核游戏预览";

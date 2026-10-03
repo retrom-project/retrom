@@ -7,7 +7,6 @@ import type { PickedDirectory } from "@/lib/directory-access";
 type DirectoryPickerDialogProps = {
   browsing: boolean;
   directory: PickedDirectory | null;
-  error: string;
   open: boolean;
   onBrowse: () => void;
   onCancel: () => void;
@@ -15,7 +14,7 @@ type DirectoryPickerDialogProps = {
   onDrop: (files: FileList) => void;
 };
 
-export function DirectoryPickerDialog({ browsing, directory, error, open, onBrowse, onCancel, onConfirm, onDrop }: DirectoryPickerDialogProps) {
+export function DirectoryPickerDialog({ browsing, directory, open, onBrowse, onCancel, onConfirm, onDrop }: DirectoryPickerDialogProps) {
   const files = directory?.files ?? [];
   const totalBytes = files.reduce((total, entry) => total + entry.file.size, 0);
   return <ConfirmDialog
@@ -49,6 +48,5 @@ export function DirectoryPickerDialog({ browsing, directory, error, open, onBrow
         <p>也可以点击“浏览本机目录”。Chrome / Edge 会直接读取目录；Brave 会退回浏览器目录上传，并显示自身的安全确认。</p>
       </>}
     </div>
-    {error ? <div className="feedback bad" role="alert">{error}</div> : null}
   </ConfirmDialog>;
 }

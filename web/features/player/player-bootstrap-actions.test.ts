@@ -10,6 +10,44 @@ vi.mock("./runtime/runtime-controller", () => ({mountProviderRuntime: mounted}))
 vi.mock("./runtime/envelope", () => ({parseLaunchEnvelopeJSON: JSON.parse}));
 afterEach(() => {vi.unstubAllGlobals(); vi.resetAllMocks();});
 
+it("retries a temporary config failure once and never mounts a runtime for the failed attempt", async () => {
+  const params = bootstrapParams();
+  const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, {status: 503}))
+    .mockResolvedValueOnce(new Response(JSON.stringify({runtime: {capabilities: {videoModes: []}, checkpoint: null},
+      session: {purpose: "PRODUCT", returnTo: "/library", warnings: []}})));
+  vi.stubGlobal("fetch", fetchMock);
+  const runtime = {getCapabilities: () => ({videoModes: []}), getCanvas: () => null,
+    getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"})} as unknown as PlayerRuntimeV1;
+  mounted.mockResolvedValue({runtime, exit: vi.fn().mockResolvedValue(undefined)});
+  const {result, unmount} = renderHook(() => usePlayerBootstrap(params, {current: null}));
+  await waitFor(() => expect(params.setState).toHaveBeenCalledWith("error"));
+  expect(params.setMessage).toHaveBeenLastCalledWith("PLAYER_LAUNCH_SERVICE_UNAVAILABLE");
+  expect(mounted).not.toHaveBeenCalled();
+  act(() => {result.current(); result.current();});
+  await waitFor(() => expect(params.setState).toHaveBeenLastCalledWith("running"));
+  expect(fetchMock).toHaveBeenCalledTimes(2); expect(mounted).toHaveBeenCalledOnce();
+  unmount();
+});
+
+it("waits for the failed mounted runtime to exit before a retry fetch or mount", async () => {
+  const params = bootstrapParams();
+  const envelope = {runtime: {capabilities: {videoModes: []}, checkpoint: null}, session: {purpose: "PRODUCT", returnTo: "/library", warnings: []}};
+  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify(envelope)));
+  vi.stubGlobal("fetch", fetchMock);
+  let release: () => void = () => undefined;
+  const exit = vi.fn(() => new Promise<void>((resolve) => {release = resolve;}));
+  const runtime = {getCapabilities: () => {throw new Error("PLAYER_RUNTIME_INITIALIZATION_FAILED");}, getCanvas: () => null} as unknown as PlayerRuntimeV1;
+  mounted.mockResolvedValueOnce({runtime, exit}).mockRejectedValueOnce(new Error("second attempt"));
+  const {result, unmount} = renderHook(() => usePlayerBootstrap(params, {current: null}));
+  await waitFor(() => expect(params.setState).toHaveBeenCalledWith("error"));
+  act(() => result.current());
+  await waitFor(() => expect(exit).toHaveBeenCalledOnce());
+  expect(fetchMock).toHaveBeenCalledOnce(); expect(mounted).toHaveBeenCalledOnce();
+  await act(async () => release());
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  expect(mounted).toHaveBeenCalledTimes(2); unmount();
+});
+
 it("uses public program-selection actions for an unknown Target and observes action removal", async () => {
   const envelope = {runtime: {targetId: "future-provider-target", capabilities: {videoModes: []},
     checkpoint: {semantics: "INSTANT"}}, targetOptions: {},

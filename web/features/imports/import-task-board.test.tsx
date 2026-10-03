@@ -1,7 +1,9 @@
+import { ToastProvider } from "@/components/toast-provider";
 import { act } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImportTaskBoard } from "./import-task-board";
@@ -52,12 +54,12 @@ describe("ImportTaskBoard", () => {
     try {
       process.env.TZ = "UTC";
       const container = document.createElement("div");
-      container.innerHTML = renderToString(<ImportTaskBoard initial={initial} />);
+      container.innerHTML = renderToString(<ToastProvider><ImportTaskBoard initial={initial} /></ToastProvider>);
       document.body.append(container);
 
       process.env.TZ = "Asia/Shanghai";
       await act(async () => {
-        root = hydrateRoot(container, <ImportTaskBoard initial={initial} />, {
+        root = hydrateRoot(container, <ToastProvider><ImportTaskBoard initial={initial} /></ToastProvider>, {
           onRecoverableError: (error) => recoverableErrors.push(error),
         });
       });

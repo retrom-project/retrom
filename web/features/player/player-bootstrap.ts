@@ -5,7 +5,7 @@ import type {RuntimeStartupTaskV1} from "./runtime/contract";
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
 import {readContentLoading, resolveContentLoading, type ContentLoadingCapability} from "./content-loading";
 
-import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
+import {useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
 import type {ImmersiveGamepadFilter} from "./immersive-gamepad-filter";
 import type {MultiDiscPlayerEvent} from "./multi-disc-telemetry";
@@ -16,7 +16,7 @@ import type {PlayProgressClock} from "./play-progress-clock";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
-import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
+import {readLaunchConfig} from "./launch-config";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
 import {installRuntimeSurfaceControls} from "./runtime/surface-controls";
@@ -86,13 +86,22 @@ type BootstrapResources = {
 };
 
 export function usePlayerBootstrap(params: PlayerBootstrapParams, cancellationRef: Mutable<(() => Promise<void>) | null>) {
-  const cancel = useSerializedPlayerBootstrap(`${params.launchId}:${params.experience}`, params,
+  const [attempt, setAttempt] = useState(0);
+  const retrying = useRef(false);
+  const cancel = useSerializedPlayerBootstrap(`${params.launchId}:${params.experience}:${attempt}`, params,
     createBootstrapResources, bootstrapPlayer, cleanupBootstrap, handleBootstrapError,
   );
   useEffect(() => {
     cancellationRef.current = cancel;
     return () => {if (cancellationRef.current === cancel) {cancellationRef.current = null;}};
   }, [cancel, cancellationRef]);
+  useEffect(() => {retrying.current = false;}, [attempt]);
+  return useCallback(() => {
+    if (retrying.current) {return;}
+    retrying.current = true;
+    params.setState("loading");
+    setAttempt((current) => current + 1);
+  }, [params]);
 }
 
 function createBootstrapResources(): BootstrapResources {return {};}
@@ -102,13 +111,9 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   params.setLoadProgress(null);
   params.setContentLoadingCapability(undefined);
   params.setMessage("正在验证 Provider 启动信息…");
-  const envelope = await runHostStartup("LAUNCH_CONFIG", params.reportStartupTask, async () => {
-    const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
-      credentials: "same-origin", cache: "no-store", signal: abort.signal,
-    });
-    if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
-    return parseLaunchEnvelopeJSON(await response.text());
-  }, abort.signal);
+  params.setState("loading");
+  const envelope = await runHostStartup("LAUNCH_CONFIG", params.reportStartupTask,
+    () => readLaunchConfig(params.launchId, abort.signal), abort.signal);
   params.setMessage("正在启动游戏…");
   validateExperience(params.experience, envelope);
   applyEnvelope(params, envelope);
@@ -291,7 +296,7 @@ function validateExperience(experience: "standard" | "immersive", envelope: Laun
 function handleBootstrapError(error: unknown, abort: AbortController, params: PlayerBootstrapParams) {
   if (abort.signal.aborted) {return;}
   const code = error instanceof Error ? error.message : "PLAYER_RUNTIME_FAILED";
-  params.setMessage(code === "LAUNCH_CONFIG_401" ? "启动会话不可用，请从游戏详情或存档重新开始。" : code);
+  params.setMessage(code);
   params.setState("error");
 }
 

@@ -1,4 +1,5 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as DirectoryAccess from "@/lib/directory-access";

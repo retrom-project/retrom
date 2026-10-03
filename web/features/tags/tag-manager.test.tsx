@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TagManager, type TagAdminItem, type TagAdminPage } from "./tag-manager";
@@ -21,8 +22,46 @@ function json(value: unknown, status = 200) {
 }
 
 describe("TagManager", () => {
+  it("preserves server collation and cursor when common tags already exist", async () => {
+    const ordered = ["Zebra", "ä", "中", "动作"].map((name, index) => ({ ...initialTag, tagId: `tag-${index}`, name }));
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ createdItems: [], existingItems: ordered }))
+      .mockResolvedValueOnce(json({ ...initial, items: [{ ...initialTag, name: "蛇", tagId: "last" }], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<TagManager initial={{ ...initial, items: ordered, nextCursor: "server-cursor" }} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
+    await userEvent.click(screen.getByRole("button", { name: "添加常用标签" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("4 个常用标签已全部存在");
+    expect(screen.getAllByRole("rowheader").map((row) => row.textContent)).toEqual(ordered.map((item) => item.name));
+    expect(fetchMock).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "加载更多" }));
+    await screen.findByRole("rowheader", { name: "蛇" });
+    expect(fetchMock.mock.calls[1][0]).toContain("cursor=server-cursor");
+    expect(screen.getAllByRole("rowheader").map((row) => row.textContent)).toEqual([...ordered.map((item) => item.name), "蛇"]);
+  });
+
+  it("uses the refreshed server filter/order after rename and replaces the old cursor", async () => {
+    const renamed = { ...initialTag, name: "Renamed", version: 3 };
+    const fetchMock = vi.fn().mockResolvedValueOnce(json(renamed))
+      .mockResolvedValueOnce(json({ ...initial, items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<TagManager initial={{ ...initial, nextCursor: "stale" }} filters={{ q: "动作", status: "ACTIVE", sort: "UPDATED_DESC" }} />);
+    await userEvent.click(screen.getByRole("button", { name: "编辑" }));
+    const name = screen.getByRole("textbox", { name: "标签名称" });
+    fireEvent.change(name, { target: { value: "Renamed" } });
+    await userEvent.click(screen.getByRole("button", { name: "保存标签" }));
+    await waitFor(() => expect(screen.queryByRole("rowheader")).toBeNull());
+    expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
+    const query = new URL(fetchMock.mock.calls[1][0], "http://localhost").searchParams;
+    expect(query.get("q")).toBe("动作"); expect(query.get("sort")).toBe("UPDATED_DESC"); expect(query.has("cursor")).toBe(false);
+  });
+
   it("keeps the create drawer open for repeated additions and restores input focus", async () => {
-    const fetchMock = vi.fn().mockImplementation(async (_url, init) => json({ ...initialTag, tagId: JSON.parse(init.body).name, name: JSON.parse(init.body).name }, 201));
+    const items = [initialTag];
+    const fetchMock = vi.fn().mockImplementation(async (_url, init) => {
+      if (!init?.body) {return json({ ...initial, items: [...items] });}
+      const saved = { ...initialTag, tagId: JSON.parse(init.body).name, name: JSON.parse(init.body).name };
+      items.push(saved);
+      return json(saved, 201);
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
@@ -33,10 +72,10 @@ describe("TagManager", () => {
       await user.type(input, name);
       await user.click(within(sheet).getByRole("button", { name: "保存标签" }));
       await waitFor(() => expect(input).toHaveValue(""));
-      expect(sheet).toBeVisible(); expect(input).toHaveFocus();
-      expect(within(sheet).getByText(`已创建“${name}”，可继续添加。`)).toBeVisible();
+      expect(sheet).toBeVisible(); await waitFor(() => expect(input).toHaveFocus());
+      expect(screen.getByRole("status")).toHaveTextContent(`已创建“${name}”，可继续添加。`);
     }
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     await user.click(within(sheet).getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("rowheader", { name: "精选" })).toBeVisible();
@@ -47,7 +86,7 @@ describe("TagManager", () => {
       { ...initialTag, tagId: "01980000-0000-7000-8000-000000000910", name: "动作冒险", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 } },
       { ...initialTag, tagId: "01980000-0000-7000-8000-000000000911", name: "益智解谜", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 } },
     ];
-    const fetchMock = vi.fn().mockResolvedValue(json({ createdItems, existingItems: [initialTag] }));
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ createdItems, existingItems: [initialTag] })).mockResolvedValueOnce(json({ ...initial, items: [initialTag, ...createdItems], summary: { ...initial.summary, activeTagCount: 3 } }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const { container } = render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
@@ -68,8 +107,11 @@ describe("TagManager", () => {
     const renamed = { ...initialTag, name: "动作游戏", version: 3 };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json(created, 201))
+      .mockResolvedValueOnce(json({ ...initial, items: [initialTag, created], summary: { ...initial.summary, activeTagCount: 2 } }))
       .mockResolvedValueOnce(json(renamed))
-      .mockResolvedValueOnce(new Response(null, { status: 204, headers: { ETag: '"v2"' } }));
+      .mockResolvedValueOnce(json({ ...initial, items: [renamed, created] }))
+      .mockResolvedValueOnce(new Response(null, { status: 204, headers: { ETag: '"v2"' } }))
+      .mockResolvedValueOnce(json({ ...initial, items: [created] }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const { container } = render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
@@ -97,7 +139,7 @@ describe("TagManager", () => {
     await user.clear(editName);
     await user.type(editName, "动作游戏");
     await user.click(within(editSheet).getByRole("button", { name: "保存标签" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/v1/admin/tags/${initialTag.tagId}`, expect.objectContaining({
+    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/v1/admin/tags/${initialTag.tagId}`, expect.objectContaining({
       method: "PATCH", headers: expect.objectContaining({ "If-Match": '"v2"' }), body: JSON.stringify({ name: "动作游戏" }),
     })));
 
@@ -111,7 +153,7 @@ describe("TagManager", () => {
     await user.type(within(dialog).getByRole("textbox", { name: /输入完整名称“动作游戏”确认/ }), "动作游戏");
     expect(confirm).toBeEnabled();
     await user.click(confirm);
-    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/v1/admin/tags/${initialTag.tagId}`, expect.objectContaining({
+    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(5, `/api/v1/admin/tags/${initialTag.tagId}`, expect.objectContaining({
       method: "DELETE", headers: expect.objectContaining({ "If-Match": '"v3"' }), body: JSON.stringify({ confirmName: "动作游戏" }),
     })));
     await waitFor(() => expect(screen.queryByRole("rowheader", { name: "动作游戏" })).not.toBeInTheDocument());
@@ -126,7 +168,9 @@ describe("TagManager", () => {
     const input = within(sheet).getByRole("textbox", { name: "标签名称" });
     fireEvent.change(input, { target: { value: "Action Duplicate" } });
     await user.click(within(sheet).getByRole("button", { name: "保存标签" }));
-    expect(await within(sheet).findByText(/已存在同名活动标签/)).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent("已存在同名活动标签");
+    expect(within(sheet).queryByRole("alert")).toBeNull();
+    expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveValue("Action Duplicate");
   });
 });

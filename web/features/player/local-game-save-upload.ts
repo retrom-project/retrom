@@ -8,7 +8,7 @@ export async function uploadLocalGameSave(draft: GameSaveDraft) {
     format: draft.payload.screenshot.type === "image/jpeg" ? "jpeg" : "png"});
   if ((!image && draft.payload.screenshot.size > 0) || !draft.payload.requestId) {throw Error("草稿截图不完整，已保留本地数据。");}
   const body = createSaveForm(draft.payload, image ?? {screenshot: new Blob(), format: "png"}, undefined);
-  const response = handleAuthenticationResponse(await fetch(`/api/v1/launches/${draft.launchId}/local-save`, {
+  const response = await handleAuthenticationResponse(await fetch(`/api/v1/launches/${draft.launchId}/local-save`, {
     method: "POST", credentials: "same-origin", headers: writeHeaders({"Idempotency-Key": draft.payload.requestId}), body,
   }));
   if (response.status === 409) {throw Error("原存档已更新或删除，无法覆盖。此浏览器中的草稿仍保留。");}

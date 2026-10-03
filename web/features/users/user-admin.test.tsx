@@ -1,4 +1,5 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UserAdmin, type AdminUser, type LinkPage, type UserPage } from "./user-admin";

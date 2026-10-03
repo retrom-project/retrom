@@ -1,5 +1,6 @@
 "use client";
 
+import { useToast } from "@/components/toast-provider";
 import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -60,11 +61,16 @@ export function ArcadeDependencyCard({
   const [target, setTarget] = useState<ArcadeDependencyNode | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
+  const { notify } = useToast();
+  const reportFileError = (message: string) => {
+    setFileError(message);
+    if (message) {notify({ tone: "bad", message });}
+  };
 
   const close = () => { setTarget(null); setFile(null); setFileError(""); };
   const submit = async () => {
-    if (!target || !file) { setFileError("请选择一个 ZIP 文件"); return; }
-    if (!file.name.toLowerCase().endsWith(".zip")) { setFileError("Parent ROM 必须是 ZIP 文件"); return; }
+    if (!target || !file) { reportFileError("请选择一个 ZIP 文件"); return; }
+    if (!file.name.toLowerCase().endsWith(".zip")) { reportFileError("Parent ROM 必须是 ZIP 文件"); return; }
     if (await onAttach(target, file)) {close();}
   };
 
@@ -81,8 +87,8 @@ export function ArcadeDependencyCard({
       {progress ? <p className="arcade-dependency-progress" role="status" aria-live="polite"><i className="button-spinner" aria-hidden="true" />{progressLabels[progress] ?? progress}</p> : null}
     </div>
     <ParentAttachmentDialog {...{
-      close, disabled, file, fileError, progress, setFile, setFileError, submit, target,
-    }} rootMachine={value.machine} />
+      close, disabled, file, fileError, progress, setFile, submit, target,
+    }} setFileError={reportFileError} rootMachine={value.machine} />
   </section>;
 }
 
@@ -151,9 +157,9 @@ function ParentAttachmentDialog({
     setFileError(selected && !selected.name.toLowerCase().endsWith(".zip") ? "Parent ROM 必须是 ZIP 文件" : "");
   };
   return <ConfirmDialog open={target !== null} title={`补充 ${target?.expectedLogicalName ?? "Parent ROM"}`} description={`这是 ${target?.requiredBy ?? rootMachine}.zip 的 Parent ROM。请选择对应 ROMset ZIP；系统按内容校验。`} confirmLabel="开始上传并校验" busy={disabled} onCancel={close} onConfirm={() => void submit()}>
-    <label className="arcade-parent-file">选择一个 ZIP<input type="file" accept=".zip,application/zip" disabled={disabled} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} /></label>
-    {file ? <p className="arcade-parent-selection"><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></p> : null}
-    {fileError ? <p className="field-error" role="alert">{fileError}</p> : null}
-    {progress ? <p className="arcade-dependency-progress" role="status" aria-live="polite"><i className="button-spinner" aria-hidden="true" />{progressLabels[progress] ?? progress}</p> : null}
+    <label className="arcade-parent-file">选择一个 ZIP<input type="file" aria-invalid={Boolean(fileError)} aria-describedby={fileError ? "parent-file-error" : undefined} accept=".zip,application/zip" disabled={disabled} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} /></label>
+    <p className="arcade-parent-selection"><strong>{file?.name ?? "尚未选择 ZIP 文件"}</strong><span>{file ? formatBytes(file.size) : "—"}</span></p>
+    <span id="parent-file-error" className="sr-only">{fileError}</span>
+    <p className="arcade-dependency-progress arcade-parent-progress" role="status" aria-live="polite">{progress ? <i className="button-spinner" aria-hidden="true" /> : null}{progressLabels[progress] ?? progress}</p>
   </ConfirmDialog>;
 }

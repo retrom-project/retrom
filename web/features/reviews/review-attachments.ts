@@ -20,7 +20,7 @@ type AttachmentParams = {
   refreshReview: () => Promise<ReviewWorkspace>;
   flushDraft: () => Promise<boolean>;
   run: Runner;
-  setToast: Dispatch<SetStateAction<ToastMessage | null>>;
+  setToast: (toast: ToastMessage) => void;
 };
 
 function errorMessage(caught: unknown, fallback: string) {

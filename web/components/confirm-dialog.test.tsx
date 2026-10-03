@@ -6,6 +6,25 @@ import { ConfirmDialog } from "./confirm-dialog";
 afterEach(cleanup);
 
 describe("ConfirmDialog", () => {
+  it("retains modal focus through busy, failure, escaped focus and cancellation", async () => {
+    const user = userEvent.setup();
+    const cancel = vi.fn();
+    const view = render(<><button>背景操作</button><ConfirmDialog open title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    const confirm = screen.getByRole("button", { name: "确认" });
+    confirm.focus();
+    view.rerender(<><button>背景操作</button><ConfirmDialog open busy title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    expect(screen.getByRole("alertdialog")).toHaveFocus();
+    await user.keyboard("{Escape}{Tab}");
+    expect(cancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toHaveFocus();
+    view.rerender(<><button>背景操作</button><ConfirmDialog open title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    expect(confirm).toHaveFocus();
+    screen.getByRole("button", { name: "背景操作" }).focus();
+    expect(screen.getByRole("alertdialog")).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard("{Escape}");
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
   it("focuses the safe action, traps keyboard focus, and cancels with Escape", async () => {
     const user = userEvent.setup();
     const cancel = vi.fn();

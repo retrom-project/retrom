@@ -373,6 +373,7 @@
 .arcade-dependency-progress { margin: 10px 0 0; padding: 9px 10px; display: flex; align-items: center; gap: 7px; color: var(--purple-dark); border-radius: var(--radius-panel); background: var(--purple-soft); font-size: var(--text-caption); }
 .arcade-parent-file { display: grid; gap: 8px; font-weight: var(--weight-semibold); }
 .arcade-parent-file input { width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
+.arcade-parent-progress { min-block-size: 1.5em; }
 .arcade-parent-selection { margin: 10px 0 0 !important; display: flex; justify-content: space-between; gap: 12px; }
 .arcade-parent-selection strong { min-width: 0; overflow-wrap: anywhere; }
 .arcade-parent-selection span { flex: 0 0 auto; color: var(--muted); }

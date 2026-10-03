@@ -10,16 +10,16 @@ const content = (progress: RuntimeStartupTaskV1["progress"], state: RuntimeStart
 afterEach(cleanup);
 
 it("keeps the heading fixed as real startup stages change", () => {
-  const {rerender} = render(<PlayerLoading {...props} tasks={[content(null)]} />);
+  const {rerender} = render(<PlayerLoading onRetry={() => undefined} {...props} tasks={[content(null)]} />);
   expect(screen.getByText("游戏启动中", {selector: "strong"})).toBeVisible();
-  rerender(<PlayerLoading {...props} message="核心初始化中" tasks={[{id: "core", kind: "CORE_INITIALIZATION", state: "RUNNING", progress: null}]} />);
+  rerender(<PlayerLoading onRetry={() => undefined} {...props} message="核心初始化中" tasks={[{id: "core", kind: "CORE_INITIALIZATION", state: "RUNNING", progress: null}]} />);
   expect(screen.getByText("游戏启动中", {selector: "strong"})).toBeVisible();
   expect(screen.getByText("核心初始化")).toBeVisible();
   expect(screen.queryByText("核心初始化中")).toBeNull();
 });
 
 it.each([[0, 0], [9, 0], [10, 1], [72, 7], [99, 9], [100, 10]])("fills %s percent as %s of ten slots without implying stage completion", (percentage, filled) => {
-  render(<PlayerLoading {...props} tasks={[content({loadedBytes: percentage, totalBytes: 100})]} />);
+  render(<PlayerLoading onRetry={() => undefined} {...props} tasks={[content({loadedBytes: percentage, totalBytes: 100})]} />);
   const progress = screen.getByRole("progressbar", {name: "游戏内容进度"});
   expect(progress).toHaveAttribute("aria-valuenow", String(percentage));
   expect(progress.querySelectorAll(".player-startup-cell")).toHaveLength(10);
@@ -30,7 +30,7 @@ it.each([[0, 0], [9, 0], [10, 1], [72, 7], [99, 9], [100, 10]])("fills %s percen
 });
 
 it("separates completed, measured and indeterminate work in the same three-column list", () => {
-  render(<PlayerLoading {...props} tasks={[
+  render(<PlayerLoading onRetry={() => undefined} {...props} tasks={[
     {id: "bios", kind: "BIOS", state: "COMPLETED", progress: null},
     content({loadedBytes: 72, totalBytes: 100}),
     {id: "core", kind: "CORE_INITIALIZATION", state: "RUNNING", progress: null},
@@ -49,7 +49,7 @@ it("separates completed, measured and indeterminate work in the same three-colum
 });
 
 it("freezes failed progress and announces failure without spinning or filling unknown work", () => {
-  const {container} = render(<PlayerLoading {...props} state="error" message="启动资源不可用" tasks={[content({loadedBytes: 72, totalBytes: 100})]} />);
+  const {container} = render(<PlayerLoading onRetry={() => undefined} {...props} state="error" message="启动资源不可用" tasks={[content({loadedBytes: 72, totalBytes: 100})]} />);
   expect(screen.getByText("游戏启动失败", {selector: "strong"})).toBeVisible();
   expect(screen.getByText("启动资源不可用")).toBeVisible();
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "72");
@@ -58,7 +58,7 @@ it("freezes failed progress and announces failure without spinning or filling un
 });
 
 it("retains the last aggregate progress when a module without task events fails", () => {
-  render(<PlayerLoading {...props} state="error" message="加载失败" progress={{loadedBytes: 72, totalBytes: 100}} />);
+  render(<PlayerLoading onRetry={() => undefined} {...props} state="error" message="加载失败" progress={{loadedBytes: 72, totalBytes: 100}} />);
   expect(screen.getByRole("progressbar", {name: "游戏内容进度"})).toHaveAttribute("aria-valuenow", "72");
   expect(screen.getByRole("img", {name: "游戏内容失败"})).toBeVisible();
   expect(screen.queryByRole("img", {name: "游戏内容进行中"})).toBeNull();

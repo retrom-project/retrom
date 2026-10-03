@@ -245,7 +245,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onExitRequested: handleRuntimeExitRequested, reportProgress,
   }), [reportStartupTask, userId, experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
     immersive.requestMenu, initializeCursor, launchId, reportPlayerEvent, reportProgress, revealControlsAtTopEdge, showControls]);
-  usePlayerBootstrap(bootstrapParams, cancelBootstrap);
+  const retryStartup = usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
     orientationButtonRef, running, pausedRef, chromePinned, controlsTimer,
@@ -294,7 +294,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onToggleDebug: toggleDebug,
     onGameSurface: () => resumeFromSurface("pause-overlay"), onExit: () => void exitRuntime(),
   };
-  return <PlayerShellView startupTasks={startupTasks} canLoadOnDemand={contentLoadingCapability === "ON_DEMAND_AND_PRELOAD"} nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
+  return <PlayerShellView onRetryStartup={retryStartup} startupTasks={startupTasks} canLoadOnDemand={contentLoadingCapability === "ON_DEMAND_AND_PRELOAD"} nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
     chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}
     returnTo={playerReturnTo} gameTitle={gameTitle}
     orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef}
@@ -305,7 +305,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
 
 type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
 
-function PlayerShellView({startupTasks, canLoadOnDemand, nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+function PlayerShellView({onRetryStartup, startupTasks, canLoadOnDemand, nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+  onRetryStartup: () => void;
   startupTasks: RuntimeStartupTaskV1[];
   canLoadOnDemand: boolean;
   nativeExitDialog: ReactNode; experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
@@ -323,7 +324,7 @@ function PlayerShellView({startupTasks, canLoadOnDemand, nativeExitDialog, exper
     onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
     {interactive ? nativeExitDialog : null}
     {interactive && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
-    <PlayerStage startupTasks={startupTasks} canLoadOnDemand={canLoadOnDemand} blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
+    <PlayerStage onRetryStartup={onRetryStartup} startupTasks={startupTasks} canLoadOnDemand={canLoadOnDemand} blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
     <NativeSaveToast visible={interactive && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
@@ -344,7 +345,8 @@ function ImmersiveGameEditorLayer({blocked, immersive, overlay, runtime, onClose
   return editor ? <GameEditorPanel editor={editor} immersive onClose={onClose} /> : null;
 }
 
-export function PlayerStage({startupTasks = [], canLoadOnDemand = false, blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
+export function PlayerStage({onRetryStartup, startupTasks = [], canLoadOnDemand = false, blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
+  onRetryStartup: () => void;
   startupTasks?: RuntimeStartupTaskV1[];
   canLoadOnDemand?: boolean;
   blocked: boolean; stage: RefObject<HTMLDivElement | null>; state: ShellState; message: string;
@@ -352,7 +354,7 @@ export function PlayerStage({startupTasks = [], canLoadOnDemand = false, blocked
 }) {
   return <div className="player-stage" inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
     <div className="player-runtime-mount" ref={stage} tabIndex={-1} />
-    {state !== "running" ? <PlayerLoading tasks={startupTasks} canLoadOnDemand={canLoadOnDemand} state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
+    {state !== "running" ? <PlayerLoading onRetry={onRetryStartup} tasks={startupTasks} canLoadOnDemand={canLoadOnDemand} state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
   </div>;
 }
 

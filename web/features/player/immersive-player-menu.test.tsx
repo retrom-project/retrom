@@ -10,7 +10,7 @@ describe("ImmersivePlayerMenu", () => {
     document.body.append(iframe);
     iframe.focus();
     const props = {saveAvailable: true, onCancel: vi.fn(), onSelect: vi.fn(), onConfirm: vi.fn()};
-    const menu = {kind: "menu" as const, selected: 0 as const, error: "", notice: "", pending: false};
+    const menu = {kind: "menu" as const, selected: 0 as const, pending: false};
     const view = render(<ImmersivePlayerMenu {...props} overlay={menu} />);
     const buttons = within(view.container).getAllByRole("button");
     expect(buttons[0]).toHaveFocus();
@@ -32,7 +32,7 @@ describe("ImmersivePlayerMenu", () => {
 
   it("keeps focus through pending saves and restores the selected action after failure", () => {
     const props = {saveAvailable: true, onCancel: vi.fn(), onSelect: vi.fn(), onConfirm: vi.fn()};
-    const menu = {kind: "menu" as const, selected: 1 as const, error: "", notice: "", pending: false};
+    const menu = {kind: "menu" as const, selected: 1 as const, pending: false};
     const view = render(<ImmersivePlayerMenu {...props} overlay={menu} />);
     expect(within(view.container).getByRole("button", {name: "创建存档"})).toHaveFocus();
     view.rerender(<ImmersivePlayerMenu {...props} overlay={{...menu, pending: true}} />);
@@ -40,13 +40,13 @@ describe("ImmersivePlayerMenu", () => {
     expect(dialog).toHaveFocus();
     fireEvent.keyDown(dialog, {key: "Tab"});
     expect(dialog).toHaveFocus();
-    view.rerender(<ImmersivePlayerMenu {...props} overlay={{...menu, error: "保存失败"}} />);
+    view.rerender(<ImmersivePlayerMenu {...props} overlay={menu} />);
     expect(within(view.container).getByRole("button", {name: "创建存档"})).toHaveFocus();
   });
   it("puts the cursor switch between cancel and save without invoking exit", () => {
     const onSelect = vi.fn(); const onConfirm = vi.fn();
     const view = render(<ImmersivePlayerMenu gamepadCursor={{enabled: true, toggle: vi.fn()}} saveAvailable
-      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 3}}
+      overlay={{kind: "menu", pending: false, selected: 3}}
       onCancel={vi.fn()} onSelect={onSelect} onConfirm={onConfirm} />);
     const content = within(view.container);
     expect(content.getAllByRole("button").map(button => button.textContent)).toEqual([
@@ -60,7 +60,7 @@ describe("ImmersivePlayerMenu", () => {
   });
   it("shows NO_SAVE in the controller menu and disables save", () => {
     const view = render(<ImmersivePlayerMenu checkpointSemantics="NO_SAVE" saveAvailable={false}
-      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+      overlay={{kind: "menu", pending: false, selected: 0}}
       onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
     const menu = within(view.container);
     expect(menu.getByRole("button", {name: "创建存档"})).toBeDisabled();
@@ -70,7 +70,7 @@ describe("ImmersivePlayerMenu", () => {
     const onConfirm = vi.fn();
     const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable
       nativeSave={{capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}}
-      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 1}}
+      overlay={{kind: "menu", pending: false, selected: 1}}
       onCancel={vi.fn()} onConfirm={onConfirm} onSelect={vi.fn()} />);
     const content = within(view.container);
     const button = content.getByRole("button", {name: "创建存档"});
@@ -84,7 +84,7 @@ describe("ImmersivePlayerMenu", () => {
     const onConfirm = vi.fn();
     const onSelect = vi.fn();
     const view = render(<ImmersivePlayerMenu
-      overlay={{ kind: "menu", error: "", notice: "", pending: false, selected: 0 }}
+      overlay={{ kind: "menu", pending: false, selected: 0 }}
       saveAvailable
       onCancel={onCancel}
       onConfirm={onConfirm}
@@ -104,7 +104,7 @@ describe("ImmersivePlayerMenu", () => {
   it("shows game editing when the runtime offers it", () => {
     const onConfirm = vi.fn();
     const onSelect = vi.fn();
-    const view = render(<ImmersivePlayerMenu overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 4}}
+    const view = render(<ImmersivePlayerMenu overlay={{kind: "menu", pending: false, selected: 4}}
       saveAvailable editorAvailable onCancel={vi.fn()} onConfirm={onConfirm} onSelect={onSelect} />);
     const edit = within(view.container).getByRole("button", {name: "游戏修改"});
     expect(edit).toHaveAttribute("aria-current", "true");
@@ -116,7 +116,7 @@ describe("ImmersivePlayerMenu", () => {
   it("disables save with an explicit reason when the runtime is incompatible", () => {
     const callbacks = { onCancel: vi.fn(), onConfirm: vi.fn(), onSelect: vi.fn() };
     const view = render(<ImmersivePlayerMenu
-      overlay={{ kind: "menu", error: "", notice: "", pending: false, selected: 0 }}
+      overlay={{ kind: "menu", pending: false, selected: 0 }}
       saveAvailable={false}
       {...callbacks}
     />);
@@ -140,7 +140,7 @@ describe("ImmersivePlayerMenu", () => {
 
 it("explains native save semantics in the controller menu", () => {
   const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable
-    overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+    overlay={{kind: "menu", pending: false, selected: 0}}
     onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
   expect(within(view.container).getByRole("dialog")).toHaveTextContent("请先在游戏内保存");
   expect(within(view.container).getByRole("dialog")).toHaveTextContent("恢复后请从游戏菜单读档");
@@ -148,7 +148,7 @@ it("explains native save semantics in the controller menu", () => {
 
 it("disables unchanged native saves while explaining local drafts", () => {
   const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable={false} saveStatus="原生存档已同步"
-    overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+    overlay={{kind: "menu", pending: false, selected: 0}}
     onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
   expect(within(view.container).getByRole("button", {name: "创建存档"})).toBeDisabled();
   expect(within(view.container).getByText("原生存档已同步")).toBeVisible();

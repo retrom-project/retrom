@@ -13,6 +13,8 @@ type AuthState = {
   acceptContext: (context: AuthContext) => void;
   authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   logout: () => Promise<void>;
+  recovery: "idle" | "pending" | "failed";
+  recover: () => Promise<void>;
 };
 
 const Context = createContext<AuthState | null>(null);
@@ -28,6 +30,8 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
   const [context, setContext] = useState(initialContext);
   const contextRef = useRef(context);
   const router = useRouter();
+  const [recovery, setRecovery] = useState<AuthState["recovery"]>("idle");
+  const recoveryRequest = useRef<Promise<void> | null>(null);
 
   const acceptContext = useCallback((next: AuthContext) => {
     contextRef.current = next;
@@ -41,18 +45,40 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
     router.replace(`/login?returnTo=${encodeURIComponent(currentReturnTo())}`);
   }, [acceptContext, router]);
 
-  useEffect(() => {
-    configureAuthenticatedClient({ csrfToken: context.csrfToken, onAuthenticationFailure: clearAndLogin });
-    return () => configureAuthenticatedClient({ csrfToken: null, onAuthenticationFailure: null });
-  }, [clearAndLogin, context.csrfToken]);
-
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/v1/auth/context", { cache: "no-store", credentials: "same-origin" });
+    const response = await fetch("/api/v1/auth/context", { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(10_000) });
     if (!response.ok) {throw new Error(`认证上下文请求失败（HTTP ${response.status}）`);}
     const next = await response.json() as AuthContext;
     acceptContext(next);
     return next;
   }, [acceptContext]);
+
+  const recover = useCallback(() => {
+    if (recoveryRequest.current) {return recoveryRequest.current;}
+    const previousUser = contextRef.current.user?.userId;
+    setRecovery("pending");
+    const request = refresh().then((next) => {
+      if (next.authenticationState === "UNAUTHENTICATED") {
+        clearUserStorage(previousUser);
+        clearAndLogin();
+      } else if (next.instanceState === "INITIALIZATION_REQUIRED") {
+        router.replace("/setup");
+      } else {
+        if (["/login", "/setup", "/register", "/reset-password"].includes(window.location.pathname)) {
+          router.replace("/");
+        }
+        router.refresh();
+      }
+      setRecovery("idle");
+    }).catch(() => setRecovery("failed")).finally(() => {recoveryRequest.current = null;});
+    recoveryRequest.current = request;
+    return request;
+  }, [clearAndLogin, refresh, router]);
+
+  useEffect(() => {
+    configureAuthenticatedClient({ csrfToken: context.csrfToken, onAuthenticationFailure: () => {void recover();} });
+    return () => configureAuthenticatedClient({ csrfToken: null, onAuthenticationFailure: null });
+  }, [context.csrfToken, recover]);
 
   const authenticatedFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const method = (init.method ?? "GET").toUpperCase();
@@ -74,7 +100,7 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
     router.refresh();
   }, [acceptContext, authenticatedFetch, router]);
 
-  const value = useMemo(() => ({ context, refresh, acceptContext, authenticatedFetch, logout }), [acceptContext, authenticatedFetch, context, logout, refresh]);
+  const value = useMemo(() => ({ context, refresh, acceptContext, authenticatedFetch, logout, recovery, recover }), [acceptContext, authenticatedFetch, context, logout, refresh, recovery, recover]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
