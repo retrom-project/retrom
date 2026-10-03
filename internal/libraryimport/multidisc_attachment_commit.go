@@ -152,10 +152,6 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 	}
 }
 
-func (service *Service) SyncMultiDiscAttachmentCancellation(ctx context.Context, jobID string) {
-	cleanup.Error("sync multi-disc attachment cancellation", service.attachmentTerminals.SyncCancellation(ctx, jobID))
-}
-
 func (service *Service) finishMultiDiscAttachmentCancellation(
 	ctx context.Context,
 	candidate multiDiscAttachmentCandidate,

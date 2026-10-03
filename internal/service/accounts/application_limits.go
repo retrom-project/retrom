@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"retrom/internal/authn"
 
@@ -22,14 +23,27 @@ func (service *Service) LoginRateLimited(
 	ctx context.Context,
 	username, password, clientIP string,
 ) (Session, error) {
+	timing := &loginTiming{started: time.Now()}
+	session, err := service.loginRateLimited(ctx, username, password, clientIP, timing)
+	timing.report(ctx, err)
+	return session, err
+}
+
+func (service *Service) loginRateLimited(
+	ctx context.Context, username, password, clientIP string, timing *loginTiming,
+) (Session, error) {
 	account := RateLimitSubject{
 		Scope: "LOGIN_ACCOUNT", Subject: canonicalLoginSubject(username), Threshold: 5,
 	}
 	ip := RateLimitSubject{Scope: "LOGIN_IP", Subject: clientIP, Threshold: 30}
 	if err := service.modules.Limiter.Check(ctx, account, ip); err != nil {
+		timing.limits = time.Since(timing.started)
 		return Session{}, fmt.Errorf("authentication limit check: %w", err)
 	}
-	session, err := service.Login(ctx, username, password)
+	timing.limits = time.Since(timing.started)
+	session, err := service.modules.Authentication.login(ctx, username, password, []RateLimitKey{
+		service.modules.Limiter.key(account), service.modules.Limiter.key(ip),
+	}, timing)
 	if errors.Is(err, ErrAuthentication) {
 		if rateErr := service.modules.Limiter.Record(ctx, account, ip); rateErr != nil {
 			return Session{}, fmt.Errorf("authentication limit record: %w", rateErr)
@@ -38,9 +52,6 @@ func (service *Service) LoginRateLimited(
 	}
 	if err != nil {
 		return Session{}, err
-	}
-	if err := service.modules.Limiter.Clear(ctx, account); err != nil {
-		return Session{}, fmt.Errorf("authentication limit clear: %w", err)
 	}
 	return session, nil
 }

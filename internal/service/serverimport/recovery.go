@@ -2,11 +2,18 @@ package serverimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/serversource"
+)
+
+var (
+	ErrDATUnavailable         = errors.New("DAT_UNAVAILABLE")
+	ErrDATMachineUndefined    = errors.New("DAT_MACHINE_UNDEFINED")
+	ErrDATEntriesUnverifiable = errors.New("DAT_ENTRIES_UNVERIFIABLE")
 )
 
 type CandidateEvidence struct {
@@ -74,7 +81,7 @@ func (service *Recovery) ExpectedDATEntries(
 		return nil, fmt.Errorf("read expected DAT entries: %w", err)
 	}
 	if len(entries) == 0 {
-		return nil, ErrCatalogInvalid
+		return nil, ErrDATEntriesUnverifiable
 	}
 	return entries, nil
 }

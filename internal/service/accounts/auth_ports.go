@@ -49,8 +49,13 @@ type AuthWriter interface {
 	Revoke(context.Context, string, int64) error
 }
 type AuthScope struct {
-	Read  AuthReader
-	Write AuthWriter
+	Read   AuthReader
+	Write  AuthWriter
+	Limits LoginLimitRecords
+}
+type LoginLimitRecords interface {
+	RateLimitReader
+	Clear(context.Context, RateLimitKey) error
 }
 type AuthRepository interface {
 	Credential(context.Context, string) (LoginCredential, bool, error)

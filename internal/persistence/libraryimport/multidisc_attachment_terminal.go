@@ -158,23 +158,6 @@ VALUES(?,'IMPORT_ITEM',?,'FAILED',?,?)
 	return nil
 }
 
-func (repository *MultiDiscAttachmentFinalization) SyncCancellation(
-	ctx context.Context, jobID string, nowMS int64,
-) error {
-	_, err := recordstore.UpdateReviewMultidiscAttachments(ctx, repository.database, recordstore.Update{
-		Set: `state='CANCELLED',error_code='CANCELLED',
-diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{Where: `job_id=? AND state='PENDING'
-AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')`, Args: []any{jobID, jobID}},
-		Values: []any{nowMS, nowMS},
-	})
-	if err != nil {
-		return fmt.Errorf("sync cancelled multi-disc attachment: %w", err)
-	}
-	return nil
-}
-
 func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
 	ctx context.Context, write libraryservice.MultiDiscAttachmentCancellationWrite,
 ) (bool, error) {

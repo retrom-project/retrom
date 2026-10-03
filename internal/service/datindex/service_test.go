@@ -3,6 +3,7 @@ package datindex
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -21,8 +22,12 @@ func (*datMemory) MachineNames(context.Context, string) ([]string, error) {
 	return []string{"bios", "unresolved-parent"}, nil
 }
 
-func (*datMemory) RequiredEntries(context.Context, string, string) ([]Entry, error) {
-	return []Entry{}, nil
+func (*datMemory) RequiredEntries(_ context.Context, _ string, machine string) ([]Entry, error) {
+	if machine == "unresolved-parent" {
+		return []Entry{}, nil
+	}
+	crc := "12345678"
+	return []Entry{{Name: "bios.bin", CRC32: &crc, SizeBytes: 4, Status: "GOOD"}}, nil
 }
 
 func (memory *datMemory) UpsertRequirement(_ context.Context, requirement Requirement) error {
@@ -35,14 +40,16 @@ func (memory *datMemory) DisableStale(_ context.Context, retirement Retirement) 
 	return nil
 }
 
-func TestRequirementSynchronizationRetainsUnresolvedParentSlot(t *testing.T) {
+func TestRequirementSynchronizationExcludesUnverifiableSlots(t *testing.T) {
 	t.Parallel()
 	memory := &datMemory{}
 	err := SyncRequirements(t.Context(), memory, "version", time.UnixMilli(1234))
-	if err != nil || len(memory.requirements) != 2 || memory.requirements[1].LogicalName != "unresolved-parent.zip" {
+	if err != nil || len(memory.requirements) != 1 || memory.requirements[0].LogicalName != "bios.zip" {
 		t.Fatalf("requirements=%+v error=%v", memory.requirements, err)
 	}
-	if memory.retired == nil || *memory.retired != (Retirement{ProviderID: "provider", TargetID: "target", CurrentVersionID: "version", AtMS: 1234}) {
+	if memory.retired == nil || !reflect.DeepEqual(*memory.retired, Retirement{
+		ProviderID: "provider", TargetID: "target", CurrentVersionID: "version", AtMS: 1234, Machines: []string{"bios"},
+	}) {
 		t.Fatalf("retirement=%+v", memory.retired)
 	}
 }

@@ -7,9 +7,35 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/service/accounts"
 	"retrom/internal/testsupport"
 )
+
+func TestRateLimitReadDoesNotQueueBehindBackgroundWriter(t *testing.T) {
+	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "limits.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := database.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	repository := NewRateLimits(database.ReadOnly, database.SQL)
+	tx, err := database.SQL.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbapi.Rollback(tx)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	_, _, err = repository.Read(ctx, accounts.RateLimitKey{Scope: "LOGIN_ACCOUNT"})
+	if err != nil {
+		t.Fatalf("rate limit read waited for writer: %v", err)
+	}
+}
 
 func TestAccountAndIPRateLimitFailuresRollbackTogether(t *testing.T) {
 	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
@@ -21,7 +47,7 @@ func TestAccountAndIPRateLimitFailuresRollbackTogether(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	repository := NewRateLimits(database.SQL)
+	repository := NewRateLimits(database.ReadOnly, database.SQL)
 	err = repository.WithWrite(t.Context(), func(records accounts.RateLimitRecords) error {
 		for _, scope := range []string{"LOGIN_ACCOUNT", "LOGIN_IP"} {
 			if err := records.Write(t.Context(), accounts.RateLimitBucket{Key: accounts.RateLimitKey{Scope: scope}, WindowStarted: 100, Failures: 1, UpdatedAt: 100}); err != nil {

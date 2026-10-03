@@ -48,8 +48,6 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 	}
 	if !pending {
 		server.importDeps.Importer.SyncImportGroupCancellation(request.Context(), result.JobID)
-		server.importDeps.Importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
-		server.importDeps.Importer.SyncMultiDiscAttachmentCancellation(request.Context(), result.JobID)
 	} else {
 		server.importDeps.Importer.CancelImportGroupJob(result.JobID)
 	}

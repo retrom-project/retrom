@@ -70,11 +70,6 @@ type ArcadeParentRetryableCommit struct {
 	NowMS                                 int64
 }
 
-type ArcadeParentCancellationSync struct {
-	JobID string
-	NowMS int64
-}
-
 type ArcadeParentAttachmentCancellation struct {
 	AttachmentID, ItemID, JobID, WorkerID string
 	NowMS                                 int64
@@ -88,6 +83,5 @@ type ArcadeParentCommitRepository interface {
 	CommitAccepted(context.Context, ArcadeParentAcceptedCommit) error
 	FinishRejected(context.Context, ArcadeParentRejectedCommit) error
 	FinishRetryable(context.Context, ArcadeParentRetryableCommit) error
-	SyncCancellation(context.Context, ArcadeParentCancellationSync) error
 	FinishCancellation(context.Context, ArcadeParentAttachmentCancellation) (bool, error)
 }

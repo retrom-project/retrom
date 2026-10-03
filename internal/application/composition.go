@@ -185,6 +185,7 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	server.ImportAdmissions = importDeps.Admissions
 	server.JobService = composition.WithSourceJobCancellation(server.JobService, sourceImportService)
 	server.JobService = librarycomposition.WithJobCancellation(server.JobService, importDeps.Executions)
+	server.JobService = librarycomposition.WithAttachmentCancellation(server.JobService, importDeps.AttachmentExecutions)
 	server.JobService = server.JobService.WithRetryWakeups(map[string]jobs.RetryWakeup{
 		"IMPORT_GROUP": func(ctx context.Context, id string) { importer.NotifyImportGroup(ctx, id) },
 		"REVIEW_ARCADE_PARENT_VALIDATE": func(ctx context.Context, id string) {

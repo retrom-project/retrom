@@ -61,7 +61,7 @@ func NewAccounts(
 				Now:       now,
 			},
 		),
-		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(writer), credentials, now),
+		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(reader, writer), credentials, now),
 	}
 	return accounts.New(modules, mode), nil
 }

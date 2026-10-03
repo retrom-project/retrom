@@ -35,7 +35,7 @@ func (repository *Authentication) WithWrite(ctx context.Context, work func(accou
 	}
 	defer dbapi.Rollback(tx)
 	records := authRecords{tx}
-	if err := work(accounts.AuthScope{Read: records, Write: records}); err != nil {
+	if err := work(accounts.AuthScope{Read: records, Write: records, Limits: rateLimitRecords{tx}}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

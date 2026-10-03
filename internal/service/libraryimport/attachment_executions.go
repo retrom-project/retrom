@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"retrom/internal/service/cleanupjobs"
 )
 
 type AttachmentExecution struct {
@@ -11,17 +13,88 @@ type AttachmentExecution struct {
 	ExecutionNo, Attempt, MaxAttempts, Version int64
 	AvailableMS                                int64
 	LeaseMS, DeadlineMS                        *int64
+	Cancellable                                bool
+	Retryable                                  *bool
 }
 
 type AttachmentTransition struct {
 	State, Code, Event string
 	AvailableMS, NowMS int64
 	Retryable          *bool
+	Reason             string
 }
 
 type AttachmentRecoveryRecords interface {
+	cleanupjobs.JobWriter
+	FinishedInputs(context.Context) ([]AttachmentInputRelease, error)
+	Current(context.Context, string) (AttachmentExecution, error)
 	Interrupted(context.Context, int64) ([]AttachmentExecution, error)
 	Transition(context.Context, AttachmentExecution, AttachmentTransition) error
+}
+
+type AttachmentInputRelease struct {
+	ID      string
+	Version int64
+}
+
+func scheduleFinishedAttachmentInputs(ctx context.Context, records AttachmentRecoveryRecords, now int64) error {
+	inputs, err := records.FinishedInputs(ctx)
+	if err != nil {
+		return fmt.Errorf("read finished attachment inputs: %w", err)
+	}
+	scheduler := cleanupjobs.NewScheduler(nil)
+	for _, input := range inputs {
+		if _, err := scheduler.Queue(ctx, records, cleanupjobs.ScheduleRequest{
+			Scope:        cleanupjobs.Scope{Type: cleanupjobs.ScopeUploadConsumption, ID: input.ID},
+			ScopeVersion: input.Version, Reason: cleanupjobs.ReasonUploadConsumed, NowMS: now,
+		}); err != nil {
+			return fmt.Errorf("release attachment input: %w", err)
+		}
+	}
+	return nil
+}
+
+func (service *AttachmentExecutions) CancelJob(
+	ctx context.Context, request ImportJobCancellation,
+) (ImportCancellationResult, error) {
+	request, err := normalizeImportCancellation(request)
+	if err != nil {
+		return ImportCancellationResult{}, err
+	}
+	var result ImportCancellationResult
+	err = service.repository.WithRecovery(ctx, func(records AttachmentRecoveryRecords) error {
+		before, err := records.Current(ctx, request.JobID)
+		if err != nil {
+			return fmt.Errorf("read attachment cancellation: %w", err)
+		}
+		if before.ScopeID != request.ImportID || before.Version != request.ExpectedVersion || !attachmentCancellable(before) {
+			return ErrVersionConflict
+		}
+		state := "CANCELLED"
+		if before.State == "RUNNING" {
+			state = "CANCEL_REQUESTED"
+		}
+		now := service.now().UnixMilli()
+		if err := records.Transition(ctx, before, AttachmentTransition{
+			State: state, Event: state, NowMS: now, AvailableMS: now, Reason: request.Reason,
+		}); err != nil {
+			return fmt.Errorf("persist attachment cancellation: %w", err)
+		}
+		result = ImportCancellationResult{
+			JobID: before.ID, State: state,
+			Version: before.Version + 1, ExecutionNo: before.ExecutionNo, Pending: state == "CANCEL_REQUESTED",
+		}
+		return scheduleFinishedAttachmentInputs(ctx, records, now)
+	})
+	if err != nil {
+		return ImportCancellationResult{}, fmt.Errorf("cancel attachment: %w", err)
+	}
+	return result, nil
+}
+
+func attachmentCancellable(before AttachmentExecution) bool {
+	return before.Cancellable && (before.State == "QUEUED" || before.State == "RUNNING" ||
+		before.State == "FAILED" && before.Retryable != nil && *before.Retryable)
 }
 
 type AttachmentExecutionRepository interface {
@@ -60,7 +133,7 @@ func (service *AttachmentExecutions) Recover(ctx context.Context) error {
 				}
 			}
 		}
-		return nil
+		return scheduleFinishedAttachmentInputs(ctx, records, now)
 	})
 	if err != nil {
 		return fmt.Errorf("recover attachments: %w", err)

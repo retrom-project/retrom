@@ -98,7 +98,6 @@ type MultiDiscAttachmentTerminalRepository interface {
 	Reject(context.Context, MultiDiscAttachmentRejectWrite) error
 	TryRetry(context.Context, MultiDiscAttachmentRetryWrite) (MultiDiscAttachmentRetryResult, error)
 	FailRetryable(context.Context, MultiDiscAttachmentRetryWrite) error
-	SyncCancellation(context.Context, string, int64) error
 	FinishCancellation(context.Context, MultiDiscAttachmentCancellationWrite) (bool, error)
 }
 

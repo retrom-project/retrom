@@ -77,6 +77,9 @@ func insertArcadeParentCommitTerminalFixture(
 	t *testing.T, database dbapi.DB, kind, jobState string,
 ) {
 	t.Helper()
+	metadataExec(t, database, `INSERT INTO upload_files
+(id,upload_session_id,relative_path,declared_size_bytes,state,created_at_ms,updated_at_ms)
+VALUES('parent-upload','upload','parent.zip',1,'PENDING',1,1)`)
 	metadataExec(t, database, `
 INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
@@ -94,9 +97,9 @@ VALUES('parent-job','IMPORT_ITEM','item',?, ?,1,'{}',1,?,1,4,1,1,1,100,1,1,1,'wo
 INSERT INTO review_arcade_parent_attachments(
 id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,expected_logical_name,
 required_by_machine,depth,provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,
-job_id,version,created_at_ms,updated_at_ms)
+job_id,version,created_at_ms,updated_at_ms,upload_file_id)
 SELECT 'attachment','item','item','snapshot','parent','parent.zip','root',1,binding.provider_id,binding.target_id,
-'parent-dat','parent.zip','PENDING','{"schemaVersion":1}','parent-job',1,1,1
+'parent-dat','parent.zip','PENDING','{"schemaVersion":1}','parent-job',1,1,1,'parent-upload'
 FROM runtime_target_bindings binding
 WHERE binding.core_id=(SELECT default_core_id FROM platform_instances WHERE id=(SELECT target_platform_instance_id FROM import_jobs WHERE id='import'))
 LIMIT 1`)

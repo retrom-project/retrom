@@ -76,9 +76,10 @@ FROM bios_requirements
 WHERE source_kind='DAT_MACHINE'
 AND enabled=1
 `).Scan(&requirements); err != nil ||
-		requirements != 47 {
+		requirements != 45 {
 		t.Fatalf("active DAT requirements = %d, error=%v", requirements, err)
 	}
+	assertVerifiableDATRequirements(t, database.SQL)
 	var expansionRequirements int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM bios_requirements
@@ -135,4 +136,20 @@ SELECT (SELECT is_active FROM dat_versions WHERE id=?),
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return selectedActive != 1 }, func() bool { return selectedRequirements == 0 }), "selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)
+}
+
+func assertVerifiableDATRequirements(t *testing.T, database dbapi.DB) {
+	t.Helper()
+	var invalid, undefinedDependencies int
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT
+ (SELECT count(*) FROM bios_requirements requirement WHERE source_kind='DAT_MACHINE' AND enabled=1 AND (
+ NOT EXISTS(SELECT 1 FROM dat_machines machine WHERE machine.dat_version_id=requirement.source_version
+ AND machine.machine_name=requirement.dat_machine_name) OR
+ NOT EXISTS(SELECT 1 FROM dat_rom_entries entry WHERE entry.dat_version_id=requirement.source_version
+ AND entry.machine_name=requirement.dat_machine_name AND entry.status<>'NODUMP'))),
+ (SELECT count(DISTINCT dat_version_id) FROM dat_machines WHERE romof='psarc95')`).
+		Scan(&invalid, &undefinedDependencies)
+	if err != nil || invalid != 0 || undefinedDependencies != 2 {
+		t.Fatalf("installable invalid=%d unresolved DAT evidence=%d err=%v", invalid, undefinedDependencies, err)
+	}
 }

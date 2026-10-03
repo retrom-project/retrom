@@ -187,7 +187,10 @@ func (service *Service) hashDiscoveredCandidate(
 		result.err = putErr
 		return result
 	}
-	if putErr != nil || statErr != nil || !sameFileFacts(before, after) {
+	if putErr != nil || statErr != nil {
+		return failedCandidateResult(task, "READ_FAILED")
+	}
+	if !sameFileFacts(before, after) {
 		return failedCandidateResult(task, "SOURCE_CHANGED")
 	}
 	result.hashedBytes = metadata.Size
@@ -220,11 +223,11 @@ func (service *Service) evaluateCandidateAssociations(
 	for _, association := range task.associations {
 		candidate, err := service.evaluate(ctx, association.item, association.kind, task.file, metadata, facts)
 		if err != nil {
-			if errors.Is(err, errExecutionDeadline) || errors.Is(err, context.Canceled) ||
+			if errors.Is(err, errCancelled) || errors.Is(err, errExecutionDeadline) || errors.Is(err, context.Canceled) ||
 				errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
-			candidate = failedCandidate(association.item, task.file, association.kind, "ARCHIVE_UNSAFE")
+			candidate = failedEvaluation(association.item, task.file, association.kind, err)
 			candidate.Metadata = metadata
 		}
 		if association.kind != "RENAMED_HASH_MATCH" || candidate.Static != nil && candidate.Static.ExactHash {
@@ -316,13 +319,13 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		}
 		return candidate, fmt.Errorf("wait for archive scan slot: %w", ctx.Err())
 	}
-	entries, err := importing.ScanZIP(ctx, metadata.Path, importing.DefaultArchiveLimits())
-	if err != nil {
-		return candidate, fmt.Errorf("scan server import ZIP candidate: %w", err)
-	}
 	expected, err := service.expectedDATEntries(ctx, item)
 	if err != nil {
-		return candidate, err
+		return candidate, &evaluationFailure{stage: "CATALOG", cause: err}
+	}
+	entries, err := importing.ScanZIP(ctx, metadata.Path, importing.DefaultArchiveLimits())
+	if err != nil {
+		return candidate, &evaluationFailure{stage: "ARCHIVE", cause: err}
 	}
 	evaluation := firmware.EvaluateDAT(item.LogicalName, expected, facts, entries)
 	if item.ArchiveMembersJSON != nil {

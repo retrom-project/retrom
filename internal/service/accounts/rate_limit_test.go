@@ -83,7 +83,7 @@ func TestRateLimitCommitErrorIsNotReportedAsThrottle(t *testing.T) {
 	}
 }
 
-func TestRateLimitCheckUsesLongestBlockAndClearUsesHashedSubject(t *testing.T) {
+func TestRateLimitCheckUsesLongestBlock(t *testing.T) {
 	memory := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}}
 	limiter := NewLimiter(memory, limitHasher{}, func() time.Time { return time.UnixMilli(100) })
 	subjects := []RateLimitSubject{{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 2}, {Scope: "LOGIN_IP", Subject: "192.0.2.1", Threshold: 30}}
@@ -94,11 +94,5 @@ func TestRateLimitCheckUsesLongestBlockAndClearUsesHashedSubject(t *testing.T) {
 	}
 	if err := limiter.Check(t.Context(), subjects...); !errors.Is(err, ErrRateLimited) || RateLimitRetryAfter(err) != 2 {
 		t.Fatalf("combined block: %v", err)
-	}
-	if err := limiter.Clear(t.Context(), subjects[0]); err != nil {
-		t.Fatal(err)
-	}
-	if memory.cleared.Scope != "LOGIN_ACCOUNT" || memory.cleared.Digest != (limitHasher{}).RateLimitSubject("LOGIN_ACCOUNT", "alice") {
-		t.Fatalf("cleared bucket: %+v", memory.cleared)
 	}
 }
