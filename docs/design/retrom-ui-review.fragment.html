@@ -1403,9 +1403,8 @@
     #retrom-ui-review .rt-player-touch-button.is-b { right: 70px; bottom: 4px; }
     #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); opacity: 0; pointer-events: none; transform: translateY(-100%); transition: opacity .16s ease, transform .16s ease; backdrop-filter: blur(12px); }
     #retrom-ui-review .rt-player-top.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
-    #retrom-ui-review .rt-player-back, #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: var(--radius-control); color: #edf0f5; background: #171d29; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-    #retrom-ui-review .rt-player-back { width: 34px; padding: 0; flex: none; }
-    #retrom-ui-review .rt-player-back svg, #retrom-ui-review .rt-player-control svg { width: 15px; height: 15px; }
+    #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: var(--radius-control); color: #edf0f5; background: #171d29; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
+    #retrom-ui-review .rt-player-control svg { width: 15px; height: 15px; }
     #retrom-ui-review .rt-player-title { min-width: 0; max-width: 430px; display: flex; flex-direction: column; gap: 1px; }
     #retrom-ui-review .rt-player-title strong, #retrom-ui-review .rt-player-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-player-title strong { font-size: var(--text-small); }
@@ -1987,9 +1986,7 @@
       #retrom-ui-review .rt-app.is-playing .rt-main { padding-bottom: 0; }
       #retrom-ui-review .rt-player-shell { min-height: 100vh; }
       #retrom-ui-review .rt-player-top { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); gap: 7px; }
-      #retrom-ui-review .rt-player-back,
       #retrom-ui-review .rt-player-control { min-height: 44px; }
-      #retrom-ui-review .rt-player-back { width: 44px; }
       #retrom-ui-review .rt-player-actions > button,
       #retrom-ui-review .rt-player-debug-toggle { font-size: var(--text-icon-only); width: 44px; gap: 0; padding: 0; }
       #retrom-ui-review .rt-player-actions .rt-player-menu-wrap { display: block; }
@@ -2009,9 +2006,7 @@
 
     @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
       #retrom-ui-review .rt-app.is-playing .rt-player-top { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); gap: 7px; }
-      #retrom-ui-review .rt-app.is-playing .rt-player-back,
       #retrom-ui-review .rt-app.is-playing .rt-player-control { min-height: 44px; }
-      #retrom-ui-review .rt-app.is-playing .rt-player-back { width: 44px; }
       #retrom-ui-review .rt-app.is-playing .rt-player-actions > button,
       #retrom-ui-review .rt-app.is-playing .rt-player-debug-toggle { display: inline-flex; }
       #retrom-ui-review .rt-app.is-playing .rt-player-actions .rt-player-menu-wrap { display: block; }
@@ -3030,7 +3025,7 @@
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
           <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-stick is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
           <div class="rt-player-top is-visible">
-            <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
+            <button type="button" class="rt-player-back rt-button ghost icon-only" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
             <div class="rt-player-title"><strong id="rt-player-game">NOeL 3</strong><div class="rt-player-meta" id="rt-player-core">Yabause · Saturn</div></div>
             <div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">可创建存档</div>
             <div class="rt-player-actions"><button type="button" class="rt-player-control" data-rpg-player-design hidden><i data-lucide="camera" aria-hidden="true"></i>保存审核截图</button><button type="button" class="rt-player-control rt-player-debug-toggle" id="rt-player-debug" aria-controls="rt-player-debug-panel" aria-expanded="false" aria-pressed="false"><i data-lucide="cpu" aria-hidden="true"></i>调试信息</button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control" id="rt-player-disc" aria-haspopup="menu" aria-expanded="false" aria-label="光盘 2 / 3"><i data-lucide="disc-3" aria-hidden="true"></i>光盘 2 / 3</button><div class="rt-player-menu rt-player-disc-menu" id="rt-player-disc-menu" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="1"><span>光盘 1</span><small>disc-001.chd</small></button><button type="button" role="menuitemradio" aria-checked="true" data-disc-number="2"><span>光盘 2</span><small>当前</small></button><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="3"><span>光盘 3</span><small>disc-003.chd</small></button></div></div><button type="button" class="rt-player-control" data-player-save-action><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-player-control is-icon" aria-label="暂停"><i data-lucide="pause" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" id="rt-enter-fullscreen" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control is-icon" id="rt-player-more" aria-label="更多操作"><i data-lucide="ellipsis" aria-hidden="true"></i></button><div class="rt-player-menu" id="rt-player-menu"><button type="button" role="menuitemcheckbox" aria-checked="false" data-gamepad-cursor-toggle>手柄光标：关</button><button type="button" data-rpg-player-design hidden>游戏修改</button><button type="button" data-open-emulator-controls>模拟器设置</button><button type="button">查看运行提醒</button><hr><button type="button" class="is-danger" data-player-exit>退出游戏</button></div></div></div>

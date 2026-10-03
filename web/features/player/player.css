@@ -5,12 +5,10 @@
 .player-hud-handle[aria-pressed="false"] { top: 0; right: 0; left: 0; width: auto; height: 32px; transform: none; }
 .player-hud-handle > span { width: 24px; height: 6px; margin-top: 5px; border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; background: rgb(238 241 247 / 72%); box-shadow: 0 3px 10px rgb(0 0 0 / 35%); }
 .player-hud-handle:focus-visible { outline: 3px solid rgb(139 123 241 / 64%); outline-offset: -3px; }
-.player-back, .player-control { min-height: 34px; border: 1px solid var(--player-line); border-radius: var(--radius-control); color: #edf0f5; background: #171d29; cursor: pointer; }
-.player-back:hover, .player-control:hover:not(:disabled) { border-color: #4b566b; background: #1c2432; }
+.player-control { min-height: 34px; border: 1px solid var(--player-line); border-radius: var(--radius-control); color: #edf0f5; background: #171d29; cursor: pointer; }
+.player-control:hover:not(:disabled) { border-color: #4b566b; background: #1c2432; }
 .player-emulator-toolbar select:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
 .player-back:focus-visible, .player-control:focus-visible, .player-menu button:focus-visible, .player-warning-dot:focus-visible, .player-emulator-toolbar button:focus-visible, .player-emulator-toolbar input:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
-.player-back { width: 34px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; }
-.player-back svg { width: 18px; height: 18px; }
 .player-game-meta { min-width: 0; max-width: min(34vw, 430px); display: flex; flex-direction: column; gap: 1px; }
 .player-game-meta strong, .player-game-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-game-meta strong { font-size: var(--text-small); line-height: 1.35; }
@@ -182,9 +180,7 @@
   .player-toolbar .player-control,
   .player-toolbar .player-seat-context,
   .player-toolbar .player-menu { pointer-events: auto; }
-  .player-back,
   .player-control { min-width: 44px; min-height: 44px; }
-  .player-back { width: 44px; }
   .player-game-meta { max-width: min(34vw, 280px); }
   .player-game-meta strong { font-size: var(--text-caption); }
   .player-sync-status { margin-left: auto; min-width: 44px; min-height: 44px; justify-content: center; }
