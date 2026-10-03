@@ -295,7 +295,7 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 	now := setup.service.now().UnixMilli()
 	dedupe := sha256.Sum256([]byte(strings.Join([]string{
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
-		setup.blobSHA, setup.activeDATID,
+		setup.request.UploadFileID, setup.activeDATID,
 	}, "\x00")))
 	err = setup.scope.Write.Create(setup.ctx, libraryservice.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
