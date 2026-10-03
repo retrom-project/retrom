@@ -1,0 +1,53 @@
+{
+  "cases": [
+    {
+      "name": "controller activates library and starts game",
+      "success": true
+    },
+    {
+      "name": "double Select Start menu, Dpad save, B resume",
+      "success": true
+    }
+  ],
+  "inputMethod": "standard Gamepad API simulation; no physical controller",
+  "controllerState": "ready",
+  "menuFocused": true,
+  "selection": "创建存档",
+  "save": {
+    "status": 201
+  },
+  "samples": [
+    {
+      "phase": "A pressed",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n触碰任意按键认领手柄，然后松开全部输入",
+      "a": true
+    },
+    {
+      "phase": "A released",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n手柄已就绪，按 A 继续",
+      "a": false
+    },
+    {
+      "phase": "A pressed",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n触碰任意按键认领手柄，然后松开全部输入",
+      "a": true
+    },
+    {
+      "phase": "A released",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n手柄已就绪，按 A 继续",
+      "a": false
+    },
+    {
+      "phase": "A pressed",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n触碰任意按键认领手柄，然后松开全部输入",
+      "a": true
+    },
+    {
+      "phase": "A released",
+      "text": "控制器连接已中断\n\n请重新连接手柄\n\n手柄已就绪，按 A 继续",
+      "a": false
+    }
+  ],
+  "reproduced": true,
+  "success": false
+}

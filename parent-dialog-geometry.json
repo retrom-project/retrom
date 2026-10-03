@@ -1,0 +1,47 @@
+{
+  "emptyBefore": {
+    "dialog": {
+      "x": 460,
+      "y": 297.609375,
+      "width": 520,
+      "height": 304.765625
+    },
+    "button": {
+      "x": 821,
+      "y": 535.375,
+      "width": 136,
+      "height": 44
+    }
+  },
+  "emptyAfter": {
+    "dialog": {
+      "x": 460,
+      "y": 287.21875,
+      "width": 520,
+      "height": 325.5625
+    },
+    "button": {
+      "x": 821,
+      "y": 545.78125,
+      "width": 136,
+      "height": 44
+    }
+  },
+  "wrongExtension": {
+    "dialog": {
+      "x": 460,
+      "y": 271.8125,
+      "width": 520,
+      "height": 356.359375
+    },
+    "button": {
+      "x": 821,
+      "y": 561.171875,
+      "width": 136,
+      "height": 44
+    }
+  },
+  "emptyButtonShift": 10.40625,
+  "emptyDialogGrowth": 20.796875,
+  "reproduced": true
+}
