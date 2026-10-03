@@ -1,5 +1,16 @@
 import {describe, expect, it} from "vitest";
-import {reviewReadiness, reviewReadyForPublish, type ReviewWorkspace} from "./review-actions-model";
+import {draftPatchPayload, reviewReadiness, reviewReadyForPublish, type DraftPayload, type ReviewWorkspace} from "./review-actions-model";
+
+it("patches independent metadata edits without resubmitting an untouched title and preserves explicit clears", () => {
+  const metadata = {title: "", description: "Before", developer: "", publisher: "", genre: "", players: 2, releaseYear: 2000};
+  const payload: DraftPayload = {metadata: {...metadata, description: "After", players: null},
+    selectedCandidateId: null, selectedAssets: {coverCandidateAssetId: null, coverUploadedAssetId: null,
+      videoUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: []},
+    defaultDosEntry: null, tagIds: []};
+  expect(draftPatchPayload(payload, metadata).metadata).toEqual({description: "After", players: null});
+  expect(draftPatchPayload({...payload, metadata: {...payload.metadata, title: "Chosen title"}}, payload.metadata).metadata)
+    .toEqual({title: "Chosen title"});
+});
 
 describe("review readiness", () => {
   it("keeps current server dependency checks authoritative for every engine", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {cpSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
-import {join, resolve} from "node:path";
+import {basename, join, resolve} from "node:path";
 import {chromium} from "../../web/node_modules/playwright/index.mjs";
 import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 import {createProductClient, directoryFiles, reviewForImport} from "./rpgmaker_security_upload.mjs";
@@ -28,12 +28,13 @@ try {
   const directories = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
   const platform = directories.items.find(value => value.defaultCoreId === "rpgmaker");
   assert.ok(platform);
-  const uploadId = await client.upload(directoryFiles(fixture), "DIRECTORY");
+  const uploadId = await client.upload(directoryFiles(fixture, `${basename(fixture)}/`), "DIRECTORY");
   const imported = await client.json("POST", "/api/v1/admin/imports", {
     headers: client.writeHeaders(), expected: 202,
     data: {uploadId, targetPlatformInstanceId: platform.id, metadataProvider: "NONE", contentMode: "STANDARD", tagIds: []},
   });
   let before = await reviewForImport(client, imported.importJobId);
+  assert.equal(before.metadata.title, basename(fixture));
   await client.json("PATCH", `/api/v1/admin/reviews/${before.itemId}`, {
     headers: {...client.writeHeaders(), "If-Match": `"v${before.version}"`},
     data: {metadata: {...before.metadata, title: "RTP Screenshot Acceptance"}, tagIds: []},

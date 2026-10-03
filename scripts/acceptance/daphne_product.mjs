@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync} from "node:fs";
-import {join, resolve} from "node:path";
+import {basename, join, resolve} from "node:path";
 import {chromium} from "../../web/node_modules/playwright/index.mjs";
 import sharp from "../../web/node_modules/sharp/dist/index.cjs";
 import {px68kLocalProxy} from "./px68k_product_support.mjs";
@@ -264,7 +264,7 @@ try {
     const directories = await client.json("GET", "/api/v1/admin/platform-instances?platformId=daphne&limit=100");
     const instance = directories.items.find(item => item.enabled && item.defaultCoreId === "daphne");
     assert.ok(instance, "DAPHNE_PLATFORM_MISSING");
-    const uploadId = await client.upload(directoryFiles(source), "DIRECTORY", "PROJECT");
+    const uploadId = await client.upload(directoryFiles(source, `${basename(source)}/`), "DIRECTORY", "PROJECT");
     evidence.stages.push("upload");
     const imported = await client.json("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), expected: 202,

@@ -1,5 +1,6 @@
 import type { ScummVMReview } from "./review-scummvm";
 import type { TagReference } from "@/components/tag-picker";
+import type { components } from "@/lib/api/generated/schema";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 
 export type ReviewAsset = { candidateAssetId: string; kind: "COVER" | "BACKGROUND" | "SCREENSHOT" | "UNKNOWN"; ordinal: number; status: string; widthPx: number | null; heightPx: number | null; mediaType: string | null; errorCode: string | null };
@@ -64,6 +65,14 @@ export function toPayload(form: MetadataForm, candidateId: string | null, cover:
 
 export function workspaceDraftPayload(review: ReviewWorkspace) {
   return withRPGMakerDraft(toPayload(metadataForm(review), review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId }, review.selectedAssets.videoUploadedAssetId, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, review.tags ?? []), review.rpgMaker);
+}
+
+export function draftPatchPayload(payload: DraftPayload, savedMetadata: DraftPayload["metadata"]): components["schemas"]["ReviewDraftRequest"] {
+  const metadata = Object.fromEntries(Object.entries(payload.metadata)
+    .filter(([key, value]) => value !== savedMetadata[key as keyof typeof savedMetadata]));
+  // Metadata is a field patch: an untouched, incomplete title must not invalidate
+  // independent RTP, asset or tag choices. Explicit edits (including null) remain.
+  return {...payload, metadata};
 }
 
 export function withRPGMakerDraft(payload: DraftPayload, rpgMaker: RPGMakerReview | null | undefined): DraftPayload {

@@ -3160,6 +3160,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description Metadata fields are patched individually. Clients submit only edited metadata fields; an untouched incomplete title must not block independent RTP confirmation, asset or tag choices. Publication still requires a valid title. */
         ReviewDraftRequest: {
             /** Format: uuid */
             targetPlatformInstanceId?: string;

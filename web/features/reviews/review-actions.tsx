@@ -21,7 +21,7 @@ import { useReviewCommands } from "./review-commands";
 import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
 import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
+  activeAttachmentJobId, compareFields, draftPatchPayload, initialDraftState, initialRuntimeState, reviewCoverPresentation, reviewVideoURL,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -67,6 +67,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.videoUploadedAssetId, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
+  const savedMetadataRef = useRef(serverPayload.metadata);
   const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, videoId, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
@@ -110,10 +111,11 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
       if (!force && lastSavedKeyRef.current === key) {return true;}
       if (latestKeyRef.current === key) {setSaveState("saving");}
       try {
-        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(payload) });
+        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(draftPatchPayload(payload, savedMetadataRef.current)) });
         if (!response.ok) {throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));}
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
+        savedMetadataRef.current = payload.metadata;
         await refreshReview();
         lastSavedKeyRef.current = key;
         if (latestKeyRef.current === key) {setSaveState("saved");}

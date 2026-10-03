@@ -29,6 +29,31 @@ function jsonResponse(body: unknown, status = 200) {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ordinary RPG review", () => {
+  it("saves and clears RTP confirmation while an untouched title is still empty", async () => {
+    let current: ReviewWorkspace = {...review, metadata: {...review.metadata, title: ""},
+      rpgMaker: {...review.rpgMaker!, generation: "RPG2000", externalRTPRequirements: [{slot: 0, declaredName: "RPG2000_RTP"}]}};
+    const bodies: Array<{metadata?: {title?: string}; rpgSelfContainedOverride: boolean}> = [];
+    vi.stubGlobal("fetch", vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== "PATCH") {return Promise.resolve(jsonResponse(current));}
+      const body = JSON.parse(String(init.body));
+      bodies.push(body);
+      if (body.metadata?.title === "") {return Promise.resolve(jsonResponse({error: {message: "请求不符合 API 契约"}}, 400));}
+      current = {...current, version: current.version + 1,
+        rpgMaker: {...current.rpgMaker!, selfContainedOverride: body.rpgSelfContainedOverride}};
+      return Promise.resolve(jsonResponse({version: current.version}));
+    }));
+    const user = userEvent.setup();
+    render(<ReviewActions review={current} />);
+    const checkbox = screen.getByRole("checkbox", {name: "确认项目自包含 RTP"});
+    await user.click(checkbox);
+    await waitFor(() => expect(current.rpgMaker?.selfContainedOverride).toBe(true), {timeout: 2_000});
+    await user.click(checkbox);
+    await waitFor(() => expect(current.rpgMaker?.selfContainedOverride).toBe(false), {timeout: 2_000});
+    expect(bodies.map(body => body.rpgSelfContainedOverride)).toEqual([true, false]);
+    expect(bodies.every(body => body.metadata?.title === undefined)).toBe(true);
+    expect(screen.getByLabelText("标题")).toHaveValue("");
+    expect(screen.queryByText("请求不符合 API 契约")).not.toBeInTheDocument();
+  });
   it.each([
     ["RPG2000", "RPG Maker 2000"], ["RPG2003", "RPG Maker 2003"], ["RPGXP", "RPG Maker XP"],
     ["RPGVX", "RPG Maker VX"], ["RPGVXACE", "RPG Maker VX Ace"], ["RPGMV", "RPG Maker MV"], ["RPGMZ", "RPG Maker MZ"],
