@@ -36,13 +36,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot, 
   screenshotApproval?: boolean;
 }) {
   if (status === "READY") {return null;}
-  const missingBIOS = (snapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.fileRecord);
-  const missingArchives = (snapshot?.dependencies ?? [])
-    .filter((item) => item.state === "MISSING" && item.machine)
-    .map((item) => `${item.machine}.zip`);
-  const missingEntries = [...new Set([...(snapshot?.missingEntries ?? []), ...missingArchives])];
-  const mismatchedEntries = snapshot?.mismatchedEntries ?? [];
-  const logicalNames = [...new Set([...missingEntries, ...missingBIOS.flatMap((item) => item.logicalName ? [item.logicalName] : [])])];
+  const {logicalNames, mismatchedEntries} = blockerFiles(snapshot);
   const scrollable = logicalNames.length + mismatchedEntries.length > 8;
   return <FeedbackBanner tone={screenshotApproval ? "info" : "bad"} marker={false}>
     <div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}>
@@ -56,8 +50,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot, 
         {logicalNames.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}
         {mismatchedEntries.map((entry) => <li key={`mismatch-${entry}`}><code>{entry}</code> 不匹配</li>)}
       </ul> : null}
-      {snapshot?.externalRTP?.length ? <ul>{snapshot.externalRTP.map((entry, index) => <li key={`${entry.slot}-${index}`}>{entry.declaredName || `RTP ${entry.slot ?? index + 1}`}</li>)}</ul> : null}
-      {snapshot?.warnings?.length ? <ul>{snapshot.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul> : null}
+      <ProjectWarnings snapshot={snapshot} />
     </div>
   </FeedbackBanner>;
 }
@@ -74,4 +67,23 @@ function BlockerRemediation({ compatibilityCode, logicalNames }: { compatibility
     return <><p>安装所列必需文件或街机依赖包后返回并刷新本页，无需重新导入游戏。</p><Link className="button secondary compact" href={`/admin/bios?scope=FULL_CATALOG&status=MISSING${suffix}`}>安装所需 BIOS 文件</Link></>;
   }
   return null;
+}
+
+
+function blockerFiles(snapshot?: ReviewDependencySnapshot) {
+  const missingBIOS = (snapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.fileRecord);
+  const missingArchives = (snapshot?.dependencies ?? [])
+    .filter((item) => item.state === "MISSING" && item.machine)
+    .map((item) => `${item.machine}.zip`);
+  const missingEntries = [...new Set([...(snapshot?.missingEntries ?? []), ...missingArchives])];
+  const mismatchedEntries = snapshot?.mismatchedEntries ?? [];
+  const logicalNames = [...new Set([...missingEntries, ...missingBIOS.flatMap((item) => item.logicalName ? [item.logicalName] : [])])];
+  return {logicalNames, mismatchedEntries};
+}
+
+function ProjectWarnings({snapshot}: {snapshot?: ReviewDependencySnapshot}) {
+  return <>
+    {snapshot?.externalRTP?.length ? <ul>{snapshot.externalRTP.map((entry, index) => <li key={`${entry.slot}-${index}`}>{entry.declaredName || `RTP ${entry.slot ?? index + 1}`}</li>)}</ul> : null}
+    {snapshot?.warnings?.length ? <ul>{snapshot.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul> : null}
+  </>;
 }
