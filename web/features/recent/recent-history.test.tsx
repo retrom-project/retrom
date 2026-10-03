@@ -88,7 +88,7 @@ describe("recent history", () => {
     const deleted = { ...games[0], status: "DELETED" as const, availability: "DELETED" as const, coverUrl: "/legacy-cover.png" };
     render(<RecentHistory initialPage={initialPage([deleted, games[1]])} />, { wrapper: ToastProvider });
 
-    expect(screen.getByText("已删除")).toBeVisible();
+    expect(screen.queryByText("已删除", { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText("已删除游戏")).toBeVisible();
     expect(screen.queryByRole("link", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
