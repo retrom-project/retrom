@@ -17,6 +17,23 @@ afterEach(() => {
 });
 
 describe("Player page exit protection", () => {
+  it("does not start queued saves after the session is revoked", async () => {
+    const params = sessionParams();
+    const uploads = new AbortController();
+    params.sessionSignal = uploads.signal;
+    let release!: () => void;
+    params.saveUploadQueue.current = new Promise(resolve => {release = resolve;});
+    const request = vi.spyOn(globalThis, "fetch");
+    const {result} = renderHook(() => usePlayerSession(params));
+    const pending = result.current.uploadManualState({
+      checkpoint: {format: "test", bytes: Uint8Array.of(1), metadata: {}}, screenshot: new Blob(),
+    });
+    uploads.abort();
+    release();
+    await expect(pending).resolves.toBe(false);
+    expect(request).not.toHaveBeenCalled();
+    expect(params.showToast).not.toHaveBeenCalled();
+  });
   it("closes a review preview without an event body after queued saves", async () => {
     const order: string[] = [];
     let saved!: () => void;
@@ -146,7 +163,7 @@ function dispatchBeforeUnload() {
 
 function sessionParams(): PlayerSessionParams {
   return {
-    launchId: "launch-1",
+    launchId: "launch-1", sessionSignal: new AbortController().signal,
     runtime: {current: null},
     envelope: {current: null},
     progressClock: {current: new PlayProgressClock()},

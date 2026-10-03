@@ -206,8 +206,6 @@ paths:
     $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1start
   /api/v1/admin/source-imports/{sourceImportId}/items:
     $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1items
-  /api/v1/admin/source-imports/{sourceImportId}/cancel:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1cancel
   /api/v1/admin/source-imports/{sourceImportId}/retry:
     $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1retry
   /api/v1/admin/bios/{requirementId}/installations:
@@ -261,6 +259,12 @@ components:
   schemas:
     GameScrapeCandidates:
       $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
+    ImportTaskList:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskList
+    ImportTaskListItem:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskListItem
+    ImportTaskDetail:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskDetail
     ImportBatchDiscard:
       $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:

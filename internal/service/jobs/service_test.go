@@ -49,10 +49,10 @@ func (repository *memoryJobs) CancelServerImport(context.Context, Cancellation) 
 
 func TestCancelEligibilityPrecedesWrites(t *testing.T) {
 	t.Parallel()
-	for _, state := range []string{"SUCCEEDED", "CANCELLED", "CANCEL_REQUESTED", "FAILED"} {
+	for _, state := range []string{"SUCCEEDED", "FAILED"} {
 		t.Run(state, func(t *testing.T) {
 			repository := &memoryJobs{job: Job{State: state, Cancellable: true, Version: 2}}
-			_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", 2, "cancel")
+			_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", "cancel")
 			if !errors.Is(err, ErrConflict) || repository.cancellation != nil {
 				t.Fatalf("error=%v cancellation=%+v", err, repository.cancellation)
 			}
@@ -64,7 +64,7 @@ func TestCancelRejectsInvalidReasonWithoutTransaction(t *testing.T) {
 	t.Parallel()
 	for _, reason := range []string{" ", strings.Repeat("字", 501)} {
 		repository := &memoryJobs{}
-		_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", 1, reason)
+		_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", reason)
 		if !errors.Is(err, ErrConflict) || repository.opened != 0 {
 			t.Fatalf("error=%v transactions=%d", err, repository.opened)
 		}
@@ -74,7 +74,7 @@ func TestCancelRejectsInvalidReasonWithoutTransaction(t *testing.T) {
 func TestRunningServerImportCancellationRemainsPending(t *testing.T) {
 	t.Parallel()
 	repository := &memoryJobs{job: Job{Kind: "SERVER_BIOS_IMPORT", State: "RUNNING", Cancellable: true, Version: 2, ExecutionNo: 3}}
-	result, pending, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Cancel(t.Context(), "job", 2, " stop ")
+	result, pending, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Cancel(t.Context(), "job", " stop ")
 	if err != nil || !pending || result.State != "CANCEL_REQUESTED" || result.Version != 3 || result.ExecutionNo != 3 {
 		t.Fatalf("result=%+v pending=%v error=%v", result, pending, err)
 	}
@@ -114,10 +114,26 @@ func TestJobReadFailureRetainsCause(t *testing.T) {
 	readErr := errors.New("repository unavailable")
 	repository := &memoryJobs{readErr: readErr}
 	service := New(repository, time.Now)
-	if _, _, err := service.Cancel(t.Context(), "job", 1, "stop"); !errors.Is(err, readErr) {
+	if _, _, err := service.Cancel(t.Context(), "job", "stop"); !errors.Is(err, readErr) {
 		t.Fatalf("cancel error=%v", err)
 	}
 	if _, err := service.Retry(t.Context(), "job", 1); !errors.Is(err, readErr) {
 		t.Fatalf("retry error=%v", err)
+	}
+}
+
+func TestCancellationAndRetryNeverReviveCancelledJobs(t *testing.T) {
+	for _, state := range []string{"CANCEL_REQUESTED", "CANCELLED"} {
+		t.Run(state, func(t *testing.T) {
+			repository := &memoryJobs{job: Job{State: state, Retryable: true, Version: 42, ExecutionNo: 7}}
+			service := New(repository, time.Now)
+			result, pending, err := service.Cancel(t.Context(), "job", "Stop again")
+			if err != nil || pending != (state == "CANCEL_REQUESTED") || result.State != state || result.Version != 42 || result.ExecutionNo != 7 || repository.cancellation != nil {
+				t.Fatalf("repeat cancellation: %+v %v %v", result, pending, err)
+			}
+			if _, err := service.Retry(t.Context(), "job", 42); !errors.Is(err, ErrConflict) || repository.retry != nil {
+				t.Fatalf("cancelled work retried: %v", err)
+			}
+		})
 	}
 }

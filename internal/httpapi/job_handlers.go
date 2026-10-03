@@ -10,10 +10,6 @@ import (
 )
 
 func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Request) {
-	version, ok := requireVersion(writer, request)
-	if !ok {
-		return
-	}
 	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
 		return
@@ -28,7 +24,6 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 	result, pending, err := server.systemDeps.Jobs.Cancel(
 		request.Context(),
 		request.PathValue("jobId"),
-		version,
 		body.Reason,
 	)
 	if err != nil {
@@ -41,7 +36,7 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 			request,
 			http.StatusConflict,
 			"JOB_NOT_CANCELLABLE",
-			"任务不可取消或版本已经变化",
+			"任务当前不可取消",
 			map[string]any{},
 		)
 		return

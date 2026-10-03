@@ -43,7 +43,7 @@ func cancellableJobState(state string, retryable bool) bool {
 }
 
 func (service *Service) Cancel(
-	ctx context.Context, jobID string, expectedVersion int64, reason string,
+	ctx context.Context, jobID string, reason string,
 ) (Result, bool, error) {
 	if !validReason(reason) {
 		return Result{}, false, ErrConflict
@@ -56,7 +56,12 @@ func (service *Service) Cancel(
 		if err != nil {
 			return fmt.Errorf("read cancellation job: %w", err)
 		}
-		if job.Version != expectedVersion || !job.Cancellable || !cancellableJobState(job.State, job.Retryable) {
+		if job.State == "CANCELLED" || job.State == "CANCEL_REQUESTED" {
+			result = Result{JobID: jobID, State: job.State, ExecutionNo: job.ExecutionNo, Version: job.Version}
+			pending = job.State == "CANCEL_REQUESTED"
+			return nil
+		}
+		if !job.Cancellable || !cancellableJobState(job.State, job.Retryable) {
 			return ErrConflict
 		}
 		if job.Kind == "REVIEW_BULK_APPROVE" {
@@ -65,32 +70,21 @@ func (service *Service) Cancel(
 		if handler := service.cancellations[job.Kind]; handler != nil {
 			dispatch = domainDispatch{handler: handler, command: DomainCancellation{
 				JobID: jobID, Kind: job.Kind, ScopeID: job.ScopeID,
-				Reason: strings.TrimSpace(reason), ExpectedVersion: expectedVersion,
+				Reason: strings.TrimSpace(reason),
 			}}
 			return nil
 		}
 		now := service.now().UnixMilli()
 		change := Cancellation{
-			JobID: jobID, ExpectedVersion: expectedVersion, State: "CANCELLED",
+			JobID: jobID, ExpectedVersion: job.Version, State: "CANCELLED",
 			Reason: strings.TrimSpace(reason), AtMS: now, FinishedAtMS: &now,
 		}
 		pending = job.State == "RUNNING"
 		if pending {
 			change.State, change.FinishedAtMS = "CANCEL_REQUESTED", nil
 		}
-		change.Event, err = json.Marshal(struct {
-			Reason string `json:"reason"`
-		}{Reason: change.Reason})
-		if err != nil {
-			return fmt.Errorf("encode cancellation event: %w", err)
-		}
-		if err := records.Cancel(ctx, change); err != nil {
-			return fmt.Errorf("cancel job: %w", err)
-		}
-		if job.Kind == "SERVER_BIOS_IMPORT" {
-			if err := records.CancelServerImport(ctx, change); err != nil {
-				return fmt.Errorf("cancel server import: %w", err)
-			}
+		if err := persistCancellation(ctx, records, job.Kind, change); err != nil {
+			return err
 		}
 		result = Result{JobID: jobID, State: change.State, ExecutionNo: job.ExecutionNo, Version: job.Version + 1}
 		return nil
@@ -102,4 +96,23 @@ func (service *Service) Cancel(
 		return dispatch.cancel(ctx)
 	}
 	return result, pending, nil
+}
+
+func persistCancellation(ctx context.Context, records Records, kind string, change Cancellation) error {
+	event, err := json.Marshal(struct {
+		Reason string `json:"reason"`
+	}{Reason: change.Reason})
+	if err != nil {
+		return fmt.Errorf("encode cancellation event: %w", err)
+	}
+	change.Event = event
+	if err := records.Cancel(ctx, change); err != nil {
+		return fmt.Errorf("cancel job: %w", err)
+	}
+	if kind == "SERVER_BIOS_IMPORT" {
+		if err := records.CancelServerImport(ctx, change); err != nil {
+			return fmt.Errorf("cancel server import: %w", err)
+		}
+	}
+	return nil
 }

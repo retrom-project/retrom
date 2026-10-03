@@ -62,3 +62,14 @@ func TestRuntimeRenewalKeepsActiveLaunchAndPayloadAliveAcrossDays(t *testing.T) 
 		}
 	}
 }
+
+func assertRuntimeRenewalStatus(t *testing.T, handler http.Handler, cookie *http.Cookie, launchID string, status int) {
+	t.Helper()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/runtime/launches/"+launchID+"/renew", nil)
+	request.AddCookie(cookie)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != status {
+		t.Fatalf("runtime renewal status=%d, want %d: %s", response.Code, status, response.Body)
+	}
+}

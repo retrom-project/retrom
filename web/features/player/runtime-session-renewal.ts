@@ -1,17 +1,26 @@
 import {useEffect, type RefObject} from "react";
 
-// This is independent of play statistics and never gates game execution.
-export function useRuntimeSessionRenewal(launchId: string, started: RefObject<boolean>, finishing: RefObject<boolean>) {
+// Authority checks share the existing renewal route and stay independent of play statistics.
+export function useRuntimeSessionRenewal(
+  launchId: string, started: RefObject<boolean>, finishing: RefObject<boolean>, onUnavailable: () => void,
+) {
   useEffect(() => {
     let pending = false;
+    let unavailable = false;
     const controller = new AbortController();
     const renew = async () => {
-      if (pending || !started.current || finishing.current || controller.signal.aborted) {return;}
+      if (pending || unavailable || !started.current || finishing.current || controller.signal.aborted) {return;}
       pending = true;
       try {
-        await fetch(`/runtime/launches/${launchId}/renew`, {
-          method: "POST", credentials: "same-origin", cache: "no-store", signal: controller.signal,
+        const response = await fetch(`/runtime/launches/${launchId}/renew`, {
+          method: "POST", credentials: "same-origin", cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5_000)]),
         });
+        if (response.status === 401 && !controller.signal.aborted && !finishing.current) {
+          unavailable = true;
+          onUnavailable();
+        }
+        await response.body?.cancel();
       } catch {
         // A temporary outage must not stop the core; the next tick retries.
       } finally {
@@ -19,7 +28,7 @@ export function useRuntimeSessionRenewal(launchId: string, started: RefObject<bo
       }
     };
     const onVisible = () => {if (document.visibilityState === "visible") {void renew();}};
-    const timer = window.setInterval(() => {void renew();}, 60 * 60 * 1000);
+    const timer = window.setInterval(() => {void renew();}, 15_000);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onVisible);
     return () => {
@@ -28,5 +37,5 @@ export function useRuntimeSessionRenewal(launchId: string, started: RefObject<bo
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onVisible);
     };
-  }, [launchId, started, finishing]);
+  }, [launchId, started, finishing, onUnavailable]);
 }

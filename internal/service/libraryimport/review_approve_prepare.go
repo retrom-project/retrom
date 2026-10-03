@@ -53,7 +53,7 @@ func (run *reviewApprovalRun) load() error {
 }
 
 func (run *reviewApprovalRun) prepare() error {
-	if !run.head.Policy.Supports(run.head.ContentKind) {
+	if !run.head.Policy.Supports(run.head.ContentKind) && run.head.ScreenshotID == nil {
 		return ErrInvalid
 	}
 	if err := json.Unmarshal([]byte(run.head.MetadataJSON), &run.metadata); err != nil {
@@ -77,25 +77,24 @@ func (run *reviewApprovalRun) prepare() error {
 
 func (run *reviewApprovalRun) prepareValidation() error {
 	run.runtimeDependencyJSON = run.head.DependencyJSON
+	run.screenshotOverride = run.head.ValidationStatus != "READY" && run.head.ScreenshotID != nil
 	if run.head.PlatformID == "rpgmaker" {
 		return run.prepareRPG()
+	}
+	if run.screenshotOverride {
+		return run.prepareScreenshotOverride()
 	}
 	if run.head.ContentKind == scummvm.ContentKind {
 		return run.prepareScummVM()
 	}
-	run.screenshotOverride = run.head.ValidationStatus != "READY" && run.head.ScreenshotID != nil
-	if !run.screenshotOverride {
-		if run.head.ValidationStatus != "READY" {
-			return ErrInvalid
-		}
-		return ValidateApprovalDependencies(run.ctx, run.scope.Dependencies, ApprovalDependencyInput{
-			SnapshotID: run.head.SourceSnapshotID, ItemID: run.request.ItemID,
-			PlatformID: run.head.PlatformID,
-			ProviderID: run.head.ProviderID, TargetID: run.head.TargetID, Policy: run.head.Policy,
-			ContentKind: run.head.ContentKind, DependencyJSON: run.head.DependencyJSON,
-		})
+	if run.head.ValidationStatus != "READY" {
+		return ErrInvalid
 	}
-	return run.prepareScreenshotOverride()
+	return ValidateApprovalDependencies(run.ctx, run.scope.Dependencies, ApprovalDependencyInput{
+		SnapshotID: run.head.SourceSnapshotID, ItemID: run.request.ItemID,
+		PlatformID: run.head.PlatformID, ProviderID: run.head.ProviderID, TargetID: run.head.TargetID,
+		Policy: run.head.Policy, ContentKind: run.head.ContentKind, DependencyJSON: run.head.DependencyJSON,
+	})
 }
 
 func (run *reviewApprovalRun) prepareRPG() error {
@@ -110,7 +109,8 @@ func (run *reviewApprovalRun) prepareRPG() error {
 	if err != nil {
 		return err
 	}
-	if dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON {
+	if !run.screenshotOverride &&
+		(dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON) {
 		return ErrInvalid
 	}
 	run.rpgProfile, run.rpgDependencies = profile, dependencies

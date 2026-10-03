@@ -7,7 +7,6 @@ import (
 
 type DomainCancellation struct {
 	JobID, Kind, ScopeID, Reason string
-	ExpectedVersion              int64
 }
 
 type DomainCanceller interface {

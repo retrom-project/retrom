@@ -1,10 +1,11 @@
 import type {PlayerRuntimeV1} from "./runtime/contract";
 
-export async function saveReviewScreenshot(runtime: PlayerRuntimeV1, previewId: string) {
+export async function saveReviewScreenshot(runtime: PlayerRuntimeV1, previewId: string, signal?: AbortSignal) {
   if (!runtime.getCapabilities().screenshot) {throw new Error("REVIEW_SCREENSHOT_UNSUPPORTED");}
   const screenshot = await runtime.screenshot();
+  signal?.throwIfAborted();
   const response = await fetch(`/runtime/launches/${previewId}/review-screenshot`, {
-    method: "POST", credentials: "same-origin",
+    method: "POST", credentials: "same-origin", signal,
     headers: {"Content-Type": screenshot.type || "application/octet-stream"}, body: screenshot,
   });
   if (!response.ok) {throw new Error("REVIEW_SCREENSHOT_UPLOAD_FAILED");}

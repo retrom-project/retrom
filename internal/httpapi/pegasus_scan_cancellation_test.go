@@ -79,7 +79,6 @@ func cancelHTTPScan(t *testing.T, server *testServer, jobID string) *httptest.Re
 		strings.NewReader(`{"reason":"Stop scan"}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
-	request.Header.Set("If-Match", `"v1"`)
 	cookie, csrf := testSessionCredentials()
 	setCSRFCredentials(request, cookie, csrf)
 	response := httptest.NewRecorder()

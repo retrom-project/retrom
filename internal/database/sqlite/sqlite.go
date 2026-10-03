@@ -20,6 +20,7 @@ type Options struct {
 	MaxOpenConns int
 	MaxIdleConns int
 	Now          func() time.Time
+	Pragmas      []string
 }
 
 type (
@@ -54,6 +55,11 @@ func Open(dsn string, options Options) (database.DB, error) {
 	}
 	// The driver reserves the writer at BeginTx; ReadOnly transactions keep BEGIN.
 	query.Set("_txlock", "immediate")
+	// The driver applies these when opening every physical connection, including
+	// replacements after interruption. Executing them once on the pool is unsafe.
+	for _, pragma := range options.Pragmas {
+		query.Add("_pragma", pragma)
+	}
 	raw, err := sql.Open("sqlite", name+"?"+query.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)

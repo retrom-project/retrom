@@ -53,7 +53,7 @@ func TestGenericJobCancellationPreservesCompletedImportCounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobs := jobservice.New(jobpersistence.New(database), legacy.NowForTest)
-	result, pending, err := jobs.Cancel(t.Context(), created.JobID, 1, "stop")
+	result, pending, err := jobs.Cancel(t.Context(), created.JobID, "stop")
 	if err != nil || pending || result.State != "CANCELLED" {
 		t.Fatalf("job cancellation: %+v %v %v", result, pending, err)
 	}

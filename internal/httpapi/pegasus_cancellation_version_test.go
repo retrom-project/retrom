@@ -28,7 +28,7 @@ func (gate beforeSourceCancellation) CancelJob(
 	return result, pending, nil
 }
 
-func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
+func TestJobCancellationUsesLatestExecutionAfterGenericRead(t *testing.T) {
 	server := newTestServer(t)
 	planID, jobID := seedHTTPSourceScan(t, server, false)
 	hits := 0
@@ -36,12 +36,12 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 		service: server.importDeps.Source,
 		before: func(request application.JobCancellationRequest) {
 			hits++
-			if request.ExpectedVersion != 1 || request.ScopeID != planID || request.JobID != jobID || request.ActorID == "" {
+			if request.ScopeID != planID || request.JobID != jobID || request.ActorID == "" {
 				t.Fatalf("dispatcher changed cancellation command: %#v", request)
 			}
 			if _, err := server.database.ExecContext(
 				t.Context(),
-				`UPDATE jobs SET version=version+1 WHERE id=?`,
+				`UPDATE jobs SET version=version+1,execution_no=execution_no+1 WHERE id=?`,
 				jobID,
 			); err != nil {
 				t.Fatal(err)
@@ -49,8 +49,8 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 		},
 	})
 	response := cancelHTTPScan(t, server, jobID)
-	if response.Code != http.StatusConflict || hits != 1 {
-		t.Fatalf("stale Job ETag accepted: HTTP %d hits=%d", response.Code, hits)
+	if response.Code != http.StatusOK || hits != 1 {
+		t.Fatalf("latest execution cancellation failed: HTTP %d hits=%d", response.Code, hits)
 	}
 	var planState, jobState string
 	var version int64
@@ -60,7 +60,7 @@ FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=
 		&jobState,
 		&version,
 	)
-	if err != nil || planState != "SCANNING" || jobState != "QUEUED" || version != 2 {
-		t.Fatalf("stale dispatch wrote: %s %s %d %v", planState, jobState, version, err)
+	if err != nil || planState != "CANCELLED" || jobState != "CANCELLED" || version != 3 {
+		t.Fatalf("inconsistent cancellation: %s %s %d %v", planState, jobState, version, err)
 	}
 }

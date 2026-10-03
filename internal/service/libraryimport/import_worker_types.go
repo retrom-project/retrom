@@ -79,7 +79,6 @@ type ImportWorkerSettings struct {
 }
 type ImportJobCancellation struct {
 	JobID, ImportID string
-	ExpectedVersion int64
 	Reason          string
 }
 

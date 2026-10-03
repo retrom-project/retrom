@@ -215,7 +215,10 @@ func (run *creationCommit) draftChange(record *creationGroup) (CreationDraft, er
 	}
 	title := ""
 	if titleSource != "" {
-		title = strings.TrimSuffix(filepath.Base(titleSource), filepath.Ext(titleSource))
+		title = strings.TrimSpace(strings.TrimSuffix(filepath.Base(titleSource), filepath.Ext(titleSource)))
+	}
+	if title == "" {
+		return CreationDraft{}, ErrInvalid
 	}
 	metadata, err := json.Marshal(
 		map[string]any{

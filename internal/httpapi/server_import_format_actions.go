@@ -112,40 +112,6 @@ func startFormatImport[Summary any](
 	writeSummary(writer, http.StatusAccepted, summary)
 }
 
-func cancelFormatImport[Summary any](
-	writer http.ResponseWriter,
-	request *http.Request,
-	pathParameter string,
-	cancel func(context.Context, string, int64, string, string) (Summary, bool, error),
-	writeSummary func(http.ResponseWriter, int, Summary),
-	writeDomainError func(http.ResponseWriter, *http.Request, error),
-) {
-	version, ok := requireFormatImportVersion(writer, request, "需要当前任务版本")
-	if !ok {
-		return
-	}
-	body := struct {
-		Reason string `json:"reason"`
-	}{}
-	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "取消原因无效", map[string]any{})
-		return
-	}
-	principal, _ := authn.PrincipalFromContext(request.Context())
-	summary, pending, err := cancel(
-		request.Context(), request.PathValue(pathParameter), version, body.Reason, principal.UserID,
-	)
-	if err != nil {
-		writeDomainError(writer, request, err)
-		return
-	}
-	status := http.StatusOK
-	if pending {
-		status = http.StatusAccepted
-	}
-	writeSummary(writer, status, summary)
-}
-
 func retryFormatImport[Summary any](
 	writer http.ResponseWriter,
 	request *http.Request,

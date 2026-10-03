@@ -31,8 +31,8 @@ export const test = base.extend<{sourceDrafts: string[]}>({
   },
 });
 
-export async function createOrdinaryImport(page: Page, headers: Record<string, string>) {
-  const bytes = readFileSync(path.join(process.cwd(), "../testdata/public-roms/gba-smoke/gba-smoke.gba"));
+export async function createOrdinaryImport(page: Page, headers: Record<string, string>,
+  bytes = readFileSync(path.join(process.cwd(), "../testdata/public-roms/gba-smoke/gba-smoke.gba"))) {
   const writeHeaders = () => ({...headers, "Idempotency-Key": crypto.randomUUID()});
   const created = await page.request.post("/api/v1/admin/uploads", {headers: writeHeaders(),
     data: {sourceType: "FILES", files: [{clientFileId: "timezone", relativePath: "Timezone.gba", sizeBytes: bytes.length}]}});
@@ -64,5 +64,5 @@ export async function createOrdinaryImport(page: Page, headers: Record<string, s
   const {importJobId} = await imported.json() as {importJobId: string};
   const detail = await page.request.get(`/api/v1/admin/imports/${importJobId}`);
   expect(detail.ok()).toBe(true);
-  return await detail.json() as {id: string; createdAtMs: number};
+  return await detail.json() as {importJobId: string; createdAtMs: number};
 }

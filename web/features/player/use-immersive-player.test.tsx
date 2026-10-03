@@ -46,6 +46,31 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
+  it("keeps input active when host focus moves into the game iframe", () => {
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    const {result, unmount} = renderImmersivePlayer(vi.fn(async () => true));
+    expect(result.current.filter.getPolicy().suppressInput).toBe(false);
+    act(() => {window.dispatchEvent(new Event("blur"));});
+    expect(result.current.filter.getPolicy().suppressInput).toBe(false);
+    focus.mockReturnValue(false);
+    act(() => {window.dispatchEvent(new Event("blur"));});
+    expect(result.current.filter.getPolicy().suppressInput).toBe(true);
+    unmount();
+  });
+  it("preserves a manual pause when the menu closes", async () => {
+    vi.useFakeTimers();
+    const {result, current, params, unmount} = renderImmersivePlayer(vi.fn(async () => true));
+    params.pausedRef.current = true;
+    act(() => result.current.requestMenu());
+    expect(current.pause).not.toHaveBeenCalled();
+    act(() => result.current.menuCancel());
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    expect(result.current.overlay.kind).toBe("closed");
+    expect(current.resume).not.toHaveBeenCalled();
+    expect(params.pausedRef.current).toBe(true);
+    unmount();
+    vi.useRealTimers();
+  });
   it("ignores a transient missing gamepad sample before showing reconnect", async () => {
     vi.useFakeTimers();
     let gamepads: Gamepad[] = [gamepad()];

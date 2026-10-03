@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
@@ -66,12 +65,8 @@ func TestFinalizationPersistentCancelStopsSingleFileRead(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("reader not reached")
 	}
-	var version int64
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
-		t.Fatal(err)
-	}
 	_, pending, err := jobservice.New(jobpersistence.New(fixture.database),
-		finalizationNow).Cancel(t.Context(), job, version, "stop read")
+		finalizationNow).Cancel(t.Context(), job, "stop read")
 	if err != nil || !pending {
 		t.Fatalf("cancel: %v %v", pending, err)
 	}

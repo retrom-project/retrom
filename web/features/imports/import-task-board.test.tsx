@@ -6,13 +6,15 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImportTaskBoard } from "./import-task-board";
 
+const unavailableDiscard = { kind: "IMPORT" as const, importId: "test-batch", state: "UNAVAILABLE" as const, errorCode: null };
+
 describe("ImportTaskBoard", () => {
   afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it("opens the current completed batch details without an audit-history route", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({fileOutcomes: []}), {status: 200})));
     render(<ImportTaskBoard initial={{items: [{
-      id: "completed", state: "COMPLETED", platformInstanceName: "完成目录", metadataProvider: "NONE",
+      id: "completed", state: "COMPLETED", discard: unavailableDiscard, platformInstanceName: "完成目录", metadataProvider: "NONE",
       totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null}} />);
@@ -25,8 +27,8 @@ describe("ImportTaskBoard", () => {
     const user = userEvent.setup();
     const base = { metadataProvider: "NONE", totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0, version: 1, createdAtMs: 1, updatedAtMs: 2 };
     render(<ImportTaskBoard initial={{ items: [
-      { ...base, id: "done", state: "COMPLETED", platformInstanceName: "完成目录" },
-      { ...base, id: "failed", state: "FAILED", platformInstanceName: "失败目录" },
+      { ...base, id: "done", state: "COMPLETED", discard: unavailableDiscard, platformInstanceName: "完成目录" },
+      { ...base, id: "failed", state: "FAILED", discard: unavailableDiscard, platformInstanceName: "失败目录" },
     ], nextCursor: null }} />);
     expect(screen.queryByLabelText("任务摘要")).not.toBeInTheDocument();
     await user.selectOptions(screen.getByRole("combobox", { name: "任务状态" }), "COMPLETED");
@@ -40,7 +42,7 @@ describe("ImportTaskBoard", () => {
     const previousTimeZone = process.env.TZ;
     const timestamp = Date.UTC(2026, 8, 2, 12, 43);
     const initial = { items: [{
-      id: "timezone-import", state: "COMPLETED", platformInstanceName: "TyranoScript 游戏", metadataProvider: "NONE",
+      id: "timezone-import", state: "COMPLETED", discard: unavailableDiscard, platformInstanceName: "TyranoScript 游戏", metadataProvider: "NONE",
       totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
       version: 1, createdAtMs: timestamp, updatedAtMs: timestamp,
     }], nextCursor: null };
@@ -78,7 +80,7 @@ describe("ImportTaskBoard", () => {
     render(<ImportTaskBoard initial={{ items: [{
       id: "import-1",
       state: "PARTIAL_FAILURE",
-      platformInstanceName: "NES 游戏",
+      discard: unavailableDiscard, platformInstanceName: "NES 游戏",
       metadataProvider: "HASHEOUS",
       totalItemCount: 2,
       reviewPendingItemCount: 0,
@@ -108,7 +110,7 @@ describe("ImportTaskBoard", () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ fileOutcomes: [{ uploadFileId: "bad-1", name: "unexpected.txt", sizeBytes: 42, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }] }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "mixed-import", state: "PARTIAL_FAILURE", platformInstanceName: "MAME 2003 Plus 游戏", metadataProvider: "HASHEOUS",
+      id: "mixed-import", state: "PARTIAL_FAILURE", discard: unavailableDiscard, platformInstanceName: "MAME 2003 Plus 游戏", metadataProvider: "HASHEOUS",
       totalItemCount: 1, reviewPendingItemCount: 1, failedItemCount: 0, rejectedFileCount: 5, unresolvedRejectedFileCount: 5,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);
@@ -124,12 +126,12 @@ describe("ImportTaskBoard", () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       fileOutcomes: [{ uploadFileId: "file-1", name: "renamed-copy.gba", sizeBytes: 42, disposition: "ALREADY_IMPORTED", reasonCode: "ALREADY_IMPORTED", resolution: null }],
-      alreadyImportedMatches: [{ importItemId: "item-1", contentIdentityDigest: "a".repeat(64), existingGame: { id: "game-1", title: "Already there", platformInstanceId: "platform-1", platformInstanceName: "GBA 游戏" } }],
+      alreadyImportedMatches: [{ importItemId: "item-1", contentIdentityDigest: "a".repeat(64), existingGame: { id: "game-1", title: "Already there", platformInstanceId: "platform-1", discard: unavailableDiscard, platformInstanceName: "GBA 游戏" } }],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
       id: "import-duplicate",
       state: "COMPLETED",
-      platformInstanceName: "GBA 游戏",
+      discard: unavailableDiscard, platformInstanceName: "GBA 游戏",
       metadataProvider: "NONE",
       totalItemCount: 1,
       reviewPendingItemCount: 0,
@@ -161,7 +163,7 @@ describe("ImportTaskBoard", () => {
       fileOutcomes: [],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "multi-import", state: "REVIEW_PENDING", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
+      id: "multi-import", state: "REVIEW_PENDING", discard: unavailableDiscard, platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
       totalItemCount: 1, reviewPendingItemCount: 1, failedItemCount: 0, rejectedFileCount: 0,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);
@@ -187,7 +189,7 @@ describe("ImportTaskBoard", () => {
       fileOutcomes: [{ uploadFileId: "playlist-1", name: "game/game.m3u", sizeBytes: 42, disposition: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_INVALID", resolution: null }],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "multi-rejected", state: "PARTIAL_FAILURE", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
+      id: "multi-rejected", state: "PARTIAL_FAILURE", discard: unavailableDiscard, platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
       totalItemCount: 0, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 1,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);
@@ -207,20 +209,17 @@ describe("ImportTaskBoard", () => {
     const detailRequests: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const pathname = new URL(input instanceof Request ? input.url : String(input), window.location.origin).pathname;
-      if (pathname.startsWith("/api/v1/admin/import-batches/")) {
-        return Response.json({ state: "UNAVAILABLE", errorCode: null });
-      }
       detailRequests.push(pathname);
       const id = pathname.split("/").at(-1) ?? "";
       return Response.json({
-        importJobId: id, state: completed ? "COMPLETED" : "RUNNING", metadataProvider: "NONE", targetPlatformInstance: { id: `platform-${id}`, name: `${id} 游戏` },
+        discard: unavailableDiscard, importJobId: id, state: completed ? "COMPLETED" : "RUNNING", metadataProvider: "NONE", targetPlatformInstance: { id: `platform-${id}`, name: `${id} 游戏` },
         counts: { total: 1, reviewPending: 0, failed: 0, rejectedFiles: 0, unresolvedRejectedFiles: 0, alreadyImportedItems: 0, alreadyImportedFiles: 0 },
         fileOutcomes: [], version: completed ? 2 : 1, createdAtMs: 1, updatedAtMs: 3,
       });
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<ImportTaskBoard initial={{ items: ["running-1", "running-2"].map((id) => ({
-      id, state: "RUNNING", platformInstanceName: `${id} 游戏`, metadataProvider: "NONE", totalItemCount: 1,
+      id, state: "RUNNING", discard: unavailableDiscard, platformInstanceName: `${id} 游戏`, metadataProvider: "NONE", totalItemCount: 1,
       reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0, version: 1, createdAtMs: 1, updatedAtMs: 2,
     })), nextCursor: null }} />);
 
@@ -233,7 +232,7 @@ describe("ImportTaskBoard", () => {
     expect(detailRequests).toEqual([...taskPaths, ...taskPaths]);
     expect(fetchMock).toHaveBeenCalledWith(taskPaths[0], expect.objectContaining({ cache: "no-store" }));
     expect(fetchMock).toHaveBeenCalledWith(taskPaths[1], expect.objectContaining({ cache: "no-store" }));
-    // Version updates also refresh discard availability; only task-detail requests are polling.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
     expect(detailRequests).toEqual([...taskPaths, ...taskPaths]);
   });
@@ -247,7 +246,7 @@ describe("ImportTaskBoard", () => {
       fileOutcomes: [], version: 2, createdAtMs: 1, updatedAtMs: 2,
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "failed-import", state: "FAILED", platformInstanceName: "RPG Maker 游戏", metadataProvider: "NONE",
+      id: "failed-import", state: "FAILED", discard: unavailableDiscard, platformInstanceName: "RPG Maker 游戏", metadataProvider: "NONE",
       totalItemCount: 0, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
       lastErrorCode: "RPG_PROJECT_ROOT_AMBIGUOUS", version: 2, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);

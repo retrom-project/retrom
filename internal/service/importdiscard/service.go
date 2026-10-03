@@ -69,19 +69,14 @@ func status(ctx context.Context, records Reader, key Key) (Status, error) {
 	if err != nil {
 		return Status{}, failure("access discard status", err)
 	}
-	result := Status{Kind: key.Kind, ImportID: key.ID, State: "UNAVAILABLE"}
-	if available(key.Kind, batch) {
-		result.State = "AVAILABLE"
-	}
 	disposition, found, err := records.Disposition(ctx, key)
 	if err != nil {
 		return Status{}, failure("access discard status", err)
 	}
 	if found {
-		result.State = disposition.State
-		result.ErrorCode = disposition.ErrorCode
+		return resolveStatus(key, batch, &disposition), nil
 	}
-	return result, nil
+	return resolveStatus(key, batch, nil), nil
 }
 
 func available(kind string, batch Batch) bool {

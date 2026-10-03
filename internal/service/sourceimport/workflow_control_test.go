@@ -108,13 +108,7 @@ func TestWorkflowCancellationDistinguishesClaimedAndQueuedWork(t *testing.T) {
 			m := workflowFixture()
 			m.before.Summary.State = "QUEUED"
 			m.before.JobState = jobState
-			_, pending, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).Cancel(
-				t.Context(),
-				"import",
-				4,
-				"  Stop  ",
-				"actor",
-			)
+			_, pending, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).CancelJob(t.Context(), JobCancellationRequest{JobID: "job", ScopeID: "import", Kind: "IMPORT_RECEIVE", Reason: "  Stop  ", ActorID: "actor"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,7 +133,7 @@ func TestWorkflowCancellationRejectsInvalidReason(t *testing.T) {
 	t.Parallel()
 	for _, reason := range []string{" ", strings.Repeat("停", 501)} {
 		m := workflowFixture()
-		_, _, err := NewWorkflowControl(m, time.Now).Cancel(t.Context(), "import", 4, reason, "actor")
+		_, _, err := NewWorkflowControl(m, time.Now).CancelJob(t.Context(), JobCancellationRequest{JobID: "job", ScopeID: "import", Kind: "IMPORT_RECEIVE", Reason: reason, ActorID: "actor"})
 		if !errors.Is(err, ErrNotCancellable) || m.cancellation != nil {
 			t.Fatalf("invalid reason: %v", err)
 		}
@@ -171,7 +165,7 @@ func TestWorkflowFailurePreservesCauseAndHidesPartialResults(t *testing.T) {
 
 func TestWorkflowCancellationPreservesFailuresAndRejectsStaleState(t *testing.T) {
 	t.Parallel()
-	for _, phase := range []string{"read", "write", "commit", "version", "job", "state", "missing_job"} {
+	for _, phase := range []string{"read", "write", "commit", "job", "state", "missing_job"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			m := workflowFixture()
@@ -190,8 +184,8 @@ func TestWorkflowCancellationPreservesFailuresAndRejectsStaleState(t *testing.T)
 				want = ErrNotCancellable
 				invalidateCancellation(m, phase)
 			}
-			value, pending, err := NewWorkflowControl(m, time.Now).Cancel(t.Context(), "import", 4, "Stop", "actor")
-			if !errors.Is(err, want) || value.ID != "" || pending {
+			value, pending, err := NewWorkflowControl(m, time.Now).CancelJob(t.Context(), JobCancellationRequest{JobID: "job", ScopeID: "import", Kind: "IMPORT_RECEIVE", Reason: "Stop", ActorID: "actor"})
+			if !errors.Is(err, want) || value.JobID != "" || pending {
 				t.Fatalf("invalid cancellation: %#v %v pending=%v", value, err, pending)
 			}
 		})
@@ -200,8 +194,6 @@ func TestWorkflowCancellationPreservesFailuresAndRejectsStaleState(t *testing.T)
 
 func invalidateCancellation(m *workflowMemory, phase string) {
 	switch phase {
-	case "version":
-		m.before.Summary.Version++
 	case "job":
 		m.before.JobState = "SUCCEEDED"
 	case "state":
@@ -217,7 +209,7 @@ func TestWorkflowCancellationAllowsFiveHundredUnicodeCharacters(t *testing.T) {
 	m.before.Summary.State = "QUEUED"
 	m.before.JobState = "QUEUED"
 	reason := strings.Repeat("停", 500)
-	if _, _, err := NewWorkflowControl(m, time.Now).Cancel(t.Context(), "import", 4, reason, "actor"); err != nil {
+	if _, _, err := NewWorkflowControl(m, time.Now).CancelJob(t.Context(), JobCancellationRequest{JobID: "job", ScopeID: "import", Kind: "IMPORT_RECEIVE", Reason: reason, ActorID: "actor"}); err != nil {
 		t.Fatal(err)
 	}
 	if m.cancellation == nil || m.cancellation.Reason != reason {

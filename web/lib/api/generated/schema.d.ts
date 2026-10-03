@@ -865,6 +865,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Cancel current work by jobId; no client version or execution precondition. Repeated cancellation is idempotent. */
         post: operations["postAdminJobCancel"];
         delete?: never;
         options?: never;
@@ -1751,24 +1752,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/source-imports/{sourceImportId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminSourceImportCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/source-imports/{sourceImportId}/retry": {
         parameters: {
             query?: never;
@@ -2216,6 +2199,44 @@ export interface components {
             items: {
                 [key: string]: unknown;
             }[];
+        };
+        ImportTaskList: {
+            items: components["schemas"]["ImportTaskListItem"][];
+            nextCursor: string | null;
+        };
+        ImportTaskListItem: {
+            id: string;
+            state: string;
+            platformInstanceName: string;
+            metadataProvider: string;
+            contentMode: string;
+            /** Format: int64 */
+            totalItemCount: number;
+            /** Format: int64 */
+            reviewPendingItemCount: number;
+            /** Format: int64 */
+            failedItemCount: number;
+            /** Format: int64 */
+            rejectedFileCount: number;
+            /** Format: int64 */
+            unresolvedRejectedFileCount: number;
+            /** Format: int64 */
+            alreadyImportedItemCount: number;
+            /** Format: int64 */
+            alreadyImportedFileCount: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            lastErrorCode: string | null;
+            discard: components["schemas"]["ImportBatchDiscard"];
+        };
+        ImportTaskDetail: {
+            discard: components["schemas"]["ImportBatchDiscard"];
+        } & {
+            [key: string]: unknown;
         };
         ImportBatchDiscard: {
             /** @enum {string} */
@@ -3177,6 +3198,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description Metadata fields are patched individually. Clients submit only edited metadata fields; an untouched incomplete title must not block independent RTP confirmation, asset or tag choices. Publication still requires a valid title. */
         ReviewDraftRequest: {
             /** Format: uuid */
             targetPlatformInstanceId?: string;
@@ -3561,6 +3583,7 @@ export interface components {
             message: string;
         };
         SourceImportSummary: {
+            discard: components["schemas"]["ImportBatchDiscard"];
             /** @enum {string} */
             scanOutcome: "PENDING" | "READY" | "PARTIAL" | "INVALID" | "EMPTY" | "NO_METADATA";
             scanDiagnostics: components["schemas"]["SourceScanDiagnostic"][];
@@ -4037,7 +4060,7 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
-            /** @description True when the current source, target and actual dependencies allow approval. RPG Maker does not require a preview, checkpoint or screenshot proof before publication. */
+            /** @description True when current readiness passes or a current runtime screenshot authorizes administrator approval, for every content kind. Screenshot approval does not change readiness diagnostics. */
             canApprove?: unknown;
             canAttachMissingDiscs?: unknown;
             canRetry?: unknown;
@@ -6175,7 +6198,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Import tasks with authoritative discard state, read in a bounded batch for this page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTaskList"];
+                };
+            };
         };
     };
     postAdminImport: {
@@ -6221,7 +6252,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Current task details including authoritative discard state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTaskDetail"];
+                };
+            };
         };
     };
     getAdminImportEvents: {
@@ -6325,7 +6364,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "If-Match": components["parameters"]["IfMatch"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -6335,6 +6373,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["Reason"];
         responses: {
+            200: components["responses"]["JSONResponse"];
             202: components["responses"]["JSONResponse"];
         };
     };
@@ -7451,25 +7490,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["SourceItemListResponse"];
-        };
-    };
-    postAdminSourceImportCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["SourceImportResponse"];
-            202: components["responses"]["SourceImportResponse"];
         };
     };
     postAdminSourceImportRetry: {

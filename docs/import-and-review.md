@@ -114,6 +114,8 @@ Parent ROM 补传准备新目录时必须保留每个文件的旧→新记录映
 
 重复内容采用两个阶段约束。内容身份固定为“基础 `platform_id` + Item 当前全部 source file 的 `(role, Blob SHA-256, occurrence count)` 规范排序摘要”，不包含上传任务、文件名、逻辑名、ZIP/7z wrapper 名或目标 PlatformInstance；因此同一平台内改名或换 archive wrapper 不能绕过判断，不同基础平台不互相误判。识别阶段在 SourceFile 已闭合、内容观察、ReviewDraft 与刮削尚未创建时，查询是否已有 `PUBLISHED`（即未软删除）Game 的 current GameFiles 使用完全相同内容身份：命中则把 Item 原子转为 `DISCARDED`，记录全部已有 Game/当时 GameFiles 的不可变匹配证据，并把任务计数投影为“已导入并跳过”；不会创建待审核条目或重复游戏。底层 ImportJobFile 仍为可追溯的 `SOURCE`，详情 API 仅将参与该匹配的上传文件投影为 `ALREADY_IMPORTED`。
 
+重复候选查询先物化同基础平台内当前已发布 Game，之后只计算一次输入的文件多重集，以数量预筛并执行双向精确差集；多盘按 DISC 顺序比较且忽略来源 playlist wrapper。使用已有 Game/来源文件索引，不对其他平台反复展开输入，不增加跨模块摘要投影或缓存。内容替换、Parent 补传、目录变化和删除均直接反映当前事实。
+
 审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 SQLite 写事务，单写者下并发首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
 
 ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
@@ -128,7 +130,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 ### 丢弃本批次未发布内容
 
-处置 Service 编排取消、审核丢弃和引用释放，并判断是否仍有未处置内容。Repository 在同一读快照中返回批次、条目状态计数和既有处置；请求在写事务内重新判断可用性，连同审计原子保存，避免把已经全部发布的批次接受为新请求。服务器内部上传归属仅在文件摘要和唯一性均成立时恢复；来源条目收口、孤立信封删除与释放 Job 登记共享事务。
+处置 Service 编排取消、审核丢弃和引用释放，并判断是否仍有未处置内容。普通任务列表/详情、来源批次列表/摘要均附带必需的 `discard`（批次身份、处置状态与错误码）。HTTP 组合执行摘要与处置领域返回的结果；处置领域对当前分页批量读取事实并复用同一可用性判定，查询次数不随页内批次数增长。列表行直接使用响应状态，挂载、筛选重新挂载和执行版本变化不再单独请求处置状态；正在处置的批次通过原有任务详情刷新持续更新，终态停止处置轮询。Repository 在同一读快照中返回批次、条目状态计数和既有处置；请求在写事务内重新判断可用性，连同审计原子保存，避免把已经全部发布的批次接受为新请求。服务器内部上传归属仅在文件摘要和唯一性均成立时恢复；来源条目收口、孤立信封删除与释放 Job 登记共享事务。
 
 普通导入任务、Pegasus 和 EmulationStation 已开始执行的批次均提供一次性批量处置。请求持久化后，后台先停止该批次的在途执行，再通过普通 Discard 丢弃所有待审核项，并收口阻断、失败、取消及未形成审核的输入。正在执行的普通任务在此模式下保留 REVIEW_PENDING，停止执行后逐项记录真实审核决定；已发布或指向已有游戏的条目保留。普通取消功能仍遵循原有语义。
 
@@ -217,7 +219,7 @@ Unicode／大小写冲突和大小校验，再从独立文件存储校验摘要�
 同根多版本或多根目录保留歧义，在现有审核草稿中显式选择后才能预览和批准。选择不会丢弃其他来源文件；
 多游戏合集也可拆分后分别导入。未知变体、缺少构建引擎和不支持的游戏保持可见并阻止选择。
 
-`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并更新草稿的当前选择；来源改变后旧候选不能复用。运行截图不能绕过此选择约束。批准将选定快照复制到游戏变体，
+`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并更新草稿的当前选择；来源改变后旧候选不能复用。预览仍需要可用的运行选择；若已有当前运行截图，管理员可确认发布，原始选择诊断保留。批准将当前快照复制到游戏变体，
 后续重新校验核对来源摘要并保留原始选项。工具超时／失败属于可重试任务故障，不得转成正常空识别结果。
 ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.ini` 不作为可执行入口或受信配置。
 
@@ -370,6 +372,8 @@ Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对
 
 Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自该有效来源和当前依赖安装，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 仅保留 `IMPORT_RECEIVE` 来源类别，不持有 Pegasus Item 或审核 Item 的引用；发布事务以审核 Item 的有效来源快照校验并落地最终 content manifest。Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
 
+审核草稿实时保存按字段提交元信息变更；未编辑的空标题不得随 RTP 确认、媒体或标签选择重复提交并触发契约错误。显式清空数字字段仍提交 null，发布时继续要求有效标题。审核摘要在标题为空时显示来源文件名，该显示值不等于已保存的发布标题。
+
 审核媒体使用统一人工上传入口：封面为 COVER，视频为 VIDEO；上传创建 Item 独占不可变资产，草稿另行选择。视频选择覆盖来源视频，清空选择恢复来源或空态；重新查询及应用元信息不得清除人工视频。发布只复制当前封面和一个当前视频到 Game 自有目录，终态释放人工媒体及上传消费。格式、尺寸和并发约束以 HTTP 契约为准。
 
 审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都替换当前抓取结果，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存；没有候选时必须把最新持久化 Run 的精确结论常驻投影到审核摘要，区分无特征、精确未命中、上游限流/超时/网络异常和响应无法解析，不能一律折叠成“未找到游戏信息”。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；替换结果时解除旧候选和媒体引用，已编辑的文字草稿保持不变。
@@ -386,7 +390,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 ### 10.1 管理后台页面职责
 
-普通审核 Preview 与 Player 由各类项目共用。本小节 `REVIEW_SCREENSHOT_OVERRIDE` 的截图人工放行只适用于非 RPG Maker 条目；RPG Maker 按第 17 节的真实来源、Target 和依赖检查决定能否发布，截图或试运行成功不覆盖缺失依赖。管理员可按需试运行、保存审核截图及会话级临时 checkpoint，但不需要专用运行证明。
+普通审核 Preview 与 Player 由各类项目共用。所有内容类型统一允许当前运行截图作为管理员发布依据，标记 `REVIEW_SCREENSHOT_OVERRIDE`；没有截图时按当前运行检查通过决定能否发布。截图放行与诊断事实分离：保留原始 readiness status、compatibilityCode 和完整依赖详情，不伪造 READY、不清空缺少 Parent/BIOS/文件/RTP 的原因，不增加截图防伪、额外机器证明或人工重检任务。文件归属、当前来源绑定和发布事务完整性继续由对应领域保证。
 
 游戏入库使用“父级总览 + 四个同级子页”，不能再用一个页面内的 Tab 同时承载导入、任务和历史：
 
@@ -412,7 +416,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 审核预览创建由 `internal/service/libraryimport.ReviewPreviews` 编排，审核持久化层提供来源、当前依赖和实际文件，并在创建会话的同一写事务内重新读取、比较完整输入；来源、目录、运行绑定或实际资源变化均阻止旧准备结果提交。`internal/service/launch.PreviewCreator` 只接收准备好的运行输入，负责内容装配、签发凭证、恢复兼容性和会话资源固定，不读取审核工作流；Provider 与签名仍在写事务外调用。HTTP 审核预览入口调用审核用例，已创建会话的运行、内容读取与结束由 Launch 处理。
 
-截图由管理员按需保存并通知原审核页刷新，以审核 Item 关联而不是 validation_id。允许人工放行的非 RPG 内容在发布事务中核对截图所属 Item、来源快照、目录与 Provider/Target，记录 REVIEW_SCREENSHOT_OVERRIDE 和截图 ID。BIOS 变化不清除截图，来源或目标变化时旧截图不投影。已有 Preview 保持创建时资源；新的 Preview 使用当前资源。临时 checkpoint 到期或审核结束时释放，不进入持久 /saves。
+截图由管理员按需保存并通知原审核页刷新，以审核 Item 关联而不是 validation_id。所有内容类型在发布事务中核对截图所属 Item、来源快照、目录与 Provider/Target，记录 REVIEW_SCREENSHOT_OVERRIDE 和截图 ID。BIOS 变化不清除截图，来源或目标变化时旧截图不投影。已有 Preview 保持创建时资源；新的 Preview 使用当前资源。临时 checkpoint 到期或审核结束时释放，不进入持久 /saves。
 
 截图保存由 `internal/service/libraryimport.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、当前来源和运行绑定、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。所属领域的文件记录、替换 Item 当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
@@ -476,7 +480,9 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`007` 与 `ACC-MEDIA-001`。
 
-取消和手动重试由 来源 Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 来源 execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
+取消只由 `jobId` 定位任务，来源详情与任务入口统一调用通用 Job 取消命令，不携带前端版本或 executionNo。组合层按 kind 注入领域取消端口，来源 Service 在事务内读取最新计划与 Job，并由 Repository 原子保存；内部版本、execution、worker/lease 围栏继续保护写入。扫描与导入 Job 未领取时直接取消，运行时进入 CANCEL_REQUESTED 并保留 owner 直至安全停止；重复取消不推进版本、不重复写事件。进度更新、自动重试或 UI 滞后不能阻断取消。手动重试和批次废弃是独立命令，保留各自版本保护；取消并不取消已经交接的审核项或回滚已发布结果。
+
+自动重试、进程恢复和失败收口都以已持久化取消为优先事实：CANCEL_REQUESTED 只允许收敛到 CANCELLED；CANCELLED 不可被手动重试、旧计时器、队列通知或旧 worker 重新拉起。临时错误的自动重排队保留原 execution/attempt/deadline；普通进程中断的 context.Canceled 不是用户取消，只有持久化取消命令才阻止恢复。可重试失败任务仍允许显式取消来释放占用，不可重试终态保持不变。
 
 执行领取、续租、子项领取/恢复/结果以及导入完成由 Service 决定，Repository 在事务内检查当前 worker、execution、attempt、Job/计划/子项版本和未过期的租约及 deadline。每次领取生成独立且经过错误检查的 worker 身份；自动接管返回原先持久化的执行截止时刻，续租不能越过它。心跳失败或上下文结束时停止续租，执行返回前等待心跳退出。队列和维护由独立循环运行，扫描或复制不能阻塞过期恢复。启动幂等；关闭时取消队列、维护与当前执行的上下文，并等待操作和心跳全部退出。运行中的取消通过提交后通知与每秒持久状态检查传递到执行上下文；确认取消后使用独立的 30 秒清理上下文，并在收口事务重新核对当前归属。失去归属或到期只能停止执行，不能据此冒充取消权限。完成导入前必须确认没有 PENDING/COPYING/VALIDATING 子项，结果计数、终态释放与事件整体提交；重复结果不追加事件，旧 worker 不得领取子项、写审核元数据或关闭当前执行。
 
@@ -518,7 +524,7 @@ EmulationStation Collection 使用完全相同的 `tagIds`、snapshot、删除�
 
 ## 17. RPG Maker 项目识别、资源与发布验证
 
-`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传独立文件存储 bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
+`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录上传必须保留所选目录名；无法得到非空初始标题的输入拒绝创建审核草稿，不以内部文件名兜底，也不生成空标题条目。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传独立文件存储 bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
 
 目标目录默认核心必须是虚拟 `rpgmaker`；服务端运行全部有界 signature parser，唯一检测出 generation 后再选择 `retrom-runtime` Provider 的固定 Target。多 generation 为 ambiguous，无证据为 unsupported，无法唯一裁决时拒绝；用户不能选择、覆盖或 fallback 到另一个 Target。
 
@@ -534,9 +540,9 @@ MV 根 marker 恰为两个公共文件 `index.html`/`data/System.json` 和八个
 
 RPG Maker 游戏只使用随项目上传的资源，不安装或挂载外部 RTP。2000/2003 的 `FullPackageFlag=1` 表示作者声明完整打包；未声明时标记 `BLOCKED/RPG_EXTERNAL_RTP_REQUIRED`。XP/VX/VX Ace 检查 `Game.ini` 的 `RTP/RTP1/RTP2/RTP3`，存在非空声明时同样阻断；无外部声明的项目及 MV/MZ 按原有内容检测继续处理。这是声明检查，不能证明动态脚本的所有素材引用都存在，不能仅凭目录存在认定资源完整。
 
-所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布由当前检查通过或管理员基于当前运行截图确认放行。
 
-Approve 在短事务内重新核对当前 effective source、精确文件、Core、Provider/Target 声明、资源声明与显式自包含确认。未确认的外部 RTP 依赖阻断发布；管理员可勾选“确认项目自包含 RTP”强制放行，取消确认后恢复阻断。确认只改变审核决策，不补充素材、不绕过文件安全或引擎识别，也不保证游戏运行成功。确认值写入依赖快照并参与摘要，发布时再次核对；截图或试玩本身不解除依赖阻断。普通试运行、截图、checkpoint、发布与存档恢复保留。
+Approve 在短事务内重新核对当前 effective source、精确文件、Core、Provider/Target 声明、资源声明与显式自包含确认。未确认的外部 RTP 依赖阻断发布；管理员可勾选“确认项目自包含 RTP”强制放行，取消确认后恢复阻断。确认只改变审核决策，不补充素材、不绕过文件安全或引擎识别，也不保证游戏运行成功。确认值写入依赖快照并参与摘要，发布时再次核对；当前运行截图可作为另一独立发布依据；它不改写 RTP 声明、自包含确认或原始诊断。普通试运行、截图、checkpoint、发布与存档恢复保留。
 
 ## 18. 统一验收入口
 

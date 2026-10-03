@@ -11,6 +11,7 @@ export type UploadRequest = {
   body: XMLHttpRequestBodyInit;
   totalBytes?: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
   onProgress: (progress: SaveUploadProgress) => void;
   createRequest?: () => XMLHttpRequest;
 };
@@ -35,14 +36,17 @@ function boundedProgress(loaded: number, total: number): SaveUploadProgress {
 
 export function uploadWithProgress(request: UploadRequest): Promise<UploadResponse> {
   return new Promise((resolve, reject) => {
+    request.signal?.throwIfAborted();
     const xhr = request.createRequest?.() ?? new XMLHttpRequest();
     const fallbackTotal = Math.max(1, request.totalBytes ?? 1);
     let settled = false;
     const fail = (code = "SAVE_UPLOAD_NETWORK_FAILED") => {
       if (settled) {return;}
       settled = true;
+      request.signal?.removeEventListener("abort", abort);
       reject(new Error(code));
     };
+    const abort = () => {xhr.abort(); fail();};
     xhr.open(request.method, request.url);
     xhr.timeout = request.timeoutMs ?? defaultUploadTimeoutMs;
     xhr.withCredentials = true;
@@ -55,12 +59,14 @@ export function uploadWithProgress(request: UploadRequest): Promise<UploadRespon
     xhr.addEventListener("load", () => {
       if (settled) {return;}
       settled = true;
+      request.signal?.removeEventListener("abort", abort);
       request.onProgress(boundedProgress(fallbackTotal, fallbackTotal));
       resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText });
     });
     xhr.addEventListener("error", () => fail());
     xhr.addEventListener("abort", () => fail());
     xhr.addEventListener("timeout", () => fail("SAVE_UPLOAD_TIMEOUT"));
+    request.signal?.addEventListener("abort", abort, {once: true});
     xhr.send(request.body);
   });
 }
@@ -73,12 +79,15 @@ export async function uploadWithRestartRetry(
 ): Promise<UploadResponse> {
   if (!request.headers["Idempotency-Key"]) {throw new Error("SAVE_UPLOAD_IDEMPOTENCY_REQUIRED");}
   for (let attempt = 0; attempt < 4; attempt++) {
+    request.signal?.throwIfAborted();
     try {
       const response = await send(request);
+      request.signal?.throwIfAborted();
       if (response.ok || ![408, 429, 500, 502, 503, 504].includes(response.status) || attempt === 3) {
         return response;
       }
     } catch (error) {
+      request.signal?.throwIfAborted();
       if (attempt === 3) {throw error;}
     }
     await wait(1_000 * 2 ** attempt);

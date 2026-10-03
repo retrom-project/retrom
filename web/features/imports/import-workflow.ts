@@ -1,4 +1,9 @@
+import type { components } from "@/lib/api/generated/schema";
+
+export type ImportDiscardStatus = components["schemas"]["ImportBatchDiscard"];
+
 export type ImportListItem = {
+  discard: ImportDiscardStatus;
   id: string;
   state: string;
   platformInstanceName: string;
@@ -34,6 +39,7 @@ export type ImportFileOutcome = {
 };
 
 export type ImportDetail = {
+  discard: ImportDiscardStatus;
   importJobId: string;
   state: string;
   payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
