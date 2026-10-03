@@ -1,0 +1,1341 @@
+[
+  {
+    "name": "login-real401-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 39.71875,
+      "buttonDocumentY": 39.71875,
+      "panelHeight": 79.4375,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 435,
+        "y": 508.296875,
+        "width": 410,
+        "height": 44
+      },
+      "panel": {
+        "x": 400,
+        "y": 152.515625,
+        "width": 480,
+        "height": 494.96875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 435,
+        "y": 548.015625,
+        "width": 410,
+        "height": 44
+      },
+      "panel": {
+        "x": 400,
+        "y": 112.796875,
+        "width": 480,
+        "height": 574.40625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "login-real401-390",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "delta": {
+      "buttonY": 96.078125,
+      "buttonDocumentY": 96.078125,
+      "panelHeight": 96.078125,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 53,
+        "y": 384.78125,
+        "width": 284,
+        "height": 44
+      },
+      "panel": {
+        "x": 16,
+        "y": 24,
+        "width": 358,
+        "height": 510.96875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    "after": {
+      "button": {
+        "x": 53,
+        "y": 480.859375,
+        "width": 284,
+        "height": 44
+      },
+      "panel": {
+        "x": 16,
+        "y": 24,
+        "width": 358,
+        "height": 607.046875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  },
+  {
+    "name": "login-real401-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 39.71875,
+      "buttonDocumentY": 39.71875,
+      "panelHeight": 79.4375,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1075,
+        "y": 833.296875,
+        "width": 410,
+        "height": 44
+      },
+      "panel": {
+        "x": 1040,
+        "y": 467.515625,
+        "width": 480,
+        "height": 504.96875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1075,
+        "y": 873.015625,
+        "width": 410,
+        "height": 44
+      },
+      "panel": {
+        "x": 1040,
+        "y": 427.796875,
+        "width": 480,
+        "height": 584.40625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "account-password-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 79.4375,
+      "buttonDocumentY": 79.4375,
+      "panelHeight": 79.4375,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 638.796875,
+        "y": 569.359375,
+        "width": 592.1875,
+        "height": 44
+      },
+      "panel": {
+        "x": 638.796875,
+        "y": 262.78125,
+        "width": 592.1875,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 638.796875,
+        "y": 648.796875,
+        "width": 592.1875,
+        "height": 44
+      },
+      "panel": {
+        "x": 638.796875,
+        "y": 262.78125,
+        "width": 592.1875,
+        "height": 430.015625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "account-password-390",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "delta": {
+      "buttonY": 79.4375,
+      "buttonDocumentY": 79.4375,
+      "panelHeight": 79.4375,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 49,
+        "y": 674.71875,
+        "width": 292,
+        "height": 44
+      },
+      "panel": {
+        "x": 33,
+        "y": 328.953125,
+        "width": 324,
+        "height": 409.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 233
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    "after": {
+      "button": {
+        "x": 49,
+        "y": 754.15625,
+        "width": 292,
+        "height": 44
+      },
+      "panel": {
+        "x": 33,
+        "y": 328.953125,
+        "width": 324,
+        "height": 489.203125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 233
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  },
+  {
+    "name": "account-password-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 79.4375,
+      "buttonDocumentY": 79.4375,
+      "panelHeight": 79.4375,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1127.59375,
+        "y": 569.359375,
+        "width": 1299.390625,
+        "height": 44
+      },
+      "panel": {
+        "x": 1127.59375,
+        "y": 262.78125,
+        "width": 1299.390625,
+        "height": 350.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1127.59375,
+        "y": 648.796875,
+        "width": 1299.390625,
+        "height": 44
+      },
+      "panel": {
+        "x": 1127.59375,
+        "y": 262.78125,
+        "width": 1299.390625,
+        "height": 430.015625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "tag-delete-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 16.90625,
+      "buttonDocumentY": 16.90625,
+      "panelHeight": 33.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 783,
+        "y": 512.96875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 220.015625,
+        "width": 520,
+        "height": 359.953125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 783,
+        "y": 529.875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 203.125,
+        "width": 520,
+        "height": 393.75
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "invitation-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 61.796875,
+      "buttonDocumentY": 61.796875,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1164,
+        "y": 208.984375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1164,
+        "y": 270.78125,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "user-reset-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 61.796875,
+      "buttonDocumentY": 61.796875,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1005,
+        "y": 507.78125,
+        "width": 150,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1005,
+        "y": 569.578125,
+        "width": 150,
+        "height": 44
+      },
+      "panel": {
+        "x": 760,
+        "y": 0,
+        "width": 520,
+        "height": 800
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "parent-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 10.40625,
+      "buttonDocumentY": 10.40625,
+      "panelHeight": 20.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 741,
+        "y": 485.375,
+        "width": 136,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 247.609375,
+        "width": 520,
+        "height": 304.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 584
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 741,
+        "y": 495.78125,
+        "width": 136,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 237.21875,
+        "width": 520,
+        "height": 325.5625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 584
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "tag-delete-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 16.90625,
+      "buttonDocumentY": 16.90625,
+      "panelHeight": 33.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1423,
+        "y": 832.96875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 540.015625,
+        "width": 520,
+        "height": 359.953125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1423,
+        "y": 849.875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 523.125,
+        "width": 520,
+        "height": 393.75
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "invitation-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 61.796875,
+      "buttonDocumentY": 61.796875,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 2444,
+        "y": 208.984375,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 2444,
+        "y": 270.78125,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "user-reset-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 61.796875,
+      "buttonDocumentY": 61.796875,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 2285,
+        "y": 507.78125,
+        "width": 150,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 2285,
+        "y": 569.578125,
+        "width": 150,
+        "height": 44
+      },
+      "panel": {
+        "x": 2040,
+        "y": 0,
+        "width": 520,
+        "height": 1440
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "parent-empty-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 10.40625,
+      "buttonDocumentY": 10.40625,
+      "panelHeight": 20.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1381,
+        "y": 805.375,
+        "width": 136,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 567.609375,
+        "width": 520,
+        "height": 304.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1381,
+        "y": 815.78125,
+        "width": 136,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 557.21875,
+        "width": 520,
+        "height": 325.5625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "directory-read-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 10.390625,
+      "buttonDocumentY": 10.390625,
+      "panelHeight": 20.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 73,
+        "y": 544.390625,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 50,
+        "y": 188.609375,
+        "width": 1180,
+        "height": 422.78125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 73,
+        "y": 554.78125,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 50,
+        "y": 178.203125,
+        "width": 1180,
+        "height": 443.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "directory-read-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 10.390625,
+      "buttonDocumentY": 10.390625,
+      "panelHeight": 20.796875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 713,
+        "y": 864.390625,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 690,
+        "y": 508.609375,
+        "width": 1180,
+        "height": 422.78125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 713,
+        "y": 874.78125,
+        "width": 122,
+        "height": 44
+      },
+      "panel": {
+        "x": 690,
+        "y": 498.203125,
+        "width": 1180,
+        "height": 443.578125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  },
+  {
+    "name": "batch-discard-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "errorInDialog": false,
+    "dialogText": "!\n丢弃本批次未发布内容？\n\n本批次所有待审核和导入失败的内容都会丢弃，无法继续审核或重试导入。已发布游戏和服务器原始文件保留；无引用文件按现有 GC 保留期回收。\n\n取消\n确认丢弃",
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 783,
+        "y": 427.6875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 305.3125,
+        "width": 520,
+        "height": 189.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "alerts": []
+    },
+    "after": {
+      "button": {
+        "x": 783,
+        "y": 427.6875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 380,
+        "y": 305.3125,
+        "width": 520,
+        "height": 189.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "alerts": [
+        {
+          "text": "丢弃请求未成功，请重试",
+          "box": {
+            "x": 1111.9375,
+            "y": 197.21875,
+            "width": 123.0625,
+            "height": 17.921875
+          },
+          "centerUnoccluded": false,
+          "hitClass": "dialog-backdrop",
+          "coveredProbeCount": 5
+        }
+      ]
+    }
+  },
+  {
+    "name": "batch-discard-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 0,
+      "buttonDocumentY": 0,
+      "panelHeight": 0,
+      "horizontalOverflow": false
+    },
+    "errorInDialog": false,
+    "dialogText": "!\n丢弃本批次未发布内容？\n\n本批次所有待审核和导入失败的内容都会丢弃，无法继续审核或重试导入。已发布游戏和服务器原始文件保留；无引用文件按现有 GC 保留期回收。\n\n取消\n确认丢弃",
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1423,
+        "y": 747.6875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 625.3125,
+        "width": 520,
+        "height": 189.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "alerts": []
+    },
+    "after": {
+      "button": {
+        "x": 1423,
+        "y": 747.6875,
+        "width": 94,
+        "height": 44
+      },
+      "panel": {
+        "x": 1020,
+        "y": 625.3125,
+        "width": 520,
+        "height": 189.375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "alerts": [
+        {
+          "text": "丢弃请求未成功，请重试",
+          "box": {
+            "x": 2178.9375,
+            "y": 206.71875,
+            "width": 123.0625,
+            "height": 17.921875
+          },
+          "centerUnoccluded": false,
+          "hitClass": "dialog-backdrop",
+          "coveredProbeCount": 5
+        }
+      ]
+    }
+  },
+  {
+    "name": "config503-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "after": {
+      "button": null,
+      "panel": {
+        "x": 420,
+        "y": 271.609375,
+        "width": 440,
+        "height": 256.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "errorText": "游戏启动失败\n\nLAUNCH_CONFIG_503\n\n启动信息\n[\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n]\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+    "availableButtons": [],
+    "availableLinks": [
+      "返回游戏库"
+    ]
+  },
+  {
+    "name": "immersive-save-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "delta": {
+      "buttonY": 17.84375,
+      "buttonDocumentY": 17.84375,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 556.328125,
+        "y": 418.1875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 330,
+        "y": 230,
+        "width": 620,
+        "height": 339.984375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    "after": {
+      "button": {
+        "x": 556.328125,
+        "y": 436.03125,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 330,
+        "y": 212.15625,
+        "width": 620,
+        "height": 375.671875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  {
+    "name": "config503-844",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "after": {
+      "button": null,
+      "panel": {
+        "x": 202,
+        "y": 66.609375,
+        "width": 440,
+        "height": 256.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    },
+    "errorText": "游戏启动失败\n\nLAUNCH_CONFIG_503\n\n启动信息\n[\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n]\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+    "availableButtons": [],
+    "availableLinks": [
+      "返回游戏库"
+    ]
+  },
+  {
+    "name": "immersive-save-844",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "delta": {
+      "buttonY": 35.6875,
+      "buttonDocumentY": 35.6875,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 338.328125,
+        "y": 220.1875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 112,
+        "y": 32,
+        "width": 620,
+        "height": 339.984375
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    },
+    "after": {
+      "button": {
+        "x": 338.328125,
+        "y": 255.875,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 112,
+        "y": 32,
+        "width": 620,
+        "height": 375.671875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    }
+  },
+  {
+    "name": "config503-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "after": {
+      "button": null,
+      "panel": {
+        "x": 1060,
+        "y": 591.609375,
+        "width": 440,
+        "height": 256.765625
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "errorText": "游戏启动失败\n\nLAUNCH_CONFIG_503\n\n启动信息\n[\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n]\n\n凭据可能已过期或依赖不兼容。 返回游戏库",
+    "availableButtons": [],
+    "availableLinks": [
+      "返回游戏库"
+    ]
+  },
+  {
+    "name": "immersive-save-2560",
+    "viewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "delta": {
+      "buttonY": 17.84375,
+      "buttonDocumentY": 17.84375,
+      "panelHeight": 35.6875,
+      "horizontalOverflow": false
+    },
+    "retryEnabled": true,
+    "before": {
+      "button": {
+        "x": 1196.328125,
+        "y": 744.59375,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 970,
+        "y": 543.609375,
+        "width": 620,
+        "height": 352.78125
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    },
+    "after": {
+      "button": {
+        "x": 1196.328125,
+        "y": 762.4375,
+        "width": 167.328125,
+        "height": 76
+      },
+      "panel": {
+        "x": 970,
+        "y": 525.765625,
+        "width": 620,
+        "height": 388.46875
+      },
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      }
+    }
+  }
+]

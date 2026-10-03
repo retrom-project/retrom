@@ -1,0 +1,45 @@
+{
+  "snapshots": [
+    {
+      "elapsedSincePreviousMs": 500,
+      "path": "/",
+      "text": "正在确认账号状态…"
+    },
+    {
+      "elapsedSincePreviousMs": 5000,
+      "path": "/",
+      "text": "正在确认账号状态…"
+    },
+    {
+      "elapsedSincePreviousMs": 20000,
+      "path": "/",
+      "text": "正在确认账号状态…"
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/auth/change-password",
+      "status": 401
+    },
+    {
+      "path": "/login",
+      "status": 307
+    },
+    {
+      "path": "/api/v1/favorites",
+      "status": 200
+    }
+  ],
+  "status": 401,
+  "serverAuth": {
+    "status": 200,
+    "authenticationState": "AUTHENTICATED"
+  },
+  "reloadPath": "/",
+  "reloadRecovers": true,
+  "finalPath": "/account",
+  "error": {
+    "code": "AUTHENTICATION_FAILED",
+    "message": "用户名或密码不正确"
+  }
+}
