@@ -130,6 +130,7 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 ## 3. 乐观并发与幂等
 
 - 可编辑资源响应包含 `version: integer` 和 `ETag: "v<version>"`。`PATCH`、状态转换和删除必须携带 `If-Match`；缺少为 `428 PRECONDITION_REQUIRED`，一般资源不匹配为 `409 VERSION_CONFLICT`。User 与 AccountLink 的管理写入是显式例外，不匹配返回 `412 RESOURCE_VERSION_CONFLICT`。
+- Job 取消是版本前置条件的显式例外：`POST /api/v1/admin/jobs/{jobId}/cancel` 只按 jobId 取消当前工作，不要求客户端 `If-Match` 或 executionNo；领域在事务内读取当前执行并保留写入 fencing。重复取消返回当前取消状态，不创建新执行。批次丢弃等独立聚合操作仍要求自身的版本前置条件。
 - 创建上传、上传终结、ImportJob、Launch、账号管理、可能投递兼容性任务的游戏移动预览、游戏永久删除、审核通过/Discard 等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `principal + operationId + key` 保存语义请求摘要和结果 24 小时；同一账号同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`，跨账号使用同 key 是独立命名空间。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header、密码或任意 capability；Launch 与一次性链接 replay 按服务端 key/公开 ID重新派生同一 secret 响应。
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复业务决定。
 
@@ -183,7 +184,6 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 | `deleteAdminSourceImport` | `DELETE /api/v1/admin/source-imports/{sourceImportId}` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `putAdminSourceImportCollectionMappings` | `PUT /api/v1/admin/source-imports/{sourceImportId}/collection-mappings` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `postAdminSourceImportStart` | `POST /api/v1/admin/source-imports/{sourceImportId}/start` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
-| `postAdminSourceImportCancel` | `POST /api/v1/admin/jobs/{jobId}/cancel` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `postAdminSourceImportRetry` | `POST /api/v1/admin/source-imports/{sourceImportId}/retry` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 
 后续按业务领域逐批迁移，而不是让 HTTP middleware 包住全部 handler 的事务：
@@ -544,7 +544,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
 | `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的独立文件存储 Blob，以新游戏目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
-| `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容替换等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
+| `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | 长任务的快照、SSE、有界取消与显式 retryable 重试。Source 扫描/导入使用摘要中的 scanJobId/importJobId 通过 Job route 取消；普通 Import 的批次级操作仍使用领域 route。`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含当前 readiness、scrape run/candidate/asset）和草稿。 |
 | `POST /api/v1/admin/review-bulk-approvals`、`GET /api/v1/admin/review-bulk-approvals/active`、`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` | 全局待审队列的快速审批任务创建、活动任务发现与汇总进度。 |
 | `POST /api/v1/admin/reviews/{importItemId}/previews` | 为所有已接入内容（包括 RPG Maker）创建普通 Player 审核快照。可选 `restoreFromPreviewId` 从同一操作者、同一当前来源/目标的未过期临时 checkpoint 创建新 preview，并冻结恢复输入；不要求原会话已关闭。 |
