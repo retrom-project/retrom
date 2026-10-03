@@ -1,0 +1,131 @@
+{
+  "version": "v0.0.105",
+  "separateParentZIP": {
+    "httpStatus": 202,
+    "jobState": "FAILED",
+    "jobError": "REVIEW_PARENT_CONTENT_MISMATCH",
+    "readiness": "BLOCKED",
+    "dependencies": [
+      {
+        "machine": "pgm",
+        "kind": "BIOS_OR_BASE",
+        "state": "SATISFIED_EXTERNAL",
+        "requiredEntries": [
+          "pgm_t01s.rom",
+          "pgm_m01s.rom",
+          "pgm_p01s.u20",
+          "pgm_p02s.u20",
+          "ddp3_bios.u37",
+          "bios.u42"
+        ],
+        "requiredEntryCount": 6,
+        "attachment": null
+      },
+      {
+        "machine": "kovshp",
+        "kind": "PARENT",
+        "state": "MISSING",
+        "requiredEntries": [
+          "p0600h_101.rom",
+          "pgm_t0600.u2",
+          "pgm_a0600.u3",
+          "pgm_a0601.u4",
+          "pgm_a0602.u6",
+          "igs_a05401w064.u8",
+          "pgm_b0600.u9",
+          "igs_b05401w064.u11",
+          "pgm_m0600.u5",
+          "kovsh_v100_china.asic",
+          "pgm_t01s.rom",
+          "pgm_m01s.rom",
+          "pgm_p01s.u20",
+          "pgm_p02s.u20",
+          "ddp3_bios.u37",
+          "bios.u42"
+        ],
+        "requiredEntryCount": 16,
+        "attachment": {
+          "state": "REJECTED",
+          "errorCode": "REVIEW_PARENT_CONTENT_MISMATCH",
+          "diagnostics": {
+            "archiveCode": "DAT_ENTRY_MISMATCH",
+            "mismatchedEntries": null,
+            "missingEntries": [
+              "pgm_t01s.rom",
+              "pgm_m01s.rom",
+              "pgm_p01s.u20",
+              "pgm_p02s.u20",
+              "ddp3_bios.u37",
+              "bios.u42"
+            ],
+            "schemaVersion": 1
+          }
+        }
+      }
+    ]
+  },
+  "parentPlusInstalledBIOSControl": {
+    "httpStatus": 202,
+    "jobState": "SUCCEEDED",
+    "jobError": null,
+    "readiness": "READY",
+    "dependencies": [
+      {
+        "machine": "pgm",
+        "kind": "BIOS_OR_BASE",
+        "state": "SATISFIED_EXTERNAL",
+        "requiredEntries": [
+          "pgm_t01s.rom",
+          "pgm_m01s.rom",
+          "pgm_p01s.u20",
+          "pgm_p02s.u20",
+          "ddp3_bios.u37",
+          "bios.u42"
+        ],
+        "requiredEntryCount": 6,
+        "attachment": null
+      },
+      {
+        "machine": "kovshp",
+        "kind": "PARENT",
+        "state": "SATISFIED_EXTERNAL",
+        "requiredEntries": [
+          "p0600h_101.rom",
+          "pgm_t0600.u2",
+          "pgm_a0600.u3",
+          "pgm_a0601.u4",
+          "pgm_a0602.u6",
+          "igs_a05401w064.u8",
+          "pgm_b0600.u9",
+          "igs_b05401w064.u11",
+          "pgm_m0600.u5",
+          "kovsh_v100_china.asic",
+          "pgm_t01s.rom",
+          "pgm_m01s.rom",
+          "pgm_p01s.u20",
+          "pgm_p02s.u20",
+          "ddp3_bios.u37",
+          "bios.u42"
+        ],
+        "requiredEntryCount": 16,
+        "attachment": {
+          "state": "ACCEPTED",
+          "errorCode": null,
+          "diagnostics": {
+            "ignoredNestedEntryCount": 0,
+            "observedEntryCount": 16,
+            "observedRootEntryCount": 16,
+            "requiredEntryCount": 16,
+            "schemaVersion": 1,
+            "warnings": null
+          }
+        }
+      }
+    ]
+  },
+  "cancelResubmit": {
+    "cancelled": "CANCELLED",
+    "freshUploadHTTP": 202,
+    "newJobId": true
+  }
+}
