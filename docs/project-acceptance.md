@@ -83,6 +83,14 @@ make install-deps
 
 ### 3.2 隔离数据与固定种子
 
+在 PFB 内保存临时验收输入时，同时限制临时夹具的 Git 向上搜索，避免无 `.git` 的源码归档夹具误用外层 PFB 的仓库身份。临时夹具自己初始化的 Git 仓库仍正常参与检查：
+
+```bash
+mkdir -p "$PWD/.pfb/acceptance-temp"
+export TMPDIR="$PWD/.pfb/acceptance-temp"
+export GIT_CEILING_DIRECTORIES="$TMPDIR"
+```
+
 后续实现必须提供统一入口：
 
 ```bash
