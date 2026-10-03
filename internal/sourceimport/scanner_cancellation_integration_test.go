@@ -45,11 +45,7 @@ func TestScannerExecutionCancellationStopsReaderAndKeepsOwnership(t *testing.T) 
 				mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='replacement',version=version+1 WHERE id='scan'`)
 				service.signal()
 			} else {
-				before, err := service.Get(t.Context(), unit.ImportID)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, pending, err := service.Cancel(t.Context(), unit.ImportID, before.Version, "Stop metadata scan", "user")
+				_, pending, err := service.cancelJobSummary(t.Context(), "scan", "IMPORT_SCAN", unit.ImportID, "Stop metadata scan", "user")
 				if err != nil || !pending {
 					t.Fatalf("request live cancellation: %v %v", pending, err)
 				}
