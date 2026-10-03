@@ -2,8 +2,8 @@
   "schema_version": 1,
   "provider_release": {
     "repository": "https://github.com/retrom-project/retrom-runtime",
-    "tag": "v0.58.5",
-    "commit": "9dd577619901aef73d2e33e9d3bf658574bc1a4b",
+    "tag": "v0.58.6",
+    "commit": "2bec89eba600749fa8e04c0b67aa9c9a31781785",
     "provider_id": "retrom-runtime",
     "target_id": "mame-arcade"
   },
