@@ -2611,6 +2611,7 @@
       <button type="button" data-review-scene="immersive-saves">沉浸存档</button>
       <button type="button" data-review-scene="immersive-system-menu">沉浸系统菜单</button>
       <button type="button" data-review-scene="immersive-player">沉浸游戏菜单</button>
+      <button type="button" data-review-scene="immersive-session-unavailable">Player · 会话已不可用</button>
       <button type="button" data-review-scene="play-no-save">Player · 无存档</button>
       <button type="button" data-review-scene="play-select-program">Player · 待选程序</button>
       <button type="button" data-review-scene="admin-users">用户管理</button>
@@ -2678,6 +2679,15 @@
   <section class="rt-immersive-design rt-im-player" data-immersive-page="immersive-player" aria-label="沉浸模式游戏菜单" hidden>
     <div class="rt-im-game-frame" aria-label="暂停的游戏画面"></div>
     <div class="rt-im-pause"><section class="rt-im-menu has-gamepad-cursor" role="dialog" aria-modal="true" aria-labelledby="rt-im-menu-title"><span class="rt-im-eyebrow">游戏已暂停 · SELECT + START × 2</span><h1 id="rt-im-menu-title">打击者 1945 加强版</h1><p>继续游戏、创建一份带截图的手动存档，或退出并返回原列表。</p><div class="rt-im-actions"><button type="button" class="rt-im-action is-selected">取消</button><button type="button" class="rt-im-action" aria-pressed="false" data-gamepad-cursor-toggle>手柄光标：关</button><button type="button" class="rt-im-action">创建存档</button><button type="button" class="rt-im-action">退出游戏</button></div><div class="rt-im-help" style="justify-content:center;margin-top:24px"><span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>取消</span></div></section></div>
+  </section>
+
+  <section class="rt-immersive-design" data-immersive-page="immersive-session-unavailable" aria-label="运行会话不可用" hidden>
+    <div style="min-height:100vh;display:grid;place-items:center;text-align:center;background:#000">
+      <div role="alert" style="max-width:440px;padding:24px"><h1>运行会话已不可用</h1>
+        <p>服务器已拒绝继续此会话，游戏已停止。游戏可能已被删除，或运行凭据已失效。</p>
+        <button type="button" class="rt-button" data-nav="library">返回游戏库</button>
+      </div>
+    </div>
   </section>
 
   <section class="rt-auth-scene" data-auth-page="setup" aria-label="首次设置" hidden>

@@ -165,6 +165,7 @@ export function useImmersivePlayer(params: Params) {
   useEffect(() => {
     if (!enabled) {return;}
     const keydown = (event: KeyboardEvent) => {
+      if (!runningRef.current) {return;}
       if (overlayRef.current.kind === "closed" && event.key.toLowerCase() === "m") {
         event.preventDefault(); requestMenu(); return;
       }

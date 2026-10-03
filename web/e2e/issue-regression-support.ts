@@ -31,8 +31,8 @@ export const test = base.extend<{sourceDrafts: string[]}>({
   },
 });
 
-export async function createOrdinaryImport(page: Page, headers: Record<string, string>) {
-  const bytes = readFileSync(path.join(process.cwd(), "../testdata/public-roms/gba-smoke/gba-smoke.gba"));
+export async function createOrdinaryImport(page: Page, headers: Record<string, string>,
+  bytes = readFileSync(path.join(process.cwd(), "../testdata/public-roms/gba-smoke/gba-smoke.gba"))) {
   const writeHeaders = () => ({...headers, "Idempotency-Key": crypto.randomUUID()});
   const created = await page.request.post("/api/v1/admin/uploads", {headers: writeHeaders(),
     data: {sourceType: "FILES", files: [{clientFileId: "timezone", relativePath: "Timezone.gba", sizeBytes: bytes.length}]}});

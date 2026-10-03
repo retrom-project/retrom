@@ -14,6 +14,7 @@ import {useStartupTasks} from "./use-startup-tasks";
 import type {RuntimeStartupTaskV1} from "./runtime/contract";
 import {usePlayerBootstrap} from "./player-bootstrap";
 import {usePlayerSession} from "./player-session";
+import {useRuntimeSessionAuthority} from "./use-runtime-session-authority";
 import {PlayProgressClock} from "./play-progress-clock";
 import {NativeSaveToast} from "./checkpoint-help";
 import {useNativeExitDecision} from "./native-exit-dialog";
@@ -28,7 +29,7 @@ import {ImmersivePlayerMenu} from "./immersive-player-menu";
 import {GameEditorPanel} from "./game-editor-panel";
 import {useImmersivePlayer} from "./use-immersive-player";
 import {useGamepadCursor} from "./use-gamepad-cursor";
-import {usePlayerKeyboardPause} from "./use-player-keyboard-pause";
+import {usePlayerKeyboardPause, usePauseForToolbar} from "./use-player-keyboard-pause";
 import type {ContentLoadingCapability} from "./content-loading";
 import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
@@ -115,6 +116,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
   const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
   const keyboardPauseAction = useRef<() => void>(() => undefined);
+  const sessionAuthority = useMemo(() => ({launchId, uploads: new AbortController()}), [launchId]);
 
   const discSet = useMemo<PlayerDiscSet | null>(() => discState ? {
     count: discState.count,
@@ -170,19 +172,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     } else {showControls();}
   }, [clearControlsTimer, controlsVisible, showControls]);
 
-  const pauseForToolbarInteraction = useCallback(() => {
-    if (!running.current || pausedRef.current || pausePending.current) {return;}
-    const active = runtime.current;
-    if (!active?.getCapabilities().pause) {return;}
-    pausePending.current = true;
-    void active.pause().then(() => {
-      pausedRef.current = true;
-      setPaused(true);
-      showToast("游戏已暂停，点击游戏画面继续");
-      setControlsVisible(true);
-      clearControlsTimer();
-    }).catch(() => showToast("无法暂停游戏", 3_000)).finally(() => {pausePending.current = false;});
-  }, [clearControlsTimer, showToast]);
+  const pauseForToolbarInteraction = usePauseForToolbar({runtime, running, pausePending, pausedRef,
+    setPaused, setControlsVisible, clearControlsTimer, showToast});
 
   const resumeFromSurface = useCallback((source: "runtime" | "pause-overlay") => {
     if (!canResumeFromGameSurface({running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current, source})) {return;}
@@ -197,16 +188,23 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [showControls, showToast]);
   const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
   const sessionParams = useMemo(() => ({
+    sessionSignal: sessionAuthority.uploads.signal,
     launchId, runtime, envelope, progressClock, started, finishing, progressTimer, saveUploadQueue,
     orientationStateRef, returnTo, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
-  }), [launchId, replaceImmersiveRoute, showToast]);
+  }), [launchId, replaceImmersiveRoute, showToast, sessionAuthority]);
   const {reportProgress, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
 
   const {nativeSave, nativeRetryAvailable, presentGameSave} = useNativeSavePresentation(
     manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone);
   const gameSaveSync = useGameSaveSync(checkpointSemantics === "GAME_SAVE" && state === "running",
     runtime, uploadManualState, presentGameSave, userId, envelope);
+  const onUnavailable = useCallback(() => {
+    setMessage("RUNTIME_SESSION_UNAVAILABLE"); setState("error");
+    setPlayerReturnTo(experience === "immersive" ? "/immersive" : "/library");
+  }, [experience]);
+  useRuntimeSessionAuthority({...sessionAuthority, started, finishing, running, runtime,
+    controller: runtimeController, nativeSave: gameSaveSync, progressClock, progressTimer, onUnavailable});
   const selectedNativeRestore = useCallback(() => Boolean(envelope.current?.restore), []);
   const nativeExit = useNativeExitDecision(selectedNativeRestore);
   const {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit} = usePlayerRuntimeExit(
@@ -315,20 +313,21 @@ function PlayerShellView({startupTasks, canLoadOnDemand, nativeExitDialog, exper
   onShowControls: () => void;
   onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void;
 }) {
-  const blocked = orientationState.phase === "orientation-blocked";
+  const blocked = state !== "error" && orientationState.phase === "orientation-blocked";
+  const interactive = state !== "error" && !blocked;
   const isImmersive = experience === "immersive";
   return <main className={`player-shell${isImmersive ? " is-immersive" : ""}${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`}
     onKeyDown={(event) => {if (!isImmersive && shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}}
     onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
-    {nativeExitDialog}
-    {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
+    {interactive ? nativeExitDialog : null}
+    {interactive && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage startupTasks={startupTasks} canLoadOnDemand={canLoadOnDemand} blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
-    <NativeSaveToast visible={!blocked && isImmersive} semantics={chromeProps.checkpointSemantics}
+    <NativeSaveToast visible={interactive && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
-    {!blocked && isImmersive ? <ImmersivePlayerMenu gamepadCursor={chromeProps.gamepadCursor} nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
+    {interactive && isImmersive ? <ImmersivePlayerMenu gamepadCursor={chromeProps.gamepadCursor} nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
-    <ImmersiveGameEditorLayer blocked={blocked} immersive={isImmersive} overlay={immersive.overlay} runtime={chromeProps.inputRuntime} onClose={immersive.menuCancel} />
+    <ImmersiveGameEditorLayer blocked={!interactive} immersive={isImmersive} overlay={immersive.overlay} runtime={chromeProps.inputRuntime} onClose={immersive.menuCancel} />
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
       buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
   </main>;

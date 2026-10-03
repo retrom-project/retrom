@@ -1,7 +1,5 @@
 "use client";
 
-import {useRuntimeSessionRenewal} from "./runtime-session-renewal";
-
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
@@ -20,6 +18,7 @@ type Mutable<T> = { current: T };
 type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
+  sessionSignal: AbortSignal;
   launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
   progressClock: Mutable<PlayProgressClock>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   progressTimer: Mutable<number | null>; saveUploadQueue: Mutable<Promise<void>>;
@@ -31,7 +30,6 @@ export type PlayerSessionParams = {
 };
 
 export function usePlayerSession(params: PlayerSessionParams) {
-  useRuntimeSessionRenewal(params.launchId,params.started,params.finishing);
   const reportProgress = useCallback(() => sendPlayProgress(params), [params]);
 
   const reportSaveUploadProgress = useCallback((progress: SaveUploadProgress) => {
@@ -60,11 +58,12 @@ export function usePlayerSession(params: PlayerSessionParams) {
 async function queueReviewScreenshot(params: PlayerSessionParams) {
     if (params.envelope.current?.session.purpose !== "REVIEW_PREVIEW" || params.finishing.current) {return;}
     const result = params.saveUploadQueue.current.then(async () => {
+      params.sessionSignal.throwIfAborted();
       if (!params.runtime.current) {throw new Error("PLAYER_RUNTIME_UNAVAILABLE");}
-      await saveReviewScreenshot(params.runtime.current, params.launchId);
+      await saveReviewScreenshot(params.runtime.current, params.launchId, params.sessionSignal);
       params.showToast("审核截图已保存");
     });
-    params.saveUploadQueue.current = result.catch(() => {params.showToast("审核截图保存失败，请重试", 4_000);});
+    params.saveUploadQueue.current = result.catch(() => {if (params.sessionSignal.aborted) {return;} params.showToast("审核截图保存失败，请重试", 4_000);});
     await params.saveUploadQueue.current;
 }
 
@@ -95,6 +94,7 @@ function queueStateUpload(payload: RuntimeSavePayload, params: PlayerSessionPara
   const result = params.saveUploadQueue.current.then(() => uploadState(payload, params, reportProgress));
   params.saveUploadQueue.current = result.then(() => undefined, () => undefined);
   return result.catch((error: unknown) => {
+    if (params.sessionSignal.aborted) {return false;}
     if (error instanceof GameSaveConflict) {throw error;}
     params.setSaveUploadProgress(null); params.setSyncText("保存失败"); params.setSyncTone("warning");
     params.showToast(payload.source === "GAME_SAVE" ? "游戏数据保存失败，本地草稿已保留" :
@@ -137,6 +137,7 @@ async function exitImmersivePlayer(
 }
 
 async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+  params.sessionSignal.throwIfAborted();
   if (!payload.checkpoint.bytes.byteLength) {return rejectSave(params, "状态为空，未创建存档。");}
   const discIndex = await currentDiscIndex(params);
   if (discIndex === "unavailable") {return rejectSave(params, "无法读取当前光盘，未创建存档。");}
@@ -158,12 +159,13 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
       url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
       headers: { "Idempotency-Key": payload.requestId ?? newUuid() }, body: form,
       totalBytes: payload.checkpoint.bytes.byteLength + uploadPayload.screenshot.size,
-      timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress,
+      timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress, signal: params.sessionSignal,
     });
   } finally {
     await waitForSaveUploadPresentation(startedAt);
     params.setSaveUploadProgress(null);
   }
+  params.sessionSignal.throwIfAborted();
   return finishStateUpload(response, payload, uploadPayload.screenshot.size, params);
 }
 

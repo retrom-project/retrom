@@ -2815,6 +2815,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-saves&quot;&gt;沉浸存档&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-system-menu&quot;&gt;沉浸系统菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-player&quot;&gt;沉浸游戏菜单&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-session-unavailable&quot;&gt;Player · 会话已不可用&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;play-no-save&quot;&gt;Player · 无存档&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;play-select-program&quot;&gt;Player · 待选程序&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
@@ -2882,6 +2883,15 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
   &lt;section class=&quot;rt-immersive-design rt-im-player&quot; data-immersive-page=&quot;immersive-player&quot; aria-label=&quot;沉浸模式游戏菜单&quot; hidden&gt;
     &lt;div class=&quot;rt-im-game-frame&quot; aria-label=&quot;暂停的游戏画面&quot;&gt;&lt;/div&gt;
     &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu has-gamepad-cursor&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停 · SELECT + START × 2&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;继续游戏、创建一份带截图的手动存档，或退出并返回原列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot; aria-pressed=&quot;false&quot; data-gamepad-cursor-toggle&gt;手柄光标：关&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-session-unavailable&quot; aria-label=&quot;运行会话不可用&quot; hidden&gt;
+    &lt;div style=&quot;min-height:100vh;display:grid;place-items:center;text-align:center;background:#000&quot;&gt;
+      &lt;div role=&quot;alert&quot; style=&quot;max-width:440px;padding:24px&quot;&gt;&lt;h1&gt;运行会话已不可用&lt;/h1&gt;
+        &lt;p&gt;服务器已拒绝继续此会话，游戏已停止。游戏可能已被删除，或运行凭据已失效。&lt;/p&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-nav=&quot;library&quot;&gt;返回游戏库&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;setup&quot; aria-label=&quot;首次设置&quot; hidden&gt;

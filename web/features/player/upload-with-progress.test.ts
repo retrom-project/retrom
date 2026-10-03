@@ -20,6 +20,7 @@ class RequestStub extends EventTargetStub {
   readonly open = vi.fn();
   readonly setRequestHeader = vi.fn();
   readonly send = vi.fn();
+  readonly abort = vi.fn(() => this.emit("abort"));
 }
 
 describe("uploadWithProgress", () => {
@@ -95,4 +96,39 @@ describe("uploadWithRestartRetry", () => {
     await expect(uploadWithRestartRetry(request(), send, vi.fn())).resolves.toMatchObject({status: 409});
     expect(send).toHaveBeenCalledTimes(1);
   });
+});
+
+
+it("aborts in-flight upload and never retries a cancelled session", async () => {
+  const controller = new AbortController();
+  const xhr = new RequestStub();
+  const send = vi.fn((request: Parameters<typeof uploadWithProgress>[0]) => {
+    const result = uploadWithProgress(request);
+    queueMicrotask(() => xhr.emit("abort"));
+    return result;
+  });
+  const wait = vi.fn(async () => undefined);
+  const pending = uploadWithRestartRetry({
+    method: "POST", url: "/save", body: new FormData(), signal: controller.signal,
+    headers: {"Idempotency-Key": "stable"}, onProgress: vi.fn(),
+    createRequest: () => xhr as unknown as XMLHttpRequest,
+  }, send, wait);
+  const rejected = expect(pending).rejects.toThrow();
+  controller.abort();
+  // Settle old implementations too, so this regression fails without hanging.
+  xhr.emit("abort");
+  await rejected;
+  expect(xhr.abort).toHaveBeenCalledOnce();
+  expect(send).toHaveBeenCalledOnce();
+  expect(wait).not.toHaveBeenCalled();
+});
+
+it("does not restart an upload cancelled during retry backoff", async () => {
+  const controller = new AbortController();
+  const send = vi.fn().mockResolvedValue({ok: false, status: 503, body: ""});
+  await expect(uploadWithRestartRetry({
+    method: "POST", url: "/save", body: new FormData(), signal: controller.signal,
+    headers: {"Idempotency-Key": "stable"}, onProgress: vi.fn(),
+  }, send, async () => {controller.abort();})).rejects.toThrow();
+  expect(send).toHaveBeenCalledOnce();
 });

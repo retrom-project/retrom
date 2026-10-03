@@ -553,6 +553,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	}
 	handler, cookie, csrf := httpSession(t, server)
 	runtimeGrant := testRuntimeCookieForProfile(t, server, historyProfileID)
+	assertRuntimeRenewalStatus(t, handler, runtimeGrant, created.LaunchID, http.StatusNoContent)
 	beforeDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, gameURL, nil)
 	beforeDeleteRequest.AddCookie(runtimeGrant)
 	beforeDelete := httptest.NewRecorder()
@@ -595,6 +596,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	}
 	key := uuid.NewString()
 	deleted := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, key)
+	assertRuntimeRenewalStatus(t, handler, runtimeGrant, created.LaunchID, http.StatusUnauthorized)
 	testassert.Falsef(t, testassert.Any(func() bool { return deleted.Code != http.StatusAccepted }, func() bool { return deleted.Header().Get("ETag") != `"v2"` }, func() bool { return !strings.Contains(deleted.Body.String(), `"payloadState":"RELEASING"`) }), "game delete = %d %s", deleted.Code, deleted.Body.String())
 	replayed := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, key)
 	testassert.Falsef(t,
