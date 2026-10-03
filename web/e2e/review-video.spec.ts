@@ -56,7 +56,11 @@ test("ACC-MEDIA-001 review uploads, replaces, retains and publishes the selected
   await expect(player).toBeVisible();
   await expect(page.getByRole("tab", { name: "视频", exact: true })).toHaveAttribute("aria-selected", "true");
   await noPageOverflow(page);
-  await page.screenshot({ path: evidencePath(testInfo, "review-uploaded-video.png"), fullPage: true });
+  await player.scrollIntoViewIfNeeded();
+  // Full-page capture can briefly resize Chromium to 1x1 and activate the phone guard.
+  await page.screenshot({ path: evidencePath(testInfo, "review-uploaded-video.png"), fullPage: false });
+  await expect(player).toBeVisible();
+  await expect(page.getByRole("tab", { name: "视频", exact: true })).toHaveAttribute("aria-selected", "true");
   const range = await page.request.get(`/api/v1/admin/review-assets/${second}`, { headers: { Range: "bytes=0-9" } });
   expect(range.status()).toBe(206);
   expect((await range.body()).length).toBe(10);
