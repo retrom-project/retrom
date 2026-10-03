@@ -28,6 +28,10 @@ func (repository *Leases) WithWrite(ctx context.Context, work func(serverimport.
 	return nil
 }
 
+func (repository *Leases) Current(ctx context.Context, jobID string) (serverimport.LeaseSnapshot, error) {
+	return (leaseRecords{repository.database}).Current(ctx, jobID)
+}
+
 type leaseRecords struct{ executor dbapi.Executor }
 
 const leaseProjection = `SELECT import.id,import.job_id,import.root_id,import.source_relative_path,

@@ -16,6 +16,7 @@ var (
 )
 
 type Work struct {
+	progress                                                         *progressThrottle
 	ImportID, JobID, RootID, RelativePath, RootDigest, CatalogDigest string
 	Owner                                                            string
 	Recovery                                                         bool
@@ -48,6 +49,7 @@ type LeaseRecords interface {
 	Touch(context.Context, LeaseTouch) error
 }
 type LeaseRepository interface {
+	Current(context.Context, string) (LeaseSnapshot, error)
 	WithWrite(context.Context, func(LeaseRecords) error) error
 }
 type Leases struct {
@@ -127,16 +129,8 @@ func (service *Leases) touch(ctx context.Context, unit Work, phase string, event
 			return fmt.Errorf("read import lease: %w", err)
 		}
 		now := service.now().UnixMilli()
-		if before.Work.ImportID != unit.ImportID || before.Work.Execution != unit.Execution ||
-			before.Work.Owner != unit.Owner || unit.Owner == "" {
-			return ErrLeaseLost
-		}
-		if before.State == "CANCEL_REQUESTED" || before.State == "CANCELLED" {
-			return ErrWorkerCancelled
-		}
-		if before.State != "RUNNING" || before.ImportState != "RUNNING" ||
-			before.LeaseUntil == nil || *before.LeaseUntil <= now {
-			return ErrLeaseLost
+		if err := checkLease(before, unit, now); err != nil {
+			return err
 		}
 		if err := records.Touch(
 			ctx,
@@ -154,6 +148,30 @@ func (service *Leases) touch(ctx context.Context, unit Work, phase string, event
 	})
 	if err != nil {
 		return fmt.Errorf("update import progress: %w", err)
+	}
+	return nil
+}
+
+// Check observes cancellation and fencing without acquiring the SQLite writer.
+func (service *Leases) Check(ctx context.Context, unit Work) error {
+	before, err := service.repository.Current(ctx, unit.JobID)
+	if err != nil {
+		return fmt.Errorf("read import execution: %w", err)
+	}
+	return checkLease(before, unit, service.now().UnixMilli())
+}
+
+func checkLease(before LeaseSnapshot, unit Work, now int64) error {
+	if before.Work.ImportID != unit.ImportID || before.Work.Execution != unit.Execution ||
+		before.Work.Owner != unit.Owner || unit.Owner == "" {
+		return ErrLeaseLost
+	}
+	if before.State == "CANCEL_REQUESTED" || before.State == "CANCELLED" {
+		return ErrWorkerCancelled
+	}
+	if before.State != "RUNNING" || before.ImportState != "RUNNING" ||
+		before.LeaseUntil == nil || *before.LeaseUntil <= now {
+		return ErrLeaseLost
 	}
 	return nil
 }
