@@ -1,0 +1,27 @@
+{
+  "release": "v0.0.104",
+  "scenario": "Cancel Parent validation, wait CANCELLED, upload identical content under fresh upload IDs",
+  "oldJobState": "CANCELLED",
+  "activeAttachmentAfterCancellation": null,
+  "freshUploadFile": true,
+  "inputHashSame": true,
+  "computedDedupeEqualsCancelledJob": true,
+  "apiAttempts": [
+    {
+      "status": 503,
+      "code": "REVIEW_PARENT_VALIDATION_UNAVAILABLE",
+      "ms": 24.02
+    },
+    {
+      "status": 503,
+      "code": "REVIEW_PARENT_VALIDATION_UNAVAILABLE",
+      "ms": 22.08
+    }
+  ],
+  "browserAttempt": {
+    "status": 503,
+    "code": "REVIEW_PARENT_VALIDATION_UNAVAILABLE"
+  },
+  "isolatedSqlError": "UNIQUE constraint failed: jobs.kind, jobs.dedupe_key",
+  "cancellationSettlementMs": 60195
+}
