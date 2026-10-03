@@ -40,7 +40,8 @@ func (records *ContentDuplicates) PublishedMatches(
 // also computed once, not once for every published game.
 const duplicateCandidates = `
 WITH candidates AS MATERIALIZED (
- SELECT game.id,game.title,game.created_at_ms,game.content_kind,instance.id AS instance_id,instance.name AS instance_name
+ SELECT game.id,game.title,game.created_at_ms,game.content_kind,
+  instance.id AS instance_id,instance.name AS instance_name
  FROM platform_instances instance JOIN games game ON game.platform_instance_id=instance.id
  WHERE instance.platform_id=? AND game.status='PUBLISHED'
 ), incoming AS MATERIALIZED (`
