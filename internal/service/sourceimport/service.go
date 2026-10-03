@@ -90,7 +90,9 @@ func (service *Service) Delete(ctx context.Context, id string, version int64, ac
 	return service.dependencies.Lifecycle.Delete(ctx, id, version, actorID)
 }
 
-func (service *Service) CancelForDiscard(ctx context.Context, id string, version int64, reason, actorID string) (Summary, bool, error) {
+func (service *Service) CancelForDiscard(
+	ctx context.Context, id string, version int64, reason, actorID string,
+) (Summary, bool, error) {
 	result, pending, err := service.dependencies.Control.CancelForDiscard(ctx, id, version, reason, actorID)
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("cancel Source import for discard: %w", err)

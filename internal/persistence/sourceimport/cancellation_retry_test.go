@@ -24,15 +24,7 @@ func verifyCancelledSourceCannotRestart(t *testing.T, phase string) {
 	leases := application.NewLeases(NewLeases(db), clock)
 	control := application.NewWorkflowControl(NewWorkflowControl(db), clock)
 	settlement := application.NewWorkerSettlement(NewWorkerSettlement(db), nil, clock)
-	var work application.Work
-	if phase != "backoff" {
-		var found bool
-		var err error
-		work, found, err = leases.Claim(t.Context())
-		if err != nil || !found {
-			t.Fatalf("claim: %v %v", found, err)
-		}
-	}
+	work := claimCancellationWork(t, leases, phase)
 	command := application.JobCancellationRequest{
 		JobID: "work", ScopeID: "import-0", Kind: "IMPORT_RECEIVE", Reason: "Stop", ActorID: "actor",
 	}
@@ -65,13 +57,7 @@ func verifyCancelledSourceCannotRestart(t *testing.T, phase string) {
 	if err := application.NewRecovery(NewRecovery(db), nil, clock).Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if phase != "backoff" {
-		if err := settlement.Fail(t.Context(), work.Identity(), application.ExecutionFailure{
-			Code: "LATE_FAILURE", Retryable: true,
-		}); !errors.Is(err, application.ErrVersionConflict) {
-			t.Fatalf("late worker was not fenced: %v", err)
-		}
-	}
+	assertOldCancelledWorkerFenced(t, settlement, work, phase)
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
 		t.Fatal("cancelled work changed after retry, recovery or stale worker completion")
 	}
@@ -85,5 +71,28 @@ func assertSourceRetryRejected(t *testing.T, control *application.WorkflowContro
 	}
 	if _, err := control.Retry(t.Context(), "import-0", version, "actor"); !errors.Is(err, application.ErrNotRetryable) {
 		t.Fatalf("cancelled source accepted manual retry: %v", err)
+	}
+}
+
+func claimCancellationWork(t *testing.T, leases *application.Leases, phase string) application.Work {
+	t.Helper()
+	if phase == "backoff" {
+		return application.Work{}
+	}
+	work, found, err := leases.Claim(t.Context())
+	if err != nil || !found {
+		t.Fatalf("claim: %v %v", found, err)
+	}
+	return work
+}
+
+func assertOldCancelledWorkerFenced(t *testing.T, settlement *application.WorkerSettlement, work application.Work, phase string) {
+	t.Helper()
+	if phase != "backoff" {
+		if err := settlement.Fail(t.Context(), work.Identity(), application.ExecutionFailure{
+			Code: "LATE_FAILURE", Retryable: true,
+		}); !errors.Is(err, application.ErrVersionConflict) {
+			t.Fatalf("late worker was not fenced: %v", err)
+		}
 	}
 }

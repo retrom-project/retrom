@@ -43,9 +43,9 @@ func (service *Service) ExpirePlans(ctx context.Context) error {
 	return application.NewPlanLifecycle(repository.NewPlanLifecycle(service.database), service.now).Expire(ctx)
 }
 
-func (service *Service) cancelJobSummary(ctx context.Context, jobID, kind, id, reason, actorID string) (Summary, bool, error) {
+func (service *Service) cancelJobSummary(ctx context.Context, jobID, kind, id, reason string) (Summary, bool, error) {
 	_, pending, err := service.application().CancelJob(ctx, application.JobCancellationRequest{
-		JobID: jobID, Kind: kind, ScopeID: id, Reason: reason, ActorID: actorID,
+		JobID: jobID, Kind: kind, ScopeID: id, Reason: reason, ActorID: "user",
 	})
 	if err != nil {
 		return Summary{}, pending, err

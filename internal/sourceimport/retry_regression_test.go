@@ -53,7 +53,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,er
 		t.Fatal(err)
 	}
 	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
-	value, pending, err := service.cancelJobSummary(t.Context(), "work", "IMPORT_RECEIVE", "import", "Stop", "user")
+	value, pending, err := service.cancelJobSummary(t.Context(), "work", "IMPORT_RECEIVE", "import", "Stop")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,re
 	uuid.SetRand(unavailableCreationEntropy{})
 	value, pending, err := func() (Summary, bool, error) {
 		defer uuid.SetRand(nil)
-		return service.cancelJobSummary(t.Context(), "work", "IMPORT_RECEIVE", "import", "Stop", "user")
+		return service.cancelJobSummary(t.Context(), "work", "IMPORT_RECEIVE", "import", "Stop")
 	}()
 	if !errors.Is(err, errCreationEntropy) || value.ID != "" || pending {
 		t.Errorf("cancellation ignored entropy error: %#v %v pending=%v", value, err, pending)

@@ -22,7 +22,7 @@ leased_until_ms=NULL,heartbeat_at_ms=NULL WHERE id='scan'`)
 			if err != nil {
 				t.Fatal(err)
 			}
-			after, pending, err := service.cancelJobSummary(t.Context(), "scan", "IMPORT_SCAN", unit.ImportID, "Stop scan", "user")
+			after, pending, err := service.cancelJobSummary(t.Context(), "scan", "IMPORT_SCAN", unit.ImportID, "Stop scan")
 			if err != nil || pending == queued {
 				t.Fatalf("queued=%v scan cancellation pending=%v err=%v", queued, pending, err)
 			}
@@ -54,7 +54,7 @@ INSERT INTO source_imports(id,root_id,root_label_snapshot,source_relative_path,r
 state,scan_job_id,import_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 VALUES('other','games','Games','',
 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','RUNNING','other-scan','work','user',1,1,100);`)
-	after, pending, err := service.cancelJobSummary(t.Context(), "scan", "IMPORT_SCAN", unit.ImportID, "Stop scan", "user")
+	after, pending, err := service.cancelJobSummary(t.Context(), "scan", "IMPORT_SCAN", unit.ImportID, "Stop scan")
 	if err != nil || !pending || after.State != "CANCEL_REQUESTED" {
 		t.Fatalf("independent scan cancellation collided with import: pending=%v err=%v", pending, err)
 	}

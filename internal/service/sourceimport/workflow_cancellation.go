@@ -19,7 +19,9 @@ type workflowCancellationRequest struct {
 }
 
 // CancelForDiscard retains the aggregate guard for the distinct destructive discard operation.
-func (service *WorkflowControl) CancelForDiscard(ctx context.Context, id string, version int64, reason, actorID string) (Summary, bool, error) {
+func (service *WorkflowControl) CancelForDiscard(
+	ctx context.Context, id string, version int64, reason, actorID string,
+) (Summary, bool, error) {
 	after, pending, err := service.cancel(ctx, workflowCancellationRequest{
 		JobCancellationRequest: JobCancellationRequest{Reason: reason, ActorID: actorID},
 		ImportID:               id, ImportVersion: version,
