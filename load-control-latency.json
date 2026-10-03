@@ -299,5 +299,73 @@
       "sql_call_ms": 1,
       "begin_ms": 0
     }
+  ],
+  "additionalControlSamples": [
+    {
+      "path": "/api/v1/admin/source-imports",
+      "method": "POST",
+      "status": 202,
+      "ms": 1058.93
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/collection-mappings",
+      "method": "PUT",
+      "status": 200,
+      "ms": 2137.96
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 658.27
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 850.41
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 1146.45
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 667.35
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 898.1
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 409,
+      "ms": 1034.31
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a10147-f751-78fe-8335-5469a350aeab/start",
+      "method": "POST",
+      "status": 202,
+      "ms": 727.25
+    },
+    {
+      "path": "/api/v1/admin/source-imports",
+      "method": "POST",
+      "status": 202,
+      "ms": 2146.02
+    },
+    {
+      "path": "/api/v1/admin/source-imports/01a1014a-65a0-7737-aac3-dc83961365b2/collection-mappings",
+      "method": "PUT",
+      "status": 200,
+      "ms": 912.09
+    }
   ]
 }
