@@ -158,7 +158,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 1. 只读取已持久化的 Game source manifest、`game_files`、Blob/hash、ArchiveEntry、活动 Provider Target/DAT 和 BIOS 状态；禁止调用 Hasheous、下载 payload、重新扫大文件或试跑另一个 core。
 2. 当前 GameVariant 为 READY 且验证输入没有漂移时直接复用；同一 input 已是 BLOCKED/INCOMPATIBLE 时直接返回稳定 Blocker。
-3. 否则仅从已入库证据计算 `validation_input_digest`，在一个短事务创建/复用 dedupe key=`gameVariantId + validationInputDigest` 的 `VARIANT_REVALIDATE` Job，返回 `202 VALIDATION_PENDING`，不创建 LaunchSession 或 credential。并发请求都得到同一 jobId。
+3. 否则仅从已入库证据计算 `validation_input_digest`，在一个短事务创建/复用 dedupe key=`gameVariantId + validationInputDigest` 的 `VARIANT_VALIDATE` Job，返回 `202 VALIDATION_PENDING`，不创建 LaunchSession 或 credential。并发请求都得到同一 jobId。
 4. Worker 复用 `CONTENT` GameFile；Arcade 只以该 Game 的 CONTENT/COMPANION 和目标 core 自己的活动 DAT 匹配 machine/entry/parent/BIOS（不得扫描无归属全局 Blob），并在事务外流式生成确定性 bundle；完成后在短事务中原位更新 GameVariant 与派生文件。
 5. Player overlay 订阅 Job；SUCCEEDED 时以相同 body 和新 Idempotency-Key 自动再调用 `POST /launches`，此次取得 `201`/cookie 并继续同一次点击流程。没有确认页或人工第二次开始。FAILED/CANCELLED 则退出全屏并显示 Job 的稳定 Blocker。证据缺失使用 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`；有界 Job 超时使用 `LAUNCH_CORE_VALIDATION_TIMEOUT`，不写半成品、不静默回退。
 
@@ -240,7 +240,7 @@ Apple II 只提供一个“Apple II 游戏”推荐目录，默认核心保持 A
 ### 移动游戏
 
 - 同一基础平台内允许移动到另一游戏目录。
-- 若目标目录默认核心不同，移动 preview 必须针对 Game 当前文件 和目标目录当前 Provider Target/DAT/BIOS 输入查询兼容结果。缺少结果时创建/复用共享 `VARIANT_REVALIDATE` Job 并返回 `202`；客户端等待任务终态后用新 Idempotency-Key 重新 preview，不能在后台校验尚未完成时先移动。
+- 若目标目录默认核心不同，移动 preview 必须针对 Game 当前文件 和目标目录当前 Provider Target/DAT/BIOS 输入查询兼容结果。缺少结果时创建/复用共享 `VARIANT_VALIDATE` Job 并返回 `202`；客户端等待任务终态后用新 Idempotency-Key 重新 preview，不能在后台校验尚未完成时先移动。
 - 完成的 preview 返回目标目录/default core、READY 或 blocker 诊断、Game/目录版本和 `impactDigest`。提交重新计算全部输入；漂移返回 `IMPACT_PREVIEW_STALE`。有 blocker 时必须显式 `confirmBlocked=true`，移动后普通启动明确阻断，不能回退到旧目录默认 core。
 - 移动只改变 Game 的 `platform_instance_id/version` 并写 AuditEvent；GameVariant、GameFiles 和存档 不被删除或改写。目标默认 core 已有与当前内容匹配的 READY GameVariant 时复用该结果。
 - 不允许用简单移动跨基础平台。跨平台需要重新走识别与审核流程，避免错误复用 hash profile 和平台规则。
@@ -264,7 +264,7 @@ Apple II 只提供一个“Apple II 游戏”推荐目录，默认核心保持 A
 - 游戏库先按基础平台、再按游戏目录筛选；游戏卡片展示目录名称。
 - 停用目录后，其游戏不进入首页统计/最近记录、游戏库、详情、存档列表或新 Launch；重新启用后使用原有 Game、Variant 与存档 恢复展示，不复制或改写业务记录。
 - 游戏详情面包屑/元信息显示“基础平台 / 游戏目录”；没有浏览器偏好时运行方式对话框默认标记“目录默认”，存在偏好时明确显示红色“未采用默认核心”。
-- 存档的“继续”不进入详情，直接使用存档锁定的 Provider Target 和 GameVariant 启动；只有“游戏详情/兼容性”等次要入口进入详情。
+- 存档的“继续”不进入详情，未显式选 Core 时使用来源 Launch 的 Core，选择该 Core 的当前 READY Variant/Target 并检查存档 format 可读后启动；只有“游戏详情/兼容性”等次要入口进入详情。
 
 ### 管理后台
 

@@ -12,7 +12,7 @@
 
 ## 1. 架构结论
 
-一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件写入本地 SHA-256 独立文件存储。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
+一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件按领域 owner 写入本地独立文件存储，SHA-256 用于内容身份与完整性。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
 
 ~~~mermaid
 flowchart LR
@@ -200,7 +200,7 @@ Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `inte
 - 用户读取：home、game library/detail、save list。
 - 用户写入：创建 LaunchSession、heartbeat/finish、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch。
 - 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含 RPG 世代与当前 Provider/Target 输入）、RPG runtime validation/判定、Game 当前态、platform instance、BIOS installation、Arcade DAT installation。
-- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核/历史、游戏管理、BIOS/DAT/RPG 运行依赖、审核试运行、审计事件和脱敏诊断摘要。
+- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核、当前决定与任务诊断、游戏管理、BIOS/DAT/RPG 运行依赖、审核试运行、审计事件和脱敏诊断摘要。
 
 详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径；服务器扫描只接受已配置 capability 的 root ID 与规范相对路径，不提供任意宿主路径入口。
 
@@ -231,7 +231,7 @@ handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂�
 
 任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 目录删除。当前 `composition/cleanupjobs` 组装领域释放与 后台删除，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 PATH_DELETE；领域终态只创建持久 Job，不自行删独立文件存储。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
 
-SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
+SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-database.md#45-通用任务幂等与审计)规定的持久字段与索引；租约、续租、并发、attempt 上限及退避按具体 Job kind 的执行策略和冻结输入约束，不统一设为四次。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但不能超过对应 execution deadline。
 
 每个 execution 还使用数据模型固定的 kind wall deadline；第一次领取时计算，自动 retry 不重置，人工 retry 才开始新 execution/deadline。Worker 的 reader、网络和解析 context 必须来自该 deadline，超时产生稳定错误而不是无限 RUNNING。测试通过 fake clock/context 触发，不使用长时间 sleep。
 
@@ -289,7 +289,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 3. 仅在两个镜像都成功后，使用 `DOCKER_USER` 与 `DOCKER_PASSWORD` GitHub secret 登录 Docker Hub，其中 `DOCKER_PASSWORD` 必须保存具备目标仓库 push 权限的访问令牌而不是账户明文密码；
 4. 推送 `xxxsen/retrom:<git-tag>` 与 `xxxsen/retrom-web:<git-tag>`；不含 `-` 的稳定 tag 同时更新两个 `latest`，预发布 tag 不移动 `latest`。
 
-正式 tag Action 负责 Docker Hub 登录和 push，不改变 Make target 的构建边界。该生产流程需要 `DOCKER_USER` 与 `DOCKER_PASSWORD` repository secrets；PR 的 GHCR 测试镜像使用工作流的 `GITHUB_TOKEN`，不读取生产凭据。凭据不得写入 workflow、镜像或日志。创建并推送发布 tag 即授权流水线自动发布，维护者必须在创建 tag 前自行确认[依赖管理第 6 节](./dependency-management.md#6-升级与许可门禁)的第三方分发义务已经满足。
+正式 tag Action 负责 Docker Hub 登录和 push，不改变 Make target 的构建边界。该生产流程需要 `DOCKER_USER` 与 `DOCKER_PASSWORD` repository secrets；PR 的 GHCR 测试镜像使用工作流的 `GITHUB_TOKEN`，不读取生产凭据。凭据不得写入 workflow、镜像或日志。创建并推送发布 tag 即授权流水线自动发布，维护者必须在创建 tag 前自行确认[依赖管理](./dependency-management.md)的第三方分发义务已经满足。
 
 ### 7.3 `make dev` 只运行本地进程
 
