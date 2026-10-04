@@ -286,7 +286,9 @@ Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 pa
 
 Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、ASCII case-insensitive 路径碰撞、真正嵌套的 archive 和超出统一 ArchiveLimits 的展开量/压缩比。Parent DAT 只匹配根级 regular-file entry；像 `1944.zip` 这样同时携带根级 parent ROM 与安全 clone 子目录的归档可以保留子目录 bytes 作为原始证据，但子目录 entry 只作为 diagnostics 中的 ignored extra，不能满足缺失的根 entry、参与 Parent 判定或放开 Merged 主 ROMset。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
 
-Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Preview 与批准从当前有效来源的 Parent 和已安装 BIOS 解析实际文件；发布后的 Launch 使用 VariantFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
+Parent 与主内容共用 `internal/content/arcade` 的条目来源判定：仅当 `merge` 在当前 DAT 的声明依赖闭包内找到同名目标，且 size 与该继承项要求的所有 hash 均一致时，条目才交由该依赖节点提供。不能按文件名相似、未验证的 merge 或其他 Target 的安装推断满足。独立 Parent 不要求重复携带可由 BIOS/base 或上级 Parent 提供的条目；归档实际携带的继承项仍严格校验。依赖树的每节点 requiredEntries 只列该节点自身承担的条目，继承要求由对应节点投影。
+
+Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；正确 Parent 可在缺少 BIOS 时接受，BIOS 的当前安装只决定完整闭包就绪状态；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Preview 与批准从当前有效来源的 Parent 和已安装 BIOS 解析实际文件；发布后的 Launch 使用 VariantFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
 
 发布后的首次启动可能因当前 BIOS 输入快照与审核期摘要不同而更新 GameVariant。只有 GameFiles 和 DatVersion 均未变化时，重校验才保留当前态已验证的 `PARENT` VariantFiles 与 `variant_dependencies`，并重新生成 BIOS bundle；不得因摘要归一化丢失 Parent，也不得把旧 DAT 的 Parent 关联带入新 DAT。
 

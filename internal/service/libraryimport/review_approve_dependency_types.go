@@ -18,7 +18,7 @@ type ApprovalDependencyInput struct {
 type ApprovalDependencyScope struct {
 	Reader ApprovalDependencyReader
 	BIOS   validation.Repository
-	Arcade arcade.RelationReader
+	Arcade arcade.RequirementReader
 }
 
 type ApprovalDisc struct {
@@ -37,6 +37,5 @@ type ApprovalMultiDisc struct {
 type ApprovalDependencyReader interface {
 	LogicalName(context.Context, string) (string, error)
 	MultiDisc(context.Context, string, string) (ApprovalMultiDisc, error)
-	ArcadeRequirements(context.Context, string, string) (arcade.CatalogRequirements, error)
 	ExternalFileCount(context.Context, string, string, string) (int64, error)
 }

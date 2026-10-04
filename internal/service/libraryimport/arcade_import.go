@@ -22,14 +22,14 @@ type arcadePreparedArchive struct {
 	reason         string
 }
 
-func (service *ImportPreparation) ArcadeRequirements(
+func (service *ImportPreparation) ParentRequirements(
 	ctx context.Context, datID, machine string,
-) ([]arcade.ROMRequirement, bool, error) {
-	facts, err := service.catalog.ArcadeRequirements(ctx, datID, machine)
+) (arcade.Requirements, error) {
+	requirements, err := arcade.LoadRequirements(ctx, service.catalog, datID, machine)
 	if err != nil {
-		return nil, false, fmt.Errorf("read arcade preparation requirements: %w", err)
+		return arcade.Requirements{}, fmt.Errorf("read Parent entry sources: %w", err)
 	}
-	return arcade.SelectRequirements(facts), facts.HasDisk, nil
+	return requirements, nil
 }
 
 func (service *ImportPreparation) arcadeDependencyClosure(

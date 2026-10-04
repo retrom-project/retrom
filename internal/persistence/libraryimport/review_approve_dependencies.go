@@ -6,9 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/content/arcade"
-	arcaderecords "retrom/internal/persistence/arcade"
-
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -71,16 +68,6 @@ FROM import_item_source_snapshot_files WHERE source_snapshot_id=?`, itemID, snap
 		Scan(&facts.PlaylistCount, &facts.DiscCount, &facts.SourceCount, &facts.CanonicalCount)
 	if err != nil {
 		return libraryservice.ApprovalMultiDisc{}, fmt.Errorf("read approval disc counts: %w", err)
-	}
-	return facts, nil
-}
-
-func (records approvalDependencyRecords) ArcadeRequirements(
-	ctx context.Context, datID, machine string,
-) (arcade.CatalogRequirements, error) {
-	facts, err := arcaderecords.New(records.executor).ArcadeRequirements(ctx, datID, machine)
-	if err != nil {
-		return arcade.CatalogRequirements{}, fmt.Errorf("read approval arcade requirements: %w", err)
 	}
 	return facts, nil
 }

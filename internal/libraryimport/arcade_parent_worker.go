@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/content/arcade"
 	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/importing"
 )
@@ -80,18 +81,18 @@ func (service *Service) validateParentArchive(
 		)
 		return validatedParentArchive{}, false
 	}
-	requirements, hasDisk, err := service.arcadeRequirements(ctx, candidate.datID, candidate.machine)
+	requirements, err := service.preparation.ParentRequirements(ctx, candidate.datID, candidate.machine)
 	if err != nil {
 		service.finishRetryableParentAttachment(ctx, candidate, jobID, workerID, ParentErrorUnavailable)
 		return validatedParentArchive{}, false
 	}
-	if hasDisk {
+	if requirements.HasDisk {
 		service.finishRejectedParentAttachment(
 			ctx, candidate, jobID, workerID, ParentErrorStructure, "UNSUPPORTED_CHD", nil, nil,
 		)
 		return validatedParentArchive{}, false
 	}
-	missing, mismatched, warnings := matchArcadeRequirements(entryByName, requirements)
+	missing, mismatched, warnings := arcade.MatchRequirements(entryByName, requirements.Archive(entryByName))
 	if len(missing) != 0 || len(mismatched) != 0 {
 		service.finishRejectedParentAttachment(
 			ctx, candidate, jobID, workerID,
@@ -102,7 +103,7 @@ func (service *Service) validateParentArchive(
 	return validatedParentArchive{
 		entries: entries,
 		diagnostics: map[string]any{
-			"schemaVersion": 1, "requiredEntryCount": len(requirements),
+			"schemaVersion": 1, "requiredEntryCount": len(requirements.Owned),
 			"observedEntryCount": len(entries), "observedRootEntryCount": len(entryByName),
 			"ignoredNestedEntryCount": ignoredNestedEntries, "warnings": warnings,
 		},

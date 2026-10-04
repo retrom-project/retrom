@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"retrom/internal/content/arcade"
 )
@@ -39,7 +40,7 @@ func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, 
 			return ErrInvalid
 		}
 		seen[key] = true
-		if err := validateApprovalArcadeDependency(ctx, scope.Reader, itemID,
+		if err := validateApprovalArcadeDependency(ctx, scope, itemID,
 			canonical.DatVersionID, dependency); err != nil {
 			return err
 		}
@@ -59,18 +60,18 @@ func validateApprovalArcade(ctx context.Context, scope ApprovalDependencyScope, 
 }
 
 func validateApprovalArcadeDependency(
-	ctx context.Context, reader ApprovalDependencyReader, itemID, datID string,
+	ctx context.Context, scope ApprovalDependencyScope, itemID, datID string,
 	dependency arcade.Dependency,
 ) error {
 	if dependency.State != "SATISFIED_BY_CONTENT" && dependency.State != "SATISFIED_EXTERNAL" &&
 		dependency.State != "HASH_WARNING" {
 		return ErrInvalid
 	}
-	requirements, err := reader.ArcadeRequirements(ctx, datID, dependency.Machine)
+	requirements, err := arcade.LoadRequirements(ctx, scope.Arcade, datID, dependency.Machine)
 	if err != nil {
 		return fmt.Errorf("read approved arcade requirements: %w", err)
 	}
-	if requirements.HasDisk || !sameApprovalRequirementNames(requirements, dependency.RequiredEntries) {
+	if requirements.HasDisk || !sameApprovalRequirementNames(requirements.Owned, dependency.RequiredEntries) {
 		return ErrInvalid
 	}
 	if dependency.State == "SATISFIED_BY_CONTENT" {
@@ -86,7 +87,7 @@ func validateApprovalArcadeDependency(
 	if role == "" {
 		return ErrInvalid
 	}
-	count, err := reader.ExternalFileCount(ctx, itemID, role, dependency.ExpectedLogicalName)
+	count, err := scope.Reader.ExternalFileCount(ctx, itemID, role, dependency.ExpectedLogicalName)
 	if err != nil {
 		return fmt.Errorf("read approved arcade external files: %w", err)
 	}
@@ -96,17 +97,10 @@ func validateApprovalArcadeDependency(
 	return nil
 }
 
-func sameApprovalRequirementNames(requirements arcade.CatalogRequirements, frozen []string) bool {
-	index := 0
-	for _, rom := range requirements.ROMs {
-		if rom.Status == "NODUMP" || (rom.BIOSName != nil &&
-			(requirements.DefaultBIOS == nil || *rom.BIOSName != *requirements.DefaultBIOS)) {
-			continue
-		}
-		if index >= len(frozen) || rom.Name != frozen[index] {
-			return false
-		}
-		index++
+func sameApprovalRequirementNames(requirements []arcade.ROMRequirement, frozen []string) bool {
+	names := make([]string, 0, len(requirements))
+	for _, rom := range requirements {
+		names = append(names, rom.Name)
 	}
-	return index == len(frozen)
+	return slices.Equal(names, frozen)
 }
