@@ -388,11 +388,11 @@ Tag 删除是业务软删除，不是存储清理：不得以减小数据库为�
 ## 15. Provider 激活与数据库协调
 
 服务在开放业务路由前先逐字节校验 active descriptor、已安装 Bundle、manifest、module 和所有声明资产，再把两个
-Provider 及 61 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
+Provider 及当前声明的全部 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
 state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 不闭合时不得部分激活。
 
 升级只允许 SemVer 增长。事务必须证明所有被当前 Variant、活动运行会话与未完成导入/审核引用的 Target 仍存在；完成的过程记录不构成引用，且每个存档的
-checkpoint format 仍可由至少一个当前 READY GameVariant 的 Target `readFormats` 读取。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
+checkpoint format 仍可由来源 Launch 的 Core 所对应当前 Variant/Target 的 `readFormats` 读取；其他备用 Core 不代替来源 Core 满足升级门槛。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
 文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
 
 PFB loose provider 与 production active descriptor 的 source 和目录必须严格分离。启动时由当前部署的 production descriptor 协调，数据库记录不能授权一个未安装或摘要不符的 Bundle。

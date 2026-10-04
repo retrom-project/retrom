@@ -95,7 +95,7 @@ internal/persistence/favorites（SQL 与事务实现）
 - Web 与后端按同一 release-input 组合发布；收藏能力随当前 schema 直接启用，不需要 feature flag 或运行期物化。
 - 首次进入的所有账号都是空收藏状态；不得从最近游玩、存档、平台图钉或浏览器历史推断收藏。
 - 数据与后端最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#71-后端与数据)，前端与浏览器最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#72-前端与浏览器)。
-- 普通收藏正式通过只以 [`ACC-FAV-001`–`004`](./project-acceptance.md#16-收藏与收藏夹) 的当次结果为准；
+- 普通收藏正式通过只以 [`ACC-FAV-001`–`004`](./project-acceptance.md#17-收藏与收藏夹) 的当次结果为准；
   沉浸 Folder 与 Y 默认收藏由 `ACC-IMM-009` 覆盖。专题不复制 Case 流程或通过标准。
 
 当字段、route、UI 行为或验收标准变化时，必须修改其唯一事实源和对应自动化，不能在本专题建立第二份可执行契约。

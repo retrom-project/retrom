@@ -2,9 +2,9 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 当前态简化实施中 / 已确认目标契约 |
-| 版本 | 4.0 |
-| 日期 | 2026-09-05 |
+| 文档状态 | 当前实现基线 |
+| 版本 | 4.1 |
+| 日期 | 2026-10-04 |
 | 机器事实源 | `api/runtime-provider/v1/`、已激活 Provider Bundle、`data/runtime-target-bindings/v1/catalog.json` |
 
 ## 1. 唯一职责边界
@@ -171,7 +171,7 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
 
-草稿 PATCH、来源替换和依赖处理按当前真实输入更新或创建 validation，并原子切换 ReviewDraft 的当前选择；审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变时，对应写事务直接生成新的当前校验。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
+草稿 PATCH 和来源替换更新 Item 的当前选择与内容证据；审核读取和发布事务按当前来源、Core/Target、活动 DAT、BIOS 安装与项目证据求值，不创建或选择持久化 validation 记录。依赖安装或移除不修改审核草稿版本，下一次读取直接反映新的 readiness。审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 单独前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检。当前 readiness 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
 
 ## 9. PlaySession 生命周期
 

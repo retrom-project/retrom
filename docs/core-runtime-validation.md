@@ -45,7 +45,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作与多盘都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是当前全部 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作与多盘都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 DOSBox Pure 的游戏输入声明为 `FILE_TREE`，索引中的 `game.zip` 是 Retrom 在授权内容端点投影的虚拟 ZIP。索引记录虚拟 ZIP 长度，runtime 以 Content I/O Range Reader 和强 ETag 绑定读取，并将有界读取接到 EmulatorJS 文件系统；宿主保留原始 DOS 来源 Blob 与选定程序的身份绑定。是否真正未整包下载由 [ACC-RUN-005](./project-acceptance.md#acc-run-005dos-启动程序) 的网络和浏览器证据判定。
 
@@ -55,12 +55,12 @@ DOSBox Pure 的游戏输入声明为 `FILE_TREE`，索引中的 `game.zip` 是 R
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false`。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
 
 SNES 的 `bsnes` 通过独立 `emulatorjs/bsnes` Target 使用锁定的 EmulatorJS 4.3.0-pre
-前端与 `retrom-project/bsnes-libretro` 的单线程 WASM candidate，接收平台允许的单文件 ROM。它作为备用核心供显式选择，不改变 Snes9x 默认推荐目录，
+前端与 `retrom-project/bsnes-libretro` 的已发布单线程 WASM，接收平台允许的单文件 ROM。它作为备用核心供显式选择，不改变 Snes9x 默认推荐目录，
 不新增推荐目录、不开放多盘。标准 SNES 手柄和即时存档沿用 Provider 公共边界；bsnes 声明
 独立的 `bsnes-state-v1-storage-v1` 格式，不读取通用 EmulatorJS 格式。宿主按 `readFormats`
-检查兼容性，因此 bsnes 与 Snes9x 即时存档不能混用，不增加存档身份字段或按核心分支。该 PFB candidate 修复上游缺失的
+检查兼容性，因此 bsnes 与 Snes9x 即时存档不能混用，不增加存档身份字段或按核心分支。维护 fork 修复上游缺失的
 Asyncify 和协程重建能力、异步保存回调及原生内存所有权，来源基线为 `4b344745e3878e7c0675a60c624582935524b8f7`，
-仅允许 candidate 构建；正式发布前需先发布 fork 资产，再固定 Provider 来源。逐样本产品验证见
+正式来源固定为 `retrom-core-g4b344745e387-r1`，精确 commit 与资产摘要以 runtime 来源清单为准。后续更新先验证候选，再发布 fork 资产并固定 Provider 来源。逐样本产品验证见
 [ACC-RUN-016](./project-acceptance.md#acc-run-016bsnes-备用核心产品验证)。
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
@@ -316,10 +316,12 @@ PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完�
 
 ### MAME 设备族动态链接
 
-开发候选提供三个独立 Target：`mame-apple2` / `mame_apple2` 接收 Apple II+ 单张 140 KiB DOS 顺序只读 `.dsk/.do`；`mame-atom` / `mame_atom` 接收 Acorn Atom 单个 `.atm` 快速装载程序；`mame-pv1000` / `mame_pv1000` 接收 Casio PV-1000 单张 8/16/32 KiB `.bin/.rom` 卡带。既有 Apple2JS 继续作为独立选择。
+正式来源固定为 `retrom-core-gf65d5ba9bc42-r2`，Target 声明与资产摘要以当前 Provider 为准。发布资产只确认交付状态，不扩大以下机型、媒体及输入的兼容边界。
+
+正式 Provider 已提供以下设备族 Target：`mame-apple2` / `mame_apple2` 接收 Apple II+ 单张 140 KiB DOS 顺序只读 `.dsk/.do`；`mame-atom` / `mame_atom` 接收 Acorn Atom 单个 `.atm` 快速装载程序；`mame-pv1000` / `mame_pv1000` 接收 Casio PV-1000 单张 8/16/32 KiB `.bin/.rom` 卡带。既有 Apple2JS 继续作为独立选择。
 
 三个 Target 复用同一个公共模块，分别按需加载 Apple、Acorn、vintage 设备族。公共 Content I/O 完整校验并持久缓存所有代码、游戏及 BIOS；原生层要求公共模块和设备族具有同一构建身份。Atom 需要 `abasic.ic20` 和 `afloat.ic21`，默认扩展内存启用、磁盘扩展禁用；PV-1000 无 BIOS。ATM 的 22-byte 文件头、负载长度和 16-bit 地址范围均须有效。机器码按执行地址启动；BASIC 程序可能需要实体键盘输入 `RUN`，当前没有磁带 UEF 或磁盘启动支持。
 
 Atom 手柄方向映射 `;`、`.`、`Z`、`X`，A→Space、B/Start→Return、Select→Escape；适用于使用这些标准键位的游戏，真实键盘独立可用。PV-1000 方向及 A/B 使用原生摇杆和两个按键，单个按钮只发送一个目标输入。
 
-即时存档按机型、游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。其他机型、格式及写盘尚未准入。候选验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)、ACC-MAME-002 和 ACC-MAME-003。
+即时存档按机型、游戏、BIOS 集合和原生构建身份校验，Provider 公共层使用 `mame-state-v1-storage-v1` 压缩一次，解压后上限 64 MiB。其他机型、格式及写盘尚未准入。产品验收见 [ACC-MAME-001](./project-acceptance.md#acc-mame-001mame-apple-ii-双-wasm-产品验证)、ACC-MAME-002 和 ACC-MAME-003。
