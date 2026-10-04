@@ -1,0 +1,86 @@
+{
+  "release": "v0.0.107",
+  "runtime": "v0.58.7",
+  "clientMetricsSnapshotAt": "2026-10-05T07:33:47.588439",
+  "clientMetricsScope": "Recorded source-driver calls during active import; this does not include every review worker or browser request and is not an idle load test. HTTP 409 source-start responses include expected serial-worker admission retries.",
+  "clientSourceWriteMetrics": [
+    {
+      "method": "POST",
+      "route": "/api/v1/admin/source-imports",
+      "count": 164,
+      "statuses": {
+        "202": 164
+      },
+      "successfulCount": 164,
+      "p50Ms": 258.01,
+      "p95Ms": 1701.91,
+      "maximumMs": 4155.16,
+      "successfulOver500ms": 29
+    },
+    {
+      "method": "POST",
+      "route": "/api/v1/admin/source-imports/{id}/start",
+      "count": 1070,
+      "statuses": {
+        "202": 171,
+        "409": 899
+      },
+      "successfulCount": 171,
+      "p50Ms": 524.41,
+      "p95Ms": 3124.35,
+      "maximumMs": 4143.25,
+      "successfulOver500ms": 90
+    },
+    {
+      "method": "PUT",
+      "route": "/api/v1/admin/source-imports/{id}/collection-mappings",
+      "count": 172,
+      "statuses": {
+        "200": 172
+      },
+      "successfulCount": 172,
+      "p50Ms": 285.36,
+      "p95Ms": 2989.88,
+      "maximumMs": 4589.81,
+      "successfulOver500ms": 73
+    }
+  ],
+  "serverTimingExamples": [
+    {
+      "operation": "PUT /api/v1/admin/source-imports/{sourceImportId}/collection-mappings",
+      "total_ms": 4491.449304,
+      "reader_pool_wait_ms": 0.009662,
+      "writer_pool_wait_ms": 33.406942,
+      "begin_ms": 0.231907,
+      "sql_call_ms": 195.782766,
+      "rows_ms": 3.280677,
+      "commit_ms": 61.916403,
+      "write_hold_ms": 220.482816,
+      "non_sql_ms": 1.161656
+    },
+    {
+      "operation": "POST /api/v1/admin/source-imports/{sourceImportId}/start",
+      "total_ms": 3091.595709,
+      "reader_pool_wait_ms": 2.873856,
+      "writer_pool_wait_ms": 180.871992,
+      "begin_ms": 0.196251,
+      "sql_call_ms": 115.48212,
+      "rows_ms": 2.559853,
+      "commit_ms": 31.724605,
+      "write_hold_ms": 49.934269,
+      "non_sql_ms": 0.630278
+    }
+  ],
+  "isolatedMiddlewareProbe": {
+    "sourceCodeModified": false,
+    "database": "fresh temporary SQLite using real idempotency repository",
+    "test": "TestAuditIndependentIdempotencyKeysDoNotBlock",
+    "firstHandlerHeldForMs": 700,
+    "independentOperationAndKeyBlocked": true,
+    "firstRequestMs": 701.16,
+    "secondRequestMs": 701.22,
+    "unkeyedControlMs": 0.0,
+    "expectedNoCrossKeyBlockingAssertionPassed": false
+  },
+  "evidenceLimits": "Production traces do not measure the mutex wait stage separately. The local probe proves this independent serialization mechanism; it does not attribute every production latency outlier to the same lock. No screenshots are needed for the API-only behavior."
+}
