@@ -1,0 +1,41 @@
+{
+  "retromVersion": "v0.0.107",
+  "samples": [
+    {
+      "source": {
+        "executionState": "BLOCKED_CONTENT",
+        "outcome": "IMPORT_FAILED",
+        "failureStage": "SOURCE_IMPORT",
+        "reason": "PEGASUS_CONTENT_FORMAT_UNSUPPORTED",
+        "sourceFailureDetails": null
+      },
+      "parser": {
+        "parser": "Retrom v0.0.107 internal/multidisc.Parse",
+        "discFiles": 4,
+        "actualDiscBytes": 1436977078,
+        "maximumDiscBytes": 1073741824,
+        "valid": false,
+        "code": "MULTI_DISC_LIMIT_EXCEEDED",
+        "error": "MULTI_DISC_LIMIT_EXCEEDED: referenced CHD total exceeds byte limit"
+      }
+    },
+    {
+      "source": {
+        "executionState": "BLOCKED_CONTENT",
+        "outcome": "IMPORT_FAILED",
+        "failureStage": "SOURCE_IMPORT",
+        "reason": "PEGASUS_CONTENT_FORMAT_UNSUPPORTED",
+        "sourceFailureDetails": null
+      },
+      "parser": {
+        "parser": "Retrom v0.0.107 internal/multidisc.Parse",
+        "discFiles": 3,
+        "actualDiscBytes": 1140430558,
+        "maximumDiscBytes": 1073741824,
+        "valid": false,
+        "code": "MULTI_DISC_LIMIT_EXCEEDED",
+        "error": "MULTI_DISC_LIMIT_EXCEEDED: referenced CHD total exceeds byte limit"
+      }
+    }
+  ]
+}
