@@ -90,7 +90,7 @@ func Resolve(ctx context.Context, catalog Catalog, bios BIOSReader,
 }
 
 func (run *evaluation) check(node ClosureNode) error {
-	facts, err := run.catalog.ArcadeRequirements(run.ctx, run.result.Snapshot.DatVersionID, node.Machine)
+	facts, err := LoadRequirements(run.ctx, run.catalog, run.result.Snapshot.DatVersionID, node.Machine)
 	if err != nil {
 		return fmt.Errorf("read current arcade requirements: %w", err)
 	}
@@ -98,10 +98,11 @@ func (run *evaluation) check(node ClosureNode) error {
 		run.result.Status, run.result.Code = "INCOMPATIBLE", "UNSUPPORTED_CHD"
 		return nil
 	}
-	requirements := SelectRequirements(facts)
-	run.mergedROMSet = run.mergedROMSet || containsMergedEntries(run.primary.Entries, requirements)
+	requirements := facts.Owned
+	all := append(append([]ROMRequirement(nil), requirements...), facts.Inherited...)
+	run.mergedROMSet = run.mergedROMSet || containsMergedEntries(run.primary.Entries, all)
 	if node.Kind == "CONTENT" {
-		direct := directRequirements(run.primary.Entries, requirements)
+		direct := facts.Archive(run.primary.Entries)
 		missing, mismatch, warnings := MatchRequirements(run.primary.Entries, direct)
 		run.result.Snapshot.MissingEntries = append(run.result.Snapshot.MissingEntries, missing...)
 		run.result.Snapshot.MismatchedEntries = append(run.result.Snapshot.MismatchedEntries, mismatch...)
@@ -116,7 +117,7 @@ func (run *evaluation) check(node ClosureNode) error {
 		ExpectedLogicalName: node.Machine + ".zip", RequiredEntries: requirementNames(requirements),
 		RequiredEntryCount: len(requirements), State: "MISSING",
 	}
-	if err := run.resolveDependency(&dependency, requirements); err != nil {
+	if err := run.resolveDependency(&dependency, facts); err != nil {
 		return err
 	}
 	run.result.Snapshot.Dependencies = append(run.result.Snapshot.Dependencies, dependency)
@@ -133,9 +134,9 @@ func (run *evaluation) check(node ClosureNode) error {
 }
 
 func (run *evaluation) resolveDependency(
-	dependency *Dependency, requirements []ROMRequirement,
+	dependency *Dependency, requirements Requirements,
 ) error {
-	missing, mismatch, _ := MatchRequirements(run.primary.Entries, requirements)
+	missing, mismatch, _ := MatchRequirements(run.primary.Entries, requirements.Archive(run.primary.Entries))
 	if len(missing)+len(mismatch) == 0 {
 		dependency.State = "SATISFIED_BY_CONTENT"
 		return nil
@@ -164,9 +165,9 @@ func (run *evaluation) resolveDependency(
 }
 
 func (run *evaluation) resolveCompanion(
-	dependency *Dependency, requirements []ROMRequirement, archive Archive,
+	dependency *Dependency, requirements Requirements, archive Archive,
 ) error {
-	missing, mismatch, warnings := MatchRequirements(archive.Entries, requirements)
+	missing, mismatch, warnings := MatchRequirements(archive.Entries, requirements.Archive(archive.Entries))
 	dependency.State = "SATISFIED_EXTERNAL"
 	if len(missing)+len(mismatch) > 0 {
 		if dependency.Kind == "PARENT" {

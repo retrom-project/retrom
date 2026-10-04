@@ -128,6 +128,18 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	if wrongRecorder.Code != http.StatusUnprocessableEntity || !strings.Contains(wrongRecorder.Body.String(), "CURRENT_PASSWORD_INVALID") || wrongRecorder.Header().Get("Set-Cookie") != "" {
 		t.Fatalf("wrong current password: status=%d body=%s", wrongRecorder.Code, wrongRecorder.Body.String())
 	}
+	confirmation := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/change-password",
+		strings.NewReader(`{"currentPassword":"test","newPassword":"new secret phrase","newPasswordConfirmation":"different secret phrase"}`))
+	confirmation.Header.Set("Content-Type", "application/json")
+	confirmation.Header.Set("Origin", "http://localhost:3000")
+	confirmation.Header.Set("X-Retrom-Csrf", csrfToken)
+	confirmation.AddCookie(cookies[0])
+	confirmationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(confirmationRecorder, confirmation)
+	if confirmationRecorder.Code != http.StatusUnprocessableEntity || !strings.Contains(confirmationRecorder.Body.String(), `"reasonCode":"CONFIRMATION_MISMATCH"`) || confirmationRecorder.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("confirmation mismatch: status=%d body=%s", confirmationRecorder.Code, confirmationRecorder.Body.String())
+	}
+
 	stillAuthenticated := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/context", nil)
 	stillAuthenticated.AddCookie(cookies[0])
 	stillRecorder := httptest.NewRecorder()

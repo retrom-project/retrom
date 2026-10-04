@@ -92,11 +92,11 @@ func TestReviewApprovalArcadeUsesDefaultBIOSAndExactRequiredROMs(t *testing.T) {
 		{Name: "bios", Status: "GOOD", BIOSName: &selected},
 		{Name: "other", Status: "GOOD", BIOSName: &other},
 	}}
-	if !sameApprovalRequirementNames(requirements, []string{"main", "bios"}) {
+	if !sameApprovalRequirementNames(arcade.SelectRequirements(requirements), []string{"main", "bios"}) {
 		t.Fatal("canonical ROM requirements rejected")
 	}
 	for _, names := range [][]string{{"bios", "main"}, {"main"}, {"main", "bios", "other"}, {"main", "bios", "undumped"}} {
-		if sameApprovalRequirementNames(requirements, names) {
+		if sameApprovalRequirementNames(arcade.SelectRequirements(requirements), names) {
 			t.Fatalf("noncanonical requirements=%v", names)
 		}
 	}

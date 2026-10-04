@@ -75,21 +75,6 @@ func containsMergedEntries(entries map[string]importing.ArchiveEntry, requiremen
 	return false
 }
 
-func directRequirements(
-	entries map[string]importing.ArchiveEntry,
-	requirements []ROMRequirement,
-) []ROMRequirement {
-	result := make([]ROMRequirement, 0, len(requirements))
-	for _, requirement := range requirements {
-		if requirement.MergeName == nil {
-			result = append(result, requirement)
-		} else if _, included := entries[requirement.Name]; included {
-			result = append(result, requirement)
-		}
-	}
-	return result
-}
-
 func requirementNames(requirements []ROMRequirement) []string {
 	result := make([]string, 0, len(requirements))
 	for _, requirement := range requirements {
