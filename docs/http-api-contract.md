@@ -116,18 +116,33 @@ PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`�
 
 HTML 响应使用逐响应随机 nonce，Next.js framework/bootstrap script 与 Retrom 自有 inline script（如有）必须携带该 nonce；不得退化为全局 `script-src 'unsafe-inline'`。实现必须使用 Next.js 16 根级 `web/proxy.ts`：为每个 HTML navigation 生成至少 128-bit CSPRNG nonce，把含相同 nonce 的 CSP 同时写入转发给 App Router 的 request header 和最终 response header，使 Next.js 能给 framework script 自动附 nonce。使用 nonce 的页面强制动态渲染，不使用 static export、ISR、PPR 或共享 HTML cache；静态 asset/API/runtime 不进入该 proxy matcher。NG 只能原样保留，不能生成第二个不一致 CSP。
 
-Player/应用文档的生产 CSP 固定为下列能力；EJS 配置封装在已校验的 Provider Bundle 中。启动点击先使当前 document 成为全屏 owner，再用 Next.js App Router `replace` 在同一根 layout 内软导航到 `/play/:launchId` 并直接渲染 Player。不得使用顶层完整 navigation 或再嵌套一份 Next.js Player document：前者会让浏览器退出所有 core 的全屏，后者会建立第二条 HMR/路由生命周期并可能重载顶层页面。为使来源页与 Player 页在软导航前后具有同一 CSP，所有应用 HTML 的 `frame-src` 都从服务端配置的 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` 推导唯一受控 hostname family；模板必须是 `{launchId}` 独占首个 host label、无 path/query/fragment/userinfo，否则 fail closed 为 `'self'`。普通本机开发 family 为 `http://*.rpg.localhost:8080`，PFB family 为 `http://*.rpg.<pfb-id>.localhost:3000`，生产 family 来自部署者配置的 HTTPS runtime domain。这个 wildcard 只允许浏览器建立 frame，runtime 服务仍逐请求校验 exact Launch host、app/runtime capability、cookie、父 origin 与 route，未知、过期、错误 host 均返回 404/410。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
+Player/应用文档的生产 CSP 固定为下列能力；EJS 配置封装在已校验的 Provider Bundle 中。启动点击先使当前 document 成为全屏 owner，再用 Next.js App Router `replace` 在同一根 layout 内软导航到 `/play/:launchId` 并直接渲染 Player。不得使用顶层完整 navigation 或再嵌套一份 Next.js Player document：前者会让浏览器退出所有 core 的全屏，后者会建立第二条 HMR/路由生命周期并可能重载顶层页面。为使来源页与 Player 页在软导航前后具有同一 CSP，所有应用 HTML 的 `frame-src` 都从后端 `GET /api/v1/web-config` 返回的生效模板推导唯一受控 hostname family；模板必须是 `{launchId}` 独占首个 host label、无 path/query/fragment/userinfo。Next 不读取运行域环境变量或自行推导默认值；读取或校验失败返回带 `frame-src 'self'` 的 503，不渲染应用文档。普通本机开发 family 为 `http://*.rpg.localhost:8080`，PFB family 为 `http://*.rpg.<pfb-id>.localhost:3000`，生产 family 来自后端显式配置或默认派生的 HTTPS runtime domain。这个 wildcard 只允许浏览器建立 frame，runtime 服务仍逐请求校验 exact Launch host、app/runtime capability、cookie、父 origin 与 route，未知、过期、错误 host 均返回 404/410。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
 
 ```text
 default-src 'self';
 base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self';
 script-src 'self' 'nonce-<per-response>' blob: 'wasm-unsafe-eval';
 style-src 'self' 'unsafe-inline';
-connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.rpg-runtime.<app-domain>;
+connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.<app-host>;
 img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 ```
 
 `blob:` script/worker 与 `'wasm-unsafe-eval'` 分别用于 Provider Module 导入、v4.2.3 私有动态 core glue/worker 和 WebAssembly 编译；生产不允许任意 scheme/CDN、`unsafe-eval` 或 Provider Target 声明以外的外部 frame。官方 v4.2.3 `extract7z.js` 与 `extractzip.js` 的旧 Emscripten `eval` 不能成为放宽 CSP 的理由；EmulatorJS Provider 在创建 7z/ZIP Worker Blob 前执行运行时专题规定的精确、fail-closed 兼容转换，官方物化 bytes 保持不变。Next.js 开发模式因 React 调试代码确实需要 eval，`web/proxy.ts` 只在 `NODE_ENV=development` 向 `script-src` 追加 `'unsafe-eval'`；production build/E2E 必须断言它不存在。非 HTML 静态/runtime/content 响应无需重复 nonce CSP，但必须带相应 CORP/COEP/`nosniff` 头，且不能覆盖顶层文档的隔离策略。实现依据固定为 [Next.js 官方 nonce CSP 指南](https://nextjs.org/docs/app/guides/content-security-policy)；不得套用旧版 `middleware.ts` 示例。
+
+### 2.3 文档安全策略配置
+
+`GET /api/v1/web-config` 是仅公开应用 Host 上的只读配置投影，返回
+`{"runtimeOriginTemplate":"https://{launchId}.example.com"}`。该字段来自 Go 启动时已经校验并补齐默认值的 Config；
+默认派生与部署规则以运维专题为准。响应固定 `Cache-Control: no-store`，无查询参数，不设置 Cookie，
+未初始化、未登录和已登录状态均可读取。它不返回完整环境、内部地址、宿主路径或凭据，也不接受配置写入；
+runtime Host 上该路径仍为 404。它沿用服务 readiness 门禁。
+
+Next.js 服务端通过固定的内部 `NEXT_BACKEND_ORIGIN` 每次文档请求读取该接口，与认证上下文请求并行，
+使用 `cache: no-store`、拒绝重定向及 10 秒超时；配置请求不转发客户端 Cookie 或 Host。
+响应必须符合闭合字段与模板形状，网络/超时/状态/JSON/形状错误均返回 503，并保留受限 CSP 与隔离响应头。
+正常页面、重定向和 rewrite 的文档策略使用同一生效值及每请求 nonce；proxy 设置 `private, no-store`，
+Next 开发服务器可以覆盖为其开发态禁缓存策略。
+后端重启改变配置后，下一次文档请求重新读取；已打开的文档与运行会话需要重新加载/创建。
 
 ## 3. 乐观并发与幂等
 

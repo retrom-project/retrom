@@ -4,7 +4,7 @@
 # nginx.conf.example 只展示 HTTP 路由；正式公开前须自行配置 HTTPS、证书和端口。
 # 两个镜像须来自同一发行版本，release-input label 应一致。
 # /srv/retrom/data 须是本地持久目录，并允许 UID/GID 1000:1000 写入。
-# 将应用域名和 *.rpg-runtime.games.example.com 指向本机，并配置各自的 TLS 证书。
+# 将应用域名和 *.games.example.com 指向本机，并配置覆盖二者的 TLS 证书。
 
 services:
   retrom:
@@ -13,7 +13,9 @@ services:
     restart: unless-stopped
     environment:
       RETROM_PUBLIC_ORIGIN: "https://games.example.com"
-      RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
+      # 隔离域默认使用 https://{launchId}.games.example.com；只在后端配置可选覆盖。
+      # 自定义时同步修改 Nginx 的 runtime server_name、DNS 与证书。
+      # RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
       # 可选的服务配置及示例值：
       # RETROM_MULTI_DISC_IMPORT_ENABLED: "true" # 启用新建多盘导入；默认 false。
       # RETROM_STARTUP_CHECK_TIMEOUT: "120s"    # 启动预检时限；默认 60s，允许 10s..5m。
@@ -42,8 +44,7 @@ services:
     restart: unless-stopped
     environment:
       NEXT_BACKEND_ORIGIN: "http://retrom:8080"
-      # 必须与后端的运行时 origin 模板完全一致。
-      RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
+      # 页面 CSP 自动从后端 /api/v1/web-config 读取生效配置，无需重复配置公开域名。
 
       # 可选的镜像默认值及示例：
       # HOSTNAME: "0.0.0.0" # 内部监听地址，默认 0.0.0.0。

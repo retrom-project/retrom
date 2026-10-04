@@ -31,6 +31,13 @@ async function navigationEvidence(page: Page) {
 test("same-origin proxy applies fresh nonce and isolation headers", async ({ page, request }) => {
   const first = await navigationEvidence(page);
   const second = await navigationEvidence(page);
+  const configuration = await request.get("/api/v1/web-config");
+  expect(configuration.status()).toBe(200);
+  expect(configuration.headers()["cache-control"]).toBe("no-store");
+  expect(configuration.headers()["set-cookie"]).toBeUndefined();
+  const value = await configuration.json();
+  expect(Object.keys(value)).toEqual(["runtimeOriginTemplate"]);
+  expect(first.csp).toContain(`frame-src 'self' ${value.runtimeOriginTemplate.replace("{launchId}", "*")};`);
   expect(second.nonce).not.toBe(first.nonce);
   expect(first.csp).toContain("'wasm-unsafe-eval'");
   if (process.env.RETROM_E2E_PRODUCTION === "1") {

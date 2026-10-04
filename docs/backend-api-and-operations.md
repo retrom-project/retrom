@@ -212,7 +212,7 @@ MV/MZ 项目继续使用每 Launch 唯一 origin 和闭合 `/__retrom/*` 路由�
 
 ### 5.1 为什么 MV/MZ 必须使用每 Launch 独立子域名
 
-MV/MZ 的游戏包会携带项目自己的 HTML、JavaScript、插件和资源。即使这些文件来自合法游戏，它们也不是 Retrom 的受信应用代码；导入期静态分析不能证明所有动态插件、反射代码和运行分支都安全。浏览器的安全边界首先是 origin，而不是 URL path、iframe 组件名或服务端目录。因此 Retrom 为每次 Launch 分配形如 `https://{launchId}.rpg-runtime.<site-domain>` 的全新 origin，并且永不把该 origin 分配给另一 Launch。sandbox、CSP、MessageChannel、一次性 ticket 和短期 capability 是该 origin 隔离之上的纵深防御，不能替代它。
+MV/MZ 的游戏包会携带项目自己的 HTML、JavaScript、插件和资源。即使这些文件来自合法游戏，它们也不是 Retrom 的受信应用代码；导入期静态分析不能证明所有动态插件、反射代码和运行分支都安全。浏览器的安全边界首先是 origin，而不是 URL path、iframe 组件名或服务端目录。因此 Retrom 为每次 Launch 分配形如 `https://{launchId}.<app-host>` 的全新 origin，并且永不把该 origin 分配给另一 Launch。sandbox、CSP、MessageChannel、一次性 ticket 和短期 capability 是该 origin 隔离之上的纵深防御，不能替代它。
 
 如果把游戏放到应用 origin 的 `/runtime/...` 路径，浏览器会把游戏脚本视为与 Retrom 前端同一主体。只要任一项目或插件存在恶意行为、供应链污染或普通 XSS，脚本就可能读取或修改应用 DOM、调用同源 `/api/v1`、借用户身份发起写请求、读取非 `HttpOnly` 的应用数据，并注册覆盖应用 scope 的 Service Worker、Cache Storage 或其他持久状态。仅使用 iframe sandbox 也不足以把这些风险降为同一等级：MV/MZ 需要执行脚本并使用自身 origin 的存储能力，错误增加 sandbox 权限、浏览器差异或后续维护回归都可能重新打开同源权限。若所有游戏再共用一个 runtime origin，一个游戏留下的 localStorage、IndexedDB、Cache、Service Worker 或命名资源还可能污染下一款游戏或下一次 Launch，造成跨游戏数据泄漏、错误恢复和持久化攻击。
 
@@ -297,7 +297,7 @@ SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-
 
 1. `go run ./cmd/retrom --mode=test`，默认监听 `127.0.0.1:8080`；启动器只用 `RETROM_MODE` 选择并转换 CLI 参数，随后在执行 Go 前移除工具变量；
 2. `cd web && npm run dev`，固定使用 Next 的 `--webpack` 开发 bundler，默认只监听 `127.0.0.1:4000`；
-3. Next.js dev rewrite 将应用 origin 的 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到 `127.0.0.1:8080`。Native Web runtime 使用 `http://{launchId}.rpg.localhost:8080` 直连同一个 Go listener；模板由 Go 与 Next 同时校验，规范 UUID 必须独占最左 Host label。
+3. Next.js dev rewrite 将应用 origin 的 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到 `127.0.0.1:8080`。Native Web runtime 使用 `http://{launchId}.rpg.localhost:8080` 直连同一个 Go listener；模板只在 Go 配置；Next 每次生成文档前从 `GET /api/v1/web-config` 读取生效值。规范 UUID 必须独占最左 Host label。
 
 仓库内置开发 origin 固定为 `http://localhost:4000`，仅 test 模式同时设置 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true`。`localhost` 与 `*.localhost` 在锁定 Chrome 中必须实测为 potentially trustworthy，页面和 runtime 响应仍须带完整 COOP/COEP/CORP/`nosniff`，从而保持 secure context、cross-origin isolation 与 `SharedArrayBuffer`。开发默认不依赖外部 DNS、证书、远程反向代理或局域网监听；需要真实 HTTPS 的部署边界继续由 `ACC-NET-002` 独立验证。
 
@@ -345,9 +345,11 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 | `/content/*`、`/runtime/*` | `retrom:8080` |
 | `/health/*` | 不对公网开放；内部健康检查直接访问 `retrom:8080` |
 
-NG 还必须为 `https://{launchId}.rpg-runtime.<configured-site-domain>` 配置 wildcard DNS/证书与精确 Host 转发，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。Player 页面 CSP 的 `frame-src` 只加入本次 Launch 精确 origin，不使用 wildcard 或回显请求 Origin。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
+NG 还必须为生效 runtime 模板配置 wildcard DNS/证书与精确 Host 转发；默认模板是 `https://{launchId}.<app-host>`，配置省略不代表 DNS、证书或路由可以省略，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。应用文档 CSP 的 `frame-src` 从后端生效模板生成唯一受控 hostname family，不回显请求 Origin；iframe 地址与 Go 授权仍逐 Launch 精确匹配。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
 
 仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器加 Nginx 容器、必需配置、持久数据挂载及最小路由。Nginx 片段只有两个 `server` 块，示例只监听 HTTP；正式公开前部署者必须自行配置 HTTPS、证书、端口及应用域名与运行时子域名的 DNS。只有 Nginx 发布宿主端口；后端只能在内部 Compose 网络接受请求，Nginx 负责覆写单个 `X-Forwarded-For` 客户端地址。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
+
+Next.js 的公开域名配置统一来自后端；Web 进程只需 `NEXT_BACKEND_ORIGIN` 连接内部后端，不读取 `RETROM_PUBLIC_ORIGIN` 或 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`。配置接口及失败行为见 [HTTP 契约](./http-api-contract.md#23-文档安全策略配置)。切换生效模板后应重新启动游戏，旧 Launch 的票据与授权仍绑定原 origin。
 
 前端只使用相对 URL，不把内部容器名、端口或环境域名编译进浏览器 bundle。若 Next.js server-side 代码确需访问后端，使用运行时内部 base URL，与浏览器公开 base URL 分离。
 
@@ -391,7 +393,7 @@ RETROM_DATA_DIR/
 | `RETROM_PROVIDER_INSTALLED_ROOT` | 必填绝对只读目录；按 Provider identity 保存已验证的 descriptor、archive 解包文件与安装证据。服务不从网络下载，也不扫描目录推断 Target。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。该变量只选择 DAT 等非 Provider 依赖基线；运行 Target 选择来自 active Provider 与 binding catalog。 |
-| `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配 PFB ID 同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
+| `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | 仅 Go 读取，可选；未设置或空字符串时在已配置的完整公开主机名前添加 `{launchId}.`，保留 scheme 与端口，再执行同一校验。例如 `https://play.example.com:8443` 得到 `https://{launchId}.play.example.com:8443`。非空值优先，非法值启动失败，不回退默认值。IP 主机与公共后缀不能作为共享运行 Cookie 父域。模板只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式为 `https://{launchId}.<configured-runtime-domain>`；`make dev` 继续显式提供 `http://{launchId}.rpg.localhost:<backend-port>`，因 Web/Go 使用不同端口不能用主站端口替代；PFB 也继续显式提供 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配 PFB ID 同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 仅从 Web 配置接口读取生效模板并生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |

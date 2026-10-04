@@ -26,7 +26,8 @@ server {
 
 server {
   listen 80;
-  server_name *.rpg-runtime.games.example.com;
+  # 对应后端默认隔离域；显式覆盖模板时同步修改此处。
+  server_name *.games.example.com;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;

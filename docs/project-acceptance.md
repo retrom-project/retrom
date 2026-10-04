@@ -275,7 +275,9 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-NET-001`。
 - 流程：以正常 `make dev` 的 `http://localhost:4000` 同源入口运行 Chrome，先登录，再连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；同时执行既有 nonce、监听、可信/不可信转发头、production CSP 与 TLS 能力扫描。
 - 通过标准：localhost 单一 origin 下 `window.isSecureContext === true`、`window.crossOriginIsolated === true`、`SharedArrayBuffer` 可用；每次 HTML response 的 nonce 均非空且彼此不同，CSP、转发 request nonce 和 Next framework script nonce 一致；开发 CSP 只额外允许 `unsafe-eval`，production CSP 不含它并只开放文档锁定的 self/blob/wasm 能力；页面没有共享静态 HTML/ISR/PPR，控制台没有 CSP 回退/CDN 请求；COOP/COEP/CORP/`nosniff` 覆盖页面、iframe 和 runtime。应用只提供内部明文 HTTP 且没有 TLS 管理能力；部署 Nginx 覆写客户端转发头，后端使用单个合法 `X-Forwarded-For` 进行 IP 限流并校验公开 origin；内部地址未进入 browser bundle。
-- 证据：network trace、CSP/隔离头、浏览器断言、监听 socket、代理请求矩阵和应用配置摘要。
+- Web 配置回归：仅 BE 配置运行域，Next 无公开域名环境变量时登录、首页与 Player 文档 CSP 必须来自 `/api/v1/web-config`；接口匿名/未初始化可读且 `no-store`，不设置 Cookie，不返回额外配置。配置单元与 HTTP 回归覆盖省略/空值、显式覆盖、子域名/端口、IP/公共后缀/非法模板拒绝；proxy 回归覆盖后端配置更新、重定向/错误/超时/非法 JSON 拒绝、每请求 nonce 及认证路由。隔离 Host 的配置接口和普通 API 均拒绝。
+- 针对 Web 配置的浏览器回归可在已启动 PFB 及其 production Next 前端上执行等价聚焦命令：在 `web/` 下设置 `RETROM_WEB_ORIGIN`、`RETROM_E2E_EMULATORJS_BUNDLE_SHA256`、`RETROM_CHROME_EXECUTABLE`，运行 `timeout 180 npm exec -- playwright test e2e/network.spec.ts --project=chrome-1280`；production 设置 `RETROM_E2E_PRODUCTION=1`。它只证明该浏览器配置/CSP 子集，不替代完整监听与 TLS 扫描。
+- 证据：network trace、CSP/隔离头、浏览器断言、监听 socket、代理请求矩阵、生效 Web 配置与对应 CSP 摘要。
 
 ### ACC-NET-002：已部署 NG 的 HTTPS 责任边界（条件 Case）
 

@@ -1,4 +1,21 @@
 paths:
+  /api/v1/web-config:
+    get:
+      operationId: getWebConfig
+      security: []
+      description: Non-secret effective configuration for server-rendered document security policy. Available before account initialization; never cached.
+      responses:
+        '200':
+          description: Effective Web configuration
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebConfig'
   /api/v1/admin/diagnostics:
     get:
       operationId: getAdminDiagnostics
@@ -7,6 +24,15 @@ paths:
           $ref: '#/components/responses/DiagnosticsResponse'
 components:
   schemas:
+    WebConfig:
+      type: object
+      additionalProperties: false
+      required: [runtimeOriginTemplate]
+      properties:
+        runtimeOriginTemplate:
+          type: string
+          minLength: 1
+          description: Validated effective template with one complete leftmost {launchId} DNS label, including scheme and optional port.
     DiagnosticsSnapshot:
       type: object
       additionalProperties: false

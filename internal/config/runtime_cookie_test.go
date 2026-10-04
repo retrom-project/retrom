@@ -8,6 +8,8 @@ import (
 func TestRuntimeCookieDomain(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ application, template, domain string }{
+		{"https://example.com", "https://{launchId}.example.com", "example.com"},
+		{"https://play.example.com:8443", "https://{launchId}.play.example.com:8443", "play.example.com"},
 		{"https://play.example.com", "https://{launchId}.games.example.com", "example.com"},
 		{"https://play.example.com", "https://{launchId}.rpg.play.example.com", "play.example.com"},
 		{"http://pfb.localhost:3000", "http://{launchId}.rpg.pfb.localhost:3000", "pfb.localhost"},
