@@ -1,0 +1,20 @@
+{
+  "retromVersion": "v0.0.107",
+  "visiblePanel": "街机 ROM 集缺少文件\n\n可修正以下问题，或试运行确认可以游玩并保存截图，再由管理员确认发布。\n\nARCADE_CONTENT_MISSING_ENTRY\ncc2y_22d.7f 不匹配\ncc2y_24d.9e 不匹配\ncc2y_28d.9f 不匹配",
+  "readiness": {
+    "status": "BLOCKED",
+    "compatibilityCode": "ARCADE_CONTENT_MISSING_ENTRY",
+    "missingEntries": [],
+    "mismatchedEntries": [
+      "cc2y_22d.7f",
+      "cc2y_24d.9e",
+      "cc2y_28d.9f"
+    ],
+    "parentState": [
+      {
+        "kind": "PARENT",
+        "state": "SATISFIED_EXTERNAL"
+      }
+    ]
+  }
+}
