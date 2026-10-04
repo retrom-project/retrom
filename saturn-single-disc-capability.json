@@ -1,0 +1,58 @@
+{
+  "retromVersion": "v0.0.107",
+  "configuration": {
+    "targetId": "yabause",
+    "providerVersion": "0.58.7",
+    "capabilities": {
+      "contentLoading": "PRELOAD_ONLY",
+      "pause": true,
+      "screenshot": true,
+      "checkpoint": true,
+      "standardGamepad": true,
+      "frameCounter": true,
+      "volume": true,
+      "discSwitch": true,
+      "nativeSettings": true,
+      "inputFilter": true,
+      "videoModes": [
+        "adaptive-sharpen",
+        "original",
+        "pixel",
+        "sharp-bilinear",
+        "smooth"
+      ],
+      "requiresThreads": false,
+      "frameMode": "SAME_ORIGIN_BLANK"
+    },
+    "resources": [
+      {
+        "kind": "ROM_BLOB",
+        "role": "game",
+        "ordinal": 0
+      },
+      {
+        "kind": "BIOS_BUNDLE",
+        "role": "bios",
+        "ordinal": 0
+      }
+    ],
+    "hasRestore": false
+  },
+  "failureCode": "PLAYER_RUNTIME_CONTRACT_INVALID",
+  "samples": [
+    {
+      "sample": "single-A",
+      "seconds": 90,
+      "frameCount": 3265
+    },
+    {
+      "sample": "single-B-repeat",
+      "seconds": 15,
+      "frameCount": 681
+    }
+  ],
+  "singleDiscGamesTested": 2,
+  "singleDiscLaunchAttempts": 3,
+  "returnNavigationSucceeded": true,
+  "multidiscComparison": "A two-disc M3U displayed the game title at 60 seconds; longer run evidence retained privately."
+}
