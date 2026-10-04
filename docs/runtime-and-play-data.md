@@ -171,7 +171,7 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
 
-草稿 PATCH、来源替换和依赖处理按当前真实输入更新或创建 validation，并原子切换 ReviewDraft 的当前选择；审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变时，对应写事务直接生成新的当前校验。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
+审核详情、队列、预览创建和批准共用当前事实求值，读取当前来源、目录 Core、稳定 Provider/Target、活动 DAT 与 BIOS 安装；不创建或选择历史 Validation。草稿 PATCH 只保存管理员的编辑、媒体选择和适用的自包含确认，来源补全保存新的来源事实与派生产物。BIOS 安装变化在下一次读取中生效，不改写草稿版本；单独的 Provider Bundle 前移不改变稳定 Target，也不要求重检。批准事务再次核对当前事实，预览则冻结创建时的资源；当前 readiness 为 BLOCKED 时，仍允许尽最大可能启动诊断 Player。
 
 ## 9. PlaySession 生命周期
 
@@ -181,7 +181,7 @@ PRODUCT Player 在核心真正开始后累计可见、未暂停的运行时间�
 
 ## 10. 验证与发布门禁
 
-实现变更必须覆盖：Provider manifest/完整性/升级门禁、当前 catalog 的 Target binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
+实现变更必须覆盖：Provider manifest/完整性/升级门禁、当前 catalog 的 Target binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG 项目检查与审核当前事实、多盘、Pegasus 与 EmulationStation/gamelist 导入。
 
 标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production release tag 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
 

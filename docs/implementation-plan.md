@@ -61,7 +61,7 @@ flowchart LR
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
 3. `003_storage_jobs.sql`：Blob、Job/Event/Input、幂等、审计与 后台删除；
 4. `004_upload_archive.sql`：上传、归档与当前 consumer 闭集；
-5. `005_dependencies.sql`：按 Provider Target 绑定的 BIOS、release-managed DAT 与 RPG runtime asset pack；
+5. `005_dependencies.sql`：按 Provider Target 绑定的 BIOS installation 与 release-managed DAT；
 6. `006_import_review.sql`：导入、Provider Target 来源快照、验证、审核、Preview/临时 checkpoint 与快速审批；
 7. `007_library.sql`：Game/GameFiles/GameVariant 当前态、Provider Target binding、RPG 内容 profile、media/tag/favorite；
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
@@ -212,11 +212,11 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 该里程碑以红—绿 TDD 完成，不允许旧、新运行链并存：
 
-1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 只有各 Provider declaration 一份映射事实源。
+1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；两个 Provider 的 Target 集合与映射只以各自的 declaration 为事实源。
 2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
 3. 将最终 Provider/Target current-state schema 直接整合到 001–014，并同步 OpenAPI、Go catalog/launch/save 和全部领域引用；旧开发数据归档重建，不实现转换、降级、回滚或双读路径。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
-5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation  行为全部迁移到 Provider 生命周期。
+5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸与审核 Preview 行为统一到 Provider 生命周期。
 6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按路径、大小和字节摘要校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。
 7. 把稳定契约按职责写入正式文档，删除临时方案；运行 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case 和完整工程门禁。
 

@@ -248,7 +248,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查单一 runtime release tag 及其解析出的两个 Provider、Bundle/manifest/module digest 与 61 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查单一 runtime release tag 及其解析出的两个 Provider、Bundle/manifest/module digest 与当前全部 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
 - 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；镜像只包含 lock 指定的内容寻址 Provider Bundle，Web 不包含第二份 adapter/core/asset registry，未知 Target、manifest 漂移或无 Module 实现都使临时副本校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
@@ -717,8 +717,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、61 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 18 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、当前声明的全部 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；两个 Provider 的全部 Target 声明必须与当前正式 Bundle 一致。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -1525,7 +1525,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 ### ACC-IMM-008：adapter、依赖与普通 UI 回归
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-IMM-008`。
-- 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对 44 个 Target 的身份与 manifest digest 完全闭合；运行无重复 registry 扫描、44 Target 配置回归、普通桌面/移动 Player 产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
+- 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对当前声明全部 Target 的身份与 manifest digest 完全闭合；运行无重复 registry 扫描、全部 Target 配置回归、普通桌面/移动 Player 产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
 - 通过标准：未知或版本不匹配 adapter fail closed；普通 adapter 不启用沉浸组合键策略，公共输入包装器在无策略时透传。手柄光标开启时仅消费其映射的控制。既有普通启动、存档、多盘与移动 HUD 不回退。
 - 证据：`data-check/deps-check`、adapter 单测、OpenAPI/schema 检查和既有产品 E2E 结果。
 
@@ -1601,7 +1601,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-002：Target 与 Host binding 闭包
 
-- 上限：900 秒。证明 44 个 EmulatorJS Target、18 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
+- 上限：900 秒。证明两个 Provider 当前声明的全部 Target 与 Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
 
 ### ACC-PROVIDER-003：Envelope 与 Dispatcher
 
@@ -1633,7 +1633,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-008：retrom-runtime 产品闭包
 
-- 上限：900 秒。证明 18 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
+- 上限：900 秒。证明当前 retrom-runtime Provider 全部 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
 
 ## 23. RPG Maker 全世代产品链
 
