@@ -1,0 +1,58 @@
+{
+  "retromVersion": "v0.0.107",
+  "runtimeVersion": "v0.58.7",
+  "target": "azahar",
+  "romBytes": 536870912,
+  "runtimeMaximumBytes": 2147483647,
+  "header": {
+    "format": "NCSD",
+    "partitionOffset": 16384,
+    "ncchMagic": "NCCH",
+    "ncchFlags": "0000000101030000",
+    "noCrypto": false,
+    "extendedHeaderSize": 1024,
+    "decryptedExtendedHeaderHashMatches": false
+  },
+  "review": {
+    "canApprove": true,
+    "readiness": {
+      "status": "READY",
+      "compatibilityCode": "READY",
+      "dependencySnapshot": {
+        "schemaVersion": 1,
+        "kind": "STATIC",
+        "bios": []
+      }
+    },
+    "sourceManifest": {
+      "contentKind": "SINGLE_FILE",
+      "fileCount": 1,
+      "filesDigest": "9ce64a5e0cc3d78439014bceb649963175d8a4325c6254280f32fc078e928aa2",
+      "schemaVersion": 2,
+      "totalBytes": 536870912
+    }
+  },
+  "unmodifiedPreview": {
+    "sampleSeconds": [
+      30,
+      90,
+      180
+    ],
+    "blackScreenThroughSeconds": 180,
+    "returnedToReview": true,
+    "pageErrors": [],
+    "httpErrors": [],
+    "playerFailurePanelShown": false
+  },
+  "diagnosticPreview": {
+    "instrumentation": "Set the existing EmulatorJS debug flag to capture native core logs; no product code modified.",
+    "messages": [
+      "[1791143592.849475] Core <Critical> core/core.cpp:Load:342: Failed to determine system mode (Error 8)!",
+      "[INFO] [Environ] SET_MESSAGE: The game that you are trying to load must be decrypted before being used with Azahar.",
+      "[1791143744.014765] Core <Critical> core/core.cpp:Load:342: Failed to determine system mode (Error 8)!",
+      "[INFO] [Environ] SET_MESSAGE: The game that you are trying to load must be decrypted before being used with Azahar."
+    ],
+    "playerFailurePanelShown": false
+  },
+  "published": false
+}
