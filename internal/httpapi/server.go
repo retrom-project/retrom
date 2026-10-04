@@ -100,6 +100,7 @@ func (server *Server) Handler() http.Handler {
 func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health/live", server.healthLive)
 	mux.HandleFunc("GET /health/ready", server.healthReady)
+	mux.HandleFunc("GET /api/v1/web-config", server.webConfig)
 	mux.HandleFunc("GET /api/v1/auth/context", server.authContext)
 	mux.HandleFunc("POST /api/v1/auth/initialize", server.authInitialize)
 	mux.HandleFunc("POST /api/v1/auth/login", server.authLogin)

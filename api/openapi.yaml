@@ -8,6 +8,8 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /api/v1/web-config:
+    $ref: ./domains/operations.yaml#/paths/~1api~1v1~1web-config
   /api/v1/admin/import-batches/{kind}/{importId}/discard:
     $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1import-batches~1{kind}~1{importId}~1discard
   /health/live:
@@ -257,6 +259,8 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    WebConfig:
+      $ref: ./domains/operations.yaml#/components/schemas/WebConfig
     GameScrapeCandidates:
       $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
     ImportTaskList:

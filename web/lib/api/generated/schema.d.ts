@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/web-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Non-secret effective configuration for server-rendered document security policy. Available before account initialization; never cached. */
+        get: operations["getWebConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/import-batches/{kind}/{importId}/discard": {
         parameters: {
             query?: never;
@@ -2191,6 +2208,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        WebConfig: {
+            /** @description Validated effective template with one complete leftmost {launchId} DNS label, including scheme and optional port. */
+            runtimeOriginTemplate: string;
+        };
         GameScrapeCandidates: {
             /** Format: uuid */
             gameId: string;
@@ -5310,6 +5331,27 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getWebConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Effective Web configuration */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebConfig"];
+                };
+            };
+        };
+    };
     getAdminImportBatchDiscard: {
         parameters: {
             query?: never;

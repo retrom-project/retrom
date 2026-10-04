@@ -172,6 +172,9 @@ func unsafeMethod(method string) bool {
 
 func publicHTTPRoute(request *http.Request) bool {
 	path := request.URL.Path
+	if path == "/api/v1/web-config" {
+		return request.Method == http.MethodGet || request.Method == http.MethodHead
+	}
 	if path == "/health/live" || path == "/health/ready" || path == "/api/v1/auth/context" ||
 		path == "/api/v1/auth/initialize" || path == "/api/v1/auth/login" || path == "/api/v1/auth/logout" ||
 		path == "/api/v1/auth/account-links/inspect" || path == "/api/v1/auth/invitations/accept" ||

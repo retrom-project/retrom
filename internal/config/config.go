@@ -225,6 +225,9 @@ func loadNetworkConfig(mode Mode) (networkConfig, error) {
 
 func parseRPGRuntimeOriginTemplate(value string, publicOrigin *url.URL, allowInsecure bool) (string, error) {
 	const marker = "00000000-0000-4000-8000-000000000000"
+	if value == "" && publicOrigin != nil {
+		value = publicOrigin.Scheme + "://{launchId}." + publicOrigin.Host
+	}
 	if !validRPGRuntimeTemplatePrefix(value, allowInsecure) {
 		return "", fmt.Errorf("%w: RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE", errInvalidConfig)
 	}
