@@ -6,7 +6,7 @@
 | 版本 | 1.6 |
 | 日期 | 2026-10-04 |
 | 适用范围 | Retrom 一期 |
-| 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 EmulatorJS（4.2.3 基线 + 4.3.0-pre 定向覆盖）、RetromRpgRuntime、OCI/Docker 镜像 |
+| 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 Runtime Provider（EmulatorJS 与 retrom-runtime）、OCI/Docker 镜像 |
 
 ## 1. 文档职责
 

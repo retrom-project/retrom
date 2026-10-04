@@ -155,17 +155,3 @@ func (records *ReviewInputs) RPGProfile(
 	}
 	return result, nil
 }
-
-func (records *ReviewInputs) UpdateRPGDependencyDigest(
-	ctx context.Context, draftID, digest string, nowMS int64,
-) error {
-	if _, err := records.executor.ExecContext(ctx, `
-UPDATE import_items SET
-review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
- updated_at_ms=MAX(updated_at_ms,?)
-WHERE id=? AND review_profile_json IS NOT NULL
-`, digest, nowMS, draftID); err != nil {
-		return fmt.Errorf("update RPG dependency digest: %w", err)
-	}
-	return nil
-}

@@ -55,7 +55,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 - `platform_id_snapshot`。
 - `default_core_id_snapshot`。
 - 当前 `providerId/targetId/bundleSha256` 与 Provider Bundle 身份。
-- RPG Maker 项目另冻结用户选择的虚拟 `rpgmaker` Core、服务端从项目内容唯一检测出的 generation、对应稳定 `retrom-runtime` Provider/Target、内容 evidence 与实际 pack selection；用户不能选择或改写内部世代。导入与审核校验稳定 Target 及真实输入；后续普通 Launch 使用该 Target 只向前激活的当前 Bundle，不回退旧 Bundle。
+- RPG Maker 项目另冻结用户选择的虚拟 `rpgmaker` Core、服务端从项目内容唯一检测出的 generation、对应稳定 `retrom-runtime` Provider/Target、内容 evidence 与项目的外部 RTP 声明；用户不能选择或改写内部世代。Retrom 不安装、选择或挂载外部 RTP。导入与审核校验稳定 Target 及真实输入；后续普通 Launch 使用该 Target 只向前激活的当前 Bundle，不回退旧 Bundle。
 - Arcade `dat_version_id_snapshot`。
 - MetadataProvider 配置版本。
 - `created_at_ms`。
@@ -68,7 +68,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 
 服务器来源创建携带统一的 Source 所有权，不向普通导入传递文件组织格式。耗时准备后，提交事务重新校验最初 execution、worker、租约、冻结来源与目标事实，并将普通任务、唯一主条目和来源活动工作绑定一起提交；未完成任务重放先读取既有绑定，不能在来源 payload 已释放后重新按路径猜测普通条目。
 
-选择器按基础平台分组，并同时展示目录名称、默认核心以及 Arcade 活动 DAT 状态。任务执行期间目录或 DAT 发生变化时，旧任务继续使用快照；审核前提示差异并要求重新验证，不能静默改用新配置。
+选择器按基础平台分组，并同时展示目录名称、默认核心以及 Arcade 活动 DAT 状态。任务执行使用冻结的创建配置；审核读取当前目录 Core、Provider Target、DAT 与依赖事实，并返回当前就绪状态。预览与批准再次核对当前输入，不要求管理员选择历史校验或手动重新运行检查。
 
 ## 4. 状态机与恢复
 
@@ -524,7 +524,7 @@ EmulationStation Collection 使用完全相同的 `tagIds`、snapshot、删除�
 
 ## 17. RPG Maker 项目识别、资源与发布验证
 
-`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录上传必须保留所选目录名；无法得到非空初始标题的输入拒绝创建审核草稿，不以内部文件名兜底，也不生成空标题条目。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传独立文件存储 bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
+`contentMode=RPG_MAKER_PROJECT` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。项目不是单 ROM，不能把项目归档或任一内部文件的 hash 当成 Hasheous 游戏身份；RPG Maker 虚拟目录的导入元信息源固定为 `NONE`，旧客户端提交的 `HASHEOUS` 也由服务端规范化为 `NONE`，标题、简介与媒体在审核中手工补充。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录上传必须保留所选目录名；无法得到非空初始标题的输入拒绝创建审核草稿，不以内部文件名兜底，也不生成空标题条目。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 中项目文件的未压缩 bytes 合计不得超过 `2,147,483,647`；该上限由项目物化器在写入前校验。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item。Pegasus/EmulationStation 的单个项目 ZIP/7z 通过服务器来源交接复用同一普通导入路径；映射到虚拟 RPG Maker 目录后，先把 STANDARD 规范化为 RPG_MAKER_PROJECT，再冻结任务与幂等身份，不重新上传独立文件存储 bytes。EmulationStation 对同一来源项重试必须返回原 Import/Review，空模式、STANDARD 与其规范项目模式等价；改变来源、目录或真正的内容模式仍拒绝。服务器清单的路径必须指向合法单个归档，不把裸项目目录或多个启动文件推断为项目。
 
 目标目录默认核心必须是虚拟 `rpgmaker`；服务端运行全部有界 signature parser，唯一检测出 generation 后再选择 `retrom-runtime` Provider 的固定 Target。多 generation 为 ambiguous，无证据为 unsupported，无法唯一裁决时拒绝；用户不能选择、覆盖或 fallback 到另一个 Target。
 

@@ -198,9 +198,9 @@ Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `inte
 本节只描述能力归属。实际方法、路径、body、状态码和缓存策略全部以 [HTTP API 契约第 9 节](./http-api-contract.md#9-核心-api-路由表) 与以 `api/openapi.yaml` 为入口的 OpenAPI 文件集为准；两者不一致时实现任务必须先修正文档/OpenAPI，不能兼容两套路径。
 
 - 用户读取：home、game library/detail、save list。
-- 用户写入：创建 LaunchSession、heartbeat/finish、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch。
-- 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含 RPG 世代与当前 Provider/Target 输入）、RPG runtime validation/判定、Game 当前态、platform instance、BIOS installation、Arcade DAT installation。
-- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核、当前决定与任务诊断、游戏管理、BIOS/DAT/RPG 运行依赖、审核试运行、审计事件和脱敏诊断摘要。
+- 用户写入：创建 LaunchSession、PRODUCT 累计游玩时长 progress、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch；审核 Preview 由独立 finish 操作结束。
+- 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含当前来源与 Provider/Target 检查、RPG 自包含确认）、Game 当前态、platform instance、BIOS installation、Arcade DAT installation。
+- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、当前审核事项与任务诊断、游戏管理、BIOS/DAT 依赖事实、审核试运行、审计事件和脱敏诊断摘要。
 
 详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径；服务器扫描只接受已配置 capability 的 root ID 与规范相对路径，不提供任意宿主路径入口。
 

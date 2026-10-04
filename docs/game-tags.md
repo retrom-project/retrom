@@ -36,7 +36,7 @@
 所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。应用存储方法在同一事务中保护活动状态、owner 状态和 20 个上限。
 
 - `PUT /admin/games/{gameId}/tags` 以 Game `If-Match` 原子替换 PUBLISHED 或 DELETED Game 的当前标签，推进 Game version 并写 `GAME_TAGS_REPLACED` 审计；它不创建 Game 当前元信息字段。
-- Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、Validation 等草稿选择共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留当前草稿关系。
+- Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、自包含确认等草稿编辑共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留当前草稿关系。
 - 来源 Collection 标签属于 mapping version。每个 `IMPORT` Collection 的映射保存关系及稳定 `{tagId,name}` snapshot；`SKIP` 必须是空数组。start 后映射冻结，retry 复用该映射；handoff 只把仍活动的选择复制到所创建的 ReviewDraft，且崩溃恢复不得重复写入。
 
 Tag 删除与关系变化都在短数据库写事务内完成，不执行文件扫描、hash、归档读取或网络访问。Tag 删除使用 Tag ETag；Game/Review/Pegasus 写使用各自 owner ETag，因此删除和并发分配只有一种提交顺序能成功。
