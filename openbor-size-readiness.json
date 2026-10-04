@@ -1,0 +1,26 @@
+{
+  "retromVersion": "v0.0.107",
+  "runtimeVersion": "v0.58.7",
+  "installedClientModuleSha256": "5cc27beeb4b71aaad28ca36036c8accb35c6986b2f4cb5e10fdc07cfb701a805",
+  "maximumOpenborPakBytes": 536870912,
+  "samples": [
+    {
+      "sizeBytes": 1084383352,
+      "publicationSucceeded": true,
+      "runtimeError": "CONTENT_IO_BOUNDS",
+      "renderedCanvasCount": 0,
+      "withdrawnAfterAcceptanceFailure": true
+    },
+    {
+      "sizeBytes": 1623811910,
+      "validPak32Header": true,
+      "pak32TableValidated": true,
+      "reviewReadiness": "READY",
+      "reviewCanApprove": true,
+      "runtimeError": "OPENBOR_CONTENT_INVALID",
+      "renderedCanvasCount": 0,
+      "published": false,
+      "reviewDiscardedAfterPreview": true
+    }
+  ]
+}
