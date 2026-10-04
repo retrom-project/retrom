@@ -8,12 +8,11 @@
 
 ## 1. 依赖分层
 
-运行依赖分为四类，不能互相代替：
+运行依赖分为三类，不能互相代替：
 
 1. Provider Bundle：可执行的客户端模块、Target declaration、静态文件、许可和 provenance；
 2. Target binding catalog：Retrom 产品 Core 到 Provider Target 的精确绑定；
-3. DAT/BIOS catalog：游戏识别、Arcade parent/machine 和静态 BIOS 要求；
-4. 用户安装的 runtime asset pack：RTP 等由管理员提供、按内容冻结的运行输入。
+3. DAT/BIOS catalog：游戏识别、Arcade parent/machine 和静态 BIOS 要求。
 
 Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch 与 Preview 冻结。
 
@@ -157,7 +156,7 @@ Retrom 镜像构建输入必须包含：
 
 EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` 与启动校验都要求：
 
-- Target 在已激活 EmulatorJS Bundle 中存在；
+- Target 在其所属的已激活 Provider Bundle 中存在；
 - DAT 文件 size/hash、parser version 和 machine 数据闭合；
 - 平台/Core/Target 映射唯一；
 - 内置 DAT 更新不会删除仍被锁定 Variant 使用的事实。
@@ -168,11 +167,13 @@ BIOS Requirement 同样从 Target binding 和 DAT 生成，不从前端或 Provi
 
 Sega CD 与 Genesis 卡带共用原生核心，但 Sega CD 使用独立的 `genesis-plus-gx-cd` Target。此接入直接采用新绑定和 BIOS 要求，不迁移旧 `genesis-plus-gx` Target 下的游戏 Variant 或 BIOS 安装；旧开发实例需要按新契约重新导入游戏与 BIOS。
 
-## 9. Runtime asset pack
+## 9. RPG Maker 项目资源
 
-RPG RTP 等 pack 由管理员上传，经过安全归档扫描、路径规范化、文件数/总大小上限和逐文件摘要后安装。Pack definition 与 installation 分离；Target 只声明所需 slot/type，Retrom 冻结具体 installation。
+Retrom 只使用随 RPG Maker 项目导入的资源，不提供外部 RTP 的安装、选择或运行挂载。运行包表、上传用途和管理路由已经退出产品；当前建库与 API 边界见 [数据模型](./data-model.md) 和 [HTTP 契约](./http-api-contract.md)。
 
-有 Variant、Validation、Launch 或 Save 引用时不能删除 installation。替换 pack 产生新 dependency snapshot，不原地修改已经签发的 Launch 或历史 Save。
+项目检测继续读取 2000/2003 的完整打包声明和 RGSS 的 RTP 声明。存在外部依赖声明时默认阻断；管理员可在适用世代按审核规则显式确认项目自包含，发布事务再次核对当前输入。确认不安装资源，也不证明所有动态引用都存在；检测、预览和人工放行细节见 [导入与审核](./import-and-review.md)。
+
+独立 `retrom-runtime` 的 EasyRPG 与 mkxp Target 仍声明可选 `rtp` 输入，这是运行库提供给宿主的资源协议。Retrom 不创建对应资源，在组装 RPG Launch Envelope 时省略该可选输入；运行库声明不代表 Retrom 提供 RTP 管理能力。
 
 ## 10. 开发与 CI 门禁
 
@@ -214,7 +215,7 @@ PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 ad
 
 诊断可以显示 Provider、Bundle、Target、source commit、Release 坐标和验证结果，但不能暴露宿主路径、capability、私有游戏内容或上传 Blob 标识。许可证与 notice 随 Bundle 和镜像分发；应用 HTTP API 不提供任意宿主文件读取。
 
-Launch 与 Preview 必须用 `bundleSha256` 追溯到精确 Provider 字节；Validation 与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
+Launch 与 Preview 必须用 `bundleSha256` 追溯到精确 Provider 字节；审核当前事实与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
 
 ### Flycast 核心与开发候选
 
@@ -298,8 +299,9 @@ O2EM 源码和构建归 `retrom-project/libretro-o2em`，维护基线为
 `retrom/g679d6fec0496`，上游 `libretro/libretro-o2em@679d6fec04963f6e70a7ec217e3d0ebb1fe472fc`。
 `master` 保留上游镜像，Emscripten 镜像与 EmulatorJS RetroArch linker 在 fork 中固定。
 `pfb-core-build CORE=o2em` 生成核心、许可、完整源归档和逐文件候选描述符；
-runtime 的 `developmentForks` 仅登记此未发布候选，正式 Provider 构建拒绝未发布输入。
-完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
+runtime 的正式来源清单已固定 `retrom-core-g679d6fec0496-r2`，Provider 声明 `o2em` Target。
+后续未发布候选只能通过显式 development 输入联调，正式 Provider 构建拒绝未发布输入。
+更新时完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
 BIOS 与游戏由管理员或操作者提供，不进入 Git、核心归档或 Provider 包。
 
 ### NeoCD 核心

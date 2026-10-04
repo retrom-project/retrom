@@ -4,13 +4,13 @@
 
 Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数据基线”维护。总览只保留跨领域决策；字段与流程在对应专题维护一次，全部验收 Case 只在统一验收文档维护。
 
-## 实施就绪结论
+## 当前实现基线
 
-当前未发布数据库由 `001_identity.sql`–`014_metadata_media_queue.sql` 创建基础模型，`015_shared_runtime_sessions.sql` 追加共享运行会话，`016_library_query_indexes.sql` 创建当前会话账本的用户游戏活动读模型和分页查询索引，`017_runtime_dependency_indexes.sql` 为运行依赖范围查询增加 Provider/Target 联合索引；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 44 个 Target，retrom-runtime Provider 声明 17 个 Target；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
+当前数据库由 `001_identity.sql`–`014_metadata_media_queue.sql` 创建基础模型，`015_shared_runtime_sessions.sql` 追加共享运行会话，`016_library_query_indexes.sql` 创建当前会话账本的用户游戏活动读模型和分页查询索引，`017_runtime_dependency_indexes.sql` 为运行依赖范围查询增加 Provider/Target 联合索引；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.58.6 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-04 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
 
-全新数据库只 seed Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期继续使用各自领域契约。
+全新数据库在启动时从 Host catalog 同步 Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期继续使用各自领域契约。
 
-一期基线、账户隔离、Saturn/yabause 多盘系统、服务器 BIOS 导入、Pegasus ROM 目录导入与精确诊断、统一审核交接、审核运行预览、截图人工放行和快速审批都已落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项。审核页可对全局待审队列启动有界后台扫描，并将重新验证为严格 `READY`、没有重复内容且没有活动补传的条目逐项发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，通过普通 Player 按需保存运行截图；进入发布、丢弃、跳过或不可恢复失败等终态后，审核只保留当前决定状态，工作流独立文件存储 payload 由可恢复的 OwnerCleanup 后台任务释放。管理员“永久删除游戏”保留 Game 与历史关系的文字墓碑，立即关闭运行能力并异步释放游戏内容、媒体、存档和运行时 payload；各游戏的文件独立持有，退休文件立即进入有界后台删除队列。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
+一期基线、账户隔离、Saturn/yabause 多盘系统、服务器 BIOS 导入、Pegasus ROM 目录导入与精确诊断、统一审核交接、审核运行预览、截图人工放行和快速审批都已落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile。服务器导入页提供 BIOS 与游戏目录两个入口：前者按完整启用 catalog 逐项安装，后者选择 BASIC、Pegasus 或 gamelist.xml 格式，扫描服务进程可读的目录、显式映射目标目录、复制并生成普通审核事项。三种游戏格式共享来源计划和接收链路。审核页可对全局待审队列启动有界后台扫描，并将重新验证为严格 `READY`、没有重复内容且没有活动补传的条目逐项发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，通过普通 Player 按需保存运行截图；进入发布、丢弃、跳过或不可恢复失败等终态后，审核只保留当前决定状态，工作流独立文件存储 payload 由可恢复的 OwnerCleanup 后台任务释放。管理员“永久删除游戏”保留 Game 与历史关系的文字墓碑，立即关闭运行能力并异步释放游戏内容、媒体、存档和运行时 payload；各游戏的文件独立持有，退休文件立即进入有界后台删除队列。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
 所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
 
@@ -51,7 +51,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 ## 领域与实现专题
 
 - [`platform-instance.md`](./platform-instance.md)：游戏目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
-- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、历史回溯。
+- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、当前决定与 payload 清理。
 - [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、服务器目录批量导入、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
 - [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、移动横屏方向门禁、启动检查、Provider dispatcher、DOS 启动程序、通用检查点与游玩时长。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
@@ -79,11 +79,11 @@ HTTP、运行时、依赖及统一验收专题维护。
 - 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
 - `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。本地生成的图片只用于即时评审，由 `docs/design/.gitignore` 忽略且不得被正式文档引用。
-- active `emulatorjs` Provider Bundle 的 declaration 是 36 个 EJS Target、运行文件、能力和 checkpoint 格式的唯一机器事实源；`data/dat/emulatorjs/<version>/manifest.json` 只维护对应真实 DAT 的来源、稳定 Provider/Target、SHA-256 和统计。前端不维护 adapter registry；所有运行入口只经 Launch Envelope V1 与共享 dispatcher。五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
+- active `emulatorjs` Provider Bundle 的 declaration 是当前全部 EJS Target、运行文件、能力和 checkpoint 格式的唯一机器事实源；`data/dat/emulatorjs/<version>/manifest.json` 只维护对应真实 DAT 的来源、稳定 Provider/Target、SHA-256 和统计。前端不维护 adapter registry；所有运行入口只经 Launch Envelope V1 与共享 dispatcher。DAT payload 由 `make prepare-deps` 按 manifest 物化并被 Git 忽略；Provider 许可与 notice 随 Bundle 提供。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。
 - `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 保存 Retrom 自有、MIT 许可且由同目录生成源确定性生成的产品 E2E 程序。生成二进制随仓库提交，`make public-fixtures-check` 与实际 HTTP/E2E 消费者共同锁定 bytes。NES 的两个独立内容身份分别覆盖 FCEUmm 与 Nestopia；SNES 夹具覆盖 SNES9x；Arcade 小型 DAT 由 acceptance-only 装置登记为 test-only `BUILTIN`，覆盖 MAME2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的实际装配与核心运行，但不替代 `ACC-DAT-004` 的 production DAT 验证。CPS2 锁定 core loader 要求单独提供 `spf2t.zip` 父归档；该父归档只有项目自有 marker，不含第三方 ROM，也不被驱动执行。自动化测试不读取操作者私有 ROM/BIOS，也不存在绕过产品链路的独立 example 或私有 fixture 根目录。`.dev-data/dev.mk`、`.dev-data/data` 与 `.dev-data/dev-state` 保存标准开发实例的配置、数据和启动状态，`.dev-data/bios` 与 `.dev-data/roms` 保存服务器导入语料；整个目录都不属于测试 fixture。
-- active `retrom-runtime` Provider Bundle declaration 是 RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、J2ME、WASM-4、TIC-80、FAKE-08、ScummVM 与 Play! 共 17 个 Target 的唯一机器事实源；Retrom 的 `data/runtime-target-bindings/v1/catalog.json` 只把产品 Core 绑定到精确 Target，不声明内部实现。Provider 源码、项目自有 bridge 与聚合发布 workflow 位于独立 `retrom-runtime`，第三方核心源码、构建与 Release workflow 位于各维护 fork。公开 RPG fixture 只有在来源、许可、确定性生成和真实产品消费者全部满足仓库夹具规则时才可进入 `testdata/public-roms/rpgmaker-smoke/`；不可分发输入仍只由对应当次 smoke 证明。
+- active `retrom-runtime` Provider Bundle declaration 是当前全部独立引擎 Target 的唯一机器事实源；Retrom 的 `data/runtime-target-bindings/v1/catalog.json` 只把产品 Core 绑定到精确 Target，不声明内部实现。Provider 源码、项目自有 bridge 与聚合发布 workflow 位于独立 `retrom-runtime`，第三方核心源码、构建与 Release workflow 位于各维护 fork。公开 RPG fixture 只有在来源、许可、确定性生成和真实产品消费者全部满足仓库夹具规则时才可进入 `testdata/public-roms/rpgmaker-smoke/`；不可分发输入仍只由对应当次 smoke 证明。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。
 

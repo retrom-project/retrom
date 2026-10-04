@@ -23,9 +23,9 @@ Arcade 的 DAT 默认 BIOS 选择、ROM 匹配、Parent/BIOS 闭包、循环限�
 
 ## 2. 哈希规则
 
-本地 Blob 去重使用 SHA-256；外部规范的身份 hash 独立保存：
+本地文件按领域 owner 独立持有，以 UUID 文件标识分配存储，不按 SHA-256 共享或物理去重。SHA-256 用于内容身份、完整性和重复内容判断；外部规范的身份 hash 独立保存：
 
-- `sha256`：独立文件存储地址和文件完整性。
+- `sha256`：内容身份和文件完整性。
 - `md5`：常见 BIOS 文件身份。
 - `sha1`：DAT ROM/disk entry。
 - `crc32`：DAT 与 ZIP entry 快速匹配。
@@ -133,7 +133,7 @@ Sega Model 2 驱动编入同一个 Current Arcade Target 的 `arcade_model2` 设
 
 数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.9 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
-Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时独立文件存储会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
+Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时，创建归属新 Requirement 的独立 Installation 和独立文件，并重新校验；SHA-256 相同不共享物理存储。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
 
 ### 3.7 dosbox_pure
 
@@ -332,4 +332,4 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。ARCHIVE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时仅原子切换活动安装，不扫描依赖 JSON、不终止已有 Launch/Play，也不删除 SaveState。旧 Installation、VariantFile 与会话 payload 按[数据模型](./data-model.md#bios-与-launch-延迟回收)的索引和分批排期释放；新的启动按需重校验，未替换分支不产生回收副作用。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时在同一事务切换活动安装、按旧安装和文件身份定位并撤销受影响 Launch、结束活动 Play，清除旧会话的内容读取关系，保留 SaveState 和无关会话。旧 Installation、VariantFile 与会话 payload 按[数据模型](./data-model.md#bios-与-launch-延迟清理)的索引和分批排期释放；新的启动按需重校验，未替换分支不产生回收副作用。

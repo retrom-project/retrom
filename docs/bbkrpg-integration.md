@@ -7,7 +7,9 @@
 - 原始 GAM 和现有单文件导入流程共用 `EMULATORJS_SINGLE_FILE`；多碟不适用。
 - 默认标准手柄方向对应原生方向，底部确认键对应原生 A/Enter。
   键盘 WASD 与 K/J 保持独立映射。Host B 返回契约不变。
-- 上游没有实现声音；不声明音量能力。BIOS 与游戏不随 Provider 分发。
+- 维护 fork 已实现双通道旋律、计时器中断和 libretro 音频输出，Target 声明音量能力。
+  外部语音 ROM/DAC 接口仍未连接，不支持词典语音；时钟与音色保真度仍有待硬件校准。
+  BIOS 与游戏不随 Provider 分发。
 
 ## 源码及 BIOS
 
@@ -28,12 +30,13 @@ GAM 头、入口、大小、银行范围以及 BIOS 完整性由原生核心再�
 
 ## 即时存档
 
-公共写格式为 `gam4980-state-v1-storage-v1`，由 Provider 统一添加一次 gzip。
-核心使用带版本和 CRC 的 `BBKST001`，保存 CPU/RAM、全部 flash、
-银行映射、计时器、周期余量、RTC、输入重发与 LCD 状态，并校验当前游戏和 BIOS 身份。
+公共写格式为 `gam4980-state-v2-storage-v1`，由 Provider 统一添加一次 gzip。
+核心使用带版本和 CRC 的 `BBKST002`，保存 CPU/RAM、全部 flash、
+银行映射、计时器、周期余量、RTC、输入重发、LCD 状态和旋律相位/计数器，并校验当前游戏和 BIOS 身份。
+Provider 继续读取已有 v1 公共格式；原生 `BBKST001` 恢复时初始化旧格式未保存的音频相位。
 它不兼容上游不完整状态或其他 EmulatorJS 核心的公共存档格式。
 原生回归使用项目自有合成 BIOS/GAM，在新实例恢复后继续运行并比较完整机器状态。
-真实产品验证入口见 [ACC-BBKRPG-001](project-acceptance.md#acc-bbkrpg-001步步高-gam标准输入与新会话即时恢复)。
+真实产品验证入口见 [ACC-BBKRPG-001](project-acceptance.md#acc-bbkrpg-001步步高-gam-音频标准输入与新会话即时恢复)。
 
 ## PFB 验证和发布边界
 
@@ -42,6 +45,7 @@ GAM 头、入口、大小、银行范围以及 BIOS 完整性由原生核心再�
 校验并显式导入 Provider base，最后启动 PFB。新增 Target 不能通过 loose core override 添加。
 日常 `pfb-up`/`pfb-restart` 不构建核心或 Provider archive。
 
-本分支的运行时输入是显式 PFB candidate。正式聚合前需要先发布经过验收的不可变核心
-release，再把运行时目录更新为该 release 的真实坐标并发布 Provider，
-最后更新 Retrom 的生产 Provider lock。不得把本地 candidate 哈希填进生产 release 坐标。
+当前正式 Provider 已聚合维护 fork 的 `retrom-core-geeaa531b55e7-r1`，精确 commit、
+资产摘要和 checkpoint 声明以 runtime 来源清单及 Provider declaration 为准。
+后续更新仍先在 PFB 验证候选，再按核心 release → Provider release → Retrom Provider lock
+顺序发布。不得把本地 candidate 哈希填进生产 release 坐标。
