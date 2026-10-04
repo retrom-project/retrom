@@ -156,7 +156,7 @@ Retrom 镜像构建输入必须包含：
 
 EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` 与启动校验都要求：
 
-- Target 在已激活 EmulatorJS Bundle 中存在；
+- Target 在其所属的已激活 Provider Bundle 中存在；
 - DAT 文件 size/hash、parser version 和 machine 数据闭合；
 - 平台/Core/Target 映射唯一；
 - 内置 DAT 更新不会删除仍被锁定 Variant 使用的事实。
@@ -299,8 +299,9 @@ O2EM 源码和构建归 `retrom-project/libretro-o2em`，维护基线为
 `retrom/g679d6fec0496`，上游 `libretro/libretro-o2em@679d6fec04963f6e70a7ec217e3d0ebb1fe472fc`。
 `master` 保留上游镜像，Emscripten 镜像与 EmulatorJS RetroArch linker 在 fork 中固定。
 `pfb-core-build CORE=o2em` 生成核心、许可、完整源归档和逐文件候选描述符；
-runtime 的 `developmentForks` 仅登记此未发布候选，正式 Provider 构建拒绝未发布输入。
-完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
+runtime 的正式来源清单已固定 `retrom-core-g679d6fec0496-r2`，Provider 声明 `o2em` Target。
+后续未发布候选只能通过显式 development 输入联调，正式 Provider 构建拒绝未发布输入。
+更新时完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
 BIOS 与游戏由管理员或操作者提供，不进入 Git、核心归档或 Provider 包。
 
 ### NeoCD 核心

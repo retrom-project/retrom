@@ -2,9 +2,9 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-25 |
+| 文档状态 | 当前实现基线 |
+| 版本 | 1.6 |
+| 日期 | 2026-10-04 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 Runtime Provider（EmulatorJS 与 retrom-runtime）、OCI/Docker 镜像 |
 
@@ -51,7 +51,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
   选择游戏、普通单机游玩、创建存档与返回；沉浸模式不扩展到搜索、管理或普通 PC/移动页面导航。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
-- EmulatorJS 候选清单包含 44 个 core；稳定支持范围以已发布 Provider 和逐核产品证据为准。完整平台映射、默认目录与核心清单见第 6 节，证据要求见核心运行时验证基线。
+- EmulatorJS Target 清单以已发布 Provider declaration 为准；具体内容兼容范围仍由逐核产品证据界定。完整平台映射、默认目录与核心清单见第 6 节，证据要求见核心运行时验证基线。
 - 正式提供一个 `rpgmaker` 平台和一个用户可见虚拟 Core `rpgmaker`。服务端根据项目的确定性 marker/格式证据选择 2000、2003、XP、VX、VX Ace、MV 或 MZ Provider Target，再由 `retrom-runtime` Provider 执行其私有实现；用户不需要理解 Target 或底层 adapter/core。
 
 一期不包含：
@@ -292,7 +292,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 创建目录结构；启动从 Host catalog 事务同步基础平台、核心与启用关系，初始保持零 PlatformInstance。下表仅摘要产品接入边界，完整关系以当前 Host catalog 为准。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -389,7 +389,7 @@ erDiagram
 | 持久 Player Shell | `/play/:launchId` |
 | 游戏入库总览 | `/admin/imports` |
 | 新建导入 / 本地扫描 / 任务进度 | `/admin/imports/new`、`/admin/imports/server`、`/admin/imports/tasks` |
-| 待审核 / 审核详情 / 历史 | `/admin/reviews`、`/admin/reviews/:itemId`、`/admin/reviews/history` |
+| 待审核 / 审核详情 | `/admin/reviews`、`/admin/reviews/:itemId` |
 | 游戏管理 / 详情 | `/admin/games`、`/admin/games/:gameId` |
 | 游戏目录 | `/admin/platform-instances` |
 | 用户管理 | `/admin/users` |
@@ -410,10 +410,10 @@ flowchart LR
     D --> F["人工审核"]
     E --> F
     F -->|通过| G["发布到游戏目录"]
-    F -->|不通过| H["Discard + 保留历史"]
+    F -->|不通过| H["Discard + 当前决定 / 清理 payload"]
 ~~~
 
-上传完成不等于发布。任务可以部分失败、重试和重启恢复；审核人可换元信息候选、手工编辑字段、调整同基础平台内的游戏目录，并查看 DAT 与 Hasheous 两类独立证据。审核结果和当时快照永久可回溯。
+上传完成不等于发布。任务可以部分失败、重试和重启恢复；审核人可换元信息候选、手工编辑字段、调整同基础平台内的游戏目录，并查看 DAT 与 Hasheous 两类独立证据。审核只保留当前决定，不提供历史版本回放；终态撤销预览授权并由 OwnerCleanup 释放工作流 payload。任务事件与审计仍保留各自的诊断证据。
 
 ### 8.2 BIOS 与 DAT
 
@@ -437,7 +437,7 @@ flowchart LR
 
 ## 9. 数据与版本基线
 
-- EmulatorJS Provider Bundle 锁定其声明的全部 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
+- EmulatorJS Provider Bundle 锁定 declaration 中全部 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时独立文件存储，不提交到代码仓库。
@@ -450,7 +450,7 @@ flowchart LR
 
 ### Phase 0：兼容性闸门
 
-- 锁定 EmulatorJS Provider 当前声明的全部 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
+- 锁定 EmulatorJS Provider declaration 中的全部 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
 - 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与累计时长快照。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
@@ -498,7 +498,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 8：Runtime Provider 原子切换
 
 - 以 001–014 无 trigger/view 的直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
-- 两个 Provider 声明的全部 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
+- 两个 Provider 的全部 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 
 ## 11. 统一验收入口

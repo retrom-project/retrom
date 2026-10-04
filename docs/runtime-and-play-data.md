@@ -2,9 +2,9 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 当前态简化实施中 / 已确认目标契约 |
-| 版本 | 4.0 |
-| 日期 | 2026-09-05 |
+| 文档状态 | 当前实现基线 |
+| 版本 | 4.1 |
+| 日期 | 2026-10-04 |
 | 机器事实源 | `api/runtime-provider/v1/`、已激活 Provider Bundle、`data/runtime-target-bindings/v1/catalog.json` |
 
 ## 1. 唯一职责边界
@@ -171,7 +171,7 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
 
-审核详情、队列、预览创建和批准共用当前事实求值，读取当前来源、目录 Core、稳定 Provider/Target、活动 DAT 与 BIOS 安装；不创建或选择历史 Validation。草稿 PATCH 只保存管理员的编辑、媒体选择和适用的自包含确认，来源补全保存新的来源事实与派生产物。BIOS 安装变化在下一次读取中生效，不改写草稿版本；单独的 Provider Bundle 前移不改变稳定 Target，也不要求重检。批准事务再次核对当前事实，预览则冻结创建时的资源；当前 readiness 为 BLOCKED 时，仍允许尽最大可能启动诊断 Player。
+审核详情、队列、预览创建和批准共用当前事实求值，读取当前来源、目录 Core、稳定 Provider/Target、活动 DAT 与 BIOS 安装；不创建或选择历史 Validation。草稿 PATCH 只保存管理员的编辑、媒体选择和适用的自包含确认，来源补全保存新的来源事实与派生产物。BIOS 安装变化在下一次读取中生效，不改写草稿版本；审核页没有 `validationStale` 或人工“重新运行检查”状态；单独的 Provider Bundle 前移不改变稳定 Target，也不要求重检。批准事务再次核对当前事实，预览则冻结创建时的资源；当前 readiness 为 BLOCKED 时，仍允许尽最大可能启动诊断 Player。
 
 ## 9. PlaySession 生命周期
 

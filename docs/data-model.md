@@ -175,7 +175,7 @@ BIOS 替换在安装事务切换当前安装、撤销旧 Launch/Play，保留 Ga
 
 `recordstore`、`sessionstore` 与声明式数据库约束共同保证：
 
-- 活动工作和已落地运行产物的 Provider/Target 引用命中当前 catalog，Launch 的 Bundle 命中创建时的当前 Provider；完成的导入、Source 和审核历史只保留身份字符串，不阻止未被产物引用的 Target 退出；
+- 活动工作和已落地运行产物的 Provider/Target 引用命中当前 catalog，Launch 的 Bundle 命中创建时的当前 Provider；完成的导入、Source 和审核决定摘要只保留身份字符串，不阻止未被产物引用的 Target 退出；
 - Game、Variant 的稳定 owner 和逐次 `version` 更新；
 - Launch、Preview、Save、运行依赖 与资源 owner 一致；
 - checkpoint format 位于 Target 的可读格式集合；
