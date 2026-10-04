@@ -1,0 +1,33 @@
+{
+  "retromVersion": "v0.0.107",
+  "runtimeVersion": "v0.58.7",
+  "openborBuild": "OpenBOR 4.0 8022 (e3f86c09bf9a)",
+  "visibleError": "OPENBOR_CORE_EXITED",
+  "confirmedUnderlyingCauses": [
+    {
+      "type": "SCRIPT_COMPILE",
+      "unrecognizedConstant": "PLAYER_MIN_Z",
+      "reproductions": 2
+    },
+    {
+      "type": "SCRIPT_COMPILE",
+      "unrecognizedConstant": "SAMPLE_BEEP"
+    },
+    {
+      "type": "SCRIPT_COMPILE",
+      "unrecognizedConstant": "SAMPLE_BEEP2"
+    },
+    {
+      "type": "MODEL_VALIDATION",
+      "message": "Delay must fit the unsigned 64-bit integer range.",
+      "observedModelValue": "delay 2.5"
+    }
+  ],
+  "returnLink": {
+    "label": "返回游戏库",
+    "observedPathPattern": "/games/<game-id>",
+    "destination": "GAME_DETAIL",
+    "navigationSucceeded": true
+  },
+  "comparison": "A different 471.8 MiB PAK displayed the game and returned through its native save exit dialog."
+}
