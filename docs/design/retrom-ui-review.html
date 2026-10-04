@@ -3168,8 +3168,8 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
             &lt;div&gt;&lt;h2&gt;修改密码&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;修改成功后，其他浏览器和设备上的会话会立即退出。&lt;/p&gt;&lt;/div&gt;
             &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;当前密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;current-password&quot;&gt;&lt;/label&gt;
             &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;small class=&quot;rt-subtitle&quot;&gt;至少 6 个字符，可以使用空格。&lt;/small&gt;&lt;/label&gt;
-            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
-            &lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;更新密码&lt;/button&gt;&lt;/div&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;new-password&quot; data-account-confirmation aria-invalid=&quot;false&quot;&gt;&lt;span class=&quot;sr-only&quot; id=&quot;rt-account-password-error&quot;&gt;&lt;/span&gt;&lt;/label&gt;
+            &lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-account-password-submit&gt;更新密码&lt;/button&gt;&lt;/div&gt;
           &lt;/section&gt;
         &lt;/div&gt;
       &lt;/section&gt;
@@ -4182,18 +4182,39 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       const tagNameInput = root.querySelector('[data-tag-name-input]');
       const tagCreateNotice = root.querySelector('[data-launch-toast]');
       let tagNoticeTimer;
-      const showTagNotice = (message, failed) =&gt; {
+      const showOperationNotice = (message, failed) =&gt; {
         clearTimeout(tagNoticeTimer); tagCreateNotice.textContent = message; tagCreateNotice.setAttribute('role', failed ? 'alert' : 'status');
         tagCreateNotice.style.color = failed ? 'var(--danger)' : 'var(--success)'; tagCreateNotice.hidden = false;
         tagNoticeTimer = setTimeout(() =&gt; {tagCreateNotice.hidden = true;}, 3000);
       };
+      const accountConfirmation = root.querySelector('[data-account-confirmation]');
+      const accountPassword = accountConfirmation.closest('section').querySelector('input[autocomplete=&quot;new-password&quot;]');
+      const accountError = root.querySelector('#rt-account-password-error');
+      root.querySelector('[data-account-password-submit]').addEventListener('click', () =&gt; {
+        const mismatch = accountPassword.value !== accountConfirmation.value;
+        accountError.textContent = mismatch ? '确认密码与新密码不一致' : '';
+        accountConfirmation.setAttribute('aria-invalid', String(mismatch));
+        if (mismatch) {
+          accountConfirmation.setAttribute('aria-describedby', accountError.id);
+          accountConfirmation.focus();
+          showOperationNotice(accountError.textContent, true);
+        } else {
+          accountConfirmation.removeAttribute('aria-describedby');
+          showOperationNotice('密码已更新，其他设备已退出登录', false);
+        }
+      });
+      [accountPassword, accountConfirmation].forEach((field) =&gt; field.addEventListener('input', () =&gt; {
+        accountError.textContent = '';
+        accountConfirmation.setAttribute('aria-invalid', 'false');
+        accountConfirmation.removeAttribute('aria-describedby');
+      }));
       const createdReviewTags = new Set(['双人', '清版动作', '适合聚会', '掌机', '高难度']);
       tagDrawer.querySelector('footer .rt-button-primary').addEventListener('click', () =&gt; {
         const name = tagNameInput.value.trim();
         if (!name) return;
-        if (createdReviewTags.has(name)) { showTagNotice('已存在同名活动标签', true); return; }
+        if (createdReviewTags.has(name)) { showOperationNotice('已存在同名活动标签', true); return; }
         createdReviewTags.add(name);
-        showTagNotice(`已创建“${name}”，可继续添加。`, false);
+        showOperationNotice(`已创建“${name}”，可继续添加。`, false);
         tagNameInput.value = ''; tagNameInput.focus();
       });
       const detailTagPicker = root.querySelector('.rt-admin-detail-tags .rt-tag-picker');

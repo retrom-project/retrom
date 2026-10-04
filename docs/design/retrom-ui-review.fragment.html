@@ -2961,8 +2961,8 @@
             <div><h2>修改密码</h2><p class="rt-subtitle">修改成功后，其他浏览器和设备上的会话会立即退出。</p></div>
             <label class="rt-field"><span class="rt-label">当前密码</span><input class="rt-input" type="password" autocomplete="current-password"></label>
             <label class="rt-field"><span class="rt-label">新密码</span><input class="rt-input" type="password" autocomplete="new-password"><small class="rt-subtitle">至少 6 个字符，可以使用空格。</small></label>
-            <label class="rt-field"><span class="rt-label">确认新密码</span><input class="rt-input" type="password" autocomplete="new-password"></label>
-            <div class="rt-dialog-actions"><button type="button" class="rt-button rt-button-primary">更新密码</button></div>
+            <label class="rt-field"><span class="rt-label">确认新密码</span><input class="rt-input" type="password" autocomplete="new-password" data-account-confirmation aria-invalid="false"><span class="sr-only" id="rt-account-password-error"></span></label>
+            <div class="rt-dialog-actions"><button type="button" class="rt-button rt-button-primary" data-account-password-submit>更新密码</button></div>
           </section>
         </div>
       </section>
@@ -3975,18 +3975,39 @@
       const tagNameInput = root.querySelector('[data-tag-name-input]');
       const tagCreateNotice = root.querySelector('[data-launch-toast]');
       let tagNoticeTimer;
-      const showTagNotice = (message, failed) => {
+      const showOperationNotice = (message, failed) => {
         clearTimeout(tagNoticeTimer); tagCreateNotice.textContent = message; tagCreateNotice.setAttribute('role', failed ? 'alert' : 'status');
         tagCreateNotice.style.color = failed ? 'var(--danger)' : 'var(--success)'; tagCreateNotice.hidden = false;
         tagNoticeTimer = setTimeout(() => {tagCreateNotice.hidden = true;}, 3000);
       };
+      const accountConfirmation = root.querySelector('[data-account-confirmation]');
+      const accountPassword = accountConfirmation.closest('section').querySelector('input[autocomplete="new-password"]');
+      const accountError = root.querySelector('#rt-account-password-error');
+      root.querySelector('[data-account-password-submit]').addEventListener('click', () => {
+        const mismatch = accountPassword.value !== accountConfirmation.value;
+        accountError.textContent = mismatch ? '确认密码与新密码不一致' : '';
+        accountConfirmation.setAttribute('aria-invalid', String(mismatch));
+        if (mismatch) {
+          accountConfirmation.setAttribute('aria-describedby', accountError.id);
+          accountConfirmation.focus();
+          showOperationNotice(accountError.textContent, true);
+        } else {
+          accountConfirmation.removeAttribute('aria-describedby');
+          showOperationNotice('密码已更新，其他设备已退出登录', false);
+        }
+      });
+      [accountPassword, accountConfirmation].forEach((field) => field.addEventListener('input', () => {
+        accountError.textContent = '';
+        accountConfirmation.setAttribute('aria-invalid', 'false');
+        accountConfirmation.removeAttribute('aria-describedby');
+      }));
       const createdReviewTags = new Set(['双人', '清版动作', '适合聚会', '掌机', '高难度']);
       tagDrawer.querySelector('footer .rt-button-primary').addEventListener('click', () => {
         const name = tagNameInput.value.trim();
         if (!name) return;
-        if (createdReviewTags.has(name)) { showTagNotice('已存在同名活动标签', true); return; }
+        if (createdReviewTags.has(name)) { showOperationNotice('已存在同名活动标签', true); return; }
         createdReviewTags.add(name);
-        showTagNotice(`已创建“${name}”，可继续添加。`, false);
+        showOperationNotice(`已创建“${name}”，可继续添加。`, false);
         tagNameInput.value = ''; tagNameInput.focus();
       });
       const detailTagPicker = root.querySelector('.rt-admin-detail-tags .rt-tag-picker');
