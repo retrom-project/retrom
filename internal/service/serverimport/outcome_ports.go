@@ -28,7 +28,7 @@ type ItemOutcome struct {
 }
 type (
 	TerminalCounts struct {
-		Matched, Warning, Missing, NotFound                             int64
+		Matched, Unverified, Warning, Missing, NotFound                 int64
 		SkippedExisting, SkippedNotBetter, SameBytes, Failed, Cancelled int64
 	}
 	FinalOutcome struct {

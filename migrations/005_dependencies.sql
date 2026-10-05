@@ -10,7 +10,7 @@ CREATE TABLE bios_installations (
   sha1 TEXT NOT NULL CHECK(length(sha1) = 40),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
   validated_requirement_version INTEGER NOT NULL CHECK(validated_requirement_version >= 1),
-  status TEXT NOT NULL CHECK(status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY','INVALID')),
+  status TEXT NOT NULL CHECK(status IN ('MATCHED','UNVERIFIED','HASH_WARNING','MISSING_ENTRY','INVALID')),
   validation_details_json TEXT NOT NULL,
   is_active INTEGER NOT NULL CHECK(is_active IN (0,1)),
   version INTEGER NOT NULL DEFAULT 1,
@@ -91,6 +91,7 @@ CREATE TABLE server_imports (
   evaluated_item_count INTEGER NOT NULL DEFAULT 0 CHECK(evaluated_item_count>=0),
   multi_candidate_item_count INTEGER NOT NULL DEFAULT 0 CHECK(multi_candidate_item_count>=0),
   imported_matched_count INTEGER NOT NULL DEFAULT 0 CHECK(imported_matched_count>=0),
+  imported_unverified_count INTEGER NOT NULL DEFAULT 0 CHECK(imported_unverified_count>=0),
   imported_warning_count INTEGER NOT NULL DEFAULT 0 CHECK(imported_warning_count>=0),
   imported_missing_entry_count INTEGER NOT NULL DEFAULT 0 CHECK(imported_missing_entry_count>=0),
   not_found_count INTEGER NOT NULL DEFAULT 0 CHECK(not_found_count>=0),
@@ -112,10 +113,10 @@ CREATE TABLE server_imports (
   completed_at_ms INTEGER,
   CHECK((state IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED'))=(completed_at_ms IS NOT NULL)),
   CHECK((state IN ('CANCEL_REQUESTED','CANCELLED'))=(cancel_requested_at_ms IS NOT NULL)),
-  CHECK(imported_matched_count+imported_warning_count+imported_missing_entry_count+not_found_count+
+  CHECK(imported_matched_count+imported_unverified_count+imported_warning_count+imported_missing_entry_count+not_found_count+
         skipped_existing_count+skipped_not_better_count+same_bytes_count+failed_item_count+cancelled_item_count<=catalog_item_count),
   CHECK(state NOT IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED') OR
-        imported_matched_count+imported_warning_count+imported_missing_entry_count+not_found_count+
+        imported_matched_count+imported_unverified_count+imported_warning_count+imported_missing_entry_count+not_found_count+
         skipped_existing_count+skipped_not_better_count+same_bytes_count+failed_item_count+cancelled_item_count=catalog_item_count)
 );
 
@@ -244,7 +245,7 @@ CREATE TABLE "server_bios_import_items" (
   active_blob_sha256_snapshot TEXT,
   active_status_snapshot TEXT,
   active_validated_requirement_version_snapshot INTEGER,
-  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','CATALOG_INVALID','VALIDATION_FAILED','READ_FAILED','INVALID_ARCHIVE','COMMIT_FAILED','CANCELLED')),
+  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_UNVERIFIED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','CATALOG_INVALID','VALIDATION_FAILED','READ_FAILED','INVALID_ARCHIVE','COMMIT_FAILED','CANCELLED')),
   candidate_count INTEGER NOT NULL DEFAULT 0 CHECK(candidate_count>=0),
   match_method TEXT CHECK(match_method IS NULL OR match_method IN ('EXACT_HASH','EXPECTED_SIZE_FALLBACK','LARGEST_SIZE_FALLBACK','DAT_ENTRY_MATCH','DAT_ENTRY_WARNING','DAT_PARTIAL_FALLBACK')),
   selection_details_json TEXT,

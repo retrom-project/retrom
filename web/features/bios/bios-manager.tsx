@@ -27,7 +27,7 @@ const statusLabels: Record<string, string> = {
   OPTIONAL_MISSING: "可选文件未安装",
   INVALID: "文件无效",
   SATISFIED_BY_CONTENT: "由游戏内容满足",
-  UNVERIFIED: "等待验证",
+  UNVERIFIED: "已安装·未校验",
 };
 
 const requirementLabels: Record<string, string> = { REQUIRED: "必需", OPTIONAL: "可选", CONDITIONAL: "按需" };
@@ -55,7 +55,7 @@ const entryStatusLabels: Record<ArchiveEntryComparison["status"], string> = {
 };
 
 function tone(status: string): "good" | "warn" | "bad" {
-  if (["MATCHED", "SATISFIED_BY_CONTENT"].includes(status)) {return "good";}
+  if (["MATCHED", "UNVERIFIED", "SATISFIED_BY_CONTENT"].includes(status)) {return "good";}
   if (["MISSING", "INVALID"].includes(status)) {return "bad";}
   return "warn";
 }
@@ -121,7 +121,7 @@ function BIOSUsage({ currentLibrary, item }: { currentLibrary: boolean; item: BI
   const headline = currentLibrary
     ? (isBIOSAttention(item) ? "当前游戏库需要处理" : "当前游戏库已就绪")
     : "完整核心目录项";
-  const detail = item.requirementMode === "OPTIONAL"
+  const detail = item.status === "UNVERIFIED" ? "目录未提供哈希依据，文件已安装并允许使用" : item.requirementMode === "OPTIONAL"
     ? "未安装不会作为必需依赖阻断"
     : ["HASH_WARNING", "MISSING_ENTRY"].includes(item.status) ? "校验警告允许启动，但建议核对文件" : "启动前会按当前运行方式检查";
   return <div className="runtime-usage" role="cell"><strong>{headline}</strong><small>{detail}</small></div>;
@@ -409,13 +409,13 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
       <article><small>当前范围</small><strong>{response.summary.totalCount}</strong><p>{scope === "REQUIRED_BY_LIBRARY" ? "游戏库实际引用的依赖" : "全部已支持核心的目录"}</p></article>
       <article className={response.summary.blockingCount ? "has-danger" : ""}><small>缺失 / 阻断</small><strong>{response.summary.blockingCount}</strong><p>必需文件缺失会阻断相关游戏</p></article>
       <article className={response.summary.warningCount ? "has-warning" : ""}><small>需要核对</small><strong>{response.summary.warningCount}</strong><p>哈希不同仍可启动，建议替换</p></article>
-      <article className="has-success"><small>已就绪</small><strong>{response.summary.readyCount}</strong><p>已经安装并通过当前校验</p></article>
+      <article className="has-success"><small>已就绪</small><strong>{response.summary.readyCount}</strong><p>已安装且当前可用</p></article>
     </section>
 
     <section className="runtime-toolbar panel" aria-label="筛选 BIOS 文件">
       <label className="runtime-search"><span>搜索文件或运行方式</span><span className="search"><AppIcon name="search" /><input type="search" aria-label="搜索 BIOS 文件" placeholder="例如 gba_bios.bin 或 mGBA" value={filters.query} onChange={(event) => patchFilters({ query: event.target.value })} /></span></label>
       <label><span>运行方式</span><select className="select" aria-label="运行方式" value={filters.coreId} onChange={(event) => patchFilters({ coreId: event.target.value })}><option value="">全部运行方式</option>{cores.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}</select></label>
-      <label><span>文件状态</span><select className="select" aria-label="文件状态" value={filters.status} onChange={(event) => patchFilters({ status: event.target.value })}><option value="">所有状态</option><option value="MISSING">缺少文件</option><option value="MISSING_ENTRY">归档不完整</option><option value="HASH_WARNING">校验值不一致</option><option value="MATCHED">已安装并匹配</option><option value="OPTIONAL_MISSING">可选文件未安装</option></select></label>
+      <label><span>文件状态</span><select className="select" aria-label="文件状态" value={filters.status} onChange={(event) => patchFilters({ status: event.target.value })}><option value="">所有状态</option><option value="MISSING">缺少文件</option><option value="MISSING_ENTRY">归档不完整</option><option value="HASH_WARNING">校验值不一致</option><option value="MATCHED">已安装并匹配</option><option value="UNVERIFIED">已安装·未校验</option><option value="OPTIONAL_MISSING">可选文件未安装</option></select></label>
       <label><span>依赖筛选</span><select className="select" aria-label="依赖筛选" value={filters.quick} onChange={(event) => patchFilters({ quick: event.target.value as BIOSQuickFilter })}><option value="ALL">全部依赖</option><option value="ATTENTION">需要处理</option><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>
     </section>
 

@@ -156,7 +156,8 @@ func (run *evaluation) resolveDependency(
 		return nil
 	}
 	dependency.State = "SATISFIED_EXTERNAL"
-	if resolved.InstallationStatus != nil && *resolved.InstallationStatus != "MATCHED" {
+	if resolved.InstallationStatus != nil &&
+		*resolved.InstallationStatus != "MATCHED" && *resolved.InstallationStatus != "UNVERIFIED" {
 		dependency.State = "HASH_WARNING"
 		run.result.Snapshot.Warnings = append(run.result.Snapshot.Warnings, dependency.ExpectedLogicalName)
 	}

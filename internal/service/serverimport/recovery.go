@@ -150,8 +150,7 @@ func restoreCandidate(record CandidateEvidence, item CatalogItem) (*EvaluatedCan
 	}
 	switch {
 	case !item.IsArchive() && record.Static != nil:
-		value := *record.Static
-		value.Status, value.Method = StaticStatusMethod(value)
+		value := firmware.EvaluateStatic(item.StaticExpectation(), facts)
 		candidate.Static = &value
 	case item.IsArchive() && record.DAT != nil:
 		value := *record.DAT

@@ -23,7 +23,8 @@ func (records outcomeRecords) Final(ctx context.Context, plan serverimport.Final
 	result, err := records.executor.ExecContext(
 		ctx,
 		`UPDATE server_imports SET state=?,phase=?,last_error_code=?,
- imported_matched_count=?,imported_warning_count=?,imported_missing_entry_count=?,not_found_count=?,
+ imported_matched_count=?,imported_unverified_count=?,imported_warning_count=?,
+ imported_missing_entry_count=?,not_found_count=?,
  skipped_existing_count=?,skipped_not_better_count=?,same_bytes_count=?,failed_item_count=?,cancelled_item_count=?,
  completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=?`,
 
@@ -31,6 +32,7 @@ func (records outcomeRecords) Final(ctx context.Context, plan serverimport.Final
 		plan.Phase,
 		plan.Code,
 		counts.Matched,
+		counts.Unverified,
 		counts.Warning,
 		counts.Missing,
 		counts.NotFound,

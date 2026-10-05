@@ -39,17 +39,22 @@ func evaluateInstall(ctx context.Context, records RequirementRecords, snapshot i
 		status, details := evaluateArchive(expected, actual, requirement.ArchiveMembersJSON != nil)
 		return status, details, nil
 	}
-	sizeMatched := requirement.Size == nil || *requirement.Size == upload.Size
-	md5Matched := requirement.MD5 == nil || *requirement.MD5 == upload.MD5
-	sha1Matched := requirement.SHA1 == nil || *requirement.SHA1 == upload.SHA1
-	sha256Matched := requirement.SHA256 == nil || *requirement.SHA256 == upload.SHA256
-	status := "MATCHED"
-	if !sizeMatched || !md5Matched || !sha1Matched || !sha256Matched {
-		status = "HASH_WARNING"
+	expectation := firmware.StaticExpectation{LogicalName: requirement.LogicalName, SizeBytes: requirement.Size}
+	if requirement.MD5 != nil {
+		expectation.MD5 = *requirement.MD5
 	}
-	return status, map[string]any{
-		"logicalName": requirement.LogicalName, "sourceKind": requirement.SourceKind,
-		"sizeMatched": sizeMatched, "md5Matched": md5Matched, "sha1Matched": sha1Matched, "sha256Matched": sha256Matched,
+	if requirement.SHA1 != nil {
+		expectation.SHA1 = *requirement.SHA1
+	}
+	if requirement.SHA256 != nil {
+		expectation.SHA256 = *requirement.SHA256
+	}
+	evaluation := firmware.EvaluateStatic(expectation, firmware.FileFacts{
+		SizeBytes: upload.Size, MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256,
+	})
+	return evaluation.Status, map[string]any{
+		"schemaVersion": 2, "logicalName": requirement.LogicalName, "sourceKind": requirement.SourceKind,
+		"checks": evaluation.Checks,
 	}, nil
 }
 

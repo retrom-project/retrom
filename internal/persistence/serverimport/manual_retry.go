@@ -58,7 +58,7 @@ updated_at_ms=?
 	}
 	result, err = records.executor.ExecContext(ctx, `
 UPDATE server_imports SET state='QUEUED', phase=NULL, candidate_count=0, evaluated_item_count=0,
-multi_candidate_item_count=0, imported_matched_count=0, imported_warning_count=0,
+multi_candidate_item_count=0, imported_matched_count=0, imported_unverified_count=0, imported_warning_count=0,
 imported_missing_entry_count=0, not_found_count=0, skipped_existing_count=0, skipped_not_better_count=0,
 same_bytes_count=0, failed_item_count=0, cancelled_item_count=0, last_error_code=NULL,
 cancel_requested_at_ms=NULL, cancel_reason=NULL, completed_at_ms=NULL, version=version+1, updated_at_ms=?

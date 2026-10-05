@@ -288,20 +288,11 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		State:       "ELIGIBLE",
 	}
 	if item.SourceKind == "STATIC" && item.ArchiveMembersJSON == nil {
-		expectation := firmware.StaticExpectation{LogicalName: item.LogicalName, SizeBytes: item.ExpectedSize}
-		if item.ExpectedMD5 != nil {
-			expectation.MD5 = *item.ExpectedMD5
-		}
-		if item.ExpectedSHA1 != nil {
-			expectation.SHA1 = *item.ExpectedSHA1
-		}
-		if item.ExpectedSHA256 != nil {
-			expectation.SHA256 = *item.ExpectedSHA256
-		}
-		evaluation := firmware.EvaluateStatic(expectation, facts)
+		evaluation := firmware.EvaluateStatic(item.StaticExpectation(), facts)
 		candidate.Static = &evaluation
 		candidate.Details = map[string]any{
-			"schemaVersion":       1,
+			"schemaVersion":       2,
+			"checks":              evaluation.Checks,
 			"exactHash":           evaluation.ExactHash,
 			"expectedSizeMatched": evaluation.ExpectedSizeMatched,
 			"exactBasename":       evaluation.ExactBasename,

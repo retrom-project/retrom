@@ -97,7 +97,6 @@ func TestCreateRejectsUnusableSourcesAndCatalogBeforeWriting(t *testing.T) {
 		{"source unavailable", func(m *creationMemory) { m.sourceErr = context.Canceled }, context.Canceled},
 		{"storage unavailable", func(m *creationMemory) { m.readErr = context.DeadlineExceeded }, context.DeadlineExceeded},
 		{"empty", func(m *creationMemory) { m.entries = nil }, ErrCatalogEmpty},
-		{"no expectation", func(m *creationMemory) { m.entries[0].Item.ExpectedSize = nil }, ErrCatalogInvalid},
 		{"DAT not ready", func(m *creationMemory) { m.entries[0].Item.SourceKind = "DAT_MACHINE" }, ErrCatalogInvalid},
 		{"active", func(m *creationMemory) { m.active = true }, ErrActive},
 	} {
@@ -118,5 +117,16 @@ func TestCreateDoesNotPublishSummaryWhenCommitFails(t *testing.T) {
 	result, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor")
 	if !errors.Is(err, context.Canceled) || result.ID != "" || memory.writes != 1 {
 		t.Fatalf("commit failure: %+v %v", result, err)
+	}
+}
+
+func TestCreateAllowsUnverifiedStaticCatalog(t *testing.T) {
+	service, memory := creationFixture()
+	memory.entries[0].Item.ExpectedSize = nil
+	if _, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor"); err != nil {
+		t.Fatal(err)
+	}
+	if memory.writes != 1 {
+		t.Fatal("static catalog without hash requirements must remain importable")
 	}
 }

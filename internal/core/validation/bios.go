@@ -335,5 +335,5 @@ func BIOSApplies(condition, contentName string) bool {
 
 // BIOSInstallationUsable keeps catalog findings advisory after a safe upload.
 func BIOSInstallationUsable(status string) bool {
-	return status == "MATCHED" || status == "HASH_WARNING" || status == "MISSING_ENTRY"
+	return status == "MATCHED" || status == "UNVERIFIED" || status == "HASH_WARNING" || status == "MISSING_ENTRY"
 }

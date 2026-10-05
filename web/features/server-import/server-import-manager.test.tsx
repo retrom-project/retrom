@@ -226,6 +226,7 @@ describe("ServerImportDetailManager", () => {
       state: "SELECTED" as const,
       rankOrdinal: 1,
       notSelectedReason: null,
+      evaluationDetails: { schemaVersion: 2, checks: {md5: "NOT_CHECKED", sha256: "MATCHED"} },
     };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(filtered))
@@ -244,6 +245,8 @@ describe("ServerImportDetailManager", () => {
     await user.click(screen.getByRole("button", { name: "查看候选（1）" }));
     expect(await screen.findByRole("alertdialog", { name: "gba_bios.bin 候选排序" })).toBeVisible();
     expect(screen.getByText("BIOS/gba_bios.bin")).toBeVisible();
+    expect(screen.getByText("MD5：未提供校验依据 · SHA256：匹配")).toBeVisible();
+    expect(screen.queryByText("完整 hash 匹配")).not.toBeInTheDocument();
     expect(requestAt(fetchMock, 1).url).toContain("/bios-items/gba/candidates");
   });
 });

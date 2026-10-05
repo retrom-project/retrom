@@ -251,6 +251,7 @@ components:
           nullable: true
           enum:
             - MATCHED
+            - UNVERIFIED
             - HASH_WARNING
             - MISSING_ENTRY
             - INVALID

@@ -156,7 +156,7 @@ func parseBIOSQuery(values url.Values) (biosQuery, string) {
 
 func validBIOSStatus(status string) bool {
 	switch status {
-	case "", "MATCHED", "MISSING", "HASH_WARNING", "MISSING_ENTRY", "OPTIONAL_MISSING", "INVALID":
+	case "", "MATCHED", "UNVERIFIED", "MISSING", "HASH_WARNING", "MISSING_ENTRY", "OPTIONAL_MISSING", "INVALID":
 		return true
 	default:
 		return false

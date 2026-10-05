@@ -62,6 +62,8 @@ BIOS 的“当前库所需”范围以当前已发布 Game 的 Provider/Target �
 
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base 和多盘的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并记录文件标识；Blob 引用仍由领域 owner 持有。
 
+静态 BIOS requirement 的空 hash 归一为 NULL；安装状态 UNVERIFIED 表示文件可用但未提供 hash 校验依据，不计为警告或已匹配。服务器导入的 imported_unverified_count 独立计数，并参与终态合计约束。
+
 静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
 
 ## 5. 导入、审核与刮削

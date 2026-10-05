@@ -21,6 +21,8 @@ Arcade 的 DAT 默认 BIOS 选择、ROM 匹配、Parent/BIOS 闭包、循环限�
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
 
+静态 BIOS 的 hash 期望未提供时，目录存储与 API 使用 null。上传与服务器扫描共用 firmware 匹配规则，每个 size/MD5/SHA1/SHA256 检查独立输出 MATCHED、MISMATCHED 或 NOT_CHECKED；只有声明过的依据才参与比较。没有 hash 依据且无实际不匹配的安装为 UNVERIFIED（已安装、允许使用、未校验），真实不匹配仍为 HASH_WARNING。服务器任务分别持久化 IMPORTED_UNVERIFIED 和 IMPORTED_MATCHED；恢复时从冻结目录和文件事实重算相同结果。
+
 BIOS DAT 成员要求按名称、大小、CRC32、SHA1 组成集合；重复的同一声明只要求一个实际成员，同名但不同内容的要求不合并。上传安装、归档对比和服务器扫描共享这一比较入口。
 
 

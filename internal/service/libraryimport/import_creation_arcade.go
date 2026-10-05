@@ -87,7 +87,8 @@ func resolveCreationArcadeDependency(
 		return nil, "", nil
 	}
 	state := "SATISFIED_EXTERNAL"
-	if dependency.InstallationStatus == nil || *dependency.InstallationStatus != "MATCHED" {
+	if dependency.InstallationStatus == nil ||
+		(*dependency.InstallationStatus != "MATCHED" && *dependency.InstallationStatus != "UNVERIFIED") {
 		state = "HASH_WARNING"
 	}
 	return &dependency, state, nil

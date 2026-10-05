@@ -69,10 +69,6 @@ func (item CatalogItem) ValidateSource(datReady bool) error {
 			return fmt.Errorf("%w: %w", ErrCatalogInvalid, err)
 		}
 	}
-	if !item.IsArchive() && item.ExpectedMD5 == nil && item.ExpectedSHA1 == nil &&
-		item.ExpectedSHA256 == nil && (item.ExpectedSize == nil || *item.ExpectedSize <= 0) {
-		return ErrCatalogInvalid
-	}
 	if item.SourceKind == "DAT_MACHINE" &&
 		(item.DATVersionID == nil || !datReady) {
 		return ErrCatalogInvalid
@@ -84,4 +80,18 @@ func (item CatalogItem) ApplyArchivePolicy(evaluation *firmware.DATEvaluation) {
 	if item.ArchiveMembersJSON != nil {
 		firmware.RequireCompleteArchive(evaluation)
 	}
+}
+
+func (item CatalogItem) StaticExpectation() firmware.StaticExpectation {
+	result := firmware.StaticExpectation{LogicalName: item.LogicalName, SizeBytes: item.ExpectedSize}
+	if item.ExpectedMD5 != nil {
+		result.MD5 = *item.ExpectedMD5
+	}
+	if item.ExpectedSHA1 != nil {
+		result.SHA1 = *item.ExpectedSHA1
+	}
+	if item.ExpectedSHA256 != nil {
+		result.SHA256 = *item.ExpectedSHA256
+	}
+	return result
 }
