@@ -14,15 +14,13 @@ type Leases struct{ database dbapi.DB }
 
 func NewLeases(database dbapi.DB) *Leases { return &Leases{database} }
 func (repository *Leases) WithWrite(ctx context.Context, work func(serverimport.LeaseRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(leaseRecords{tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import lease: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(leaseRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit import lease: %w", err)
 	}
 	return nil

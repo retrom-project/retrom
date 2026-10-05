@@ -12,7 +12,7 @@
 - 普通页面、媒体和 `/api/v1` 只访问 NG 暴露的应用 origin；前端使用相对 URL，API 不启用跨域 CORS。唯一例外是 MV/MZ 每 Launch 独立 origin 上的 `/__retrom/*` 封闭 allowlist，它不暴露普通 API，也不开启通用 CORS。
 - JSON API 前缀固定为 `/api/v1`，`Content-Type` 为 `application/json; charset=utf-8`；二进制上传、SSE 与内容端点除外。
 - 业务实体 ID 使用规范小写 UUIDv7 字符串。`coreId`、`platformId` 等代码种子使用稳定小写 code（如 `fbneo`、`arcade`），不得混成自增数字。
-- 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `INTEGER`；时长为 `*DurationMs`。
+- 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `BIGINT`；时长为 `*DurationMs`。
 - 未知 JSON 字段、重复字段、错误类型、尾随多个 JSON 值一律 `400 INVALID_REQUEST`；UTF-8 无效文本拒绝。所有固定 JSON request/response object schema 显式 `additionalProperties: false`；真正的 map/错误 `details` 才逐项显式允许 additional properties。
 - OpenAPI 3.0.3 协议事实源是以 `api/openapi.yaml` 为唯一入口、由 `api/domains/*.yaml` 与 `api/components/*.yaml` 组成的本地文件集。领域文件共同维护 route 与所属 DTO，跨领域组件只进入 common 文件；入口以标准本地 `$ref` 固定完整 path/component 闭集。生成前必须拒绝远程、绝对路径和越出 `api/` 的引用，并确定性生成被忽略的 `.cache/generated/openapi.bundle.yaml`。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 只能消费该统一 bundle。Go 的 `models.gen.go`、`server.gen.go`、`spec.gen.go` 在标准后端编译链路中按需生成、被 Git 忽略且不得提交；TypeScript `web/lib/api/generated/schema.d.ts` 继续保持单一全局 `paths` schema、必须提交。`make api-check` 在临时目录重建 bundle 和两端结果、逐字节检查 TypeScript 漂移并拒绝任一 Go 生成物被跟踪。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
 
@@ -47,7 +47,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/bios` | `platformId`、`coreId`、`providerId`、`targetId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
 
-`platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，审核的 blocker 筛选需在同一读取事务中分块扫描并求值当前事实，再截取响应页；不能仅筛选一个已分页块造成漏项。
+`platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 PostgreSQL `strpos(search_text, $n)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，审核的 blocker 筛选需在同一读取事务中分块扫描并求值当前事实，再截取响应页；不能仅筛选一个已分页块造成漏项。
 
 `GET /api/v1/admin/imports` 的 cursor 绑定筛选及 `UPDATED_DESC|CREATED_DESC` 排序，每页最多 20 条。每个列表项返回冻结配置中的 `contentMode`，缺省历史配置投影为 `STANDARD`；同时返回 `failedItemCount`、`rejectedFileCount`、`unresolvedRejectedFileCount`、`alreadyImportedItemCount` 与 `alreadyImportedFileCount`。前三项分别表示 Item 失败、分组前未被接受的 UploadFile 总证据和其中尚未通过重新配置任务接管的数量，后两项表示识别阶段因已有未删除游戏使用完全相同内容而跳过的 Item/不同 UploadFile。任务页当前异常总数必须为 `failedItemCount + unresolvedRejectedFileCount`，已导入跳过不计异常并单独解释。Import 详情把参与跳过的 `fileOutcomes[].disposition/reasonCode` 投影为 `ALREADY_IMPORTED`，同时返回 `alreadyImportedMatches[{importItemId,contentIdentityDigest,existingGame{id,title,platformInstanceId,platformInstanceName}}]`；对 MULTI 任务还返回 `itemSummaries[{itemId,state,contentKind,playlist,discCount,presentDiscCount,missingDiscCount,ignoredFileCount,ignoredFiles}]`。其中 `ignoredFiles` 只含同目录未引用文件按相对路径排序后的前 20 个 basename，计数不截断；这些详情不得暴露 内部文件记录 或宿主路径。数据库原始 ImportJobFile 仍保留 `SOURCE`。零 Item 且存在未解决拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车，或全部拒绝文件已成功转入 replacement ImportJob 时直接为 `COMPLETED`。所有识别出的 Item 都因已导入而跳过且没有拒绝文件时也直接 `COMPLETED`。
 
@@ -650,7 +650,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 - `TITLE_ASC`：`title ASC, game_id ASC`；
 - `RELEASE_YEAR_DESC`：非空年份优先，`release_year DESC, title ASC, game_id ASC`，空年份随后按标题和 ID。
 
-`summary.favoriteCount` 是所有可见 Favorite 数，`uncategorizedCount` 是其中无 Membership 的可见数，`folderCount` 包含空 Folder。`folders[].visibleGameCount` 独立于当前 q/platform/scope；`platforms[]` 在当前 scope 内、应用 q/platform 前生成；`totalCount` 是应用 scope+q+platform 后的完整结果数，不是当前页长度。上述数据和 `items` 来自同一 SQLite 只读事务。
+`summary.favoriteCount` 是所有可见 Favorite 数，`uncategorizedCount` 是其中无 Membership 的可见数，`folderCount` 包含空 Folder。`folders[].visibleGameCount` 独立于当前 q/platform/scope；`platforms[]` 在当前 scope 内、应用 q/platform 前生成；`totalCount` 是应用 scope+q+platform 后的完整结果数，不是当前页长度。上述数据和 `items` 来自同一 PostgreSQL 只读事务。
 
 Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。任一收藏写入成功后，客户端必须丢弃旧 cursor 并从首页刷新，不能拼接写入前后的页。
 
@@ -766,7 +766,7 @@ Favorite、SaveState 和最近时间不得跨 Profile 聚合。
 
 - `limit` 默认且最大为 50；除此之外不接受搜索、排序、标签或状态查询参数；
 - 平台不存在、已禁用或对当前 Profile 没有可见游戏时统一返回 404 `IMMERSIVE_PLATFORM_NOT_FOUND`，不能泄露隐藏平台；
-- 按 current Game 当前元信息字段 的 `title_initial ASC,title COLLATE NOCASE ASC,gameId ASC` 稳定分页；签名 cursor 绑定 Profile、route、`platformId` 与 `limit`，过期、篡改或跨范围复用返回 400 `INVALID_CURSOR`；
+- 按 current Game 当前元信息字段 的 `title_initial ASC,lower(title) COLLATE "C" ASC,gameId ASC` 稳定分页；签名 cursor 绑定 Profile、route、`platformId` 与 `limit`，过期、篡改或跨范围复用返回 400 `INVALID_CURSOR`；
 - 响应顶层 `platform` 固定为本页所属平台；每项包含 `gameId/title/titleInitial/platformInstance/defaultCore`、当前元数据中的 `description` 与可空 `releaseYear/developer/genre`、当前 Profile 的可空 `lastPlayedAtMs`、`favorited/saveStates`，以及 current 媒体 ordinal 0 的可空 `coverUrl/videoUrl`；
 - 媒体 URL 必须继续进入既有受 AuthSession 保护的内容端点，不建立沉浸模式专用 Blob 旁路；
 - 响应包含 `generatedAtMs`、`items` 与可空 `nextCursor`。空的后续页返回 200 空数组，只有平台整体不可见时返回 404。
@@ -869,7 +869,7 @@ MV/MZ 与 TyranoScript 的 `NATIVE_WEB` / `ISOLATED_WEB` 资源必带主站相�
 
 全量模式在准备内容前先消费 60 秒 bootstrap ticket，避免长下载导致票据过期；此时不执行游戏。消费 ticket 并清理隔离 origin 后，固定 `content-bootstrap` 页面等待 Provider 明确开始信号，再建立 exact-parent-origin MessagePort，并注册宿主固定 `content-worker.js`（scope `/__retrom/`）。该 worker 为 entry 和项目资源生成本地响应，通过当前 Launch 的受限文件读取通道访问 Content I/O；一次读取不超过 256 KiB，支持 HEAD、单 Range、Tyrano 受控路径别名与 Config.tjs 存储转换。项目不能获得任意 URL fetch、主站存储或跨游戏读取能力；未知文件拒绝且不回退网络。worker 终止后通过当前隔离 frame 重新连接。entry 仍注入宿主 bridge、保留 exact frame-ancestors / Permissions-Policy；缓存入口 CSP 不需要 nonce，也不允许 MV/MZ 项目 inline script。项目脚本注册 Service Worker 仍返回 404，只有固定宿主 worker 获准。浏览器缺少 Service Worker 或拒绝其注册时，按需模式可使用原 HTTP 路径，全量模式明确失败。全量完成后切回按需不改变内容身份，浏览器可见的项目资源请求由 Service Worker 本地响应，不能将其计作网络下载。
 
-`GET|HEAD /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影。RPG Maker 请求路径先通过安全校验，再转为导入期使用的 NFC 形式并逐 byte 精确查找；TyranoScript 对应的 `/__retrom/tyranoscript/project/{safeLogicalPath}` 以及受控 `/data`、`/tyrano` 绝对资源投影遵守相同的 HEAD 授权、状态、MIME、长度与空响应体语义。该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。大小写回退不做 NFKC 或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
+`GET|HEAD /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影。RPG Maker 请求路径先通过安全校验，再转为导入期使用的 NFC 形式并逐 byte 精确查找；TyranoScript 对应的 `/__retrom/tyranoscript/project/{safeLogicalPath}` 以及受控 `/data`、`/tyrano` 绝对资源投影遵守相同的 HEAD 授权、状态、MIME、长度与空响应体语义。该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 仅折叠 ASCII A–Z 的 PostgreSQL `translate` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。大小写回退不做 NFKC 或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
 
 `GET /__retrom/bridge.js` 从 Launch 冻结的 `providerId/targetId/bundleSha256/moduleSha256` 定位 Provider Bundle 中声明的 native bridge，并执行本机完整性校验；不得硬编码版本、绕过 Target binding、保留并选择旧 Bundle 或在文件缺失时 fallback 到其他内容。升级是否可恢复旧存档只由当前 Target 的 `readFormats` 决定。
 

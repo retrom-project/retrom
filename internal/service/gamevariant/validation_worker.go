@@ -86,6 +86,7 @@ func (service *ValidationWorker) claim(ctx context.Context, id string) (Validati
 	var claim ValidationClaim
 	claimed := false
 	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+		claim, claimed = ValidationClaim{}, false
 		work, found, err := scope.Jobs.Read(ctx, id)
 		if err != nil {
 			return validationStageError("validation operation", err)
@@ -272,6 +273,7 @@ func (service *ValidationWorker) Recover(ctx context.Context) ([]string, error) 
 func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (bool, error) {
 	queued := false
 	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+		queued = false
 		current, found, err := scope.Jobs.Read(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read recovery execution: %w", err)

@@ -24,10 +24,10 @@ Retrom 是一个面向个人和可信朋友的自托管游戏平台。集中管�
 
 - Linux x86-64（含 WSL2）。
 - Git、Make、Python 3、`curl`、`tar`、`xz`。
-- 支持 C++20 的 `g++`，以及 `7z` 或 `7zz`。
+- 支持 C++20 的 `g++`、`bison`、`flex`、zlib 开发包，以及 `7z` 或 `7zz`。
 - 首次准备依赖时可访问互联网。
 
-项目命令会下载并校验固定版本的 Go、Node.js、Chrome for Testing 和运行时依赖，后续复用本地缓存。请使用普通用户运行开发命令。
+项目命令会下载并校验固定版本的 Go、Node.js、Chrome for Testing 和运行时依赖，并从校验过的 PostgreSQL 18.3 源码构建本地数据库工具，后续复用本地缓存。请使用普通用户运行开发命令。
 
 ### 启动
 
@@ -40,7 +40,7 @@ make dev
 
 打开 [http://localhost:4000](http://localhost:4000)，使用开发测试账号 `test` / `test` 登录。
 
-`make dev` 在宿主机启动前后端，不需要 Docker。测试数据默认保存在 `.dev-data/data/`，按 `Ctrl+C` 停止服务后仍会保留。该模式只用于本机测试，不应作为公网服务。
+`make dev` 自动启动宿主机 PostgreSQL，等待数据库就绪后启动前后端，不需要 Docker 或系统数据库服务。文件数据默认保存在 `.dev-data/data/`，数据库保存在 `.dev-data/dev-state/postgres/`；按 `Ctrl+C` 或在 Retrom 仓库执行 `make dev-stop` 会依次停止应用和数据库，数据仍会保留。重复执行 `make dev` 会安全接管同一开发实例。显式提供 `RETROM_DATABASE_URL` 时只连接外部 PostgreSQL，不负责其启停。该模式只用于本机测试，不应作为公网服务。
 
 ### 添加第一款游戏
 
@@ -73,7 +73,7 @@ make build-images
 
 ## 开发
 
-后端使用 Go 与 SQLite，前端使用 Next.js、React 和 TypeScript。游戏运行能力由独立的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 和 EmulatorJS Provider 提供。
+后端使用 Go 与 PostgreSQL，前端使用 Next.js、React 和 TypeScript。游戏运行能力由独立的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 和 EmulatorJS Provider 提供。
 
 ```text
 cmd/retrom/    服务与管理命令入口

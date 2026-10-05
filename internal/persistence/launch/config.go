@@ -45,15 +45,13 @@ func (repository *Config) Load(
 }
 
 func (repository *Config) WithActivation(ctx context.Context, work func(application.ConfigActivation) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(configRecords{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin config activation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(configRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit config activation: %w", err)
 	}
 	return nil

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"retrom/internal/filestore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestUploadPartAndFinalization(t *testing.T) {
@@ -31,7 +31,7 @@ func testUploadReception(t *testing.T, source string) {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.Falsef(t, err != nil, "open database: %v", err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	blobs, err := filestore.Open(dataDir)
@@ -84,7 +84,7 @@ func testUploadReception(t *testing.T, source string) {
 		"final upload = %s/%s, error = %v", final.State, final.Files[0].State, err)
 	var count int
 	if err := dbapi.QueryRowContext(ctx, database.SQL,
-		"SELECT count(*) FROM upload_files WHERE json_extract(final_file_record,'$.size_bytes')=?",
+		"SELECT count(*) FROM upload_files WHERE (((final_file_record)::jsonb #>> '{size_bytes}'))::bigint=?",
 		len(contents)).Scan(
 		&count,
 	); err != nil ||
@@ -119,7 +119,7 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	} {
 		t.Run(fmt.Sprint(len(files)), func(t *testing.T) {
 			dataDir := t.TempDir()
-			database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
+			database, err := store.Open(context.Background(), testpostgres.DSN(t), time.Now)
 			testassert.False(t, err != nil, err)
 			defer func() { cleanup.Error("close", database.Close()) }()
 			blobs, _ := filestore.Open(dataDir)
@@ -136,7 +136,7 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	blobs, err := filestore.Open(dataDir)
@@ -209,7 +209,7 @@ func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	blobs, err := filestore.Open(dataDir)

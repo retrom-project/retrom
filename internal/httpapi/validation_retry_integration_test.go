@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
@@ -46,7 +48,7 @@ type validationRetryFixture struct {
 func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	t.Helper()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

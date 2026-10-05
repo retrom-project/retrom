@@ -89,8 +89,7 @@ func TestReplacingScrapeRollsBackCandidatesAndJobsOnFailure(t *testing.T) {
 func assertScrapeFileRetirement(t *testing.T, db dbapi.DB, expected bool) {
 	t.Helper()
 	var retired bool
-	err := dbapi.QueryRowContext(t.Context(), db, `SELECT EXISTS(SELECT 1 FROM job_input_snapshots WHERE json_extract(input_json,
-'$.inputs.relativePath')='scrapes/018fbe68-0000-7000-8000-000000000001')`).Scan(&retired)
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT EXISTS(SELECT 1 FROM job_input_snapshots WHERE ((input_json)::jsonb #>> '{inputs,relativePath}')='scrapes/018fbe68-0000-7000-8000-000000000001')`).Scan(&retired)
 	if err != nil || retired != expected {
 		t.Fatalf("scrape retirement=%v err=%v", retired, err)
 	}

@@ -72,12 +72,12 @@ LEFT JOIN import_items draft ON draft.id=item.library_import_item_id AND item.ex
 LEFT JOIN (`+contentquery.CurrentContentSQL+`) validation ON validation.import_item_id=draft.id
 LEFT JOIN cores core ON core.id=validation.core_id
 WHERE item.import_id=?
-AND (?='' OR instr(lower(item.title),lower(?))>0)
+AND (?='' OR strpos(lower(item.title),lower(?))>0)
 AND (?='' OR item.execution_state=?)
 AND (?='' OR EXISTS(
   SELECT 1
-  FROM json_each(item.warnings_json) warning_value
-  WHERE json_extract(warning_value.value,'$.code')=?
+  FROM jsonb_array_elements_text((item.warnings_json)::jsonb) warning_value
+  WHERE ((warning_value.value)::jsonb #>> '{code}')=?
 ))
 AND (?='' OR item.collection_id=?)
 AND (?='' OR item.title>? OR (item.title=? AND item.id>?))
@@ -154,7 +154,8 @@ func scanItem(row dbapi.Scanner) (application.Item, error) {
 	var discovery, itemError, failureDetails, reviewItem, published, existing, payloadReleaseJob sql.NullString
 	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
 	var warnings, flags, existingMatches, tagSnapshot string
-	var retryable, hasCover, hasVideo int
+	var retryable int
+	var hasCover, hasVideo bool
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
 		&value.MetadataRelativePath, &value.ExecutionState, &value.PayloadState, &payloadReleaseJob,
@@ -204,8 +205,8 @@ func scanItem(row dbapi.Scanner) (application.Item, error) {
 		return application.Item{}, fmt.Errorf("sourceimport/decode item tag snapshot: %w", err)
 	}
 	value.Media = application.ItemMedia{
-		Cover: application.ProjectMedia(hasCover == 1, value.Warnings, "cover"),
-		Video: application.ProjectMedia(hasVideo == 1, value.Warnings, "video"),
+		Cover: application.ProjectMedia(hasCover, value.Warnings, "cover"),
+		Video: application.ProjectMedia(hasVideo, value.Warnings, "video"),
 	}
 	return value, nil
 }

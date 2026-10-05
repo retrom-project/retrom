@@ -90,7 +90,7 @@ func (records relationRecords) TouchTags(ctx context.Context, actorUserID string
 	_, err := recordstore.UpdateTags(ctx, records.database, recordstore.Update{
 		Set: `version=version+1,updated_by_user_id=?,updated_at_ms=?`,
 		Scope: recordstore.Scope{
-			Where: `status='ACTIVE' AND id IN (SELECT value FROM json_each(?))`,
+			Where: `status='ACTIVE' AND id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))`,
 			Args: []any{
 				encodedIDs(
 					tagIDs,
@@ -143,7 +143,7 @@ func createOwnerTag(ctx context.Context, db dbapi.Executor, table, query string,
 
 	switch table {
 	case "game_tags":
-		result, err = db.ExecContext(ctx, query, args...)
+		result, err = recordstore.CreateGameTags(ctx, db, query, args...)
 	case "review_draft_tags":
 		result, err = recordstore.CreateReviewDraftTags(ctx, db, query, args...)
 	case "source_collection_tags":

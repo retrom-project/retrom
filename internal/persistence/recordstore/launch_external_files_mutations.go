@@ -21,7 +21,8 @@ func UpdateLaunchExternalFiles(
 }
 
 const LaunchExternalFilesUpdateRule = `
-WITH previous(launch_session_id,virtual_path) AS (VALUES(?,?))
+WITH previous(launch_session_id,virtual_path)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- launch_external_files_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteLaunchExternalFiles(
 }
 
 const LaunchExternalFilesDeleteRule = `
-WITH previous(launch_session_id,virtual_path) AS (VALUES(?,?))
+WITH previous(launch_session_id,virtual_path)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- launch_external_files_immutable_delete
 WHEN (NOT EXISTS(

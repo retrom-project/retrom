@@ -18,6 +18,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
@@ -26,7 +27,7 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	set, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {

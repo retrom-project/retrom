@@ -21,7 +21,8 @@ func UpdateJobEvents(
 }
 
 const JobEventsUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::bigint))
 SELECT CASE
 -- job_events_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteJobEvents(
 }
 
 const JobEventsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::bigint))
 SELECT CASE
 -- job_events_immutable_delete
 WHEN (1=1) THEN 'immutable'

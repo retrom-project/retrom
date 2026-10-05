@@ -1,18 +1,18 @@
 package architecture
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestProductAndRuntimeSchemaDoNotReferenceWorkflowTables(t *testing.T) {
 	t.Parallel()
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestProductAndRuntimeSchemaDoNotReferenceWorkflowTables(t *testing.T) {
 		"isolated_runtime_bootstrap_tickets", "isolated_runtime_capabilities",
 	} {
 		t.Run(table, func(t *testing.T) {
-			targets, err := dbapi.QueryStrings(t.Context(), database.SQL, `SELECT "table" FROM pragma_foreign_key_list(?)`, table)
+			targets, err := dbapi.QueryStrings(t.Context(), database.SQL, `SELECT confrelid::regclass::text FROM pg_constraint WHERE contype='f' AND conrelid=?::regclass`, table)
 			if err != nil {
 				t.Fatal(err)
 			}

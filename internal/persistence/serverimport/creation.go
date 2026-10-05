@@ -13,15 +13,11 @@ type Creation struct{ database dbapi.DB }
 
 func NewCreation(database dbapi.DB) *Creation { return &Creation{database: database} }
 func (repository *Creation) WithCreate(ctx context.Context, work func(serverimport.CreationWriter) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Directory selection and catalog freezing happen before this SQL-only scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(creationRecords{tx})
+	})
 	if err != nil {
-		return fmt.Errorf("begin import creation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(creationRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit import creation: %w", err)
 	}
 	return nil

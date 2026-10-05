@@ -59,8 +59,9 @@ func writeProductRelations(ctx context.Context, transaction dbapi.Tx, catalog ru
 		Scope: recordstore.Scope{
 			Where: `
 enabled=1 AND NOT EXISTS(
- SELECT 1 FROM json_each(?) binding,json_each(binding.value,'$.platformIds') platform
- WHERE json_extract(binding.value,'$.coreId')=platform_cores.core_id AND
+ SELECT 1 FROM jsonb_array_elements_text((?)::jsonb) binding,
+ jsonb_array_elements_text(((binding.value)::jsonb #> '{platformIds}')) platform
+ WHERE ((binding.value)::jsonb #>> '{coreId}')=platform_cores.core_id AND
 platform.value=platform_cores.platform_id
 )
 `,
@@ -73,7 +74,8 @@ platform.value=platform_cores.platform_id
 		for _, platformID := range binding.PlatformIDs {
 			_, err := transaction.ExecContext(ctx, `
 INSERT INTO platform_cores(platform_id,core_id,enabled)
-SELECT platform.id,core.id,platform.enabled AND core.enabled FROM platforms platform,cores core
+SELECT platform.id,core.id,(platform.enabled<>0 AND core.enabled<>0)::integer FROM platforms platform,cores
+ core
 WHERE platform.id=? AND core.id=?
 ON CONFLICT(platform_id,core_id) DO UPDATE SET enabled=excluded.enabled
 `, platformID, binding.CoreID)
@@ -99,15 +101,18 @@ func pruneUnreferencedDefinitions(
 	}
 	statements := []string{
 		`DELETE FROM platform_cores WHERE
-   NOT EXISTS(SELECT 1 FROM json_each(?1,'$.platforms') declared
-    WHERE json_extract(declared.value,'$.id')=platform_cores.platform_id)
-   OR NOT EXISTS(SELECT 1 FROM json_each(?1,'$.cores') declared
-    WHERE json_extract(declared.value,'$.id')=platform_cores.core_id)`,
-		`DELETE FROM cores WHERE NOT EXISTS(SELECT 1 FROM json_each(?1,'$.cores') declared
-    WHERE json_extract(declared.value,'$.id')=cores.id)`,
-		`DELETE FROM platforms WHERE NOT EXISTS(SELECT 1 FROM json_each(?1,'$.platforms') declared
-    WHERE json_extract(declared.value,'$.id')=platforms.id)`,
-		`DELETE FROM content_kinds WHERE NOT EXISTS(SELECT 1 FROM json_each(?1,'$.contentKinds') declared
+   NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text((($1)::jsonb #> '{platforms}')) declared
+    WHERE ((declared.value)::jsonb #>> '{id}')=platform_cores.platform_id)
+   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text((($1)::jsonb #> '{cores}')) declared
+    WHERE ((declared.value)::jsonb #>> '{id}')=platform_cores.core_id)`,
+		`DELETE FROM cores WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text((($1)::jsonb #> '{cores}'))
+ declared
+    WHERE ((declared.value)::jsonb #>> '{id}')=cores.id)`,
+		`DELETE FROM platforms WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text((($1)::jsonb #>
+ '{platforms}')) declared
+    WHERE ((declared.value)::jsonb #>> '{id}')=platforms.id)`,
+		`DELETE FROM content_kinds WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text((($1)::jsonb #>
+ '{contentKinds}')) declared
     WHERE declared.value=content_kinds.id)`,
 	}
 	for _, statement := range statements {

@@ -135,10 +135,10 @@ func (repository *MultiDiscAttachmentWorker) BaseFiles(
 	ctx context.Context, snapshotID string,
 ) (libraryservice.MultiDiscAttachmentBaseFiles, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
-'$.sha256'),json_extract(blob.value, '$.size_bytes'),file.sort_order
+SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,((blob.value)::jsonb #>> '{sha256}'),
+ (((blob.value)::jsonb #>> '{size_bytes}'))::bigint,file.sort_order
 FROM import_item_source_snapshot_files file
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.source_snapshot_id=? AND file.role IN ('PLAYLIST_SOURCE','DISC')
 ORDER BY file.role,file.sort_order
 `, snapshotID)
@@ -176,7 +176,7 @@ func (repository *MultiDiscAttachmentWorker) UploadFiles(
 	ctx context.Context, sessionID string,
 ) (libraryservice.MultiDiscAttachmentUploadFiles, error) {
 	var result libraryservice.MultiDiscAttachmentUploadFiles
-	var consumed int
+	var consumed bool
 	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT state,source_type,EXISTS(
   SELECT 1 FROM upload_consumptions consumption
@@ -186,12 +186,12 @@ FROM upload_sessions WHERE id=?
 `, sessionID).Scan(&result.State, &result.SourceType, &consumed); err != nil {
 		return libraryservice.MultiDiscAttachmentUploadFiles{}, fmt.Errorf("read multi-disc upload session: %w", err)
 	}
-	result.Consumed = consumed != 0
+	result.Consumed = consumed
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.relative_path,file.id,file.file_record,json_extract(blob.value, '$.sha256'),
-json_extract(blob.value, '$.size_bytes')
+SELECT file.relative_path,file.id,file.file_record,((blob.value)::jsonb #>> '{sha256}'),
+(((blob.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM import_files file
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.upload_session_id=? AND file.released_at_ms IS NULL
 ORDER BY file.relative_path,file.id
 `, sessionID)

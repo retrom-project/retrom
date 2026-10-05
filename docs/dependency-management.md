@@ -154,6 +154,8 @@ Retrom 镜像构建输入必须包含：
 
 `internal/dependencies` 负责清单与文件校验；`internal/service/dependencies` 编排 BIOS 定义初始化、DAT 任务恢复、解析及激活；`internal/persistence/dependencies` 实现事务和目录读写。DAT 解析在写事务之外运行。任务领取、目录状态与事件必须共同提交或回滚；发布索引、切换激活版本、同步 Requirement、记录审计及完成任务也共享一个写事务。失败事件不能静默丢弃，保留的失败任务不在启动时自动重建。
 
+PostgreSQL 索引发布按有界批次写入 machine、BIOS set、ROM 和 disk 记录，先完成父记录再写入子记录，避免每条 DAT 记录产生一次网络往返。所有批次仍属于同一个发布事务；任一批次违反约束或写入失败时，整个发布事务回滚，不发布部分目录或提前完成任务。
+
 EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` 与启动校验都要求：
 
 - Target 在其所属的已激活 Provider Bundle 中存在；

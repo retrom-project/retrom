@@ -226,7 +226,7 @@ func openAndBootstrapDatabase(
 	configuration config.Config,
 	resources *serverResources,
 ) error {
-	database, err := store.Open(ctx, configuration.DBPath, time.Now)
+	database, err := store.Open(ctx, configuration.DatabaseURL, time.Now)
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}

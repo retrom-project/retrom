@@ -55,10 +55,15 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await page.getByRole("button", { name: "添加常用标签" }).click();
   await expect(page.getByText(/常用标签.*(?:已存在|已全部存在)/)).toBeVisible();
   for (const name of commonNames) {await expect(page.getByRole("rowheader", { name })).toBeVisible();}
+  const repeatedDefaults = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/v1/admin/tags/defaults" && response.request().method() === "POST");
   await page.getByRole("button", { name: "添加常用标签" }).click();
+  expect((await repeatedDefaults).ok()).toBe(true);
   await expect(page.getByText("10 个常用标签已全部存在。")).toBeVisible();
   const createTrigger = page.getByRole("button", { name: "新建标签" });
+  await expect(createTrigger).toBeEnabled();
   await createTrigger.focus();
+  await expect(createTrigger).toBeFocused();
   await page.keyboard.press("Enter");
   const createSheet = page.getByRole("dialog", { name: "新建标签" });
   await expect(createSheet.getByRole("textbox", { name: "标签名称" })).toBeFocused();

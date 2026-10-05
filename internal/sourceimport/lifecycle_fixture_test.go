@@ -24,6 +24,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type sourceLifecycle struct {
@@ -41,7 +42,7 @@ func newSourceLifecycle(t *testing.T, format string) sourceLifecycle {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	err = testsupport.SeedPlatformInstances(ctx, database.SQL)
 	testassert.False(t, err != nil, err)

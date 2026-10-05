@@ -10,7 +10,7 @@ test.afterEach(() => uiLayoutState("restore"));
 
 test("ACC-UI-003 detail populated, missing screenshot and scrollable descriptions", async ({ browser }, testInfo) => {
   test.setTimeout(90_000);
-  const database = process.env.RETROM_E2E_DATABASE;
+  const database = process.env.RETROM_E2E_DATA_ROOT;
   expect(database, "requires the disposable acceptance database").toBeTruthy();
   const gameId = execFileSync("python3", [path.resolve("../scripts/acceptance/seed-ui-detail.py"), database!], { encoding: "utf8" }).trim();
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";

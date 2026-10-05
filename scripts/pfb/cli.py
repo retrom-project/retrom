@@ -22,7 +22,7 @@ from .common import atomic_json, canonical_bytes, load_json, remove_tree
 from .data_reset import reset_workspace_data
 from .docker import (
     app_container_health, app_container_running, app_down, app_logs, app_restart, app_up,
-    build_toolchain, ensure_workspace, gateway_down, gateway_preflight, gateway_up,
+    build_toolchain, database_container_running, ensure_workspace, gateway_down, gateway_preflight, gateway_up,
     import_provider_base, migrate_legacy_storage, set_selected, workspace_paths,
 )
 from .errors import PFBError
@@ -310,7 +310,7 @@ def command_migrate_storage(root: Path, args: argparse.Namespace) -> int:
 
 def command_data_reset(root: Path, args: argparse.Namespace) -> int:
     spec = _confirmed_spec(root, args.pfb, args.confirm)
-    if app_container_running(compose_project(spec["id"])):
+    if app_container_running(compose_project(spec["id"])) or database_container_running(compose_project(spec["id"])):
         raise PFBError("PFB_DATA_RESET_INVALID", "running")
     result = reset_workspace_data(
         root, datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"),

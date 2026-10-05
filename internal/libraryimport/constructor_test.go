@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestImporterRequiresCompleteDependencies(t *testing.T) {
@@ -30,7 +31,7 @@ func TestImporterRequiresCompleteDependencies(t *testing.T) {
 }
 
 func TestImporterCloseKeepsInjectedWorkerClosed(t *testing.T) {
-	db, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	db, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,8 +19,8 @@ func TestServerRPGArchiveHandoffReplaysCanonicalImport(t *testing.T) {
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", archive)
 	var file ServerSourceFile
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT file.relative_path,file.final_file_record,json_extract(blob.value, '$.size_bytes')
-FROM upload_files file JOIN json_each(json_array(file.final_file_record)) blob ON blob.value IS NOT NULL
+SELECT file.relative_path,file.final_file_record,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint
+FROM upload_files file JOIN LATERAL (SELECT file.final_file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.upload_session_id=?
 `, uploadID).Scan(&file.RelativePath, &file.FileRecord, &file.SizeBytes); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ WHERE file.upload_session_id=?
 	var count int
 	var mode string
 	if err := dbapi.QueryRowContext(ctx, database.SQL,
-		"SELECT count(*),json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs",
+		"SELECT count(*),min((config_snapshot_json)::jsonb #>> '{contentMode}') FROM import_jobs",
 	).Scan(&count, &mode); err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	dbapi "retrom/internal/database"
@@ -18,19 +19,23 @@ func runWorkerClaim[T any](
 	claimRecords func(context.Context, dbapi.Tx, string, string, int64) error,
 	readClaim func(context.Context, dbapi.Tx, string, string) (T, error),
 ) (T, error) {
-	var zero T
-	tx, err := database.BeginTx(ctx, nil)
+	var claim T
+	var readErr error
+	err := dbapi.RetryTransaction(ctx, database, func(tx dbapi.Tx) error {
+		if err := claimRecords(ctx, tx, jobID, workerID, now); err != nil {
+			return err
+		}
+		// Invalid business inputs still consume an attempt for recovery. SQL
+		// errors must reach the retry boundary before an aborted COMMIT hides them.
+		claim, readErr = readClaim(ctx, tx, jobID, workerID)
+		var state interface{ SQLState() string }
+		if errors.As(readErr, &state) {
+			return readErr
+		}
+		return nil
+	})
 	if err != nil {
-		return zero, fmt.Errorf("begin %s claim: %w", name, err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := claimRecords(ctx, tx, jobID, workerID, now); err != nil {
-		return zero, err
-	}
-	// A broken input must still consume an attempt. Recovery owns the lease
-	// and deadline even when the worker cannot construct its input.
-	claim, readErr := readClaim(ctx, tx, jobID, workerID)
-	if err := tx.Commit(); err != nil {
+		var zero T
 		return zero, fmt.Errorf("commit %s claim: %w", name, err)
 	}
 	return claim, readErr

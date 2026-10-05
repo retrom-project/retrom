@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	saveservice "retrom/internal/service/saves"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -65,7 +67,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	dataDir := t.TempDir()
 	now := time.Date(2026, time.August, 6, 2, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), clock)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), clock)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
@@ -101,7 +103,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
-PRAGMA defer_foreign_keys=ON
+SET CONSTRAINTS ALL DEFERRED
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -363,11 +365,11 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 	var stateSize, screenshotSize int64
 	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT s.source_launch_session_id,
-json_extract(state_blob.value, '$.size_bytes'),
-json_extract(screenshot_blob.value, '$.size_bytes')
+(((state_blob.value)::jsonb #>> '{size_bytes}'))::bigint,
+(((screenshot_blob.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM save_states s
-JOIN json_each(json_array(s.payload_file_record)) state_blob ON state_blob.value IS NOT NULL
-JOIN json_each(json_array(s.screenshot_file_record)) screenshot_blob ON screenshot_blob.value IS NOT NULL
+JOIN LATERAL (SELECT s.payload_file_record AS value) state_blob ON state_blob.value IS NOT NULL
+JOIN LATERAL (SELECT s.screenshot_file_record AS value) screenshot_blob ON screenshot_blob.value IS NOT NULL
 WHERE s.id=?
 `, result.SaveStateID).Scan(&sourceLaunchID, &stateSize, &screenshotSize); err != nil ||
 		sourceLaunchID != created.LaunchID ||
@@ -425,8 +427,7 @@ func TestScreenshotOverrideCheckpointAllowsCompatibleProviderUpgrade(t *testing.
 func TestRPGCheckpointAllowsCompatibleProviderUpgrade(t *testing.T) {
 	fixture := newSaveFixture(t)
 	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE game_variants SET runtime_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',
- json_object('generation','RPGMV','dependencySnapshotSha256',?)) WHERE game_id=?
+UPDATE game_variants SET runtime_profile_json=jsonb_build_object('kind','RPG_MAKER_PROJECT','data',jsonb_build_object('generation','RPGMV','dependencySnapshotSha256',?))::text WHERE game_id=?
 `, strings.Repeat("d", 64), fixture.gameID)
 	created := fixture.createLaunch(t)
 	upgradeCurrentProviderBundle(t, fixture)

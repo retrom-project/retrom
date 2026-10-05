@@ -38,7 +38,7 @@ func TestReviewDetailUsesOneSnapshotAcrossDraftAndTags(t *testing.T) {
 	var beforeTitle string
 	var beforeVersion int64
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `
-SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=?`, itemID).
+SELECT ((metadata_json)::jsonb #>> '{title}'),version FROM import_items WHERE id=?`, itemID).
 		Scan(&beforeTitle, &beforeVersion); err != nil {
 		t.Fatal(err)
 	}

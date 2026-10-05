@@ -44,9 +44,9 @@ func (writes writes) rpgProfile(ctx context.Context, value gamecontent.Publicati
 	}
 	err = requireChanged(writes.transaction.ExecContext(ctx, `UPDATE games SET content_profile_json=?
 WHERE id=? AND content_kind='RPG_MAKER_PROJECT'
- AND json_extract(source_manifest_json,'$.fileCount')=?
- AND json_extract(source_manifest_json,'$.totalBytes')=?
- AND json_extract(source_manifest_json,'$.filesDigest')=?`,
+ AND (((source_manifest_json)::jsonb #>> '{fileCount}'))::bigint=?
+ AND (((source_manifest_json)::jsonb #>> '{totalBytes}'))::bigint=?
+ AND ((source_manifest_json)::jsonb #>> '{filesDigest}')=?`,
 		encoded, gameID,
 		profile.FileCount, profile.TotalBytes, profile.ProjectFingerprint))
 	if err != nil {

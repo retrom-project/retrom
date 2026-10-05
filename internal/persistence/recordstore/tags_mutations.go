@@ -21,7 +21,8 @@ func UpdateTags(
 }
 
 const TagsUpdateRule = `
-WITH previous(id,created_at_ms,created_by_user_id,status,updated_at_ms,version) AS (VALUES(?,?,?,?,?,?))
+WITH previous(id,created_at_ms,created_by_user_id,status,updated_at_ms,version)
+AS (VALUES(?::text,?::bigint,?::text,?::text,?::bigint,?::bigint))
 SELECT CASE
 -- tags_guarded_update
 WHEN (candidate.id<>previous.id
@@ -51,7 +52,8 @@ func DeleteTags(
 }
 
 const TagsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- tags_no_delete
 WHEN (1=1) THEN 'tag tombstones are immutable'

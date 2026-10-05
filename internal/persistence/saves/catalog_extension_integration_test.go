@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
@@ -51,7 +53,7 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 	if after := catalogUserEvidence(t, fixture.database.SQL); after != before {
 		t.Fatal("extension changed schema or user-owned records")
 	}
-	if violations := queryEvidence(t, fixture.database.SQL, "PRAGMA foreign_key_check"); len(violations) != 0 {
+	if violations := queryEvidence(t, fixture.database.SQL, "SELECT conname FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND NOT convalidated"); len(violations) != 0 {
 		t.Fatalf("extension broke references: %#v", violations)
 	}
 	var count int
@@ -116,9 +118,9 @@ func extendFixtureProvider(t *testing.T, active *runtimebundle.ActiveDescriptor,
 func catalogUserEvidence(t *testing.T, database dbapi.DB) [32]byte {
 	t.Helper()
 	queries := []string{
-		`SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name`,
+		`SELECT sql FROM (` + testpostgres.SchemaObjectsSQL + `) objects WHERE sql IS NOT NULL ORDER BY name`,
 		`SELECT * FROM schema_migrations ORDER BY version`,
-		`SELECT * FROM games ORDER BY id`, `SELECT * FROM game_files ORDER BY rowid`,
+		`SELECT * FROM games ORDER BY id`, `SELECT record.* FROM game_files record ORDER BY to_jsonb(record)`,
 		`SELECT * FROM game_variants ORDER BY id`, `SELECT * FROM save_states ORDER BY id`,
 		`SELECT * FROM import_items ORDER BY id`, `SELECT * FROM import_items ORDER BY id`,
 		`SELECT * FROM platform_instances ORDER BY id`, `SELECT * FROM profiles ORDER BY id`,

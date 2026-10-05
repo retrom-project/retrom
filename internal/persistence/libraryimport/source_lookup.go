@@ -30,7 +30,7 @@ func (records *OwnedSources) Lookup(
 SELECT COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
 COALESCE(imported.id,''),COALESCE(group_job.id,''),COALESCE(imported.state,''),COALESCE(imported.total_item_count,0),
 COALESCE(imported.target_platform_instance_id,''),
-COALESCE(json_extract(imported.config_snapshot_json,'$.contentMode'),''),
+COALESCE(((imported.config_snapshot_json)::jsonb #>> '{contentMode}'),''),
 COALESCE(upload.manifest_digest,'')
 FROM `+table+` source
 LEFT JOIN server_import_upload_owners owner ON owner.kind=? AND owner.source_item_id=source.id

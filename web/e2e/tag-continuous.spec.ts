@@ -63,20 +63,23 @@ test("ACC-TAG-005 repeated selection and creation keep tag controls open", async
   for (const name of ["连续新增预览一", "连续新增预览二"]) {
     await input.fill(name);
     await drawer.getByRole("button", { name: "保存标签" }).click();
-    await expect(drawer.getByRole("status")).toHaveText(`已创建“${name}”，可继续添加。`);
+    const success = page.locator(".app-toast.good");
+    await expect(success).toHaveText(`已创建“${name}”，可继续添加。`);
     await expect(input).toHaveValue(""); await expect(input).toBeFocused();
     expect(await drawer.locator(".tag-normalized-preview").boundingBox()).toEqual(originalPreview);
-    const success = (await drawer.getByRole("status").boundingBox())!;
-    const save = (await drawer.getByRole("button", { name: "保存标签" }).boundingBox())!;
-    expect(success.y).toBeGreaterThanOrEqual(save.y + save.height);
+    await expect(success).toHaveCSS("position", "fixed");
+    await expect(drawer.getByRole("status")).toHaveCount(0);
   }
   await input.fill("同名标签");
   await drawer.getByRole("button", { name: "保存标签" }).click();
-  const error = drawer.getByRole("alert");
+  const error = page.locator(".app-toast.bad");
   await expect(error).toContainText("已存在同名活动标签");
+  await expect(error).toHaveAttribute("role", "alert");
   await expect(input).toHaveValue("同名标签");
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toHaveAccessibleDescription("已存在同名活动标签");
   expect(await drawer.locator(".tag-normalized-preview").boundingBox()).toEqual(originalPreview);
-  expect((await error.boundingBox())!.y).toBeGreaterThanOrEqual((await drawer.getByRole("button", { name: "保存标签" }).boundingBox())!.y + 42);
+  await expect(error).toHaveCSS("position", "fixed");
   await expect(drawer.locator(".responsive-sheet-body .feedback-banner")).toHaveCount(0);
   await drawer.screenshot({ path: testInfo.outputPath("tag-create.png"), scale: "css" });
   await page.mouse.click(10, 100);

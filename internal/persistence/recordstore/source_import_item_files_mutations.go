@@ -23,13 +23,13 @@ func UpdateSourceImportItemFiles(
 
 const SourceImportItemFilesUpdateRule = `
 WITH previous(item_id,ordinal,created_at_ms,declared_kind,relative_path,size_bytes,source_facts_digest)
-AS (VALUES(?,?,?,?,?,?,?))
+AS (VALUES(?::text,?::bigint,?::bigint,?::text,?::text,?::bigint,?::text))
 SELECT CASE
 -- source_file_snapshot_update
 WHEN (candidate.item_id<>previous.item_id OR candidate.ordinal<>previous.ordinal OR
 candidate.declared_kind<>previous.declared_kind OR
-  candidate.relative_path<>previous.relative_path OR candidate.size_bytes IS NOT previous.size_bytes OR
-  candidate.source_facts_digest IS NOT previous.source_facts_digest OR
+  candidate.relative_path<>previous.relative_path OR candidate.size_bytes IS DISTINCT FROM previous.size_bytes OR
+  candidate.source_facts_digest IS DISTINCT FROM previous.source_facts_digest OR
 candidate.created_at_ms<>previous.created_at_ms) THEN 'immutable Source file snapshot'
 ELSE '' END
 FROM source_import_item_files candidate CROSS JOIN previous

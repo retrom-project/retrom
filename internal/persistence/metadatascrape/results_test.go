@@ -3,10 +3,11 @@ package metadatascrape
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestResponseAndCacheRollbackTogether(t *testing.T) {
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

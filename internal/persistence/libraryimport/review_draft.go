@@ -52,23 +52,27 @@ func (repository *ReviewDraftPatches) Patch(
 	if err := libraryservice.ValidateDraftPatch(request.Patch); err != nil {
 		return libraryservice.DraftResult{}, fmt.Errorf("validate review draft patch: %w", err)
 	}
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	var result libraryservice.DraftResult
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		run := draftPatchRun{
+			repository: repository, ctx: ctx, transaction: transaction,
+			itemID: request.ItemID, expectedVersion: request.ExpectedVersion, patch: request.Patch,
+			actor: request.Actor,
+		}
+		if err := run.load(); err != nil {
+			return err
+		}
+		if err := run.applyChanges(); err != nil {
+			return err
+		}
+		var err error
+		result, err = run.persist()
+		return err
+	})
 	if err != nil {
-		return libraryservice.DraftResult{}, fmt.Errorf("begin review draft patch: %w", err)
+		return libraryservice.DraftResult{}, fmt.Errorf("commit review draft patch: %w", err)
 	}
-	defer dbapi.Rollback(transaction)
-	run := draftPatchRun{
-		repository: repository, ctx: ctx, transaction: transaction,
-		itemID: request.ItemID, expectedVersion: request.ExpectedVersion, patch: request.Patch,
-		actor: request.Actor,
-	}
-	if err := run.load(); err != nil {
-		return libraryservice.DraftResult{}, err
-	}
-	if err := run.applyChanges(); err != nil {
-		return libraryservice.DraftResult{}, err
-	}
-	return run.persist()
+	return result, nil
 }
 
 type draftPatchRun struct {
@@ -101,7 +105,7 @@ SELECT d.id,d.target_platform_instance_id,
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.video_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
   d.metadata_json,d.review_version,
-  COALESCE(json_extract(d.review_profile_json,'$.kind')='RPG_MAKER_PROJECT',0)
+  COALESCE(((d.review_profile_json)::jsonb #>> '{kind}')='RPG_MAKER_PROJECT',false)
 FROM import_items i
 JOIN import_items d ON d.id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
@@ -364,9 +368,6 @@ func (run *draftPatchRun) persist() (libraryservice.DraftResult, error) {
 	}
 	if err := run.updateDraft(encoded, searchParts, now); err != nil {
 		return libraryservice.DraftResult{}, err
-	}
-	if err := run.transaction.Commit(); err != nil {
-		return libraryservice.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return libraryservice.DraftResult{
 		ItemID: run.itemID, Version: run.expectedVersion + 1,

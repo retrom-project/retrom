@@ -14,7 +14,7 @@ import (
 
 	reviewservice "retrom/internal/service/libraryimport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
@@ -82,7 +82,7 @@ func TestScreenshotPreservesFinalAuthoritySQLCause(t *testing.T) {
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE import_items RENAME TO unavailable_screenshot_drafts`)
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
 		preview.Capability, bytes.NewReader(contents))
-	var storage *sqlite.Error
+	var storage *pgconn.PgError
 	if !errors.As(err, &storage) || result.ID != "" {
 		t.Fatalf("authority SQL id=%q error=%v", result.ID, err)
 	}

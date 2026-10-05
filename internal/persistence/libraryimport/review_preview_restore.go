@@ -21,12 +21,12 @@ func (records reviewPreviewRecords) Restore(
 SELECT preview.actor_user_id,review_binding.import_item_id,review_binding.source_snapshot_id,preview.provider_id,
  preview.target_id,preview.state,preview.hard_expires_at_ms,preview.content_file_record,
  preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
- preview.checkpoint_payload_file_record,preview.checkpoint_format,json_extract(blob.value, '$.size_bytes'),
- COALESCE(json_extract(target.checkpoint_json,'$.maxBytes'),0),
- COALESCE(json_extract(target.checkpoint_json,'$.readFormats'),'[]')
+ preview.checkpoint_payload_file_record,preview.checkpoint_format,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
+ COALESCE((((target.checkpoint_json)::jsonb #>> '{maxBytes}'))::bigint,0),
+ COALESCE(((target.checkpoint_json)::jsonb #>> '{readFormats}'),'[]')
 FROM runtime_preview_sessions preview
 JOIN review_preview_bindings review_binding ON review_binding.preview_session_id=preview.id
-JOIN json_each(json_array(preview.checkpoint_payload_file_record))
+JOIN LATERAL (SELECT preview.checkpoint_payload_file_record AS value)
 blob ON blob.value IS NOT NULL
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
 WHERE preview.id=?`, id).Scan(

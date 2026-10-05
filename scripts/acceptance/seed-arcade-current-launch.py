@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
+import postgres_fixture as pg
 import sys
 import time
 from pathlib import Path
@@ -29,21 +29,20 @@ def main() -> None:
     database_path = Path(sys.argv[1]).resolve()
     core_id = sys.argv[2]
     title = CORE_TITLES[core_id]
-    connection = sqlite3.connect(database_path)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys=ON")
-    connection.execute("PRAGMA busy_timeout=30000")
+    connection = pg.connect(database_path)
+    connection.row_factory = pg.row_factory
+    connection.execute("SET LOCAL lock_timeout='30s'")
     source = connection.execute(
         """
 SELECT game.*,variant.id AS variant_id,variant.provider_id,variant.target_id,
        variant.dat_version_id,variant.compatibility_code,variant.dependency_snapshot_json,
        variant.default_dos_entry
 FROM games game
-JOIN game_variants variant ON variant.game_id=game.id AND variant.core_id=?
+JOIN game_variants variant ON variant.game_id=game.id AND variant.core_id=%s
 WHERE game.status='PUBLISHED' AND game.title='pacman'
   AND variant.status='READY'
-  AND json_extract(variant.dependency_snapshot_json,'$.schemaVersion')=1
-  AND json_extract(variant.dependency_snapshot_json,'$.kind')='ARCADE'
+  AND (((variant.dependency_snapshot_json)::jsonb #>> '{schemaVersion}'))::bigint=1
+  AND ((variant.dependency_snapshot_json)::jsonb #>> '{kind}')='ARCADE'
 ORDER BY variant.updated_at_ms DESC,variant.id DESC
 LIMIT 1
 """,
@@ -62,7 +61,7 @@ LIMIT 1
         raise SystemExit("source Arcade game lacks the required current Parent/BIOS evidence")
     roles = {
         row[0] for row in connection.execute(
-            "SELECT role FROM variant_files WHERE game_variant_id=?", (source["variant_id"],)
+            "SELECT role FROM variant_files WHERE game_variant_id=%s", (source["variant_id"],)
         )
     }
     if not {"PARENT", "BIOS_BUNDLE"}.issubset(roles):
@@ -71,17 +70,17 @@ LIMIT 1
     game_id, variant_id = fixture_id(core_id, "game"), fixture_id(core_id, "variant")
     now = int(time.time() * 1000)
     emulator_game_id = connection.execute(
-        "SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants"
+        "SELECT COALESCE(max(emulator_game_id),1000)+1 FROM game_variants"
     ).fetchone()[0]
-    connection.execute("BEGIN IMMEDIATE")
+    connection.execute("BEGIN")
     connection.execute(
         """
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
  metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,'M','Arcade current runtime parser regression','','','',NULL,NULL,
- 'ADMIN_EDIT',?,'ADMIN_REPLACE',?,?,'PUBLISHED','RETAINED',lower(?),1,?,?)
+) VALUES(%s,%s,%s,'M','Arcade current runtime parser regression','','','',NULL,NULL,
+ 'ADMIN_EDIT',%s,'ADMIN_REPLACE',%s,%s,'PUBLISHED','RETAINED',lower(%s),1,%s,%s)
 """,
         (
             game_id, source["platform_instance_id"], title, source["content_kind"],
@@ -93,8 +92,8 @@ INSERT INTO games(
 INSERT INTO game_files(
  game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
-FROM game_files WHERE game_id=?
+SELECT %s,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
+FROM game_files WHERE game_id=%s
 """,
         (game_id, source["id"]),
     )
@@ -103,7 +102,7 @@ FROM game_files WHERE game_id=?
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
  compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 """,
         (
             variant_id, game_id, core_id, source["provider_id"], source["target_id"],
@@ -114,7 +113,7 @@ INSERT INTO game_variants(
     connection.execute(
         """
 INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
-SELECT ?,role,logical_name,file_record,sort_order FROM variant_files WHERE game_variant_id=?
+SELECT %s,role,logical_name,file_record,sort_order FROM variant_files WHERE game_variant_id=%s
 """,
         (variant_id, source["variant_id"]),
     )
@@ -123,15 +122,15 @@ SELECT ?,role,logical_name,file_record,sort_order FROM variant_files WHERE game_
 INSERT INTO variant_dependencies(
  game_variant_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms
 )
-SELECT ?,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,?
-FROM variant_dependencies WHERE game_variant_id=?
+SELECT %s,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,%s
+FROM variant_dependencies WHERE game_variant_id=%s
 """,
         (variant_id, now, source["variant_id"]),
     )
     own_rows(connection, "game_files", "game_id", game_id, "GAME", game_id)
     own_rows(connection, "variant_files", "game_variant_id", variant_id, "GAME", game_id, extra="AND role<>'BIOS_BUNDLE'")
     connection.commit()
-    foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
+    foreign_keys = connection.execute("SELECT conname FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND NOT convalidated").fetchall()
     if foreign_keys:
         raise SystemExit(f"seeded Arcade current game has foreign-key errors: {foreign_keys}")
     print(json.dumps({"gameId": game_id, "coreId": core_id, "title": title}, sort_keys=True))

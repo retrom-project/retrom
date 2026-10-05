@@ -74,7 +74,7 @@ func (records workerRecords) Status(
 	err := dbapi.QueryRowContext(
 		ctx, records.transaction,
 
-		`SELECT j.state,COALESCE(j.leased_until_ms<=? OR j.execution_deadline_at_ms<=?,1),
+		`SELECT j.state,COALESCE(j.leased_until_ms<=? OR j.execution_deadline_at_ms<=?,true),
  EXISTS(SELECT 1 FROM import_items i JOIN import_jobs p ON p.id=i.import_job_id
  WHERE i.id=r.import_item_id AND p.cancel_requested_at_ms IS NOT NULL)
  FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id=? AND r.id=? AND r.state='RUNNING'

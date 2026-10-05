@@ -4,14 +4,14 @@
 
 ## 1. 基线
 
-- 001–014 组成新的未发布建库基线，创建表、声明式约束和索引，不创建 trigger、view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
-- 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
+- `001_schema.sql` 组成 PostgreSQL 建库基线，创建表、声明式约束和索引，不创建 trigger、view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
+- 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `BIGINT`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
 
 ### 共享运行会话
 
-`015_shared_runtime_sessions.sql` 是对当前 001–014 基线的兼容追加，已有游戏、存档、账户和 Launch 原地保留。`runtime_sessions` 每个 `auth_session_id` 至多一行，保存独立运行 ID、凭据摘要、创建/续期/到期毫秒时间；`expires_at_ms=renewed_at_ms+86400000`。续期更新同一行，超过 12 小时才延长，凭据值不轮换；已过期凭据必须凭有效账户会话重新签发并更换运行 ID/摘要。运行认证检查父 AuthSession 的显式撤销、User 状态与 session version，不使用父会话的自然 idle/absolute 到期作为运行期限。普通 Launch/资源授权仍按 Profile 隔离，凭据不绑定某个存档。
+共享运行会话直接包含在新建库基线中。`runtime_sessions` 每个 `auth_session_id` 至多一行，保存独立运行 ID、凭据摘要、创建/续期/到期毫秒时间；`expires_at_ms=renewed_at_ms+86400000`。续期更新同一行，超过 12 小时才延长，凭据值不轮换；已过期凭据必须凭有效账户会话重新签发并更换运行 ID/摘要。运行认证检查父 AuthSession 的显式撤销、User 状态与 session version，不使用父会话的自然 idle/absolute 到期作为运行期限。普通 Launch/资源授权仍按 Profile 隔离，凭据不绑定某个存档。
 
 ### 应用写入与数据库职责
 
@@ -21,7 +21,7 @@
 
 Launch 创建、变更与终态处理，以及 Save 创建，必须使用 `sessionstore`，在相同保存点维护回收排期、存档数据版本绑定和隔离凭据撤销。批量更新逐个处理实际选中的会话，已撤销的凭据不改写原撤销时间，已释放排期不重新入队。
 
-存档兼容性和批次丢弃的共享 SELECT 由 `storequery` 提供，消费者以子查询组合，不依赖数据库 view。当前驱动仍是 SQLite；JSON 函数、占位符、PRAGMA、索引、事务隔离/锁的其他数据库适配不属于这次触发器/view 移除。
+存档兼容性和批次丢弃的共享 SELECT 由 `storequery` 提供，消费者以子查询组合，不依赖数据库 view。唯一后端为 PostgreSQL；参数、JSON、upsert、目录查询及事务规则见[存储基线](./storage-and-database.md#3-postgresql-基线)。
 
 ## 2. Runtime Provider catalog
 

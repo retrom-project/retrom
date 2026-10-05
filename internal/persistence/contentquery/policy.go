@@ -14,10 +14,8 @@ import (
 // is aliased as binding. Use ScanPolicy in the same statement/transaction
 // as the source, target and dependency facts. Only relational kind names cross
 // the SQL boundary; delivery and limits are constructed once in Go.
-const BindingPolicySQL = `(SELECT group_concat(content_kind, ',') FROM (
- SELECT content_kind FROM runtime_binding_content_kinds
- WHERE binding_id=binding.binding_id ORDER BY content_kind
-))`
+const BindingPolicySQL = `(SELECT string_agg(content_kind, ',' ORDER BY content_kind)
+ FROM runtime_binding_content_kinds WHERE binding_id=binding.binding_id)`
 
 var errInvalidKindColumn = errors.New("contentcapability: invalid kind column")
 

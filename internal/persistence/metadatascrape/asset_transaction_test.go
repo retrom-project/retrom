@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"path/filepath"
 	"testing"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
@@ -16,7 +17,7 @@ import (
 
 func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	root := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(root, "retrom.db"), recoveryNow)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), recoveryNow)
 	if err != nil {
 		t.Fatal(err)
 	}

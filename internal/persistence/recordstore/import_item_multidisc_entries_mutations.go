@@ -21,7 +21,8 @@ func UpdateImportItemMultidiscEntries(
 }
 
 const ImportItemMultidiscEntriesUpdateRule = `
-WITH previous(source_snapshot_id,ordinal,state) AS (VALUES(?,?,?))
+WITH previous(source_snapshot_id,ordinal,state)
+AS (VALUES(?::text,?::bigint,?::text))
 SELECT CASE
 -- import_item_multidisc_entries_immutable_update
 WHEN (NOT (
@@ -52,7 +53,8 @@ func DeleteImportItemMultidiscEntries(
 }
 
 const ImportItemMultidiscEntriesDeleteRule = `
-WITH previous(source_snapshot_id,ordinal) AS (VALUES(?,?))
+WITH previous(source_snapshot_id,ordinal)
+AS (VALUES(?::text,?::bigint))
 SELECT CASE
 -- import_item_multidisc_entries_immutable_delete
 WHEN (1=1) THEN 'immutable'

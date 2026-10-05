@@ -21,7 +21,8 @@ func UpdateReviewUploadedAssets(
 }
 
 const ReviewUploadedAssetsUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- review_uploaded_assets_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteReviewUploadedAssets(
 }
 
 const ReviewUploadedAssetsDeleteRule = `
-WITH previous(id,import_item_id) AS (VALUES(?,?))
+WITH previous(id,import_item_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- review_uploaded_assets_immutable_delete
 WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state

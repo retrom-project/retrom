@@ -29,7 +29,7 @@ func (repository *ContentQueries) ProductContent(
 SELECT l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
-b.value,json_extract(b.value, '$.sha256'),
+b.value,((b.value)::jsonb #>> '{sha256}'),
 lc.format_version,
 l.core_id,
 l.provider_id,l.target_id,l.bundle_sha256,
@@ -40,7 +40,7 @@ l.dos_entry_path,
 FROM launch_sessions l
 JOIN runtime_target_bindings binding ON binding.provider_id=l.provider_id AND binding.target_id=l.target_id
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
-JOIN json_each(json_array(lc.file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT lc.file_record AS value) b ON b.value IS NOT NULL
 LEFT JOIN games game ON game.id=l.game_id
 LEFT JOIN platform_instances instance ON instance.id=game.platform_instance_id
 LEFT JOIN platforms platform ON platform.id=instance.platform_id
@@ -50,13 +50,16 @@ AND (
  OR (
   ?=1
   AND lc.format_version='RPG_MAKER_PROJECT'
-  AND lc.logical_name=? COLLATE NOCASE
+  AND translate(lc.logical_name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')=translate(?,
+ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz') COLLATE "C"
   AND 1=(
    SELECT count(*)
    FROM launch_content_files candidate
    WHERE candidate.launch_session_id=l.id
    AND candidate.format_version='RPG_MAKER_PROJECT'
-   AND candidate.logical_name=? COLLATE NOCASE
+   AND translate(candidate.logical_name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+ 'abcdefghijklmnopqrstuvwxyz')=translate(?,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz') COLLATE
+ "C"
   )
  )
 )
@@ -70,13 +73,14 @@ func (repository *ContentQueries) PreviewContent(
 ) (application.ContentRecord, bool, error) {
 	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
-json_extract(blob.value, '$.sha256'),
+((blob.value)::jsonb #>> '{sha256}'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
-(SELECT count(*) FROM runtime_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC'),
+(SELECT count(*) FROM runtime_preview_files file WHERE file.preview_session_id=preview.id AND
+ file.role='DISC'),
 binding.delivery_profile
 FROM runtime_preview_sessions preview
-JOIN json_each(json_array(preview.content_file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT preview.content_file_record AS value) blob ON blob.value IS NOT NULL
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND
 binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -99,7 +103,7 @@ WITH preview_files AS (
  WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
 )
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.value,
-json_extract(blob.value, '$.sha256'),
+((blob.value)::jsonb #>> '{sha256}'),
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,NULL,0,binding.delivery_profile
 FROM runtime_preview_sessions preview
@@ -108,11 +112,15 @@ binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN preview_files file ON file.preview_session_id=preview.id AND (
- file.logical_name=? OR ? AND preview.content_format='RPG_MAKER_PROJECT' AND lower(file.logical_name)=lower(?)
+ file.logical_name=? OR ?=1 AND preview.content_format='RPG_MAKER_PROJECT' AND translate(file.logical_name,
+ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')=translate(?,'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+ 'abcdefghijklmnopqrstuvwxyz')
  AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
- AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
+ AND (SELECT count(*) FROM preview_files folded WHERE translate(folded.logical_name,
+ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')=translate(?,'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+ 'abcdefghijklmnopqrstuvwxyz'))=1
 )
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE preview.id=?
 
 `, id, id, logicalName, folded, logicalName, logicalName, logicalName, id))

@@ -10,6 +10,7 @@ test("ACC-RUN-014 input diagnostics preserve live input and restore observers", 
   const login = await page.request.post("/api/v1/auth/login", {data: {username: "test", password: "test"}, headers: {Origin: origin}});
   expect(login.ok()).toBe(true);
   await page.goto("/library");
+  await page.getByRole("searchbox", {name: "搜索游戏"}).fill("Sudoku");
   await page.locator(".library-game-card").filter({hasText: "Sudoku"}).getByRole("link").first().click();
   await page.getByRole("button", {name: "开始游戏"}).click();
   await expect(page.locator(".player-loading")).toBeHidden({timeout: 30_000});
@@ -56,8 +57,9 @@ test("ACC-RUN-014 input diagnostics preserve live input and restore observers", 
   expect(await inputRestored(frame)).toBe(true);
   await page.setViewportSize({width: 960, height: 600});
   await page.mouse.move(20, 20);
-  await expect(debug).toBeVisible();
-  await debug.click(); await expect(panel).toBeVisible(); await debug.click();
+  await expect(debug).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
+  expect(await inputRestored(frame)).toBe(true);
   await page.getByRole("button", {name: "更多操作", exact: true}).click();
   await expect(page.getByRole("menuitem", {name: /调试信息|查看快捷键/})).toHaveCount(0);
 });

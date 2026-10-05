@@ -21,7 +21,8 @@ func UpdateGameVariants(
 }
 
 const GameVariantsUpdateRule = `
-WITH previous(id,created_at_ms,game_id,updated_at_ms,version) AS (VALUES(?,?,?,?,?))
+WITH previous(id,created_at_ms,game_id,updated_at_ms,version)
+AS (VALUES(?::text,?::bigint,?::text,?::bigint,?::bigint))
 SELECT CASE
 -- game_variants_guarded_update
 WHEN (candidate.id<>previous.id OR candidate.game_id<>previous.game_id OR

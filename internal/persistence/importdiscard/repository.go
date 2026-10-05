@@ -31,24 +31,22 @@ func (repository *Repository) WithRead(ctx context.Context, work func(importdisc
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(importdiscard.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin discard write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	bound := writes{tx}
-	if err := work(
-		importdiscard.WriteScope{
-			Reader: records{
-				tx,
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		bound := writes{tx}
+		if err := work(
+			importdiscard.WriteScope{
+				Reader: records{
+					tx,
+				},
+				Requests: bound,
+				Sources:  bound,
 			},
-			Requests: bound,
-			Sources:  bound,
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
+		); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("commit discard write: %w", err)
 	}
 	return nil

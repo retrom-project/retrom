@@ -30,8 +30,8 @@ func (records Records) QueuePath(ctx context.Context, path string, now int64) er
 		return filestore.ErrRecordInvalid
 	}
 	if _, err := records.executor.ExecContext(ctx, `DELETE FROM archive_entries
- WHERE CASE WHEN json_valid(archive_file_record) THEN json_extract(archive_file_record,'$.path') END >= ?
- AND CASE WHEN json_valid(archive_file_record) THEN json_extract(archive_file_record,'$.path') END < ?
+ WHERE CASE WHEN (archive_file_record IS JSON) THEN ((archive_file_record)::jsonb #>> '{path}') END >= ?
+ AND CASE WHEN (archive_file_record IS JSON) THEN ((archive_file_record)::jsonb #>> '{path}') END < ?
 `, path+"/", path+"0"); err != nil {
 		return fmt.Errorf("remove retired directory archive facts: %w", err)
 	}

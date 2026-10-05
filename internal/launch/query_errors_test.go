@@ -6,15 +6,14 @@ import (
 	"testing"
 	"time"
 
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	runtimelaunch "retrom/internal/runtime/launch"
-
-	_ "modernc.org/sqlite" // Register the driver for cancellation regression queries.
+	"retrom/internal/testsupport/testpostgres" // Register the driver for cancellation regression queries.
 )
 
 func TestResourceQueriesPreserveCancellation(t *testing.T) {
 	t.Parallel()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	gamevariant "retrom/internal/service/gamevariant"
@@ -48,7 +50,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	seedLocalProfile(t, database.SQL)
@@ -453,7 +455,7 @@ func assertMissingFDSValidationFinishes(
 	transaction, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := transaction.ExecContext(ctx, `SET CONSTRAINTS ALL DEFERRED`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {

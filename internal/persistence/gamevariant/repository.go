@@ -29,21 +29,19 @@ func (r *Repository) Snapshot(ctx context.Context, gameID, coreID string) (appli
 }
 
 func (r *Repository) WithEnsure(ctx context.Context, work func(application.EnsureScope) error) error {
-	tx, err := r.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, r.database, func(tx dbapi.Tx) error {
+		scope := application.EnsureScope{
+			Read: func(ctx context.Context, gameID, coreID string) (application.Snapshot, error) {
+				return ReadSnapshot(ctx, tx, gameID, coreID)
+			},
+			Write: NewWriteScope(tx),
+		}
+		if err := work(scope); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin variant ensure: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	scope := application.EnsureScope{
-		Read: func(ctx context.Context, gameID, coreID string) (application.Snapshot, error) {
-			return ReadSnapshot(ctx, tx, gameID, coreID)
-		},
-		Write: NewWriteScope(tx),
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit variant ensure: %w", err)
 	}
 	return nil

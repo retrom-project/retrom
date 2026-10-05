@@ -12,7 +12,7 @@ import (
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testsupport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type materialAffectedFailure struct {
@@ -126,7 +126,7 @@ func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
 		func() time.Time { return time.UnixMilli(10) },
 	)
 	id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
-	var cause *sqlite.Error
+	var cause *pgconn.PgError
 	if id != "" || !errors.As(err, &cause) || !strings.Contains(err.Error(), "commit Source material transaction") {
 		t.Fatalf("commit response=%s %v", id, err)
 	}

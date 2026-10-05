@@ -23,20 +23,14 @@ func (repository *InitializationRepository) State(ctx context.Context) (accounts
 }
 
 func (repository *InitializationRepository) WithWrite(
-	ctx context.Context,
-	work func(accounts.InitializationScope) error,
+	ctx context.Context, work func(accounts.InitializationScope) error,
 ) error {
-	tx, err := repository.writer.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		records := initializationRecords{tx}
+		return work(accounts.InitializationScope{Read: records, Write: records})
+	})
 	if err != nil {
-		return fmt.Errorf("begin account initialization: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := initializationRecords{tx}
-	if err := work(accounts.InitializationScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit account initialization: %w", err)
+		return fmt.Errorf("commit accounts transaction: %w", err)
 	}
 	return nil
 }

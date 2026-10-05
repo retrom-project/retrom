@@ -24,7 +24,7 @@ func transitionServerReviewOwner(
 		Set: `execution_state=?,published_game_id=?,library_import_item_id=NULL,library_import_job_id=NULL,
 version=version+1,updated_at_ms=?`, Values: []any{state, gameID, now},
 		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
- OR ? AND ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
+ OR ?=1 AND ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
 `, Args: []any{importItemID, change.Mode == libraryservice.ReviewDiscardBatch, state}},
 	})
 	if err != nil {

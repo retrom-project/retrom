@@ -51,8 +51,8 @@ func readReviewArcadeArchives(
  entry.normalized_path,entry.uncompressed_size_bytes,entry.crc32,entry.sha1
  FROM import_item_source_snapshot_files file
  LEFT JOIN archive_entries entry ON
- CASE WHEN json_valid(entry.archive_file_record) THEN json_extract(entry.archive_file_record,'$.sha256') END
- =json_extract(file.file_record,'$.sha256')
+ CASE WHEN (entry.archive_file_record IS JSON) THEN ((entry.archive_file_record)::jsonb #>> '{sha256}') END
+ =((file.file_record)::jsonb #>> '{sha256}')
  WHERE file.source_snapshot_id=? AND file.role IN ('CONTENT','COMPANION')
  ORDER BY file.sort_order,file.logical_name,entry.ordinal`, snapshotID)
 	if err != nil {

@@ -22,16 +22,14 @@ func (repository *ResultRepository) WithWrite(
 	ctx context.Context,
 	work func(metadatascrape.ResultScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		records := resultRecords{transaction}
+		if err := work(metadatascrape.ResultScope{Read: records, Write: records, Media: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin scrape result: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	records := resultRecords{transaction}
-	if err := work(metadatascrape.ResultScope{Read: records, Write: records, Media: records}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit scrape result records: %w", err)
 	}
 	return nil

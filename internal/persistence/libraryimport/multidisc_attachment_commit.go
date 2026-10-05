@@ -32,15 +32,13 @@ var _ libraryservice.MultiDiscAttachmentCommitScope = multiDiscAttachmentCommitS
 func (repository *MultiDiscAttachmentFinalization) WithCommit(
 	ctx context.Context, work func(libraryservice.MultiDiscAttachmentCommitScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(multiDiscAttachmentCommitScope{transaction: transaction}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin multi-disc attachment commit: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(multiDiscAttachmentCommitScope{transaction: transaction}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit multi-disc attachment commit: %w", err)
 	}
 	return nil
@@ -209,13 +207,13 @@ func (scope multiDiscAttachmentCommitScope) validateOwnership(
 		state != "RUNNING" || workerID != write.WorkerID {
 		return libraryservice.ErrInvalid
 	}
-	var consumed int
+	var consumed bool
 	if err := dbapi.QueryRowContext(ctx, scope.transaction, `
 SELECT EXISTS(
   SELECT 1 FROM upload_consumptions
   WHERE upload_session_id=? AND upload_file_id IS NULL
 )
-`, write.Input.UploadSessionID).Scan(&consumed); err != nil || consumed != 0 {
+`, write.Input.UploadSessionID).Scan(&consumed); err != nil || consumed {
 		return libraryservice.ErrInvalid
 	}
 	entries, err := BindMultiDiscAdmission(scope.transaction).Entries(ctx, write.Input.BaseSourceSnapshotID)

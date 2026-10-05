@@ -21,7 +21,8 @@ func UpdateImportItemSourceSnapshots(
 }
 
 const ImportItemSourceSnapshotsUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- import_item_source_snapshots_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteImportItemSourceSnapshots(
 }
 
 const ImportItemSourceSnapshotsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- import_item_source_snapshots_immutable_delete
 WHEN (1=1) THEN 'immutable'

@@ -3,9 +3,10 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type preflightContext struct {
@@ -17,7 +18,7 @@ type preflightContext struct {
 
 func TestPreflightPreservesCancellationInsteadOfReportingInvalidSchema(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "preflight.db")
+	path := testpostgres.DSN(t)
 	database, err := Open(t.Context(), path, time.Now)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +31,7 @@ func TestPreflightPreservesCancellationInsteadOfReportingInvalidSchema(t *testin
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			defer test.cancel()
-			err := preflightExistingDatabase(test.ctx, path)
+			_, err := Open(test.ctx, path, time.Now)
 			if !errors.Is(err, test.want) || errors.Is(err, ErrSchemaInvalid) {
 				t.Fatalf("preflight error=%v, want %v without a schema failure", err, test.want)
 			}

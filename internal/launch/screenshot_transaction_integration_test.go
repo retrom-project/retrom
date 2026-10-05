@@ -15,7 +15,7 @@ import (
 
 	reviewservice "retrom/internal/service/libraryimport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
@@ -95,10 +95,10 @@ func TestScreenshotLateWriteFailureRollsBackBlobAndPriorScreenshotDeletion(t *te
 	seedOlderReviewScreenshot(t, fixture.database, first)
 	before := screenshotRecords(t, fixture.database)
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
-	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE review_runtime_screenshots ADD COLUMN reject_new_width INTEGER NOT NULL DEFAULT 0 CHECK(width_px=2)`)
+	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE review_runtime_screenshots ADD COLUMN reject_new_width BIGINT NOT NULL DEFAULT 0 CHECK(width_px=2)`)
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
 		preview.Capability, bytes.NewReader(screenshotPNG(t, 3)))
-	var storage *sqlite.Error
+	var storage *pgconn.PgError
 	if !errors.As(err, &storage) || result != (reviewservice.ReviewScreenshot{}) {
 		t.Fatalf("failed replacement result=%+v error=%v", result, err)
 	}

@@ -5,14 +5,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
-
-	_ "modernc.org/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestSQLFaultPoolRollsBackActualPriorWriteWithoutChangingOriginalPool(t *testing.T) {
@@ -56,7 +54,7 @@ func TestSQLFaultPoolRollsBackActualPriorWriteWithoutChangingOriginalPool(t *tes
 
 func sqlFaultTestDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	db, err := dbsqlite.Open(filepath.Join(t.TempDir(), "faults.db"), dbsqlite.Options{})
+	db, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

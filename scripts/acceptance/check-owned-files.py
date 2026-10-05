@@ -4,16 +4,16 @@ from contextlib import closing
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
-import sqlite3
+import postgres_fixture as pg
 import sys
 import uuid
 
 
 def check(path):
-    root = path.parent.resolve()
-    with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+    root = pg.validate_database(path)
+    with closing(pg.connect(path, readonly=True)) as db:
         db.execute("BEGIN")
-        if db.execute("PRAGMA foreign_key_check").fetchone():
+        if db.execute("SELECT 1 FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND NOT convalidated").fetchone():
             raise ValueError("file audit found broken foreign keys")
         rows = []
         for table in ("game_files", "game_assets"):

@@ -217,7 +217,7 @@ function registerRun003(): void {
     const freshContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const freshPage = await freshContext.newPage();
     await freshPage.goto(playURL);
-    await expect(freshPage.getByText("启动会话不可用，请从游戏详情或存档重新开始。", { exact: true })).toBeVisible();
+    await expect(freshPage.getByText("本次启动凭据已失效，请返回游戏页面重新启动。", { exact: true })).toBeVisible();
     await expect(freshPage.getByRole("link", { name: "返回游戏库" })).toBeVisible();
     await freshContext.close();
     await page.screenshot({ path: evidencePath(testInfo, "fullscreen-refused-recovery.png"), fullPage: true });
@@ -237,7 +237,7 @@ function registerRun004(): void {
     const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
     await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
     await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
-    await page.goto("/library");
+    await page.goto("/library?q=Sudoku");
     await page.locator(".library-game-card").filter({ hasText: "Sudoku" }).getByRole("link").first().click();
     await page.getByRole("button", { name: "开始游戏" }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
@@ -255,11 +255,11 @@ function registerRun004(): void {
     await exitDialog.getByRole("button", { name: "退出游戏", exact: true }).click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
     await page.goBack();
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/library\?q=Sudoku$/);
     await expect(page.locator(".player-shell")).toHaveCount(0);
     await verifyExitDuringProviderLoading(page, testInfo);
   
-    await page.goto("/library");
+    await page.goto("/library?q=Acceptance%20Missing%20FDS%20BIOS");
     await page.locator(".library-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).getByRole("link").first().click();
     await expect(page).toHaveURL(/\/games\/60000000-0000-7000-8000-000000000001$/);
     await page.getByRole("button", { name: "开始游戏" }).click();

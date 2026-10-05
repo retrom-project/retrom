@@ -20,15 +20,13 @@ func New(database dbapi.DB, bind func(dbapi.Executor) application.EffectScope) *
 }
 
 func (repository *Repository) WithEffects(ctx context.Context, run func(application.EffectScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := run(repository.bind(tx)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin domain release: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := run(repository.bind(tx)); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit domain release: %w", err)
 	}
 	return nil

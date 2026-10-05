@@ -12,16 +12,14 @@ import (
 )
 
 func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(accounts.LinkIssueScope) error) error {
-	tx, err := repository.writer.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		records := linkRecords{accountOperations{tx}}
+		if err := work(accounts.LinkIssueScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin account link issuance: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := linkRecords{accountOperations{tx}}
-	if err := work(accounts.LinkIssueScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit account link issuance: %w", err)
 	}
 	return nil

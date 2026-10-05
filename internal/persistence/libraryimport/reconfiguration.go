@@ -97,32 +97,30 @@ ORDER BY upload_file.relative_path,upload_file.id
 func (repository *Reconfigurations) Clone(
 	ctx context.Context, clone libraryservice.ReconfigurationClone,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin reconfiguration clone: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	var state string
-	var version int64
-	err = dbapi.QueryRowContext(ctx, transaction, `
-SELECT state,version FROM import_jobs WHERE id=?
-`, clone.SourceImportJobID).Scan(&state, &version)
-	if errors.Is(err, sql.ErrNoRows) || state != "PARTIAL_FAILURE" || version != clone.ExpectedVersion {
-		return libraryservice.ErrInvalid
-	}
-	if err != nil {
-		return fmt.Errorf("verify reconfiguration source: %w", err)
-	}
-	for _, metadata := range clone.Metadata {
-		if _, err := filestore.FileRecord(metadata, "application/octet-stream"); err != nil {
-			return fmt.Errorf("register replacement upload file: %w", err)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		var state string
+		var version int64
+		err := dbapi.QueryRowContext(ctx, transaction, `
+	SELECT state,version FROM import_jobs WHERE id=?
+	`, clone.SourceImportJobID).Scan(&state, &version)
+		if errors.Is(err, sql.ErrNoRows) || state != "PARTIAL_FAILURE" || version != clone.ExpectedVersion {
+			return libraryservice.ErrInvalid
 		}
-	}
-	if err := InsertClonedUpload(ctx, transaction, clone.UploadID, clone.SourceType, clone.Files,
-		clone.ManifestDigest, clone.NowMS); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
+		if err != nil {
+			return fmt.Errorf("verify reconfiguration source: %w", err)
+		}
+		for _, metadata := range clone.Metadata {
+			if _, err := filestore.FileRecord(metadata, "application/octet-stream"); err != nil {
+				return fmt.Errorf("register replacement upload file: %w", err)
+			}
+		}
+		if err := InsertClonedUpload(ctx, transaction, clone.UploadID, clone.SourceType, clone.Files,
+			clone.ManifestDigest, clone.NowMS); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("commit reconfiguration clone: %w", err)
 	}
 	return nil
@@ -176,43 +174,41 @@ func totalUploadBytes(files []libraryservice.PreparedReusableUploadFile) int64 {
 }
 
 func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID string, now int64) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin remove cloned upload: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	var consumptionCount int
-	if err := dbapi.QueryRowContext(ctx, transaction, `
-SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
-`, uploadID).Scan(&consumptionCount); err != nil {
-		return fmt.Errorf("check cloned upload use: %w", err)
-	}
-	if consumptionCount != 0 {
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		var consumptionCount int
+		if err := dbapi.QueryRowContext(ctx, transaction, `
+	SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
+	`, uploadID).Scan(&consumptionCount); err != nil {
+			return fmt.Errorf("check cloned upload use: %w", err)
+		}
+		if consumptionCount != 0 {
+			return nil
+		}
+		if err := filedeletion.QueuePath(ctx, transaction, "staging/uploads/"+uploadID, now); err != nil {
+			return fmt.Errorf("retire unused replacement upload: %w", err)
+		}
+		if _, err := recordstore.DeleteRows(
+			ctx,
+			transaction,
+			"import_files",
+			recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+		); err != nil {
+			return fmt.Errorf("release normalized upload: %w", err)
+		}
+		if _, err := recordstore.DeleteRows(
+			ctx,
+			transaction,
+			"upload_files",
+			recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+		); err != nil {
+			return fmt.Errorf("delete cloned upload files: %w", err)
+		}
+		if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_sessions WHERE id=?`, uploadID); err != nil {
+			return fmt.Errorf("delete cloned upload session: %w", err)
+		}
 		return nil
-	}
-	if err := filedeletion.QueuePath(ctx, transaction, "staging/uploads/"+uploadID, now); err != nil {
-		return fmt.Errorf("retire unused replacement upload: %w", err)
-	}
-	if _, err := recordstore.DeleteRows(
-		ctx,
-		transaction,
-		"import_files",
-		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
-	); err != nil {
-		return fmt.Errorf("release normalized upload: %w", err)
-	}
-	if _, err := recordstore.DeleteRows(
-		ctx,
-		transaction,
-		"upload_files",
-		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
-	); err != nil {
-		return fmt.Errorf("delete cloned upload files: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_sessions WHERE id=?`, uploadID); err != nil {
-		return fmt.Errorf("delete cloned upload session: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("commit remove cloned upload: %w", err)
 	}
 	return nil

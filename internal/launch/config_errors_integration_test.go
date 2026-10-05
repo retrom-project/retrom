@@ -11,7 +11,7 @@ import (
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestConfigRelatedQueryFailurePreservesStorageCause(t *testing.T) {
@@ -20,7 +20,7 @@ func TestConfigRelatedQueryFailurePreservesStorageCause(t *testing.T) {
 	before := playRows(t, fixture.database)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE launch_external_files RENAME TO unavailable_launch_external_files`)
 	configuration, err := fixture.launcher.Config(t.Context(), created.LaunchID, created.Capability)
-	var storageError *sqlite.Error
+	var storageError *pgconn.PgError
 	if !errors.As(err, &storageError) || errors.Is(err, ErrCredential) {
 		t.Fatalf("related resource failure classified as missing/credential: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestConfigFinalAuthorityReadPreservesStorageCause(t *testing.T) {
 	}}
 	issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
 	configuration, err := issuer.Issue(t.Context(), application.SessionRef{ID: created.LaunchID}, created.Capability)
-	var storageError *sqlite.Error
+	var storageError *pgconn.PgError
 	if !errors.As(err, &storageError) || errors.Is(err, ErrCredential) {
 		t.Fatalf("final authority cause lost: %v", err)
 	}

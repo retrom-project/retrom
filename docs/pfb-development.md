@@ -18,7 +18,8 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 
 ```text
 .pfb/workspace/
-├── data/                 # SQLite、独立文件存储、上传、secret
+├── data/                 # 独立文件存储、上传、secret
+├── postgres/             # 本 PFB PostgreSQL 的 PGDATA
 ├── providers/
 │   ├── active.json       # 已完整验证的基座 Provider identity
 │   ├── installed/        # 基座 manifest 与大体积静态资源
@@ -34,6 +35,8 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 两个 PFB 的上述路径、容器、Compose project、应用 Host、runtime Host、Cookie/Launch capability 均不同；共享的只有只读 Docker 工具链镜像、绑定 `127.0.0.1:3000` 的网关，以及根工作区 `retrom-project/.pfb/` 中的 registry、锁与生成的 Nginx 配置。该根目录由 Git 忽略并设为 owner-only，不使用用户全局状态目录；独立 Retrom checkout 则使用其主 checkout 的 `.pfb-shared/`。一个 PFB 的 down/restart/reset/remove 不得扫描或修改另一个 PFB 的 workspace、容器或 registry entry。
 
 PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终是 `http://<pfb-id>.localhost:3000`；Launch runtime 使用 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`。down/up/restart、源码修改和兼容 migration 都不能改变 ID、URL 或数据根。
+
+PFB Compose 为每个环境启动独立 PostgreSQL 服务和私有数据库网络。应用等数据库健康后启动；数据库仅动态发布到宿主 loopback，应用使用内部服务名。`pfb-down` 停止两个服务；`pfb-restart` 只重启应用。`pfb-data-reset` 要求两个服务都停止，并将 `data/` 与 `postgres/` 一起归档。测试服务器和产品库必须区分，`RETROM_TEST_DATABASE_URL` 只能指向专用测试实例。
 
 ## 开发源码清单
 

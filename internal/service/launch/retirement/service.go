@@ -35,6 +35,7 @@ func (service *Service) Launches(ctx context.Context) error {
 func (service *Service) LaunchBatch(ctx context.Context) (int, error) {
 	count := 0
 	err := service.launch.WithLaunchRetirement(ctx, func(scope jobs.LaunchRetirementScope) error {
+		count = 0
 		now := service.now().UnixMilli()
 		before, err := scope.Read.Launch(ctx, now, retirementBatchSize)
 		if err != nil {

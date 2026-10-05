@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -34,7 +36,7 @@ import (
 func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -186,7 +188,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -312,7 +314,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -412,13 +414,13 @@ WHERE import_job_id=?)
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
 s.logical_name,
-json_extract(b.value, '$.sha256'),
-json_extract(archive.value, '$.sha256'),
+((b.value)::jsonb #>> '{sha256}'),
+((archive.value)::jsonb #>> '{sha256}'),
 s.source_archive_entry_ordinal
 FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
-JOIN json_each(json_array(s.file_record)) b ON b.value IS NOT NULL
-JOIN json_each(json_array(s.source_archive_file_record)) archive ON archive.value IS NOT NULL
+JOIN LATERAL (SELECT s.file_record AS value) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT s.source_archive_file_record AS value) archive ON archive.value IS NOT NULL
 WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &logicalName, &contentSHA, &archiveSHA, &archiveOrdinal); err != nil {
 		t.Fatal(err)
@@ -436,11 +438,11 @@ WHERE i.import_job_id=?
 	var sourceArchive string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT f.logical_name,
-json_extract(b.value, '$.sha256'),
+((b.value)::jsonb #>> '{sha256}'),
 COALESCE(f.source_archive_file_record,'')
 FROM games g
 JOIN game_files f ON f.game_id=g.id
-JOIN json_each(json_array(f.file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT f.file_record AS value) b ON b.value IS NOT NULL
 WHERE g.id=?
 `, approved.GameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||
 		publishedLogical != "Wrapped.gba" ||
@@ -480,18 +482,18 @@ SELECT source.state,
 source.resolved_rejected_file_count,
 replacement.reconfigured_from_import_job_id,
 replacement_file.logical_name,
-json_extract(source_blob.value, '$.sha256'),
-json_extract(replacement_blob.value, '$.sha256')
+((source_blob.value)::jsonb #>> '{sha256}'),
+((replacement_blob.value)::jsonb #>> '{sha256}')
 FROM import_jobs source
 JOIN import_jobs replacement ON replacement.id=?
 JOIN import_items replacement_item ON replacement_item.import_job_id=replacement.id
 JOIN import_item_source_files replacement_file ON replacement_file.import_item_id=replacement_item.id
-JOIN json_each(json_array(replacement_file.file_record)) replacement_blob ON replacement_blob.value IS
+JOIN LATERAL (SELECT replacement_file.file_record AS value) replacement_blob ON replacement_blob.value IS
 NOT NULL
 JOIN import_job_file_resolutions resolution ON resolution.import_job_id=source.id
 AND resolution.replacement_import_job_id=replacement.id
 JOIN upload_files source_file ON source_file.id=resolution.upload_file_id
-JOIN json_each(json_array(source_file.final_file_record)) source_blob ON source_blob.value IS NOT NULL
+JOIN LATERAL (SELECT source_file.final_file_record AS value) source_blob ON source_blob.value IS NOT NULL
 WHERE source.id=?
 `, reconfigured.ImportJobID, created.ImportJobID).Scan(
 		&sourceState,

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
@@ -41,7 +43,7 @@ func productIsolationFixture(t *testing.T) (*Service, application.ProductCreateC
 	ctx := t.Context()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

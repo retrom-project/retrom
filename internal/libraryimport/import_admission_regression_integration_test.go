@@ -74,10 +74,13 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 	// The competing change must commit before admission reserves the writer.
 	database := admissionBeginDatabase{DB: sourceDB, beforeBegin: func(ctx context.Context) error {
 		hits++
-		_, err := sourceDB.ExecContext(ctx,
-			`UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`,
-			request.TargetPlatformInstanceID)
-		return err
+		return dbapi.InTransaction(ctx, sourceDB, nil, func(tx dbapi.Tx) error {
+			if _, err := tx.ExecContext(ctx, "SET LOCAL lock_timeout='50ms'"); err != nil {
+				return err
+			}
+			_, err := tx.ExecContext(ctx, `UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`, request.TargetPlatformInstanceID)
+			return err
+		})
 	}}
 	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(database), nil, service.tags,
 		libraryservice.ImportAdmissionOptions{Now: service.now})
@@ -105,24 +108,24 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 func TestImportAdmissionBlocksTargetChangeUntilQueueCommit(t *testing.T) {
 	service, request := admissionFixture(t)
 	sourceDB := service.database
-	if _, err := sourceDB.ExecContext(t.Context(), "PRAGMA busy_timeout=0"); err != nil {
-		t.Fatal(err)
-	}
 	hits := 0
 	var competingError error
 	disableTarget := func(ctx context.Context) error {
-		_, err := sourceDB.ExecContext(ctx,
-			`UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`,
-			request.TargetPlatformInstanceID)
-		return err
+		return dbapi.InTransaction(ctx, sourceDB, nil, func(tx dbapi.Tx) error {
+			if _, err := tx.ExecContext(ctx, "SET LOCAL lock_timeout='50ms'"); err != nil {
+				return err
+			}
+			_, err := tx.ExecContext(ctx, `UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`, request.TargetPlatformInstanceID)
+			return err
+		})
 	}
 	faulty := testsupport.OpenSQLFaultDatabase(t, sourceDB, testsupport.SQLFaultHooks{
-		BeforeExec: func(ctx context.Context, query string, _ []driver.NamedValue) error {
-			if strings.Contains(query, "UPDATE upload_sessions SET version=version") {
+		AfterExec: func(ctx context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+			if strings.Contains(query, "UPDATE platform_instances SET version=version") {
 				hits++
 				competingError = disableTarget(ctx)
 			}
-			return nil
+			return result, nil
 		},
 	})
 	admissions := libraryservice.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags,

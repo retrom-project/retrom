@@ -67,9 +67,9 @@ cancelled_item_count=(
 ),
 media_warning_count=(
   SELECT count(*)
-  FROM source_import_items item,json_each(item.warnings_json) warning
+  FROM source_import_items item,jsonb_array_elements_text((item.warnings_json)::jsonb) warning
   WHERE item.import_id=?
-  AND json_extract(warning.value,'$.code') IN (
+  AND ((warning.value)::jsonb #>> '{code}') IN (
     'PEGASUS_IMAGE_INVALID','PEGASUS_VIDEO_UNSUPPORTED','PEGASUS_VIDEO_TOO_LARGE',
     'PEGASUS_MEDIA_AMBIGUOUS','PEGASUS_MEDIA_MISSING','PEGASUS_MEDIA_READ_FAILED'
   )

@@ -9,10 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	"retrom/internal/testsupport/testpostgres"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/stdlib"
+
+	dbapi "retrom/internal/database"
+	dbpostgres "retrom/internal/database/postgres"
 )
 
 type sourceFaultConnector struct {
@@ -21,9 +23,9 @@ type sourceFaultConnector struct {
 	beforeCreation func() error
 }
 
-func (connector sourceFaultConnector) Driver() driver.Driver { return &sqlite.Driver{} }
+func (connector sourceFaultConnector) Driver() driver.Driver { return stdlib.GetDefaultDriver() }
 func (connector sourceFaultConnector) Connect(context.Context) (driver.Conn, error) {
-	conn, err := connector.Driver().Open(connector.path + "?_txlock=immediate")
+	conn, err := connector.Driver().Open(connector.path)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +108,14 @@ func TestOwnedSourceRollsBackImportAndBindingOnTransactionFailure(t *testing.T) 
 		t.Run(phase, func(t *testing.T) {
 			fixture, request := ownedSourceFixture(t)
 			cause := errors.New("injected source " + phase + " failure")
-			var ordinal int
-			var name, path string
-			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
+			var name string
+			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT current_database()`).Scan(&name); err != nil {
 				t.Fatal(err)
 			}
-			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{
-				path: path, phase: phase,
+			intercepted := dbpostgres.OpenConnector(sourceFaultConnector{
+				path: testpostgres.ForDatabase(t, name), phase: phase,
 				cause: cause,
-			}, dbsqlite.Options{})
+			}, dbpostgres.Options{})
 			intercepted.SetMaxOpenConns(1)
 			t.Cleanup(func() {
 				if err := intercepted.Close(); err != nil {

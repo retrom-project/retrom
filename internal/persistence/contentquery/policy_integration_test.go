@@ -4,9 +4,10 @@ package contentquery_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/persistence/contentquery"
 
@@ -20,7 +21,7 @@ import (
 func TestBindingPolicyUsesTheConsumersTransactionSnapshot(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "policy.db"), func() time.Time {
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(0)
 	})
 	if err != nil {
@@ -60,7 +61,7 @@ DELETE FROM runtime_binding_content_kinds WHERE binding_id=? AND content_kind='M
 
 func TestMissingBindingScansAsNoCapabilities(t *testing.T) {
 	t.Parallel()
-	database, err := testsupport.OpenDatabase(context.Background(), filepath.Join(t.TempDir(), "missing.db"), func() time.Time {
+	database, err := testsupport.OpenDatabase(context.Background(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(0)
 	})
 	if err != nil {

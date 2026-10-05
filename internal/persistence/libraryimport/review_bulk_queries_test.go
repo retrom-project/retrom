@@ -13,7 +13,7 @@ import (
 func TestReviewBulkConcurrentCreationCommitsOnlyOneJob(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(2)
 	ids := [][2]string{
 		{"019b0000-0000-7000-8000-000000000030", "019b0000-0000-7000-8000-000000000031"},
 		{"019b0000-0000-7000-8000-000000000032", "019b0000-0000-7000-8000-000000000033"},

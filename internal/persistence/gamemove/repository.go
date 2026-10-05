@@ -97,7 +97,7 @@ WHERE game_id=?
 AND core_id=?
 AND provider_id=?
 AND target_id=?
-AND dat_version_id IS ?
+AND dat_version_id IS NOT DISTINCT FROM ?
 	`, query.GameID, query.CoreID, query.ProviderID, query.TargetID, nullableString(query.DATVersionID)).
 		Scan(&state.Status, &state.CompatibilityCode)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -189,15 +189,13 @@ id
 func (repository *Repository) WithMove(
 	ctx context.Context, work func(application.MoveScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(moveScope{transaction: transaction}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin game move: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(moveScope{transaction: transaction}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit game move: %w", err)
 	}
 	return nil

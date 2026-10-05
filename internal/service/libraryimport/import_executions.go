@@ -36,6 +36,7 @@ func (service *ImportExecutions) Claim(ctx context.Context, id string) (ImportWo
 	err = service.repository.WithExecution(
 		ctx,
 		func(scope ImportExecutionScope) error {
+			result, found, problem = ImportWork{}, false, nil
 			before, exists, err := scope.Records.Current(ctx, id)
 			if err != nil {
 				return fmt.Errorf("read import claim: %w", err)

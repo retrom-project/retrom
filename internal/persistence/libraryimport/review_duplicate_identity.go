@@ -51,11 +51,11 @@ func (records *ContentDuplicates) IdentityParts(
 	snapshotID string,
 ) ([]libraryservice.ContentIdentityPart, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT source.role,json_extract(blob.value, '$.sha256'),count(*) FROM import_item_source_snapshot_files source
-JOIN json_each(json_array(source.file_record)) blob ON blob.value IS NOT NULL WHERE
+SELECT source.role,((blob.value)::jsonb #>> '{sha256}'),count(*) FROM import_item_source_snapshot_files source
+JOIN LATERAL (SELECT source.file_record AS value) blob ON blob.value IS NOT NULL WHERE
 source.source_snapshot_id=?
-GROUP BY source.role,json_extract(blob.value, '$.sha256') ORDER BY source.role,json_extract(blob.value,
-'$.sha256')`, snapshotID)
+GROUP BY source.role,((blob.value)::jsonb #>> '{sha256}') ORDER BY source.role,((blob.value)::jsonb #>>
+ '{sha256}')`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query content identity parts: %w", err)
 	}
@@ -79,8 +79,8 @@ func (records *ContentDuplicates) OrderedDiscs(
 	snapshotID string,
 ) ([]libraryservice.ContentIdentityDisc, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT entry.state,COALESCE(json_extract(blob.value, '$.sha256'),'') FROM import_item_multidisc_entries entry
-LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
+SELECT entry.state,COALESCE(((blob.value)::jsonb #>> '{sha256}'),'') FROM import_item_multidisc_entries entry
+LEFT JOIN LATERAL (SELECT entry.file_record AS value) blob ON blob.value IS NOT NULL WHERE
 entry.source_snapshot_id=?
 ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {

@@ -106,7 +106,8 @@ AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state I
 	}
 	if _, err := writes.transaction.ExecContext(ctx, `
 UPDATE jobs SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
-cancel_requested_at_ms=?,cancel_reason='game deleted',finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
+cancel_requested_at_ms=?,cancel_reason='game deleted',finished_at_ms=CASE WHEN state='QUEUED' THEN ?::bigint
+ ELSE NULL END,
 version=version+1,updated_at_ms=? WHERE scope_type='GAME' AND scope_id=?
 AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')
 `, now, now, now, gameID); err != nil {
@@ -163,7 +164,8 @@ func (writes writes) StoreDeleteGameReplay(
 ) error {
 	if _, err := writes.transaction.ExecContext(ctx, `
 INSERT INTO idempotency_records(
-principal_id,operation_id,key,request_digest,http_status,response_headers_json,response_body,created_at_ms,expires_at_ms
+principal_id,operation_id,key,request_digest,http_status,response_headers_json,response_body,created_at_ms,
+ expires_at_ms
 )
 VALUES(?,?,?,?,?,?,?,?,?)
 `, replay.PrincipalID, deleteGameOperation, replay.Key, replay.RequestDigest, replay.HTTPStatus,

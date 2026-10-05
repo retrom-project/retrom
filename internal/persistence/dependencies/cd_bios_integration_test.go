@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -21,7 +23,7 @@ import (
 
 func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 	ctx := context.Background()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

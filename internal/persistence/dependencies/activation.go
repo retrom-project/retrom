@@ -53,7 +53,7 @@ WHERE id=? AND provider_id=? AND target_id=?
 INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,created_at_ms)
 VALUES(?,?,?,?,'BUILTIN_DAT_ACTIVATED','DAT_VERSION',?,
-'{"active":false}','{"active":true}',json_object('source','release-manifest'),?)
+'{"active":false}','{"active":true}',jsonb_build_object('source','release-manifest')::text,?)
 `, input.AuditID, input.Actor.Kind, input.Actor.UserID, input.Actor.Label, input.ID, input.AtMS); err != nil {
 		return fmt.Errorf("dependencies/audit DAT selection: %w", err)
 	}

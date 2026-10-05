@@ -23,7 +23,7 @@ catalog_digest,
 	expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
 active_status_snapshot,active_validated_requirement_version_snapshot,state
-FROM server_bios_import_items WHERE server_import_id=? ORDER BY requirement_id COLLATE BINARY`, importID)
+FROM server_bios_import_items WHERE server_import_id=? ORDER BY requirement_id COLLATE "C"`, importID)
 	if err != nil {
 		return nil, fmt.Errorf("query server import items: %w", err)
 	}

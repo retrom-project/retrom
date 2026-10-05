@@ -16,15 +16,13 @@ type Metadata struct{ database dbapi.DB }
 func NewMetadata(database dbapi.DB) *Metadata { return &Metadata{database: database} }
 
 func (repository *Metadata) WithMetadata(ctx context.Context, work func(libraryservice.MetadataScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(BindMetadata(tx)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin server review metadata: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(BindMetadata(tx)); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit server review metadata: %w", err)
 	}
 	return nil

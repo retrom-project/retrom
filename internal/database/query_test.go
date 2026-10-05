@@ -6,18 +6,20 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/database/postgres"
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/database/sqlite"
 )
 
 func TestQueryRowContextScansFirstRowAndReleasesRows(t *testing.T) {
 	ctx := context.Background()
-	db, err := sqlite.Open(":memory:", sqlite.Options{MaxOpenConns: 1})
+	db, err := postgres.Open(testpostgres.DSN(t), postgres.Options{MaxOpenConns: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.ExecContext(ctx, "CREATE TABLE items(value INTEGER)"); err != nil {
+	if _, err := db.ExecContext(ctx, "CREATE TABLE items(value BIGINT)"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, "INSERT INTO items(value) VALUES (3),(5)"); err != nil {
@@ -43,7 +45,7 @@ func TestQueryRowContextScansFirstRowAndReleasesRows(t *testing.T) {
 
 func TestColumnMapUsesReturnedColumnOrder(t *testing.T) {
 	ctx := context.Background()
-	db, err := sqlite.Open(":memory:", sqlite.Options{MaxOpenConns: 1})
+	db, err := postgres.Open(testpostgres.DSN(t), postgres.Options{MaxOpenConns: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

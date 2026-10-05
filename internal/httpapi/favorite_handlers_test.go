@@ -74,7 +74,7 @@ func seedFavoriteHTTPGame(t *testing.T, server *testServer, gameID, _, title str
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer func() { _ = transaction.Rollback() }()
-	if _, err := transaction.ExecContext(context.Background(), "PRAGMA defer_foreign_keys=ON"); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), "SET CONSTRAINTS ALL DEFERRED"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `

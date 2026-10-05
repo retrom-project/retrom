@@ -27,10 +27,10 @@ state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,versio
 		return fmt.Errorf("cleanupjobs/revoke launches: %w", err)
 	}
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(ctx, "play_sessions",
-		"rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)",
+		"ctid IN (SELECT ctid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY ctid LIMIT 200)",
 		[]any{gameID}, `
 UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE rowid IN (SELECT rowid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY rowid LIMIT 200)
+WHERE ctid IN (SELECT ctid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY ctid LIMIT 200)
 `, now, now, gameID); err != nil {
 		return fmt.Errorf("cleanupjobs/end play sessions: %w", err)
 	}

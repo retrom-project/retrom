@@ -21,11 +21,12 @@ func UpdateSourceImportCollections(
 }
 
 const SourceImportCollectionsUpdateRule = `
-WITH previous(id,mapping_action,target_id,target_provider_id) AS (VALUES(?,?,?,?))
+WITH previous(id,mapping_action,target_id,target_provider_id)
+AS (VALUES(?::text,?::text,?::text,?::text))
 SELECT CASE
 -- source_import_collections_runtime_target_update
-WHEN ((candidate.mapping_action IS NOT previous.mapping_action OR candidate.target_provider_id IS NOT
-previous.target_provider_id OR candidate.target_id IS NOT previous.target_id) AND
+WHEN ((candidate.mapping_action IS DISTINCT FROM previous.mapping_action OR candidate.target_provider_id IS
+ DISTINCT FROM previous.target_provider_id OR candidate.target_id IS DISTINCT FROM previous.target_id) AND
 (candidate.mapping_action='IMPORT' AND NOT EXISTS(
   SELECT 1 FROM runtime_targets target
   WHERE target.provider_id=candidate.target_provider_id AND target.target_id=candidate.target_id

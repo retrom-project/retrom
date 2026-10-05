@@ -18,16 +18,14 @@ func (repository *Materialization) WithMaterialization(
 	ctx context.Context,
 	work func(application.MaterialScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := materialRecords{tx: tx}
+		if err := work(application.MaterialScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source material transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := materialRecords{tx: tx}
-	if err := work(application.MaterialScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source material transaction: %w", err)
 	}
 	return nil

@@ -37,6 +37,11 @@ func TestAuthenticationDueForRenewalDoesNotWaitForBackgroundWriter(t *testing.T)
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(tx)
+	// Hold the same row: unrelated PostgreSQL writes do not block renewal.
+	if _, err := tx.ExecContext(t.Context(), "UPDATE auth_sessions SET last_seen_at_ms=last_seen_at_ms WHERE id=?", session.Principal.SessionID); err != nil {
+		t.Fatal(err)
+	}
+
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
 	current, err := fixture.service.Authenticate(ctx, session.CookieToken)

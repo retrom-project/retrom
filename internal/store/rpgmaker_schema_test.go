@@ -2,10 +2,11 @@ package store
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
@@ -27,19 +28,19 @@ func TestRPGMakerProviderTargetSelectionAndCoreRouteAreDatabaseConstraints(t *te
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
-) VALUES('retrom-runtime-rpgmaker-2000','rpgmaker',?1,?2,'RPG2000','FILE_TREE_PROJECT' ,'SUPPORTED')`,
+) VALUES('retrom-runtime-rpgmaker-2000','rpgmaker',$1,$2,'RPG2000','FILE_TREE_PROJECT' ,'SUPPORTED')`,
 		rpgSchemaProvider, rpgSchemaTarget)
 	_, err := database.ExecContext(t.Context(), `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
-) VALUES('second-selected','fceumm',?1,?2,'RPG2000','FILE_TREE_PROJECT' ,'SUPPORTED')`,
+) VALUES('second-selected','fceumm',$1,$2,'RPG2000','FILE_TREE_PROJECT' ,'SUPPORTED')`,
 		rpgSchemaProvider, rpgSchemaTarget)
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed"),
+	testassert.Truef(t, err != nil && testpostgres.HasCode(err, "23505"),
 		"second binding for Provider Target error = %v", err)
 	_, err = database.ExecContext(t.Context(), `
 INSERT INTO runtime_binding_platforms(binding_id,platform_id,core_id)
 VALUES('retrom-runtime-rpgmaker-2000','nes','rpgmaker')`)
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed"),
+	testassert.Truef(t, err != nil && testpostgres.HasCode(err, "23503"),
 		"cross-core platform route error = %v", err)
 }
 
@@ -55,12 +56,12 @@ func TestLaunchTerminationAcceptsCapabilityAlreadyRevokedByRuntimeCleanup(t *tes
 	mustExecRPGSchema(t, database, `
 INSERT INTO isolated_runtime_capabilities(
  credential_sha256,launch_id,profile_id,expected_origin,issued_at_ms,expires_at_ms
-) VALUES(?1,?2,'current-profile','https://rpg-original-launch.rpg-runtime.example',1,100)`,
+) VALUES($1,$2,'current-profile','https://rpg-original-launch.rpg-runtime.example',1,100)`,
 		[]byte(strings.Repeat("c", 32)), rpgSchemaOriginal)
 	mustExecRPGSchema(t, database, `
-UPDATE isolated_runtime_capabilities SET revoked_at_ms=2 WHERE launch_id=?1`, rpgSchemaOriginal)
+UPDATE isolated_runtime_capabilities SET revoked_at_ms=2 WHERE launch_id=$1`, rpgSchemaOriginal)
 	mustExecRPGSchema(t, database, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=3,updated_at_ms=3 WHERE id=?1`,
+UPDATE launch_sessions SET state='REVOKED',finished_at_ms=3,updated_at_ms=3 WHERE id=$1`,
 		rpgSchemaOriginal)
 
 	var launchState string
@@ -69,7 +70,7 @@ UPDATE launch_sessions SET state='REVOKED',finished_at_ms=3,updated_at_ms=3 WHER
 SELECT launch.state,capability.revoked_at_ms
 FROM launch_sessions launch
 JOIN isolated_runtime_capabilities capability ON capability.launch_id=launch.id
-WHERE launch.id=?1`, rpgSchemaOriginal).Scan(&launchState, &revokedAt)
+WHERE launch.id=$1`, rpgSchemaOriginal).Scan(&launchState, &revokedAt)
 	testassert.Falsef(t, err != nil, "query terminal Launch and capability: %v", err)
 	testassert.Truef(t, launchState == "REVOKED", "Launch state = %q", launchState)
 	testassert.Truef(t, revokedAt == 2, "capability revoked_at_ms = %d", revokedAt)
@@ -77,7 +78,7 @@ WHERE launch.id=?1`, rpgSchemaOriginal).Scan(&launchState, &revokedAt)
 
 func openRPGMakerSchemaDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	testassert.False(t, database.ReadOnly.Close() != nil, "close schema fixture read pool")
 	seedSchemaProductDefinitions(t, database.SQL)
@@ -90,13 +91,13 @@ func insertRPGMakerProviderProjection(t *testing.T, database dbapi.DB) {
 INSERT INTO runtime_providers(
  provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,
  source,activated_at_ms
-) VALUES(?1,'1.0.0',1,?2,?3,?4,'candidate',1)`, rpgSchemaProvider, rpgSchemaBundle,
+) VALUES($1,'1.0.0',1,$2,$3,$4,'candidate',1)`, rpgSchemaProvider, rpgSchemaBundle,
 		strings.Repeat("d", 64), strings.Repeat("c", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_targets(
  provider_id,target_id,display_name,target_options_schema_json,capabilities_json,
  checkpoint_json,manifest_fragment_json
-) VALUES(?1,?2,'RPG Maker 2000','{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
+) VALUES($1,$2,'RPG Maker 2000','{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
  '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')`,
 		rpgSchemaProvider, rpgSchemaTarget)
 }

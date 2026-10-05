@@ -21,8 +21,8 @@ func (records Records) CheckedUpdate(
 	write RecordUpdate,
 	update recordstore.Update,
 ) error {
-	update.Scope.Where = "rowid IN (SELECT rowid FROM " + table + " WHERE " +
-		update.Scope.Where + " ORDER BY rowid LIMIT 200)"
+	update.Scope.Where = "ctid IN (SELECT ctid FROM " + table + " WHERE " +
+		update.Scope.Where + " ORDER BY ctid LIMIT 200)"
 	count, err := records.ReadCount(
 		ctx,
 		"SELECT count(*) FROM "+table+" WHERE "+update.Scope.Where,
@@ -63,7 +63,7 @@ type DeletionBatch struct {
 // RemoveBatches changes at most one bounded page. The caller commits before continuing.
 func (records Records) RemoveBatches(ctx context.Context, batches []DeletionBatch, id string) error {
 	for _, batch := range batches {
-		batch.Where = "rowid IN (SELECT rowid FROM " + batch.Table + " WHERE " + batch.Where + " ORDER BY rowid LIMIT 200)"
+		batch.Where = "ctid IN (SELECT ctid FROM " + batch.Table + " WHERE " + batch.Where + " ORDER BY ctid LIMIT 200)"
 		count, err := records.ReadCount(ctx, "SELECT count(*) FROM "+batch.Table+" WHERE "+batch.Where, id)
 		if err != nil {
 			return err

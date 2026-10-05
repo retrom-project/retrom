@@ -266,7 +266,7 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	})
 	var canonicalMode string
 	if err := dbapi.QueryRowContext(context.Background(), server.database, `
-SELECT json_extract(request_json,'$.request.contentMode')
+SELECT ((request_json)::jsonb #>> '{request,contentMode}')
 FROM import_group_requests WHERE import_job_id=?
 `, projectCreated.ImportJobID).Scan(&canonicalMode); err != nil {
 		t.Fatal(err)

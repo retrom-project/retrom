@@ -29,7 +29,7 @@ func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatasc
  COALESCE(a.media_fetch_order,-1),a.media_charged_bytes,a.media_reserved_bytes,c.scrape_run_id,
  CASE WHEN r.import_item_id IS NOT NULL THEN 'IMPORT_ITEM' ELSE 'GAME' END,
  COALESCE(r.import_item_id,r.game_id,''),COALESCE(i.state,g.status,''),COALESCE(i.payload_state,''),
- COALESCE(p.cancel_requested_at_ms IS NOT NULL,0),r.state,b.order_frozen_at_ms IS NOT NULL,
+ (p.cancel_requested_at_ms IS NOT NULL),r.state,b.order_frozen_at_ms IS NOT NULL,
  b.charged_bytes,b.version,
  NOT EXISTS(SELECT 1 FROM scrape_candidate_assets earlier JOIN scrape_candidates ec ON ec.id=earlier.scrape_candidate_id
  JOIN jobs ej ON ej.id=earlier.media_fetch_job_id WHERE ec.scrape_run_id=r.id

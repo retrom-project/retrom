@@ -2,10 +2,11 @@ package metadatascrape
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 
@@ -19,7 +20,7 @@ func recoveryNow() time.Time { return recoveryTime }
 
 func recoveryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), recoveryNow)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), recoveryNow)
 	if err != nil {
 		t.Fatal(err)
 	}

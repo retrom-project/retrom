@@ -6,10 +6,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
@@ -73,7 +74,7 @@ func matchesPreparationCatalogRead(operation, query string) bool {
 func preparedArcadeErrorFixture(t *testing.T) (*Service, CreateRequest) {
 	t.Helper()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,11 +13,12 @@ import (
 	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 	root := t.TempDir()
-	database, err := store.Open(t.Context(), filepath.Join(root, "retrom.db"), time.Now)
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

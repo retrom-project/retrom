@@ -21,7 +21,8 @@ func UpdateImportItemRuntimeFiles(
 }
 
 const ImportItemRuntimeFilesUpdateRule = `
-WITH previous(import_item_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(import_item_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- import_item_runtime_files_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteImportItemRuntimeFiles(
 }
 
 const ImportItemRuntimeFilesDeleteRule = `
-WITH previous(import_item_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(import_item_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- import_item_runtime_files_immutable_delete
 WHEN (NOT EXISTS(

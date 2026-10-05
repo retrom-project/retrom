@@ -135,7 +135,7 @@ func directoryCreationCounts(t *testing.T, server *testServer, key string) (int,
 func TestDirectoryCreationRollsBackWhenReceiptFails(t *testing.T) {
 	server, create := directoryCreationProbe(t)
 	_, err := server.database.ExecContext(t.Context(),
-		`ALTER TABLE idempotency_records ADD COLUMN receipt_guard INTEGER CHECK(operation_id!='platforminstance.create')`)
+		`ALTER TABLE idempotency_records ADD CONSTRAINT receipt_guard CHECK(operation_id!='platforminstance.create')`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestDirectoryCreationRollsBackWhenReceiptFails(t *testing.T) {
 	if audits != 0 {
 		t.Fatalf("creation audit survived rollback: %d", audits)
 	}
-	_, err = server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records DROP COLUMN receipt_guard`)
+	_, err = server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records DROP CONSTRAINT receipt_guard`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ SELECT item.id,item.state,COALESCE(validation.status,''),COALESCE(validation.com
 COALESCE(validation.core_id,''),COALESCE(core.name,''),COALESCE(validation.dependency_snapshot_json,''),
 item.content_kind,item.source_manifest_json,item.source_manifest_digest,
 COALESCE(duplicate.existing_game_id,''),
-COALESCE((SELECT json_group_array(relative_path) FROM (
+COALESCE((SELECT jsonb_agg(relative_path)::text FROM (
  SELECT DISTINCT upload.relative_path AS relative_path
  FROM import_item_source_files source JOIN import_files upload ON upload.id=source.upload_file_id
  WHERE source.import_item_id=item.id AND source.role IN ('CONTENT','DOS_SOURCE','PLAYLIST_SOURCE','DISC','PROJECT_FILE')

@@ -11,7 +11,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func queueDatabase(t *testing.T) dbapi.DB {
@@ -29,7 +29,7 @@ func queueDatabase(t *testing.T) dbapi.DB {
 	} {
 		metadataExec(t, db, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
 VALUES(?,'import',?,'REVIEW_PENDING','{"files":[{"logicalName":"game.gba"}]}',?,lower(?),1,1)`, entry.id, entry.digest, entry.digest, entry.title)
-		metadataExec(t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json=json_object('title',?),review_version=1,review_created_at_ms=1,review_updated_at_ms=? WHERE id=?`, instance, entry.title, entry.updated, entry.id)
+		metadataExec(t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json=jsonb_build_object('title',?)::text,review_version=1,review_created_at_ms=1,review_updated_at_ms=? WHERE id=?`, instance, entry.title, entry.updated, entry.id)
 	}
 	return db
 }
@@ -119,7 +119,7 @@ func TestReviewQueueRepositoryPreservesReadAndCancellationErrors(t *testing.T) {
 	db := queueDatabase(t)
 	metadataExec(t, db, `UPDATE import_items SET metadata_json='{' WHERE id='item'`)
 	rows, err := NewReviewQueue(db).List(t.Context(), libraryservice.ReviewQueueQuery{Limit: 21})
-	var cause *sqlite.Error
+	var cause *pgconn.PgError
 	if !errors.As(err, &cause) || rows != nil {
 		t.Fatalf("corrupt metadata read error lost: %#v %v", rows, err)
 	}

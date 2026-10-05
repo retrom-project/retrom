@@ -28,6 +28,7 @@ func (service *Service) claim(ctx context.Context, id string) (finalizationClaim
 	}
 	var claim finalizationClaim
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		claim = finalizationClaim{}
 		job, err := scope.Jobs.Get(ctx, id)
 		if err != nil {
 			return finalizationError("read upload authority", err)

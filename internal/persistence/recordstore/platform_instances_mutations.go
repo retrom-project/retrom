@@ -21,10 +21,11 @@ func UpdatePlatformInstances(
 }
 
 const PlatformInstancesUpdateRule = `
-WITH previous(id,default_core_id) AS (VALUES(?,?))
+WITH previous(id,default_core_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- platform_instances_enabled_default_update
-WHEN ((candidate.default_core_id IS NOT previous.default_core_id) AND ((NOT EXISTS (
+WHEN ((candidate.default_core_id IS DISTINCT FROM previous.default_core_id) AND ((NOT EXISTS (
     SELECT 1 FROM platform_cores
     WHERE platform_id = candidate.platform_id AND core_id = candidate.default_core_id AND enabled = 1
   )))) THEN 'platform default core is not enabled'

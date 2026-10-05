@@ -162,8 +162,8 @@ func assertStartItemsAndEvidence(t *testing.T, db dbapi.DB, jobID string) {
 	var root, actor string
 	var version int
 	var releases int
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT json_extract(input_json,'$.inputs.rootConfigDigest'),
-json_extract(input_json,'$.inputs.sourceSnapshotVersion'),
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT ((input_json)::jsonb #>> '{inputs,rootConfigDigest}'),
+((input_json)::jsonb #>> '{inputs,sourceSnapshotVersion}'),
 (SELECT actor_user_id FROM audit_events WHERE action='SOURCE_IMPORT_STARTED'),
 (SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP')
 FROM job_input_snapshots WHERE job_id=? AND execution_no=1`, jobID).Scan(&root, &version, &actor, &releases); err != nil {

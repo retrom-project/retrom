@@ -60,12 +60,13 @@ func TestBIOSRetirementRollsBackUnconfirmedInstallationRelease(t *testing.T) {
 	var hits atomic.Int64
 	service := faultRetirementService(t, db, now, "UPDATE bios_installations SET", "file_record=NULL", cause, &hits)
 	err := service.ReconcileDeletion(t.Context())
-	var retained, variants int
+	var retained bool
+	var variants int
 	readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT file_record IS NOT NULL,
 (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant')
 FROM bios_installations WHERE id='expiry-installation'`).Scan(&retained, &variants)
-	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || retained != 1 || variants != 1 {
-		t.Fatalf("unconfirmed BIOS retirement committed: retained=%d variants=%d hits=%d err=%v read=%v",
+	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || !retained || variants != 1 {
+		t.Fatalf("unconfirmed BIOS retirement committed: retained=%t variants=%d hits=%d err=%v read=%v",
 			retained, variants, hits.Load(), err, readErr)
 	}
 }

@@ -28,16 +28,14 @@ func (repository *PasswordRepository) Current(
 }
 
 func (repository *PasswordRepository) WithWrite(ctx context.Context, work func(accounts.PasswordScope) error) error {
-	tx, err := repository.writer.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		records := passwordRecords{tx}
+		if err := work(accounts.PasswordScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin password rotation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := passwordRecords{tx}
-	if err := work(accounts.PasswordScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit password rotation: %w", err)
 	}
 	return nil

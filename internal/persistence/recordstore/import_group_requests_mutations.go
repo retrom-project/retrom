@@ -21,7 +21,8 @@ func UpdateImportGroupRequests(
 }
 
 const ImportGroupRequestsUpdateRule = `
-WITH previous(import_job_id) AS (VALUES(?))
+WITH previous(import_job_id)
+AS (VALUES(?::text))
 SELECT CASE
 -- import_group_requests_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteImportGroupRequests(
 }
 
 const ImportGroupRequestsDeleteRule = `
-WITH previous(import_job_id) AS (VALUES(?))
+WITH previous(import_job_id)
+AS (VALUES(?::text))
 SELECT CASE
 -- import_group_requests_immutable_delete
 WHEN (1=1) THEN 'immutable'

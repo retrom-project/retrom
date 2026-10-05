@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	reviewpersistence "retrom/internal/persistence/libraryimport"
 
 	"retrom/internal/testsupport/importfixture"
@@ -54,7 +56,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	t.Helper()
 	ctx := t.Context()
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

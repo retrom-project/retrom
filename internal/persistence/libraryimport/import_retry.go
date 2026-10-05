@@ -19,15 +19,13 @@ func NewImportItemRetries(database dbapi.DB) *ImportItemRetries {
 func (repository *ImportItemRetries) WithRetry(
 	ctx context.Context, work func(libraryservice.ImportItemRetryScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(importItemRetryScope{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import item retry: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(importItemRetryScope{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit import item retry: %w", err)
 	}
 	return nil

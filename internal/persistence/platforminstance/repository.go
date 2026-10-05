@@ -31,17 +31,12 @@ func (repository *Repository) WithRead(ctx context.Context, work func(platformin
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(platforminstance.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		bound := records{tx}
+		return work(platforminstance.WriteScope{Reader: bound, Directories: bound, Idempotency: bound})
+	})
 	if err != nil {
-		return fmt.Errorf("platforminstance: begin write: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	bound := records{transaction}
-	if err := work(platforminstance.WriteScope{Reader: bound, Directories: bound, Idempotency: bound}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("platforminstance: commit: %w", err)
+		return fmt.Errorf("commit platforminstance transaction: %w", err)
 	}
 	return nil
 }

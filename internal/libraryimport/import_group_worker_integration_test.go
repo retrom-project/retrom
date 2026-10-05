@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -52,9 +54,9 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	var importState, jobState, bindingState, inputScopeType string
 	var itemCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT import.state,job.state,json_extract(import.config_snapshot_json,'$.bindingState'),
+SELECT import.state,job.state,((import.config_snapshot_json)::jsonb #>> '{bindingState}'),
  (SELECT count(*) FROM import_items WHERE import_job_id=import.id),
- json_extract(input.input_json,'$.scope.type')
+ ((input.input_json)::jsonb #>> '{scope,type}')
 FROM import_jobs import JOIN jobs job ON job.scope_id=import.id AND job.kind='IMPORT_GROUP'
 JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no
 WHERE import.id=?
@@ -240,7 +242,7 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 			var state, contentMode string
 			if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT state,json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs WHERE id=?
+SELECT state,((config_snapshot_json)::jsonb #>> '{contentMode}') FROM import_jobs WHERE id=?
 `, created.ImportJobID).Scan(&state, &contentMode); err != nil {
 				t.Fatal(err)
 			}
@@ -270,7 +272,7 @@ func openImportGroupFixture(
 ) (*store.DB, *filestore.Store, string) {
 	t.Helper()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

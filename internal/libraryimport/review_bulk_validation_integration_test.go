@@ -46,7 +46,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		if reason == "control character in title" {
 			title = "Invalid\nTitle"
 		}
-		fixture.execute(t, `UPDATE import_items SET metadata_json=json_set(metadata_json,'$.title',?) WHERE id=?`,
+		fixture.execute(t, `UPDATE import_items SET metadata_json=(jsonb_set((metadata_json)::jsonb,'{title}',to_jsonb((?)::text),true))::text WHERE id=?`,
 			title, itemID)
 	}
 	approvals := fixture.service.approvals

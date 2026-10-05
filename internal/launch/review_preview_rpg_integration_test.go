@@ -3,9 +3,10 @@
 package launch
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
@@ -18,7 +19,7 @@ func TestRPGMakerUsesOrdinaryReviewPreviewWithoutCreatingAGame(t *testing.T) {
 	ctx := t.Context()
 	dataDir := t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "review.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

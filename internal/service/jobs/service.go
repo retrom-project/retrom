@@ -52,6 +52,7 @@ func (service *Service) Cancel(
 	var dispatch domainDispatch
 	pending := false
 	err := service.repository.WithWrite(ctx, func(records Records) error {
+		result, dispatch, pending = Result{}, domainDispatch{}, false
 		job, err := records.Get(ctx, jobID)
 		if err != nil {
 			return fmt.Errorf("read cancellation job: %w", err)

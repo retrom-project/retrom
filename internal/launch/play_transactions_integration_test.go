@@ -94,7 +94,7 @@ func seedPlayCapability(t *testing.T, fixture reviewCheckpointFixture, id string
 		launchID = &id
 	}
 	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO isolated_runtime_capabilities(credential_sha256,launch_id,preview_id,
- profile_id,expected_origin,issued_at_ms,expires_at_ms) VALUES(zeroblob(32),?,?,'local','http://play.localhost:3000',?,?)`,
+ profile_id,expected_origin,issued_at_ms,expires_at_ms) VALUES(decode(repeat('00',(32)::integer),'hex'),?,?,'local','http://play.localhost:3000',?,?)`,
 		launchID, previewID, fixture.now.UnixMilli(), fixture.now.UnixMilli()+1_000_000)
 }
 

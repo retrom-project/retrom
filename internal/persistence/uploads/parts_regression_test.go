@@ -9,12 +9,11 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	"retrom/internal/service/uploads"
-
-	_ "modernc.org/sqlite"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestPartWriteFailureRollsBackProgress(t *testing.T) {
@@ -75,7 +74,7 @@ func assertNoPartProgress(t *testing.T, database dbapi.DB, session uploads.Sessi
 
 func partFixture(t *testing.T, allowProgress bool) (*uploads.Service, dbapi.DB, uploads.Session) {
 	t.Helper()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,20 +82,20 @@ func partFixture(t *testing.T, allowProgress bool) (*uploads.Service, dbapi.DB, 
 	database.SetMaxOpenConns(1)
 	_, err = database.ExecContext(t.Context(), `
 CREATE TABLE upload_sessions (
- id TEXT PRIMARY KEY,purpose TEXT,state TEXT DEFAULT 'CREATED',source_type TEXT,total_files INTEGER,
-total_bytes INTEGER,
- manifest_digest TEXT,expires_at_ms INTEGER,created_at_ms INTEGER,updated_at_ms INTEGER,
- version INTEGER DEFAULT 1,finalization_no INTEGER DEFAULT 0,finalize_job_id TEXT,last_error_code TEXT,
- allow_progress INTEGER DEFAULT 0,CHECK(state!='UPLOADING' OR allow_progress=1)
+ id TEXT PRIMARY KEY,purpose TEXT,state TEXT DEFAULT 'CREATED',source_type TEXT,total_files BIGINT,
+total_bytes BIGINT,
+ manifest_digest TEXT,expires_at_ms BIGINT,created_at_ms BIGINT,updated_at_ms BIGINT,
+ version BIGINT DEFAULT 1,finalization_no BIGINT DEFAULT 0,finalize_job_id TEXT,last_error_code TEXT,
+ allow_progress BIGINT DEFAULT 0,CHECK(state!='UPLOADING' OR allow_progress=1)
 );
 CREATE TABLE upload_files (
- id TEXT PRIMARY KEY,upload_session_id TEXT,relative_path TEXT,declared_size_bytes INTEGER,
- received_size_bytes INTEGER DEFAULT 0,state TEXT,created_at_ms INTEGER,updated_at_ms INTEGER,
+ id TEXT PRIMARY KEY,upload_session_id TEXT,relative_path TEXT,declared_size_bytes BIGINT,
+ received_size_bytes BIGINT DEFAULT 0,state TEXT,created_at_ms BIGINT,updated_at_ms BIGINT,
  last_error_code TEXT,final_file_record TEXT
 );
 CREATE TABLE upload_parts (
- upload_file_id TEXT,part_no INTEGER,offset_bytes INTEGER,size_bytes INTEGER,sha256 TEXT,storage_key
-TEXT,created_at_ms INTEGER,
+ upload_file_id TEXT,part_no BIGINT,offset_bytes BIGINT,size_bytes BIGINT,sha256 TEXT,storage_key
+TEXT,created_at_ms BIGINT,
  PRIMARY KEY(upload_file_id,part_no)
 );
 CREATE TABLE upload_consumptions (upload_session_id TEXT);

@@ -18,15 +18,13 @@ type (
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(jobs.Records) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(records{executor: transaction}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("jobs/begin: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(records{executor: transaction}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("jobs/commit: %w", err)
 	}
 	return nil

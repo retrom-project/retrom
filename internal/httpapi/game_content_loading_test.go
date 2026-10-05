@@ -26,10 +26,10 @@ func TestGameCoreOptionsProjectBoundTargetContentLoading(t *testing.T) {
 		"01980000-0000-7000-8000-000000000208", &fixture)
 	for _, capability := range []string{"ON_DEMAND_AND_PRELOAD", "PRELOAD_ONLY", ""} {
 		t.Run("capability="+capability, func(t *testing.T) {
-			query := `UPDATE runtime_targets SET capabilities_json=json_set(capabilities_json,'$.contentLoading',?)
+			query := `UPDATE runtime_targets SET capabilities_json=(jsonb_set((capabilities_json)::jsonb,'{contentLoading}',to_jsonb((?)::text),true))::text
  WHERE (provider_id,target_id) IN (SELECT provider_id,target_id FROM game_variants WHERE id=?)`
 			if capability == "" {
-				query = `UPDATE runtime_targets SET capabilities_json=json_remove(capabilities_json,'$.contentLoading')
+				query = `UPDATE runtime_targets SET capabilities_json=(capabilities_json::jsonb - 'contentLoading')::text
  WHERE (provider_id,target_id) IN (SELECT provider_id,target_id FROM game_variants WHERE id=?) AND ?=''`
 				if _, err := server.database.ExecContext(ctx, query, variantID, capability); err != nil {
 					t.Fatal(err)

@@ -13,16 +13,9 @@ type Repository struct{ database dbapi.DB }
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (service *Repository) WithWrite(ctx context.Context, work func(favorites.WriteScope) error) error {
-	transaction, err := service.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, service.database, func(tx dbapi.Tx) error { return work(writeScope(tx)) })
 	if err != nil {
-		return fmt.Errorf("favorites: begin write: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(writeScope(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("favorites: commit: %w", err)
+		return fmt.Errorf("commit favorites transaction: %w", err)
 	}
 	return nil
 }
@@ -49,7 +42,7 @@ func (service *Repository) References(
 	query := `
 SELECT game_id,created_at_ms
 FROM favorite_games
-WHERE profile_id=? AND game_id IN (SELECT value FROM json_each(?))`
+WHERE profile_id=? AND game_id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))`
 	rows, err := service.database.QueryContext(ctx, query, profileID, encodedStringList(gameIDs))
 	if err != nil {
 		return nil, fmt.Errorf("favorites: query references: %w", err)
@@ -78,7 +71,7 @@ FROM favorite_folder_games membership
 JOIN favorite_folders folder
   ON folder.profile_id=membership.profile_id AND folder.id=membership.folder_id
 WHERE membership.profile_id=?
-AND membership.game_id IN (SELECT value FROM json_each(?))
+AND membership.game_id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 ORDER BY membership.game_id,folder.created_at_ms,folder.id
 `, profileID, encodedStringList(gameIDs))
 	if err != nil {

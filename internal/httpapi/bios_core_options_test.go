@@ -21,7 +21,7 @@ func TestBIOSCoreOptionsIgnoreFiltersAndPagination(t *testing.T) {
 INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,logical_name,
 requirement_mode,catalog_digest,size_bytes,md5,source_url,source_version,enabled,version,
 created_at_ms,updated_at_ms,delivery_kind)
-VALUES(?,?,?,?, 'STATIC',?,'REQUIRED',lower(hex(zeroblob(32))),1,lower(hex(zeroblob(16))),
+VALUES(?,?,?,?, 'STATIC',?,'REQUIRED',lower(upper(encode(decode(repeat('00',(32)::integer),'hex'),'hex'))),1,lower(upper(encode(decode(repeat('00',(16)::integer),'hex'),'hex'))),
 'https://example.invalid/bios','options-v1',1,1,1,1,'BIOS_BUNDLE')`,
 			coreID, coreID, target.ProviderID, target.TargetID, coreID+".bin")
 		testassert.False(t, err != nil, err)

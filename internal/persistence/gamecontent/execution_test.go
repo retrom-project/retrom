@@ -5,10 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
@@ -17,7 +18,7 @@ import (
 
 func executionFixture(t *testing.T, state string) (dbapi.DB, gamecontent.Claim) {
 	t.Helper()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return time.UnixMilli(100) })
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), func() time.Time { return time.UnixMilli(100) })
 	if err != nil {
 		t.Fatal(err)
 	}

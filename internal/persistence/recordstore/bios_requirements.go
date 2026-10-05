@@ -25,10 +25,10 @@ WHEN (NOT (
    candidate.emulator_path IS NOT NULL AND
    length(candidate.emulator_path) BETWEEN 1 AND 512 AND
    substr(candidate.emulator_path,1,1)='/' AND
-   candidate.emulator_path NOT LIKE '%\%' AND
+   strpos(candidate.emulator_path,chr(92))=0 AND
    candidate.emulator_path NOT LIKE '%?%' AND
    candidate.emulator_path NOT LIKE '%#%' AND
-   instr(candidate.emulator_path,char(0))=0 AND
+   true AND
    candidate.emulator_path NOT LIKE '%//%' AND
    candidate.emulator_path NOT LIKE '%/./%' AND
    candidate.emulator_path NOT LIKE '%/../%' AND

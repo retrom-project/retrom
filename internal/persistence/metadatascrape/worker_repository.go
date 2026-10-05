@@ -35,24 +35,22 @@ func (repository *WorkerRepository) Run(ctx context.Context, id string) (metadat
 }
 
 func (repository *WorkerRepository) WithWrite(ctx context.Context, work func(metadatascrape.WorkerScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := workerRecords{tx}
+		if err := work(
+			metadatascrape.WorkerScope{
+				Leases: records,
+				Write:  records,
+				Initial: BindInitialReview(
+					tx,
+				),
+			},
+		); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin metadata execution: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := workerRecords{tx}
-	if err := work(
-		metadatascrape.WorkerScope{
-			Leases: records,
-			Write:  records,
-			Initial: BindInitialReview(
-				tx,
-			),
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit metadata execution: %w", err)
 	}
 	return nil

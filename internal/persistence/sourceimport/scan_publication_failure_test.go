@@ -12,7 +12,7 @@ import (
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testsupport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestScanPublicationChecksAffectedRowsAfterActualInsert(t *testing.T) {
@@ -109,7 +109,7 @@ func TestScanPublicationCommitFailureRollsBackPublishedOutcome(t *testing.T) {
 		func() time.Time { return time.UnixMilli(10) },
 	)
 	err := service.Finish(t.Context(), id, projection.Summary)
-	var cause *sqlite.Error
+	var cause *pgconn.PgError
 	if !errors.As(err, &cause) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 		t.Fatalf("failed commit changed scan: %v", err)
 	}

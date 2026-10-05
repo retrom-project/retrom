@@ -1,14 +1,15 @@
 package store
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestApplicationQueriesDoNotRequireDatabaseViews(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	database, err := Open(t.Context(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(1786000000000)
 	})
 	if err != nil {
@@ -19,7 +20,7 @@ func TestApplicationQueriesDoNotRequireDatabaseViews(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	views := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='view' ORDER BY name")
+	views := queryStrings(t, database.SQL, "SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects WHERE type='view' ORDER BY name")
 	if len(views) != 0 {
 		t.Fatalf("application queries must own their projections; database views remain: %v", views)
 	}
@@ -27,7 +28,7 @@ func TestApplicationQueriesDoNotRequireDatabaseViews(t *testing.T) {
 
 func TestApplicationSchemaHasNoTriggers(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestApplicationSchemaHasNoTriggers(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name")
+	names := queryStrings(t, database.SQL, "SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects WHERE type='trigger' ORDER BY name")
 	if len(names) != 0 {
 		t.Fatalf("unexpected database triggers: %v", names)
 	}

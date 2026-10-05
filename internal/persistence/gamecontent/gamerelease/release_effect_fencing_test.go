@@ -2,10 +2,11 @@ package gamerelease_test
 
 import (
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
 
@@ -15,12 +16,12 @@ import (
 	application "retrom/internal/service/cleanupjobs"
 	"retrom/internal/testsupport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	db, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "effect.db"),
+	db, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t),
 		func() time.Time { return time.UnixMilli(10) })
 	if err != nil {
 		t.Fatal(err)
@@ -115,15 +116,15 @@ func TestEffectCommitFailurePreservesCauseAndRollsBackOwner(t *testing.T) {
 		}); err != nil {
 			return err
 		}
-		if _, err := executor.ExecContext(t.Context(), `PRAGMA defer_foreign_keys=ON`); err != nil {
+		if _, err := executor.ExecContext(t.Context(), `SET CONSTRAINTS ALL DEFERRED`); err != nil {
 			return err
 		}
 		_, err = executor.ExecContext(t.Context(), `INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES('deferred-effect','missing-game','missing-deferred-file','COVER',0,1,1,'image/png',10)`)
 		return err
 	})
-	var cause *sqlite.Error
-	if !errors.As(err, &cause) || cause.Code() != 787 {
+	var cause *pgconn.PgError
+	if !errors.As(err, &cause) || cause.Code != "23503" {
 		t.Fatalf("deferred commit cause=%v", err)
 	}
 	var state string

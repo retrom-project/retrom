@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Create an independent missing-BIOS game in disposable acceptance data."""
-import sqlite3
+import postgres_fixture as pg
 import sys
 from fixture_files import own_rows
 
-with sqlite3.connect(sys.argv[1], timeout=30) as db:
-    db.executescript(r"""
-PRAGMA foreign_keys=ON;
-BEGIN IMMEDIATE;
+with pg.connect(sys.argv[1]) as db:
+    db.execute(r"""
+
+BEGIN;
 CREATE TEMP TABLE acceptance_game AS
 SELECT g.* FROM games g
 WHERE g.status='PUBLISHED'

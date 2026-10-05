@@ -129,9 +129,9 @@ func reviewBulkCandidateStatement(query libraryservice.ReviewBulkCandidateQuery)
 		}
 	}
 	if query.Scope.Q != "" {
-		statement += ` AND (instr(item.search_text,?)>0 OR EXISTS(
+		statement += ` AND (strpos(item.search_text,?)>0 OR EXISTS(
  SELECT 1 FROM review_draft_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
- WHERE relation.review_draft_id=draft.id AND instr(tag.name_key,?)>0))`
+ WHERE relation.review_draft_id=draft.id AND strpos(tag.name_key,?)>0))`
 		arguments = append(arguments, query.Scope.Q, query.Scope.Q)
 	}
 	if query.Scope.TagID != "" {
@@ -161,8 +161,8 @@ SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,instance.
          WHERE attachment.import_item_id=item.id AND attachment.state='PENDING') OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state='PENDING'),
-       COALESCE(json_extract(source_owner.source_flags_json,'$.hidden'),0)=1 OR
-       COALESCE(json_extract(source_owner.source_flags_json,'$.adult'),0)=1
+       COALESCE(((((source_owner.source_flags_json)::jsonb #>> '{hidden}'))::boolean)::integer,0)=1 OR
+       COALESCE(((((source_owner.source_flags_json)::jsonb #>> '{adult}'))::boolean)::integer,0)=1
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id

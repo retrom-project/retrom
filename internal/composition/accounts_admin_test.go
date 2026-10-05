@@ -121,14 +121,14 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 
 	var tokenColumns int
 	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
-SELECT count(*) FROM pragma_table_info('account_links')
+SELECT count(*) FROM (SELECT column_name AS name,data_type AS type FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='account_links')
 WHERE lower(name) LIKE '%token%' OR lower(name) LIKE '%secret%' OR lower(name) LIKE '%hash%'
 `).Scan(&tokenColumns); err != nil || tokenColumns != 0 {
 		t.Fatalf("account link secret columns = %d, error=%v", tokenColumns, err)
 	}
 	var storedBody string
 	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
-SELECT CAST(response_body AS TEXT) FROM idempotency_records
+SELECT convert_from(response_body,'UTF8') FROM idempotency_records
 WHERE principal_id=? AND operation_id='postAdminInvitation' AND key=?
 `, admin.Principal.UserID, key).Scan(&storedBody); err != nil ||
 		len(invitation.CapabilityToken) != 0 && strings.Contains(storedBody, invitation.CapabilityToken) {

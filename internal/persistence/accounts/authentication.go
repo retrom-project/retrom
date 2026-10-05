@@ -29,16 +29,12 @@ func (repository *Authentication) Session(ctx context.Context, hash [32]byte) (a
 }
 
 func (repository *Authentication) WithWrite(ctx context.Context, work func(accounts.AuthScope) error) error {
-	tx, err := repository.writer.BeginTx(ctx, nil)
+	// Password verification and session minting precede this database-only scope.
+	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		records := authRecords{tx}
+		return work(accounts.AuthScope{Read: records, Write: records, Limits: rateLimitRecords{tx}})
+	})
 	if err != nil {
-		return fmt.Errorf("begin authentication: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := authRecords{tx}
-	if err := work(accounts.AuthScope{Read: records, Write: records, Limits: rateLimitRecords{tx}}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit authentication: %w", err)
 	}
 	return nil

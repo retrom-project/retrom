@@ -17,15 +17,13 @@ type PlanLifecycle struct{ database dbapi.DB }
 func NewPlanLifecycle(database dbapi.DB) *PlanLifecycle { return &PlanLifecycle{database: database} }
 
 func (repository *PlanLifecycle) WithPlanWrite(ctx context.Context, work func(application.PlanRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(planRecords{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source plan write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(planRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source plan write: %w", err)
 	}
 	return nil

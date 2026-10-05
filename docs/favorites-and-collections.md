@@ -76,7 +76,7 @@ internal/persistence/favorites（SQL 与事务实现）
 - 外部 Profile 的 Folder 与不存在 Folder 返回同一 404；Folder 名称、版本、成员数和收藏计数不得通过错误、日志、diagnostics 或管理 API 泄漏。
 - Cursor filter digest 和 Idempotency-Key namespace 绑定 Principal User ID；两个账号可以复用同一 key，但不能重放彼此结果。
 - Folder 名称只按普通文本渲染，不支持 Markdown/HTML；日志不记录请求 body、搜索文本、Folder 展示名、Profile ID 或用户收藏数量。
-- 两个标签页同时收藏同一 Game 时复合主键收敛为一行；收藏与取消的最终状态由 SQLite 提交顺序决定，客户端在写成功后丢弃旧 cursor 并刷新首页。
+- 两个标签页同时收藏同一 Game 时复合主键收敛为一行；收藏与取消的最终状态由 PostgreSQL 提交顺序决定，客户端在写成功后丢弃旧 cursor 并刷新首页。
 - 等价 Folder 名并发创建只允许一个提交；重命名/删除使用 `If-Match`，先提交者成功，另一方返回版本冲突并要求用户复核，不自动覆盖。
 - Folder 删除与 organize 竞争时，要么 organize 因 Folder 已删除返回 404，要么成员先加入后随 Folder 删除而移除；两种结果都保留 Favorite。
 

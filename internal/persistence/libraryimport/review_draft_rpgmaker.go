@@ -39,7 +39,8 @@ func (run *draftPatchRun) applyRPGMakerBinding() error {
 		return libraryservice.ErrInvalid
 	}
 	_, err = run.transaction.ExecContext(run.ctx, `
-UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.selfContainedOverride',?)
+UPDATE import_items SET review_profile_json=(jsonb_set((review_profile_json)::jsonb,
+ '{data,selfContainedOverride}',to_jsonb((?)::bigint),true))::text
 WHERE id=? AND review_profile_json IS NOT NULL
 `, boolIncrement(override), run.draftID)
 	if err != nil {

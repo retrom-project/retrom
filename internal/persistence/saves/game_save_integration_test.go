@@ -19,7 +19,7 @@ func newGameSaveFixture(t *testing.T) *saveFixture {
 	t.Helper()
 	f := newSaveFixture(t)
 	mustSaveSQL(t, f.database.SQL, `UPDATE runtime_targets
-SET checkpoint_json=json_set(checkpoint_json,'$.semantics','GAME_SAVE')
+SET checkpoint_json=(jsonb_set((checkpoint_json)::jsonb,'{semantics}',to_jsonb(('GAME_SAVE')::text),true))::text
 WHERE (provider_id,target_id) IN (SELECT provider_id,target_id FROM game_variants WHERE game_id=?)`, f.gameID)
 	return f
 }

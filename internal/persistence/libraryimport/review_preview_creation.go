@@ -103,17 +103,12 @@ func (repository *ReviewPreviewCreation) WithCreation(
 	ctx context.Context,
 	work func(libraryservice.ReviewPreviewScope) error,
 ) error {
-	// The application supplies the shared single-writer database handle.
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Preparation and external effects stay outside this replayable database scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(reviewPreviewRecords{executor: tx})
+	})
 	if err != nil {
-		return fmt.Errorf("begin preview creation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(reviewPreviewRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit preview creation: %w", err)
+		return fmt.Errorf("commit libraryimport transaction: %w", err)
 	}
 	return nil
 }

@@ -42,19 +42,17 @@ func (repository *Repository) WithRead(ctx context.Context, work func(firmware.R
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(firmware.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		bound := writes{transaction: transaction}
+		if err := work(firmware.WriteScope{
+			ReadScope: readScope(transaction), Archives: bound, Installations: bound,
+			Retirements: BindSupersession(transaction), Server: bound,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin BIOS write: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	bound := writes{transaction: transaction}
-	if err := work(firmware.WriteScope{
-		ReadScope: readScope(transaction), Archives: bound, Installations: bound,
-		Retirements: BindSupersession(transaction), Server: bound,
-	}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit BIOS write: %w", err)
 	}
 	return nil

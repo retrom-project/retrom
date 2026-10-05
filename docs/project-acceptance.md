@@ -101,7 +101,7 @@ make acceptance-report
 
 以上三个 target 是项目实现的一部分，也是验收 Agent 的稳定入口；任一 target 缺失或无法按约定工作时，对应 Case 直接 `FAIL`，不得临时改用一组未记录的手工命令绕过。除 Case 另列附加前置外，每个 Case 的公共前置都是：`make acceptance-prepare` 已通过、当前目录为目标 commit 的仓库根目录、验收环境文件已加载、固定 seed 未被改写。
 
-- `acceptance-prepare` 先离线执行 `make deps-check`，再在明确的临时目录创建全新 SQLite、独立文件存储、Hasheous stub 和安全负向夹具；它不联网、不读取或删除用户运行数据，输出本次 `run_id` 和环境文件。
+- `acceptance-prepare` 先准备锁定的测试工具并离线执行 `make deps-check`，再在明确的临时目录创建全新 PostgreSQL、独立文件存储、Hasheous stub 和安全负向夹具；夹具不访问公共网络、不读取或删除用户运行数据，输出本次 `run_id` 和环境文件。
 - `acceptance-case` 每次只运行一个 Case，负责启动/停止本 Case 需要的本地进程、重置确定性种子并执行硬超时。
 - `acceptance-report` 只聚合已有结果，不重新运行 Case。
 - 实现可由 `scripts/acceptance/run.sh` 承载，但 Make target 和 Case ID 是稳定接口。
@@ -264,8 +264,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
-- 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `RETROM_PUBLIC_ORIGIN`、`RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`、`NEXT_DEV_HOST` 的 `make dev`；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取默认服务器文件系统投影。再经前端端口验证 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
+- 前置：验收准备已完成，`make deps-check` 离线通过，`make prepare-local-postgres` 已完成固定版本原生工具准备。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test`、空 `RETROM_DATABASE_URL` 和临时数据/状态目录启动 `make dev`；隔离验收仅覆盖应用测试 origin 与空闲端口，保留默认 loopback 监听与 runtime 模板；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取默认服务器文件系统投影。再经前端端口验证 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止；通过 SQL 写入探针验证正常接管和孤儿恢复后数据仍在，停止后 PostgreSQL 无残留且 PGDATA 保留。另执行 `make test-local-postgres` 验证双数据库隔离、SIGINT/SIGTERM、数据库/应用异常退出和外部 URL 不受启停影响。
 - 通过标准：Next 与 Go 只监听 `127.0.0.1:4000/8080`，浏览器地址栏保持 `http://localhost:4000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；root real/effective UID 与任一 sudo 标记都在依赖准备前以 `LOCAL_DEVELOPMENT_ROOT_FORBIDDEN` 拒绝；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；HMR upgrade 返回 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；API 无需配置即返回 `filesystem`（服务器文件系统）且状态为 `AVAILABLE`，管理员可以浏览可读取的服务端目录；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、健康/登录/首页/root HTTP 结果、HMR upgrade status 和退出后的 PID 检查。
 
@@ -366,16 +366,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-001`。
-- 流程：在空临时目录运行真实 migration；枚举全部表、列、外键与索引，并确认数据库没有 trigger/view；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
-- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 声明式约束、partial unique index、外键索引与应用写入校验均存在；跨表归属、状态转换和不可变审计通过存储方法拒绝，合法当前态事务可提交。校验失败后继续外层事务不泄漏非法记录，批量操作整体回滚。
+- 流程：在专用测试服务器的空 PostgreSQL 数据库运行真实 migration；枚举全部表、列、外键与索引，并确认数据库没有 trigger/view；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 PostgreSQL pg_typeof()。
+- 通过标准：所有业务时刻以 *_at_ms BIGINT 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含历史数据转换或外键关闭标记；建表后 ALTER 仅声明前向引用外键；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 声明式约束、partial unique index、外键索引与应用写入校验均存在；跨表归属、状态转换和不可变审计通过存储方法拒绝，合法当前态事务可提交。校验失败后继续外层事务不泄漏非法记录，批量操作整体回滚。
 - 证据：完整 schema 摘要、合法事务、每个负向存储操作的 SQL 结果和 API 响应。
 
 ### ACC-DB-002：干净迁移链与 lineage 保护
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→015，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
-- 通过标准：全新库到 014 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库。
+- 流程：使用全新数据根执行当前 001_schema.sql，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚。
+- 通过标准：全新库完成 001 后约束/索引目录检查和实际重新打开通过，重复启动不重复变更；正常启动同步后 Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以对应迁移历史错误码拒绝且不改库。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵。
 
 ### ACC-DB-003：大库导入与审批期间的受保护读取
@@ -404,7 +404,7 @@ make acceptance-case CASE=<case-id>
 
 ### ACC-STOR-002：批次丢弃与引用释放
 
-- 前置：临时 SQLite/独立文件存储、固定 clock 和项目自产的最小文件；不读取操作者游戏。
+- 前置：临时 PostgreSQL/独立文件存储、固定 clock 和项目自产的最小文件；不读取操作者游戏。
 - 流程：分别丢弃普通拒绝文件批次、混合已发布/待审核批次、执行中批次与两类服务器来源在审核前失败的批次；恢复处置协调器并重放请求，覆盖内部上传与来源项原子建立唯一归属、归属事务回滚及相同内容的独立文件。调用管理员 HTTP 负向分支，执行前端确认、处理中、刷新与失败重试交互。
 - 通过标准：真实待审核项恰有一个丢弃决定，未产生审核项不伪造事件；原失败证据保留。已发布游戏、其他批次的独立文件保持可用；拒绝内部上传引用解除并进入既有释放/后台删除 流程。请求后禁止发布和重试，服务重启可继续，归属不一致不释放文件。匿名/缺少 CSRF/未知字段请求拒绝，未确认不写入，刷新恢复当前处置；列表按页批量读取处置事实，页面进入与筛选不逐项请求处置接口；处理中复用任务详情刷新，查询失败后可恢复，完成或失败后停止处置轮询。全部已发布/丢弃时按钮不可点击，服务端拒绝空处置。
 - 命令：`make acceptance-case CASE=ACC-STOR-002`，硬超时 180 秒。
@@ -710,7 +710,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 执行：`make acceptance-case CASE=ACC-IMP-010`。
 - 流程：创建已发布来源与 52 个重复待审项，以及同名不同内容、筛选范围外重复、仅待审之间重复的对照项。按完整批次筛选连续分页去重并重试；注入丢弃事务失败。校验 HTTP 管理员权限、CSRF、严格 body、幂等重放；组件覆盖连续分页、跳过补传提示、请求失败后保留已提交计数和运行中重复点击。
 - 通过标准：仅匹配已发布完整内容的范围内条目被丢弃，发布游戏不变，ImportItem 当前状态与聚合计数一致；单页失败全部回滚，重试不重复丢弃。按钮结束后清除审核快照并自动刷新实际队列，保留 URL 筛选；既有运行中补传不会被去重中断。
-- 证据：SQLite 集成断言、HTTP 响应与组件测试；PFB 物理 4K 150% 页面截图单独保存为本地验收证据。
+- 证据：PostgreSQL 集成断言、HTTP 响应与组件测试；PFB 物理 4K 150% 页面截图单独保存为本地验收证据。
 
 ## 11. BIOS 与 Arcade DAT
 
@@ -719,7 +719,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个正式 Provider Bundle/manifest 的全部 Target、产品 Core binding 闭包、Provider 来源清单声明的全部许可/notice/源码定位、EmulatorJS 与 MAME Current manifest 声明的全部 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和全部真实 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/Host catalog 负向、约束负向与 Git payload 边界检查。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个正式 Provider Bundle/manifest 的全部 Target、产品 Core binding 闭包、Provider 来源清单声明的全部许可/notice/源码定位、EmulatorJS 与 MAME Current manifest 声明的全部 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 PostgreSQL 和全部真实 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/Host catalog 负向、约束负向与 Git payload 边界检查。
 - 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；Target 数量与身份恰好匹配当前正式 Bundle declaration，不以文档中的历史数量替代声明。每个 Host binding 引用的 Core、Provider/Target 均存在，且当前投影与 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，每份声明的 DAT 创建或复用不可取消 bootstrap Job 并在事务外解析，最终每个适用 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
@@ -1540,7 +1540,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
   收藏夹，在全部/最近/收藏/收藏夹/平台范围跨过 50 项分页边界，并用 Y 收藏、取消、失败重试。
 - 通过标准：每次 当前 Game 元信息 写入的 `title_initial` 严格为 `#|0-9|A-Z`；数字原样、字母大写、汉字
   使用锁定拼音首字母、其他为 `#`，改名时 Game version 在同一事务更新键。除最近范围外均按
-  `titleInitial/title COLLATE NOCASE/gameId` 无重复漏项；最近范围只按本 Profile 最近时间倒序。收藏视图可
+  `titleInitial/lower(title) COLLATE "C"/gameId` 无重复漏项；最近范围只按本 Profile 最近时间倒序。收藏视图可
   切换本人 Folder，另一 Profile 的 Folder 统一不可见；Y 新增 Favorite 但不自动加入 Folder，取消同时移除
   memberships，服务端失败不乐观伪造成功且旧 cursor 被丢弃。收藏后红色实心爱心固定在当前游戏项最右侧，不落入标题下方。
 - 证据：fresh schema/约束与 writer 集成断言、API 分页 tuple、双 Profile HTTP trace、收藏视图截图及 Y 输入
@@ -1806,7 +1806,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 ### ACC-RPG-010：版本选择与内容安全
 
 - 上限：600 秒。执行：`make acceptance-case CASE=ACC-RPG-010`。
-- 流程：Case 必须在没有并发管理写入的全新独立 SQLite/独立文件存储中执行。明文 localhost 拓扑必须让
+- 流程：Case 必须在没有并发管理写入的全新独立 PostgreSQL/独立文件存储中执行。明文 localhost 拓扑必须让
   `http://{launchId}.rpg.localhost:<backend-port>` 直接到达 Go，不得把 runtime origin 指向 Next 端口；
   后者会把 `/__retrom/bootstrap` 当应用页面重定向到登录页，driver 必须以
   `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED` 快速结束。应用 origin 必须使用
@@ -1948,7 +1948,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | --- | --- |
 | 工程质量与回归 | `ACC-QA-001`–`003` |
 | 镜像、本地开发、PFB、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case）、`ACC-PFB-001`–`012` |
-| SQLite、领域目录、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-002`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
+| PostgreSQL、领域目录、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-002`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`010` |

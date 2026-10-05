@@ -30,16 +30,14 @@ func New(database dbapi.DB, deletion payloadservice.DeletionStager) *Repository 
 func (repository *Repository) WithCandidateApply(
 	ctx context.Context, work func(application.CandidateApplyScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		scope := candidateApplyScope{transaction: transaction, deletion: repository.deletion}
+		if err := work(scope); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin scrape candidate apply: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	scope := candidateApplyScope{transaction: transaction, deletion: repository.deletion}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit scrape candidate apply: %w", err)
 	}
 	return nil
@@ -260,7 +258,7 @@ func (scope candidateApplyScope) StageCandidates(
 	for _, id := range ids {
 		var count int
 		if err := dbapi.QueryRowContext(ctx, scope.transaction, `SELECT count(*) FROM game_assets
- WHERE game_id=? AND json_extract(file_record,'$.path')=json_extract(?,'$.path')
+ WHERE game_id=? AND ((file_record)::jsonb #>> '{path}')=((?)::jsonb #>> '{path}')
 `, gameID, id).Scan(&count); err != nil {
 			return fmt.Errorf("stage candidates: %w", err)
 		}

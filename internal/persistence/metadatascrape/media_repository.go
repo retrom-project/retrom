@@ -17,16 +17,14 @@ type (
 func NewMedia(database dbapi.DB) *MediaRepository { return &MediaRepository{database} }
 
 func (repository *MediaRepository) WithWrite(ctx context.Context, work func(metadatascrape.MediaScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := mediaRecords{tx}
+		if err := work(metadatascrape.MediaScope{Read: records, Leases: records, Assets: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin media transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := mediaRecords{tx}
-	if err := work(metadatascrape.MediaScope{Read: records, Leases: records, Assets: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit media transaction: %w", err)
 	}
 	return nil

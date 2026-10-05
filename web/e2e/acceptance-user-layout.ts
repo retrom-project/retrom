@@ -89,6 +89,7 @@ async function verifyPhysical4KHome(page: Page, testInfo: TestInfo) {
 async function verifyLibraryAndPlayerLayout(page: Page, testInfo: TestInfo, sharedGaps: HorizontalGaps) {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
   const game = page.locator(".library-game-card").filter({ hasText: "Sudoku" });
   await expect(game).toBeVisible();
   const card = await game.evaluate((element) => {const box = element.getBoundingClientRect(); const cover = element.querySelector(".library-game-cover")?.getBoundingClientRect(); return { width: box.width, ratio: cover ? cover.width / cover.height : 0 };});

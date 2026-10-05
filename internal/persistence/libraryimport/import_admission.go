@@ -22,18 +22,16 @@ func NewImportAdmissions(database dbapi.DB) *ImportAdmissions {
 func (repository *ImportAdmissions) WithAdmission(
 	ctx context.Context, work func(libraryservice.ImportAdmissionScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		scope := libraryservice.ImportAdmissionScope{
+			Facts: BindImportFacts(transaction), Tags: tagpersistence.Bind(transaction), Writer: admissionRecords{transaction},
+		}
+		if err := work(scope); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import admission: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	scope := libraryservice.ImportAdmissionScope{
-		Facts: BindImportFacts(transaction), Tags: tagpersistence.Bind(transaction), Writer: admissionRecords{transaction},
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit import admission: %w", err)
 	}
 	return nil

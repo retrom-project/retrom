@@ -17,6 +17,8 @@ data_root_lock="$data_root/retrom.lock"
 auth_mode="${RETROM_MODE:-test}"
 backend_pid=""
 web_pid=""
+postgres_watch_pid=""
+managed_postgres=false
 process_start_ticks=""
 registration_version=""
 registered_supervisor_pid=""
@@ -35,6 +37,11 @@ if [[ "$auth_mode" != "release" && "$auth_mode" != "test" ]]; then
   echo "RETROM_MODE must be release or test" >&2
   exit 2
 fi
+
+postgres_command() {
+  python3 "$repository_root/scripts/dev_postgres.py" "$1" \
+    --state "$state_directory" --data "$data_root"
+}
 
 read_process_identity() {
   local pid="$1"
@@ -188,6 +195,13 @@ cleanup() {
   local status=$?
   trap - INT TERM EXIT
   stop_children
+  if [[ -n "$postgres_watch_pid" ]]; then
+    kill -TERM "$postgres_watch_pid" 2>/dev/null || true
+    wait "$postgres_watch_pid" 2>/dev/null || true
+  fi
+  if [[ "$managed_postgres" == true ]]; then
+    postgres_command stop || status=1
+  fi
   remove_own_pid_file
   exit "$status"
 }
@@ -205,10 +219,10 @@ if load_registration; then
     is_retrom_dev_process "$registered_supervisor_pid" "$registered_supervisor_start_ticks"; then
     printf 'stopping previous Retrom dev instance (pid %s)\n' "$registered_supervisor_pid"
     kill -TERM "$registered_supervisor_pid"
-    deadline=$((SECONDS + 35))
+    deadline=$((SECONDS + 75))
     while is_retrom_dev_process "$registered_supervisor_pid" "$registered_supervisor_start_ticks"; do
       if (( SECONDS >= deadline )); then
-        printf 'previous Retrom dev instance did not stop within 35 seconds (pid %s)\n' \
+        printf 'previous Retrom dev instance did not stop within 75 seconds (pid %s)\n' \
           "$registered_supervisor_pid" >&2
         exit 1
       fi
@@ -268,16 +282,30 @@ if ! data_root_lock_available; then
   exit 1
 fi
 
+# Recover this state's managed cluster after stopping its previous application.
+# An explicit external URL is never passed to this lifecycle helper.
+postgres_command stop
 if [[ "$mode" == "--stop" ]]; then
   exit 0
 fi
 
+if [[ -z "${RETROM_DATABASE_URL:-}" ]]; then
+  managed_postgres=true
+  RETROM_DATABASE_URL="$(postgres_command start)"
+  export RETROM_DATABASE_URL
+  # A killed supervisor must release the takeover lock even before registration
+  # finishes. Long-lived children must never inherit its file description.
+  python3 "$repository_root/scripts/dev_postgres.py" watch \
+    --state "$state_directory" --data "$data_root" 9>&- &
+  postgres_watch_pid=$!
+fi
+
 process_start_ticks="$(read_start_ticks "$$")"
-setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" &
+setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" 9>&- &
 backend_pid=$!
 setsid env -u RETROM_DEV_STATE_DIR -u RETROM_PUBLIC_ORIGIN -u RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE \
   bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3" --webpack' \
-  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-4000}" &
+  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-4000}" 9>&- &
 web_pid=$!
 backend_start_ticks="$(read_start_ticks "$backend_pid")"
 web_start_ticks="$(read_start_ticks "$web_pid")"
@@ -293,7 +321,10 @@ exec 9>&-
 
 while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$web_pid" 2>/dev/null; do
   status=0
-  wait -n "$backend_pid" "$web_pid" || status=$?
+  wait -n "$backend_pid" "$web_pid" ${postgres_watch_pid:+"$postgres_watch_pid"} || status=$?
+  if [[ -n "$postgres_watch_pid" ]] && ! kill -0 "$postgres_watch_pid" 2>/dev/null; then
+    exit 1
+  fi
   if ! kill -0 "$backend_pid" 2>/dev/null || ! kill -0 "$web_pid" 2>/dev/null; then
     exit "$status"
   fi

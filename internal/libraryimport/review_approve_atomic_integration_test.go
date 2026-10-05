@@ -162,7 +162,7 @@ func approvalDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 
 func approvalTableRows(t *testing.T, database dbapi.DB, table string) string {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `SELECT name FROM pragma_table_info(?) ORDER BY cid`, table)
+	rows, err := database.QueryContext(t.Context(), `SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=? ORDER BY ordinal_position`, table)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func approvalTableRows(t *testing.T, database dbapi.DB, table string) string {
 		t.Fatalf("unknown approval table %s", table)
 	}
 	var result string
-	query := `SELECT COALESCE(json_group_array(row),'[]') FROM (SELECT json_array(` + strings.Join(columns, ",") + `) row FROM "` + table + `" ORDER BY 1)`
+	query := `SELECT COALESCE(jsonb_agg(row)::text,'[]') FROM (SELECT jsonb_build_array(` + strings.Join(columns, ",") + `) row FROM "` + table + `" ORDER BY 1)`
 	if err := dbapi.QueryRowContext(t.Context(), database, query).Scan(&result); err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,11 @@ package libraryimport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -30,19 +34,57 @@ updated_at_ms
 func (records reviewApprovalRecords) CopySourceFiles(
 	ctx context.Context, source libraryservice.ApprovalContentCopy,
 ) error {
+	files, err := records.publishedSourceFiles(ctx, source)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(files)
+	if err != nil {
+		return fmt.Errorf("encode approved files: %w", err)
+	}
 	result, err := recordstore.CreateGameFiles(ctx, records.transaction, `
-INSERT INTO game_files(game_id,role,logical_name,file_record,source_archive_file_record,
-source_archive_entry_ordinal,
-sort_order)
-SELECT ?,role,logical_name,json_set(file_record,'$.path',
- 'files/' || substr(?,-2) || '/' || ? || '/' || substr(json_extract(file_record,'$.path'),
-length('staging/items/' || ? || '/payload/')+1)),
-NULL,NULL,
-sort_order
-FROM import_item_source_snapshot_files WHERE source_snapshot_id=? ORDER BY sort_order,
-role,logical_name`,
-		source.GameID, source.GameID, source.GameID, source.ItemID, source.SnapshotID)
+INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
+SELECT ?,file.role,file.logical_name,file.file_record,file.sort_order
+FROM jsonb_to_recordset(?::jsonb) AS file(role text,logical_name text,file_record text,sort_order bigint)
+ORDER BY file.sort_order,file.role,file.logical_name`, source.GameID, string(encoded))
 	return approvalMutation(result, err, "copy approved source files", false)
+}
+
+// File records are serialized by filestore for every owner. Reformatting their
+// JSON in SQL would detach archive indexes whose identity is the exact record.
+type publishedSourceFile struct {
+	Role        string `json:"role"`
+	LogicalName string `json:"logical_name"`
+	FileRecord  string `json:"file_record"`
+	SortOrder   int64  `json:"sort_order"`
+}
+
+func (records reviewApprovalRecords) publishedSourceFiles(ctx context.Context,
+	source libraryservice.ApprovalContentCopy,
+) ([]publishedSourceFile, error) {
+	rows, err := records.transaction.QueryContext(ctx, `
+SELECT role,logical_name,file_record,sort_order FROM import_item_source_snapshot_files
+WHERE source_snapshot_id=? ORDER BY sort_order,role,logical_name`, source.SnapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("read approved files: %w", err)
+	}
+	defer func() { cleanup.Error("close approved files", rows.Close()) }()
+	files := make([]publishedSourceFile, 0)
+	for rows.Next() {
+		var file publishedSourceFile
+		if err := rows.Scan(&file.Role, &file.LogicalName, &file.FileRecord, &file.SortOrder); err != nil {
+			return nil, fmt.Errorf("scan approved file: %w", err)
+		}
+		file.FileRecord, err = filestore.PublishedRecord(file.FileRecord, source.ItemID, source.GameID)
+		if err != nil {
+			return nil, fmt.Errorf("publish approved file record: %w", err)
+		}
+		files = append(files, file)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate approved files: %w", err)
+	}
+	return files, nil
 }
 
 func (records reviewApprovalRecords) CopyRPGProfile(
@@ -70,9 +112,9 @@ NULL`, source.DraftID,
 	}
 	result, err := records.transaction.ExecContext(ctx, `
 UPDATE games SET content_profile_json=? WHERE id=? AND content_kind='RPG_MAKER_PROJECT'
- AND json_extract(source_manifest_json,'$.fileCount')=?
- AND json_extract(source_manifest_json,'$.totalBytes')=?
- AND json_extract(source_manifest_json,'$.filesDigest')=?`,
+ AND (((source_manifest_json)::jsonb #>> '{fileCount}'))::bigint=?
+ AND (((source_manifest_json)::jsonb #>> '{totalBytes}'))::bigint=?
+ AND ((source_manifest_json)::jsonb #>> '{filesDigest}')=?`,
 		profile, source.GameID, review.FileCount, review.TotalBytes, review.ProjectFingerprint)
 	return approvalMutation(result, err, "copy approved RPG profile", true)
 }

@@ -7,11 +7,33 @@
 # 将应用域名和 *.games.example.com 指向本机，并配置覆盖二者的 TLS 证书。
 
 services:
+  postgres:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: retrom
+      POSTGRES_PASSWORD: ${RETROM_POSTGRES_PASSWORD:?Set a strong database password}
+      POSTGRES_DB: retrom
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retrom -d retrom"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - retrom-network
+
   retrom:
+    depends_on:
+      postgres:
+        condition: service_healthy
     image: retrom:latest
     user: "1000:1000"
     restart: unless-stopped
     environment:
+      # URL-encode special characters in the password; use TLS for a remote database.
+      RETROM_DATABASE_URL: ${RETROM_DATABASE_URL:?Set the PostgreSQL URL for database retrom on host postgres}
       RETROM_PUBLIC_ORIGIN: "https://games.example.com"
       # 隔离域默认使用 https://{launchId}.games.example.com；只在后端配置可选覆盖。
       # 自定义时同步修改 Nginx 的 runtime server_name、DNS 与证书。
@@ -20,7 +42,6 @@ services:
       # RETROM_MULTI_DISC_IMPORT_ENABLED: "true" # 启用新建多盘导入；默认 false。
       # RETROM_STARTUP_CHECK_TIMEOUT: "120s"    # 启动预检时限；默认 60s，允许 10s..5m。
       # RETROM_LOG_LEVEL: "warn"                # 日志级别；默认 info，可选 debug/info/warn/error。
-      # RETROM_DB_PATH: "/var/lib/retrom/retrom.db" # 数据目录内的 SQLite 文件；此值为默认路径。
 
       # 下列值已内置在镜像，通常不用覆盖。版本和路径必须匹配镜像内已验证的依赖字节。
       # RETROM_HTTP_ADDR: "0.0.0.0:8080" # 内部监听；修改时同步修改 Nginx 上游。
@@ -72,3 +93,6 @@ networks:
 # RETROM_PROVIDER_DEV_ROOT 或允许不安全公开 origin 的开关。
 # Web 镜像中的 Next.js rewrite 在构建时固定；Nginx 按 nginx.conf.example
 # 把 API/内容/运行时请求直接交给 retrom，不能全部转发给 retrom-web。
+
+volumes:
+  postgres-data:

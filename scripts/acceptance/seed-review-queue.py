@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Create review queue fixtures with independent upload and item files."""
 import json
-import sqlite3
+import postgres_fixture as pg
 import sys
 from pathlib import Path
 from fixture_files import own_rows, put_owned
 
 SQL = r"""
-PRAGMA foreign_keys=ON;
-BEGIN IMMEDIATE;
+
+BEGIN;
 CREATE TEMP TABLE acceptance_base AS
 WITH base_job AS (
   SELECT i.id AS item_id,i.import_job_id AS job_id
@@ -18,9 +18,9 @@ WITH base_job AS (
   ORDER BY i.updated_at_ms DESC,i.id DESC
   LIMIT 1
 ), base_payload AS (
-  SELECT file.file_record,json_extract(file.file_record,'$.size_bytes') AS size_bytes,
-         json_object('status',variant.status,'code',variant.compatibility_code,
-                     'details',json_set(variant.dependency_snapshot_json,'$.bios',json('[]'))) AS content_analysis_json,
+  SELECT file.file_record,(((file.file_record)::jsonb #>> '{size_bytes}'))::bigint AS size_bytes,
+         jsonb_build_object('status',variant.status,'code',variant.compatibility_code,
+                     'details',jsonb_set((variant.dependency_snapshot_json)::jsonb,'{bios}',(('[]')::jsonb)::jsonb)) AS content_analysis_json,
          variant.runtime_profile_json AS review_profile_json,variant.default_dos_entry
   FROM games game
   JOIN platform_instances platform ON platform.id=game.platform_instance_id
@@ -75,24 +75,26 @@ INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platfor
 SELECT '20000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000002',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',3,0,0,3,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000200000,1786000200000,NULL
 FROM import_jobs WHERE id=(SELECT job_id FROM acceptance_base);
 
-WITH RECURSIVE generated(batch,n,max_n,job_id) AS (
-  SELECT 1,1,60,'20000000-0000-7000-8000-000000000001'
-  UNION ALL SELECT batch,n+1,max_n,job_id FROM generated WHERE n<max_n
-  UNION ALL SELECT 2,1,3,'20000000-0000-7000-8000-000000000002' FROM generated WHERE batch=1 AND n=max_n
+WITH generated(batch,n,job_id) AS (
+  SELECT batch,n,job_id FROM (VALUES
+    (1,60,'20000000-0000-7000-8000-000000000001'),
+    (2,3,'20000000-0000-7000-8000-000000000002')
+  ) batches(batch,item_count,job_id)
+  CROSS JOIN LATERAL generate_series(1,item_count) AS numbers(n)
 )
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,failed_stage,last_error_code,version,created_at_ms,updated_at_ms,completed_at_ms)
-SELECT printf('30000000-0000-7000-80%02d-%012d',batch,n),job_id,printf('%064x',n),'REVIEW_PENDING',
-	       json_object('files',json_array(json_object(
+SELECT concat('30000000-0000-7000-80',lpad((batch)::text,2,'0'),'-',lpad((n)::text,12,'0')),job_id,concat(lpad(to_hex((n)::bigint),64,'0')),'REVIEW_PENDING',
+	       jsonb_build_object('files',jsonb_build_array(jsonb_build_object(
 	         'fileRecord',CASE WHEN batch=1 AND n=57 THEN '65000000-0000-7000-8000-000000000057'
 	                       ELSE (SELECT file_record FROM acceptance_base) END,
-	         'logicalName',printf('batch-%d/Game-%02d.gba',batch,n),'role','CONTENT'))),
-	       printf('%064x',batch*1000+n),
-	       lower(printf('batch %d game %02d',batch,n)),NULL,NULL,1,1786000000000+batch*100000+n,1786000000000+batch*100000+n,NULL
+	         'logicalName',concat('batch-',(batch)::text,'/Game-',lpad((n)::text,2,'0'),'.gba'),'role','CONTENT'))),
+	       concat(lpad(to_hex((batch*1000+n)::bigint),64,'0')),
+	       lower(concat('batch ',(batch)::text,' game ',lpad((n)::text,2,'0'))),NULL,NULL,1,1786000000000+batch*100000+n,1786000000000+batch*100000+n,NULL
 FROM generated;
 
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
 SELECT i.id,'CONTENT',
-       printf('batch-%d/Game-%02d.gba',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+       concat('batch-',(CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END)::text,'/Game-',lpad((CAST(right(i.id,12) AS INTEGER))::text,2,'0'),'.gba'),
        CASE WHEN i.id='30000000-0000-7000-8001-000000000057' THEN '11000000-0000-7000-8000-000000000057'
             WHEN i.import_job_id LIKE '%1' THEN '11000000-0000-7000-8000-000000000001'
             ELSE '11000000-0000-7000-8000-000000000002' END,
@@ -103,13 +105,13 @@ FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
 INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+SELECT concat('35000000-0000-7000-80',lpad((CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END)::text,2,'0'),'-',lpad((CAST(right(i.id,12) AS INTEGER))::text,12,'0')),
        i.id,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order,created_at_ms)
-SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+SELECT concat('35000000-0000-7000-80',lpad((CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END)::text,2,'0'),'-',lpad((CAST(right(i.id,12) AS INTEGER))::text,12,'0')),
        s.role,s.logical_name,s.upload_file_id,s.file_record,s.source_archive_file_record,s.source_archive_entry_ordinal,s.sort_order,s.created_at_ms
 FROM import_items i
 JOIN import_item_source_files s ON s.import_item_id=i.id
@@ -119,11 +121,11 @@ WHERE i.id LIKE '30000000-%';
 -- published Game's facts instead. Single-file GBA content needs no derived files.
 UPDATE import_items
 SET target_platform_instance_id=(SELECT target_platform_instance_id FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
-    effective_source_snapshot_id=printf('35000000-0000-7000-80%02d-%012d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),
+    effective_source_snapshot_id=concat('35000000-0000-7000-80',lpad((CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END)::text,2,'0'),'-',lpad((CAST(right(id,12) AS INTEGER))::text,12,'0')),
     content_analysis_json=(SELECT content_analysis_json FROM acceptance_base),
     review_profile_json=(SELECT review_profile_json FROM acceptance_base),
     default_dos_entry=(SELECT default_dos_entry FROM acceptance_base),
-    metadata_json=json_object('title',printf('Batch %d Game %02d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),
+    metadata_json=jsonb_build_object('title',concat('Batch ',(CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END)::text,' Game ',lpad((CAST(right(id,12) AS INTEGER))::text,2,'0')),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),
     review_version=1,review_created_at_ms=created_at_ms,review_updated_at_ms=updated_at_ms
 WHERE id LIKE '30000000-%';
 
@@ -137,20 +139,20 @@ DROP TABLE acceptance_base;
 
 
 def seed(path):
-    with sqlite3.connect(path, timeout=30) as db:
+    with pg.connect(path) as db:
         db.execute("BEGIN")
         original = put_owned(db, b"retrom deterministic review bulk approval fixture\n", "UPLOAD", "10000000-0000-7000-8000-000000000001", "application/octet-stream")
-        db.executescript(SQL.replace("65000000-0000-7000-8000-000000000057", original.replace("'", "''")))
+        db.execute(SQL.replace("65000000-0000-7000-8000-000000000057", original.replace("'", "''")))
         for upload in ("10000000-0000-7000-8000-000000000001", "10000000-0000-7000-8000-000000000002"):
             mapping = own_rows(db, "upload_files", "upload_session_id", upload, "UPLOAD", upload, ("final_file_record",))
             for old, new in mapping.items():
-                db.execute("UPDATE import_files SET file_record=? WHERE upload_session_id=? AND file_record=?", (new, upload, old))
+                db.execute("UPDATE import_files SET file_record=%s WHERE upload_session_id=%s AND file_record=%s", (new, upload, old))
         items = db.execute("SELECT id FROM import_items WHERE id LIKE '30000000-%'").fetchall()
         for (item_id,) in items:
             mapping = own_rows(db, "import_item_source_files", "import_item_id", item_id, "IMPORT_ITEM", item_id)
             for old, new in mapping.items():
-                db.execute("UPDATE import_item_source_snapshot_files SET file_record=? WHERE source_snapshot_id IN "
-                           "(SELECT id FROM import_item_source_snapshots WHERE import_item_id=?) AND file_record=?", (new, item_id, old))
+                db.execute("UPDATE import_item_source_snapshot_files SET file_record=%s WHERE source_snapshot_id IN "
+                           "(SELECT id FROM import_item_source_snapshots WHERE import_item_id=%s) AND file_record=%s", (new, item_id, old))
             rewrite_manifest(db, item_id, mapping)
         # The original unique input was only a source for copies in this fixture.
         if len(items) != 63:
@@ -161,12 +163,12 @@ def seed(path):
 
 
 def rewrite_manifest(db, item, mapping):
-    manifest = json.loads(db.execute("SELECT source_manifest_json FROM import_items WHERE id=?", (item,)).fetchone()[0])
+    manifest = json.loads(db.execute("SELECT source_manifest_json FROM import_items WHERE id=%s", (item,)).fetchone()[0])
     for entry in manifest["files"]:
         entry["fileRecord"] = mapping[entry["fileRecord"]]
     encoded = json.dumps(manifest, separators=(",", ":"))
-    db.execute("UPDATE import_items SET source_manifest_json=? WHERE id=?", (encoded, item))
-    db.execute("UPDATE import_item_source_snapshots SET source_manifest_json=? WHERE import_item_id=?", (encoded, item))
+    db.execute("UPDATE import_items SET source_manifest_json=%s WHERE id=%s", (encoded, item))
+    db.execute("UPDATE import_item_source_snapshots SET source_manifest_json=%s WHERE import_item_id=%s", (encoded, item))
 
 
 if __name__ == "__main__":

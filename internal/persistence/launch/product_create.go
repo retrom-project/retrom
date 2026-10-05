@@ -52,19 +52,12 @@ func (repository *ProductCreation) WithCreation(
 	ctx context.Context,
 	work func(application.ProductCreationScope) error,
 ) error {
-	// The shared store supplies one writer connection. Competing receipts are
-	// serialized before their final lookup and all ownership/creation writes.
-	// A different database adapter must retain that transaction guarantee.
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Preparation and external effects stay outside this replayable database scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(productCreationRecords{executor: tx, transaction: tx})
+	})
 	if err != nil {
-		return fmt.Errorf("begin product creation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(productCreationRecords{executor: tx, transaction: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit product creation: %w", err)
+		return fmt.Errorf("commit launch transaction: %w", err)
 	}
 	return nil
 }
