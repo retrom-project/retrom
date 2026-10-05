@@ -21,7 +21,8 @@ func UpdateDosEntries(
 }
 
 const DosEntriesUpdateRule = `
-WITH previous(game_id,normalized_path) AS (VALUES(?,?))
+WITH previous(game_id,normalized_path)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- dos_entries_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteDosEntries(
 }
 
 const DosEntriesDeleteRule = `
-WITH previous(game_id,normalized_path) AS (VALUES(?,?))
+WITH previous(game_id,normalized_path)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- dos_entries_immutable_delete
 WHEN (1=1) THEN 'immutable'

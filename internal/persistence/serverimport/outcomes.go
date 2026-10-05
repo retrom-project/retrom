@@ -15,16 +15,14 @@ type Outcomes struct{ database dbapi.DB }
 
 func NewOutcomes(database dbapi.DB) *Outcomes { return &Outcomes{database} }
 func (repository *Outcomes) WithWrite(ctx context.Context, work func(serverimport.OutcomeScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := outcomeRecords{tx}
+		if err := work(serverimport.OutcomeScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import outcome: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := outcomeRecords{tx}
-	if err := work(serverimport.OutcomeScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit import outcome: %w", err)
 	}
 	return nil

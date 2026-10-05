@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func insertJob(t *testing.T, database *store.DB, id, kind, state string, retryable any, now int64) {
@@ -92,7 +92,7 @@ func TestCancellationIsIdempotentAndRetryRetainsVersionGuard(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
+	database, err := store.Open(ctx, testpostgres.DSN(t), func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	service := jobs.New(New(database.SQL), func() time.Time { return now })
@@ -120,9 +120,9 @@ WHERE job_id='retry-job'
 	}
 	var firstExecutionID, retriedExecutionID, retriedResourceID, payload string
 	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT json_extract(first.input_json,'$.executionId'),
- json_extract(second.input_json,'$.executionId'),
- json_extract(second.input_json,'$.inputs.resourceId'),job.payload_json
+SELECT ((first.input_json)::jsonb #>> '{executionId}'),
+ ((second.input_json)::jsonb #>> '{executionId}'),
+ ((second.input_json)::jsonb #>> '{inputs,resourceId}'),job.payload_json
 FROM job_input_snapshots first
 JOIN job_input_snapshots second ON second.job_id=first.job_id AND second.execution_no=2
 JOIN jobs job ON job.id=first.job_id
@@ -141,7 +141,7 @@ func TestMetadataScrapeRetryMustUseDomainAction(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
+	database, err := store.Open(ctx, testpostgres.DSN(t), func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "scrape-job", "METADATA_SCRAPE", "FAILED", int64(1), now.UnixMilli())

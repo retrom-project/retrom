@@ -6,13 +6,13 @@
 | 版本 | 1.7 |
 | 日期 | 2026-08-25 |
 | 适用范围 | Retrom 一期 |
-| 技术栈 | Go、SQLite、Next.js、Runtime Provider V1、本地内容寻址存储、OCI/Docker 镜像 |
+| 技术栈 | Go、PostgreSQL、Next.js、Runtime Provider V1、本地内容寻址存储、OCI/Docker 镜像 |
 
 本文定义 Retrom 的部署边界、Go 模块划分、API 约定、后台任务、安全与运维要求。领域细节由对应专题文档负责，本文不重复其状态机和数据字典。
 
 ## 1. 架构结论
 
-一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件按领域 owner 写入本地独立文件存储，SHA-256 用于内容身份与完整性。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
+一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。PostgreSQL 保存业务数据与任务状态，用户文件按领域 owner 写入本地独立文件存储，SHA-256 用于内容身份与完整性。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
 
 ~~~mermaid
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
     Chrome -->|同源 WSS| NG
     Go --> API["HTTP API / runtime content"]
     Go --> Worker["进程内 Worker"]
-    Go --> DB["SQLite"]
+    Go --> DB["PostgreSQL"]
     Go --> 独立文件存储["本地独立文件存储"]
     Worker --> DB
     Worker --> 独立文件存储
@@ -105,8 +105,8 @@ internal/persistence/jobs/ 任务状态、快照和事件的事务读写
 internal/service/filedeletion/  确定性 后台删除 维护入口与计数结果
 internal/persistence/filedeletion/ Blob 计数与保护引用读取
 internal/database/        SQL 查询、执行、事务接口及单行查询辅助
-internal/database/sqlite/ SQLite 连接池与事务适配器
-internal/store/           SQLite 初始化、迁移与 lineage 校验
+internal/database/postgres/ PostgreSQL 连接池与事务适配器
+internal/store/           PostgreSQL 初始化、迁移与 lineage 校验
 internal/observability/   结构化日志、健康检查和诊断导出
 internal/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
 migrations/               Go package：embed.go 与有序 SQL migration，编译进后端
@@ -141,7 +141,7 @@ web/components/           无业务状态的通用组件
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。SQLite 适配器在 `internal/database/sqlite` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，写锁策略由驱动配置；具体只读与写事务规则见 [SQLite 基线](./storage-and-database.md#3-sqlite-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。PostgreSQL 适配器在 `internal/database/postgres` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，写事务使用 SERIALIZABLE，纯数据库提交边界显式处理可重试冲突；具体只读与写事务规则见 [PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
 公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，文件路径与摘要随领域记录保存，不设全局文件目录。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 
@@ -169,7 +169,7 @@ Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `inte
 
 - API 前缀统一为 `/api/v1`，响应使用 JSON；二进制上传、下载和运行时文件端点除外。
 - 业务实体 ID 在 JSON 中使用字符串，避免前端数值精度问题；唯一例外是 EmulatorJS 要求 number 类型的 `emulatorGameId` surrogate，范围被限制在 JavaScript 安全整数内，不能把普通实体 ID 数值化。
-- 数据库的时刻字段统一为 Unix 毫秒 `INTEGER`；API 使用 camelCase 的 `*AtMs` 并在 OpenAPI 标为 `int64`。完整规则见 [存储与数据库](./storage-and-database.md)。
+- 数据库的时刻字段统一为 Unix 毫秒 `BIGINT`；API 使用 camelCase 的 `*AtMs` 并在 OpenAPI 标为 `int64`。完整规则见 [存储与数据库](./storage-and-database.md)。
 - 所有写请求接受并返回明确的资源版本；存在并发编辑风险的管理资源使用 `version` 或 `If-Match`，冲突返回 `409`。
 - 列表统一使用游标分页，响应包含 `items` 与可空 `nextCursor`。筛选条件进入 query string，刷新后可恢复。
 - 错误响应使用稳定机器码，而不是让前端解析中文文案。
@@ -231,7 +231,7 @@ handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂�
 
 任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 目录删除。当前 `composition/cleanupjobs` 组装领域释放与 后台删除，执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 PATH_DELETE；领域终态只创建持久 Job，不自行删独立文件存储。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。
 
-SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-database.md#45-通用任务幂等与审计)规定的持久字段与索引；租约、续租、并发、attempt 上限及退避按具体 Job kind 的执行策略和冻结输入约束，不统一设为四次。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但不能超过对应 execution deadline。
+PostgreSQL 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-database.md#45-通用任务幂等与审计)规定的持久字段与索引；租约、续租、并发、attempt 上限及退避按具体 Job kind 的执行策略和冻结输入约束，不统一设为四次。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但不能超过对应 execution deadline。
 
 每个 execution 还使用数据模型固定的 kind wall deadline；第一次领取时计算，自动 retry 不重置，人工 retry 才开始新 execution/deadline。Worker 的 reader、网络和解析 context 必须来自该 deadline，超时产生稳定错误而不是无限 RUNNING。测试通过 fake clock/context 触发，不使用长时间 sleep。
 
@@ -270,7 +270,7 @@ SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-
 - 创建容器、网络或 volume；
 - 登录 registry、push 镜像或部署服务；
 - 启停本地开发进程；
-- 读取或打包用户 ROM、BIOS、SQLite、独立文件存储、测试截图或 TLS 私钥。
+- 读取或打包用户 ROM、BIOS、PostgreSQL、独立文件存储、测试截图或 TLS 私钥。
 
 两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先读取 `data/runtime-providers/release.json` 的唯一 tag，从固定 runtime 仓库的该 Release 解析 `provider-release.json`，校验两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
 
@@ -293,7 +293,7 @@ SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-
 
 ### 7.3 `make dev` 只运行本地进程
 
-`make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先幂等准备或复用 `go.mod` 锁定的 Go 工具链，再执行 `make prepare-deps` 与锁文件驱动的 `make web-install`，成功后以前台 supervisor 方式同时启动：
+`make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先幂等准备或复用 `go.mod` 锁定的 Go 工具链，再执行 `make prepare-deps` 与锁文件驱动的 `make web-install`，未设置 `RETROM_DATABASE_URL` 时先准备固定 PostgreSQL 18.3 原生工具并启动独立数据库，等待 SQL 可连接后以前台 supervisor 方式同时启动：
 
 1. `go run ./cmd/retrom --mode=test`，默认监听 `127.0.0.1:8080`；启动器只用 `RETROM_MODE` 选择并转换 CLI 参数，随后在执行 Go 前移除工具变量；
 2. `cd web && npm run dev`，固定使用 Next 的 `--webpack` 开发 bundler，默认只监听 `127.0.0.1:4000`；
@@ -301,9 +301,9 @@ SQLite 队列表和 worker 使用[通用任务、幂等与审计](./storage-and-
 
 仓库内置开发 origin 固定为 `http://localhost:4000`，仅 test 模式同时设置 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true`。`localhost` 与 `*.localhost` 在锁定 Chrome 中必须实测为 potentially trustworthy，页面和 runtime 响应仍须带完整 COOP/COEP/CORP/`nosniff`，从而保持 secure context、cross-origin isolation 与 `SharedArrayBuffer`。开发默认不依赖外部 DNS、证书、远程反向代理或局域网监听；需要真实 HTTPS 的部署边界继续由 `ACC-NET-002` 独立验证。
 
-脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须在仓库 `.dev-data/dev-state/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。隔离验收脚本通过 `RETROM_DEV_STATE_DIR` 把同样的登记与接管锁放入本次临时目录，防止测试实例接管日常开发实例。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 15 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以状态目录中的 `dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
+脚本必须转发 `SIGINT/SIGTERM`、在应用或自管数据库异常退出时停止其余进程并返回非零状态，退出后不得残留后台进程。`make dev-stop` 使用相同状态/数据目录配置停止该实例；停止顺序为应用、数据库，保留全部数据。每次启动还必须在仓库 `.dev-data/dev-state/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。隔离验收脚本通过 `RETROM_DEV_STATE_DIR` 把同样的登记与接管锁放入本次临时目录，防止测试实例接管日常开发实例。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 75 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以状态目录中的 `dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；入口在准备工具链或依赖前检查 real/effective UID 与 sudo 调用标记，只允许当前普通用户直接运行，root 或 `sudo` 以稳定错误拒绝。本地开发数据库、Blob 和密钥统一写入被 Git 忽略的 `.dev-data/data`，进程登记与接管锁统一写入 `.dev-data/dev-state`。可编辑启动配置集中在同样被忽略的 `.dev-data/dev.mk`，Makefile 在内置默认值前可选加载该文件；其中可覆盖监听、公开 origin、数据/状态目录、依赖版本和功能开关，命令行 Make 变量仍具有最高优先级，隔离验收无需读取日常配置。它使用显式 test 模式，空库创建 `test/test`；不会自动读取或迁移旧 `.cache/retrom` 数据。未提供本地配置文件时，浏览器地址栏保持 `http://localhost:4000`，Next 与 Go 分别只监听 `127.0.0.1:4000` 和 `127.0.0.1:8080`。仅 test 模式且 insecure flag=true 时允许明文 origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；入口在准备工具链或依赖前检查 real/effective UID 与 sudo 调用标记，只允许当前普通用户直接运行，root 或 `sudo` 以稳定错误拒绝。本地开发 Blob 和密钥写入被 Git 忽略的 `.dev-data/data`；进程登记、接管锁和数据库写入 `.dev-data/dev-state`。数据库目录固定为 `RETROM_DEV_STATE_DIR/postgres/`，记录所属仓库与文件数据根；PGDATA 位于其 `data/`，数据库日志为 `server.log`。原生工具由 `make prepare-local-postgres` 从固定 SHA-256 的官方源码构建至 `.cache/tools/postgresql-18.3/`，首次需要 C 编译器、bison、flex、zlib 开发包，后续命中缓存不联网。数据库只监听自动分配的 `127.0.0.1` 端口，禁用 Unix socket，使用每个实例随机生成的 SCRAM 密码，凭据文件权限为 0600；不同状态目录可以并行运行。启动与停止校验 repository/data root、PID/start ticks、用户、可执行文件与精确 PGDATA 参数，强制退出后的下一次启动或 `dev-stop` 只恢复该实例的遗留进程。显式设置 `RETROM_DATABASE_URL` 时不准备本地 PostgreSQL 工具、不创建数据库目录，也不停止该 URL 对应的服务；若同一状态此前使用自管库，切换外部 URL 前先正常停止旧自管库。可编辑启动配置集中在同样被忽略的 `.dev-data/dev.mk`，Makefile 在内置默认值前可选加载该文件；其中可覆盖监听、公开 origin、数据/状态目录、依赖版本和功能开关，命令行 Make 变量仍具有最高优先级，隔离验收无需读取日常配置。它使用显式 test 模式，空库创建 `test/test`；不会自动读取或迁移旧 `.cache/retrom` 数据。未提供本地配置文件时，浏览器地址栏保持 `http://localhost:4000`，Next 与 Go 分别只监听 `127.0.0.1:4000` 和 `127.0.0.1:8080`。仅 test 模式且 insecure flag=true 时允许明文 origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
 ### 7.3.1 PFB 并行联调
 
@@ -347,7 +347,7 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 
 NG 还必须为生效 runtime 模板配置 wildcard DNS/证书与精确 Host 转发；默认模板是 `https://{launchId}.<app-host>`，配置省略不代表 DNS、证书或路由可以省略，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。应用文档 CSP 的 `frame-src` 从后端生效模板生成唯一受控 hostname family，不回显请求 Origin；iframe 地址与 Go 授权仍逐 Launch 精确匹配。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
 
-仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器加 Nginx 容器、必需配置、持久数据挂载及最小路由。Nginx 片段只有两个 `server` 块，示例只监听 HTTP；正式公开前部署者必须自行配置 HTTPS、证书、端口及应用域名与运行时子域名的 DNS。只有 Nginx 发布宿主端口；后端只能在内部 Compose 网络接受请求，Nginx 负责覆写单个 `X-Forwarded-For` 客户端地址。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
+仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器、独立 PostgreSQL 与 Nginx 容器、必需配置、持久数据挂载及最小路由。Nginx 片段只有两个 `server` 块，示例只监听 HTTP；正式公开前部署者必须自行配置 HTTPS、证书、端口及应用域名与运行时子域名的 DNS。只有 Nginx 发布宿主端口；后端只能在内部 Compose 网络接受请求，Nginx 负责覆写单个 `X-Forwarded-For` 客户端地址。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
 
 Next.js 的公开域名配置统一来自后端；Web 进程只需 `NEXT_BACKEND_ORIGIN` 连接内部后端，不读取 `RETROM_PUBLIC_ORIGIN` 或 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`。配置接口及失败行为见 [HTTP 契约](./http-api-contract.md#23-文档安全策略配置)。切换生效模板后应重新启动游戏，旧 Launch 的票据与授权仍绑定原 origin。
 
@@ -364,12 +364,11 @@ TLS 终结外置不等于忽略代理安全：
 
 ## 8. 运行配置与目录
 
-所有运行时可变内容放在一个明确的数据根目录；代码仓库中的 `data/` 只保存小型 manifest、验证代码及被忽略的本地缓存：
+领域文件放在一个明确的数据根目录，业务数据库由独立 PostgreSQL 服务持久化；代码仓库中的 `data/` 只保存小型 manifest、验证代码及被忽略的本地缓存：
 
 ```text
 RETROM_DATA_DIR/
   retrom.lock
-  retrom.db
   files/<id-prefix>/<uuid>
   secrets/launch-capability.key
   tmp/uploads/
@@ -386,7 +385,7 @@ RETROM_DATA_DIR/
 | `RETROM_DEV_CONFIG` | Makefile 可选加载的本地配置文件，默认为被忽略的 `.dev-data/dev.mk`；文件不存在时使用仓库内置默认值，命令行变量可覆盖文件值。生产入口不读取它。 |
 | `RETROM_DEV_STATE_DIR` | 仅供开发启动器使用；`make dev` 默认为仓库 `.dev-data/dev-state`，保存 PID 登记与接管锁。隔离验收必须覆盖为本 Case 的临时目录。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.dev-data/data`，生产为全新持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 及开发扫描目录严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
-| `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
+| `RETROM_DATABASE_URL` | 必填 `postgres://` 或 `postgresql://` URL，包含服务器、凭据及数据库；生产按部署拓扑配置 TLS，不回显 URL。PFB 由 Compose 注入独立实例的连接信息；本地 `make dev` 未显式设置时自动启动数据库并注入，退出时停止自管实例。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；保存 DAT、认证种子与 `runtime-target-bindings/v1/catalog.json`。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。Provider Bundle 不从这里按路径猜测，而由下列 active/installed 配置定位。 |
 | `RETROM_PROVIDER_ACTIVE_PATH` | 必填绝对普通文件路径；内容是已通过完整性和只前进校验的 active Provider identity。PFB 指向 workspace 中的基座安装，production 指向 production release tag 物化结果。 |
 | `RETROM_PROVIDER_DEV_ROOT` | 缺省为空。非空时必须是已存在绝对目录，且只能与 `RETROM_MODE=test`、合法匹配的 `RETROM_PFB_ID` 和本地 PFB origin 同时使用；release 或普通非 PFB 进程无条件拒绝。目录内只接受严格 `dev-provider.json` 及逐文件校验的基座路径 override。 |
@@ -404,9 +403,9 @@ RETROM_DATA_DIR/
 
 多盘 capability 是 `RETROM_MULTI_DISC_IMPORT_ENABLED`、Platform content profile 与当前 Core binding 所指 Provider Target 内容能力的交集，flag 不是校验旁路。关闭时新建 MULTI Import 与 MULTI 内容替换 fail closed，但不删除证据、不取消已冻结的 Import/Attachment/Job，也不阻止既有多盘 Game 的 Launch、换盘、存档和恢复；需要阻止在途审批时必须显式 cancel/discard。既有 rejected-file reconfigure 始终保持 STANDARD。flag 值不进入日志或诊断。
 
-环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI` 或已移除的 example 前缀）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
+环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*`、`RETROM_TEST_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI` 或已移除的 example 前缀）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
 
-SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本化迁移升级；启动时拒绝运行比二进制更新的 schema。数据库连接池需限制写并发，业务上的多表状态转换使用事务。
+数据库连接、隔离、重试、备份与恢复遵循[PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。
 
 ## 9. 账户模式与安全边界
 
@@ -441,7 +440,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 11. 数据库初始化
 
-当前未发布基线使用 `001`–`015` bootstrap 创建新数据库，不提供旧开发数据的兼容转换。启动时只接受当前 migration 的精确有序前缀或完整集合；未知版本、名称或 checksum 不匹配时在业务写入前拒绝启动。数据库细节见[存储与数据库](./storage-and-database.md)。
+当前未发布基线使用 `001_schema.sql` bootstrap 创建新数据库，不提供旧开发数据的兼容转换。启动时只接受当前 migration 的精确有序前缀或完整集合；未知版本、名称或 checksum 不匹配时在业务写入前拒绝启动。数据库细节见[存储与数据库](./storage-and-database.md)。
 
 ## 12. 统一验收入口
 

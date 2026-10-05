@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -65,7 +67,7 @@ func retirementFixture(t *testing.T) (dbapi.DB, *cleanupjobs.Service, int64) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	deps, err := dependencies.Load(filepath.Join("..", "..", "..", "data"), []string{"4.2.3"}, "4.2.3")

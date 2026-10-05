@@ -84,8 +84,8 @@ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=b
  AND binding_platform.platform_id=p.platform_id
 WHERE i.id=?
 AND NOT EXISTS(SELECT 1 FROM (` + storequery.DiscardedImportJobs + `) WHERE import_id=i.import_job_id)
-AND v.default_dos_entry IS d.default_dos_entry
-AND v.dat_version_id IS (
+AND v.default_dos_entry IS NOT DISTINCT FROM d.default_dos_entry
+AND v.dat_version_id IS NOT DISTINCT FROM (
   SELECT active.id FROM dat_versions active
   WHERE active.provider_id=v.provider_id AND active.target_id=v.target_id AND active.is_active=1
 )

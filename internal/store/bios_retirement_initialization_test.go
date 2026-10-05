@@ -2,10 +2,11 @@ package store
 
 import (
 	"database/sql"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -16,7 +17,7 @@ import (
 
 func TestFreshBIOSRetirementTracksLaunchesAndIndexesPendingWork(t *testing.T) {
 	t.Parallel()
-	current, err := Open(t.Context(), filepath.Join(t.TempDir(), "fresh.db"), time.Now)
+	current, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { testassert.False(t, current.Close() != nil, "close fresh database") })
 	seedCurrentRuntimeGraph(t, current.SQL)
@@ -47,7 +48,7 @@ state='ACTIVE',activated_at_ms=2,updated_at_ms=2,version=version+1
 ORDER BY due_at_ms,launch_session_id LIMIT 200`, "launch_payload_retirement"},
 		{`SELECT id,file_record FROM bios_installations WHERE is_active=0 AND file_record IS NOT NULL ORDER BY
 updated_at_ms,id LIMIT 1`, "bios_installations_retirement"},
-		{`SELECT rowid FROM variant_files WHERE role='BIOS_BUNDLE' AND file_record='old' LIMIT 200`, "variant_files_bios_blob"},
+		{`SELECT game_variant_id FROM variant_files WHERE role='BIOS_BUNDLE' AND file_record='old' LIMIT 200`, "variant_files_bios_blob"},
 	} {
 		assertRetirementIndex(t, current.SQL, query.sql, query.index)
 	}
@@ -56,14 +57,21 @@ updated_at_ms,id LIMIT 1`, "bios_installations_retirement"},
 
 func assertRetirementIndex(t *testing.T, database dbapi.DB, query, index string) {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+query)
+	tx, err := database.BeginTx(t.Context(), &dbapi.TxOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbapi.Rollback(tx)
+	if _, err := tx.ExecContext(t.Context(), "SET LOCAL enable_seqscan=off"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := tx.QueryContext(t.Context(), "EXPLAIN "+query)
 	testassert.False(t, err != nil, err)
 	defer func() { testassert.False(t, rows.Close() != nil, "close plan") }()
 	var plan strings.Builder
 	for rows.Next() {
-		var id, parent, unused int
 		var detail string
-		testassert.False(t, rows.Scan(&id, &parent, &unused, &detail) != nil, "read plan")
+		testassert.False(t, rows.Scan(&detail) != nil, "read plan")
 		plan.WriteString(detail)
 	}
 	testassert.False(t, rows.Err() != nil, "iterate plan")

@@ -4,7 +4,7 @@ import { expectNaturalHomeFlow } from "./home-layout-support";
 import {seedHomeState, uiLayoutState} from "./ui-layout-state";
 
 export async function expectHomeStates(page: Page, testInfo: TestInfo) {
-  const database = process.env.RETROM_E2E_DATABASE;
+  const database = process.env.RETROM_E2E_DATA_ROOT;
   if (!database) { return; } // Live PFB review remains read-only.
   uiLayoutState("isolate");
   try {

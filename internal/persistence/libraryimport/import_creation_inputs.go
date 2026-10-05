@@ -58,8 +58,8 @@ WHERE id=? AND version=? AND platform_id=? AND default_core_id=? AND enabled=1 A
 			ctx,
 			`
 UPDATE import_files SET id=id WHERE id=? AND upload_session_id=? AND released_at_ms IS NULL
-AND relative_path=? AND file_record=? AND json_extract(file_record,'$.sha256')=? AND
- json_extract(file_record,'$.size_bytes')=?`,
+AND relative_path=? AND file_record=? AND ((file_record)::jsonb #>> '{sha256}')=? AND
+ (((file_record)::jsonb #>> '{size_bytes}'))::bigint=?`,
 			file.ID,
 			upload.ID,
 			file.Path,

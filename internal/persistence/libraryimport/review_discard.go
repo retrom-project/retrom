@@ -25,15 +25,13 @@ func NewReviewDiscards(database dbapi.DB) *ReviewDiscards { return &ReviewDiscar
 func (repository *ReviewDiscards) WithDiscard(
 	ctx context.Context, work func(libraryservice.ReviewDiscardScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(BindReviewDiscard(transaction)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin review discard: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(BindReviewDiscard(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit review discard: %w", err)
 	}
 	return nil

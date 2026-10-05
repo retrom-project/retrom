@@ -26,14 +26,17 @@ func UpdateSourceImportItems(
 const SourceImportItemsUpdateRule = `
 WITH previous(id,collection_id,content_kind,created_at_ms,discovery_code,discovery_state,execution_state,
 game_ordinal,import_id,library_import_item_id,library_import_job_id,metadata_json,metadata_relative_path,
-published_game_id,source_key,source_manifest_digest,source_manifest_json,title) AS (VALUES(?,?,?,?,?,?,?,
-?,?,?,?,?,?,?,?,?,?,?))
+published_game_id,source_key,source_manifest_digest,source_manifest_json,title)
+AS (VALUES(?::text,?::text,?::text,?::bigint,?::text,?::text,?::text,?::bigint,?::text,?::text,?::text,
+ ?::text,?::text,?::text,?::text,?::text,?::text,?::text))
 SELECT CASE
 -- source_item_manifest_update
-WHEN ((candidate.content_kind IS NOT previous.content_kind OR candidate.source_manifest_json IS NOT
-previous.source_manifest_json OR candidate.source_manifest_digest IS NOT previous.source_manifest_digest
-OR candidate.library_import_job_id IS NOT previous.library_import_job_id OR
-candidate.library_import_item_id IS NOT previous.library_import_item_id) AND (previous.execution_state
+WHEN ((candidate.content_kind IS DISTINCT FROM previous.content_kind OR candidate.source_manifest_json IS
+ DISTINCT FROM previous.source_manifest_json OR candidate.source_manifest_digest IS DISTINCT FROM
+ previous.source_manifest_digest
+OR candidate.library_import_job_id IS DISTINCT FROM previous.library_import_job_id OR
+candidate.library_import_item_id IS DISTINCT FROM previous.library_import_item_id) AND
+ (previous.execution_state
 NOT IN ('COPYING','VALIDATING') OR candidate.execution_state NOT IN ('VALIDATING','REVIEW_PENDING'))
 AND NOT (candidate.library_import_item_id IS NULL AND candidate.library_import_job_id IS NULL
  AND candidate.execution_state IN ('PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING',
@@ -42,8 +45,8 @@ AND NOT (candidate.library_import_item_id IS NULL AND candidate.library_import_j
  AND item.state IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED'))))
 THEN 'invalid Source manifest transition'
 -- source_item_published_update
-WHEN ((candidate.execution_state IS NOT previous.execution_state OR candidate.published_game_id IS NOT
-previous.published_game_id) AND (candidate.execution_state='PUBLISHED' AND (
+WHEN ((candidate.execution_state IS DISTINCT FROM previous.execution_state OR candidate.published_game_id IS
+ DISTINCT FROM previous.published_game_id) AND (candidate.execution_state='PUBLISHED' AND (
   candidate.published_game_id IS NULL OR NOT EXISTS(
     SELECT 1 FROM games game
     WHERE game.id=candidate.published_game_id AND game.metadata_source_kind='IMPORT_RECEIVE'
@@ -51,7 +54,7 @@ previous.published_game_id) AND (candidate.execution_state='PUBLISHED' AND (
   )
 ))) THEN 'invalid Source published game'
 -- source_item_review_pending_update
-WHEN ((candidate.execution_state IS NOT previous.execution_state) AND
+WHEN ((candidate.execution_state IS DISTINCT FROM previous.execution_state) AND
 (candidate.execution_state='REVIEW_PENDING' AND (
   candidate.library_import_job_id IS NULL OR candidate.library_import_item_id IS NULL OR NOT EXISTS(
     SELECT 1 FROM import_items item
@@ -60,16 +63,17 @@ WHEN ((candidate.execution_state IS NOT previous.execution_state) AND
   )
 ))) THEN 'invalid Source review handoff'
 -- source_item_snapshot_update
-WHEN (candidate.import_id<>previous.import_id OR candidate.collection_id IS NOT previous.collection_id OR
+WHEN (candidate.import_id<>previous.import_id OR candidate.collection_id IS DISTINCT FROM
+ previous.collection_id OR
   candidate.metadata_relative_path<>previous.metadata_relative_path OR
 candidate.game_ordinal<>previous.game_ordinal OR
   candidate.source_key<>previous.source_key OR candidate.title<>previous.title OR
 candidate.discovery_state<>previous.discovery_state OR
-  candidate.metadata_json<>previous.metadata_json OR candidate.discovery_code IS NOT
-previous.discovery_code OR
+  candidate.metadata_json<>previous.metadata_json OR candidate.discovery_code IS DISTINCT FROM
+ previous.discovery_code OR
   candidate.created_at_ms<>previous.created_at_ms) THEN 'immutable Source item snapshot'
 -- source_item_review_discarded_update
-WHEN ((candidate.execution_state IS NOT previous.execution_state) AND
+WHEN ((candidate.execution_state IS DISTINCT FROM previous.execution_state) AND
 (candidate.execution_state='REVIEW_DISCARDED'
 AND NOT EXISTS(SELECT 1 FROM import_batch_discards batch
  WHERE batch.kind='SOURCE' AND batch.import_id=candidate.import_id

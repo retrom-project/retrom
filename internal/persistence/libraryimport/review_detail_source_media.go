@@ -17,9 +17,9 @@ func (records ReviewMedia) SourceMedia(
 	var result libraryservice.ReviewSourceMedia
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT source.id,source.import_id,'SOURCE',COALESCE(collection.name,''),
-COALESCE(json_extract(source.source_flags_json,'$.hidden'),0),
-COALESCE(json_extract(source.source_flags_json,'$.adult'),0),
-COALESCE(json_extract(source.source_flags_json,'$.kidGame'),0),
+COALESCE(((((source.source_flags_json)::jsonb #>> '{hidden}'))::boolean)::integer,0),
+COALESCE(((((source.source_flags_json)::jsonb #>> '{adult}'))::boolean)::integer,0),
+COALESCE(((((source.source_flags_json)::jsonb #>> '{kidGame}'))::boolean)::integer,0),
 EXISTS(
  SELECT 1 FROM import_item_assets asset
  WHERE asset.import_item_id=source.library_import_item_id

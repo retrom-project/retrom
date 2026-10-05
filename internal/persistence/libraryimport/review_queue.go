@@ -90,9 +90,9 @@ func reviewQueueStatement(query libraryservice.ReviewQueueQuery) (string, []any)
 		}
 	}
 	if query.Filter.Query != "" {
-		statement += ` AND (instr(i.search_text,?)>0 OR EXISTS(
+		statement += ` AND (strpos(i.search_text,?)>0 OR EXISTS(
  SELECT 1 FROM review_draft_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
- WHERE relation.review_draft_id=d.id AND instr(tag.name_key,?)>0))`
+ WHERE relation.review_draft_id=d.id AND strpos(tag.name_key,?)>0))`
 		args = append(args, query.Filter.Query, query.Filter.Query)
 	}
 	if query.Filter.TagID != "" {

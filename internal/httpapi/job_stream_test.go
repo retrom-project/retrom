@@ -25,6 +25,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestJobEventStreamUsesTransactionalSnapshotAndGlobalCursor(t *testing.T) {
@@ -259,7 +260,7 @@ func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versi
 	t.Helper()
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	testassert.Falsef(t, err != nil, "repository root: %v", err)
-	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), time.Now)
 	testassert.Falsef(t, err != nil, "open database: %v", err)
 	if seedDirectories {
 		if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
@@ -280,7 +281,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,
  created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms)
- VALUES('01980000-0000-7000-8000-000000009998','01980000-0000-7000-8000-000000009999',zeroblob(32),1,0,0,?,?)`,
+ VALUES('01980000-0000-7000-8000-000000009998','01980000-0000-7000-8000-000000009999',decode(repeat('00',(32)::integer),'hex'),1,0,0,?,?)`,
 		time.Now().Add(24*time.Hour).UnixMilli(), time.Now().Add(24*time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}

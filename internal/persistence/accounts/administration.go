@@ -23,16 +23,14 @@ func (repository *AdministrationRepository) WithWrite(
 	ctx context.Context,
 	work func(accounts.AdministrationScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := administrationRecords{accountOperations{tx}}
+		if err := work(accounts.AdministrationScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin account administration: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := administrationRecords{accountOperations{tx}}
-	if err := work(accounts.AdministrationScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit account administration: %w", err)
 	}
 	return nil

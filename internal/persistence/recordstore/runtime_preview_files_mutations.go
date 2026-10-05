@@ -21,7 +21,8 @@ func UpdateRuntimePreviewFiles(
 }
 
 const RuntimePreviewFilesUpdateRule = `
-WITH previous(preview_session_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(preview_session_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- runtime_preview_files_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteRuntimePreviewFiles(
 }
 
 const RuntimePreviewFilesDeleteRule = `
-WITH previous(preview_session_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(preview_session_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- runtime_preview_files_immutable_delete
 WHEN (NOT EXISTS(

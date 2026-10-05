@@ -12,16 +12,17 @@ import (
 	"retrom/internal/content/requirements"
 )
 
-// BindingPolicySQL projects kinds and Provider-owned input limits in the same
-// snapshot as the selected Host binding. It does not issue per-row queries.
-const BindingPolicySQL = `json_object('kinds',json((SELECT json_group_array(content_kind) FROM (
- SELECT content_kind FROM runtime_binding_content_kinds
- WHERE binding_id=binding.binding_id ORDER BY content_kind
-))), 'limits',json((SELECT json_group_object(role,max_file_bytes) FROM (
- SELECT role,max_file_bytes FROM runtime_target_input_limits
- WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND max_file_bytes IS NOT NULL ORDER BY role))),
- 'requirements',json((SELECT json_extract(manifest_fragment_json,'$.contentRequirements') FROM runtime_targets
- WHERE provider_id=binding.provider_id AND target_id=binding.target_id)))`
+// BindingPolicySQL projects kinds and Provider-owned input facts in the same
+// snapshot as the selected Host binding. JSONB also gives equality fences
+// semantic comparison with BindPolicy, independent of JSON key order or spacing.
+const BindingPolicySQL = `jsonb_build_object(
+ 'kinds',COALESCE((SELECT jsonb_agg(content_kind ORDER BY content_kind)
+  FROM runtime_binding_content_kinds WHERE binding_id=binding.binding_id),'[]'::jsonb),
+ 'limits',COALESCE((SELECT jsonb_object_agg(role,max_file_bytes ORDER BY role)
+  FROM runtime_target_input_limits WHERE provider_id=binding.provider_id
+  AND target_id=binding.target_id AND max_file_bytes IS NOT NULL),'{}'::jsonb),
+ 'requirements',(SELECT manifest_fragment_json::jsonb -> 'contentRequirements' FROM runtime_targets
+  WHERE provider_id=binding.provider_id AND target_id=binding.target_id))`
 
 var errInvalidKindColumn = errors.New("contentcapability: invalid kind column")
 

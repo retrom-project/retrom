@@ -11,7 +11,7 @@ import (
 func (reader records) SchemaVersion(ctx context.Context) (int64, error) {
 	var version int64
 	if err := dbapi.QueryRowContext(ctx, reader.executor, `
-SELECT COALESCE(MAX(version),0)
+SELECT COALESCE(max(version),0)
 FROM schema_migrations
 `).Scan(&version); err != nil {
 		return 0, fmt.Errorf("diagnostics: read schema version: %w", err)

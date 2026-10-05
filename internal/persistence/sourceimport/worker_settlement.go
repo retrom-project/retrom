@@ -21,20 +21,18 @@ func (repository *WorkerSettlement) WithSettlement(
 	ctx context.Context,
 	work func(application.WorkerSettlementScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := workerSettlementRecords{tx: tx}
+		scope := application.WorkerSettlementScope{
+			Payload: payload.BindReleases(tx), Read: records, Write: records,
+			Metadata: library.BindMetadata(tx),
+		}
+		if err := work(scope); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source settlement: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := workerSettlementRecords{tx: tx}
-	scope := application.WorkerSettlementScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
-		Metadata: library.BindMetadata(tx),
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source settlement: %w", err)
 	}
 	return nil

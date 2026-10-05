@@ -65,6 +65,7 @@ func (service *ReviewBulk) processNextReviewBulkItem(ctx context.Context, work r
 	var failedItemID string
 	var request *ReviewApprovalRequest
 	err := service.repository.WithStep(ctx, func(scope ReviewBulkStep) error {
+		completed, failedItemID, request = false, "", nil
 		approval := scope.Approval
 		worker := scope.Worker
 		item, found, readErr := worker.Next(ctx, work.bulkID, work.workerID)

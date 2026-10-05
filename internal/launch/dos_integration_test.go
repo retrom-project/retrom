@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/persistence/contentquery"
 
 	"retrom/internal/testsupport/importfixture"
@@ -45,7 +47,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	seedLocalProfile(t, database.SQL)
@@ -281,7 +283,7 @@ WHERE variant.game_id=?
 	var executionNo, retryEvents int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='RETRY_SCHEDULED'
-  AND json_extract(data_json,'$.trigger')='LAUNCH')
+  AND ((data_json)::jsonb #>> '{trigger}')='LAUNCH')
 FROM jobs WHERE id=? AND state='QUEUED'
 `, invalidJobID).Scan(&executionNo, &retryEvents); err != nil || executionNo != 2 || retryEvents != 1 {
 		t.Fatalf("automatic validation retry evidence = execution %d/events %d, error=%v", executionNo, retryEvents, err)

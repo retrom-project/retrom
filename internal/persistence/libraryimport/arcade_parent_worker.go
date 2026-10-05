@@ -121,13 +121,13 @@ func (repository *ArcadeParentAttachmentWorker) SourceSnapshot(
 	ctx context.Context, snapshotID string,
 ) ([]libraryservice.ArcadeParentSourceSnapshotFile, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
-'$.sha256'),json_extract(blob.value, '$.size_bytes'),
-file.source_archive_file_record,file.source_archive_entry_ordinal,COALESCE(json_extract(archive.value,
-'$.sha256'),'')
+SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,((blob.value)::jsonb #>> '{sha256}'),
+ (((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
+file.source_archive_file_record,file.source_archive_entry_ordinal,COALESCE(((archive.value)::jsonb #>>
+ '{sha256}'),'')
 FROM import_item_source_snapshot_files file
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
-LEFT JOIN json_each(json_array(file.source_archive_file_record)) archive ON archive.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
+LEFT JOIN LATERAL (SELECT file.source_archive_file_record AS value) archive ON archive.value IS NOT NULL
 WHERE file.source_snapshot_id=?
 ORDER BY file.role,file.logical_name
 `, snapshotID)

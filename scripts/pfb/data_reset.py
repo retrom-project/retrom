@@ -14,7 +14,7 @@ def reset_workspace_data(
     validate: Callable[[Path, Path], dict[str, Any]],
 ) -> dict[str, Any]:
     paths = workspace_paths(root)
-    selected = ["data"]
+    selected = ["data", "postgres"]
     if source_root is not None:
         _validate_source(root, source_root, validate)
         selected.extend(["providerActive", "providerDev"])
@@ -39,6 +39,7 @@ def reset_workspace_data(
                 original.rename(archived)
                 moved.append((original, archived))
         paths["data"].mkdir(mode=0o700)
+        paths["postgres"].mkdir(mode=0o700)
         result: dict[str, Any] = {"backup": str(backup)}
         if source_root is not None:
             result.update(import_provider_base(root, source_root, validate, _reject_existing_base))

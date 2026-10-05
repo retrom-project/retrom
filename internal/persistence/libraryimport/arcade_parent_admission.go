@@ -33,16 +33,14 @@ func (repository *ArcadeParentAttachments) WithAdmission(
 	ctx context.Context,
 	work func(libraryservice.ArcadeParentAttachmentAdmissionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := arcadeParentAttachmentAdmissionRecords{executor: tx}
+		if err := work(libraryservice.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin arcade parent attachment admission: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := arcadeParentAttachmentAdmissionRecords{executor: tx}
-	if err := work(libraryservice.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit arcade parent attachment admission: %w", err)
 	}
 	return nil
@@ -110,15 +108,15 @@ func (records arcadeParentAttachmentAdmissionRecords) Upload(
 	ctx context.Context, uploadFileID string,
 ) (libraryservice.ArcadeParentAttachmentUpload, bool, error) {
 	var result libraryservice.ArcadeParentAttachmentUpload
-	var wholeSessionConsumed int64
+	var wholeSessionConsumed bool
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT session.id,session.state,'COMPLETE',file.relative_path,file.file_record,
-  json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes'),
+  ((blob.value)::jsonb #>> '{sha256}'),(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
   EXISTS(SELECT 1 FROM upload_consumptions consumption
     WHERE consumption.upload_session_id=session.id AND consumption.upload_file_id IS NULL)
 FROM import_files file
 JOIN upload_sessions session ON session.id=file.upload_session_id
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.id=?
 `, uploadFileID).Scan(
 		&result.UploadSessionID, &result.SessionState, &result.FileState, &result.RelativePath,
@@ -130,7 +128,7 @@ WHERE file.id=?
 	if err != nil {
 		return libraryservice.ArcadeParentAttachmentUpload{}, false, fmt.Errorf("read arcade parent upload: %w", err)
 	}
-	result.WholeSessionConsumed = wholeSessionConsumed != 0
+	result.WholeSessionConsumed = wholeSessionConsumed
 	return result, true, nil
 }
 

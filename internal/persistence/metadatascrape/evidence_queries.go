@@ -57,7 +57,7 @@ func (records *EvidenceQueries) CandidateAssets(
 	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT scrape_candidate_id,id,provider_asset_id,kind_hint,ordinal,status,width_px,height_px,media_type,error_code
-FROM scrape_candidate_assets WHERE scrape_candidate_id IN(SELECT value FROM json_each(?))
+FROM scrape_candidate_assets WHERE scrape_candidate_id IN(SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 ORDER BY scrape_candidate_id,kind_hint,ordinal,id`, string(encoded))
 	if err != nil {
 		return nil, fmt.Errorf("query candidate assets: %w", err)

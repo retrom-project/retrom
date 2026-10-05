@@ -12,6 +12,7 @@ import (
 type operation func(dbapi.Executor) (sql.Result, error)
 
 // Atomic runs an application write and its dependent SQL on one connection.
+// Work must contain only replayable SQL; a DB-owned operation retries conflicts.
 // A failed operation rolls back its savepoint even when an outer transaction continues.
 func Atomic(
 	ctx context.Context, db dbapi.Executor, work operation,
@@ -20,16 +21,13 @@ func Atomic(
 	case dbapi.Tx:
 		return savepoint(ctx, value, work)
 	case dbapi.DB:
-		tx, err := value.BeginTx(ctx, nil)
+		var result sql.Result
+		err := dbapi.RetryTransaction(ctx, value, func(tx dbapi.Tx) error {
+			var err error
+			result, err = savepoint(ctx, tx, work)
+			return err
+		})
 		if err != nil {
-			return nil, fmt.Errorf("begin record transaction: %w", err)
-		}
-		defer dbapi.Rollback(tx)
-		result, err := savepoint(ctx, tx, work)
-		if err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
 			return nil, fmt.Errorf("commit record transaction: %w", err)
 		}
 		return result, nil

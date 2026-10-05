@@ -28,15 +28,11 @@ func NewReviewApprovals(database dbapi.DB) *ReviewApprovals {
 func (repository *ReviewApprovals) WithApproval(
 	ctx context.Context, work func(libraryservice.ReviewApprovalScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	// The filesystem publication runs between the two replayable database phases.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(BindReviewApproval(tx))
+	})
 	if err != nil {
-		return fmt.Errorf("begin review approval: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(BindReviewApproval(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit review approval: %w", err)
 	}
 	return nil

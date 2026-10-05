@@ -27,9 +27,9 @@ WHERE q.id=?`, id).
 func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload, bool, error) {
 	var value firmware.Upload
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT f.id,f.upload_session_id,f.relative_path,f.state,
- b.value,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.md5'),json_extract(b.value,
-'$.sha1'),json_extract(b.value, '$.sha256') FROM upload_files f JOIN
-json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
+ b.value,(((b.value)::jsonb #>> '{size_bytes}'))::bigint,((b.value)::jsonb #>> '{md5}'),((b.value)::jsonb #>>
+ '{sha1}'),((b.value)::jsonb #>> '{sha256}') FROM upload_files f JOIN
+LATERAL (SELECT f.final_file_record AS value) b ON b.value IS NOT NULL
 WHERE f.id=?`, id).
 		Scan(
 			&value.ID,

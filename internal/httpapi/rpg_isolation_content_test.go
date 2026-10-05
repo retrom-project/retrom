@@ -14,17 +14,16 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 
 	isolationpersistence "retrom/internal/persistence/isolation"
-
-	_ "modernc.org/sqlite"
 
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/launch"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/runtimesession"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestRPGFrameDocumentsCanBeEmbeddedOnlyThroughTheirCSP(t *testing.T) {
@@ -365,7 +364,7 @@ func newBootstrapReloadFixture(
 	t *testing.T,
 ) (dbapi.DB, *isolation.Service, *int64, string, string, string) {
 	t.Helper()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,22 +375,22 @@ func newBootstrapReloadFixture(
 CREATE TABLE users(id TEXT PRIMARY KEY,profile_id TEXT);
 INSERT INTO users VALUES('isolation-actor','profile');
 CREATE TABLE launch_sessions(
- id TEXT PRIMARY KEY,profile_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+ id TEXT PRIMARY KEY,profile_id TEXT,state TEXT,hard_expires_at_ms BIGINT
 );
 CREATE TABLE launch_content_files(
  launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE runtime_preview_sessions(
- actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,
+ actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms BIGINT,
 content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
- ticket_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
- expires_at_ms INTEGER,consumed_at_ms INTEGER
+ ticket_sha256 BYTEA,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ expires_at_ms BIGINT,consumed_at_ms BIGINT
 );
 CREATE TABLE isolated_runtime_capabilities(
- credential_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
- issued_at_ms INTEGER,expires_at_ms INTEGER,revoked_at_ms INTEGER
+ credential_sha256 BYTEA,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ issued_at_ms BIGINT,expires_at_ms BIGINT,revoked_at_ms BIGINT
 );`); err != nil {
 		t.Fatal(err)
 	}

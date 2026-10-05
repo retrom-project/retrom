@@ -22,11 +22,11 @@ func (reads scheduleReads) Files(
 ) ([]metadatascrape.FileEvidence, error) {
 	table, column := evidenceSource(subject)
 	rows, err := reads.database.QueryContext(ctx, `
-SELECT s.logical_name,b.value,json_extract(b.value,'$.crc32'),json_extract(b.value,'$.md5'),
-json_extract(b.value,'$.sha1'),json_extract(b.value,'$.sha256'),
+SELECT s.logical_name,b.value,((b.value)::jsonb #>> '{crc32}'),((b.value)::jsonb #>> '{md5}'),
+((b.value)::jsonb #>> '{sha1}'),((b.value)::jsonb #>> '{sha256}'),
  s.source_archive_file_record,s.source_archive_entry_ordinal FROM
 `+table+`
- s JOIN json_each(json_array(s.file_record)) b ON b.value IS NOT NULL
+ s JOIN LATERAL (SELECT s.file_record AS value) b ON b.value IS NOT NULL
  WHERE s.`+column+`=? AND s.role='CONTENT' ORDER BY s.sort_order,s.logical_name`, subject.ID)
 	if err != nil {
 		return nil, fmt.Errorf("query scrape content evidence: %w", err)

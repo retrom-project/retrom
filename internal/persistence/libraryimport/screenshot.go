@@ -31,15 +31,13 @@ JOIN review_preview_bindings review_binding ON review_binding.preview_session_id
 func (repository *Screenshots) WithScreenshot(
 	ctx context.Context, work func(libraryservice.ScreenshotScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(screenshotRecords{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin review screenshot: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(screenshotRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit review screenshot: %w", err)
 	}
 	return nil

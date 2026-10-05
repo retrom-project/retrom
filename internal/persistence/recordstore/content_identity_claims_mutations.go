@@ -21,7 +21,8 @@ func UpdateContentIdentityClaims(
 }
 
 const ContentIdentityClaimsUpdateRule = `
-WITH previous(platform_id,content_identity_digest) AS (VALUES(?,?))
+WITH previous(platform_id,content_identity_digest)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- content_identity_claims_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteContentIdentityClaims(
 }
 
 const ContentIdentityClaimsDeleteRule = `
-WITH previous(platform_id,content_identity_digest) AS (VALUES(?,?))
+WITH previous(platform_id,content_identity_digest)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- content_identity_claims_immutable_delete
 WHEN (1=1) THEN 'immutable'

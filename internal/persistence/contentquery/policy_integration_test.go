@@ -4,9 +4,10 @@ package contentquery_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/persistence/contentquery"
 
@@ -20,7 +21,7 @@ import (
 func TestBindingPolicyUsesTheConsumersTransactionSnapshot(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "policy.db"), func() time.Time {
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(0)
 	})
 	if err != nil {
@@ -60,7 +61,7 @@ DELETE FROM runtime_binding_content_kinds WHERE binding_id=? AND content_kind='M
 
 func TestMissingBindingScansAsNoCapabilities(t *testing.T) {
 	t.Parallel()
-	database, err := testsupport.OpenDatabase(context.Background(), filepath.Join(t.TempDir(), "missing.db"), func() time.Time {
+	database, err := testsupport.OpenDatabase(context.Background(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(0)
 	})
 	if err != nil {
@@ -74,5 +75,48 @@ FROM (SELECT 1) source LEFT JOIN runtime_target_bindings binding ON binding.bind
 	}
 	if len(policy.SupportedContentKinds) != 0 || policy.MultiDisc != nil || policy.Digest() != "" {
 		t.Fatal("optional binding manufactured a capability")
+	}
+}
+
+func TestPolicyFenceComparesJSONFactsAndDetectsChangedLimit(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	const maximum = int64(5 << 30)
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO runtime_target_input_limits(provider_id,target_id,role,max_file_bytes)
+SELECT provider_id,target_id,'ROM',? FROM runtime_target_bindings WHERE core_id='yabause'
+ON CONFLICT(provider_id,target_id,role) DO UPDATE SET max_file_bytes=excluded.max_file_bytes`, maximum); err != nil {
+		t.Fatal(err)
+	}
+	query := `SELECT ` + contentquery.BindingPolicySQL + ` FROM runtime_target_bindings binding WHERE core_id='yabause'`
+	var policy contentcapability.Policy
+	if err := dbapi.QueryRowContext(ctx, database.SQL, query).Scan(contentquery.ScanPolicy(&policy)); err != nil {
+		t.Fatal(err)
+	}
+	if policy.InputMaxFileBytes["ROM"] != maximum {
+		t.Fatal("input limit did not retain its 64-bit value")
+	}
+	fence := `SELECT (` + contentquery.BindingPolicySQL + `)=? FROM runtime_target_bindings binding WHERE core_id='yabause'`
+	var matches bool
+	if err := dbapi.QueryRowContext(ctx, database.SQL, fence, contentquery.BindPolicy(policy)).Scan(&matches); err != nil {
+		t.Fatal(err)
+	}
+	if !matches {
+		t.Fatal("unchanged facts failed the fence after JSONB serialization")
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE runtime_target_input_limits SET max_file_bytes=? WHERE role='ROM'`, maximum-1); err != nil {
+		t.Fatal(err)
+	}
+	if err := dbapi.QueryRowContext(ctx, database.SQL, fence, contentquery.BindPolicy(policy)).Scan(&matches); err != nil {
+		t.Fatal(err)
+	}
+	if matches {
+		t.Fatal("changed input limit passed the stale policy fence")
 	}
 }

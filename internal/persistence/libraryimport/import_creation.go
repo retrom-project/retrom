@@ -26,15 +26,13 @@ func (repository *ImportCreations) WithCreation(
 	ctx context.Context,
 	work func(libraryservice.ImportCreationScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(BindImportCreation(tx)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import creation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(BindImportCreation(tx)); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit import creation: %w", err)
 	}
 	return nil

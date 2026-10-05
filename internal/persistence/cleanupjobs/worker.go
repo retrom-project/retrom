@@ -14,15 +14,11 @@ type Worker struct{ database dbapi.DB }
 
 func NewWorker(database dbapi.DB) *Worker { return &Worker{database: database} }
 func (repository *Worker) WithWorker(ctx context.Context, run func(application.WorkerScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// File deletion and payload effects run outside this authority/state scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return run(BindWorker(tx))
+	})
 	if err != nil {
-		return fmt.Errorf("begin release worker transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := run(BindWorker(tx)); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit release worker transaction: %w", err)
 	}
 	return nil

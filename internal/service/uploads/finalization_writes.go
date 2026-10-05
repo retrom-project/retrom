@@ -34,6 +34,7 @@ func (service *Service) finalizeWrite(
 ) (bool, error) {
 	stopped := false
 	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		stopped = false
 		current, job, owned, err := currentFinalization(ctx, scope, run)
 		if err != nil {
 			return err
@@ -55,6 +56,7 @@ func (service *Service) fail(parent context.Context, run Run, cause error) error
 	defer cancel()
 	cancelled := false
 	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		cancelled = false
 		current, job, owned, err := currentFinalization(ctx, scope, run)
 		if err != nil {
 			return err

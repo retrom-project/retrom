@@ -14,16 +14,14 @@ type Play struct{ database dbapi.DB }
 
 func NewPlay(database dbapi.DB) *Play { return &Play{database: database} }
 func (repository *Play) WithPlay(ctx context.Context, work func(application.PlayScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := playRecords{transaction: tx}
+		if err := work(application.PlayScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin play transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := playRecords{transaction: tx}
-	if err := work(application.PlayScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit play transaction: %w", err)
 	}
 	return nil

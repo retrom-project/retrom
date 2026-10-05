@@ -5,12 +5,15 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 
-	moderncsqlite "modernc.org/sqlite"
+	"retrom/internal/testsupport/testpostgres"
+
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 // SQLFaultHooks inject failures at the driver boundary while repositories still
@@ -23,26 +26,19 @@ type SQLFaultHooks struct {
 	AfterExec   func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
 }
 
-// OpenSQLFaultDatabase opens another connection pool to a file-backed test database.
+// OpenSQLFaultDatabase opens another connection pool to the isolated test database.
 // It does not register a process-global driver, mutate the schema, or replace the
 // original pool. The caller wires this pool only into the consumer under test.
 func OpenSQLFaultDatabase(t testing.TB, source dbapi.DB, hooks SQLFaultHooks) dbapi.DB {
 	t.Helper()
-	var sequence int
-	var name, filename string
-	if err := dbapi.QueryRowContext(
-		t.Context(), source, `PRAGMA database_list`).Scan(&sequence, &name, &filename); err != nil {
+	var name string
+	if err := dbapi.QueryRowContext(t.Context(), source, "SELECT current_database()").Scan(&name); err != nil {
 		t.Fatal(err)
 	}
-	if name != "main" || filename == "" {
-		t.Fatal("SQL fault injection requires a file-backed test database")
-	}
 	connector := sqlFaultConnector{
-		base:  &moderncsqlite.Driver{},
-		dsn:   filename + "?_txlock=immediate&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)",
-		hooks: hooks,
+		base: stdlib.GetDefaultDriver(), dsn: testpostgres.ForDatabase(t, name), hooks: hooks,
 	}
-	database := dbsqlite.OpenConnector(connector, dbsqlite.Options{MaxOpenConns: 1})
+	database := dbpostgres.OpenConnector(connector, dbpostgres.Options{MaxOpenConns: 1})
 	t.Cleanup(func() {
 		if err := database.Close(); err != nil {
 			t.Error(err)
@@ -95,7 +91,7 @@ func (connection sqlFaultConnection) ExecContext(
 	ctx context.Context, query string, args []driver.NamedValue,
 ) (driver.Result, error) {
 	if connection.hooks.BeforeExec != nil {
-		if err := connection.hooks.BeforeExec(ctx, query, args); err != nil {
+		if err := connection.hooks.BeforeExec(ctx, faultTemplate(query), args); err != nil {
 			return nil, err
 		}
 	}
@@ -108,7 +104,7 @@ func (connection sqlFaultConnection) ExecContext(
 		return nil, fmt.Errorf("execute fault-injected statement: %w", err)
 	}
 	if connection.hooks.AfterExec != nil {
-		return connection.hooks.AfterExec(ctx, query, args, result)
+		return connection.hooks.AfterExec(ctx, faultTemplate(query), args, result)
 	}
 	return result, nil
 }
@@ -117,7 +113,7 @@ func (connection sqlFaultConnection) QueryContext(
 	ctx context.Context, query string, args []driver.NamedValue,
 ) (driver.Rows, error) {
 	if connection.hooks.BeforeQuery != nil {
-		if err := connection.hooks.BeforeQuery(ctx, query, args); err != nil {
+		if err := connection.hooks.BeforeQuery(ctx, faultTemplate(query), args); err != nil {
 			return nil, err
 		}
 	}
@@ -130,11 +126,31 @@ func (connection sqlFaultConnection) QueryContext(
 		return nil, fmt.Errorf("query fault-injected statement: %w", err)
 	}
 	if connection.hooks.AfterQuery != nil {
-		projected, err := connection.hooks.AfterQuery(ctx, query, args, rows)
+		projected, err := connection.hooks.AfterQuery(ctx, faultTemplate(query), args, rows)
 		if err != nil {
 			return nil, fmt.Errorf("intercept query rows: %w", errors.Join(err, rows.Close()))
 		}
 		return projected, nil
 	}
 	return rows, nil
+}
+
+// Hooks match the composed query template before driver parameter numbering.
+var parameterNumber = regexp.MustCompile(`\$[0-9]+`)
+
+func faultTemplate(query string) string { return parameterNumber.ReplaceAllString(query, "?") }
+
+// Preserve the driver's pool lifecycle, including cancellation-discarded connections.
+func (connection sqlFaultConnection) IsValid() bool {
+	validator, ok := connection.Conn.(driver.Validator)
+	return !ok || validator.IsValid()
+}
+
+func (connection sqlFaultConnection) ResetSession(ctx context.Context) error {
+	if resetter, ok := connection.Conn.(driver.SessionResetter); ok {
+		if err := resetter.ResetSession(ctx); err != nil {
+			return fmt.Errorf("reset fault connection: %w", err)
+		}
+	}
+	return nil
 }

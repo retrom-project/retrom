@@ -15,23 +15,23 @@ func (records ReviewSources) Files(
 	ctx context.Context, snapshotID string,
 ) ([]libraryservice.ReviewSourceRecord, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT f.id,f.relative_path,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.sha256'),
-json_extract(b.value, '$.md5'),json_extract(b.value, '$.crc32'),
-MAX(CASE WHEN s.source_archive_file_record IS NOT NULL OR EXISTS(
+SELECT f.id,f.relative_path,(((b.value)::jsonb #>> '{size_bytes}'))::bigint,((b.value)::jsonb #>> '{sha256}'),
+((b.value)::jsonb #>> '{md5}'),((b.value)::jsonb #>> '{crc32}'),
+max(CASE WHEN s.source_archive_file_record IS NOT NULL OR EXISTS(
   SELECT 1 FROM archive_entries ae WHERE ae.archive_file_record=b.value
 ) THEN 1 ELSE 0 END),
 COALESCE(
-  MAX(s.source_archive_file_record),
-  MAX(CASE WHEN EXISTS(
+  max(s.source_archive_file_record),
+  max(CASE WHEN EXISTS(
     SELECT 1 FROM archive_entries ae WHERE ae.archive_file_record=b.value
   ) THEN b.value END)
 )
 FROM import_item_source_snapshot_files s
 JOIN import_files f ON f.id=s.upload_file_id
-JOIN json_each(json_array(COALESCE(s.source_archive_file_record,s.file_record))) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT COALESCE(s.source_archive_file_record,s.file_record) AS value) b ON b.value IS NOT NULL
 WHERE s.source_snapshot_id=?
-GROUP BY f.id,f.relative_path,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.sha256'),
-json_extract(b.value, '$.md5'),json_extract(b.value, '$.crc32')
+GROUP BY f.id,f.relative_path,(((b.value)::jsonb #>> '{size_bytes}'))::bigint,((b.value)::jsonb #>> '{sha256}'),
+((b.value)::jsonb #>> '{md5}'),((b.value)::jsonb #>> '{crc32}')
 ORDER BY min(s.sort_order),f.relative_path,f.id
 `, snapshotID)
 	if err != nil {

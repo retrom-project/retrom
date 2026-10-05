@@ -12,7 +12,7 @@ func (records reviewDiscardRecords) CancelAttachments(ctx context.Context, itemI
 		if _, err := records.executor.ExecContext(ctx, `UPDATE jobs
 SET state=CASE WHEN state='RUNNING' THEN 'CANCEL_REQUESTED' ELSE 'CANCELLED' END,
 cancel_requested_at_ms=?,cancel_reason='review discarded',
-finished_at_ms=CASE WHEN state='RUNNING' THEN NULL ELSE ? END,version=version+1,updated_at_ms=?
+finished_at_ms=CASE WHEN state='RUNNING' THEN NULL ELSE ?::bigint END,version=version+1,updated_at_ms=?
 WHERE id IN (SELECT job_id FROM `+table+` WHERE import_item_id=? AND state='PENDING')
 AND (state IN ('QUEUED','RUNNING') OR state='FAILED' AND error_retryable=1)`, now, now, now, itemID); err != nil {
 			return fmt.Errorf("cancel discarded attachments: %w", err)

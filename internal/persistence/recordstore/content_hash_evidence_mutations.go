@@ -23,7 +23,8 @@ func UpdateContentHashEvidence(
 
 const ContentHashEvidenceUpdateRule = `
 WITH previous(id,crc32,created_at_ms,md5,payload_released_at_ms,profile,query_order,scrape_run_id,sha1,
-sha256) AS (VALUES(?,?,?,?,?,?,?,?,?,?))
+sha256)
+AS (VALUES(?::text,?::text,?::bigint,?::text,?::bigint,?::text,?::bigint,?::text,?::text,?::text))
 SELECT CASE
 -- content_hash_evidence_immutable_update
 WHEN (NOT (
@@ -32,8 +33,9 @@ WHEN (NOT (
 candidate.archive_entry_ordinal IS NULL
   AND candidate.id=previous.id AND candidate.scrape_run_id=previous.scrape_run_id AND
 candidate.profile=previous.profile
-  AND candidate.crc32 IS previous.crc32 AND candidate.md5 IS previous.md5 AND candidate.sha1 IS
-previous.sha1 AND candidate.sha256 IS previous.sha256
+  AND candidate.crc32 IS NOT DISTINCT FROM previous.crc32 AND candidate.md5 IS NOT DISTINCT FROM previous.md5
+ AND candidate.sha1 IS NOT DISTINCT FROM previous.sha1 AND candidate.sha256 IS NOT DISTINCT FROM
+ previous.sha256
   AND candidate.query_order=previous.query_order AND candidate.created_at_ms=previous.created_at_ms
   AND EXISTS(
     SELECT 1 FROM metadata_scrape_runs run
@@ -61,7 +63,8 @@ func DeleteContentHashEvidence(
 }
 
 const ContentHashEvidenceDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- content_hash_evidence_immutable_delete
 WHEN (1=1) THEN 'immutable'

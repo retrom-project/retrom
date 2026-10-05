@@ -128,7 +128,7 @@ test("ACC-UI-008 review sections and media keep independent natural heights", as
   expect((await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" }, headers: { Origin: origin },
   })).ok()).toBe(true);
-  await page.goto("/admin/reviews/30000000-0000-7000-8001-000000000057");
+  await page.goto("/admin/reviews/30000000-0000-7000-8001-000000000056");
   await expect(page.getByRole("heading", { name: "② 发布成什么？" })).toBeVisible();
   await page.getByRole("textbox", { name: "标题", exact: true }).focus();
   await page.getByRole("textbox", { name: "标题", exact: true }).blur();

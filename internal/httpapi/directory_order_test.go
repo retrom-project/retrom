@@ -69,7 +69,7 @@ func TestPlatformDirectoryCreationOrderIsStableAndComplete(t *testing.T) {
 func assertDirectorySchemaHasNoManualOrder(t *testing.T, server *testServer) {
 	t.Helper()
 	var columns int
-	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM pragma_table_info('platform_instances') WHERE name='sort_order'`).Scan(&columns); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM (SELECT column_name AS name,data_type AS type FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='platform_instances') WHERE name='sort_order'`).Scan(&columns); err != nil {
 		t.Fatal(err)
 	}
 	if columns != 0 {

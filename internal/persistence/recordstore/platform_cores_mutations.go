@@ -21,10 +21,11 @@ func UpdatePlatformCores(
 }
 
 const PlatformCoresUpdateRule = `
-WITH previous(platform_id,core_id,enabled) AS (VALUES(?,?,?))
+WITH previous(platform_id,core_id,enabled)
+AS (VALUES(?::text,?::text,?::bigint))
 SELECT CASE
 -- platform_cores_in_use_disable
-WHEN ((candidate.enabled IS NOT previous.enabled) AND ((candidate.enabled = 0) AND (EXISTS (
+WHEN ((candidate.enabled IS DISTINCT FROM previous.enabled) AND ((candidate.enabled = 0) AND (EXISTS (
     SELECT 1 FROM platform_instances WHERE platform_id = previous.platform_id AND default_core_id =
 previous.core_id AND deleted_at_ms IS NULL
   )))) THEN 'platform core is in use'

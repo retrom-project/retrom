@@ -3,7 +3,6 @@ package sourceimport
 import (
 	"context"
 	"database/sql"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"retrom/internal/testassert"
 
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
@@ -36,7 +36,7 @@ id='018fbe68-0000-7000-8000-000000000010'`,
 
 func newSourceRetryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	owner, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retry.db"), time.Now)
+	owner, err := store.Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

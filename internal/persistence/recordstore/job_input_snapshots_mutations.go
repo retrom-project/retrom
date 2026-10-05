@@ -21,7 +21,8 @@ func UpdateJobInputSnapshots(
 }
 
 const JobInputSnapshotsUpdateRule = `
-WITH previous(job_id,execution_no) AS (VALUES(?,?))
+WITH previous(job_id,execution_no)
+AS (VALUES(?::text,?::bigint))
 SELECT CASE
 -- job_input_snapshots_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteJobInputSnapshots(
 }
 
 const JobInputSnapshotsDeleteRule = `
-WITH previous(job_id,execution_no) AS (VALUES(?,?))
+WITH previous(job_id,execution_no)
+AS (VALUES(?::text,?::bigint))
 SELECT CASE
 -- job_input_snapshots_immutable_delete
 WHEN (1=1) THEN 'immutable'

@@ -139,7 +139,7 @@ WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &act
 		t.Fatalf("settlement=%#v want=%#v", actual, expected)
 	}
 	var title string
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='018fbe68-0000-7000-8000-000000000011'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT ((metadata_json)::jsonb #>> '{title}') FROM import_items WHERE id='018fbe68-0000-7000-8000-000000000011'`).Scan(
 		&title,
 	); err != nil {
 		t.Fatal(

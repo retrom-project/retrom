@@ -15,7 +15,9 @@ func (worker *MediaWorker) settle(parent context.Context, execution mediaExecuti
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	published := false
+	originalCause := cause
 	err := worker.repository.WithWrite(ctx, func(scope MediaScope) error {
+		cause, published = originalCause, false
 		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
 		if err != nil {
 			return mediaError("read media completion", err)

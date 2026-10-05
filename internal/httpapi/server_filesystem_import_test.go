@@ -91,7 +91,7 @@ func seedFilesystemImportCatalog(t *testing.T, server *testServer) {
 INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,logical_name,
 requirement_mode,catalog_digest,size_bytes,md5,source_url,source_version,enabled,version,
 created_at_ms,updated_at_ms,delivery_kind)
-VALUES('filesystem-requirement','mgba',?,?,'STATIC','bios.bin','REQUIRED',lower(hex(zeroblob(32))),
+VALUES('filesystem-requirement','mgba',?,?,'STATIC','bios.bin','REQUIRED',lower(upper(encode(decode(repeat('00',(32)::integer),'hex'),'hex'))),
 7,'c0a53b8a2b3c6f7a7f6e1fcbf9f99f15','https://example.invalid/bios','filesystem-v1',1,1,1,1,'BIOS_BUNDLE')
 `, target.ProviderID, target.TargetID)
 	if err != nil {

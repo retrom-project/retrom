@@ -21,7 +21,8 @@ func UpdateAuditEvents(
 }
 
 const AuditEventsUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- audit_events_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteAuditEvents(
 }
 
 const AuditEventsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- audit_events_immutable_delete
 WHEN (1=1) THEN 'immutable'

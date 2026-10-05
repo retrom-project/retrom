@@ -1,5 +1,4 @@
 import importlib.util
-import sqlite3
 import sys
 import tempfile
 import unittest
@@ -7,6 +6,7 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "ui_layout_state.py"
 sys.path.insert(0, str(SCRIPT.parent))
+import postgres_fixture as pg
 SPEC = importlib.util.spec_from_file_location("ui_layout_state", SCRIPT)
 STATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(STATE)
@@ -18,18 +18,16 @@ class UILayoutStateTests(unittest.TestCase):
             root = Path(root)
             for name in ("pfb", "retrom-ui-acceptance", "retrom-web-e2e-backup"):
                 with self.assertRaises(ValueError):
-                    STATE.validate_database(root / name / "data/retrom.db")
+                    STATE.validate_database(root / name / "data")
             escaped = root / "retrom-web-e2e.fixture"
             escaped.symlink_to(root)
             with self.assertRaises(ValueError):
-                STATE.validate_database(escaped / "data/retrom.db")
+                STATE.validate_database(escaped / "data")
 
     def test_restores_history_saves_and_descriptions_without_touching_other_profiles(self):
-        with tempfile.TemporaryDirectory(prefix="retrom-web-e2e.") as root:
-            path = Path(root) / "data/retrom.db"
-            path.parent.mkdir()
-            with sqlite3.connect(path) as db:
-                db.executescript("""
+        with tempfile.TemporaryDirectory(prefix="retrom-web-e2e.") as root, pg.disposable(Path(root) / "data") as path:
+            with pg.connect(path) as db:
+                db.execute("""
                     CREATE TABLE profiles(id TEXT PRIMARY KEY,display_name TEXT,created_at_ms INTEGER);
                     CREATE TABLE users(username TEXT,profile_id TEXT);
                     CREATE TABLE play_sessions(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id));
@@ -49,7 +47,7 @@ class UILayoutStateTests(unittest.TestCase):
             STATE.isolate(path)
             with self.assertRaisesRegex(ValueError, "already isolated"):
                 STATE.isolate(path)
-            with sqlite3.connect(path) as db:
+            with pg.connect(path) as db:
                 self.assertEqual(db.execute("SELECT id FROM play_sessions WHERE profile_id='p'").fetchall(), [])
                 self.assertEqual(db.execute("SELECT * FROM profile_game_activity WHERE profile_id='p'").fetchall(), [])
                 self.assertEqual(db.execute("SELECT active_duration_ms FROM profile_game_activity WHERE profile_id='q'").fetchone(), (2000,))
@@ -61,14 +59,14 @@ class UILayoutStateTests(unittest.TestCase):
                 db.execute("UPDATE games SET description='layout'")
             STATE.restore(path)
             STATE.restore(path)
-            with sqlite3.connect(path) as db:
+            with pg.connect(path) as db:
                 self.assertEqual(db.execute("SELECT id FROM play_sessions ORDER BY id").fetchall(), [("other",), ("play",)])
                 self.assertEqual(db.execute("SELECT * FROM profile_game_activity ORDER BY profile_id").fetchall(),
                                  [('p', 'game', 1000, 1), ('q', 'game', 2000, 2)])
                 self.assertEqual(db.execute("SELECT id FROM save_states ORDER BY id").fetchall(), [("other-save",), ("save",)])
                 self.assertEqual(db.execute("SELECT description FROM games").fetchone(), ("original",))
                 self.assertEqual(db.execute("SELECT save_state_id FROM launches").fetchone(), ("save",))
-                self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+                self.assertEqual(db.execute("SELECT conname FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND NOT convalidated").fetchall(), [])
 
 
 if __name__ == "__main__":

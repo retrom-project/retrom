@@ -48,9 +48,9 @@ FROM platform_instances pi WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms I
 
 func (records ImportFacts) Files(ctx context.Context, uploadID string) ([]libraryservice.ImportFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT f.id,f.relative_path,f.file_record,json_extract(b.value, '$.sha256'),json_extract(b.value,
-'$.size_bytes')
-FROM import_files f JOIN json_each(json_array(f.file_record)) b ON b.value IS NOT NULL
+SELECT f.id,f.relative_path,f.file_record,((b.value)::jsonb #>> '{sha256}'),(((b.value)::jsonb #>>
+ '{size_bytes}'))::bigint
+FROM import_files f JOIN LATERAL (SELECT f.file_record AS value) b ON b.value IS NOT NULL
 WHERE f.upload_session_id=? AND f.released_at_ms IS NULL ORDER BY f.relative_path,f.id`, uploadID)
 	if err != nil {
 		return nil, fmt.Errorf("query import source files: %w", err)

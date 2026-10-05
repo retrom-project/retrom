@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/composition"
@@ -63,7 +65,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), mediaFixtureNow)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), mediaFixtureNow)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -528,7 +530,7 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), mediaFixtureNow)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), mediaFixtureNow)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -744,9 +746,8 @@ WHERE id=?
 	var evidenceCount, arcadeProfileCount, leakedHashCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*),
-sum(profile='ARCADE_DAT_ENTRIES'),
-sum(md5 IS NOT NULL
-OR sha256 IS NOT NULL)
+count(*) FILTER (WHERE profile='ARCADE_DAT_ENTRIES'),
+count(*) FILTER (WHERE md5 IS NOT NULL OR sha256 IS NOT NULL)
 FROM content_hash_evidence
 WHERE scrape_run_id=?
 `, scheduled.RunID).Scan(&evidenceCount, &arcadeProfileCount, &leakedHashCount); err != nil {

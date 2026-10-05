@@ -49,8 +49,8 @@ func (records records) Input(
 
 func (records records) Identity(ctx context.Context, id string) ([]gamecontent.IdentityFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT file.role,json_extract(blob.value, '$.sha256') FROM game_files file
- JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL WHERE file.game_id=? ORDER
+SELECT file.role,((blob.value)::jsonb #>> '{sha256}') FROM game_files file
+ JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL WHERE file.game_id=? ORDER
 BY file.sort_order,
 file.role,file.logical_name`, id)
 	if err != nil {

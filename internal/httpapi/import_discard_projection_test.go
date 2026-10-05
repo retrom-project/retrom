@@ -38,6 +38,6 @@ func assertImportDiscardDetail(t *testing.T, payload []byte, id, state string) {
 		t.Fatal(err)
 	}
 	if detail.Discard.Kind != "IMPORT" || detail.Discard.ImportID != id || detail.Discard.State != state {
-		t.Fatalf("detail discard projection: %+v", detail.Discard)
+		t.Fatalf("detail discard projection: %+v body=%s", detail.Discard, payload)
 	}
 }

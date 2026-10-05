@@ -27,6 +27,7 @@ func (service *AdministrationService) Delete(
 	}
 	var replayed bool
 	err = service.repository.WithWrite(ctx, func(scope AdministrationScope) error {
+		replayed = false
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account administration: %w", err)

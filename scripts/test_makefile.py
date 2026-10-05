@@ -224,11 +224,11 @@ class MakefileDependencyTests(unittest.TestCase):
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-current-launch.py"
         ).read_text(encoding="utf-8")
         self.assertIn("variant.provider_id", script)
-        self.assertIn("\'$.kind\')=\'ARCADE\'", script)
-        self.assertIn("\'$.schemaVersion\')=1", script)
+        self.assertIn("#>> '{kind}')='ARCADE'", script)
+        self.assertIn("#>> '{schemaVersion}'))::bigint=1", script)
         self.assertIn("provider_id,target_id", script)
         self.assertNotIn("target_contract_sha256", script)
-        self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)
+        self.assertIn("SET LOCAL lock_timeout='30s'", script)
 
     def test_immersive_seeder_preserves_launch_content_and_provider_identity(self) -> None:
         script = (

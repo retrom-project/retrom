@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
@@ -41,7 +43,7 @@ func archiveImportFixture(t *testing.T) (*Service, dbapi.DB, string) {
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

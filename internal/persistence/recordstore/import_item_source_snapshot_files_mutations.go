@@ -21,7 +21,8 @@ func UpdateImportItemSourceSnapshotFiles(
 }
 
 const ImportItemSourceSnapshotFilesUpdateRule = `
-WITH previous(source_snapshot_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(source_snapshot_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- import_item_source_snapshot_files_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteImportItemSourceSnapshotFiles(
 }
 
 const ImportItemSourceSnapshotFilesDeleteRule = `
-WITH previous(source_snapshot_id,role,logical_name) AS (VALUES(?,?,?))
+WITH previous(source_snapshot_id,role,logical_name)
+AS (VALUES(?::text,?::text,?::text))
 SELECT CASE
 -- import_item_source_snapshot_files_immutable_delete
 WHEN (NOT EXISTS(

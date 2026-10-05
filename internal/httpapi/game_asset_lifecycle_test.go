@@ -102,7 +102,7 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	var directoryJobs int
 	oldDirectory := filestore.GameDirectory(gameID) + "/media/" + coverAssetID
 	mustScanHTTPTest(t, dbapi.QueryRowContext(t.Context(), server.database,
-		`SELECT count(*) FROM job_input_snapshots WHERE json_extract(input_json,'$.inputs.relativePath')=?`, oldDirectory), &directoryJobs)
+		`SELECT count(*) FROM job_input_snapshots WHERE ((input_json)::jsonb #>> '{inputs,relativePath}')=?`, oldDirectory), &directoryJobs)
 	testassert.Falsef(t, directoryJobs != 1, "expected one directory removal, got %d", directoryJobs)
 	testassert.Falsef(t, !bytes.Equal(newAsset.Body.Bytes(), png), "replacement bytes changed")
 }

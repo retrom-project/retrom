@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -13,14 +13,15 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	database, err := Open(ctx, testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(1786000000000)
 	})
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
@@ -28,11 +29,11 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL,
-		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+		"SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects WHERE type='table' AND name NOT LIKE 'pg_%' ORDER BY name")
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
-	if names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='view'"); len(names) != 0 {
+	if names := queryStrings(t, database.SQL, "SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects WHERE type='view'"); len(names) != 0 {
 		t.Fatalf("unexpected views remain: %v", names)
 	}
 	for _, table := range tables {
@@ -80,7 +81,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	} {
 		var found int
 		if err := dbapi.QueryRowContext(t.Context(), database.SQL,
-			"SELECT count(*) FROM pragma_table_info(?) WHERE name=?", removed.table,
+			"SELECT count(*) FROM (SELECT column_name AS name,data_type AS type FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=?) WHERE name=?", removed.table,
 			removed.column).Scan(&found); err != nil {
 			t.Fatal(err)
 		}
@@ -151,12 +152,12 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 
 func TestSchemaUsesCurrentGameStateWithoutBusinessRevisions(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 
 	tables := queryStrings(t, database.SQL, `
-SELECT name FROM sqlite_master
+SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects
 WHERE type='table' AND name IN ('game_content_revisions','game_metadata_revisions','game_variant_revisions')
 ORDER BY name`)
 	testassert.Truef(t, len(tables) == 0, "business revision tables still exist: %v", tables)
@@ -176,13 +177,13 @@ ORDER BY name`)
 
 func TestGameMetadataTitleInitialConstraint(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	transaction, err := database.SQL.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("rollback", transaction.Rollback()) }()
-	if _, err := transaction.ExecContext(t.Context(), "PRAGMA defer_foreign_keys=ON"); err != nil {
+	if _, err := transaction.ExecContext(t.Context(), "SET CONSTRAINTS ALL DEFERRED"); err != nil {
 		t.Fatal(err)
 	}
 	insert := func(id, initial string) error {
@@ -202,38 +203,56 @@ INSERT INTO games(
 		}
 	}
 	for index, initial := range []string{"", "a", "AA", "中", "É"} {
+		if _, err := transaction.ExecContext(t.Context(), "SAVEPOINT invalid_initial"); err != nil {
+			t.Fatal(err)
+		}
 		err := insert(fmt.Sprintf("invalid-%d", index), initial)
-		testassert.Truef(t, err != nil && strings.Contains(err.Error(), "CHECK constraint failed"),
+		testassert.Truef(t, err != nil && testpostgres.HasCode(err, "23514"),
 			"invalid title_initial %q error = %v", initial, err)
+		if _, err := transaction.ExecContext(t.Context(), "ROLLBACK TO SAVEPOINT invalid_initial; RELEASE SAVEPOINT invalid_initial"); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
 func assertCurrentClosedEnums(t *testing.T, database dbapi.DB) {
 	t.Helper()
-	for table, current := range map[string]string{
-		"source_imports":      "phase TEXT CHECK(phase IS NULL OR phase IN ('DISCOVERING_METADATA','PARSING_METADATA','RESOLVING_SOURCES','COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS'))",
-		"source_import_items": "execution_state TEXT NOT NULL CHECK(execution_state IN ('PENDING','COPYING','VALIDATING','REVIEW_PENDING','PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING','SKIPPED_MAPPING','BLOCKED_SOURCE','BLOCKED_CONTENT','SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED'))",
-		"upload_consumptions": "consumer_type TEXT NOT NULL CHECK(consumer_type IN ( 'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT', 'REVIEW_MULTI_DISC','BIOS_INSTALLATION' ))",
-	} {
-		var source string
-		if err := dbapi.QueryRowContext(t.Context(), database,
-			"SELECT sql FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&source); err != nil {
+	cases := []struct {
+		table, column string
+		values        []string
+	}{
+		{"source_imports", "phase", []string{"DISCOVERING_METADATA", "PARSING_METADATA", "RESOLVING_SOURCES", "COPYING_CONTENT", "VALIDATING", "PREPARING_REVIEWS"}},
+		{"source_import_items", "execution_state", []string{"PENDING", "COPYING", "VALIDATING", "REVIEW_PENDING", "PUBLISHED", "REVIEW_DISCARDED", "SKIPPED_EXISTING", "SKIPPED_MAPPING", "BLOCKED_SOURCE", "BLOCKED_CONTENT", "SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED", "CANCELLED"}},
+		{"upload_consumptions", "consumer_type", []string{"IMPORT_JOB", "GAME_CONTENT_REPLACE_JOB", "GAME_ASSET", "REVIEW_ASSET", "REVIEW_ARCADE_PARENT", "REVIEW_MULTI_DISC", "BIOS_INSTALLATION"}},
+	}
+	for _, test := range cases {
+		var definition string
+		err := dbapi.QueryRowContext(t.Context(), database, `SELECT pg_get_constraintdef(c.oid)
+   FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid
+   WHERE c.conrelid=?::regclass AND c.contype='c' AND a.attname=? AND c.conkey=ARRAY[a.attnum]`, test.table, test.column).Scan(&definition)
+		if err != nil {
 			t.Fatal(err)
 		}
-		testassert.Truef(t, strings.Contains(strings.Join(strings.Fields(source), " "), current),
-			"%s lacks current closed enum", table)
+		matches := regexp.MustCompile("'([^']*)'").FindAllStringSubmatch(definition, -1)
+		got := make([]string, 0, len(matches))
+		for _, match := range matches {
+			got = append(got, match[1])
+		}
+		if !slices.Equal(got, test.values) {
+			t.Fatalf("%s.%s enum=%v want=%v", test.table, test.column, got, test.values)
+		}
 	}
 }
 
 func TestOpenProvidesIndependentConfiguredReadPool(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return database.ReadOnly == nil },
-		func() bool { return database.ReadOnly.Stats().MaxOpenConnections != 4 },
+		func() bool { return database.ReadOnly.Stats().MaxOpenConnections != 8 },
 	), "read pool is not independently configured")
 
 	writer, err := database.SQL.BeginTx(ctx, nil)
@@ -248,9 +267,9 @@ func TestOpenProvidesIndependentConfiguredReadPool(t *testing.T) {
 	defer dbapi.Rollback(reader)
 	var foreignKeys, busyTimeout, tableCount int
 	if err := dbapi.QueryRowContext(readContext, reader, `
-SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
-       (SELECT timeout FROM pragma_busy_timeout),
-       (SELECT count(*) FROM sqlite_schema WHERE type='table')
+SELECT CASE WHEN current_setting('transaction_read_only')='on' THEN 1 ELSE 0 END,
+       (extract(epoch FROM current_setting('lock_timeout')::interval)*1000)::bigint,
+       (SELECT count(*) FROM pg_tables WHERE schemaname=current_schema())
 `).Scan(&foreignKeys, &busyTimeout, &tableCount); err != nil {
 		t.Fatal(err)
 	}
@@ -264,12 +283,12 @@ SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
 func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "retrom.db")
+	path := testpostgres.DSN(t)
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 17, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 1, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
-	for _, source := range sources[:len(sources)-1] {
+	for _, source := range sources {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
 			t.Fatal(err)
 		}
@@ -317,14 +336,15 @@ SELECT count(*) FROM archive_entries WHERE archive_file_record='archive'
 }
 
 func TestFreshSchemaUsesProviderTargetProjectionWithoutLegacyRuntimeSemantics(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "retrom.db")
+	path := testpostgres.DSN(t)
 	createCurrentDatabase(t, path)
-	database, err := dbsqlite.Open(path, dbsqlite.Options{})
+	database, err := dbpostgres.Open(path, dbpostgres.Options{})
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 
 	rows, err := database.QueryContext(t.Context(), `
-SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name
+SELECT table_name,string_agg(column_name || ' ' || data_type,',' ORDER BY ordinal_position)
+ FROM information_schema.columns WHERE table_schema=current_schema() GROUP BY table_name ORDER BY table_name
 	`)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close schema rows", rows.Close()) }()
@@ -365,7 +385,6 @@ SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name
 
 func TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 	tests := []struct {
 		name  string
 		setup func(*testing.T, string)
@@ -373,14 +392,14 @@ func TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages(t *testing.T) {
 	}{
 		{name: "old lineage", setup: func(t *testing.T, path string) {
 			database := openMigrationTestDatabase(t, path)
-			_, err := database.ExecContext(t.Context(), `CREATE TABLE old_marker(id INTEGER PRIMARY KEY);
+			_, err := database.ExecContext(t.Context(), `CREATE TABLE old_marker(id BIGINT PRIMARY KEY);
 INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001_platform.sql',?,1)`, strings.Repeat("0", 64))
 			testassert.False(t, err != nil, err)
 			testassert.False(t, database.Close() != nil, "close old lineage")
 		}, want: ErrDatabaseRebuild},
 		{name: "checksum mismatch", setup: func(t *testing.T, path string) {
 			createCurrentDatabase(t, path)
-			database, err := dbsqlite.Open(path, dbsqlite.Options{})
+			database, err := dbpostgres.Open(path, dbpostgres.Options{})
 			testassert.False(t, err != nil, err)
 			_, err = database.ExecContext(t.Context(),
 				"UPDATE schema_migrations SET checksum=? WHERE version=1", strings.Repeat("0", 64))
@@ -391,7 +410,7 @@ INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001
 			sources, err := migrationSources()
 			testassert.False(t, err != nil, err)
 			database := openMigrationTestDatabase(t, path)
-			for _, source := range []migrationSource{sources[0], sources[2]} {
+			for _, source := range []migrationSource{{version: 0, name: sources[0].name, checksum: sources[0].checksum}} {
 				_, err := database.ExecContext(t.Context(),
 					"INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(?,?,?,1)",
 					source.version, source.name, source.checksum)
@@ -401,7 +420,7 @@ INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001
 		}, want: ErrSchemaInvalid},
 		{name: "future", setup: func(t *testing.T, path string) {
 			createCurrentDatabase(t, path)
-			database, err := dbsqlite.Open(path, dbsqlite.Options{})
+			database, err := dbpostgres.Open(path, dbpostgres.Options{})
 			testassert.False(t, err != nil, err)
 			_, err = database.ExecContext(t.Context(),
 				"INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(999,'999_future.sql',?,1)", strings.Repeat("0", 64))
@@ -412,7 +431,8 @@ INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			path := filepath.Join(t.TempDir(), "retrom.db")
+			path := testpostgres.DSN(t)
+			ctx := t.Context()
 			test.setup(t, path)
 			opened, err := Open(ctx, path, time.Now)
 			if opened != nil {
@@ -420,11 +440,11 @@ INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001
 			}
 			testassert.Truef(t, errors.Is(err, test.want), "Open() error = %v, want %v", err, test.want)
 			if test.name == "old lineage" {
-				readOnly, openErr := dbsqlite.Open("file:"+filepath.ToSlash(path)+"?mode=ro", dbsqlite.Options{})
+				readOnly, openErr := dbpostgres.Open(path, dbpostgres.Options{ReadOnly: true})
 				testassert.False(t, openErr != nil, openErr)
 				var tableCount int
 				if err := dbapi.QueryRowContext(ctx, readOnly,
-					"SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tableCount); err != nil {
+					"SELECT count(*) FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT LIKE 'pg_%'").Scan(&tableCount); err != nil {
 					t.Fatal(err)
 				}
 				testassert.Falsef(t, tableCount != 2, "old lineage was modified; table count = %d", tableCount)
@@ -436,16 +456,16 @@ INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(1,'001
 
 func TestFailedMigrationRollsBackSchemaAndCatalog(t *testing.T) {
 	t.Parallel()
-	database := openMigrationTestDatabase(t, filepath.Join(t.TempDir(), "retrom.db"))
+	database := openMigrationTestDatabase(t, testpostgres.DSN(t))
 	defer func() { cleanup.Error("close", database.Close()) }()
-	contents := []byte("CREATE TABLE partial_write(id INTEGER PRIMARY KEY); INVALID SQL;")
+	contents := []byte("CREATE TABLE partial_write(id BIGINT PRIMARY KEY); INVALID SQL;")
 	digest := sha256.Sum256(contents)
 	source := migrationSource{version: 1, name: "001_broken.sql", checksum: fmt.Sprintf("%x", digest), contents: contents}
 	testassert.Truef(t, runMigration(context.Background(), database, source, time.Now) != nil,
 		"broken migration succeeded")
 	var tableCount, recordCount int
 	if err := dbapi.QueryRowContext(t.Context(), database,
-		"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='partial_write'").Scan(&tableCount); err != nil {
+		"SELECT count(*) FROM pg_tables WHERE schemaname=current_schema() AND tablename='partial_write'").Scan(&tableCount); err != nil {
 		t.Fatal(err)
 	}
 	if err := dbapi.QueryRowContext(t.Context(), database,
@@ -465,10 +485,10 @@ func createCurrentDatabase(t *testing.T, path string) {
 
 func openMigrationTestDatabase(t *testing.T, path string) dbapi.DB {
 	t.Helper()
-	database, err := dbsqlite.Open(path, dbsqlite.Options{})
+	database, err := dbpostgres.Open(path, dbpostgres.Options{})
 	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
-	_, err = database.ExecContext(t.Context(), "PRAGMA foreign_keys=ON;"+migrationTable)
+	_, err = database.ExecContext(t.Context(), ""+migrationTable)
 	if err != nil {
 		cleanup.Error("close", database.Close())
 		t.Fatal(err)
@@ -505,7 +525,7 @@ func assertColumns(t *testing.T, database dbapi.DB, table string, expected ...st
 
 func assertNotNullColumn(t *testing.T, database dbapi.DB, table, column string) {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `PRAGMA table_info(`+table+`)`)
+	rows, err := database.QueryContext(t.Context(), `SELECT ordinal_position,column_name,upper(data_type),CASE WHEN is_nullable='NO' THEN 1 ELSE 0 END,column_default,0 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=? ORDER BY ordinal_position`, table)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
@@ -528,7 +548,7 @@ func assertNotNullColumn(t *testing.T, database dbapi.DB, table, column string) 
 
 func tableColumns(t *testing.T, database dbapi.DB, table string) map[string]bool {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `PRAGMA table_info(`+table+`)`)
+	rows, err := database.QueryContext(t.Context(), `SELECT ordinal_position,column_name,upper(data_type),CASE WHEN is_nullable='NO' THEN 1 ELSE 0 END,column_default,0 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=? ORDER BY ordinal_position`, table)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	found := make(map[string]bool)
@@ -549,7 +569,7 @@ func tableColumns(t *testing.T, database dbapi.DB, table string) map[string]bool
 
 func assertIntegerTimeColumns(t *testing.T, database dbapi.DB, table string) {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `PRAGMA table_info(`+table+`)`)
+	rows, err := database.QueryContext(t.Context(), `SELECT ordinal_position,column_name,upper(data_type),CASE WHEN is_nullable='NO' THEN 1 ELSE 0 END,column_default,0 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=? ORDER BY ordinal_position`, table)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
@@ -560,7 +580,7 @@ func assertIntegerTimeColumns(t *testing.T, database dbapi.DB, table string) {
 			t.Fatal(err)
 		}
 		if strings.HasSuffix(name, "_at_ms") {
-			testassert.CheckTruef(t, strings.EqualFold(dataType, "INTEGER"), "%s.%s type = %s", table, name, dataType)
+			testassert.CheckTruef(t, strings.EqualFold(dataType, "BIGINT"), "%s.%s type = %s", table, name, dataType)
 		}
 	}
 	if err := rows.Err(); err != nil {

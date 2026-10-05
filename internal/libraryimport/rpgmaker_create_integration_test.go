@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/persistence/contentquery"
 
 	dbapi "retrom/internal/database"
@@ -32,7 +34,7 @@ import (
 func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +101,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	}
 	var state, code, title, metadataProvider string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title'),
+SELECT item.state,validation.compatibility_code,((draft.metadata_json)::jsonb #>> '{title}'),
 job.metadata_provider
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
@@ -115,9 +117,9 @@ WHERE item.import_job_id=?
 	}
 	var defaultCoreID, providerID, targetID, generation string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT instance.default_core_id,json_extract(draft.review_profile_json,'$.data.providerId'),
- json_extract(draft.review_profile_json,'$.data.targetId'),
- json_extract(draft.review_profile_json,'$.data.generation')
+SELECT instance.default_core_id,((draft.review_profile_json)::jsonb #>> '{data,providerId}'),
+ ((draft.review_profile_json)::jsonb #>> '{data,targetId}'),
+ ((draft.review_profile_json)::jsonb #>> '{data,generation}')
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
@@ -132,11 +134,11 @@ WHERE item.import_job_id=?
 	var role, nestedSHA, nestedFileRecord string
 	var nestedOrdinal int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT file.role,json_extract(blob.value, '$.sha256'),file.file_record,file.source_archive_entry_ordinal
+SELECT file.role,((blob.value)::jsonb #>> '{sha256}'),file.file_record,file.source_archive_entry_ordinal
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=draft.effective_source_snapshot_id
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 `, created.ImportJobID).Scan(&role, &nestedSHA, &nestedFileRecord, &nestedOrdinal); err != nil {
 		t.Fatal(err)
@@ -161,8 +163,8 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 	var itemID string
 	var draftVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT item.id,draft.review_version,json_extract(draft.review_profile_json,'$.data.providerId'),
- json_extract(draft.review_profile_json,'$.data.targetId')
+SELECT item.id,draft.review_version,((draft.review_profile_json)::jsonb #>> '{data,providerId}'),
+ ((draft.review_profile_json)::jsonb #>> '{data,targetId}')
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
@@ -179,8 +181,8 @@ WHERE provider_id='retrom-runtime'
 	var reboundProvider, reboundTarget string
 	var reboundVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT draft.review_version,json_extract(draft.review_profile_json,'$.data.providerId'),
- json_extract(draft.review_profile_json,'$.data.targetId')
+SELECT draft.review_version,((draft.review_profile_json)::jsonb #>> '{data,providerId}'),
+ ((draft.review_profile_json)::jsonb #>> '{data,targetId}')
 FROM import_items draft
 WHERE draft.id=?
 `, itemID).Scan(&reboundVersion, &reboundProvider, &reboundTarget); err != nil {
@@ -198,7 +200,7 @@ WHERE draft.id=?
 	}
 	var obsoleteTables int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN (
+SELECT count(*) FROM pg_tables WHERE schemaname=current_schema() AND tablename IN (
  'rpgmaker_review_profiles','rpgmaker_game_profiles','rpgmaker_variant_profiles'
 )`).Scan(&obsoleteTables); err != nil {
 		t.Fatal(err)
@@ -209,12 +211,12 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN (
 	var reviewKind, gameKind, variantKind, gameFamily, variantGeneration string
 	var gameFileCount int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT COALESCE(json_extract(item.review_profile_json,'$.kind'),''),
- json_extract(game.content_profile_json,'$.kind'),
- json_extract(variant.runtime_profile_json,'$.kind'),
- json_extract(game.content_profile_json,'$.data.evidenceFamily'),
- json_extract(game.content_profile_json,'$.data.fileCount'),
- json_extract(variant.runtime_profile_json,'$.data.generation')
+SELECT COALESCE(((item.review_profile_json)::jsonb #>> '{kind}'),''),
+ ((game.content_profile_json)::jsonb #>> '{kind}'),
+ ((variant.runtime_profile_json)::jsonb #>> '{kind}'),
+ ((game.content_profile_json)::jsonb #>> '{data,evidenceFamily}'),
+ (((game.content_profile_json)::jsonb #>> '{data,fileCount}'))::bigint,
+ ((variant.runtime_profile_json)::jsonb #>> '{data,generation}')
 FROM games game JOIN import_items item ON item.id=?
 JOIN game_variants variant ON variant.game_id=game.id AND variant.core_id='rpgmaker'
 WHERE game.id=?`, itemID, approved.GameID).Scan(

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type finalizationFixture struct {
@@ -30,7 +30,7 @@ func finalizationNow() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time
 func newFinalizationFixture(t *testing.T) *finalizationFixture {
 	t.Helper()
 	root := t.TempDir()
-	database, err := store.Open(t.Context(), filepath.Join(root, "retrom.db"), finalizationNow)
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), finalizationNow)
 	if err != nil {
 		t.Fatal(err)
 	}

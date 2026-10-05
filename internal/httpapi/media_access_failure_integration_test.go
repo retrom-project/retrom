@@ -8,10 +8,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	mediarepo "retrom/internal/persistence/mediaaccess"
 	"retrom/internal/service/mediaaccess"
@@ -24,7 +25,7 @@ func TestMediaAccessPreservesStorageFailureBoundary(t *testing.T) {
 	for _, name := range []string{"game", "save", "review", "review-source"} {
 		t.Run(name, func(t *testing.T) {
 			now := func() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC) }
-			database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), now)
+			database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), now)
 			if err != nil {
 				t.Fatal(err)
 			}

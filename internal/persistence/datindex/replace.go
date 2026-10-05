@@ -5,210 +5,77 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-
-	"retrom/internal/cleanup"
 	"retrom/internal/format/arcadedat"
 )
 
 func Replace(ctx context.Context, transaction dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
-	if _, err := transaction.ExecContext(ctx, `
-DELETE
-FROM dat_machines
-WHERE dat_version_id=?
-`, datID); err != nil {
+	if _, err := transaction.ExecContext(ctx, "DELETE FROM dat_machines WHERE dat_version_id=?", datID); err != nil {
 		return fmt.Errorf("datindex/replace: %w", err)
 	}
-	statements, err := prepareReplacementStatements(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	defer statements.close()
-	for _, machine := range catalog.Machines {
-		if _, err := statements.machine.ExecContext(
-			ctx,
-			datID,
-			machine.Name,
-			machine.Description,
-			machine.Year,
-			machine.Manufacturer,
-			nullable(machine.CloneOf),
-			nullable(machine.ROMOf),
-			boolInteger(machine.ExplicitBIOS),
-			machine.Classification,
-		); err != nil {
-			return fmt.Errorf("datindex/replace: %w", err)
-		}
-		if err := insertMachineContents(ctx, statements, datID, machine); err != nil {
+	// Publish every parent before child batches so PostgreSQL checks all foreign
+	// keys normally. The caller owns one transaction for the entire replacement.
+	for _, insert := range []func(context.Context, dbapi.Tx, string, arcadedat.Catalog) error{
+		insertMachines, insertBIOSSets, insertROMEntries, insertDiskEntries,
+	} {
+		if err := insert(ctx, transaction, datID, catalog); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-type replacementStatements struct {
-	machine dbapi.Stmt
-	bios    dbapi.Stmt
-	rom     dbapi.Stmt
-	disk    dbapi.Stmt
+func insertMachines(ctx context.Context, tx dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
+	batch := catalogBatch{executor: tx, insert: `INSERT INTO dat_machines(
+dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,is_explicit_bios,classification)`}
+	for _, machine := range catalog.Machines {
+		if err := batch.add(ctx, datID, machine.Name, machine.Description, machine.Year, machine.Manufacturer,
+			nullable(machine.CloneOf), nullable(machine.ROMOf), boolInteger(machine.ExplicitBIOS), machine.Classification,
+		); err != nil {
+			return err
+		}
+	}
+	return batch.flush(ctx)
 }
 
-func prepareReplacementStatements(ctx context.Context, transaction dbapi.Tx) (replacementStatements, error) {
-	var statements replacementStatements
-	machineStatement, err := transaction.PrepareContext(
-		ctx,
-		`
-INSERT INTO dat_machines(dat_version_id,
-machine_name,
-description,
-year,
-manufacturer,
-cloneof,
-romof,
-is_explicit_bios,
-classification) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
-`,
-	)
-	if err != nil {
-		return statements, fmt.Errorf("datindex/replace: %w", err)
+func insertBIOSSets(ctx context.Context, tx dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
+	batch := catalogBatch{executor: tx, insert: `INSERT INTO dat_bios_sets(
+dat_version_id,machine_name,bios_name,description,is_default)`}
+	for _, machine := range catalog.Machines {
+		for _, bios := range machine.BIOSSets {
+			if err := batch.add(ctx, datID, machine.Name, bios.Name, bios.Description, boolInteger(bios.Default)); err != nil {
+				return err
+			}
+		}
 	}
-	statements.machine = machineStatement
-	biosStatement, err := transaction.PrepareContext(
-		ctx,
-		`
-INSERT INTO dat_bios_sets(dat_version_id,
-machine_name,
-bios_name,
-description,
-is_default) VALUES(?,
-?,
-?,
-?,
-?)
-`,
-	)
-	if err != nil {
-		statements.close()
-		return statements, fmt.Errorf("datindex/replace: %w", err)
-	}
-	statements.bios = biosStatement
-	romStatement, err := transaction.PrepareContext(
-		ctx,
-		`
-INSERT INTO dat_rom_entries(dat_version_id,
-machine_name,
-ordinal,
-name,
-size_bytes,
-crc32,
-sha1,
-status,
-merge_name,
-bios_name) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
-`,
-	)
-	if err != nil {
-		statements.close()
-		return statements, fmt.Errorf("datindex/replace: %w", err)
-	}
-	statements.rom = romStatement
-	diskStatement, err := transaction.PrepareContext(
-		ctx,
-		`
-INSERT INTO dat_disk_entries(dat_version_id,
-machine_name,
-ordinal,
-name,
-sha1,
-status) VALUES(?,
-?,
-?,
-?,
-?,
-?)
-`,
-	)
-	if err != nil {
-		statements.close()
-		return statements, fmt.Errorf("datindex/replace: %w", err)
-	}
-	statements.disk = diskStatement
-	return statements, nil
+	return batch.flush(ctx)
 }
 
-func (statements replacementStatements) close() {
-	for _, statement := range []dbapi.Stmt{statements.machine, statements.bios, statements.rom, statements.disk} {
-		if statement != nil {
-			cleanup.Error("close", statement.Close())
+func insertROMEntries(ctx context.Context, tx dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
+	batch := catalogBatch{executor: tx, insert: `INSERT INTO dat_rom_entries(
+dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status,merge_name,bios_name)`}
+	for _, machine := range catalog.Machines {
+		for _, rom := range machine.ROMs {
+			if err := batch.add(ctx, datID, machine.Name, rom.Ordinal, rom.Name, rom.SizeBytes,
+				nullable(rom.CRC32), nullable(rom.SHA1), rom.Status, nullable(rom.MergeName), nullable(rom.BIOSName)); err != nil {
+				return err
+			}
 		}
 	}
+	return batch.flush(ctx)
 }
 
-func insertMachineContents(
-	ctx context.Context,
-	statements replacementStatements,
-	datID string,
-	machine arcadedat.Machine,
-) error {
-	for _, bios := range machine.BIOSSets {
-		if _, err := statements.bios.ExecContext(
-			ctx,
-			datID,
-			machine.Name,
-			bios.Name,
-			bios.Description,
-			boolInteger(bios.Default),
-		); err != nil {
-			return fmt.Errorf("datindex/replace: %w", err)
+func insertDiskEntries(ctx context.Context, tx dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
+	batch := catalogBatch{executor: tx, insert: `INSERT INTO dat_disk_entries(
+dat_version_id,machine_name,ordinal,name,sha1,status)`}
+	for _, machine := range catalog.Machines {
+		for _, disk := range machine.Disks {
+			if err := batch.add(ctx, datID, machine.Name, disk.Ordinal, disk.Name,
+				nullable(disk.SHA1), disk.Status); err != nil {
+				return err
+			}
 		}
 	}
-	for _, rom := range machine.ROMs {
-		if _, err := statements.rom.ExecContext(
-			ctx,
-			datID,
-			machine.Name,
-			rom.Ordinal,
-			rom.Name,
-			rom.SizeBytes,
-			nullable(rom.CRC32),
-			nullable(rom.SHA1),
-			rom.Status,
-			nullable(rom.MergeName),
-			nullable(rom.BIOSName),
-		); err != nil {
-			return fmt.Errorf("datindex/replace: %w", err)
-		}
-	}
-	for _, disk := range machine.Disks {
-		if _, err := statements.disk.ExecContext(
-			ctx,
-			datID,
-			machine.Name,
-			disk.Ordinal,
-			disk.Name,
-			nullable(disk.SHA1),
-			disk.Status,
-		); err != nil {
-			return fmt.Errorf("datindex/replace: %w", err)
-		}
-	}
-	return nil
+	return batch.flush(ctx)
 }
 
 func nullable(value string) any {

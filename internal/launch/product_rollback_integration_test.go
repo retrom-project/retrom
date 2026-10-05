@@ -11,7 +11,7 @@ import (
 
 	dbapi "retrom/internal/database"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"retrom/internal/cleanup"
 	persistence "retrom/internal/persistence/launch"
@@ -89,7 +89,7 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 		})
 	}
 	result, err = service.productCreator(repository).Create(t.Context(), command)
-	var storage *sqlite.Error
+	var storage *pgconn.PgError
 	if !errors.As(err, &storage) || result.Created.LaunchID != "" || len(result.Body) != 0 {
 		t.Fatalf("late write launch=%q bodyBytes=%d error=%v", result.Created.LaunchID, len(result.Body), err)
 	}
@@ -106,7 +106,7 @@ func TestProductCreationRollsBackEveryOwner(t *testing.T) {
 
 func productTableRows(t *testing.T, database dbapi.DB, table string) []byte {
 	t.Helper()
-	rows, err := database.QueryContext(t.Context(), `SELECT * FROM `+table+` ORDER BY rowid`)
+	rows, err := database.QueryContext(t.Context(), `SELECT record.* FROM `+table+` record ORDER BY to_jsonb(record)`)
 	if err != nil {
 		t.Fatal(err)
 	}

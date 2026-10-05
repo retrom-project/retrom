@@ -24,6 +24,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) {
@@ -39,7 +40,7 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	if err := os.WriteFile(filepath.Join(rootDir, "bios.bin"), contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { _ = database.Close() }()
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {

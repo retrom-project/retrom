@@ -8,9 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/url"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,16 +15,16 @@ import (
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
-	"retrom/internal/database/sqlite"
+	"retrom/internal/database/postgres"
 	"retrom/migrations"
 )
 
 const migrationTable = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
-  version INTEGER PRIMARY KEY,
+  version BIGINT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   checksum TEXT NOT NULL CHECK(length(checksum) = 64),
-  applied_at_ms INTEGER NOT NULL CHECK(applied_at_ms >= 0)
+  applied_at_ms BIGINT NOT NULL CHECK(applied_at_ms >= 0)
 )
 `
 
@@ -36,9 +33,7 @@ var (
 	ErrFutureSchema      = errors.New("DATABASE_SCHEMA_TOO_NEW")
 	ErrDatabaseRebuild   = errors.New("DATABASE_REBUILD_REQUIRED")
 	ErrSchemaInvalid     = errors.New("DATABASE_SCHEMA_INVALID")
-	errIntegrityCheck    = errors.New("sqlite integrity check failed")
-	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
-	errDatabaseFilename  = errors.New("invalid database filename")
+	errForeignKeyCheck   = errors.New("PostgreSQL foreign key check failed")
 	errMigrationFilename = errors.New("invalid migration name")
 )
 
@@ -54,92 +49,56 @@ type DB struct {
 	ReadOnly dbapi.DB
 }
 
-func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
-	if err := preflightExistingDatabase(ctx, path); err != nil {
-		return nil, err
-	}
-	if err := ensureParent(path); err != nil {
-		return nil, err
-	}
-	database, err := sqlite.Open(path, connectionOptions(1, now))
+func Open(ctx context.Context, dsn string, now func() time.Time) (*DB, error) {
+	database, err := postgres.Open(dsn, postgres.Options{MaxOpenConns: 16, MaxIdleConns: 4, Now: now})
 	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
+		return nil, fmt.Errorf("open database writer: %w", err)
 	}
-	// WAL is database state; connection policy is applied by the driver on open.
-	if _, err := database.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
-		cleanup.Error("close", database.Close())
-		return nil, fmt.Errorf("configure sqlite journal: %w", err)
-	}
-	if err := applyMigrations(ctx, database, now); err != nil {
+	if err := initializeSchema(ctx, database, now); err != nil {
 		cleanup.Error("close", database.Close())
 		return nil, err
 	}
-	readOnly, err := openReadOnlyDatabase(ctx, path)
+	reader, err := postgres.Open(dsn, postgres.Options{MaxOpenConns: 8, MaxIdleConns: 4, ReadOnly: true, Now: now})
 	if err != nil {
 		cleanup.Error("close", database.Close())
-		return nil, err
+		return nil, fmt.Errorf("open database reader: %w", err)
 	}
-	return &DB{SQL: database, ReadOnly: readOnly}, nil
+	if err := reader.PingContext(ctx); err != nil {
+		cleanup.Error("close reader", reader.Close())
+		cleanup.Error("close writer", database.Close())
+		return nil, fmt.Errorf("ping database reader: %w", err)
+	}
+	return &DB{SQL: database, ReadOnly: reader}, nil
 }
 
-func connectionOptions(maxConnections int, now func() time.Time) sqlite.Options {
-	return sqlite.Options{
-		MaxOpenConns: maxConnections, MaxIdleConns: maxConnections, Now: now,
-		Pragmas: []string{"foreign_keys(1)", "busy_timeout(5000)", "synchronous(FULL)"},
-	}
-}
-
-func openReadOnlyDatabase(ctx context.Context, path string) (dbapi.DB, error) {
-	query := url.Values{}
-	query.Set("mode", "ro")
-	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: query.Encode()}).String()
-	database, err := sqlite.Open(dsn, connectionOptions(4, nil))
-	if err != nil {
-		return nil, fmt.Errorf("open read-only sqlite: %w", err)
-	}
-	// Read traffic has a small independent pool so health probes and page reads
-	// cannot queue behind the single serialized writer connection.
-	if err := database.PingContext(ctx); err != nil {
-		cleanup.Error("close", database.Close())
-		return nil, fmt.Errorf("open read-only sqlite: %w", err)
-	}
-	return database, nil
-}
-
-// Every read-only branch distinguishes a stable startup failure without touching the database.
-func preflightExistingDatabase(ctx context.Context, path string) error {
-	info, err := fsStat(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("inspect database: %w", err)
-	}
-	if !info.Mode().IsRegular() || info.Size() == 0 {
-		if info.Mode().IsRegular() && info.Size() == 0 {
-			return nil
+func initializeSchema(ctx context.Context, database dbapi.DB, now func() time.Time) error {
+	err := dbapi.InTransaction(ctx, database, nil, func(tx dbapi.Tx) error {
+		// The lock serializes schema changes. Each statement must see the
+		// preceding initializer's commit after waiting for that lock.
+		if _, err := tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL READ COMMITTED"); err != nil {
+			return fmt.Errorf("configure schema initialization: %w", err)
 		}
-		return errDatabaseFilename
-	}
-	uri := "file:" + filepath.ToSlash(path) + "?mode=ro&immutable=1"
-	database, err := sqlite.Open(uri, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1})
-	if err != nil {
-		return fmt.Errorf("probe sqlite: %w", err)
-	}
-	defer func() { cleanup.Error("close", database.Close()) }()
-	var tableCount int
-	if err := dbapi.QueryRowContext(ctx, database, `
-SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'
+		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(824392571)"); err != nil {
+			return fmt.Errorf("lock schema initialization: %w", err)
+		}
+		var tableCount int
+		if err := dbapi.QueryRowContext(ctx, tx, `
+SELECT count(*) FROM pg_tables WHERE schemaname=current_schema()
 `).Scan(&tableCount); err != nil {
-		if cancellation := ctx.Err(); cancellation != nil {
-			return fmt.Errorf("probe database schema: %w", cancellation)
+			return fmt.Errorf("read database catalog: %w", err)
 		}
-		return fmt.Errorf("%w: unreadable schema", ErrSchemaInvalid)
+		if err := inspectMigrationHistory(ctx, tx, tableCount); err != nil {
+			return err
+		}
+		return applyMigrations(ctx, tx, now)
+	})
+	if err != nil {
+		return fmt.Errorf("initialize schema: %w", err)
 	}
-	return inspectMigrationHistory(ctx, database, tableCount)
+	return nil
 }
 
-func inspectMigrationHistory(ctx context.Context, database dbapi.DB, tableCount int) error {
+func inspectMigrationHistory(ctx context.Context, database dbapi.Executor, tableCount int) error {
 	migrationCatalogExists, err := migrationCatalogExists(ctx, database)
 	if err != nil {
 		return err
@@ -170,23 +129,23 @@ func inspectMigrationHistory(ctx context.Context, database dbapi.DB, tableCount 
 	return validateMigrationRecords(ctx, database, sources)
 }
 
-func migrationCatalogExists(ctx context.Context, database dbapi.DB) (bool, error) {
+func migrationCatalogExists(ctx context.Context, database dbapi.Executor) (bool, error) {
 	var count int
 	if err := dbapi.QueryRowContext(ctx, database, `
-SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
+SELECT count(*) FROM pg_tables WHERE schemaname=current_schema() AND tablename='schema_migrations'
 `).Scan(&count); err != nil {
-		return false, fmt.Errorf("%w: migration catalog", ErrSchemaInvalid)
+		return false, fmt.Errorf("%w: migration catalog: %w", ErrSchemaInvalid, err)
 	}
 	return count == 1, nil
 }
 
-func migrationHistoryBounds(ctx context.Context, database dbapi.DB) (int, sql.NullInt64, sql.NullInt64, error) {
+func migrationHistoryBounds(ctx context.Context, database dbapi.Executor) (int, sql.NullInt64, sql.NullInt64, error) {
 	var count int
 	var minimum, maximum sql.NullInt64
 	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*),min(version),max(version) FROM schema_migrations
 `).Scan(&count, &minimum, &maximum); err != nil {
-		return 0, sql.NullInt64{}, sql.NullInt64{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+		return 0, sql.NullInt64{}, sql.NullInt64{}, fmt.Errorf("%w: migration catalog unreadable: %w", ErrSchemaInvalid, err)
 	}
 	return count, minimum, maximum, nil
 }
@@ -201,19 +160,22 @@ func validateMigrationHistoryBounds(count int, minimum, maximum sql.NullInt64, s
 	return nil
 }
 
-func validateMigrationRecords(ctx context.Context, database dbapi.DB, sources []migrationSource) error {
+func validateMigrationRecords(ctx context.Context, database dbapi.Executor, sources []migrationSource) error {
 	rows, err := database.QueryContext(ctx, `
 SELECT version,name,checksum FROM schema_migrations ORDER BY version
 `)
 	if err != nil {
-		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+		return fmt.Errorf("%w: migration catalog unreadable: %w", ErrSchemaInvalid, err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var version int
 		var name, checksum string
 		if err := rows.Scan(&version, &name, &checksum); err != nil {
-			return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+			return fmt.Errorf("%w: migration catalog unreadable: %w", ErrSchemaInvalid, err)
+		}
+		if version < 1 || version > len(sources) {
+			return fmt.Errorf("%w: invalid migration version %d", ErrSchemaInvalid, version)
 		}
 		expected := sources[version-1]
 		if name != expected.name {
@@ -224,7 +186,7 @@ SELECT version,name,checksum FROM schema_migrations ORDER BY version
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+		return fmt.Errorf("%w: migration catalog unreadable: %w", ErrSchemaInvalid, err)
 	}
 	return nil
 }
@@ -278,51 +240,21 @@ func (database *DB) Close() error {
 	return nil
 }
 
+// IntegrityCheck verifies the current schema lineage and validated relational
+// constraints. Physical server maintenance belongs to PostgreSQL operations.
 func (database *DB) IntegrityCheck(ctx context.Context) error {
-	var result string
-	if err := dbapi.QueryRowContext(ctx, database.SQL, "PRAGMA integrity_check").Scan(&result); err != nil {
-		return fmt.Errorf("sqlite integrity check: %w", err)
-	}
-	if result != "ok" {
-		return fmt.Errorf("%w: %s", errIntegrityCheck, result)
-	}
-	rows, err := database.SQL.QueryContext(ctx, "PRAGMA foreign_key_check")
+	sources, err := migrationSources()
 	if err != nil {
-		return fmt.Errorf("sqlite foreign key check: %w", err)
+		return err
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	if rows.Next() {
-		return errForeignKeyCheck
+	if err := validateMigrationRecords(ctx, database.ReadOnly, sources); err != nil {
+		return err
 	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate foreign key check: %w", err)
-	}
-	return nil
+	return verifyMigrationForeignKeys(ctx, database.ReadOnly)
 }
-
-func ensureParent(path string) error {
-	parent := filepath.Dir(path)
-	if err := fs.ValidPath(filepath.ToSlash(filepath.Base(path))); !err {
-		return errDatabaseFilename
-	}
-	if err := mkdirAllOwnerOnly(parent); err != nil {
-		return fmt.Errorf("create database directory: %w", err)
-	}
-	return nil
-}
-
-func mkdirAllOwnerOnly(path string) error {
-	// The data-root validator rejects symlink roots. MkdirAll only creates missing descendants.
-	return fsMkdirAll(path, 0o700)
-}
-
-var (
-	fsMkdirAll = mkdirAll
-	fsStat     = os.Stat
-)
 
 // Contract branches stay contiguous for a single auditable decision.
-func applyMigrations(ctx context.Context, database dbapi.DB, now func() time.Time) error {
+func applyMigrations(ctx context.Context, database dbapi.Executor, now func() time.Time) error {
 	if _, err := database.ExecContext(ctx, migrationTable); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
 	}
@@ -337,7 +269,7 @@ func applyMigrations(ctx context.Context, database dbapi.DB, now func() time.Tim
 	}
 	var maximum sql.NullInt64
 	if err := dbapi.QueryRowContext(
-		ctx, database, "SELECT MAX(version) FROM schema_migrations").Scan(&maximum); err != nil {
+		ctx, database, "SELECT max(version) FROM schema_migrations").Scan(&maximum); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
 	if maximum.Valid && maximum.Int64 > int64(len(sources)) {
@@ -351,7 +283,7 @@ func applyMigrations(ctx context.Context, database dbapi.DB, now func() time.Tim
 
 func applyMigration(
 	ctx context.Context,
-	database dbapi.DB,
+	database dbapi.Executor,
 	source migrationSource,
 	now func() time.Time,
 ) error {
@@ -379,40 +311,34 @@ func applyMigration(
 
 func runMigration(
 	ctx context.Context,
-	database dbapi.DB,
+	database dbapi.Executor,
 	source migrationSource,
 	now func() time.Time,
 ) error {
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin migration %s: %w", source.name, err)
-	}
-	defer dbapi.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, string(source.contents)); err != nil {
+	if _, err := database.ExecContext(ctx, string(source.contents)); err != nil {
 		return fmt.Errorf("apply migration %s: %w", source.name, err)
 	}
-	if _, err := transaction.ExecContext(ctx,
-		"INSERT INTO schema_migrations(version, name, checksum, applied_at_ms) VALUES(?,?,?,?)",
+	if _, err := database.ExecContext(ctx,
+		"INSERT INTO schema_migrations(version,name,checksum,applied_at_ms) VALUES(?,?,?,?)",
 		source.version, source.name, source.checksum, now().UTC().UnixMilli()); err != nil {
 		return fmt.Errorf("record migration %s: %w", source.name, err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit migration %s: %w", source.name, err)
 	}
 	return nil
 }
 
 func verifyMigrationForeignKeys(ctx context.Context, database dbapi.Queryer) error {
-	rows, err := database.QueryContext(ctx, "PRAGMA foreign_key_check")
+	var invalid int
+	err := dbapi.QueryRowContext(ctx, database, `
+ SELECT (SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace
+ WHERE n.nspname=current_schema() AND NOT c.convalidated) +
+ (SELECT count(*) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
+ JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND NOT i.indisvalid)
+ `).Scan(&invalid)
 	if err != nil {
-		return fmt.Errorf("query foreign key check: %w", err)
+		return fmt.Errorf("validate PostgreSQL schema: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	if rows.Next() {
+	if invalid != 0 {
 		return errForeignKeyCheck
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan foreign key check: %w", err)
 	}
 	return nil
 }

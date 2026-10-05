@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -49,7 +51,7 @@ type arcadeGroupingFixture struct {
 func newArcadeGroupingFixture(ctx context.Context, t *testing.T) arcadeGroupingFixture {
 	t.Helper()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)

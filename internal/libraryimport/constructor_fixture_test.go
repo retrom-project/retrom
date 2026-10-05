@@ -12,12 +12,13 @@ import (
 
 	"retrom/internal/core/scummvm"
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	"retrom/internal/filestore"
 
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type testImportOptions struct {
@@ -33,7 +34,7 @@ type testImportOptions struct {
 func newTestImporter(t *testing.T, database dbapi.DB, files *filestore.Store, options testImportOptions) *Service {
 	t.Helper()
 	if database == nil {
-		db, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+		db, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 		if err != nil {
 			t.Fatal(err)
 		}

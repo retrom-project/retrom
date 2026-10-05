@@ -21,12 +21,12 @@ func UpdateServerBiosImportItems(
 }
 
 const ServerBiosImportItemsUpdateRule = `
-WITH previous(server_import_id,requirement_id,new_installation_id,previous_installation_id) AS (VALUES(?,
-?,?,?))
+WITH previous(server_import_id,requirement_id,new_installation_id,previous_installation_id)
+AS (VALUES(?::text,?::text,?::text,?::text))
 SELECT CASE
 -- server_bios_items_installation_update
-WHEN ((candidate.previous_installation_id IS NOT previous.previous_installation_id OR
-candidate.new_installation_id IS NOT previous.new_installation_id) AND
+WHEN ((candidate.previous_installation_id IS DISTINCT FROM previous.previous_installation_id OR
+candidate.new_installation_id IS DISTINCT FROM previous.new_installation_id) AND
 ((candidate.previous_installation_id IS NOT NULL AND NOT EXISTS(
   SELECT 1 FROM bios_installations installation
   WHERE installation.id=candidate.previous_installation_id AND

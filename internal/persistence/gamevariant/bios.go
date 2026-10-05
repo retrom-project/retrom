@@ -39,7 +39,7 @@ AND requirement.source_kind='DAT_MACHINE' AND requirement.source_version=?
 AND requirement.logical_name=dependency.logical_archive AND requirement.enabled=1
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
 AND installation.is_active=1 AND installation.validated_requirement_version=requirement.version
-WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id IS ?
+WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id IS NOT DISTINCT FROM ?
 ORDER BY dependency.logical_archive`,
 		source.ProviderID,
 		source.TargetID,

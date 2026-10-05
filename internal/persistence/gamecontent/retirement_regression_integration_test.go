@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/composition/cleanupjobs"
@@ -37,7 +39,7 @@ type retirementFixture struct {
 func contentRetirementFixture(t *testing.T) retirementFixture {
 	t.Helper()
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(dir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

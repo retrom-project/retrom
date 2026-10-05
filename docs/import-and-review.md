@@ -116,7 +116,7 @@ Parent ROM 补传准备新目录时必须保留每个文件的旧→新记录映
 
 重复候选查询先物化同基础平台内当前已发布 Game，之后只计算一次输入的文件多重集，以数量预筛并执行双向精确差集；多盘按 DISC 顺序比较且忽略来源 playlist wrapper。使用已有 Game/来源文件索引，不对其他平台反复展开输入，不增加跨模块摘要投影或缓存。内容替换、Parent 补传、目录变化和删除均直接反映当前事实。
 
-审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 SQLite 写事务，单写者下并发首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
+审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 PostgreSQL SERIALIZABLE 写事务，并发冲突必须完整回滚，首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
 
 ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
 
@@ -440,7 +440,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 ## 12. Worker
 
-默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、OwnerCleanup 最多 4、后台删除 1；业务释放和 后台删除 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到独立文件存储。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
+默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、OwnerCleanup 最多 4、后台删除 1；业务释放和 后台删除 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 PostgreSQL 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到独立文件存储。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
 
 ## 13. 多盘目录、缺盘与补传
 

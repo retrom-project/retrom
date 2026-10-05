@@ -151,9 +151,9 @@ AND (
     AND scoped.folder_id=?
   ))
 )
-AND (?='' OR instr(game.search_text,?)>0 OR EXISTS(
+AND (?='' OR strpos(game.search_text,?)>0 OR EXISTS(
   SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-  WHERE relation.game_id=game.id AND instr(tag.search_text,?)>0
+  WHERE relation.game_id=game.id AND strpos(tag.search_text,?)>0
 ))
 AND (?='' OR platform.id=?)`
 	var count int64
@@ -234,9 +234,9 @@ WITH candidates AS (
       AND scoped.folder_id=?
     ))
   )
-  AND (?='' OR instr(game.search_text,?)>0 OR EXISTS(
+  AND (?='' OR strpos(game.search_text,?)>0 OR EXISTS(
     SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-    WHERE relation.game_id=game.id AND instr(tag.search_text,?)>0
+    WHERE relation.game_id=game.id AND strpos(tag.search_text,?)>0
   ))
   AND (?='' OR platform.id=?)
 )
@@ -433,7 +433,7 @@ FROM favorite_folder_games membership
 JOIN favorite_folders folder
   ON folder.profile_id=membership.profile_id AND folder.id=membership.folder_id
 WHERE membership.profile_id=?
-AND membership.game_id IN (SELECT value FROM json_each(?))
+AND membership.game_id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 ORDER BY membership.game_id,folder.created_at_ms,folder.id`
 	rows, err := transaction.QueryContext(ctx, query, profileID, encodedStringList(gameIDs))
 	if err != nil {
@@ -469,7 +469,7 @@ func populateTags(ctx context.Context, transaction dbapi.Tx, items []favorites.G
 	rows, err := transaction.QueryContext(ctx, `
 SELECT relation.game_id,tag.id,tag.name
 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE relation.game_id IN (SELECT value FROM json_each(?))
+WHERE relation.game_id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 ORDER BY relation.game_id,tag.name_key,tag.id
 `, encodedStringList(gameIDs))
 	if err != nil {

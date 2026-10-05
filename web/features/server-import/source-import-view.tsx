@@ -69,7 +69,7 @@ const failureReasonCatalog: Record<string, Omit<RuntimeReason, "code">> = {
   SOURCE_FILE_LIMIT_EXCEEDED: { title: "Arcade companion 候选数量超过内部上限", explanation: "系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。", action: "这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。" },
   LIBRARY_IMPORT_INPUT_INVALID: { title: "内部入库输入不符合约束", explanation: "已复制来源文件，但交给内部游戏入库管线的参数或文件集合未通过预检。", action: "结合内部操作、相对路径和技术详情排查组装参数，然后重新运行检查。" },
   MULTI_DISC_MODE_UNAVAILABLE: { title: "多盘入库能力未启用", explanation: "当前服务配置不允许处理该 M3U 多盘集合。", action: "启用多盘导入能力并确认目标核心支持该内容后重新运行检查。" },
-  DATABASE_BUSY: { title: "数据库写入被占用", explanation: "内部入库写事务在允许时间内未能取得 SQLite 写锁。", action: "检查是否存在长事务或并发维护任务，待写锁释放后重新运行检查。" },
+  DATABASE_BUSY: { title: "数据库写入被占用", explanation: "入库事务暂时无法完成，可能存在并发修改或长事务。", action: "检查是否存在长事务或并发维护任务，稍后重新运行检查。" },
   DATABASE_CONSTRAINT_FAILED: { title: "内部数据约束冲突", explanation: "写入内部入库记录时触发了数据库约束。", action: "使用关联操作、任务 ID 和技术详情定位冲突记录，再重新运行检查。" },
   OPERATION_TIMEOUT: { title: "内部操作超时", explanation: "该条目在规定时间内没有完成内部入库步骤。", action: "检查磁盘与数据库响应时间，然后重新运行检查。" },
   OPERATION_CANCELLED: { title: "内部操作被取消", explanation: "该条目的内部处理上下文在完成前被取消。", action: "确认任务未被管理员取消且服务进程稳定，然后重新运行检查。" },

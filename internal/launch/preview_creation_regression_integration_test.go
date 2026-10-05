@@ -12,7 +12,7 @@ import (
 	persistence "retrom/internal/persistence/libraryimport"
 	review "retrom/internal/service/libraryimport"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestPreviewCreationReplaysAConcurrentCommittedRequest(t *testing.T) {
@@ -85,7 +85,7 @@ func TestPreviewCreationSourceQueryPreservesStorageCause(t *testing.T) {
 	created, err := fixture.launcher.CreateReviewPreview(t.Context(), ReviewPreviewRequest{
 		ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "source-storage-fault",
 	})
-	var cause *sqlite.Error
+	var cause *pgconn.PgError
 	if !errors.As(err, &cause) || created.PreviewID != "" {
 		t.Fatalf("source storage failure lost cause: created=%q error=%v", created.PreviewID, err)
 	}

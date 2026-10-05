@@ -35,6 +35,7 @@ func (service *Service) BIOS(ctx context.Context) error {
 func (service *Service) BIOSBatch(ctx context.Context) (bool, error) {
 	worked := false
 	err := service.bios.WithBIOSRetirement(ctx, func(scope jobs.BIOSRetirementScope) error {
+		worked = false
 		before, err := scope.Read.BIOS(ctx, retirementBatchSize)
 		if err != nil {
 			return fmt.Errorf("read retiring BIOS: %w", err)

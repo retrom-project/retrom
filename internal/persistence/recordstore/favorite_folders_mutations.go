@@ -21,7 +21,8 @@ func UpdateFavoriteFolders(
 }
 
 const FavoriteFoldersUpdateRule = `
-WITH previous(id,created_at_ms,name,name_key,profile_id,updated_at_ms,version) AS (VALUES(?,?,?,?,?,?,?))
+WITH previous(id,created_at_ms,name,name_key,profile_id,updated_at_ms,version)
+AS (VALUES(?::text,?::bigint,?::text,?::text,?::text,?::bigint,?::bigint))
 SELECT CASE
 -- favorite_folders_guarded_update
 WHEN (candidate.id<>previous.id

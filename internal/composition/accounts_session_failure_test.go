@@ -14,7 +14,7 @@ func TestSessionRefreshFailureCannotReportExtendedSession(t *testing.T) {
 	session := authenticatedTestAdmin(t, fixture)
 	advanced := fixture.now.Add(6 * time.Minute)
 	fixture.setNow(func() time.Time {
-		if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
+		if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions CASCADE`); err != nil {
 			t.Fatal(err)
 		}
 		return advanced
@@ -40,7 +40,7 @@ func TestLoginStorageFailureIsNotReportedAsBadPassword(t *testing.T) {
 func TestAuthenticationContextDoesNotHideStorageFailure(t *testing.T) {
 	fixture := newAccountFixture(t, config.ModeTest)
 	session := authenticatedTestAdmin(t, fixture)
-	if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
+	if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.service.Context(t.Context(), session.CookieToken); err == nil {

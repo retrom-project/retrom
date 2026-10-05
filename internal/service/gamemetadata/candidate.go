@@ -52,6 +52,7 @@ func (service *Service) ApplyCandidate(
 	now := service.now().UnixMilli()
 	var result ApplyCandidateResult
 	err = service.repository.WithCandidateApply(ctx, func(scope CandidateApplyScope) error {
+		result = ApplyCandidateResult{}
 		return service.applyCandidateInScope(ctx, scope, request, now, &result)
 	})
 	if err != nil {

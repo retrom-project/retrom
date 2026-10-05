@@ -12,8 +12,8 @@ const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
 const seededFolderId = "0198ff00-1000-7000-8000-000000000001";
 
 function ensureImmersiveLibrarySeed() {
-  const database = process.env.RETROM_E2E_DATABASE;
-  expect(database, "RETROM_E2E_DATABASE must point to the temporary acceptance database").toBeTruthy();
+  const database = process.env.RETROM_E2E_DATA_ROOT;
+  expect(database, "RETROM_E2E_DATA_ROOT must point to the temporary acceptance data directory").toBeTruthy();
   execFileSync(
     "python3",
     [path.resolve("../scripts/acceptance/seed-immersive-library.py"), database!],
@@ -195,6 +195,9 @@ async function createSaveFromMenu(page: Page, menu: Locator) {
   await pressGamepad(page, standardButton.a);
   expect((await response).status()).toBe(201);
   await expect(page.locator(".app-toast.good")).toHaveText("存档已创建。", { timeout: 20_000 });
+  // A previous save's toast can still be visible while the next response is
+  // being consumed. Wait for the menu to accept input before pressing B or A.
+  await expect(menu).toHaveAttribute("aria-busy", "false");
 }
 
 async function exitPlayer(page: Page, menu: Locator) {

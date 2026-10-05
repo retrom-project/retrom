@@ -9,43 +9,42 @@ import (
 	"testing"
 	"time"
 
-	_ "modernc.org/sqlite"
-
 	"retrom/internal/cleanup"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	repository "retrom/internal/persistence/sourceimport"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func arcadeCompanionFixture(t *testing.T) (*Service, work, Root, executionItem) {
 	t.Helper()
 	setupContext := context.Background()
 	dataDir := t.TempDir()
-	database, err := dbsqlite.Open(filepath.Join(dataDir, "companion.db"), dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.ExecContext(setupContext, `
 CREATE TABLE source_import_items(id TEXT,import_id TEXT,collection_id TEXT,discovery_state TEXT,
-execution_state TEXT DEFAULT 'PENDING',version INTEGER DEFAULT 1,library_import_job_id TEXT,
+execution_state TEXT DEFAULT 'PENDING',version BIGINT DEFAULT 1,library_import_job_id TEXT,
 library_import_item_id TEXT);
 CREATE TABLE jobs(id TEXT,scope_type TEXT,scope_id TEXT,kind TEXT,state TEXT,worker_id TEXT,version
-INTEGER,execution_no INTEGER,attempt_count INTEGER,max_attempts INTEGER,leased_until_ms INTEGER,
-execution_deadline_at_ms INTEGER);
-CREATE TABLE source_imports(id TEXT,import_job_id TEXT,scan_job_id TEXT,version INTEGER,state TEXT);
+BIGINT,execution_no BIGINT,attempt_count BIGINT,max_attempts BIGINT,leased_until_ms BIGINT,
+execution_deadline_at_ms BIGINT);
+CREATE TABLE source_imports(id TEXT,import_job_id TEXT,scan_job_id TEXT,version BIGINT,state TEXT);
 INSERT INTO jobs VALUES('work','SOURCE_IMPORT','import','IMPORT_RECEIVE','RUNNING','worker',1,1,1,4,100,1000);
 INSERT INTO source_imports VALUES('import','work','scan',1,'RUNNING');
 CREATE TABLE source_import_collections(id TEXT,mapping_action TEXT,target_platform_instance_id TEXT,
 target_dat_version_id TEXT,target_platform_id TEXT);
-CREATE TABLE source_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,
-source_facts_digest TEXT,ordinal INTEGER DEFAULT 0,file_record TEXT,declared_kind TEXT NOT NULL DEFAULT 'FILE');
+CREATE TABLE source_import_item_files(item_id TEXT,relative_path TEXT,size_bytes BIGINT,
+source_facts_digest TEXT,ordinal BIGINT DEFAULT 0,file_record TEXT,declared_kind TEXT NOT NULL DEFAULT 'FILE');
 CREATE TABLE dat_machines(dat_version_id TEXT,machine_name TEXT,cloneof TEXT,romof TEXT);
 CREATE TABLE source_import_item_companions(item_id TEXT,candidate_item_id TEXT,file_record TEXT,
-created_at_ms INTEGER,PRIMARY KEY(item_id,candidate_item_id));
+created_at_ms BIGINT,PRIMARY KEY(item_id,candidate_item_id));
 CREATE TABLE archive_entries(archive_file_record TEXT);
 INSERT INTO source_import_collections VALUES('collection','IMPORT','target','dat','arcade');
 INSERT INTO source_import_items(id,import_id,collection_id,discovery_state) VALUES('parent','import',
@@ -199,9 +198,9 @@ func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
 	)
 }
 
-func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
+func TestItemFailureClassifiesPostgreSQLConstraintByDriverCode(t *testing.T) {
 	t.Parallel()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.ExecContext(
@@ -211,7 +210,7 @@ func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, constraintError := database.ExecContext(context.Background(), `INSERT INTO unique_value VALUES('same')`)
-	testassert.False(t, constraintError == nil, "expected SQLite constraint error")
+	testassert.False(t, constraintError == nil, "expected PostgreSQL constraint error")
 	details := (&Service{}).itemFailure("STORAGE", "WRITE", constraintError, "")
 	testassert.Falsef(t, details.CauseCode != "DATABASE_CONSTRAINT_FAILED", "failure details = %#v", details)
 }

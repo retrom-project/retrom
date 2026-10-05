@@ -62,8 +62,8 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			}
 			var name, digest string
 			if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT source.logical_name,json_extract(blob.value, '$.sha256')
-FROM import_item_source_files source JOIN json_each(json_array(source.file_record)) blob ON blob.value
+SELECT source.logical_name,((blob.value)::jsonb #>> '{sha256}')
+FROM import_item_source_files source JOIN LATERAL (SELECT source.file_record AS value) blob ON blob.value
 IS NOT NULL
 WHERE source.import_item_id=? AND source.role='CONTENT'
 `, item.ItemID).Scan(&name, &digest); err != nil {

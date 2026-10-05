@@ -47,23 +47,16 @@ func (records companionRecords) Dependencies(
 	datVersionID, machine string,
 ) ([]string, error) {
 	rows, err := records.tx.QueryContext(ctx, `
-WITH RECURSIVE dependency(machine) AS (
- SELECT cloneof FROM dat_machines
- WHERE dat_version_id=? AND machine_name=? AND cloneof IS NOT NULL
+WITH RECURSIVE relation(parent,machine) AS (
+ SELECT machine_name,cloneof FROM dat_machines WHERE dat_version_id=$1 AND cloneof IS NOT NULL
  UNION
- SELECT romof FROM dat_machines
- WHERE dat_version_id=? AND machine_name=? AND romof IS NOT NULL
+ SELECT machine_name,romof FROM dat_machines WHERE dat_version_id=$1 AND romof IS NOT NULL
+), dependency(machine) AS (
+ SELECT machine FROM relation WHERE parent=$2
  UNION
- SELECT relation.cloneof FROM dat_machines relation
- JOIN dependency current ON relation.machine_name=current.machine
- WHERE relation.dat_version_id=? AND relation.cloneof IS NOT NULL
- UNION
- SELECT relation.romof FROM dat_machines relation
- JOIN dependency current ON relation.machine_name=current.machine
- WHERE relation.dat_version_id=? AND relation.romof IS NOT NULL
+ SELECT relation.machine FROM relation JOIN dependency ON relation.parent=dependency.machine
 )
-SELECT machine FROM dependency WHERE machine<>? ORDER BY machine`,
-		datVersionID, machine, datVersionID, machine, datVersionID, datVersionID, machine,
+SELECT machine FROM dependency WHERE machine<>$2 ORDER BY machine`, datVersionID, machine,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("sourceimport/query arcade dependency closure: %w", err)

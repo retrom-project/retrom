@@ -1,5 +1,5 @@
 // Package database defines the SQL capabilities used by persistence code.
-// Concrete database/sql handles remain inside the SQLite adapter.
+// Concrete database/sql handles remain inside the PostgreSQL adapter.
 package database
 
 import (

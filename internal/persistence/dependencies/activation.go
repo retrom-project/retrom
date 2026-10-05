@@ -14,7 +14,7 @@ func (records datRecords) Activation(ctx context.Context, id string) (service.Ac
 	var active int
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.provider_id,d.target_id,d.parse_status,d.is_active,d.sha256,
-json_extract(target.manifest_fragment_json,'$.arcadeDAT.asset.sha256')
+(target.manifest_fragment_json)::jsonb #>> '{arcadeDAT,asset,sha256}'
 FROM dat_versions d
 JOIN runtime_targets target ON target.provider_id=d.provider_id AND target.target_id=d.target_id
 WHERE d.id=?
@@ -57,7 +57,7 @@ WHERE id=? AND provider_id=? AND target_id=?
 INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,created_at_ms)
 VALUES(?,?,?,?,'BUILTIN_DAT_ACTIVATED','DAT_VERSION',?,
-'{"active":false}','{"active":true}',json_object('source','release-manifest'),?)
+'{"active":false}','{"active":true}',jsonb_build_object('source','release-manifest')::text,?)
 `, input.AuditID, input.Actor.Kind, input.Actor.UserID, input.Actor.Label, input.ID, input.AtMS); err != nil {
 		return fmt.Errorf("dependencies/audit DAT selection: %w", err)
 	}
@@ -67,7 +67,7 @@ VALUES(?,?,?,?,'BUILTIN_DAT_ACTIVATED','DAT_VERSION',?,
 func (records datRecords) requireTargetDAT(ctx context.Context, input service.DATRegistration) error {
 	var expected *string
 	if err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT json_extract(manifest_fragment_json,'$.arcadeDAT.asset.sha256')
+SELECT (manifest_fragment_json)::jsonb #>> '{arcadeDAT,asset,sha256}'
 FROM runtime_targets WHERE provider_id=? AND target_id=?`, input.Target.ProviderID, input.Target.TargetID,
 	).Scan(&expected); err != nil {
 		return fmt.Errorf("read required DAT identity: %w", err)

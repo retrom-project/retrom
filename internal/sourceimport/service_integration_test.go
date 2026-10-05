@@ -17,6 +17,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func mustExecSourceTest(
@@ -120,8 +121,8 @@ SELECT
 	var reviewVersion int64
 	var reviewTitle, reviewDescription, reviewDeveloper, reviewWarnings string
 	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL, `
-SELECT item.library_import_item_id,draft.review_version,json_extract(draft.metadata_json,'$.title'),
-json_extract(draft.metadata_json,'$.description'),json_extract(draft.metadata_json,'$.developer'),item.warnings_json
+SELECT item.library_import_item_id,draft.review_version,((draft.metadata_json)::jsonb #>> '{title}'),
+((draft.metadata_json)::jsonb #>> '{description}'),((draft.metadata_json)::jsonb #>> '{developer}'),item.warnings_json
 FROM source_import_items item
 JOIN import_items draft ON draft.id=item.library_import_item_id
 WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title='Published Fixture'
@@ -225,8 +226,7 @@ func createSourceIntegrationSource(t *testing.T, dataDir string) string {
 
 func TestRecoverWorkClosesExhaustedLeaseAsFailed(t *testing.T) {
 	ctx := context.Background()
-	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		t.Fatal(err)

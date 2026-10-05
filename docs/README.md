@@ -6,7 +6,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 当前实现基线
 
-当前数据库由 `001_identity.sql`–`014_metadata_media_queue.sql` 创建基础模型，`015_shared_runtime_sessions.sql` 追加共享运行会话，`016_library_query_indexes.sql` 创建当前会话账本的用户游戏活动读模型和分页查询索引，`017_runtime_dependency_indexes.sql` 为运行依赖范围查询增加 Provider/Target 联合索引；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.58.7 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-04 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV2`。
+当前数据库由 PostgreSQL `001_schema.sql` 创建完整建库基线；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.58.7 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-04 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV2`。
 
 全新数据库在启动时从 Host catalog 同步 Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期继续使用各自领域契约。
 
@@ -57,7 +57,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`game-tags.md`](./game-tags.md)：实例共享、管理员维护的游戏标签，覆盖生命周期、关系并发、导入继承、搜索投影与页面接入。
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：核心运行时的实际产品测试覆盖、未覆盖边界、内容格式约束和 MAME2003 兼容覆盖。
-- [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地独立文件存储、SHA-256 校验、后台删除。
+- [`storage-and-database.md`](./storage-and-database.md)：PostgreSQL Unix 毫秒 `BIGINT` 时间规范、表目录、本地独立文件存储、SHA-256 校验、后台删除。
 - [`data-model.md`](./data-model.md)：current-state 表、ID、枚举、外键、索引和数据库级不变量的领域说明。
 - [`http-api-contract.md`](./http-api-contract.md)：认证/授权、Origin/CSRF、JSON/错误、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
 - [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 与 RPG Maker 开源运行时的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
@@ -84,7 +84,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 - `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。
 - `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 保存 Retrom 自有、MIT 许可且由同目录生成源确定性生成的产品 E2E 程序。生成二进制随仓库提交，`make public-fixtures-check` 与实际 HTTP/E2E 消费者共同锁定 bytes。NES 的两个独立内容身份分别覆盖 FCEUmm 与 Nestopia；SNES 夹具覆盖 SNES9x；Arcade 小型 DAT 由 acceptance-only 装置登记为 test-only `BUILTIN`，覆盖 MAME2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的实际装配与核心运行，但不替代 `ACC-DAT-004` 的 production DAT 验证。CPS2 锁定 core loader 要求单独提供 `spf2t.zip` 父归档；该父归档只有项目自有 marker，不含第三方 ROM，也不被驱动执行。自动化测试不读取操作者私有 ROM/BIOS，也不存在绕过产品链路的独立 example 或私有 fixture 根目录。`.dev-data/dev.mk`、`.dev-data/data` 与 `.dev-data/dev-state` 保存标准开发实例的配置、数据和启动状态，`.dev-data/bios` 与 `.dev-data/roms` 保存服务器导入语料；整个目录都不属于测试 fixture。
 - active `retrom-runtime` Provider Bundle declaration 是当前全部独立引擎 Target 的唯一机器事实源；Retrom 的 `data/runtime-target-bindings/v1/catalog.json` 只把产品 Core 绑定到精确 Target，不声明内部实现。Provider 源码、项目自有 bridge 与聚合发布 workflow 位于独立 `retrom-runtime`，第三方核心源码、构建与 Release workflow 位于各维护 fork。公开 RPG fixture 只有在来源、许可、确定性生成和真实产品消费者全部满足仓库夹具规则时才可进入 `testdata/public-roms/rpgmaker-smoke/`；不可分发输入仍只由对应当次 smoke 证明。
-- 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
+- 任何表示时刻的 PostgreSQL 字段必须为 Unix 毫秒 `BIGINT` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。
 
 - [步步高 RPG（GAM4980）集成](bbkrpg-integration.md)：平台、双 BIOS、输入、即时存档与 PFB 验证边界。

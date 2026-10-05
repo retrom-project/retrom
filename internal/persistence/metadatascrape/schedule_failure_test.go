@@ -2,9 +2,10 @@ package metadatascrape_test
 
 import (
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestScheduleStorageFailureIsNotVersionConflict(t *testing.T) {
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +23,7 @@ func TestScheduleStorageFailureIsNotVersionConflict(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if _, err := database.SQL.ExecContext(t.Context(), `DROP TABLE games`); err != nil {
+	if _, err := database.SQL.ExecContext(t.Context(), `DROP TABLE games CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	_, _, err = metadatascrape.New(metadatapersistence.NewScheduler(database.SQL), nil,

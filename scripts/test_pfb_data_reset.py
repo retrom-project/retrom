@@ -23,7 +23,7 @@ class PFBDataResetTests(unittest.TestCase):
         self.spec = {"id": "fixture-000000000000"}
         self.args = argparse.Namespace(pfb="fixture", confirm=self.spec["id"], source_root=None)
         self.sentinels = {
-            "data": "database", "providerDev": "dev-provider.json", "home": "npm-cache",
+            "data": "database", "postgres": "PG_VERSION", "providerDev": "dev-provider.json", "home": "npm-cache",
             "devState": "state", "providerInstalled": "cached.wasm", "webNode": "dependency",
             "runtimeNode": "dependency", "next": "cache", "go": "cache",
         }
@@ -42,10 +42,11 @@ class PFBDataResetTests(unittest.TestCase):
         self.assertEqual((installed_root / "retrom-runtime/new/client.mjs").read_text(), "new module")
         return value
 
-    def invoke(self, *, running=False, validator=None):
+    def invoke(self, *, running=False, database_running=False, validator=None):
         output = io.StringIO()
         with mock.patch.object(cli, "_named_spec", return_value=self.spec), \
              mock.patch.object(cli, "app_container_running", return_value=running), \
+             mock.patch.object(cli, "database_container_running", return_value=database_running), \
              mock.patch("scripts.runtime_providers.check_active_providers", side_effect=validator or
                         (lambda active, installed, _source: self.validate(active, installed))), \
              contextlib.redirect_stdout(output):
@@ -60,9 +61,11 @@ class PFBDataResetTests(unittest.TestCase):
     def test_plain_reset_preserves_provider_and_all_caches(self):
         result = self.invoke()
         self.assertEqual(list(self.paths["data"].iterdir()), [])
+        self.assertEqual(list(self.paths["postgres"].iterdir()), [])
+        self.assertEqual((Path(result["backup"]) / "postgres/PG_VERSION").read_text(), "postgres")
         self.assertEqual((Path(result["backup"]) / "data/database").read_text(), "data")
         for key, name in self.sentinels.items():
-            if key != "data":
+            if key not in {"data", "postgres"}:
                 self.assertEqual((self.paths[key] / name).read_text(), key)
         self.assertEqual(self.paths["providerActive"].read_text(), "old incompatible manifest")
 
@@ -75,9 +78,11 @@ class PFBDataResetTests(unittest.TestCase):
         self.assertEqual((backup / "providers/dev/dev-provider.json").read_text(), "providerDev")
         self.assertEqual(json.loads(self.paths["providerActive"].read_text()), self.active)
         self.assertEqual(list(self.paths["data"].iterdir()), [])
+        self.assertEqual(list(self.paths["postgres"].iterdir()), [])
+        self.assertEqual((Path(result["backup"]) / "postgres/PG_VERSION").read_text(), "postgres")
         self.assertEqual(list(self.paths["providerDev"].iterdir()), [])
         for key, name in self.sentinels.items():
-            if key not in {"data", "providerDev"}:
+            if key not in {"data", "postgres", "providerDev"}:
                 self.assertEqual((self.paths[key] / name).read_text(), key)
 
     def test_invalid_source_fails_before_archiving_anything(self):
@@ -105,6 +110,11 @@ class PFBDataResetTests(unittest.TestCase):
                 self.args.confirm = confirmation
                 self.invoke(running=running)
             self.assert_original()
+
+    def test_running_database_without_app_cannot_reset(self):
+        with self.assertRaises(PFBError):
+            self.invoke(database_running=True)
+        self.assert_original()
 
     def test_in_workspace_source_or_symlinked_data_is_rejected(self):
         self.args.source_root = self.paths["providers"]

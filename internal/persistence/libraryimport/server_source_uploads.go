@@ -34,22 +34,20 @@ func (repository *ServerSourceUploads) Insert(
 	now int64,
 	ownerKind, ownerItemID string,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin server source upload: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := InsertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now); err != nil {
-		return err
-	}
-	if ownerKind != "" {
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id)
-VALUES(?,?,?)`, uploadID, ownerKind, ownerItemID); err != nil {
-			return fmt.Errorf("insert server source owner: %w", err)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := InsertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now); err != nil {
+			return err
 		}
-	}
-	if err := transaction.Commit(); err != nil {
+		if ownerKind != "" {
+			if _, err := transaction.ExecContext(ctx, `
+	INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id)
+	VALUES(?,?,?)`, uploadID, ownerKind, ownerItemID); err != nil {
+				return fmt.Errorf("insert server source owner: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("commit server source upload: %w", err)
 	}
 	return nil
@@ -92,7 +90,7 @@ FROM import_jobs import_job
 JOIN jobs job ON job.scope_type='IMPORT_GROUP' AND job.scope_id=import_job.id AND job.kind='IMPORT_GROUP'
 WHERE import_job.upload_session_id=?
   AND import_job.target_platform_instance_id=?
-  AND json_extract(import_job.config_snapshot_json,'$.contentMode')=?
+  AND ((import_job.config_snapshot_json)::jsonb #>> '{contentMode}')=?
 `, uploadID, targetPlatformInstanceID, contentMode).Scan(
 		&created.ImportJobID, &created.JobID, &created.State, &created.ItemCount,
 	)

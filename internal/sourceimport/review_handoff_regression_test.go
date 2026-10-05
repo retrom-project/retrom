@@ -106,7 +106,7 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 	t.Helper()
 	var title, search string
 	var version int64
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT ((d.metadata_json)::jsonb #>> '{title}'),d.review_version,i.search_text FROM import_items d JOIN
 import_items i ON i.id=d.id
  WHERE i.id='018fbe68-0000-7000-8000-000000000011'`).Scan(&title, &version, &search); err != nil {
 		t.Fatal(err)

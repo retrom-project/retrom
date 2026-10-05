@@ -21,11 +21,12 @@ func UpdateSaveStates(
 }
 
 const SaveStatesUpdateRule = `
-WITH previous(id,checkpoint_format,disc_index,source_launch_session_id) AS (VALUES(?,?,?,?))
+WITH previous(id,checkpoint_format,disc_index,source_launch_session_id)
+AS (VALUES(?::text,?::text,?::bigint,?::text))
 SELECT CASE
 -- save_states_disc_update
-WHEN ((candidate.source_launch_session_id IS NOT previous.source_launch_session_id OR
-candidate.disc_index IS NOT previous.disc_index) AND ((
+WHEN ((candidate.source_launch_session_id IS DISTINCT FROM previous.source_launch_session_id OR
+candidate.disc_index IS DISTINCT FROM previous.disc_index) AND ((
   EXISTS(
     SELECT 1 FROM launch_content_files content
     WHERE content.launch_session_id=candidate.source_launch_session_id
@@ -43,11 +44,11 @@ candidate.disc_index IS NOT previous.disc_index) AND ((
   ) AND candidate.disc_index IS NOT NULL
 ))) THEN 'save state disc index mismatch'
 -- save_states_runtime_target_immutable
-WHEN ((candidate.checkpoint_format IS NOT previous.checkpoint_format) AND (1=1)) THEN
+WHEN ((candidate.checkpoint_format IS DISTINCT FROM previous.checkpoint_format) AND (1=1)) THEN
 'immutable runtime checkpoint snapshot'
 -- save_states_source_launch_immutable
-WHEN ((candidate.source_launch_session_id IS NOT previous.source_launch_session_id) AND
-(previous.source_launch_session_id IS NOT candidate.source_launch_session_id)) THEN
+WHEN ((candidate.source_launch_session_id IS DISTINCT FROM previous.source_launch_session_id) AND
+(previous.source_launch_session_id IS DISTINCT FROM candidate.source_launch_session_id)) THEN
 'save state source launch is immutable'
 ELSE '' END
 FROM save_states candidate CROSS JOIN previous

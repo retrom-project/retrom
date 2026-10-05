@@ -5,7 +5,6 @@ package runtimesession
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +14,8 @@ import (
 	"retrom/internal/service/runtimesession"
 	"retrom/internal/store"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"github.com/google/uuid"
 )
 
@@ -22,7 +23,7 @@ func sessionFixture(t *testing.T) (*runtimesession.Service, dbapi.DB, *int64, ru
 	t.Helper()
 	now := int64(1000)
 	clock := func() time.Time { return time.UnixMilli(now) }
-	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "runtime.db"), clock)
+	db, err := store.Open(t.Context(), testpostgres.DSN(t), clock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +36,7 @@ func sessionFixture(t *testing.T) (*runtimesession.Service, dbapi.DB, *int64, ru
  INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
  VALUES('runtime-user','runtime-owner','runtime-user','Owner','USER','ENABLED',0,0);
  INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms)
- VALUES('auth-runtime','runtime-user',zeroblob(32),1,0,0,28800000,86400000);`)
+ VALUES('auth-runtime','runtime-user',decode(repeat('00',(32)::integer),'hex'),1,0,0,28800000,86400000);`)
 	if err != nil {
 		t.Fatal(err)
 	}

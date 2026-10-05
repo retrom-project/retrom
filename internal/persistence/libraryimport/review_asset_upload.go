@@ -29,16 +29,14 @@ func (repository *ReviewAssetUploads) Source(
 func (repository *ReviewAssetUploads) WithWrite(
 	ctx context.Context, work func(libraryservice.ReviewAssetScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		records := reviewAssetRecords{transaction}
+		if err := work(libraryservice.ReviewAssetScope{Reader: records, Writer: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin review asset transaction: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	records := reviewAssetRecords{transaction}
-	if err := work(libraryservice.ReviewAssetScope{Reader: records, Writer: records}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit review asset transaction: %w", err)
 	}
 	return nil
@@ -49,10 +47,10 @@ func (records reviewAssetRecords) Source(
 ) (libraryservice.ReviewAssetSource, bool, error) {
 	var source libraryservice.ReviewAssetSource
 	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT f.id,f.upload_session_id,b.value,json_extract(b.value, '$.sha256'),upload.purpose,
-json_extract(b.value, '$.size_bytes')
+SELECT f.id,f.upload_session_id,b.value,((b.value)::jsonb #>> '{sha256}'),upload.purpose,
+(((b.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM import_files f
-JOIN json_each(json_array(f.file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT f.file_record AS value) b ON b.value IS NOT NULL
 JOIN upload_sessions upload ON upload.id=f.upload_session_id
 WHERE f.id=? AND f.released_at_ms IS NULL
 `, fileID).Scan(

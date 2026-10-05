@@ -18,15 +18,13 @@ type (
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(isolation.Tickets) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(tickets{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("isolation/begin: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(tickets{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("isolation/commit: %w", err)
 	}
 	return nil

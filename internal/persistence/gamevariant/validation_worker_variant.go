@@ -74,7 +74,7 @@ SELECT emulator_game_id FROM game_variants WHERE id=?
 	}
 	var emulatorGameID int64
 	if err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants
+SELECT COALESCE(max(emulator_game_id),1000)+1 FROM game_variants
 `).Scan(&emulatorGameID); err != nil {
 		return sql.NullString{}, nil, fmt.Errorf("allocate emulator game ID: %w", err)
 	}

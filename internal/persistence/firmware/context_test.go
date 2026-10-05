@@ -6,14 +6,13 @@ import (
 	"testing"
 	"time"
 
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	firmwareservice "retrom/internal/service/firmware"
-
-	_ "modernc.org/sqlite"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestBIOSPreparationPreservesCancelledRead(t *testing.T) {
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

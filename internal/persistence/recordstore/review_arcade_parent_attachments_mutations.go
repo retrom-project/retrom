@@ -21,10 +21,11 @@ func UpdateReviewArcadeParentAttachments(
 }
 
 const ReviewArcadeParentAttachmentsUpdateRule = `
-WITH previous(id,state) AS (VALUES(?,?))
+WITH previous(id,state)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- review_arcade_parent_transition_update
-WHEN ((candidate.state IS NOT previous.state) AND (NOT (
+WHEN ((candidate.state IS DISTINCT FROM previous.state) AND (NOT (
   previous.state='PENDING' AND candidate.state IN ('ACCEPTED','REJECTED','CANCELLED')
 ))) THEN 'invalid attachment state transition'
 ELSE '' END

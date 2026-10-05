@@ -21,10 +21,11 @@ func UpdateGameSaveVersions(
 }
 
 const GameSaveVersionsUpdateRule = `
-WITH previous(save_state_id,last_synced_at_ms) AS (VALUES(?,?))
+WITH previous(save_state_id,last_synced_at_ms)
+AS (VALUES(?::text,?::bigint))
 SELECT CASE
 -- game_save_sync_time
-WHEN ((candidate.last_synced_at_ms IS NOT previous.last_synced_at_ms) AND
+WHEN ((candidate.last_synced_at_ms IS DISTINCT FROM previous.last_synced_at_ms) AND
 (candidate.last_synced_at_ms<(SELECT created_at_ms FROM save_states WHERE id=candidate.save_state_id)))
 THEN 'game save sync predates creation'
 ELSE '' END

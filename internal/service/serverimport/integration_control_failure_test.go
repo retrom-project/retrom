@@ -9,7 +9,7 @@ import (
 
 func TestServerImportControlPreservesDatabaseFailures(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	if _, err := database.ExecContext(t.Context(), `DROP TABLE server_imports`); err != nil {
+	if _, err := database.ExecContext(t.Context(), `DROP TABLE server_imports CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	_, _, cancelErr := service.Cancel(t.Context(), "missing", 1, "stop", "01980000-0000-7000-8000-00000000b001")

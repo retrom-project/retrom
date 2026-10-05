@@ -3,29 +3,30 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 )
 
 func TestInterruptedQueryReplacementPreservesConnectionPolicy(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "retrom.db")
+	path := testpostgres.DSN(t)
 	db, err := Open(t.Context(), path, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	execConnectionTest(t, db.SQL, `CREATE TEMP TABLE connection_marker(value INTEGER)`)
-	execConnectionTest(t, db.SQL, `CREATE TABLE connection_parent(id INTEGER PRIMARY KEY)`)
-	execConnectionTest(t, db.SQL, `CREATE TABLE connection_child(parent_id INTEGER REFERENCES connection_parent(id) ON DELETE CASCADE)`)
-	execConnectionTest(t, db.SQL, `CREATE TABLE connection_optional(parent_id INTEGER REFERENCES connection_parent(id) ON DELETE SET NULL)`)
+	execConnectionTest(t, db.SQL, `CREATE TEMP TABLE connection_marker(value BIGINT)`)
+	execConnectionTest(t, db.SQL, `CREATE TABLE connection_parent(id BIGINT PRIMARY KEY)`)
+	execConnectionTest(t, db.SQL, `CREATE TABLE connection_child(parent_id BIGINT REFERENCES connection_parent(id) ON DELETE CASCADE)`)
+	execConnectionTest(t, db.SQL, `CREATE TABLE connection_optional(parent_id BIGINT REFERENCES connection_parent(id) ON DELETE SET NULL)`)
 	execConnectionTest(t, db.SQL, `INSERT INTO connection_parent VALUES(1)`)
 	execConnectionTest(t, db.SQL, `INSERT INTO connection_child VALUES(1)`)
 	execConnectionTest(t, db.SQL, `INSERT INTO connection_optional VALUES(1)`)
 
-	// A timed-out query outside a transaction invalidates the modernc connection.
+	// A timed-out query outside a transaction invalidates the PostgreSQL connection.
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
 	defer cancel()
 	var total int
@@ -34,10 +35,10 @@ SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<1000000000) SELECT sum(x) FROM n`).
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("interrupted query error = %v", err)
 	}
-	assertConnectionValue(t, db.SQL, "SELECT count(*) FROM sqlite_temp_schema WHERE name='connection_marker'", 0)
-	assertConnectionValue(t, db.SQL, "PRAGMA foreign_keys", 1)
-	assertConnectionValue(t, db.SQL, "PRAGMA busy_timeout", 5000)
-	assertConnectionValue(t, db.SQL, "PRAGMA synchronous", 2)
+	assertConnectionValue(t, db.SQL, "SELECT count(*) FROM pg_class WHERE relnamespace=pg_my_temp_schema() AND relname='connection_marker'", 0)
+	assertConnectionValue(t, db.SQL, "SELECT CASE WHEN current_setting('session_replication_role')='origin' THEN 1 ELSE 0 END", 1)
+	assertConnectionValue(t, db.SQL, "SELECT (extract(epoch FROM current_setting('lock_timeout')::interval)*1000)::bigint", 5000)
+	assertConnectionValue(t, db.SQL, "SELECT CASE WHEN current_setting('synchronous_commit')='on' THEN 2 ELSE 0 END", 2)
 	if _, err := db.SQL.ExecContext(t.Context(), "INSERT INTO connection_child VALUES(2)"); err == nil {
 		t.Fatal("replacement connection accepted a missing parent")
 	}
@@ -68,7 +69,7 @@ func execConnectionTest(t *testing.T, db dbapi.DB, query string) {
 }
 
 func TestReadOnlyPoolInitializesEveryPhysicalConnection(t *testing.T) {
-	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	db, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestReadOnlyPoolInitializesEveryPhysicalConnection(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = tx.Rollback() })
 		for query, want := range map[string]int{
-			"PRAGMA foreign_keys": 1, "PRAGMA busy_timeout": 5000, "PRAGMA synchronous": 2,
+			"SELECT CASE WHEN current_setting('session_replication_role')='origin' THEN 1 ELSE 0 END": 1, "SELECT (extract(epoch FROM current_setting('lock_timeout')::interval)*1000)::bigint": 5000, "SELECT CASE WHEN current_setting('synchronous_commit')='on' THEN 2 ELSE 0 END": 2,
 		} {
 			var got int
 			if err := dbapi.QueryRowContext(t.Context(), tx, query).Scan(&got); err != nil {

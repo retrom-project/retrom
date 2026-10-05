@@ -3,7 +3,6 @@ package sourceimport
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -11,13 +10,14 @@ import (
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 var errCreationWrite = errors.New("creation write failed")
 
 func creationDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	owner, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "creation.db"), time.Now)
+	owner, err := store.Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

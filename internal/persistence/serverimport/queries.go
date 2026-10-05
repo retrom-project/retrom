@@ -31,9 +31,9 @@ import.replace_if_better,import.state,import.phase,import.catalog_item_count,imp
 import.evaluated_item_count,import.imported_matched_count,import.imported_unverified_count,import.imported_warning_count,
 import.imported_missing_entry_count,import.not_found_count,import.skipped_existing_count,
 import.skipped_not_better_count,import.same_bytes_count,import.failed_item_count,import.cancelled_item_count,
-import.job_id,import.created_by_user_id,user.display_name,import.last_error_code,import.version,
+import.job_id,import.created_by_user_id,actor.display_name,import.last_error_code,import.version,
 import.created_at_ms,import.updated_at_ms,import.completed_at_ms
-FROM server_imports import JOIN users user ON user.id=import.created_by_user_id`
+FROM server_imports import JOIN users actor ON actor.id=import.created_by_user_id`
 
 type Queries struct{ database dbapi.DB }
 
@@ -120,8 +120,8 @@ func (repository *Queries) Items(ctx context.Context, filter serverimport.ItemQu
 	if query != "" {
 		conditions = append(
 			conditions,
-			"(instr(lower(item.logical_name),lower(?))>0 OR "+
-				"instr(lower(item.core_name_snapshot),lower(?))>0 OR instr(lower(item.core_id),lower(?))>0)",
+			"(strpos(lower(item.logical_name),lower(?))>0 OR "+
+				"strpos(lower(item.core_name_snapshot),lower(?))>0 OR strpos(lower(item.core_id),lower(?))>0)",
 		)
 		arguments = append(arguments, query, query, query)
 	}
@@ -136,8 +136,9 @@ func (repository *Queries) Items(ctx context.Context, filter serverimport.ItemQu
 	if afterID != "" {
 		conditions = append(
 			conditions,
-			"(item.core_name_snapshot>? OR (item.core_name_snapshot=? AND item.logical_name>?) OR "+
-				"(item.core_name_snapshot=? AND item.logical_name=? AND item.requirement_id>?))",
+			`(item.core_name_snapshot COLLATE "C">?
+OR (item.core_name_snapshot COLLATE "C"=? AND item.logical_name COLLATE "C">?)
+OR (item.core_name_snapshot COLLATE "C"=? AND item.logical_name COLLATE "C"=? AND item.requirement_id COLLATE "C">?))`,
 		)
 		arguments = append(arguments, afterCore, afterCore, afterName, afterCore, afterName, afterID)
 	}
@@ -156,8 +157,8 @@ LEFT JOIN server_bios_import_candidates selected ON selected.server_import_id=it
 LEFT JOIN bios_installations previous ON previous.id=item.previous_installation_id
 LEFT JOIN bios_installations replacement ON replacement.id=item.new_installation_id
 WHERE `+strings.Join(conditions, " AND ")+`
- ORDER BY item.core_name_snapshot COLLATE BINARY,item.logical_name COLLATE BINARY,
- item.requirement_id COLLATE BINARY LIMIT ?`, arguments...)
+ ORDER BY item.core_name_snapshot COLLATE "C",item.logical_name COLLATE "C",
+ item.requirement_id COLLATE "C" LIMIT ?`, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("serverimport/list items: %w", err)
 	}

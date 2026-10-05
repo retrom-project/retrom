@@ -59,8 +59,8 @@ SET save_state_id=?,expected_data_version=? WHERE launch_session_id=?`, saveID, 
 
 func (store records) UpdateSave(ctx context.Context, update saves.SaveUpdate) error {
 	old, err := dbapi.QueryStrings(ctx, store.executor, `
-SELECT payload_file_record FROM save_states WHERE id=?1 AND payload_file_record IS NOT NULL
- UNION SELECT screenshot_file_record FROM save_states WHERE id=?1 AND screenshot_file_record IS NOT NULL
+SELECT payload_file_record FROM save_states WHERE id=$1 AND payload_file_record IS NOT NULL
+ UNION SELECT screenshot_file_record FROM save_states WHERE id=$1 AND screenshot_file_record IS NOT NULL
 `, update.SaveID)
 	if err != nil {
 		return fmt.Errorf("update save: %w", err)

@@ -10,7 +10,7 @@ import (
 
 func ClearFiles(ctx context.Context, executor dbapi.Executor, id string, now int64) error {
 	if _, err := recordstore.DeleteRows(ctx, executor, "source_import_item_companions", recordstore.Scope{
-		Where: `rowid IN(SELECT rowid FROM source_import_item_companions WHERE item_id=? ORDER BY rowid LIMIT 200)`,
+		Where: `ctid IN(SELECT ctid FROM source_import_item_companions WHERE item_id=? ORDER BY ctid LIMIT 200)`,
 		Args:  []any{id},
 	}); err != nil {
 		return wrapErr(err)

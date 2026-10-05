@@ -48,8 +48,8 @@ func (records reviewApprovalRecords) BeginPublication(ctx context.Context,
 	{
 		var pending bool
 		if err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT EXISTS(SELECT 1 FROM import_items
-   WHERE state='PUBLISHING' AND json_extract(publication_json,'$.Head.PlatformID')=? AND
-json_extract(publication_json,'$.IdentityDigest')=? AND id<>?)`,
+   WHERE state='PUBLISHING' AND ((publication_json)::jsonb #>> '{Head,PlatformID}')=? AND
+((publication_json)::jsonb #>> '{IdentityDigest}')=? AND id<>?)`,
 			intent.Head.PlatformID, intent.IdentityDigest, intent.Request.ItemID).Scan(&pending); err != nil {
 			return fmt.Errorf("read concurrent publication: %w", err)
 		}

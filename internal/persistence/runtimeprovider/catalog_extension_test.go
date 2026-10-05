@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 
@@ -26,7 +28,7 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 		t.Fatal(err)
 	}
 	var schemaBefore string
-	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaBefore); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT string_agg(sql,';' ORDER BY type,name) FROM (`+testpostgres.SchemaObjectsSQL+`) objects WHERE sql IS NOT NULL`).Scan(&schemaBefore); err != nil {
 		t.Fatal(err)
 	}
 	// The extension is a declaration using existing ROM delivery, not a SQL seed.
@@ -66,7 +68,7 @@ func assertExtensionPreservesFolder(t *testing.T, database dbapi.DB, schemaBefor
 	t.Helper()
 	var schemaAfter, folderName, coreID string
 	var enabled, createdAt, schemaVersion int
-	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaAfter); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT string_agg(sql,';' ORDER BY type,name) FROM (`+testpostgres.SchemaObjectsSQL+`) objects WHERE sql IS NOT NULL`).Scan(&schemaAfter); err != nil {
 		t.Fatal(err)
 	}
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,default_core_id,enabled,created_at_ms FROM platform_instances WHERE id='custom'`).Scan(&folderName, &coreID, &enabled, &createdAt); err != nil {
@@ -75,7 +77,7 @@ func assertExtensionPreservesFolder(t *testing.T, database dbapi.DB, schemaBefor
 	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT max(version) FROM schema_migrations`).Scan(&schemaVersion); err != nil {
 		t.Fatal(err)
 	}
-	if schemaAfter != schemaBefore || schemaVersion != 17 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || createdAt != 1 {
+	if schemaAfter != schemaBefore || schemaVersion != 1 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || createdAt != 1 {
 		t.Fatal("catalog update changed schema or user configuration")
 	}
 }

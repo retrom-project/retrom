@@ -43,7 +43,7 @@ func (repository *DirectoryRepository) List(
 ) ([]accounts.AdminUser, error) {
 	builder := directorySQL{query: adminUserProjection + ` WHERE 1=1`, arguments: []any{query.Now, query.Now}}
 	if query.Text != "" {
-		builder.add(` AND (instr(u.username,lower(?))>0 OR instr(u.display_name,?)>0)`, query.Text, query.Text)
+		builder.add(` AND (strpos(u.username,lower(?))>0 OR strpos(u.display_name,?)>0)`, query.Text, query.Text)
 	}
 	if query.Role != "" {
 		builder.add(` AND u.role=?`, query.Role)

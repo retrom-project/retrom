@@ -46,41 +46,39 @@ ORDER BY i.id LIMIT ?`, importID, limit)
 }
 
 func (repository *ReviewBatchDiscards) Release(ctx context.Context, importID string, now int64) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin discarded batch release: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	var pending int
-	if err := dbapi.QueryRowContext(ctx, tx, `SELECT count(*) FROM import_items WHERE import_job_id=?
-AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID).Scan(&pending); err != nil {
-		return fmt.Errorf("check discarded batch: %w", err)
-	}
-	if pending != 0 {
-		return libraryservice.ErrInvalid
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE import_jobs SET state='CANCELLED',cancel_reason='丢弃本批次未发布内容',
-cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALESCE(completed_at_ms,?),
-updated_at_ms=?,version=version+1 WHERE id=? AND payload_state='RETAINED'`, now, now, now, importID); err != nil {
-		return fmt.Errorf("close discarded batch: %w", err)
-	}
-	ids, err := dbapi.QueryStrings(ctx, tx, `
-SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`, importID)
-	if err != nil {
-		return fmt.Errorf("list discarded children: %w", err)
-	}
-	scheduler := payloadservice.NewScheduler(nil)
-	for _, id := range ids {
-		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), id,
-			payloadservice.ReasonImportDiscarded, now); err != nil {
-			return fmt.Errorf("release discarded child: %w", err)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		var pending int
+		if err := dbapi.QueryRowContext(ctx, tx, `SELECT count(*) FROM import_items WHERE import_job_id=?
+	AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID).Scan(&pending); err != nil {
+			return fmt.Errorf("check discarded batch: %w", err)
 		}
-	}
-	if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
-		importID, now); err != nil {
-		return fmt.Errorf("release discarded batch: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
+		if pending != 0 {
+			return libraryservice.ErrInvalid
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE import_jobs SET state='CANCELLED',cancel_reason='丢弃本批次未发布内容',
+	cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALESCE(completed_at_ms,?),
+	updated_at_ms=?,version=version+1 WHERE id=? AND payload_state='RETAINED'`, now, now, now, importID); err != nil {
+			return fmt.Errorf("close discarded batch: %w", err)
+		}
+		ids, err := dbapi.QueryStrings(ctx, tx, `
+	SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`, importID)
+		if err != nil {
+			return fmt.Errorf("list discarded children: %w", err)
+		}
+		scheduler := payloadservice.NewScheduler(nil)
+		for _, id := range ids {
+			if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), id,
+				payloadservice.ReasonImportDiscarded, now); err != nil {
+				return fmt.Errorf("release discarded child: %w", err)
+			}
+		}
+		if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
+			importID, now); err != nil {
+			return fmt.Errorf("release discarded batch: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("commit discarded batch: %w", err)
 	}
 	return nil

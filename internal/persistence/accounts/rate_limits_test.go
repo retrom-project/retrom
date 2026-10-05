@@ -3,9 +3,10 @@ package accounts
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func TestRateLimitReadDoesNotQueueBehindBackgroundWriter(t *testing.T) {
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "limits.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func TestRateLimitReadDoesNotQueueBehindBackgroundWriter(t *testing.T) {
 }
 
 func TestAccountAndIPRateLimitFailuresRollbackTogether(t *testing.T) {
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

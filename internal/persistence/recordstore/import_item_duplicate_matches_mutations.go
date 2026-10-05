@@ -21,7 +21,8 @@ func UpdateImportItemDuplicateMatches(
 }
 
 const ImportItemDuplicateMatchesUpdateRule = `
-WITH previous(import_item_id,existing_game_id) AS (VALUES(?,?))
+WITH previous(import_item_id,existing_game_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- import_item_duplicate_matches_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteImportItemDuplicateMatches(
 }
 
 const ImportItemDuplicateMatchesDeleteRule = `
-WITH previous(import_item_id,existing_game_id) AS (VALUES(?,?))
+WITH previous(import_item_id,existing_game_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- import_item_duplicate_matches_immutable_delete
 WHEN (1=1) THEN 'immutable'

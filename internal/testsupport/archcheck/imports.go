@@ -92,7 +92,7 @@ func productionSources(t testing.TB) []sourceFile {
 
 func forbiddenBusinessImport(value string) bool {
 	for _, prefix := range []string{
-		"database/sql", "modernc.org/sqlite", "retrom/internal/persistence",
+		"database/sql", "github.com/jackc/pgx", "retrom/internal/persistence",
 		"retrom/internal/database", "retrom/internal/store",
 		"retrom/internal/application", "retrom/internal/composition", "retrom/internal/httpapi", "retrom/cmd",
 	} {

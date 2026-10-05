@@ -357,7 +357,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 },
 		func() bool { return response.GeneratedAtMS != fixed.UnixMilli() },
-		func() bool { return response.DatabaseSchemaVersion != 17 },
+		func() bool { return response.DatabaseSchemaVersion != 1 },
 		func() bool { return len(response.RuntimeProviders) != 2 },
 		func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" },
 		func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }),
@@ -386,7 +386,7 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
+	mustExecHTTPTest(t, transaction, `SET CONSTRAINTS ALL DEFERRED`)
 	fileRecord := testsupport.FileMetadata("import-archive").Record
 
 	mustExecHTTPTest(t, transaction, `

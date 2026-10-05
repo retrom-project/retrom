@@ -11,7 +11,7 @@ test.afterEach(() => uiLayoutState("restore"));
 for (const mode of ["save", "video"] as const) {
 test(`ACC-UI-003 ${mode} only keeps inset tabs and sound changes preserve manual playback`, async ({browser}, testInfo) => {
   test.setTimeout(90_000);
-  const database = process.env.RETROM_E2E_DATABASE;
+  const database = process.env.RETROM_E2E_DATA_ROOT;
   expect(database).toBeTruthy();
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
     const gameId = execFileSync("python3", [path.resolve("../scripts/acceptance/seed-ui-detail.py"), database!, mode], {encoding: "utf8"}).trim();

@@ -13,11 +13,12 @@ import (
 	"time"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 	ctx := context.Background()
-	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	databasePath := testpostgres.DSN(t)
 	database, err := openSmokeDatabase(ctx, databasePath)
 	if err != nil {
 		t.Fatalf("open smoke database: %v", err)
@@ -27,14 +28,14 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 			t.Errorf("close smoke database: %v", closeErr)
 		}
 	})
-	var timeoutMS int
-	if err := dbapi.QueryRowContext(ctx, database, "PRAGMA busy_timeout").Scan(&timeoutMS); err != nil {
+	var timeout string
+	if err := dbapi.QueryRowContext(ctx, database, "SHOW lock_timeout").Scan(&timeout); err != nil {
 		t.Fatalf("read busy timeout: %v", err)
 	}
-	if timeoutMS != acceptanceSQLiteBusyTimeoutMS {
-		t.Fatalf("busy timeout = %d, want %d", timeoutMS, acceptanceSQLiteBusyTimeoutMS)
+	if timeout != "5s" {
+		t.Fatalf("lock timeout = %s, want 5s", timeout)
 	}
-	if _, err := database.ExecContext(ctx, "CREATE TABLE contention(value INTEGER NOT NULL)"); err != nil {
+	if _, err := database.ExecContext(ctx, "CREATE TABLE contention(value BIGINT NOT NULL); INSERT INTO contention VALUES(0)"); err != nil {
 		t.Fatalf("create contention table: %v", err)
 	}
 	blocker, err := openSmokeDatabase(ctx, databasePath)
@@ -51,7 +52,7 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 		t.Fatalf("begin blocking write: %v", err)
 	}
 	t.Cleanup(func() { dbapi.Rollback(transaction) })
-	if _, err := transaction.ExecContext(ctx, "INSERT INTO contention(value) VALUES(1)"); err != nil {
+	if _, err := transaction.ExecContext(ctx, "UPDATE contention SET value=1"); err != nil {
 		t.Fatalf("hold blocking write: %v", err)
 	}
 	released := make(chan error, 1)
@@ -60,7 +61,7 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 		released <- transaction.Commit()
 	}()
 	started := time.Now()
-	if _, err := database.ExecContext(ctx, "INSERT INTO contention(value) VALUES(2)"); err != nil {
+	if _, err := database.ExecContext(ctx, "UPDATE contention SET value=2"); err != nil {
 		t.Fatalf("write did not wait for bounded contention: %v", err)
 	}
 	if elapsed := time.Since(started); elapsed < 50*time.Millisecond || elapsed > 5*time.Second {

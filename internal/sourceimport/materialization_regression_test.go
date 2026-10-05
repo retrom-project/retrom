@@ -67,7 +67,7 @@ func TestMaterializationRejectsReplacedOwner(t *testing.T) {
 					asset, "PEGASUS_IMAGE_INVALID")
 			}
 			var changed int
-			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM source_import_item_files WHERE json_extract(file_record,'$.sha256')=?) +
+			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM source_import_item_files WHERE ((file_record)::jsonb #>> '{sha256}')=?) +
 (SELECT count(*) FROM source_import_item_assets WHERE item_id='018fbe68-0000-7000-8000-000000000010' AND
 state<>'DISCOVERED')+
 (SELECT count(*) FROM source_imports WHERE phase='VALIDATING')`, metadata.SHA256).Scan(&changed)
@@ -99,7 +99,7 @@ func TestMaterializationWarningIsIdempotent(t *testing.T) {
 			asset, "PEGASUS_IMAGE_INVALID")
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_array_length(warnings_json) FROM source_import_items WHERE
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT jsonb_array_length((warnings_json)::jsonb) FROM source_import_items WHERE
 id='018fbe68-0000-7000-8000-000000000010'`).Scan(
 
 		&count,

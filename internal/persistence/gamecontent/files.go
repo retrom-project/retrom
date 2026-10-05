@@ -14,10 +14,10 @@ func (records records) Files(ctx context.Context, uploadID string) ([]gameconten
 		`
 SELECT f.relative_path,
 f.final_file_record,
-json_extract(b.value, '$.sha256'),
-json_extract(b.value, '$.size_bytes')
+((b.value)::jsonb #>> '{sha256}'),
+(((b.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM upload_files f
-JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT f.final_file_record AS value) b ON b.value IS NOT NULL
 WHERE f.upload_session_id=?
 AND f.state='COMPLETE'
 ORDER BY f.relative_path,

@@ -2,13 +2,16 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-dev-acceptance.XXXXXX")"
+acceptance_dist_dir=".next-acceptance-dev-${temporary_root##*.}"
+cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
+cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 backend_port=18080
 web_port=13000
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
-browser_origin="http://local.retrom.test:${web_port}"
-unconfigured_hmr_origin="https://unconfigured.retrom.example"
+browser_origin="$web_origin"
 process_id=""
 previous_process_id=""
 orphan_backend_pid=""
@@ -68,6 +71,14 @@ cleanup() {
   if process_matches_start_ticks "$orphan_web_pid" "$orphan_web_start_ticks"; then
     kill -TERM -- "-$orphan_web_pid" 2>/dev/null || true
   fi
+  if ! RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" \
+      "$repository_root/scripts/dev.sh" --stop; then
+    echo "development cleanup failed; retained evidence: $temporary_root" >&2
+    return 1
+  fi
+  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
+  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
+  remove_dev_dist "$repository_root/web/$acceptance_dist_dir" || return 1
   rm -rf -- "$temporary_root"
 }
 trap cleanup EXIT
@@ -93,11 +104,14 @@ start_dev() {
     PATH="$temporary_root/bin:$PATH" \
     DOCKER="$temporary_root/bin/docker" \
     make dev \
+      RETROM_DEV_CONFIG=/dev/null \
+      RETROM_DATABASE_URL= \
       RETROM_DEV_STATE_DIR="$dev_state" \
       RETROM_DATA_DIR="$temporary_root/data" \
       RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
       RETROM_PUBLIC_ORIGIN="$browser_origin" \
       NEXT_DEV_PORT="$web_port" \
+      NEXT_DEV_DIST_DIR="$acceptance_dist_dir" \
       NEXT_BACKEND_ORIGIN="$backend_origin" \
       >"$dev_log" 2>&1 &
   process_id=$!
@@ -129,6 +143,15 @@ live="$(curl --fail --silent --show-error "$backend_origin/health/live")"
 wait_http "$backend_origin/health/ready"
 ready="$(curl --fail --silent --show-error "$backend_origin/health/ready")"
 wait_http "$web_origin"
+
+PYTHONPATH="$repository_root/scripts" python3 - "$dev_state" "$temporary_root/data" <<'PYSQL'
+from pathlib import Path
+import sys
+from dev_postgres import Cluster
+cluster = Cluster(Path(sys.argv[1]), Path(sys.argv[2]))
+cluster.sql(cluster.info(), "CREATE TABLE dev_lifecycle_probe (value text)")
+cluster.sql(cluster.info(), "INSERT INTO dev_lifecycle_probe VALUES ('retained')")
+PYSQL
 
 previous_process_id="$process_id"
 dev_log="$temporary_root/dev-replacement.log"
@@ -215,6 +238,15 @@ if process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_tick
   exit 1
 fi
 
+PYTHONPATH="$repository_root/scripts" python3 - "$dev_state" "$temporary_root/data" <<'PYSQL'
+from pathlib import Path
+import sys
+from dev_postgres import Cluster
+cluster = Cluster(Path(sys.argv[1]), Path(sys.argv[2]))
+assert cluster.sql(cluster.info(), "SELECT value FROM dev_lifecycle_probe") == "retained"
+print("postgres_takeover_persistence=passed")
+PYSQL
+
 cookie_jar="$temporary_root/cookies"
 curl --fail --silent --show-error -c "$cookie_jar" \
   -H "Origin: $browser_origin" -H 'Content-Type: application/json' \
@@ -234,7 +266,7 @@ expected = {"items": [
 if payload != expected:
     raise SystemExit(f"unexpected server filesystem root: {payload!r}")
 PY
-hmr_status="$(python3 - "$web_port" "$unconfigured_hmr_origin" <<'PY'
+hmr_status="$(python3 - "$web_port" "$browser_origin" <<'PY'
 import base64
 import os
 import socket
@@ -292,7 +324,7 @@ PY
 )"
 listeners="$(ss -ltnp "sport = :${backend_port} or sport = :${web_port}")"
 printf '%s\n' "$listeners" | grep -q "127.0.0.1:${backend_port}"
-printf '%s\n' "$listeners" | grep -q "0.0.0.0:${web_port}"
+printf '%s\n' "$listeners" | grep -q "127.0.0.1:${web_port}"
 if printf '%s\n' "$listeners" | grep -Eq "(0\.0\.0\.0|\[::\]):${backend_port}"; then
   echo "development backend listener escaped loopback" >&2
   exit 1
@@ -325,7 +357,7 @@ if [[ $exit_status -ne 0 && $exit_status -ne 2 && $exit_status -ne 143 ]]; then
   sed 's/^/[dev] /' "$dev_log" >&2
   exit 1
 fi
-if ! grep -q 'shutdown requested.*terminated' "$dev_log"; then
+if ! grep -q '"msg":"shutdown requested"' "$dev_log"; then
   echo "backend did not record an orderly SIGTERM shutdown" >&2
   sed 's/^/[dev] /' "$dev_log" >&2
   exit 1
@@ -340,6 +372,16 @@ while ss -ltn "sport = :${backend_port} or sport = :${web_port}" | tail -n +2 | 
   fi
   sleep 0.1
 done
+
+PYTHONPATH="$repository_root/scripts" python3 - "$dev_state" "$temporary_root/data" <<'PYSQL'
+from pathlib import Path
+import sys
+from dev_postgres import Cluster
+cluster = Cluster(Path(sys.argv[1]), Path(sys.argv[2]))
+assert cluster.process() is None
+assert (cluster.data / "PG_VERSION").is_file()
+print("postgres_stopped_data_preserved=passed")
+PYSQL
 
 foreign_start_ticks="$(read_start_ticks "$$")"
 printf '%s %s\n' "$$" "$foreign_start_ticks" >"$dev_state/dev.pid"

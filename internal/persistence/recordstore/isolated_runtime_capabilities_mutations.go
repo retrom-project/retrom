@@ -23,11 +23,13 @@ func UpdateIsolatedRuntimeCapabilities(
 
 const IsolatedRuntimeCapabilitiesUpdateRule = `
 WITH previous(credential_sha256,expected_origin,expires_at_ms,issued_at_ms,launch_id,preview_id,
-profile_id,revoked_at_ms) AS (VALUES(?,?,?,?,?,?,?,?))
+profile_id,revoked_at_ms)
+AS (VALUES(?::bytea,?::text,?::bigint,?::bigint,?::text,?::text,?::text,?::bigint))
 SELECT CASE
 -- isolated_runtime_capabilities_revoke
 WHEN (previous.revoked_at_ms IS NOT NULL OR candidate.credential_sha256<>previous.credential_sha256
-  OR candidate.launch_id IS NOT previous.launch_id OR candidate.preview_id IS NOT previous.preview_id
+  OR candidate.launch_id IS DISTINCT FROM previous.launch_id OR candidate.preview_id IS DISTINCT FROM
+ previous.preview_id
   OR candidate.profile_id<>previous.profile_id
   OR candidate.expected_origin<>previous.expected_origin OR candidate.issued_at_ms<>previous.issued_at_ms
   OR candidate.expires_at_ms<>previous.expires_at_ms OR candidate.revoked_at_ms IS NULL) THEN
@@ -50,7 +52,8 @@ func DeleteIsolatedRuntimeCapabilities(
 }
 
 const IsolatedRuntimeCapabilitiesDeleteRule = `
-WITH previous(credential_sha256,launch_id,preview_id) AS (VALUES(?,?,?))
+WITH previous(credential_sha256,launch_id,preview_id)
+AS (VALUES(?::bytea,?::text,?::text))
 SELECT CASE
 -- isolated_runtime_capabilities_immutable_delete
 WHEN (previous.launch_id IS NOT NULL OR EXISTS(

@@ -50,31 +50,30 @@ func (repository *Repository) WithRead(ctx context.Context, work func(gameconten
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		bound := writes{tx}
+		if err := work(
+			gamecontent.WriteScope{
+				ReadScope: readScope(
+					tx,
+				),
+				Replays:            bound,
+				Jobs:               bound,
+				Leases:             bound,
+				ContentWriter:      bound,
+				Retirements:        BindRetirement(tx),
+				AdminWriter:        bound,
+				GameDeletionReader: bound,
+				GameDeletionWriter: bound,
+			},
+		); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin content replacement write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	bound := writes{tx}
-	if err := work(
-		gamecontent.WriteScope{
-			ReadScope: readScope(
-				tx,
-			),
-			Replays:            bound,
-			Jobs:               bound,
-			Leases:             bound,
-			ContentWriter:      bound,
-			Retirements:        BindRetirement(tx),
-			AdminWriter:        bound,
-			GameDeletionReader: bound,
-			GameDeletionWriter: bound,
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit content replacement write: %w", err)
+		return fmt.Errorf("commit gamecontent transaction: %w", err)
 	}
 	return nil
 }

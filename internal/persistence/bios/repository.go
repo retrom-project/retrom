@@ -77,9 +77,9 @@ func (repository *Repository) list(
 
 func coreOptions(ctx context.Context, executor dbapi.Executor, scope string) ([]application.CoreOption, error) {
 	rows, err := executor.QueryContext(ctx, `
-SELECT DISTINCT core.id,core.name FROM bios_requirements requirement
+SELECT DISTINCT core.id COLLATE "C" AS id,core.name COLLATE "C" AS name FROM bios_requirements requirement
 JOIN cores core ON core.id=requirement.core_id
-WHERE requirement.enabled=1 AND `+scopeSQL(scope)+` ORDER BY core.name COLLATE BINARY,core.id COLLATE BINARY`)
+WHERE requirement.enabled=1 AND `+scopeSQL(scope)+` ORDER BY name,id`)
 	if err != nil {
 		return nil, fmt.Errorf("query BIOS core options: %w", err)
 	}
@@ -175,8 +175,8 @@ requirement.version,` + statusExpression + `,installation.id,installation.md5,in
 installation.validated_requirement_version,installation.created_at_ms
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id AND installation.is_active=1
-WHERE ` + joinConditions(conditions) + ` ORDER BY core.name COLLATE BINARY,
-requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
+WHERE ` + joinConditions(conditions) + ` ORDER BY core.name COLLATE "C",
+requirement.logical_name COLLATE "C",requirement.id COLLATE "C" LIMIT ?`
 	arguments = append(arguments, request.Limit)
 	rows, err := executor.QueryContext(ctx, query, arguments...)
 	if err != nil {
@@ -249,7 +249,7 @@ func conditions(request application.ListRequest, includeCursor bool) ([]string, 
 	arguments := make([]any, 0, 12)
 	if request.Query != "" {
 		result = append(result,
-			"(instr(lower(requirement.logical_name),lower(?))>0 OR instr(lower(core.name),lower(?))>0)",
+			"(strpos(lower(requirement.logical_name),lower(?))>0 OR strpos(lower(core.name),lower(?))>0)",
 		)
 		arguments = append(arguments, request.Query, request.Query)
 	}
@@ -277,8 +277,8 @@ WHERE platform_core.core_id=requirement.core_id AND platform_core.platform_id=?)
 	result = appendQuickFilter(result, request.Quick)
 	if includeCursor && request.Cursor != nil {
 		result = append(result,
-			"(core.name>? OR (core.name=? AND requirement.logical_name>?) OR "+
-				"(core.name=? AND requirement.logical_name=? AND requirement.id>?))",
+			`(core.name COLLATE "C">? OR (core.name COLLATE "C"=? AND requirement.logical_name COLLATE "C">?) OR `+
+				`(core.name COLLATE "C"=? AND requirement.logical_name COLLATE "C"=? AND requirement.id COLLATE "C">?))`,
 		)
 		arguments = append(arguments,
 			request.Cursor.SortValues[0], request.Cursor.SortValues[0], request.Cursor.SortValues[1],

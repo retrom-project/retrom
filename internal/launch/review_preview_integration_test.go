@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/persistence/recordstore"
@@ -38,7 +40,7 @@ func TestReviewPreviewStoresFiveSecondScreenshotAndAllowsBlockedRuntimeOverride(
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	const actorID = "01980000-0000-7000-8000-000000009995"

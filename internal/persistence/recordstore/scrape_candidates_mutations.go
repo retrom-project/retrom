@@ -21,7 +21,8 @@ func UpdateScrapeCandidates(
 }
 
 const ScrapeCandidatesUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- scrape_candidates_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteScrapeCandidates(
 }
 
 const ScrapeCandidatesDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- scrape_candidates_immutable_delete
 WHEN (1=1) THEN 'immutable'

@@ -41,10 +41,10 @@ func UpsertVariantFiles(
 
 const variant_filesOwnership = `
 SELECT CASE
-WHEN NOT json_valid(candidate.file_record) THEN 'invalid variant file record'
+WHEN NOT (candidate.file_record IS JSON) THEN 'invalid variant file record'
 WHEN candidate.role<>'BIOS_BUNDLE' AND NOT EXISTS(SELECT 1 FROM game_variants variant
- WHERE variant.id=candidate.game_variant_id AND json_extract(candidate.file_record,'$.path') LIKE
- 'files/' || substr(variant.game_id,-2) || '/' || variant.game_id || '/%')
+ WHERE variant.id=candidate.game_variant_id AND ((candidate.file_record)::jsonb #>> '{path}') LIKE
+ 'files/' || right(variant.game_id,2) || '/' || variant.game_id || '/%')
  THEN 'variant file is outside its game directory'
 WHEN (NOT EXISTS(
   SELECT 1 FROM game_variants variant

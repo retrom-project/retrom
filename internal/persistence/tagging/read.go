@@ -66,7 +66,7 @@ func (repository *Repository) List(ctx context.Context, filter tagging.ListQuery
 		arguments = append(arguments, filter.Status)
 	}
 	if filter.SearchText != "" {
-		conditions = append(conditions, "instr(tag.search_text,?)>0")
+		conditions = append(conditions, "strpos(tag.search_text,?)>0")
 		arguments = append(arguments, filter.SearchText)
 	}
 	order := "tag.name_key,tag.id"
@@ -150,7 +150,7 @@ func (records tagRecords) ActiveByNameKey(ctx context.Context) (map[string]strin
 func (records tagRecords) ActiveReferences(ctx context.Context, tagIDs []string) ([]tagging.Reference, error) {
 	rows, err := records.database.QueryContext(ctx, `
 SELECT id,name FROM tags
-WHERE status='ACTIVE' AND id IN (SELECT value FROM json_each(?))
+WHERE status='ACTIVE' AND id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 ORDER BY name_key,id
 `, encodedIDs(tagIDs))
 	if err != nil {

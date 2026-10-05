@@ -19,6 +19,7 @@ import (
 	service "retrom/internal/service/dependencies"
 	"retrom/internal/store"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestPairedDATRejectsMismatchBeforeRetiringCurrentCatalog(t *testing.T) {
@@ -43,7 +44,7 @@ func TestPairedDATRejectsMismatchBeforeRetiringCurrentCatalog(t *testing.T) {
 	if err := set.UsePairedDAT(ctx, "emulatorjs", "fbneo", fixture, sha, strings.Repeat("a", 40)); err != nil {
 		t.Fatal(err)
 	}
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "test.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,8 @@ func TestPairedDATRejectsMismatchBeforeRetiringCurrentCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE runtime_targets
-SET manifest_fragment_json=json_set(manifest_fragment_json,'$.arcadeDAT.asset.sha256',?)
+SET manifest_fragment_json=jsonb_set(manifest_fragment_json::jsonb,'{arcadeDAT}',
+jsonb_build_object('asset',jsonb_build_object('sha256',?::text)))::text
 WHERE provider_id='emulatorjs' AND target_id='fbneo'`, sha); err != nil {
 		t.Fatal(err)
 	}

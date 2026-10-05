@@ -22,7 +22,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_HTTP_ADDR": {}, "RETROM_PUBLIC_ORIGIN": {}, "RETROM_DATA_DIR": {},
 	"RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN": {},
 	"RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE":  {},
-	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
+	"RETROM_DATABASE_URL":                 {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {},
 	"RETROM_PROVIDER_ACTIVE_PATH":      {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
 	"RETROM_PROVIDER_DEV_ROOT":     {},
@@ -32,7 +32,7 @@ var knownVariables = map[string]struct{}{
 }
 
 var ignoredPrefixes = []string{
-	"RETROM_ACCEPTANCE_", "RETROM_CHROME_", "RETROM_EJS_DEP_",
+	"RETROM_TEST_", "RETROM_ACCEPTANCE_", "RETROM_CHROME_", "RETROM_EJS_DEP_",
 }
 
 type Config struct {
@@ -41,7 +41,7 @@ type Config struct {
 	PublicOrigin             *url.URL
 	RPGRuntimeOriginTemplate string
 	DataDir                  string
-	DBPath                   string
+	DatabaseURL              string
 	DependencyRoot           string
 	DependencyVersions       []string
 	ActiveEJSVersion         string
@@ -113,7 +113,7 @@ func Load(mode Mode) (Config, error) {
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
 		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
-		DataDir:                  base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
+		DataDir:                  base.dataDir, DatabaseURL: base.databaseURL, DependencyRoot: base.dependencyRoot,
 		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
 		ProviderActivePath: providerActivePath, ProviderInstalledRoot: providerInstalledRoot,
 		ProviderDevRoot:          providerDevRoot,
@@ -151,7 +151,7 @@ type baseConfig struct {
 	dependencyRoot string
 	versions       []string
 	active         string
-	dbPath         string
+	databaseURL    string
 }
 
 func loadBaseConfig() (baseConfig, error) {
@@ -175,13 +175,11 @@ func loadBaseConfig() (baseConfig, error) {
 	if !slices.Contains(result.versions, result.active) {
 		return baseConfig{}, fmt.Errorf("%w: RETROM_ACTIVE_EMULATORJS_VERSION", errInvalidConfig)
 	}
-	result.dbPath = os.Getenv("RETROM_DB_PATH")
-	if result.dbPath == "" {
-		result.dbPath = filepath.Join(result.dataDir, "retrom.db")
-	}
-	if !filepath.IsAbs(result.dbPath) || !pathWithin(result.dataDir, result.dbPath) ||
-		result.dbPath == result.dataDir {
-		return baseConfig{}, fmt.Errorf("%w: RETROM_DB_PATH", errInvalidConfig)
+	result.databaseURL = os.Getenv("RETROM_DATABASE_URL")
+	databaseURL, parseErr := url.Parse(result.databaseURL)
+	if parseErr != nil || (databaseURL.Scheme != "postgres" && databaseURL.Scheme != "postgresql") ||
+		databaseURL.Host == "" || databaseURL.Path == "" || databaseURL.Path == "/" {
+		return baseConfig{}, fmt.Errorf("%w: RETROM_DATABASE_URL", errInvalidConfig)
 	}
 	return result, nil
 }
@@ -574,9 +572,4 @@ func validLocalhostLabel(label string, maximumLength int) bool {
 		}
 	}
 	return true
-}
-
-func pathWithin(parent, child string) bool {
-	relative, err := filepath.Rel(parent, child)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }

@@ -21,10 +21,11 @@ func UpdateImportItems(
 }
 
 const ImportItemsUpdateRule = `
-WITH previous(id,state) AS (VALUES(?,?))
+WITH previous(id,state)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- discarded_import_publication_fence
-WHEN ((candidate.state IS NOT previous.state) AND (candidate.state='PUBLISHED' AND EXISTS(SELECT 1 FROM
+WHEN ((candidate.state IS DISTINCT FROM previous.state) AND (candidate.state='PUBLISHED' AND EXISTS(SELECT 1 FROM
 (SELECT import_id FROM import_batch_discards WHERE kind='IMPORT'
 UNION
 SELECT item.library_import_job_id FROM source_import_items item
@@ -37,7 +38,7 @@ JOIN source_import_items item ON owner.kind='SOURCE' AND item.id=owner.source_it
 JOIN import_batch_discards batch ON batch.kind=owner.kind AND batch.import_id=item.import_id) WHERE
 import_id=candidate.import_job_id))) THEN 'IMPORT_BATCH_DISCARDED'
 -- discarded_import_retry_fence
-WHEN ((candidate.state IS NOT previous.state) AND (candidate.state='QUEUED' AND previous.state<>'QUEUED'
+WHEN ((candidate.state IS DISTINCT FROM previous.state) AND (candidate.state='QUEUED' AND previous.state<>'QUEUED'
 AND EXISTS(SELECT 1 FROM (SELECT import_id FROM import_batch_discards WHERE kind='IMPORT'
 UNION
 SELECT item.library_import_job_id FROM source_import_items item

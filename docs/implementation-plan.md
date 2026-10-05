@@ -89,7 +89,7 @@ flowchart LR
 
 ### M1：进程、数据与协议骨架
 
-范围：配置一次性加载、launch key 安全生成、按第 3 节建立数据字典的完整首版 migration/checksum 与应用存储不变量校验、SQLite PRAGMA、seed、独立文件存储原子发布/后台删除、任务租约、统一错误/日志、session/health/封闭诊断摘要 OpenAPI 与同源代理/CSP。
+范围：配置一次性加载、launch key 安全生成、按第 3 节建立数据字典的完整首版 migration/checksum 与应用存储不变量校验、PostgreSQL 连接、事务隔离与有限重试、seed、独立文件存储原子发布/后台删除、任务租约、统一错误/日志、session/health/封闭诊断摘要 OpenAPI 与同源代理/CSP。
 
 退出门禁：完整执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-SEC-003`、`ACC-OPS-001`、`ACC-NET-001`，以及条件满足时的 `ACC-NET-002`。此时不需要把硬编码游戏暴露给 UI；Case/集成测试直接在临时库建立最小领域 fixture。`ACC-SEC-001/002` 与 `ACC-API-001` 分别等待 DAT/Archive、Launch 和完整 route 集后执行。
 

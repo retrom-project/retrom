@@ -9,6 +9,8 @@ fi
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
+"$repository_root/scripts/prepare-postgres-tools.sh"
+export PATH="$repository_root/.cache/tools/postgres-python/bin:$PATH"
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
 export PATH
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX")"
@@ -51,6 +53,9 @@ cleanup() {
     cp -p "$temporary_root/server.log" "$failure_directory/server.log"
     printf 'ui_case_failure_evidence=%s\n' "$failure_directory" >&2
   fi
+  if [[ -f "$temporary_root/data/postgres-test.json" ]]; then
+    python3 "$repository_root/scripts/acceptance/postgres_fixture.py" drop "$temporary_root/data"
+  fi || status=1
   rm -rf -- "$temporary_root"
   exit "$status"
 }
@@ -63,6 +68,8 @@ for port in "$backend_port" "$web_port"; do
   fi
 done
 mkdir -p "$temporary_root/data"
+RETROM_DATABASE_URL="$(python3 "$repository_root/scripts/acceptance/postgres_fixture.py" create "$temporary_root/data")"
+export RETROM_DATABASE_URL
 mkdir -p "$temporary_root/source/BIOS"
 mkdir -p "$temporary_root/source/Games/media/Acceptance Game"
 printf 'collection: NES\ngame: Acceptance Game\ndescription: Pegasus UI acceptance fixture\nfile: acceptance.nes\n' >"$temporary_root/source/Games/metadata.pegasus.txt"
@@ -138,7 +145,7 @@ if [[ "$case_id" == "ACC-UI-011" ]]; then
 fi
 
 if [[ "$case_id" == "ACC-IMM-009" ]]; then
-  python3 scripts/acceptance/seed-immersive-library.py "$temporary_root/data/retrom.db" \
+  python3 scripts/acceptance/seed-immersive-library.py "$temporary_root/data" \
     >"$temporary_root/immersive-library-seed.json"
 fi
 
@@ -164,7 +171,7 @@ if [[ "$case_id" =~ ^ACC-RUN-0(08|09|10|11|12)$ ]]; then
       scripts/acceptance/console-flow.sh "$fixture_id"
   else
     go run scripts/acceptance/seed-public-arcade-dat.go \
-      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
+      --database "$RETROM_DATABASE_URL" --fixture "$fixture_id"
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
     RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
       scripts/acceptance/arcade-flow.sh "$fixture_id"
@@ -173,11 +180,11 @@ fi
 
 if [[ "$case_id" == "ACC-RUN-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture mame2003
+    --database "$RETROM_DATABASE_URL" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
-  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
+  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data" mame2003
 fi
 
 if [[ "$case_id" == "ACC-IMM-002" ]]; then
@@ -189,7 +196,7 @@ if [[ "$case_id" == "ACC-IMM-002" ]]; then
       immersive_cover="$repository_root/testdata/public-roms/gba-smoke/emulationstation-smoke-cover.png"
     fi
     go run scripts/acceptance/seed-public-arcade-dat.go \
-      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
+      --database "$RETROM_DATABASE_URL" --fixture "$fixture_id"
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
     RETROM_ACCEPTANCE_COVER_PATH="$immersive_cover" \
     RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/$fixture_id.json" \
@@ -200,7 +207,7 @@ fi
 
 if [[ "$case_id" == "ACC-IMM-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture mame2003
+    --database "$RETROM_DATABASE_URL" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
@@ -208,7 +215,7 @@ fi
 
 if [[ "$case_id" == "ACC-IMM-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture fbneo
+    --database "$RETROM_DATABASE_URL" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
     scripts/acceptance/arcade-flow.sh fbneo
@@ -216,29 +223,29 @@ fi
 
 if [[ "$case_id" == "ACC-RUN-007" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture fbneo
+    --database "$RETROM_DATABASE_URL" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
     scripts/acceptance/arcade-flow.sh fbneo
-  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
+  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data" fbneo
 fi
 
 if [[ "$case_id" == "ACC-BIOS-007" ]]; then
-  python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
+  python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data" 286
 fi
 
 if [[ "$case_id" == "ACC-UI-008" || "$case_id" == "ACC-UI-010" ]]; then
-  scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
+  scripts/acceptance/seed-review-queue.sh "$temporary_root/data"
 fi
 if [[ "$case_id" == "ACC-RUN-004" ]]; then
-  scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
+  scripts/acceptance/seed-run-blocker.sh "$temporary_root/data"
 fi
 if [[ "$case_id" == "ACC-FAV-003" ]]; then
-  scripts/acceptance/seed-favorites-user-flow.sh "$temporary_root/data/retrom.db"
+  scripts/acceptance/seed-favorites-user-flow.sh "$temporary_root/data"
 fi
 
 if [[ "$case_id" == "ACC-UI-005" ]]; then
-  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data/retrom.db" populated
+  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data" populated
 fi
 
 export RETROM_ACCEPTANCE_DATA_DIR="$temporary_root/data"
@@ -327,7 +334,7 @@ fi
   TMPDIR=/tmp \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_SERVER_SOURCE="$temporary_root/source" \
-  RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  RETROM_E2E_DATA_ROOT="$temporary_root/data" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/mame2003.json" 2>/dev/null || true)" \
   RETROM_FBNEO_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/fbneo.json" 2>/dev/null || true)" \
   RETROM_CORE_EXPANSION_RESULTS="$core_expansion_results" \

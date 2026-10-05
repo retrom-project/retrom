@@ -1,4 +1,5 @@
 """Independent domain directories for disposable SQL acceptance fixtures."""
+import postgres_fixture as pg
 import hashlib
 import json
 import shutil
@@ -8,7 +9,7 @@ from pathlib import Path
 
 
 def file_path(database, file_record):
-    root = Path(database.execute("PRAGMA database_list").fetchone()[2]).parent.resolve()
+    root = database.data_root
     relative = json.loads(file_record)["path"]
     target = root / relative
     if not relative or Path(relative).is_absolute() or ".." in Path(relative).parts or not target.resolve().is_relative_to(root):
@@ -17,7 +18,7 @@ def file_path(database, file_record):
 
 
 def put_owned(database, contents, owner_kind, owner_id, media_type):
-    if not database.in_transaction:
+    if database.info.transaction_status == pg.psycopg.pq.TransactionStatus.IDLE:
         raise ValueError("fixture files require a caller-owned transaction")
     owner = str(uuid.UUID(owner_id))
     generation = str(uuid.uuid4())
@@ -52,7 +53,7 @@ def copy_owned(database, file_record, owner_kind, owner_id):
 
 
 def own_rows(database, table, key, value, kind, owner, columns=("file_record",), extra=""):
-    rows = database.execute(f"SELECT rowid,{','.join(columns)} FROM {table} WHERE {key}=? {extra}", (value,)).fetchall()
+    rows = database.execute(f"SELECT ctid,{','.join(columns)} FROM {table} WHERE {key}=%s {extra}", (value,)).fetchall()
     copies = {}
     for row in rows:
         new_records = []
@@ -60,12 +61,12 @@ def own_rows(database, table, key, value, kind, owner, columns=("file_record",),
             if old is not None and old not in copies:
                 copies[old] = copy_owned(database, old, kind, owner)
             new_records.append(copies.get(old))
-        database.execute(f"UPDATE {table} SET {','.join(column+'=?' for column in columns)} WHERE rowid=?", (*new_records, row[0]))
+        database.execute(f"UPDATE {table} SET {','.join(column+'=%s' for column in columns)} WHERE ctid=%s", (*new_records, row[0]))
     return copies
 
 
 def retire_save(database, predicate, args):
-    root = Path(database.execute("PRAGMA database_list").fetchone()[2]).parent
+    root = database.data_root
     for (owner,) in database.execute(f"SELECT id FROM save_states WHERE {predicate}", args).fetchall():
         directory = root / "saves" / str(uuid.UUID(owner))
         if directory.exists():

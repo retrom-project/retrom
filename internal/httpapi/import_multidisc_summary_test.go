@@ -6,12 +6,13 @@ import (
 	librarycomposition "retrom/internal/composition/libraryimport"
 
 	"retrom/internal/cleanup"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestMultiDiscSummaryUsesSelectedSourceNotNewestEvidence(t *testing.T) {
 	t.Parallel()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +23,7 @@ CREATE TABLE import_items(id TEXT,import_job_id TEXT,state TEXT,effective_source
 CREATE TABLE import_item_source_snapshots(id TEXT,import_item_id TEXT,created_by TEXT,content_kind TEXT);
 CREATE TABLE import_item_source_snapshot_files(source_snapshot_id TEXT,role TEXT,logical_name TEXT,upload_file_id TEXT);
 CREATE TABLE import_files(id TEXT,relative_path TEXT);
-CREATE TABLE import_item_multidisc_entries(source_snapshot_id TEXT,ordinal INTEGER,state TEXT);
+CREATE TABLE import_item_multidisc_entries(source_snapshot_id TEXT,ordinal BIGINT,state TEXT);
 CREATE TABLE import_job_files(import_job_id TEXT,upload_file_id TEXT,disposition TEXT);
 INSERT INTO import_items VALUES('item','job','REVIEW_PENDING',NULL);
 INSERT INTO import_item_source_snapshots VALUES

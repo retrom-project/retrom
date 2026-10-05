@@ -14,15 +14,15 @@ import (
 func testOtherRuntimeCookie(t *testing.T, server *testServer) *http.Cookie {
 	t.Helper()
 	const authID = "01980000-0000-7000-8000-000000009996"
-	_, err := server.database.ExecContext(t.Context(), `INSERT OR IGNORE INTO profiles(id,display_name,created_at_ms)
- VALUES('other-runtime-profile','Other',0);
- INSERT OR IGNORE INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
- VALUES('01980000-0000-7000-8000-000000009997','other-runtime-profile','other-runtime-user','Other','USER','ENABLED',0,0);`)
+	_, err := server.database.ExecContext(t.Context(), `INSERT INTO profiles(id,display_name,created_at_ms)
+ VALUES('other-runtime-profile','Other',0) ON CONFLICT DO NOTHING;
+ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+ VALUES('01980000-0000-7000-8000-000000009997','other-runtime-profile','other-runtime-user','Other','USER','ENABLED',0,0) ON CONFLICT DO NOTHING;`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = server.database.ExecContext(t.Context(), `INSERT OR IGNORE INTO auth_sessions(id,user_id,token_sha256,user_session_version,
- created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms) VALUES(?,?,?,1,0,0,?,?)`, authID,
+	_, err = server.database.ExecContext(t.Context(), `INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,
+ created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms) VALUES(?,?,?,1,0,0,?,?) ON CONFLICT DO NOTHING`, authID,
 		"01980000-0000-7000-8000-000000009997", makeOtherSessionHash(), time.Now().Add(24*time.Hour).UnixMilli(), time.Now().Add(24*time.Hour).UnixMilli())
 	if err != nil {
 		t.Fatal(err)

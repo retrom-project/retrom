@@ -62,7 +62,7 @@ func TestParentAttachmentAcceptsSeparateBIOSAndApprovalReadsCurrentInstallation(
 		}
 	}
 	var count int
-	if err = dbapi.QueryRowContext(fixture.ctx, sql, `SELECT count(*) FROM pragma_foreign_key_check`).Scan(&count); err != nil || count != 0 {
+	if err = dbapi.QueryRowContext(fixture.ctx, sql, `SELECT count(*) FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND contype='f' AND NOT convalidated`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("foreign keys: %d %v", count, err)
 	}
 }

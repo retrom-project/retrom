@@ -11,7 +11,8 @@ import (
 
 func (records finalizationRecords) Manifest(ctx context.Context, id string) ([]service.FrozenFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT file.id,file.declared_size_bytes,part.part_no,part.offset_bytes,part.size_bytes,part.sha256,part.storage_key
+SELECT file.id,file.declared_size_bytes,part.part_no,part.offset_bytes,part.size_bytes,part.sha256,
+ part.storage_key
 FROM upload_files file LEFT JOIN upload_parts part ON part.upload_file_id=file.id
 WHERE file.upload_session_id=? AND file.state!='COMPLETE' ORDER BY file.id,part.part_no`, id)
 	if err != nil {
@@ -52,8 +53,10 @@ func (records finalizationRecords) Repair(ctx context.Context, key service.FileK
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT EXISTS(SELECT 1 FROM upload_sessions session JOIN jobs job ON job.id=session.finalize_job_id
 JOIN job_events event ON event.job_id=job.id AND event.event_type='FAILED'
-WHERE session.id=? AND job.state='FAILED' AND json_extract(event.data_json,'$.executionNo')=job.execution_no
-AND json_extract(event.data_json,'$.failedPart.fileId')=? AND json_extract(event.data_json,'$.failedPart.partNo')=?)`,
+WHERE session.id=? AND job.state='FAILED' AND (((event.data_json)::jsonb #>>
+ '{executionNo}'))::bigint=job.execution_no
+AND ((event.data_json)::jsonb #>> '{failedPart,fileId}')=? AND (((event.data_json)::jsonb #>>
+ '{failedPart,partNo}'))::bigint=?)`,
 		key.UploadID, key.FileID, number).Scan(&allowed)
 	if err != nil {
 		return false, fmt.Errorf("read failed upload part: %w", err)

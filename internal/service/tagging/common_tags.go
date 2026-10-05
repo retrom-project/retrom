@@ -101,6 +101,7 @@ func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string
 	}
 	result := CommonTagsResult{CreatedItems: []AdminItem{}, ExistingItems: []AdminItem{}}
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		result = CommonTagsResult{CreatedItems: []AdminItem{}, ExistingItems: []AdminItem{}}
 		activeByKey, err := scope.Tags.ActiveByNameKey(ctx)
 		if err != nil {
 			return repositoryError("ensure common tags", err)

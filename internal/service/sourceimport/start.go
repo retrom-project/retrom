@@ -143,6 +143,8 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 	var result Summary
 	var queued bool
 	err := service.repository.WithStart(ctx, func(scope StartScope) error {
+		result, queued = Summary{}, false
+		attemptPlan := plan
 		current, err := scope.Read.Current(ctx, plan.Before.Summary.ID)
 		if err != nil {
 			return fmt.Errorf("reread Source start: %w", err)
@@ -151,19 +153,19 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 			result = current.Summary
 			return nil
 		}
-		plan.NowMS = service.now().UnixMilli()
-		if err := readyToStart(current, version, plan.NowMS); err != nil {
+		attemptPlan.NowMS = service.now().UnixMilli()
+		if err := readyToStart(current, version, attemptPlan.NowMS); err != nil {
 			return err
 		}
 		if current.RootConfigDigest != plan.Before.RootConfigDigest ||
 			current.SourceSnapshotDigest != plan.Before.SourceSnapshotDigest {
 			return ErrSourceChanged
 		}
-		plan.Before = current
-		if err := scope.Write.Queue(ctx, plan); err != nil {
+		attemptPlan.Before = current
+		if err := scope.Write.Queue(ctx, attemptPlan); err != nil {
 			return fmt.Errorf("queue Source start: %w", err)
 		}
-		if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
+		if err := scheduleTerminalPayloads(ctx, scope.Payload, attemptPlan.Before.Summary.ID, attemptPlan.NowMS); err != nil {
 			return err
 		}
 		after, err := scope.Read.Current(ctx, current.Summary.ID)

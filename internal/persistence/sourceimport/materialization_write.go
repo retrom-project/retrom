@@ -61,9 +61,9 @@ func materialScope(before application.MaterialSnapshot, now int64) recordstore.S
 		optionalText(before.FileRecord),
 	}
 	where += ` AND relative_path=? AND size_bytes=? AND source_facts_digest=?
-AND state=? AND file_record IS ? AND state='DISCOVERED'`
+AND state=? AND file_record IS NOT DISTINCT FROM ? AND state='DISCOVERED'`
 	if source.Key.Kind != "" {
-		where += ` AND COALESCE(media_type,'')=? AND width_px IS ? AND height_px IS ?`
+		where += ` AND COALESCE(media_type,'')=? AND width_px IS NOT DISTINCT FROM ? AND height_px IS NOT DISTINCT FROM ?`
 		args = append(args, source.MediaType, source.Width, source.Height)
 	}
 	where += materialItemFence

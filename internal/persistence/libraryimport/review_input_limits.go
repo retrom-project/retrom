@@ -70,10 +70,11 @@ func reviewInputRejection(ctx context.Context, executor dbapi.Executor, current 
 	}
 	var name string
 	var size int64
-	err := dbapi.QueryRowContext(ctx, executor, `SELECT logical_name,json_extract(file_record,'$.size_bytes')
+	err := dbapi.QueryRowContext(ctx, executor, `SELECT logical_name,((file_record)::jsonb ->> 'size_bytes')::bigint
  FROM import_item_source_snapshot_files
  WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','PROJECT_FILE','DOS_SOURCE')
- ORDER BY json_extract(file_record,'$.size_bytes') DESC,logical_name LIMIT 1`, current.SnapshotID).Scan(&name, &size)
+ ORDER BY ((file_record)::jsonb ->> 'size_bytes')::bigint DESC,logical_name LIMIT 1`,
+		current.SnapshotID).Scan(&name, &size)
 	if errors.Is(err, sql.ErrNoRows) {
 		return diagnostic.Rejection{}, false, nil
 	}

@@ -10,22 +10,22 @@ import (
 )
 
 const productProjectIndexFiles = `
-SELECT file.logical_name,file.format_version,json_extract(blob.value, '$.sha256'),
-json_extract(blob.value, '$.size_bytes'),'GAME',0,0
-FROM launch_content_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+SELECT file.logical_name,file.format_version,((blob.value)::jsonb #>> '{sha256}'),
+(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,'GAME',0,0
+FROM launch_content_files file JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.launch_session_id=? ORDER BY file.logical_name`
 
 const previewProjectIndexFiles = `
 SELECT logical_name,format,digest,size_bytes,role,sort_order,is_primary FROM (
  SELECT preview.content_logical_name AS logical_name,preview.content_format AS format,
- json_extract(blob.value, '$.sha256') AS digest,json_extract(blob.value, '$.size_bytes') AS size_bytes,
+ ((blob.value)::jsonb #>> '{sha256}') AS digest,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint AS size_bytes,
 'GAME' AS role,0 AS sort_order,1 AS is_primary
- FROM runtime_preview_sessions preview JOIN json_each(json_array(preview.content_file_record)) blob ON
+ FROM runtime_preview_sessions preview JOIN LATERAL (SELECT preview.content_file_record AS value) blob ON
 blob.value IS NOT NULL WHERE preview.id=?
  UNION ALL
- SELECT file.logical_name,preview.content_format,json_extract(blob.value, '$.sha256'),
-json_extract(blob.value, '$.size_bytes'),file.role,file.sort_order,0
- FROM runtime_preview_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+ SELECT file.logical_name,preview.content_format,((blob.value)::jsonb #>> '{sha256}'),
+(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,file.role,file.sort_order,0
+ FROM runtime_preview_files file JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
  JOIN runtime_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
 ) ORDER BY logical_name`

@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/persistence/recordstore"
@@ -46,7 +48,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -113,7 +115,7 @@ SELECT id,version FROM games WHERE id=?
 	var replacementContent, generation string
 	var replacementVersion int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT game.id,game.version,json_extract(game.content_profile_json,'$.data.evidenceGeneration')
+SELECT game.id,game.version,((game.content_profile_json)::jsonb #>> '{data,evidenceGeneration}')
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 WHERE game.id=? AND variant.core_id='rpgmaker' AND variant.runtime_profile_json IS NOT NULL
@@ -272,7 +274,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -444,7 +446,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)

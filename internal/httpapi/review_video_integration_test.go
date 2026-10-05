@@ -83,7 +83,7 @@ func TestReviewVideoUploadReplaceAndPublish(t *testing.T) {
 	}
 	var record string
 	var count int
-	err = dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*),file_record FROM game_assets WHERE game_id=? AND kind='VIDEO'`, approved.GameID).Scan(&count, &record)
+	err = dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*),min(file_record) FROM game_assets WHERE game_id=? AND kind='VIDEO'`, approved.GameID).Scan(&count, &record)
 	if err != nil || count != 1 {
 		t.Fatalf("published videos = %d, err=%v", count, err)
 	}

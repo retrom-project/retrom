@@ -27,7 +27,7 @@ func create(
 		return nil, ErrInvariant
 	}
 	return Atomic(ctx, db, func(tx dbapi.Executor) (sql.Result, error) {
-		keys, err := insertedKeys(ctx, tx, query, args, "rowid,"+columns)
+		keys, err := insertedKeys(ctx, tx, query, args, columns)
 		if err != nil {
 			return nil, err
 		}
@@ -35,7 +35,7 @@ func create(
 			if check == nil {
 				continue
 			}
-			if err := check(ctx, tx, key[1:]...); err != nil {
+			if err := check(ctx, tx, key...); err != nil {
 				return nil, err
 			}
 		}
@@ -70,13 +70,6 @@ func insertedKeys(ctx context.Context, tx dbapi.Executor, query string, args []a
 	}
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("close inserted keys: %w", err)
-	}
-	var affected int64
-	if err := dbapi.QueryRowContext(ctx, tx, `SELECT changes()`).Scan(&affected); err != nil {
-		return nil, fmt.Errorf("read inserted row count: %w", err)
-	}
-	if affected != int64(len(keys)) {
-		return nil, fmt.Errorf("%w: inserted %d records but received %d keys", ErrInvariant, affected, len(keys))
 	}
 	return keys, nil
 }

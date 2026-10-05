@@ -3,20 +3,19 @@ package dberrors
 import (
 	"errors"
 
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Classify provides stable diagnostic categories without exposing database driver types.
+// Classify exposes stable diagnostic categories without leaking driver details.
 func Classify(err error) string {
-	var databaseError *sqlite.Error
-	if !errors.As(err, &databaseError) {
+	var cause *pgconn.PgError
+	if !errors.As(err, &cause) {
 		return ""
 	}
-	switch databaseError.Code() & 0xff {
-	case sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED:
+	switch cause.Code {
+	case "40001", "40P01", "55P03", "53300":
 		return "DATABASE_BUSY"
-	case sqlite3.SQLITE_CONSTRAINT:
+	case "23502", "23503", "23505", "23514", "23P01":
 		return "DATABASE_CONSTRAINT_FAILED"
 	default:
 		return ""

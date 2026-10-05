@@ -26,16 +26,14 @@ func (repository *MultiDiscAttachments) WithAttachmentAdmission(
 	ctx context.Context,
 	run func(libraryservice.MultiDiscAttachmentScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := multidiscAdmissionRecords{tx}
+		if err := run(libraryservice.MultiDiscAttachmentScope{Read: records, Queue: records, Review: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin multi-disc attachment admission: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := multidiscAdmissionRecords{tx}
-	if err := run(libraryservice.MultiDiscAttachmentScope{Read: records, Queue: records, Review: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit multi-disc attachment admission: %w", err)
 	}
 	return nil

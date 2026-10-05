@@ -15,16 +15,14 @@ func NewScanPublication(database dbapi.DB) *ScanPublication {
 }
 
 func (repository *ScanPublication) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := scanRecords{tx: tx}
+		if err := work(application.ScanScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source scan publication: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := scanRecords{tx: tx}
-	if err := work(application.ScanScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source scan publication: %w", err)
 	}
 	return nil

@@ -58,11 +58,17 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 			service.preparation.removePreparedDirectories(ctx, plan)
 		}
 	}()
-	run, err := service.prepareCommit(plan, options)
+	prepared, err := service.prepareCommit(plan, options)
 	if err != nil {
 		return ImportCreationResult{}, creationError("commit prepared", err)
 	}
-	err = service.repository.WithCreation(ctx, func(scope ImportCreationScope) error { return run.commit(ctx, scope) })
+	var run *creationCommit
+	err = service.repository.WithCreation(ctx, func(scope ImportCreationScope) error {
+		// Physical files and identities are prepared once. Only the SQL plan
+		// is copied, so rolled-back counts and dispatches cannot escape.
+		run = prepared.newAttempt()
+		return run.commit(ctx, scope)
+	})
 	if err != nil {
 		return ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
 	}
@@ -132,6 +138,19 @@ func (service *ImportCreations) prepareCommit(
 		run.groups = append(run.groups, record)
 	}
 	return run, nil
+}
+
+func (prepared *creationCommit) newAttempt() *creationCommit {
+	groups := slices.Clone(prepared.groups)
+	for index := range groups {
+		groups[index].group = cloneCreationGroup(groups[index].group)
+	}
+	return &creationCommit{
+		service: prepared.service, plan: prepared.plan, options: prepared.options,
+		header: prepared.header, groups: groups,
+		materialized: map[string]map[int]string{},
+		sourceCounts: map[string]int64{}, duplicateCounts: map[string]int64{},
+	}
 }
 
 func (service *ImportCreations) allocate(destination *string) error {
