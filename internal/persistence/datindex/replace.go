@@ -29,7 +29,8 @@ func insertMachines(ctx context.Context, tx dbapi.Tx, datID string, catalog arca
 dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,is_explicit_bios,classification)`}
 	for _, machine := range catalog.Machines {
 		if err := batch.add(ctx, datID, machine.Name, machine.Description, machine.Year, machine.Manufacturer,
-			nullable(machine.CloneOf), nullable(machine.ROMOf), boolInteger(machine.ExplicitBIOS), machine.Classification); err != nil {
+			nullable(machine.CloneOf), nullable(machine.ROMOf), boolInteger(machine.ExplicitBIOS), machine.Classification,
+		); err != nil {
 			return err
 		}
 	}
@@ -68,7 +69,8 @@ func insertDiskEntries(ctx context.Context, tx dbapi.Tx, datID string, catalog a
 dat_version_id,machine_name,ordinal,name,sha1,status)`}
 	for _, machine := range catalog.Machines {
 		for _, disk := range machine.Disks {
-			if err := batch.add(ctx, datID, machine.Name, disk.Ordinal, disk.Name, nullable(disk.SHA1), disk.Status); err != nil {
+			if err := batch.add(ctx, datID, machine.Name, disk.Ordinal, disk.Name,
+				nullable(disk.SHA1), disk.Status); err != nil {
 				return err
 			}
 		}
