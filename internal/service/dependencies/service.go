@@ -51,7 +51,7 @@ func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 			}
 		}
 		if service.set.MAME != nil {
-			if err := service.bootstrapVersionDATs(ctx, scope, "mame-current/v0.58.7", service.set.MAME,
+			if err := service.bootstrapVersionDATs(ctx, scope, "mame-current/v0.59.0", service.set.MAME,
 				map[string]RuntimeTarget{}, preferred, now); err != nil {
 				return err
 			}
@@ -72,7 +72,7 @@ func preferredCoreVersions(set *dependencies.Set) map[string]string {
 		}
 	}
 	if set.MAME != nil {
-		result["mame_arcade"] = "mame-current/v0.58.7"
+		result["mame_arcade"] = "mame-current/v0.59.0"
 	}
 	return result
 }
