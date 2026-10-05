@@ -190,10 +190,13 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
 });
 
 test("ACC-FAV-003 library undo stays fixed while hovering its transformed card and notification", async ({ page }, testInfo) => {
+  const clockStart = Date.now();
+  await page.clock.install({time: clockStart});
   await login(page.request);
   await page.goto("/library");
   const card = page.locator(".library-game-card").first();
   await expect(card).toBeVisible();
+  await page.clock.pauseAt(clockStart + 60_000);
   const heart = card.locator(".favorite-heart");
   if (await heart.getAttribute("aria-pressed") === "false") {
     await heart.click();
@@ -209,22 +212,23 @@ test("ACC-FAV-003 library undo stays fixed while hovering its transformed card a
   await card.hover();
   const undo = toast.getByRole("button", { name: "撤销" });
   await undo.hover();
-  const positions = await toast.evaluate(async element => {
-    const samples = [];
-    for (let frame = 0; frame < 12; frame++) {
-      await new Promise(requestAnimationFrame);
-      const box = element.getBoundingClientRect();
-      samples.push({ x: box.x, y: box.y });
-    }
-    return samples;
-  });
+  const positions = [];
+  for (let frame = 0; frame < 12; frame++) {
+    await page.clock.runFor(17);
+    const box = (await toast.boundingBox())!;
+    positions.push({x: box.x, y: box.y});
+  }
   for (const position of positions) {
     expect(position.x).toBeCloseTo(before.x, 1);
     expect(position.y).toBeCloseTo(before.y, 1);
   }
+  // Screenshot encoding must not consume the two-second user interaction window.
   await page.screenshot({ path: evidencePath(testInfo, "library-undo-hover.png") });
   await undo.click();
   await expect(heart).toHaveAttribute("aria-pressed", "true");
+  await expect(toast).toContainText("已恢复收藏");
+  await page.clock.runFor(2_001);
+  await expect(toast).toHaveCount(0);
 });
 
 async function verifySingleUndo(page: Page, gameId: string) {
