@@ -132,3 +132,17 @@ CREATE TABLE "runtime_targets" (
   manifest_fragment_json TEXT NOT NULL CHECK(json_valid(manifest_fragment_json)),
   PRIMARY KEY(provider_id,target_id)
 );
+
+CREATE TABLE runtime_target_input_limits (
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  max_file_bytes INTEGER CHECK(max_file_bytes IS NULL OR max_file_bytes BETWEEN 1 AND 9007199254740991),
+  PRIMARY KEY(provider_id,target_id,role),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id) ON DELETE CASCADE
+);
+
+CREATE TABLE runtime_requirement_catalogs (
+ sha256 TEXT PRIMARY KEY CHECK(length(sha256)=64),
+ document_json TEXT NOT NULL CHECK(json_valid(document_json))
+);

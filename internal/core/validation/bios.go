@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/content/diagnostic"
+	"retrom/internal/content/requirements"
 )
 
 const SnapshotSchemaVersion = 1
@@ -64,22 +66,25 @@ type MultiDiscSnapshot struct {
 }
 
 type Snapshot struct {
-	SchemaVersion int                `json:"schemaVersion"`
-	Kind          string             `json:"kind"`
-	BIOS          []BIOSDependency   `json:"bios"`
-	MultiDisc     *MultiDiscSnapshot `json:"multiDisc,omitempty"`
+	ContentFacts     *requirements.Facts   `json:"contentFacts,omitempty"`
+	ContentRejection *diagnostic.Rejection `json:"contentRejection,omitempty"`
+	SchemaVersion    int                   `json:"schemaVersion"`
+	Kind             string                `json:"kind"`
+	BIOS             []BIOSDependency      `json:"bios"`
+	MultiDisc        *MultiDiscSnapshot    `json:"multiDisc,omitempty"`
 }
 
 type arcadeRuntimeSnapshot struct {
-	SchemaVersion     int               `json:"schemaVersion"`
-	Kind              string            `json:"kind"`
-	Machine           string            `json:"machine"`
-	DATVersionID      string            `json:"datVersionId"`
-	Closure           []json.RawMessage `json:"closure"`
-	Dependencies      []json.RawMessage `json:"dependencies"`
-	MissingEntries    []string          `json:"missingEntries"`
-	MismatchedEntries []string          `json:"mismatchedEntries"`
-	Warnings          []string          `json:"warnings"`
+	ContentRejection  *diagnostic.Rejection `json:"contentRejection,omitempty"`
+	SchemaVersion     int                   `json:"schemaVersion"`
+	Kind              string                `json:"kind"`
+	Machine           string                `json:"machine"`
+	DATVersionID      string                `json:"datVersionId"`
+	Closure           []json.RawMessage     `json:"closure"`
+	Dependencies      []json.RawMessage     `json:"dependencies"`
+	MissingEntries    []string              `json:"missingEntries"`
+	MismatchedEntries []string              `json:"mismatchedEntries"`
+	Warnings          []string              `json:"warnings"`
 }
 
 func (snapshot Snapshot) JSON() ([]byte, error) {
@@ -143,6 +148,27 @@ func validArcadeRuntimeSnapshot(snapshot arcadeRuntimeSnapshot) bool {
 func validSnapshot(snapshot Snapshot) bool {
 	if snapshot.SchemaVersion != SnapshotSchemaVersion || snapshot.Kind != SnapshotKindStatic || snapshot.BIOS == nil {
 		return false
+	}
+	if rejection := snapshot.ContentRejection; rejection != nil {
+		if rejection.RelativePath == "" {
+			return false
+		}
+		switch rejection.Code {
+		case "THREEDS_ENCRYPTED_CONTENT", "THREEDS_CONTAINER_INVALID",
+			"FLYCAST_GDROM_UNSUPPORTED", "FLYCAST_PLATFORM_MISMATCH", "FLYCAST_MACHINE_UNKNOWN",
+			"FLYCAST_ARCHIVE_INCOMPLETE", "FLYCAST_ROM_MISMATCH",
+			"FLYCAST_ARCHIVE_INVALID", "CONTENT_REQUIREMENTS_UNAVAILABLE":
+			if rejection.Limit != nil {
+				return false
+			}
+		case "CONTENT_FILE_BYTES_EXCEEDED":
+			if rejection.Limit == nil || rejection.Limit.Metric != "FILE_BYTES" ||
+				rejection.Limit.Maximum < 1 || rejection.Limit.Actual <= rejection.Limit.Maximum {
+				return false
+			}
+		default:
+			return false
+		}
 	}
 	if snapshot.MultiDisc == nil {
 		return true

@@ -27,7 +27,7 @@ func (service *ImportPreparation) prepareContent(
 	case contentcapability.ModeONSProject, contentcapability.ModeKiriKiriProject, contentcapability.ModeNXEngineProject,
 		contentcapability.ModeButterscotchProject, contentcapability.ModeTyranoScriptProject,
 		contentcapability.ModeScummVMProject, contentcapability.ModeDaphneProject:
-		return service.prepareEngineProject(ctx, plan)
+		err = service.prepareEngineProject(ctx, plan)
 	case contentcapability.ModeStandard:
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareImportFiles(
 			ctx, plan.Target.PlatformID, plan.SourceType, plan.Files, plan.DATVersionID,

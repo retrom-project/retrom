@@ -33,8 +33,10 @@ func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 			if err != nil {
 				return err
 			}
-			if err := bootstrapStaticBIOS(ctx, scope.BIOS, versionName, targets, now); err != nil {
-				return err
+			if !service.set.Versions[versionName].Paired {
+				if err := bootstrapStaticBIOS(ctx, scope.BIOS, versionName, targets, now); err != nil {
+					return err
+				}
 			}
 			if err := service.bootstrapVersionDATs(
 				ctx,

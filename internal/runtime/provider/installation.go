@@ -36,6 +36,7 @@ type Paths struct {
 // process. It is safe to reconcile and expose only after LoadInstallation
 // returns successfully.
 type Installation struct {
+	PairedDATs    []VerifiedDAT
 	installedRoot string
 	Active        runtimebundle.ActiveDescriptor
 	Manifests     map[string]runtimebundle.Manifest
@@ -80,6 +81,10 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
+	pairedDATs, err := loadContentRequirements(root, baseActive, manifests, integrityByProvider)
+	if err != nil {
+		return Installation{}, err
+	}
 	projection, err := service.NewProjection(active, manifests, catalog)
 	if err != nil {
 		return Installation{}, installationInvalid(err)
@@ -93,7 +98,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 		return Installation{}, err
 	}
 	return Installation{
-		installedRoot: root, Active: active, Manifests: manifests, Integrity: integrityByProvider,
+		PairedDATs: pairedDATs, installedRoot: root, Active: active, Manifests: manifests, Integrity: integrityByProvider,
 		Catalog: catalog, Projection: projection, Handler: handler, Builder: builder,
 	}, nil
 }

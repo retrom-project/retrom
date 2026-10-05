@@ -38,7 +38,9 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 107, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 109, "fresh schema table count = %d", len(tables))
+	assertColumns(t, database.SQL, "runtime_target_input_limits", "provider_id", "target_id", "role", "max_file_bytes")
+	assertColumns(t, database.SQL, "runtime_requirement_catalogs", "sha256", "document_json")
 	for _, retired := range []string{
 		"runtime_asset_pack_definitions", "runtime_asset_pack_installations", "runtime_asset_pack_files",
 		"play_session_events",

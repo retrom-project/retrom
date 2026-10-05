@@ -4,7 +4,7 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 import {useGamepadCursor} from "./use-gamepad-cursor";
 import {rememberPlayerGame, readGamepadCursorPreference, readPlayerGame} from "./gamepad-cursor-preference";
 import {useImmersivePlayer} from "./use-immersive-player";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 import {setActiveImmersiveGamepadIndex} from "@/features/immersive/active-gamepad";
 
 function runtime(defaultEnabled: boolean) {
@@ -23,7 +23,7 @@ describe("player gamepad cursor", () => {
     }]});
     const source = runtime(true);
     const current = {...source.runtime, pause: vi.fn(async () => undefined),
-      resume: vi.fn(async () => undefined), getCapabilities: () => ({pause: true})} as unknown as PlayerRuntimeV1;
+      resume: vi.fn(async () => undefined), getCapabilities: () => ({pause: true})} as unknown as PlayerRuntimeV2;
     const toast = vi.fn();
     const params = {enabled: true, runtime: {current}, pausedRef: {current: false}, running: true,
       setPaused: vi.fn(), exitStrict: vi.fn(async () => undefined), saveAvailable: true,

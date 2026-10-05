@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://retrom.dev/schema/runtime-provider/v1/provider-manifest.schema.json",
-  "title": "Retrom Runtime Provider Manifest V1",
+  "title": "Retrom Runtime Provider Manifest V2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "providerId": {
       "$ref": "#/$defs/identity"
@@ -109,6 +109,12 @@
           "items": {
             "$ref": "#/$defs/safePath"
           }
+        },
+        "contentRequirements": {
+          "$ref": "#/$defs/contentRequirements"
+        },
+        "arcadeDAT": {
+          "$ref": "#/$defs/arcadeDAT"
         }
       }
     },
@@ -197,7 +203,8 @@
         "role",
         "kind",
         "cardinality",
-        "optional"
+        "optional",
+        "maxFileBytes"
       ],
       "properties": {
         "role": {
@@ -225,6 +232,15 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "maxFileBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Maximum bytes per delivered file, projected from the Provider content policy; null for unmanaged loaders."
         }
       }
     },
@@ -478,6 +494,94 @@
               "null"
             ]
           ]
+        }
+      }
+    },
+    "contentRequirements": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "DECRYPTED_NCSD_NCCH"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "platform",
+            "catalog",
+            "core"
+          ],
+          "properties": {
+            "kind": {
+              "const": "FLYCAST_CARTRIDGE"
+            },
+            "platform": {
+              "enum": [
+                "naomi",
+                "naomi2",
+                "atomiswave"
+              ]
+            },
+            "catalog": {
+              "$ref": "#/$defs/assetReference"
+            },
+            "core": {
+              "$ref": "#/$defs/assetReference"
+            }
+          }
+        }
+      ]
+    },
+    "assetReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._/-]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "arcadeDAT": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "asset",
+        "core",
+        "provenance"
+      ],
+      "properties": {
+        "format": {
+          "const": "ARCADE_XML"
+        },
+        "asset": {
+          "$ref": "#/$defs/assetReference"
+        },
+        "core": {
+          "$ref": "#/$defs/assetReference"
+        },
+        "provenance": {
+          "$ref": "#/$defs/assetReference"
         }
       }
     }

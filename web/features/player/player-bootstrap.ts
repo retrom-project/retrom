@@ -1,7 +1,7 @@
 "use client";
 
 import {runHostStartup} from "./runtime/startup-task";
-import type {RuntimeStartupTaskV1} from "./runtime/contract";
+import type {RuntimeStartupTaskV1, RuntimeFailureV1} from "./runtime/contract";
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
 import {readContentLoading, resolveContentLoading, type ContentLoadingCapability} from "./content-loading";
 
@@ -15,7 +15,7 @@ import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayProgressClock} from "./play-progress-clock";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV2, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {readLaunchConfig} from "./launch-config";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
@@ -32,7 +32,7 @@ export type PlayerBootstrapParams = {
   experience: "standard" | "immersive";
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
   stage: RefObject<HTMLDivElement | null>;
-  runtime: Mutable<PlayerRuntimeV1 | null>;
+  runtime: Mutable<PlayerRuntimeV2 | null>;
   runtimeController: Mutable<RuntimeController | null>;
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   returnTo: Mutable<string>;
@@ -46,6 +46,7 @@ export type PlayerBootstrapParams = {
   progressTimer: Mutable<number | null>;
   progressClock: Mutable<PlayProgressClock>;
   toastTimer: Mutable<number | null>;
+  setFailure: Dispatch<SetStateAction<RuntimeFailureV1 | null>>;
   setMessage: Dispatch<SetStateAction<string>>;
   setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
   setContentLoadingCapability: Dispatch<SetStateAction<ContentLoadingCapability | undefined>>;
@@ -73,12 +74,13 @@ export type PlayerBootstrapParams = {
   onRevealControls: (clientY: number) => void;
   onShowControls: () => void;
   onGameSurface: () => void;
-  onGamepadCursorReady?: (runtime: PlayerRuntimeV1) => void;
+  onGamepadCursorReady?: (runtime: PlayerRuntimeV2) => void;
   onExitRequested: (snapshot?: RuntimeFinalSnapshotV1) => void;
   reportProgress: () => Promise<void>;
 };
 
 type BootstrapResources = {
+  cleanupPromise?: Promise<void>;
   controller?: RuntimeController;
   surfaceControlsCleanup?: () => void;
   inputSubscription?: () => void;
@@ -108,6 +110,7 @@ function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   params.reportStartupTask?.(null);
+  params.setFailure(null);
   params.setLoadProgress(null);
   params.setContentLoadingCapability(undefined);
   params.setMessage("正在验证 Provider 启动信息…");
@@ -124,9 +127,14 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     host: {contentLoading: resolveContentLoading(envelope.runtime.capabilities.contentLoading, readContentLoading(params.userId), envelope.session.purpose)},
     signal: abort.signal,
     onExitRequested: params.onExitRequested,
-    onFatalError: (code) => {
-      params.setMessage(code);
+    onFatalError: (failure) => {
+      params.setFailure(failure);
+      params.setMessage(failure.code);
+      params.manualSaveAvailableRef.current = false;
+      params.setManualSaveAvailable(false);
+      params.setReviewScreenshotAvailable(false);
       params.setState("error");
+      void cleanupBootstrap(params, resources, abort);
     },
     onRuntimeEvent: (event) => handleRuntimeEvent(event, params),
   });
@@ -183,7 +191,7 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
 async function configureMountedRuntime(
   params: PlayerBootstrapParams,
   resources: BootstrapResources,
-  runtime: PlayerRuntimeV1,
+  runtime: PlayerRuntimeV2,
 ) {
   const capabilities = runtime.getCapabilities();
   if (capabilities.volume) {
@@ -223,7 +231,7 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   params.progressTimer.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
 }
 
-function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
+function handleRuntimeEvent(event: RuntimeEventV2, params: PlayerBootstrapParams) {
   if (event.type === "LOAD_TASK") {params.reportStartupTask?.(event.task); return;}
   if (event.type === "LOAD_PROGRESS") {
     params.setLoadProgress(event.totalBytes === null ? null : {
@@ -300,7 +308,12 @@ function handleBootstrapError(error: unknown, abort: AbortController, params: Pl
   params.setState("error");
 }
 
-async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+  resources.cleanupPromise ??= releaseBootstrap(params, resources, abort);
+  return resources.cleanupPromise;
+}
+
+async function releaseBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   abort.abort();
   resources.surfaceControlsCleanup?.();
   resources.inputSubscription?.();

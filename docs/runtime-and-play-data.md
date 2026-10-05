@@ -9,7 +9,7 @@
 
 ## 1. 唯一职责边界
 
-具体引擎的入口、静态资产、Target 能力、输入资源、Target options 和 checkpoint 格式只由 Provider Bundle 的 manifest 声明。Retrom Host 负责验证并激活 Bundle、把产品 Core 绑定到稳定的 `(providerId,targetId)`、准备授权资源并签发 Launch；Host 不保存或推导 Provider 私有 adapter、core、入口文件和资产映射。Web Player 不维护按引擎分支的 registry，只通过共享 dispatcher 加载 Provider Module V1。
+具体引擎的入口、静态资产、Target 能力、输入资源、Target options 和 checkpoint 格式只由 Provider Bundle 的 manifest 声明。Retrom Host 负责验证并激活 Bundle、把产品 Core 绑定到稳定的 `(providerId,targetId)`、准备授权资源并签发 Launch；Host 不保存或推导 Provider 私有 adapter、core、入口文件和资产映射。Web Player 不维护按引擎分支的 registry，只通过共享 dispatcher 加载 Provider Module V2。
 
 当前可部署 Provider 是 `emulatorjs` 与 `retrom-runtime`。Host 目录描述产品身份和接入策略，不复制 Target declaration。Provider 安装采用只向前升级：版本必须递增，同版本换字节和降级都被拒绝；没有旧 manifest reader、Bundle fallback 或运行时回滚路径。
 
@@ -31,7 +31,7 @@
 
 Binding 只选择接入策略、产品允许的内容子集和独立的启用策略；固定 delivery、review 和 options 行为从 `runtimecatalog` 的同一策略派生，不能在 JSON binding 中重复声明后再比较是否相等。现有数据库列是派生投影，不是第二份声明权威。
 
-项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。`internal/persistence/contentquery` 统一提供查询投影与扫描适配，领域 `Policy` 只保留能力判断、规范化和摘要。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询、不在 SQL 中组装策略 JSON。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
+项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。`internal/persistence/contentquery` 统一提供查询投影与扫描适配，领域 `Policy` 只保留能力判断、规范化和摘要。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询；SQL 仅以 JSON 标量传递内容类型和当前 Provider 输入上限的关系化事实，不组装领域策略。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
 
 Launch options 按声明绑定的明确接入策略一次组装，再接受 Provider 的闭合 schema 校验；不得在多个无关入口逐一猜测未知属性，更不能把不支持的配置伪装成认证错误。依赖快照中的静态 BIOS/多盘与 Arcade 是不同业务类型，使用明确 discriminator，不以 v1/v2 伪装历史兼容链。
 
@@ -81,7 +81,7 @@ Provider 必须通过公共 `getInputCapabilities()` 返回 `hostShortcuts: ("PA
 
 ## 4. Provider dispatcher 与渲染隔离
 
-Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint 和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
+Player Host 只消费 `PlayerRuntimeV2` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint 和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
 
 启动阶段共用 `LOAD_TASK` 事件。每个任务以当次启动内唯一的 `id`、公共 `kind`、`RUNNING/COMPLETED/FAILED` 状态和可空字节进度上报；Host 自身的启动配置、Provider 模块及画面/控制配置也进入同一队列。Provider 在公共挂载、内容准备、核心初始化及恢复边界上报，独立加载器由 Provider adapter 桥接，不要求所有 Target 采用同一种 Content I/O。不存在的 BIOS、父包或存档步骤不创建任务。
 
@@ -222,7 +222,7 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 草稿只属于当前浏览器，不承诺跨设备或清理站点数据后的恢复；不会自动载入新的游戏。未确认时不建立服务端草稿或正式存档。
 Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
-PlayerRuntimeV1 可选的 `startInputDiagnostics()` 返回当前会话的有界 `read/clear/stop` 观察接口。
+PlayerRuntimeV2 可选的 `startInputDiagnostics()` 返回当前会话的有界 `read/clear/stop` 观察接口。
 旧 Provider 无此方法时 Host 显示未接入，不能阻断启动。此扩展不改变 manifest capabilities、Launch Envelope 或 HTTP。
 浏览器事件、runtime 已有 getGamepads 调用返回值和 adapter 的实际投递分别报告 BROWSER/RUNTIME/DELIVERED。
 记录按下、松开、数值变化和按住时长；摇杆诊断值按 0.1 量化，不修改交给游戏的原值。最多观察前四个手柄、每个 32 按钮/8 轴，保留最近 64 条事件，超出明确计数。
@@ -367,7 +367,7 @@ Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手�
 
 ## 公共手柄光标
 
-`PlayerRuntimeV1.getGamepadCursor()` 是挂载后可选的公共能力入口，未提供或返回 null 表示不支持。
+`PlayerRuntimeV2.getGamepadCursor()` 是挂载后可选的公共能力入口，未提供或返回 null 表示不支持。
 返回的 `RuntimeGamepadCursorV1` 通过 `getState()` 提供当前开关及默认值，通过 `setEnabled(boolean)` 同步切换。
 该能力由当前实例报告，不改变 Launch Envelope、Provider manifest 或存档格式；Host 不按核心名称推断能力。
 Retrom 只负责菜单与本地偏好，启动入口将 Launch 与 Game 的偏好上下文写入当前标签页 sessionStorage；该上下文不参与授权。
@@ -384,3 +384,13 @@ retrom-runtime 的公共光标模块统一负责采样、绘制、死区、移�
 
 产品验证见 [ACC-KIRIKIRI-001](./project-acceptance.md#acc-kirikiri-001kirikiri2-kag-最小产品闭环) 与
 [ACC-FLASH-001](./project-acceptance.md#acc-flash-001ruffle-单文件与-sharedobject-产品闭环)。
+
+Target/Envelope capabilities 描述目标声明；PlayerRuntime.getCapabilities() 描述当前会话能力。当前唯一随资源收窄的字段是 discSwitch：没有 MULTI_DISC 资源的合法单盘会话返回 false，其他字段仍与声明相等，不允许扩大任何能力。Host 的初始化、换盘菜单与存档盘位均使用会话能力；Provider 请求仍精确验证目标声明，不能通过改写 Envelope 掩盖缺失或不合法资源。
+
+挂载完成后的设置、恢复或输入配置失败与 Runtime 致命错误都必须收尾本次启动：中止请求、退出核心、释放输入和表面订阅、停止进度时钟与定时器。收尾幂等且在下一次挂载前完成；错误面板持续显示原错误，不把失效实例留在后台运行。
+
+### Provider 输入限制与终止错误
+
+当前 Provider Manifest 使用 schemaVersion=2，Module 使用 providerApiVersion=2；Bundle 完整性清单和 Launch Envelope 仍为 V1。旧 Manifest/Module 不再加载。每个公开 input 必带 maxFileBytes：受管内容从同一 Content I/O 策略投影正整数上限，非受管输入为 null。它约束交给核心的单个文件，不能用上传 ZIP 的压缩大小代替展开内容，也不能把文件树总大小当作单文件。导入在展开和 Target 解析后校验，审核和变体重检使用当前投影，策略摘要绑定所选输入上限。超过上限为不可自动重试的 CONTENT_FILE_BYTES_EXCEEDED，并展示相对路径、实际字节和上限；截图审批仍保留该阻断证据。
+
+Module V2 的 FATAL_ERROR 携带结构化 failure（稳定 code、STARTUP/PLAYING 阶段、CONTENT/NETWORK/STORAGE/SECURITY/CORE/CONFIGURATION 分类、retryable 和有界 diagnostics）。Provider 在释放核心前复制并清理原生诊断；最多 8 条、每条 500 字符，不能含授权信息、URL 或宿主绝对路径。只有已识别的临时网络错误提供重试。Host 只按公共分类展示处置建议，保留失败面板和返回入口，不解析核心英文日志作业务决策；退出会话后禁止存档和截图。

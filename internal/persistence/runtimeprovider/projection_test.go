@@ -212,7 +212,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"},
 	}
 	active := runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &digest, Providers: []runtimebundle.ActiveProvider{{
-		ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1, BundleSHA256: digest,
+		ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 2, BundleSHA256: digest,
 		ManifestSHA256: digest, ModuleSHA256: digest, ClientModulePath: "client.mjs",
 		InstallationPath: "fixture/" + digest, BundleSizeBytes: 1, FileCount: 3, UnpackedSizeBytes: 3,
 		Targets: []runtimebundle.ActiveTarget{{
@@ -230,7 +230,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 		ContentKinds: []string{"SINGLE_FILE"},
 	}
 	projection, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
-		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
+		SchemaVersion: 2, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 2,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
 	}}, catalog)
 	if err != nil {
@@ -248,7 +248,7 @@ func TestProjectionRejectsOptionsOutsideRegisteredAccessStrategy(t *testing.T) {
 		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}}, "required": []any{"unknownProperty"},
 	}
 	_, err := service.NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
-		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}},
+		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 2, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 2, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}},
 		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
 	if err == nil {
 		t.Fatal("unsupported Host option access was accepted until launch time")

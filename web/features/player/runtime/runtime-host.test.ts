@@ -173,7 +173,7 @@ function envelope(): LaunchEnvelopeV1 {
         videoModes: [], volume: true,
       }, checkpoint: {maxBytes: 1024, readFormats: ["fixture-v1"], writeFormat: "fixture-v1"},
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${"b".repeat(64)}/client.mjs`,
-      providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
+      providerApiVersion: 2, providerId: "fixture", providerVersion: "1.0.0",
       runtimeBaseUrl: `/runtime/providers/fixture/${"b".repeat(64)}/`,
       targetId: "fixture",
     },

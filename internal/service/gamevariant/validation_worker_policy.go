@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"retrom/internal/content/diagnostic"
 	contentprofile "retrom/internal/content/profile"
 	daphne "retrom/internal/core/daphne/detector"
 	"retrom/internal/core/scummvm"
@@ -17,6 +18,23 @@ import (
 // EvaluateValidation is shared by the asynchronous attempt and its final
 // authority check. Facts contain no database handle or provider callback.
 func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (ValidationOutcome, error) {
+	outcome, err := evaluateValidation(inputs, facts)
+	if err != nil {
+		return ValidationOutcome{}, err
+	}
+	rejection := validationInputRejection(facts.Content, outcome.BIOS)
+	if rejection != nil {
+		outcome.Status, outcome.Code = "INCOMPATIBLE", rejection.Code
+	}
+	outcome.BIOS.ContentRejection = rejection
+	outcome.DependencyJSON, err = diagnostic.WithRejection(outcome.DependencyJSON, rejection)
+	if err != nil {
+		return ValidationOutcome{}, fmt.Errorf("update validation content diagnostics: %w", err)
+	}
+	return outcome, nil
+}
+
+func evaluateValidation(inputs ValidationInputs, facts ValidationFacts) (ValidationOutcome, error) {
 	source := facts.Content.Source
 	if !validationSourceMatches(inputs, facts) {
 		return ValidationOutcome{}, ErrValidationGameChanged
@@ -179,10 +197,7 @@ func validationSourceMatches(inputs ValidationInputs, facts ValidationFacts) boo
 		source.VariantID != inputs.GameVariantID ||
 		source.ProviderID != inputs.ProviderID ||
 		source.TargetID != inputs.TargetID ||
-		!reflect.DeepEqual(
-			source.ContentPolicy,
-			inputs.ContentPolicy,
-		) || !reflect.DeepEqual(
+		source.ContentPolicy.Digest() != inputs.ContentPolicy.Digest() || !reflect.DeepEqual(
 		source.DATVersionID,
 		inputs.DATVersionID,
 	) {

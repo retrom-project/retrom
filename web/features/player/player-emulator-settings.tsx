@@ -3,7 +3,7 @@
 import {useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type RefObject} from "react";
 import {AppIcon} from "@/components/app-icon";
 import type {EmulatorSettingsPanel} from "./emulator-settings";
-import type {PlayerRuntimeV1, RuntimeCapabilitiesV1} from "./runtime/contract";
+import type {PlayerRuntimeV2, RuntimeCapabilitiesV1} from "./runtime/contract";
 import {videoRenderingModeOptions, type VideoRenderingMode} from "./video-rendering";
 
 export type EmulatorSettingsCapabilities = Pick<RuntimeCapabilitiesV1, "nativeSettings" | "volume" | "videoModes" | "standardGamepad">;
@@ -15,7 +15,7 @@ export function hasEmulatorSettings(capabilities?: EmulatorSettingsCapabilities)
 // Capabilities are immutable for a runtime instance; Player's readiness transition
 // prompts a new snapshot after bootstrap has installed that instance.
 function subscribeCapabilities() {return () => {};}
-export function useEmulatorSettingsCapabilities(override: EmulatorSettingsCapabilities | undefined, runtime: RefObject<PlayerRuntimeV1 | null> | undefined, ready: boolean) {
+export function useEmulatorSettingsCapabilities(override: EmulatorSettingsCapabilities | undefined, runtime: RefObject<PlayerRuntimeV2 | null> | undefined, ready: boolean) {
   return useSyncExternalStore(subscribeCapabilities,
     () => override ?? (ready ? runtime?.current?.getCapabilities() : undefined), () => undefined);
 }

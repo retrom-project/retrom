@@ -95,12 +95,12 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 	}
 	manifest := runtimebundle.Manifest{
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0",
-		ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
+		ProviderAPI: 2, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
 	}
 	active := runtimebundle.ActiveDescriptor{
 		SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: stringPointer(digest("9")),
 		Providers: []runtimebundle.ActiveProvider{{
-			ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1,
+			ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 2,
 			BundleSHA256: digest("a"), ModuleSHA256: digest("b"), ClientModulePath: "client.mjs",
 			Targets: []runtimebundle.ActiveTarget{{
 				ID: "target", Checkpoint: checkpoint,

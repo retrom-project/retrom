@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeEventV2} from "./contract";
 import {mountProviderRuntime} from "./runtime-controller";
 
 describe("provider runtime controller", () => {
@@ -16,11 +16,11 @@ describe("provider runtime controller", () => {
       dispatcher: verifiedDispatcher(), importer, onExitRequested, onFatalError,
     });
     expect(runtime.mount).toHaveBeenCalledWith(target);
-    runtime.emit({type: "FATAL_ERROR", code: "FIXTURE_FATAL"});
-    runtime.emit({type: "FATAL_ERROR", code: "SECOND_FATAL"});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("FIXTURE_FATAL")});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("SECOND_FATAL")});
     runtime.emit({type: "EXIT_REQUESTED"});
     expect(onExitRequested).not.toHaveBeenCalled();
-    expect(onFatalError).toHaveBeenCalledWith("FIXTURE_FATAL");
+    expect(onFatalError).toHaveBeenCalledWith(fatal("FIXTURE_FATAL"));
     expect(onFatalError).toHaveBeenCalledOnce();
 
     await controller.exit();
@@ -113,7 +113,7 @@ describe("provider runtime controller", () => {
     const controller = await mountProviderRuntime(envelope(), document.createElement("div"), {
       dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), onRuntimeEvent,
     });
-    runtime.emit({type: "FATAL_ERROR", code: "CONTENT_IO_NETWORK_FAILED"});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("CONTENT_IO_NETWORK_FAILED")});
     onRuntimeEvent.mockClear();
     runtime.emit({type: "LOAD_TASK", task: {id: "provider:1", kind: "GAME_START", state: "FAILED", progress: null}});
     expect(onRuntimeEvent).not.toHaveBeenCalled();
@@ -121,9 +121,9 @@ describe("provider runtime controller", () => {
   });
 });
 
-function fixtureModule(runtime: PlayerRuntimeV1) {
+function fixtureModule(runtime: PlayerRuntimeV2) {
   return {
-    createRuntime: vi.fn(async () => runtime), providerApiVersion: 1, providerId: "fixture",
+    createRuntime: vi.fn(async () => runtime), providerApiVersion: 2, providerId: "fixture",
     providerVersion: "1.0.0",
   };
 }
@@ -139,12 +139,12 @@ function verifiedDispatcher() {
 }
 
 function fixtureRuntime() {
-  let listener: ((event: RuntimeEventV1) => void) | null = null;
+  let listener: ((event: RuntimeEventV2) => void) | null = null;
   const unsubscribe = vi.fn(() => {listener = null;});
   return {
     checkpoint: vi.fn(async () => {throw new Error("unused");}),
     closeNativeSettings: vi.fn(async () => {throw new Error("unused");}),
-    emit: (event: RuntimeEventV1) => listener?.(event),
+    emit: (event: RuntimeEventV2) => listener?.(event),
     exit: vi.fn(async (): Promise<void> => undefined), getCanvas: () => null, getInputCapabilities: () => ({hostShortcuts: []}),
     getCapabilities: () => envelope().runtime.capabilities,
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
@@ -156,10 +156,10 @@ function fixtureRuntime() {
     setInputFilter: vi.fn(async () => {throw new Error("unused");}),
     setVideoMode: vi.fn(async () => {throw new Error("unused");}),
     setVolume: vi.fn(async () => undefined),
-    subscribe: vi.fn((next: (event: RuntimeEventV1) => void) => {listener = next; return unsubscribe;}),
+    subscribe: vi.fn((next: (event: RuntimeEventV2) => void) => {listener = next; return unsubscribe;}),
     switchDisc: vi.fn(async () => {throw new Error("unused");}),
     unsubscribe,
-  } satisfies PlayerRuntimeV1 & {emit(event: RuntimeEventV1): void; unsubscribe: ReturnType<typeof vi.fn>};
+  } satisfies PlayerRuntimeV2 & {emit(event: RuntimeEventV2): void; unsubscribe: ReturnType<typeof vi.fn>};
 }
 
 function envelope(): LaunchEnvelopeV1 {
@@ -172,7 +172,7 @@ function envelope(): LaunchEnvelopeV1 {
         requiresThreads: false, screenshot: false, standardGamepad: false,
         videoModes: [], volume: false}, checkpoint: null,
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${bundle}/client.mjs`,
-      providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
+      providerApiVersion: 2, providerId: "fixture", providerVersion: "1.0.0",
       runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`,
       targetId: "fixture",
     },
@@ -181,3 +181,5 @@ function envelope(): LaunchEnvelopeV1 {
     targetOptions: {},
   };
 }
+
+function fatal(code: string) {return {code, phase: "PLAYING" as const, category: "CORE" as const, retryable: false, diagnostics: []};}

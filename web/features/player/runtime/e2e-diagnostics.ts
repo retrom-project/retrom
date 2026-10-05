@@ -1,5 +1,5 @@
 import {sha256} from "@/lib/crypto";
-import type {PlayerRuntimeV1, RuntimeStateV1} from "./contract";
+import type {PlayerRuntimeV2, RuntimeStateV1} from "./contract";
 
 type RuntimeE2ECheckpoint = {
   format: string;
@@ -20,7 +20,7 @@ declare global {
 }
 
 export function installRuntimeE2EDiagnostics(
-  runtime: PlayerRuntimeV1,
+  runtime: PlayerRuntimeV2,
   environment: string | undefined = process.env.NODE_ENV,
 ) {
   if (environment === "production") {return () => undefined;}

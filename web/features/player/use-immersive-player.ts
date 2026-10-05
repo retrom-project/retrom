@@ -11,7 +11,7 @@ import {
 } from "./immersive-controls";
 import { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
 import { ImmersiveReconnectConfirmation } from "./immersive-reconnect";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 import {
   moveImmersiveMenuSelection,
   selectableImmersiveMenuItem,
@@ -30,7 +30,7 @@ import type {PlayerGamepadCursorControl} from "./use-gamepad-cursor";
 type Params = {
   gamepadCursor?: PlayerGamepadCursorControl | null;
   enabled: boolean;
-  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
+  runtime: MutableRefObject<PlayerRuntimeV2 | null>;
   pausedRef: MutableRefObject<boolean>;
   running: boolean;
   setPaused: Dispatch<SetStateAction<boolean>>;
@@ -231,7 +231,7 @@ type PollParams = {
   previousPressed: MutableRefObject<Map<number, boolean>>;
   missingSinceMs: MutableRefObject<number | null>;
   suspended: MutableRefObject<boolean>;
-  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
+  runtime: MutableRefObject<PlayerRuntimeV2 | null>;
   pausedRef: MutableRefObject<boolean>;
   setPaused: Dispatch<SetStateAction<boolean>>;
   updateOverlay: (next: ImmersivePlayerOverlay) => void;

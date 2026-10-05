@@ -36,10 +36,9 @@ func (source importSource) CopyAsset(
 func verifiedMaterial(metadata filestore.Metadata) application.VerifiedBlob {
 	return application.VerifiedBlob{
 		ID: metadata.Record, SHA256: metadata.SHA256,
-		StoragePath: metadata.Path,
-		MD5:         metadata.MD5,
-		SHA1:        metadata.SHA1,
-		CRC32:       metadata.CRC32,
-		Size:        metadata.Size,
+		MD5:   metadata.MD5,
+		SHA1:  metadata.SHA1,
+		CRC32: metadata.CRC32,
+		Size:  metadata.Size,
 	}
 }

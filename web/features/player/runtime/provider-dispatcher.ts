@@ -1,4 +1,4 @@
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, ProviderModuleV1, RuntimeHostV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV2, ProviderModuleV2, RuntimeHostV1} from "./contract";
 import {validateLaunchEnvelopeBoundary} from "./envelope";
 import {PlayerRuntimeError, playerRuntimeError} from "./errors";
 
@@ -18,7 +18,7 @@ export async function loadProviderRuntime(
   host: RuntimeHostV1,
   importer: ProviderImporter = importProviderModule,
   environment: Partial<DispatcherEnvironment> = {},
-): Promise<PlayerRuntimeV1> {
+): Promise<PlayerRuntimeV2> {
   const envelope = validateLaunchEnvelopeBoundary(envelopeValue);
   const dispatcher = dispatcherEnvironment(environment);
   if (envelope.runtime.capabilities.requiresThreads && !dispatcher.crossOriginIsolated) {
@@ -111,7 +111,7 @@ async function digestSha256(bytes: Uint8Array) {
   return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
-function validateProviderModule(value: unknown, envelope: LaunchEnvelopeV1): ProviderModuleV1 {
+function validateProviderModule(value: unknown, envelope: LaunchEnvelopeV1): ProviderModuleV2 {
   if (!record(value) || !exactKeys(value, [
     "createRuntime", "providerApiVersion", "providerId", "providerVersion",
   ]) || value.providerId !== envelope.runtime.providerId ||
@@ -120,10 +120,10 @@ function validateProviderModule(value: unknown, envelope: LaunchEnvelopeV1): Pro
     typeof value.createRuntime !== "function") {
     throw invalidModule();
   }
-  return value as unknown as ProviderModuleV1;
+  return value as unknown as ProviderModuleV2;
 }
 
-function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asserts value is PlayerRuntimeV1 {
+function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asserts value is PlayerRuntimeV2 {
   if (!record(value)) {throw invalidModule();}
   for (const method of [
     "mount", "pause", "resume", "checkpoint", "screenshot", "exit", "getState", "getCapabilities",
@@ -133,16 +133,16 @@ function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asse
   ]) {
     if (typeof value[method] !== "function") {throw invalidModule();}
   }
-  const runtime = value as unknown as PlayerRuntimeV1;
+  const runtime = value as unknown as PlayerRuntimeV2;
   if (envelope.runtime.checkpoint?.semantics === "GAME_SAVE" && typeof runtime.acknowledgeCheckpoint !== "function") {
     throw invalidModule();
   }
   if (runtime.getState() !== "CREATED" ||
-    !capabilitiesEqual(runtime.getCapabilities(), envelope.runtime.capabilities)) {throw invalidModule();}
+    !validSessionCapabilities(runtime.getCapabilities(), envelope.runtime.capabilities)) {throw invalidModule();}
 }
 
-function capabilitiesEqual(
-  actual: ReturnType<PlayerRuntimeV1["getCapabilities"]>,
+function validSessionCapabilities(
+  actual: ReturnType<PlayerRuntimeV2["getCapabilities"]>,
   expected: LaunchEnvelopeV1["runtime"]["capabilities"],
 ) {
   if (!record(actual) || !exactKeys(actual, [
@@ -151,10 +151,11 @@ function capabilitiesEqual(
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   const scalarKeys = [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+    "checkpoint", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
   ] as const;
-  return actual.contentLoading === expected.contentLoading && scalarKeys.every((key) => actual[key] === expected[key]) &&
+  return typeof actual.discSwitch === "boolean" && (!actual.discSwitch || expected.discSwitch) &&
+    actual.contentLoading === expected.contentLoading && scalarKeys.every((key) => actual[key] === expected[key]) &&
     stringArraysEqual(actual.videoModes, expected.videoModes);
 }
 

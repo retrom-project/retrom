@@ -91,6 +91,10 @@ updated_at_ms=excluded.updated_at_ms
 }
 
 func (records datRecords) Register(ctx context.Context, input service.DATRegistration) (service.RegisteredDAT, error) {
+	if err := records.requireTargetDAT(ctx, input); err != nil {
+		return service.RegisteredDAT{}, err
+	}
+
 	var id string
 	err := dbapi.QueryRowContext(
 		ctx, records.executor,

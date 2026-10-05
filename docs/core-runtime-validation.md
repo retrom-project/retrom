@@ -37,7 +37,7 @@
 - 同一映射配置中，一个手柄按钮只对应一个具体目标输入；禁止多个键或原生按钮与键盘同时发送，不能为补足确认/取消叠加 A+Enter、B+Escape。真实键盘保持独立；同一目标的按下/释放属于一个输入生命周期。宿主菜单 B 返回不受游戏内可选取消影响。
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
-- `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
+- `runtime.capabilities` 必须与返回的 `PlayerRuntimeV2` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
 - 所有通过 RuntimeHost 挂载的核心 iframe 共用 `1920×1080` CSS 运行视口上限；大屏幕由宿主等比放大到 Player 区域，窗口尺寸变化后重新计算，小于上限时保持原尺寸。Provider 可在此基础上声明更低的画布上限；4K 帧率证据必须同时记录 iframe 视口、核心画布尺寸和 GPU renderer。
 - checkpoint 只按 format/size/hash 处理，Host 不解析字节；恢复必须由 Target `readFormats` 明确允许。
 - content、BIOS、parent、多盘、pack、unique-origin 资源必须全部来自 envelope grant。
@@ -102,6 +102,14 @@ NAOMI、NAOMI 2 与 Atomiswave 通过各自的 Platform/Core 绑定使用同一 
 卡带初始化仍可能读取多数或全部 ROM entry，实际总传输量由核心的读取行为决定。
 三者分别要求安装 `/dc/naomi.zip`、`/dc/naomi2.zip`、`/dc/awbios.zip`。
 GD-ROM 游戏所需的 ZIP + CHD 配对，以及 clone/parent ROM 集合，尚未进入该内容契约。
+卡带准入消费 Provider 随核心发布的 `FLYCAST_CARTRIDGE` 需求目录：核对机器短名、硬件、介质类型及必需成员的大小/CRC。
+GD-ROM、Compact Flash、未知机器、硬件不匹配与不完整 ROM 集分别保留明确诊断；完整单 ZIP 可以包含所需 Parent 成员，
+但不能从外部目录隐式寻找 Parent。目录由核心仓库的固定源码表导出并绑定发货核心摘要，Retrom 不读取 C++/TS 源码推断要求。
+
+Azahar 的 `DECRYPTED_NCSD_NCCH` 规则由公共内容解析层提供容器事实，Target 策略判定是否接受。
+容器损坏与仍加密分别报告 `THREEDS_CONTAINER_INVALID`、`THREEDS_ENCRYPTED_CONTENT`，独立于输入大小上限。
+Azahar 和 FBNeo 的原生加载回执必须明确接受内容后才能完成启动；错误界面或空循环帧不代表游戏已运行。
+拒绝加载后通过公共失败契约收尾，关闭存档与截图。Azahar 恢复也等待原生反序列化完成回执，失败不得退回新游戏。
 
 Intellivision 使用 EmulatorJS 4.3.0-pre 的 `freeintv`，仅声明单卡带、标准手柄与即时存档，
 不开放多盘。ECS 扩展不在支持范围。通过 `ACC-INTV-001` 对操作者提供的样本验证；

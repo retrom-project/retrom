@@ -1,9 +1,9 @@
 "use client";
 
 import {useEffect, useRef, useState, type RefObject} from "react";
-import type {PlayerRuntimeV1, RuntimeInputDiagnosticsSnapshotV1, RuntimeInputDiagnosticsV1, RuntimeInputObservationV1} from "./runtime/contract";
+import type {PlayerRuntimeV2, RuntimeInputDiagnosticsSnapshotV1, RuntimeInputDiagnosticsV1, RuntimeInputObservationV1} from "./runtime/contract";
 
-type Props = {runtimeRef?: RefObject<PlayerRuntimeV1 | null>; ready: boolean; coreName: string; version?: string};
+type Props = {runtimeRef?: RefObject<PlayerRuntimeV2 | null>; ready: boolean; coreName: string; version?: string};
 const stages = {BROWSER: "浏览器检测", RUNTIME: "运行时取到", DELIVERED: "已投递"};
 
 export function PlayerInputDebug({runtimeRef, ready, coreName, version}: Props) {

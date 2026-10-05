@@ -170,7 +170,7 @@ func validActiveProvider(value ActiveProvider) bool {
 
 func validActiveProviderIdentity(value ActiveProvider) bool {
 	return identityPattern.MatchString(value.ProviderID) && semverPattern.MatchString(value.ProviderVersion) &&
-		value.ProviderAPI == 1 && digestPattern(value.BundleSHA256) && digestPattern(value.ManifestSHA256) &&
+		value.ProviderAPI == 2 && digestPattern(value.BundleSHA256) && digestPattern(value.ManifestSHA256) &&
 		digestPattern(value.ModuleSHA256) && value.ClientModulePath == "client.mjs" &&
 		value.InstallationPath == value.ProviderID+"/"+value.BundleSHA256
 }

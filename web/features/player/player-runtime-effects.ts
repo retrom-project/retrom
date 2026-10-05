@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
 import { shouldAutoHidePlayerControls } from "./player-controls-visibility";
 
@@ -9,7 +9,7 @@ type Mutable<T> = { current: T };
 
 type RuntimeEffectParams = {
   state: "loading" | "running" | "error"; debugOpen: boolean; orientationBlocked: boolean;
-  runtime: Mutable<PlayerRuntimeV1 | null>; orientationButtonRef: RefObject<HTMLButtonElement | null>;
+  runtime: Mutable<PlayerRuntimeV2 | null>; orientationButtonRef: RefObject<HTMLButtonElement | null>;
   running: Mutable<boolean>; pausedRef: Mutable<boolean>; chromePinned: Mutable<boolean>; controlsTimer: Mutable<number | null>;
   clearControlsTimer: () => void; setControlsVisible: Dispatch<SetStateAction<boolean>>; setFullscreen: Dispatch<SetStateAction<boolean>>;
   setDebugOpen: Dispatch<SetStateAction<boolean>>; setDebugMetrics: Dispatch<SetStateAction<PlayerDebugMetrics | null>>;

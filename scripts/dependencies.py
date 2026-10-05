@@ -41,7 +41,7 @@ SEMVER = re.compile(
 )
 EXPECTED_DAT_CORE_IDS = {
     "4.2.3": {
-        "fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2", "mame2003", "mame2003_plus",
+        "fbalpha2012_cps1", "fbalpha2012_cps2", "mame2003", "mame2003_plus",
     },
     "4.3.0-pre": set(),
 }

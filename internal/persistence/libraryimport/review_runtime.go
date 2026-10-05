@@ -48,9 +48,19 @@ WHERE content.import_item_id=?`, itemID).Scan(&result.ItemID, &result.SnapshotID
 		return ReviewRuntime{}, fmt.Errorf("read current review content: %w", err)
 	}
 
+	current, err := resolveReviewRuntime(ctx, executor, result, profile)
+	if err != nil || current.Code == "CONTENT_ANALYSIS_UNAVAILABLE" {
+		return current, err
+	}
+	return applyReviewInputRejection(ctx, executor, current)
+}
+
+func resolveReviewRuntime(ctx context.Context, executor dbapi.Executor,
+	result ReviewRuntime, profile *string,
+) (ReviewRuntime, error) {
 	switch result.ContentKind {
 	case "RPG_MAKER_PROJECT":
-		return readRPGCurrent(ctx, executor, itemID, result)
+		return readRPGCurrent(ctx, executor, result.ItemID, result)
 	case scummvm.ContentKind:
 		return readScummCurrent(result, profile)
 	}
@@ -115,8 +125,12 @@ func readStaticCurrent(ctx context.Context, executor dbapi.Executor, result Revi
 	}
 	if old, parseErr := corevalidation.ParseSnapshot(result.DependencyJSON); parseErr == nil {
 		snapshot.MultiDisc = old.MultiDisc
+		snapshot.ContentFacts = old.ContentFacts
+		if old.ContentRejection != nil {
+			result.Status, result.Code = status, code
+		}
 	}
-	if result.Status == "READY" || result.Code == "LAUNCH_BIOS_MISSING" {
+	if result.Status == "READY" || result.Code == "LAUNCH_BIOS_MISSING" || result.Code == "CONTENT_FILE_BYTES_EXCEEDED" {
 		result.Status, result.Code = status, code
 	}
 	encoded, err := snapshot.JSON()

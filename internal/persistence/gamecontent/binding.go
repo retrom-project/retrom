@@ -55,6 +55,9 @@ WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
 	if err != nil {
 		return gamecontent.Binding{}, fmt.Errorf("load replacement target: %w", err)
 	}
+	if err := contentquery.LoadRequirements(ctx, database, binding.ContentPolicy.Requirements); err != nil {
+		return gamecontent.Binding{}, fmt.Errorf("load target content requirements: %w", err)
+	}
 	return binding, nil
 }
 

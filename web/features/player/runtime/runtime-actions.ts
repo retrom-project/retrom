@@ -1,5 +1,5 @@
 import type {
-  PlayerRuntimeV1,
+  PlayerRuntimeV2,
   RuntimeCheckpointV1,
   RuntimeCheckpointRequestV1,
   RuntimeDiscStateV1,
@@ -14,7 +14,7 @@ export type RuntimeSavePayload = {
   name?: string;
 };
 
-export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpoint" | "screenshot">, request?: RuntimeCheckpointRequestV1): Promise<RuntimeSavePayload> {
+export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV2, "checkpoint" | "screenshot">, request?: RuntimeCheckpointRequestV1): Promise<RuntimeSavePayload> {
   const checkpoint = await runtime.checkpoint(request);
   const screenshot = await runtime.screenshot();
   if (!(checkpoint.bytes instanceof Uint8Array) || checkpoint.bytes.byteLength < 1 ||
@@ -28,20 +28,20 @@ export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpo
   };
 }
 
-export function setRuntimePaused(runtime: PlayerRuntimeV1, paused: boolean) {
+export function setRuntimePaused(runtime: PlayerRuntimeV2, paused: boolean) {
   return paused ? runtime.pause() : runtime.resume();
 }
 
-export async function switchRuntimeDisc(runtime: PlayerRuntimeV1, index: number): Promise<RuntimeDiscStateV1> {
+export async function switchRuntimeDisc(runtime: PlayerRuntimeV2, index: number): Promise<RuntimeDiscStateV1> {
   if (!Number.isSafeInteger(index) || index < 0) {throw new Error("PLAYER_RUNTIME_CONTRACT_INVALID");}
   return runtime.switchDisc(index);
 }
 
-export function setRuntimeVolume(runtime: PlayerRuntimeV1, value: number) {
+export function setRuntimeVolume(runtime: PlayerRuntimeV2, value: number) {
   if (!Number.isFinite(value) || value < 0 || value > 1) {throw new Error("PLAYER_RUNTIME_CONTRACT_INVALID");}
   return runtime.setVolume(value);
 }
 
-export function setRuntimeVideoMode(runtime: PlayerRuntimeV1, mode: RuntimeVideoModeV1) {
+export function setRuntimeVideoMode(runtime: PlayerRuntimeV2, mode: RuntimeVideoModeV1) {
   return runtime.setVideoMode(mode);
 }

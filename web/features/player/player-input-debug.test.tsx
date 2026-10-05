@@ -1,7 +1,7 @@
 import {act, cleanup, render, screen} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 import {PlayerInputDebug, describeInput} from "./player-input-debug";
-import type {PlayerRuntimeV1, RuntimeInputDiagnosticsSnapshotV1} from "./runtime/contract";
+import type {PlayerRuntimeV2, RuntimeInputDiagnosticsSnapshotV1} from "./runtime/contract";
 
 afterEach(() => {cleanup(); vi.useRealTimers();});
 
@@ -12,7 +12,7 @@ it("samples only the mounted diagnostics component, leaves pause/resume alone an
   const stop = vi.fn(); const read = vi.fn(() => empty);
   const pause = vi.fn(); const resume = vi.fn();
   const start = vi.fn(() => ({stop, read, clear: vi.fn()}));
-  const runtimeRef = {current: {startInputDiagnostics: start, pause, resume} as unknown as PlayerRuntimeV1};
+  const runtimeRef = {current: {startInputDiagnostics: start, pause, resume} as unknown as PlayerRuntimeV2};
   const {unmount} = render(<PlayerInputDebug ready coreName="fixture" runtimeRef={runtimeRef} />);
   act(() => {vi.advanceTimersByTime(1000);});
   expect(start).toHaveBeenCalledOnce(); expect(read).toHaveBeenCalledTimes(10);
@@ -25,7 +25,7 @@ it("samples only the mounted diagnostics component, leaves pause/resume alone an
 
 it("does not enable observers before mount and clearly supports older providers", () => {
   const start = vi.fn();
-  const runtimeRef = {current: {startInputDiagnostics: start} as unknown as PlayerRuntimeV1};
+  const runtimeRef = {current: {startInputDiagnostics: start} as unknown as PlayerRuntimeV2};
   render(<PlayerInputDebug ready={false} coreName="fixture" runtimeRef={runtimeRef} />);
   expect(start).not.toHaveBeenCalled();
   expect(screen.getAllByText("未接入")).toHaveLength(3);

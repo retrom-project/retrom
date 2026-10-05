@@ -195,7 +195,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 | PlayStation / 3DO / PC-FX | 对应目录中的单个原始 `.chd` | 不展开、不接受 archive wrapper；不支持 CUE/BIN、M3U、多盘或伴随音轨。 |
 | Saturn | STANDARD 为单个原始 `.chd`；显式 `MULTI_DISC` 为同目录一个 M3U 与其引用的 2–8 个 CHD | 多盘仅对 capability 返回支持的 yabause artifact 开放；不接受跨目录引用、archive wrapper、CUE/BIN 或非 CHD entry。 |
 | PSP (`psp`) | 单个原始 `.iso` 或 `.cso` | 两者均为 `RAW_FILE` CONTENT，直接交给 PPSSPP；服务端不转码，也不接受 `.iso.7z/.cso.7z`。 |
-| Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE` CONTENT 直接交给 Azahar；本期不接受 archive wrapper 或其他 3DS 容器/可执行格式。 |
+| Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE` CONTENT 交给 Azahar；校验 NCSD/NCCH 容器、分区范围、主分区可执行标志与解密状态。不接受 archive wrapper、加密镜像或其他 3DS 容器/可执行格式；不解密、不管理密钥。 |
 | WASM-4 (`wasm4`) | 单个原始 `.wasm`，1–65,536 bytes | 每个文件形成一个 `SINGLE_FILE/SOURCE_V1` Item；服务端冻结 size/SHA-256 并在启动前再次逐字节校验。ZIP/7z、空文件、超限 cart 和其他扩展名均拒绝。审核预览与产品 Launch 使用独立 `WASM4/WASM4_WEB` runtime，不经 EmulatorJS。 |
 | Arcade (`arcade`) | 一个未加密 `.zip` ROMset archive | 顶层 ZIP 必须精确命中活动 DAT machine；ZIP 本身不是 Hasheous hash 来源。只有 NORMAL machine 是 primary 候选。相同 UploadSession 中经 DAT 闭包明确采用的其他顶层 ZIP 作为该 Item 的 COMPANION parent/BIOS/base；NORMAL parent 也可形成自己的 Item，而 EXPLICIT_BIOS/ROMOF_INFERENCE 只能作为依赖。不能把无关全局 Blob 猜成依赖。 |
 | MS-DOS (`dos`) | 一个目录树，或一个未加密 `.zip` | 整棵目录/整个 ZIP 是一项，必须至少有一个 `.exe/.com/.bat` entry，全部候选均保留。`game/go/launch/play/run/start` 优先，setup/install/config/uninstall/readme/驱动/解包工具降权，再按扩展名、深度和路径稳定排序；这只决定审核默认值。目录输入会生成确定性 ZIP。ISO/CUE/IMG/VHD/M3U 和安装介质流程不在一期范围。 |

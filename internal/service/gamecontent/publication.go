@@ -117,6 +117,7 @@ func replacementDependencies(
 			CanonicalPlaylistSHA256: prepared.CanonicalPlaylist.SHA256, Delivery: corevalidation.MultiDiscDelivery,
 		}
 	}
+	bios.ContentFacts = prepared.ContentFacts
 	result, err := bios.JSON()
 	if err != nil {
 		return nil, fmt.Errorf("encode replacement dependencies: %w", err)

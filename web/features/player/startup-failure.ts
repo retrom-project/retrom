@@ -11,10 +11,10 @@ const startupFailures: Record<string, StartupFailure> = {
   PLAYER_RESOURCE_IDLE_TIMEOUT: runtimeFailure("资源下载已停止推进，请检查网络后重试。"),
   PLAYER_RESOURCE_NETWORK_FAILED: runtimeFailure("资源下载失败，请检查网络后重试。"),
   PLAYER_CORE_INITIALIZATION_TIMEOUT: runtimeFailure("资源已就绪，但核心初始化超时。请重试启动。"),
-  PLAYER_RUNTIME_INITIALIZATION_FAILED: runtimeFailure("核心初始化失败，请重试启动或联系管理员检查运行依赖。"),
-  PLAYER_RUNTIME_CSP_BLOCKED: runtimeFailure("运行资源被浏览器安全策略阻止，请联系管理员更新运行依赖。"),
+  PLAYER_RUNTIME_INITIALIZATION_FAILED: configFailure("核心初始化失败，请联系管理员检查运行依赖。", false),
+  PLAYER_RUNTIME_CSP_BLOCKED: configFailure("运行资源被浏览器安全策略阻止，请联系管理员更新运行依赖。", false),
 };
 
 export function startupFailure(code: string): StartupFailure {
-  return startupFailures[code] ?? { message: code, retryable: false, stage: "runtime" };
+  return startupFailures[code] ?? { message: "游戏未能启动，请将错误码提供给管理员排查。", retryable: false, stage: "runtime" };
 }

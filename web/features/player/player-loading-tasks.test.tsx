@@ -3,7 +3,7 @@ import {afterEach, expect, it} from "vitest";
 import {PlayerLoading} from "./player-loading";
 import type {RuntimeStartupTaskV1} from "./runtime/contract";
 
-const props = {immersive: false, message: "正在准备运行模块…", progress: null, returnTo: "/library", state: "loading" as const};
+const props = {message: "正在准备运行模块…", progress: null, returnIntent: {kind: "LIBRARY" as const, href: "/library"}, state: "loading" as const};
 const content = (progress: RuntimeStartupTaskV1["progress"], state: RuntimeStartupTaskV1["state"] = "RUNNING"): RuntimeStartupTaskV1 =>
   ({id: "content", kind: "GAME_CONTENT", state, progress});
 
@@ -51,7 +51,9 @@ it("separates completed, measured and indeterminate work in the same three-colum
 it("freezes failed progress and announces failure without spinning or filling unknown work", () => {
   const {container} = render(<PlayerLoading onRetry={() => undefined} {...props} state="error" message="启动资源不可用" tasks={[content({loadedBytes: 72, totalBytes: 100})]} />);
   expect(screen.getByText("游戏启动失败", {selector: "strong"})).toBeVisible();
-  expect(screen.getByText("启动资源不可用")).toBeVisible();
+  expect(screen.getByText("游戏未能启动，请将错误码提供给管理员排查。")).toBeVisible();
+  expect(screen.getByText("PLAYER_RUNTIME_FAILED")).toBeVisible();
+  expect(screen.queryByText("启动资源不可用")).toBeNull();
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "72");
   expect(screen.getByRole("img", {name: "游戏内容失败"})).toBeVisible();
   expect(container.querySelector(".player-startup-spinner, .is-indeterminate")).toBeNull();

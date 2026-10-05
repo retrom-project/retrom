@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {ContentRejectionEvidence, contentLimitLabels} from "./content-rejection";
+import {ContentRejectionEvidence, contentLimitLabels} from "@/components/content-rejection";
 import { ImportBatchDiscard } from "./import-batch-discard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";

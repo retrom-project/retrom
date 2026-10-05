@@ -2,6 +2,7 @@ package gamecontent
 
 import (
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/content/requirements"
 	"retrom/internal/filestore"
 )
 
@@ -44,6 +45,7 @@ type ReplacementFile struct {
 type FileCopy struct{ Source, Target string }
 
 type PreparedReplacement struct {
+	ContentFacts            *requirements.Facts
 	FileCopies              []FileCopy
 	ContentKind             string
 	Files                   []ReplacementFile

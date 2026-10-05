@@ -112,7 +112,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
     def test_installer_rejects_an_unsupported_provider_api(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root, provider_api=2)
+            archive, lock = fixture_bundle(root, provider_api=3)
             with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_API_UNSUPPORTED"):
                 install_provider_bundle(archive, lock, root / "installed")
 
@@ -211,7 +211,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                 )
 
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture"):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=2, *, legacy=False, provider_id="fixture"):
     target = {
         **({
             "gameCompatibilityLine": "fixture-v1",
@@ -228,7 +228,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "checkpoint": None,
         "displayName": "Fixture",
         "id": "fixture",
-        "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game"}],
+        "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game", "maxFileBytes": None}],
         "targetOptionsSchema": {
             "additionalProperties": False, "properties": {}, "required": [], "type": "object",
         },
@@ -238,7 +238,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "providerApiVersion": provider_api,
         "providerId": provider_id,
         "providerVersion": "1.0.0",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targets": [target],
     })
     files = {
@@ -324,7 +324,7 @@ def legacy_active_fixture(root: Path):
             "installationPath": f'fixture/{lock["bundleSha256"]}',
             "manifestSha256": lock["manifestSha256"],
             "moduleSha256": entries["client.mjs"]["sha256"],
-            "providerApiVersion": 1,
+            "providerApiVersion": 2,
             "providerId": "fixture",
             "providerVersion": "1.0.0",
             "targets": [{
@@ -359,7 +359,7 @@ def active_fixture(*, version, bundle, read_formats):
             "installationPath": f"fixture/{bundle * 64}",
             "manifestSha256": "c" * 64,
             "moduleSha256": "d" * 64,
-            "providerApiVersion": 1,
+            "providerApiVersion": 2,
             "providerId": "fixture",
             "providerVersion": version,
             "targets": [{

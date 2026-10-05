@@ -17,8 +17,8 @@ func TestParseManifestIsClosed(t *testing.T) {
 		t.Fatalf("manifest = %#v", manifest)
 	}
 
-	_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, `"schemaVersion":1`,
-		`"schemaVersion":1,"adapterId":"leaked"`, 1)))
+	_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, `"schemaVersion":2`,
+		`"schemaVersion":2,"adapterId":"leaked"`, 1)))
 	if !errors.Is(err, ErrManifestInvalid) {
 		t.Fatalf("unknown field error = %v", err)
 	}
@@ -123,16 +123,16 @@ func TestParseIntegrityClosesMediaAndOrdering(t *testing.T) {
 }
 
 const fixtureManifest = `{
-  "schemaVersion":1,
+  "schemaVersion":2,
   "providerId":"fixture",
   "providerVersion":"1.0.0",
-  "providerApiVersion":1,
+  "providerApiVersion":2,
   "clientModulePath":"client.mjs",
   "targets":[{
     "id":"core",
     "displayName":"Core",
     "targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},
-    "inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false}],
+    "inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false,"maxFileBytes":null}],
     "capabilities":{"pause":true,"screenshot":true,"checkpoint":false,"standardGamepad":true,"frameCounter":false,"volume":true,"discSwitch":false,"nativeSettings":true,"inputFilter":true,"videoModes":["original","pixel"],"requiresThreads":false,"frameMode":"SAME_ORIGIN_BLANK"},
     "checkpoint":null,
     "assetPaths":["assets/core.wasm"]

@@ -1,4 +1,4 @@
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 
 export type PlayerDebugSample = {
   frameCount: number | null;
@@ -19,7 +19,7 @@ function boundedRuntimeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-function readFrameCount(runtime: PlayerRuntimeV1 | null) {
+function readFrameCount(runtime: PlayerRuntimeV2 | null) {
   try {
     return boundedRuntimeNumber(runtime?.getFrameCount());
   } catch {
@@ -37,7 +37,7 @@ function sampledFPS(previous: PlayerDebugSample | null, frameCount: number | nul
 }
 
 export function samplePlayerDebugMetrics(
-  runtime: PlayerRuntimeV1 | null,
+  runtime: PlayerRuntimeV2 | null,
   canvas: HTMLCanvasElement | null,
   previous: PlayerDebugSample | null,
   sampledAtMs: number,

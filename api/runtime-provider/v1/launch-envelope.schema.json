@@ -165,7 +165,7 @@
           "$ref": "common.schema.json#/$defs/semver"
         },
         "providerApiVersion": {
-          "const": 1
+          "const": 2
         },
         "bundleSha256": {
           "$ref": "common.schema.json#/$defs/digest"

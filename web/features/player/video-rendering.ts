@@ -1,5 +1,5 @@
 import { userStorageKey } from "@/features/auth/storage";
-import type {PlayerRuntimeV1, RuntimeVideoModeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2, RuntimeVideoModeV1} from "./runtime/contract";
 
 export const videoRenderingModeOptions = [
   { value: "sharp-bilinear", label: "清晰增强" },
@@ -55,7 +55,7 @@ export function subscribeVideoRenderingMode(onStoreChange: () => void) {
 }
 
 export function applyVideoRenderingMode(
-  runtime: PlayerRuntimeV1 | null,
+  runtime: PlayerRuntimeV2 | null,
   mode: VideoRenderingMode,
 ) {
   if (!runtime?.getCapabilities().videoModes.includes(mode)) {return false;}

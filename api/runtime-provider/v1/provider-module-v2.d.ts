@@ -1,4 +1,4 @@
-export type ProviderApiVersionV1 = 1;
+export type ProviderApiVersionV2 = 2;
 
 export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW";
 export type RuntimeModeV1 = "SINGLE";
@@ -171,7 +171,17 @@ export type RuntimeStartupTaskV1 = {
   summary?: boolean;
 };
 
-export type RuntimeEventV1 =
+/** Failure survives core teardown. Diagnostics are bounded, plain text and sanitized by the Provider. */
+export type RuntimeFailureV1 = {
+  code: string;
+  phase: "STARTUP" | "PLAYING";
+  category: "CONTENT" | "NETWORK" | "STORAGE" | "SECURITY" | "CORE" | "CONFIGURATION";
+  retryable: boolean;
+  /** At most 8 entries, each at most 500 characters; no credentials, URLs or host paths. */
+  diagnostics: readonly {source: "CORE" | "RUNTIME"; message: string}[];
+};
+
+export type RuntimeEventV2 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
@@ -179,12 +189,12 @@ export type RuntimeEventV1 =
   | { type: "DISC_CHANGED"; state: RuntimeDiscStateV1 }
   /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
   | { type: "EXIT_REQUESTED"; finalSnapshot?: RuntimeFinalSnapshotV1 }
-  | { type: "FATAL_ERROR"; code: string }
+  | { type: "FATAL_ERROR"; failure: RuntimeFailureV1 }
   | { type: "DIAGNOSTIC"; code: string; message: string };
 
-export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;
+export type RuntimeEventListenerV2 = (event: RuntimeEventV2) => void;
 
-export interface PlayerRuntimeV1 {
+export interface PlayerRuntimeV2 {
   mount(target: HTMLElement): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
@@ -200,6 +210,10 @@ export interface PlayerRuntimeV1 {
   switchDisc(index: number): Promise<RuntimeDiscStateV1>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
+  /** Session capabilities. Envelope capabilities remain the exact Target declaration.
+   * discSwitch may narrow to false when this session has no MULTI_DISC resource.
+   * All other fields must match the Target; sessions cannot grant undeclared capabilities.
+   */
   getCapabilities(): RuntimeCapabilitiesV1;
   /** Declares which Host shortcuts may intercept the focused game's keyboard input. */
   getInputCapabilities(): RuntimeInputCapabilitiesV1;
@@ -211,7 +225,7 @@ export interface PlayerRuntimeV1 {
   startInputDiagnostics?(): RuntimeInputDiagnosticsV1;
   /** Absent when the current runtime does not expose editable game values. */
   getGameEditor?(): RuntimeGameEditorV1 | null;
-  subscribe(listener: RuntimeEventListenerV1): () => void;
+  subscribe(listener: RuntimeEventListenerV2): () => void;
   exit(): Promise<void>;
 }
 
@@ -291,7 +305,7 @@ export type LaunchEnvelopeV1 = {
   runtime: {
     providerId: string;
     providerVersion: string;
-    providerApiVersion: 1;
+    providerApiVersion: 2;
     bundleSha256: string;
     targetId: string;
     capabilities: RuntimeCapabilitiesV1;
@@ -308,9 +322,9 @@ export type LaunchEnvelopeV1 = {
 
 export type ProviderLaunchRequestV1 = LaunchEnvelopeV1;
 
-export interface ProviderModuleV1 {
+export interface ProviderModuleV2 {
   providerId: string;
   providerVersion: string;
-  providerApiVersion: 1;
-  createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV1>;
+  providerApiVersion: 2;
+  createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV2>;
 }

@@ -1,7 +1,7 @@
 import {useCallback, type RefObject} from "react";
 import type {GameSaveSync} from "./game-save-sync";
 import type {PlayProgressClock} from "./play-progress-clock";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
 import {useRuntimeSessionRenewal} from "./runtime-session-renewal";
 
@@ -11,7 +11,7 @@ type Params = {
   started: RefObject<boolean>;
   finishing: RefObject<boolean>;
   running: RefObject<boolean>;
-  runtime: RefObject<PlayerRuntimeV1 | null>;
+  runtime: RefObject<PlayerRuntimeV2 | null>;
   controller: RefObject<RuntimeController | null>;
   nativeSave: RefObject<GameSaveSync | null>;
   progressClock: RefObject<PlayProgressClock>;

@@ -97,7 +97,7 @@ func reconcileCatalogExtension(t *testing.T, database dbapi.DB, initial service.
 		Providers: []runtimebundle.ActiveProvider{provider},
 	}
 	candidate, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
-		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 1,
+		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 2,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{extra, target},
 	}}, catalog)
 	if err != nil {

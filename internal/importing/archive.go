@@ -137,6 +137,21 @@ func scanZIP(
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid zip", ErrArchiveUnsafe)
 	}
+	return scanZIPDirectory(ctx, reader, limits, consumer)
+}
+
+// ScanZIPReader validates immutable content supplied without a host path.
+func ScanZIPReader(ctx context.Context, source io.ReaderAt, size int64, limits ArchiveLimits) ([]ArchiveEntry, error) {
+	reader, err := zip.NewReader(source, size)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid zip", ErrArchiveUnsafe)
+	}
+	return scanZIPDirectory(ctx, reader, limits, nil)
+}
+
+func scanZIPDirectory(ctx context.Context, reader *zip.Reader, limits ArchiveLimits, consumer ArchiveContentConsumer,
+) ([]ArchiveEntry, error) {
+	var err error
 	if len(reader.File) > limits.MaxEntries {
 		return nil, ErrArchiveLimitExceeded
 	}

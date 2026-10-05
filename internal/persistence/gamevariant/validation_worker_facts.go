@@ -54,6 +54,9 @@ func (records validationWorkerRecords) Facts(
 	if err != nil {
 		return application.ValidationFacts{}, fmt.Errorf("read validation source: %w", err)
 	}
+	if err := contentquery.LoadRequirements(ctx, records.executor, source.ContentPolicy.Requirements); err != nil {
+		return application.ValidationFacts{}, fmt.Errorf("load target content requirements: %w", err)
+	}
 	source.ActiveDATVersionID = inputs.DATVersionID
 	content, err := ContentSnapshot(ctx, records.executor, *source)
 	if err != nil {

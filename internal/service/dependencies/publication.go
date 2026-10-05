@@ -63,6 +63,9 @@ func activateBuiltInDAT(ctx context.Context, scope WriteScope, datID string, now
 	if err != nil {
 		return fmt.Errorf("inspect DAT activation: %w", err)
 	}
+	if state.ExpectedDigest != nil && state.DATDigest != *state.ExpectedDigest {
+		return fmt.Errorf("%w: DAT does not match active runtime core", dependencies.ErrInvalid)
+	}
 	if state.ParseStatus != "READY" {
 		return fmt.Errorf("%w: selected DAT is not ready", dependencies.ErrInvalid)
 	}

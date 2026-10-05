@@ -24,35 +24,39 @@ type Manifest struct {
 	EmulatorJS    struct {
 		Version string `json:"version"`
 	} `json:"emulatorjs"`
-	Cores []struct {
-		CoreID     string `json:"core_id"`
-		CoreSource struct {
-			Commit            string `json:"commit"`
-			AssociationStatus string `json:"association_status"`
-		} `json:"core_source"`
-		DAT *struct {
-			LocalPath string `json:"local_path"`
-			SizeBytes int64  `json:"size_bytes"`
-			SHA256    string `json:"sha256"`
-		} `json:"dat"`
-		ParseStats struct {
-			MachineCount              int64 `json:"machine_count"`
-			ROMEntryCount             int64 `json:"rom_entry_count"`
-			DiskEntryCount            int64 `json:"disk_entry_count"`
-			BIOSSetCount              int64 `json:"bios_set_count"`
-			DefaultBIOSSetCount       int64 `json:"default_bios_set_count"`
-			ExplicitBIOSMachineCount  int64 `json:"explicit_bios_machine_count"`
-			BaseDependencyTargetCount int64 `json:"base_dependency_target_count"`
-			UnresolvedCloneofCount    int64 `json:"unresolved_cloneof_target_count"`
-			UnresolvedRomofCount      int64 `json:"unresolved_romof_target_count"`
-		} `json:"parse_stats"`
-		Override *struct {
-			BundleVersion string `json:"core_bundle_emulatorjs_version"`
-		} `json:"tested_runtime_override"`
-	} `json:"cores"`
+	Cores []Core `json:"cores"`
+}
+
+type Core struct {
+	CoreID     string `json:"core_id"`
+	CoreSource struct {
+		Commit            string `json:"commit"`
+		AssociationStatus string `json:"association_status"`
+	} `json:"core_source"`
+	DAT        *DATArtifact `json:"dat"`
+	ParseStats struct {
+		MachineCount              int64 `json:"machine_count"`
+		ROMEntryCount             int64 `json:"rom_entry_count"`
+		DiskEntryCount            int64 `json:"disk_entry_count"`
+		BIOSSetCount              int64 `json:"bios_set_count"`
+		DefaultBIOSSetCount       int64 `json:"default_bios_set_count"`
+		ExplicitBIOSMachineCount  int64 `json:"explicit_bios_machine_count"`
+		BaseDependencyTargetCount int64 `json:"base_dependency_target_count"`
+		UnresolvedCloneofCount    int64 `json:"unresolved_cloneof_target_count"`
+		UnresolvedRomofCount      int64 `json:"unresolved_romof_target_count"`
+	} `json:"parse_stats"`
+	Override *struct {
+		BundleVersion string `json:"core_bundle_emulatorjs_version"`
+	} `json:"tested_runtime_override"`
+}
+type DATArtifact struct {
+	LocalPath string `json:"local_path"`
+	SizeBytes int64  `json:"size_bytes"`
+	SHA256    string `json:"sha256"`
 }
 
 type Version struct {
+	Paired         bool
 	Manifest       Manifest
 	ManifestSHA256 string
 	DATRoot        string

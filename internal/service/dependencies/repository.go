@@ -75,9 +75,11 @@ type RegisteredDAT struct {
 	Stats           CatalogStats
 }
 type ActivationState struct {
-	Target      RuntimeTarget
-	ParseStatus string
-	Active      bool
+	DATDigest      string
+	ExpectedDigest *string
+	Target         RuntimeTarget
+	ParseStatus    string
+	Active         bool
 }
 type DATSelection struct {
 	ID      string

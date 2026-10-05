@@ -80,7 +80,7 @@ ORDER BY provider.provider_id,target.target_id
 			providerIndex = len(active.Providers) - 1
 			providerIndexes[provider.ProviderID] = providerIndex
 			manifests[provider.ProviderID] = runtimebundle.Manifest{
-				SchemaVersion: 1, ProviderID: provider.ProviderID, ProviderVersion: provider.ProviderVersion,
+				SchemaVersion: 2, ProviderID: provider.ProviderID, ProviderVersion: provider.ProviderVersion,
 				ProviderAPI: provider.ProviderAPI, ClientModulePath: provider.ClientModulePath,
 			}
 		}
@@ -194,7 +194,7 @@ func insertFixtureProviders(ctx context.Context, transaction dbapi.Tx, providerI
 INSERT INTO runtime_providers(
  provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,
  source,release_repository,release_tag,release_commit,activated_at_ms
-) VALUES(?,'1.0.0',1,?,?,?,'candidate',NULL,NULL,NULL,0)
+) VALUES(?,'1.0.0',2,?,?,?,'candidate',NULL,NULL,NULL,0)
 `, providerID, fixtureDigest("bundle:"+providerID), fixtureDigest("manifest:"+providerID),
 			fixtureDigest("module:"+providerID)); err != nil {
 			return fmt.Errorf("testsupport: insert provider %s: %w", providerID, err)

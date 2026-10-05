@@ -37,6 +37,9 @@ func Evidence(
 	bios corevalidation.Snapshot,
 ) (string, string, corevalidation.Snapshot, error) {
 	source := snapshot.Source
+	if previous, err := corevalidation.ParseSnapshot(source.DependencySnapshot); err == nil {
+		bios.ContentFacts = previous.ContentFacts
+	}
 	if source.ContentKind == multidisc.ContentKind {
 		return productDiscValidationInputs(snapshot, variantID, bios)
 	}
@@ -55,7 +58,8 @@ func Evidence(
 		return "", "", corevalidation.Snapshot{}, fmt.Errorf("encode validation BIOS: %w", err)
 	}
 	hash := sha256.Sum256(encoded)
-	return digest, hex.EncodeToString(hash[:]), bios, nil
+	policyDigest := sha256.Sum256([]byte(digest + "\x00" + source.ContentPolicy.DigestFor(source.ContentKind)))
+	return hex.EncodeToString(policyDigest[:]), hex.EncodeToString(hash[:]), bios, nil
 }
 
 func productDiscValidationInputs(

@@ -9,7 +9,7 @@ import (
 func TestPolicyScanClearsPreviousRowAndConstructsDerivedFacts(t *testing.T) {
 	t.Parallel()
 	var policy contentcapability.Policy
-	for _, column := range []any{"SINGLE_FILE,MULTI_DISC", []byte("MULTI_DISC,SINGLE_FILE")} {
+	for _, column := range []any{`{"kinds":["SINGLE_FILE","MULTI_DISC"],"limits":{}}`, []byte(`{"kinds":["MULTI_DISC","SINGLE_FILE"],"limits":{}}`)} {
 		if err := ScanPolicy(&policy).Scan(column); err != nil {
 			t.Fatal(err)
 		}

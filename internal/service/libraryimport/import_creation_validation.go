@@ -54,6 +54,7 @@ func PrepareCreationStaticBIOS(
 			return creationError("prepare creation static b i o s", err)
 		}
 		snapshot.MultiDisc = group.MultiDependency
+		snapshot.ContentFacts = group.ContentFacts
 		encoded, err := snapshot.JSON()
 		if err != nil {
 			return fmt.Errorf("encode creation BIOS snapshot: %w", err)

@@ -1,7 +1,10 @@
+import {contentRequirementLabels, contentRequirementReasons} from "@/lib/content-requirements";
+import {ContentRejectionEvidence, type ContentRejection} from "@/components/content-rejection";
 import Link from "next/link";
 import { FeedbackBanner } from "@/components/ui";
 
 export type ReviewDependencySnapshot = {
+  contentRejection?: ContentRejection | null;
   bios?: Array<{ logicalName?: string; requirementMode?: string; fileRecord?: string | null; installationStatus?: string | null }>;
   dependencies?: Array<{ kind?: string; machine?: string; state?: string; requiredEntries?: string[] }>;
   missingEntries?: string[];
@@ -12,11 +15,15 @@ export type ReviewDependencySnapshot = {
 
 const compatibilityLabels: Record<string, string> = {
   READY: "运行检查已通过",
+  ...contentRequirementLabels,
+  CONTENT_FILE_BYTES_EXCEEDED: "游戏内容超过当前核心大小上限",
   RPG_EXTERNAL_RTP_REQUIRED: "项目声明了外部 RTP",
   LAUNCH_BIOS_MISSING: "缺少必需 BIOS 文件",
   LAUNCH_PARENT_MISSING: "缺少街机父级或依赖文件",
   ARCADE_DAT_UNAVAILABLE: "街机数据目录不可用",
   ARCADE_CONTENT_MISSING_ENTRY: "街机 ROM 集缺少文件",
+  ARCADE_CONTENT_MISMATCH: "街机 ROM 内容与当前 DAT 不匹配",
+  ARCADE_CONTENT_MISSING_AND_MISMATCHED: "街机 ROM 集缺少文件且内容不匹配",
   ARCADE_DEPENDENCY_MISMATCH: "街机依赖文件不匹配",
   UNSUPPORTED_CONTENT_FORMAT: "当前运行方式不支持这个文件",
   NEEDS_VALIDATION: "运行检查尚未完成",
@@ -45,6 +52,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot, 
         ? "已保存运行截图，可由管理员确认发布。以下检查原因仍保留供审核参考。"
         : "可修正以下问题，或试运行确认可以游玩并保存截图，再由管理员确认发布。"}</p>
       <code>{compatibilityCode || status}</code>
+      <ContentRejectionEvidence rejection={snapshot?.contentRejection ?? null} />
       <BlockerRemediation compatibilityCode={compatibilityCode} logicalNames={logicalNames} />
       {logicalNames.length || mismatchedEntries.length ? <ul>
         {logicalNames.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}
@@ -56,6 +64,8 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot, 
 }
 
 function BlockerRemediation({ compatibilityCode, logicalNames }: { compatibilityCode: string; logicalNames: string[] }) {
+  if (contentRequirementReasons[compatibilityCode]) {return <p>{contentRequirementReasons[compatibilityCode].action}</p>;}
+  if (compatibilityCode === "CONTENT_FILE_BYTES_EXCEEDED") {return <p>请选择符合当前核心上限的内容，或由管理员更换支持该内容的核心。</p>;}
   if (compatibilityCode === "RPG_EXTERNAL_RTP_REQUIRED") {
     return <p>可补齐游戏素材后重新导入；如果项目可以独立运行，也可在项目检查中勾选“确认项目自包含 RTP”。</p>;
   }

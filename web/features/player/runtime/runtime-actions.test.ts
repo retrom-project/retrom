@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {PlayerRuntimeV1, RuntimeCheckpointV1} from "./contract";
+import type {PlayerRuntimeV2, RuntimeCheckpointV1} from "./contract";
 import {captureRuntimeSave, setRuntimePaused, switchRuntimeDisc} from "./runtime-actions";
 
 describe("Provider runtime actions", () => {
@@ -53,5 +53,5 @@ function fixtureRuntime() {
     pause: vi.fn(async () => undefined),
     resume: vi.fn(async () => undefined),
     switchDisc: vi.fn(async () => ({count: 2, currentIndex: 1, labels: ["Disc 1", "Disc 2"]})),
-  } as unknown as PlayerRuntimeV1;
+  } as unknown as PlayerRuntimeV2;
 }

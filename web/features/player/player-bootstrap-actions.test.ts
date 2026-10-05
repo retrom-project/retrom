@@ -2,7 +2,7 @@ import {act, renderHook, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 import {initialPlayerOrientationState} from "./orientation";
 import {usePlayerBootstrap, type PlayerBootstrapParams} from "./player-bootstrap";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeCheckpointAvailabilityV1, RuntimeEventV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeCheckpointAvailabilityV1, RuntimeEventV2} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
 
 const mounted = vi.hoisted(() => vi.fn());
@@ -17,7 +17,7 @@ it("retries a temporary config failure once and never mounts a runtime for the f
       session: {purpose: "PRODUCT", returnTo: "/library", warnings: []}})));
   vi.stubGlobal("fetch", fetchMock);
   const runtime = {getCapabilities: () => ({videoModes: []}), getCanvas: () => null,
-    getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"})} as unknown as PlayerRuntimeV1;
+    getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"})} as unknown as PlayerRuntimeV2;
   mounted.mockResolvedValue({runtime, exit: vi.fn().mockResolvedValue(undefined)});
   const {result, unmount} = renderHook(() => usePlayerBootstrap(params, {current: null}));
   await waitFor(() => expect(params.setState).toHaveBeenCalledWith("error"));
@@ -36,7 +36,7 @@ it("waits for the failed mounted runtime to exit before a retry fetch or mount",
   vi.stubGlobal("fetch", fetchMock);
   let release: () => void = () => undefined;
   const exit = vi.fn(() => new Promise<void>((resolve) => {release = resolve;}));
-  const runtime = {getCapabilities: () => {throw new Error("PLAYER_RUNTIME_INITIALIZATION_FAILED");}, getCanvas: () => null} as unknown as PlayerRuntimeV1;
+  const runtime = {getCapabilities: () => {throw new Error("PLAYER_RUNTIME_INITIALIZATION_FAILED");}, getCanvas: () => null} as unknown as PlayerRuntimeV2;
   mounted.mockResolvedValueOnce({runtime, exit}).mockRejectedValueOnce(new Error("second attempt"));
   const {result, unmount} = renderHook(() => usePlayerBootstrap(params, {current: null}));
   await waitFor(() => expect(params.setState).toHaveBeenCalledWith("error"));
@@ -56,8 +56,8 @@ it("uses public program-selection actions for an unknown Target and observes act
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(envelope))));
   const availability: RuntimeCheckpointAvailabilityV1 = {available: false, reason: "FUTURE_ACTION", requiredAction: "SELECT_PROGRAM"};
   const runtime = {getCapabilities: () => envelope.runtime.capabilities, getCanvas: () => null,
-    getCheckpointAvailability: () => availability} as unknown as PlayerRuntimeV1;
-  let emit: ((event: RuntimeEventV1) => void) | undefined;
+    getCheckpointAvailability: () => availability} as unknown as PlayerRuntimeV2;
+  let emit: ((event: RuntimeEventV2) => void) | undefined;
   mounted.mockImplementation(async (_envelope, _stage, options) => {
     emit = options.onRuntimeEvent;
     return {runtime, exit: vi.fn().mockResolvedValue(undefined)};
@@ -83,7 +83,7 @@ function bootstrapParams(): PlayerBootstrapParams {
     orientationStateRef: {current: {...initialPlayerOrientationState}}, videoRenderingModeRef: {current: "pixel"},
     pausedRef: {current: false}, started: {current: false}, finishing: {current: false}, progressTimer: {current: null},
     progressClock: {current: {start: vi.fn(), setPaused: vi.fn(), stop: vi.fn()} as unknown as PlayerBootstrapParams["progressClock"]["current"]},
-    toastTimer: {current: null}, setMessage: vi.fn(), setLoadProgress: vi.fn(), setContentLoadingCapability: vi.fn(),
+    toastTimer: {current: null}, setFailure: vi.fn(), setMessage: vi.fn(), setLoadProgress: vi.fn(), setContentLoadingCapability: vi.fn(),
     setState: vi.fn(), setManualSaveAvailable: vi.fn(), setProgramSelectionRequired: vi.fn(), setWarnings: vi.fn(),
     setGameTitle: vi.fn(), setCoreName: vi.fn(), setPlatformName: vi.fn(), setDebugRuntime: vi.fn(), setDiscState: vi.fn(),
     setOrientationState: vi.fn(), setSyncText: vi.fn(), setSyncTone: vi.fn(), setEmulatorVolume: vi.fn(),

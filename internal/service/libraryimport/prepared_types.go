@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"retrom/internal/content/diagnostic"
+	"retrom/internal/content/requirements"
 	"retrom/internal/core/rpgmaker/detector"
 	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/filestore"
@@ -32,6 +33,7 @@ type PreparedArchive struct {
 }
 
 type PreparedGroup struct {
+	ContentFacts        *requirements.Facts
 	ItemID              string
 	Sources             []PreparedSource
 	DOSEntries          []PreparedDOSEntry

@@ -65,7 +65,7 @@ function registerRun002(): void {
     expect(configuration).toMatchObject({
       schemaVersion: 1,
       session: {title: "Sudoku", platformName: "Game Boy Advance", purpose: "PRODUCT", mode: "SINGLE"},
-      runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
+      runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: "mgba"},
       restore: null,
     });
     const gameURL = runtimeResourceURL(runtimeResource(configuration, "game"));
@@ -322,7 +322,7 @@ async function verifyPublicArcadeSmoke(
   expect(configuration).toMatchObject({
     schemaVersion: 1,
     session: {purpose: "PRODUCT", mode: "SINGLE", coreName: expectation.coreName},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: expectation.core},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: expectation.core},
     restore: null,
   });
   const gameURLs = runtimeResourceURLs(runtimeResource(configuration, "game"));

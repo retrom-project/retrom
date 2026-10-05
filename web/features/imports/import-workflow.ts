@@ -1,4 +1,4 @@
-import type {ContentRejection} from "./content-rejection";
+import type {ContentRejection} from "@/components/content-rejection";
 import type { components } from "@/lib/api/generated/schema";
 
 export type ImportDiscardStatus = components["schemas"]["ImportBatchDiscard"];

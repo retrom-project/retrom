@@ -1,7 +1,7 @@
 "use client";
 
 import {useCallback, useMemo, useRef, useState} from "react";
-import type {PlayerRuntimeV1, RuntimeGamepadCursorV1} from "./runtime/contract";
+import type {PlayerRuntimeV2, RuntimeGamepadCursorV1} from "./runtime/contract";
 import {readGamepadCursorPreference, readPlayerGame, writeGamepadCursorPreference} from "./gamepad-cursor-preference";
 
 export type PlayerGamepadCursorControl = {enabled: boolean; toggle: () => void};
@@ -10,7 +10,7 @@ export const gamepadCursorInstructions = "方向键 / 左摇杆移动 · A 左�
 export function useGamepadCursor(userId: string | undefined, launchId: string, showToast: (message: string) => void) {
   const cursor = useRef<RuntimeGamepadCursorV1 | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const initialize = useCallback((runtime: Pick<PlayerRuntimeV1, "getGamepadCursor">) => {
+  const initialize = useCallback((runtime: Pick<PlayerRuntimeV2, "getGamepadCursor">) => {
     cursor.current = runtime.getGamepadCursor?.() ?? null;
     if (!cursor.current) {setEnabled(null); return;}
     const preference = readGamepadCursorPreference(userId, readPlayerGame(launchId));

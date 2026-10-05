@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
@@ -91,7 +90,7 @@ AND `+contentquery.BindingPolicySQL+`=?`,
 		target.TargetID,
 		target.DeliveryProfile,
 		target.PlatformID,
-		strings.Join(target.Policy.SupportedContentKinds, ","),
+		contentquery.BindPolicy(target.Policy),
 	)
 	if err := creationMutation(result, err, "fence prepared binding", 1); err != nil {
 		return err

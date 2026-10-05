@@ -29,6 +29,14 @@ describe("review validation guidance", () => {
     expect(reviewCompatibilityLabel("LAUNCH_BIOS_MISSING", "BLOCKED")).toBe("缺少必需 BIOS 文件");
   });
 
+  it("does not call mismatched main ROM members missing even with screenshot approval", () => {
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="ARCADE_CONTENT_MISMATCH" screenshotApproval snapshot={{ missingEntries: [], mismatchedEntries: ["wrong.bin"], dependencies: [{kind: "PARENT", machine: "parent", state: "SATISFIED_EXTERNAL"}] }} />);
+    expect(screen.getByText("街机 ROM 内容与当前 DAT 不匹配")).toBeVisible();
+    expect(screen.getByText("wrong.bin")).toBeVisible();
+    expect(screen.queryByText("街机 ROM 集缺少文件")).not.toBeInTheDocument();
+    expect(screen.getByText(/已保存运行截图/)).toBeVisible();
+  });
+
   it("makes long missing-entry details keyboard scrollable", () => {
     const missingEntries = Array.from({ length: 13 }, (_, index) => `archive-${index + 1}.zip`);
     render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="ARCADE_CONTENT_MISSING_ENTRY" snapshot={{ missingEntries }} />);

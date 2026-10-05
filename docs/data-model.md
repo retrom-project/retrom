@@ -38,6 +38,8 @@ RuntimeProvider
 
 `runtime_targets` 的主键是 `(provider_id,target_id)`，保存当前 Provider manifest 投影的展示名、闭合 options schema、能力、checkpoint declaration 和公开 fragment。稳定引用只使用 Provider/Target；Bundle digest 只在需要重现实际执行字节的 Launch 与 Preview 中冻结。
 
+`runtime_target_input_limits` 以 `(provider_id,target_id,role)` 保存 Manifest V2 输入的 `max_file_bytes`；null 表示非受管输入。它随 Target 投影在同一事务内替换，外键级联删除，不能由导入模块维护第二份核心上限。
+
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
 平台、核心和内容分类的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtime/catalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心等用户选择不被声明同步覆盖。

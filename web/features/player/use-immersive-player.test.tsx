@@ -2,14 +2,14 @@ import { act, screen } from "@testing-library/react";
 import { renderHook } from "@/components/toast-test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setActiveImmersiveGamepadIndex } from "@/features/immersive/active-gamepad";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {PlayerRuntimeV2} from "./runtime/contract";
 import { useImmersivePlayer } from "./use-immersive-player";
 
-function playerRuntime(): PlayerRuntimeV1 {
+function playerRuntime(): PlayerRuntimeV2 {
   return {
     pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined),
     getCapabilities: () => ({pause: true}),
-  } as unknown as PlayerRuntimeV1;
+  } as unknown as PlayerRuntimeV2;
 }
 
 function gamepad(select = false, start = false, confirm = false): Gamepad {

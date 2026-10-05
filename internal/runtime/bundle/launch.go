@@ -104,7 +104,7 @@ func validLaunchRuntime(value map[string]any) bool {
 }
 
 func validLaunchRuntimeIdentity(value map[string]any) bool {
-	return value["providerApiVersion"] == int64(1) &&
+	return value["providerApiVersion"] == int64(2) &&
 		identityPattern.MatchString(stringValue(value["providerId"])) &&
 		identityPattern.MatchString(stringValue(value["targetId"])) &&
 		semverPattern.MatchString(stringValue(value["providerVersion"])) &&

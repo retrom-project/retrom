@@ -48,7 +48,7 @@ discovery_state,execution_state,metadata_json,source_manifest_json,source_manife
 created_at_ms,updated_at_ms,completed_at_ms)
 VALUES(?,?,?,'metadata',0,?,'Rejected','BLOCKED_CONTENT','BLOCKED_CONTENT','{}','{}',?, ?,?,?,?)`,
 		item.String(), batch.String(), collection, strings.Repeat("d", 64), strings.Repeat("e", 64),
-		"PEGASUS_CONTENT_FORMAT_UNSUPPORTED", now, now, now)
+		"UNSUPPORTED_CONTENT_FORMAT", now, now, now)
 	if _, err := recordstore.InsertRows(t.Context(), f.db, "source_import_item_files", `INSERT INTO `+table[:len(table)-1]+`_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,
 file_record,state,created_at_ms,updated_at_ms) VALUES(?,0,'FILE',?,?,?,'COPIED',?,?)`, item.String(), file.RelativePath, file.SizeBytes, file.FileRecord, now, now); err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestDiscardSourceRejectedBeforeReviewReleasesInternalEnvelope(t *testing.T)
 			}
 			f.finish(t, "SOURCE", batch)
 			table, _ := batchTable("SOURCE")
-			if n := f.count(t, `SELECT count(*) FROM `+table[:len(table)-1]+`_items WHERE import_id=? AND execution_state='REVIEW_DISCARDED' AND error_code=?`, batch, "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"); n != 1 {
+			if n := f.count(t, `SELECT count(*) FROM `+table[:len(table)-1]+`_items WHERE import_id=? AND execution_state='REVIEW_DISCARDED' AND error_code=?`, batch, "UNSUPPORTED_CONTENT_FORMAT"); n != 1 {
 				t.Fatal("source error evidence or discarded outcome lost")
 			}
 			if n := f.count(t, `SELECT count(*) FROM upload_files WHERE final_file_record=?`, file.FileRecord); n != 0 {
