@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,9 +13,9 @@ import (
 
 const initialAdminBody = `{"username":"admin","displayName":"Administrator","password":"A1!x2z","passwordConfirmation":"A1!x2z"}`
 
-func initializeAdminRequest(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
+func initializeAdminRequest(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(initialAdminBody))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "http://localhost:3000")
 	recorder := httptest.NewRecorder()
@@ -23,7 +24,16 @@ func initializeAdminRequest(t *testing.T, handler http.Handler) *httptest.Respon
 }
 
 func TestAuthHTTPConcurrentInitializationCreatesExactlyOneAdministrator(t *testing.T) {
-	t.Parallel()
+	for _, differentUsername := range []bool{false, true} {
+		t.Run(fmt.Sprintf("differentUsername=%v", differentUsername), func(t *testing.T) {
+			t.Parallel()
+			checkConcurrentInitialization(t, differentUsername)
+		})
+	}
+}
+
+func checkConcurrentInitialization(t *testing.T, differentUsername bool) {
+	t.Helper()
 	server := newAuthHTTPServer(t, config.ModeRelease)
 	handler := server.Handler()
 	assertInitializationRows(t, server, 0)
@@ -34,10 +44,14 @@ func TestAuthHTTPConcurrentInitializationCreatesExactlyOneAdministrator(t *testi
 	}
 	start := make(chan struct{})
 	results := make(chan *httptest.ResponseRecorder, 2)
-	for range 2 {
+	for index := range 2 {
 		go func() {
 			<-start
-			results <- initializeAdminRequest(t, handler)
+			body := initialAdminBody
+			if differentUsername && index == 1 {
+				body = strings.Replace(body, `"username":"admin"`, `"username":"otheradmin"`, 1)
+			}
+			results <- initializeAdminRequest(t, handler, body)
 		}()
 	}
 	close(start)
@@ -55,7 +69,7 @@ func TestAuthHTTPConcurrentInitializationCreatesExactlyOneAdministrator(t *testi
 	}
 	assertInitializationRows(t, server, 1)
 	assertInitialAdministratorSession(t, handler, initialized)
-	repeated := initializeAdminRequest(t, handler)
+	repeated := initializeAdminRequest(t, handler, initialAdminBody)
 	if repeated.Code != http.StatusConflict || !strings.Contains(repeated.Body.String(), "INITIALIZATION_ALREADY_COMPLETED") {
 		t.Fatalf("repeated initialization = %d %s", repeated.Code, repeated.Body.String())
 	}

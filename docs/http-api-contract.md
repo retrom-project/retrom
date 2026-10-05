@@ -110,7 +110,7 @@ release 密码分别做 NFC 但不 trim，最少 6 个字符且不超过 128 个
 
 `GET /api/v1/admin/users` 支持 `q`、`role=ADMIN|USER`、`status=ENABLED|DISABLED|DELETED|ALL`、`sort=CREATED_DESC|USERNAME_ASC|LAST_LOGIN_DESC` 和 `cursor/limit`。User DTO只含 `userId/username/displayName/role/status/version/createdAtMs/lastLoginAtMs/activeSessionCount`；DELETED item 的 `displayName` 固定为“已删除用户”。不得返回 Profile ID、私有游戏/时长/存档、IP、hash、session ID或 Credential。detail 与 PATCH返回最新 ETag。
 
-PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`；DELETE是要求输入完整 username的不可逆软删除。两者都需要当前 ETag、Idempotency-Key、Origin和 CSRF。当前登录管理员不能修改自身 role/status或删除自己。不检查启用 ADMIN 的剩余数量。停用/删除在同一事务撤销 AuthSession、ACTIVE account link和待用/活动 Launch，但保留 Profile与私有数据且不向管理员开放。删除后 username不可复用。
+PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`；DELETE是要求输入完整 username的不可逆软删除。两者都需要当前 ETag、Idempotency-Key、Origin和 CSRF。当前登录管理员不能修改自身 role/status或删除自己。不检查启用 ADMIN 的剩余数量；已初始化实例重启也不要求存在启用管理员。停用/删除在同一事务撤销 AuthSession、ACTIVE account link和待用/活动 Launch，但保留 Profile与私有数据且不向管理员开放。删除后 username不可复用。
 
 邀请列表与目标 User的 reset列表按 `(createdAtMs DESC,id DESC)` cursor分页，state只允许 `ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`，item不含 URL/token或前后缀。按 link ID撤销只接受当前 ACTIVE与最新 ETag；同 principal/operation/key replay仍成功，其他重复撤销统一 `409 ACCOUNT_LINK_NOT_ACTIVE`。
 

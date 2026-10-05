@@ -26,6 +26,11 @@ func (repository *InitializationRepository) WithWrite(
 	ctx context.Context, work func(accounts.InitializationScope) error,
 ) error {
 	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		var id int
+		if err := dbapi.QueryRowContext(ctx, tx,
+			`SELECT id FROM instance_state WHERE id=1 FOR UPDATE`).Scan(&id); err != nil {
+			return fmt.Errorf("lock account initialization state: %w", err)
+		}
 		records := initializationRecords{tx}
 		return work(accounts.InitializationScope{Read: records, Write: records})
 	})
@@ -41,11 +46,10 @@ func (records initializationRecords) State(ctx context.Context) (accounts.Initia
 		ctx, records.executor,
 
 		`SELECT state,test_default_password_active,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles),
- (SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'),
  (SELECT count(*) FROM profiles p LEFT JOIN users u ON u.profile_id=p.id WHERE u.id IS NULL)
  FROM instance_state WHERE id=1`,
 	).
-		Scan(&state.State, &state.TestDefault, &state.Users, &state.Profiles, &state.EnabledAdmins, &state.OrphanProfiles)
+		Scan(&state.State, &state.TestDefault, &state.Users, &state.Profiles, &state.OrphanProfiles)
 	if err != nil {
 		return state, fmt.Errorf("query account initialization snapshot: %w", err)
 	}

@@ -50,7 +50,7 @@ func (hasher initializationHasher) Hash(context.Context, string) (string, error)
 }
 func initializationMint() (SessionMaterial, error) { return SessionMaterial{ID: "session"}, nil }
 func TestInitializationRejectsPartialPendingAndOrphanedCompletedState(t *testing.T) {
-	for _, state := range []InitializationState{{State: "PENDING", Users: 1}, {State: "PENDING", Profiles: 1}, {State: "COMPLETED"}, {State: "COMPLETED", EnabledAdmins: 1, OrphanProfiles: 1}, {State: "UNKNOWN"}} {
+	for _, state := range []InitializationState{{State: "PENDING", Users: 1}, {State: "PENDING", Profiles: 1}, {State: "COMPLETED", OrphanProfiles: 1}, {State: "UNKNOWN"}} {
 		memory := &initializationMemory{state: state}
 		err := NewInitialization(memory, InitializationOptions{Mode: config.ModeRelease}).Start(t.Context())
 		if !errors.Is(err, ErrInitializationState) || memory.writes != 0 {
