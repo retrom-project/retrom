@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"retrom/internal/service/idempotency"
 )
 
 type ValidationRunner interface {
@@ -23,7 +25,7 @@ func NewValidationSupervisor(worker ValidationRunner, report func(error)) *Valid
 }
 
 func (supervisor *ValidationSupervisor) Resume(parent context.Context, id string) {
-	ctx, cancel := context.WithCancelCause(parent)
+	ctx, cancel := context.WithCancelCause(idempotency.WithoutCommand(parent))
 	defer cancel(context.Canceled)
 	done, accepted := supervisor.runs.register(cancel)
 	if !accepted {
@@ -35,7 +37,7 @@ func (supervisor *ValidationSupervisor) Resume(parent context.Context, id string
 
 // Dispatch registers the child before returning so Close can cancel and join it.
 func (supervisor *ValidationSupervisor) Dispatch(parent context.Context, id string) {
-	ctx, cancel := context.WithCancelCause(parent)
+	ctx, cancel := context.WithCancelCause(idempotency.WithoutCommand(parent))
 	done, accepted := supervisor.runs.register(cancel)
 	if !accepted {
 		return

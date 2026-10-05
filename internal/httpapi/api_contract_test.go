@@ -123,7 +123,7 @@ func (panicReader) Read([]byte) (int, error) {
 	panic("review screenshot body was read before credential validation")
 }
 
-func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {
+func TestDomainIdempotencySerializesConcurrentDirectoryCreates(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()

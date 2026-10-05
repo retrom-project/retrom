@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	idempotencypersistence "retrom/internal/persistence/idempotency"
+
 	arcaderecords "retrom/internal/persistence/arcade"
 
 	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
@@ -41,6 +43,7 @@ func (repository *ReviewApprovals) WithApproval(
 func BindReviewApproval(transaction dbapi.Tx) libraryservice.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return libraryservice.ReviewApprovalScope{
+		Commands:     idempotencypersistence.BindRecovery(transaction),
 		Publications: records, Payload: payloadpersistence.BindScheduling(transaction),
 		Reader: records, Media: records, Profiles: BindReviewInputs(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),

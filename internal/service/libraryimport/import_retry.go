@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -70,7 +72,15 @@ func (service *ImportItemRetries) Retry(
 		result = ImportItemRetryResult{
 			ItemID: request.ItemID, JobID: jobID, State: "QUEUED", Version: request.ExpectedVersion + 1,
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"itemId":  result.ItemID,
+				"jobId":   result.JobID,
+				"state":   result.State,
+				"version": result.Version,
+			},
+			Version: result.Version,
+		})
 	})
 	if err != nil {
 		return ImportItemRetryResult{}, fmt.Errorf("retry import item: %w", err)

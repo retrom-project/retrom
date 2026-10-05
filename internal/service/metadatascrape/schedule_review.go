@@ -3,6 +3,8 @@ package metadatascrape
 import (
 	"context"
 	"fmt"
+
+	"retrom/internal/service/idempotency"
 )
 
 func (scheduler *Scheduler) ScheduleReview(
@@ -37,7 +39,22 @@ func (scheduler *Scheduler) ScheduleReview(
 		if err != nil {
 			return err
 		}
-		return scope.Writes.Review(ctx, ReviewChange{ItemID: itemID, Version: draft.Version, Now: now})
+		if err := scope.Writes.Review(ctx, ReviewChange{ItemID: itemID, Version: draft.Version, Now: now}); err != nil {
+			return fmt.Errorf("advance review scrape version: %w", err)
+		}
+		state := "QUEUED"
+		if scheduled.Noop {
+			state = "SUCCEEDED"
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"scrapeRunId": scheduled.RunID,
+				"jobId":       scheduled.JobID,
+				"state":       state,
+				"version":     version + 1,
+			},
+			Version: version + 1, Created: scheduled.Noop,
+		})
 	})
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("schedule review scrape: %w", err)
@@ -86,7 +103,15 @@ func (scheduler *Scheduler) ScheduleGame(ctx context.Context, id string, version
 			return fmt.Errorf("advance game scrape version: %w", err)
 		}
 		scheduled = Scheduled{RunID: plan.RunID, JobID: plan.JobID}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"scrapeRunId": scheduled.RunID,
+				"jobId":       scheduled.JobID,
+				"state":       "QUEUED",
+				"version":     version + 1,
+			},
+			Version: version + 1,
+		})
 	})
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("schedule game scrape: %w", err)

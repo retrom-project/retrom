@@ -56,13 +56,10 @@ AND principal_id=?
 	return receipt, true, nil
 }
 
-func (repository *Repository) Save(
-	ctx context.Context,
-	operationID, key, principalID string,
-	receipt application.Receipt,
-	createdAtMS, expiresAtMS int64,
+func save(ctx context.Context, executor dbapi.Executor, operationID, key, principalID string,
+	receipt application.Receipt, createdAtMS, expiresAtMS int64,
 ) error {
-	if _, err := repository.database.ExecContext(ctx, `
+	result, err := executor.ExecContext(ctx, `
 INSERT INTO idempotency_records(principal_id,
 operation_id,
 key,
@@ -79,10 +76,30 @@ expires_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?)
+?) ON CONFLICT(principal_id,operation_id,key) DO UPDATE
+SET key=EXCLUDED.key WHERE idempotency_records.request_digest=EXCLUDED.request_digest
+AND idempotency_records.http_status=EXCLUDED.http_status
+AND idempotency_records.response_headers_json=EXCLUDED.response_headers_json
+AND idempotency_records.response_body=EXCLUDED.response_body
 `, principalID, operationID, key, receipt.RequestDigest, receipt.HTTPStatus,
-		receipt.HeadersJSON, receipt.Body, createdAtMS, expiresAtMS); err != nil {
+		receipt.HeadersJSON, receipt.Body, createdAtMS, expiresAtMS)
+	if err != nil {
 		return fmt.Errorf("write idempotency receipt: %w", err)
 	}
-	return nil
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count command completion: %w", err)
+	}
+	if count == 1 {
+		return nil
+	}
+	var digest string
+	if err := dbapi.QueryRowContext(ctx, executor, `SELECT request_digest FROM idempotency_records
+WHERE principal_id=? AND operation_id=? AND key=?`, principalID, operationID, key).Scan(&digest); err != nil {
+		return fmt.Errorf("read conflicting command completion: %w", err)
+	}
+	if digest != receipt.RequestDigest {
+		return application.ErrKeyReused
+	}
+	return application.ErrInvalidReceipt
 }

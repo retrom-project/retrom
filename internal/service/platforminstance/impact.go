@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -81,7 +83,15 @@ func (service *Service) ChangeDefaultCore(
 			return fmt.Errorf("record default core audit: %w", err)
 		}
 		change = DefaultCoreChangeResult{Version: expected + 1, UpdatedAtMS: now}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"id":            instanceID,
+				"defaultCoreId": coreID,
+				"version":       change.Version,
+				"updatedAtMs":   change.UpdatedAtMS,
+			},
+			Version: change.Version,
+		})
 	})
 	return change, repositoryError("change default core", err)
 }

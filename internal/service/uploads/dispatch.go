@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/telemetry"
 )
@@ -29,7 +31,7 @@ func (service *Service) register(parent context.Context, id string) (context.Con
 }
 
 func (service *Service) Resume(parent context.Context, id string) bool {
-	ctx, finish, ok := service.register(context.WithoutCancel(parent), id)
+	ctx, finish, ok := service.register(context.WithoutCancel(idempotency.WithoutCommand(parent)), id)
 	if !ok {
 		return false
 	}
@@ -62,7 +64,7 @@ func (service *Service) Start(parent context.Context) {
 	}
 	service.started = true
 	service.mutex.Unlock()
-	ctx, finish, ok := service.register(context.WithoutCancel(parent), "upload-recovery")
+	ctx, finish, ok := service.register(context.WithoutCancel(idempotency.WithoutCommand(parent)), "upload-recovery")
 	if !ok {
 		return
 	}

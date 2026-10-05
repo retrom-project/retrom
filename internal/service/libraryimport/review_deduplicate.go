@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -72,7 +74,18 @@ func (service *ReviewDeduplicator) Deduplicate(
 	err = service.repository.WithDeduplicate(ctx, func(scope ReviewDeduplicateScope) error {
 		var deduplicateErr error
 		result, deduplicateErr = service.deduplicateInScope(ctx, scope, request)
-		return deduplicateErr
+		if deduplicateErr != nil {
+			return deduplicateErr
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"scannedCount":          result.ScannedCount,
+				"discardedCount":        result.DiscardedCount,
+				"attachmentActiveCount": result.AttachmentActiveCount,
+				"nextAfterItemId":       result.NextAfterItemID,
+				"throughItemId":         result.ThroughItemID,
+			},
+		})
 	})
 	if err != nil {
 		return ReviewDeduplicateResult{}, fmt.Errorf("deduplicate review items: %w", err)

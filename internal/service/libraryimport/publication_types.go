@@ -3,12 +3,15 @@ package libraryimport
 import (
 	"context"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/service/importprogress"
 )
 
 // Publication is the durable decision of one import item. It freezes the
 // validated business facts once, then permits directory publication to resume.
 type Publication struct {
+	Command               *idempotency.FrozenCommand
 	IdentityDigest        string
 	Files                 []PublicationFile
 	Request               ReviewApprovalRequest

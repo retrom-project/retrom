@@ -6,12 +6,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -80,7 +78,6 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 			},
 		},
 	}
-	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	fixture := validationRetryFixture{server: server, now: now}
 	fixture.jobID = seedValidationRetry(t, fixture)
 	t.Cleanup(server.playDeps.Variants.Close)
@@ -214,7 +211,8 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 			}
 			return nil
 		}})
-	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
+	originalJobs := fixture.server.systemDeps.Jobs
+	fixture.server.systemDeps.Jobs = jobs.New(jobpersistence.New(fault), fixture.now)
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -225,8 +223,15 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
-	if state != "QUEUED" || attempt != 0 {
+	if state != "FAILED" || attempt != 0 {
 		t.Fatalf("receipt failure dispatched: %s/%d", state, attempt)
+	}
+	assertRetryReceiptRollback(t, fixture, 0)
+	fixture.server.systemDeps.Jobs = originalJobs
+	retry := httptest.NewRecorder()
+	fixture.request(t.Context(), retry)
+	if retry.Code != http.StatusAccepted {
+		t.Fatalf("retry after rollback=%d/%s", retry.Code, retry.Body.String())
 	}
 }
 
@@ -247,10 +252,28 @@ func TestValidationRetryBackgroundStartSurvivesResponseCancellation(t *testing.T
 	writer := validationCancellingWriter{ResponseRecorder: httptest.NewRecorder(), cancel: cancel}
 	fixture.request(ctx, writer)
 	if writer.Code != http.StatusAccepted {
-		t.Fatal(fmt.Sprintf("cancel retry: %d %s", writer.Code, writer.Body.String()))
+		t.Fatalf("cancel retry: %d %s", writer.Code, writer.Body.String())
 	}
 	state, execution, attempt := waitValidationRetry(t, fixture)
 	if ctx.Err() == nil || state != "SUCCEEDED" || execution != 2 || attempt != 1 {
 		t.Fatalf("background worker followed response cancellation: %s/%d/%d", state, execution, attempt)
+	}
+}
+
+func assertRetryReceiptRollback(t *testing.T, fixture validationRetryFixture, expectedAttempt int64) {
+	t.Helper()
+	var state string
+	var execution, attempt, receipts int64
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,execution_no,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &execution, &attempt); err != nil {
+		t.Fatal(err)
+	}
+	if state != "FAILED" || execution != 1 || attempt != expectedAttempt {
+		t.Fatalf("retry mutation escaped rollback: %s/%d/%d", state, execution, attempt)
+	}
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT count(*) FROM idempotency_records WHERE operation_id='postAdminJobRetry' AND key=?`, validationRetryKey).Scan(&receipts); err != nil {
+		t.Fatal(err)
+	}
+	if receipts != 0 {
+		t.Fatalf("receipt escaped rollback: %d", receipts)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -127,7 +129,7 @@ func (service *Service) Request(ctx context.Context, kind, id, userID string) (S
 		}
 		if current.State != "AVAILABLE" && current.State != "FAILED" {
 			result = current
-			return nil
+			return idempotency.Complete(ctx, idempotency.Result{Value: result})
 		}
 		auditID, err := uuid.NewV7()
 		if err != nil {
@@ -145,7 +147,7 @@ func (service *Service) Request(ctx context.Context, kind, id, userID string) (S
 			return failure("access discard status", err)
 		}
 		result = Status{Kind: kind, ImportID: id, State: "REQUESTED"}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result})
 	})
 	return result, failure("access discard status", err)
 }

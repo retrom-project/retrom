@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/filestore"
 
 	"github.com/google/uuid"
@@ -69,7 +71,7 @@ func (service *ReviewAssetUploads) Upload(ctx context.Context, request ReviewAss
 			AssetID: record.ID, Kind: record.Kind, Width: record.Width, Height: record.Height,
 			MediaType: record.MediaType, CreatedAtMS: record.CreatedAtMS, Version: request.ExpectedVersion,
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return ReviewAssetResult{}, fmt.Errorf("commit review asset upload: %w", err)

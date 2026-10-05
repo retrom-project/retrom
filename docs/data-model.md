@@ -159,7 +159,7 @@ Game、ImportItem、SaveState、BIOSInstallation、上传和抓取记录直接�
 
 Game 独占 `files/<UUID 后两位>/<Game UUID>/` 下的内容和媒体。ImportItem 独占 `staging/items/<Item UUID>/` 的 payload 和 scratch；发布移动整个 payload，审核截图等临时材料随 Item 终态清理；预览 checkpoint 由独立 `previews/<Preview UUID>/checkpoints/` 目录持有。存档、BIOS、抓取响应等仍由各自业务对象持有独立目录；Game 和 Launch 只能读取被授权的 BIOS 安装。
 
-`import_items` 的 `publication_game_id`、`publication_json` 和可选 `publication_bulk_id` 保存一次发布决定。审批先冻结当前输入和目标 Game UUID，转为 `PUBLISHING`；目录 rename 后再提交 Game/Variant 和 `PUBLISHED`。`PUBLISHING` 必须存在完整决定，其他状态没有未完成决定。启动和后台恢复继续同一决定，重复批准返回同一个 Game UUID。`PUBLISHING` 仍属于未完成审核；只有最终事务提交产物及授权关闭后才是 `PUBLISHED`。终态清理移除来源快照、派生文件、刮削候选及草稿关系，Item 仅保留完成结果和恢复父任务所需的最小原始内容类型/manifest 摘要；这些摘要不提供产品运行权。
+`import_items` 的 `publication_game_id`、`publication_json` 和可选 `publication_bulk_id` 保存一次发布决定。`publication_json` 的可选 Command 保存原 principal/operation/key/digest、白名单响应及 created/expires 毫秒时刻；它是未完成发布的恢复输入，不能单独作为成功回执。该 JSON 扩展复用现有列和 `idempotency_records` 结构，无 DDL 迁移。审批先冻结当前输入和目标 Game UUID，转为 `PUBLISHING`；目录 rename 后再提交 Game/Variant 和 `PUBLISHED`。`PUBLISHING` 必须存在完整决定，其他状态没有未完成决定。启动和后台恢复继续同一决定，重复批准返回同一个 Game UUID。`PUBLISHING` 仍属于未完成审核；只有最终事务提交产物及授权关闭后才是 `PUBLISHED`。终态清理移除来源快照、派生文件、刮削候选及草稿关系，Item 仅保留完成结果和恢复父任务所需的最小原始内容类型/manifest 摘要；这些摘要不提供产品运行权。
 
 `archive_entries` 保存归档扫描事实；文件复制时复制所需事实，目录退休时删除对应事实。已发布文件的读取不依赖原上传归档仍然存在。
 

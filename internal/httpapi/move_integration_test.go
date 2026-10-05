@@ -95,13 +95,6 @@ updated_at_ms) VALUES(?,
 	}
 	responses := make([]*httptest.ResponseRecorder, len(keys))
 	var wait sync.WaitGroup
-	server.idempotency.Lock()
-	idempotencyLocked := true
-	defer func() {
-		if idempotencyLocked {
-			server.idempotency.Unlock()
-		}
-	}()
 	for index := range keys {
 		wait.Add(1)
 		go func() {
@@ -109,30 +102,14 @@ updated_at_ms) VALUES(?,
 			responses[index] = send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[index], `"v1"`)
 		}()
 	}
-	waitForIdempotencyQueue(t, server, len(keys))
-	server.idempotency.Unlock()
-	idempotencyLocked = false
 	wait.Wait()
-	jobIDs := make([]string, len(responses))
-	for index, response := range responses {
-		var payload struct {
-			Status string `json:"status"`
-			JobID  string `json:"jobId"`
-		}
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil ||
-			response.Code != http.StatusAccepted || payload.Status != "VALIDATION_PENDING" || payload.JobID == "" {
-			t.Fatalf("move preview %d = %d %s, error=%v", index, response.Code, response.Body.String(), err)
-		}
-		jobIDs[index] = payload.JobID
+	pendingIndex, jobID := assertConcurrentMovePreviews(t, responses)
+	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
+	replayed := send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[pendingIndex], `"v1"`)
+	if replayed.Code != http.StatusAccepted || replayed.Body.String() != responses[pendingIndex].Body.String() || replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" {
+		t.Fatalf("old preview response changed after worker completion: %d %s", replayed.Code, replayed.Body.String())
 	}
-	testassert.Falsef(t, jobIDs[0] != jobIDs[1], "concurrent move previews queued different jobs: %v", jobIDs)
-	waitForHTTPJob(t, server.database, jobIDs[0], "SUCCEEDED")
 
-	replayed := send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[0], `"v1"`)
-	testassert.Falsef(t,
-		testassert.Any(func() bool { return replayed.Code != http.StatusAccepted },
-			func() bool { return replayed.Body.String() != responses[0].Body.String() }),
-		"old preview key was not replayed: %d %s", replayed.Code, replayed.Body.String())
 	ready := send(
 		"/api/v1/admin/games/"+gameID+"/move-preview",
 		previewBody,
@@ -180,21 +157,6 @@ WHERE id=?
 		func() bool { return variantCount != 2 }, func() bool { return auditCount != 1 }),
 		"move state = target:%s content:%s version:%d variants:%d audits:%d", storedTarget,
 		storedContent, version, variantCount, auditCount)
-}
-
-func waitForIdempotencyQueue(t *testing.T, server *testServer, expected int) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		server.idempotencyQueueMu.Lock()
-		waiters := server.idempotencyQueueWaiters
-		server.idempotencyQueueMu.Unlock()
-		if waiters == expected {
-			return
-		}
-		testassert.Falsef(t, time.Now().After(deadline), "idempotency queue waiters = %d, want %d", waiters, expected)
-		time.Sleep(time.Millisecond)
-	}
 }
 
 func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
@@ -993,4 +955,43 @@ func waitForHTTPJob(t *testing.T, database dbapi.Queryer, jobID, expected string
 			"job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+func assertConcurrentMovePreviews(t *testing.T, responses []*httptest.ResponseRecorder) (int, string) {
+	t.Helper()
+	pendingIndex := -1
+	jobID := ""
+	for index, response := range responses {
+		var payload struct {
+			Status       string          `json:"status"`
+			JobID        string          `json:"jobId"`
+			Impact       *gameMoveImpact `json:"impact"`
+			ImpactDigest string          `json:"impactDigest"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		switch response.Code {
+		case http.StatusAccepted:
+			if payload.Status != "VALIDATION_PENDING" || payload.JobID == "" {
+				t.Fatalf("pending preview = %s", response.Body.String())
+			}
+			if jobID != "" && jobID != payload.JobID {
+				t.Fatalf("concurrent previews created different jobs: %s / %s", jobID, payload.JobID)
+			}
+			jobID, pendingIndex = payload.JobID, index
+		case http.StatusOK:
+			// An unrelated identity can reach the handler after validation has
+			// completed; its own response must contain the complete ready impact.
+			if payload.Impact == nil || payload.Impact.VariantStatus != "READY" || payload.ImpactDigest == "" {
+				t.Fatalf("ready concurrent preview = %s", response.Body.String())
+			}
+		default:
+			t.Fatalf("move preview %d = %d %s", index, response.Code, response.Body.String())
+		}
+	}
+	if pendingIndex < 0 {
+		t.Fatal("no preview admitted target validation")
+	}
+	return pendingIndex, jobID
 }

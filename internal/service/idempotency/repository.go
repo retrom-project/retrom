@@ -14,7 +14,7 @@ type Receipt struct {
 // may use any database, while the service keeps the HTTP middleware free of
 // storage details.
 type Repository interface {
+	Coordinate(context.Context, Request, *Command, func(context.Context) error) error
 	DeleteExpired(context.Context, string, string, string, int64) error
 	Find(context.Context, string, string, string) (Receipt, bool, error)
-	Save(context.Context, string, string, string, Receipt, int64, int64) error
 }

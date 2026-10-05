@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -13,32 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/telemetry"
+
 	"retrom/internal/authn"
 	idempotencyservice "retrom/internal/service/idempotency"
 )
 
 const operationIDContextKey contextKey = "openapi-operation-id"
-
-var domainIdempotencyOperations = map[string]struct{}{
-	"deleteAdminAccountLink":                        {},
-	"deleteAdminUser":                               {},
-	"patchAdminUser":                                {},
-	"postAdminInvitation":                           {},
-	"postAdminUserPasswordResetLink":                {},
-	"postLaunch":                                    {},
-	"postLocalGameSave":                             {},
-	"postRuntimeSaveState":                          {},
-	"postAdminGameContentReplacement":               {},
-	"postAdminPlatformInstanceRecommendationsApply": {},
-	"postAdminPlatformInstance":                     {},
-	"postFavoriteOrganize":                          {},
-	"postFavoriteUnfavorite":                        {},
-	"postFavoriteRestore":                           {},
-	"postFavoriteFolder":                            {},
-	"patchFavoriteFolder":                           {},
-	"deleteFavoriteFolder":                          {},
-	"deleteAdminGame":                               {},
-}
 
 type bufferedResponse struct {
 	header      http.Header
@@ -66,137 +48,130 @@ func (response *bufferedResponse) Write(contents []byte) (int, error) {
 	return written, nil
 }
 
-// Contract branches stay contiguous for a single auditable decision.
 func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		operationID, _ := request.Context().Value(operationIDContextKey).(string)
-		operationID = lowerFirst(operationID)
+		operation, _ := request.Context().Value(operationIDContextKey).(string)
+		operation = lowerFirst(operation)
 		key := request.Header.Get("Idempotency-Key")
-		if operationID == "" || key == "" {
+		if _, supported := commandResponses[operation]; !supported || key == "" {
 			next.ServeHTTP(writer, request)
 			return
 		}
-		if _, handledByDomain := domainIdempotencyOperations[operationID]; handledByDomain {
-			next.ServeHTTP(writer, request)
+		identity, valid := commandIdentity(writer, request, operation, key)
+		if !valid {
 			return
 		}
-		principal, _ := authn.PrincipalFromContext(request.Context())
-		principalID := principal.UserID
-		if principalID == "" {
-			principalID = "SYSTEM"
-		}
-		contents, err := io.ReadAll(io.LimitReader(request.Body, (16<<20)+1))
-		if err != nil || len(contents) > 16<<20 {
-			writeError(
-				writer,
-				request,
-				http.StatusRequestEntityTooLarge,
-				"REQUEST_TOO_LARGE",
-				"请求内容超过限制",
-				map[string]any{},
-			)
-			return
-		}
-		request.Body = io.NopCloser(bytes.NewReader(contents))
-		digest, ok := semanticRequestDigest(request, principalID, operationID, contents)
-		if !ok {
-			next.ServeHTTP(writer, request)
-			return
-		}
-		server.lockIdempotentRequest()
-		defer server.idempotency.Unlock()
-		idempotencyRecords := server.systemDeps.Idempotency
-		now := server.now().UnixMilli()
-		if err := idempotencyRecords.PurgeExpired(
-			request.Context(), operationID, key, principalID, now,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		stored, found, err := idempotencyRecords.Lookup(
-			request.Context(), operationID, key, principalID,
-		)
+		ctx, command := idempotencyservice.NewCommand(request.Context(), identity,
+			server.commandEncoder(operation), server.now().UnixMilli())
+		var response *bufferedResponse
+		var stored idempotencyservice.Receipt
+		var replay bool
+		err := server.systemDeps.Idempotency.Coordinate(ctx, identity, command, func(ctx context.Context) error {
+			var err error
+			stored, replay, err = server.loadCommandReceipt(ctx, identity)
+			if err != nil || replay {
+				return err
+			}
+			response = &bufferedResponse{header: make(http.Header)}
+			started := time.Now()
+			next.ServeHTTP(response, request.WithContext(ctx))
+			telemetry.RecordTiming(ctx, telemetry.Handler, time.Since(started))
+			if response.status == 0 {
+				response.status = http.StatusOK
+			}
+			if err := command.Failure(); err != nil {
+				return fmt.Errorf("complete command transaction: %w", err)
+			}
+			if receipt, committed := command.Receipt(); committed {
+				stored = receipt
+				return nil
+			}
+			if response.status >= 200 && response.status < 300 {
+				return idempotencyservice.ErrCommandIncomplete
+			}
+			return nil
+		})
 		if err != nil {
-			server.databaseError(writer, request, err)
+			server.writeCommandError(writer, request, err)
 			return
 		}
-		if found {
-			server.replayIdempotentResponse(
-				writer, request, digest, stored.RequestDigest,
-				stored.HTTPStatus, stored.HeadersJSON, stored.Body,
-			)
-			return
-		}
-		response := &bufferedResponse{header: make(http.Header)}
-		next.ServeHTTP(response, request)
-		if response.status == 0 {
-			response.status = http.StatusOK
-		}
-		committed, err := server.storeBufferedIdempotencyResponse(
-			request.Context(), idempotencyRecords, operationID, key, principalID, digest, response, now,
-		)
-		if err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		copyResponse(writer, response)
-		response.runAfterCommit(committed)
+		server.writeCommandResponse(ctx, writer, request, identity, response, stored, replay)
 	})
 }
 
-func (server *Server) storeBufferedIdempotencyResponse(
-	ctx context.Context,
-	records *idempotencyservice.Service,
-	operationID, key, principalID, digest string,
-	response *bufferedResponse,
-	nowMS int64,
-) (bool, error) {
-	if response.status < 200 || response.status >= 300 || response.body.Len() > 1<<20 {
-		return false, nil
+func commandIdentity(writer http.ResponseWriter, request *http.Request, operation, key string) (
+	idempotencyservice.Request, bool,
+) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	principalID := principal.UserID
+	if principalID == "" {
+		principalID = "SYSTEM"
 	}
-	headers := responseHeadersForReplay(response.header)
-	encodedHeaders, err := json.Marshal(headers)
+	contents, err := io.ReadAll(io.LimitReader(request.Body, (16<<20)+1))
+	if err != nil || len(contents) > 16<<20 {
+		writeError(writer, request, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "请求内容超过限制", map[string]any{})
+		return idempotencyservice.Request{}, false
+	}
+	request.Body = io.NopCloser(bytes.NewReader(contents))
+	digest, ok := semanticRequestDigest(request, principalID, operation, contents)
+	if !ok {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "幂等请求内容无效", map[string]any{})
+		return idempotencyservice.Request{}, false
+	}
+	return idempotencyservice.Request{PrincipalID: principalID, OperationID: operation, Key: key, Digest: digest}, true
+}
+
+func (server *Server) loadCommandReceipt(ctx context.Context, identity idempotencyservice.Request) (
+	idempotencyservice.Receipt, bool, error,
+) {
+	started := time.Now()
+	defer func() { telemetry.RecordTiming(ctx, telemetry.ReceiptIO, time.Since(started)) }()
+	records := server.systemDeps.Idempotency
+	if err := records.PurgeExpired(ctx, identity.OperationID, identity.Key, identity.PrincipalID,
+		server.now().UnixMilli()); err != nil {
+		return idempotencyservice.Receipt{}, false, fmt.Errorf("purge command receipt: %w", err)
+	}
+	receipt, found, err := records.Lookup(ctx, identity.OperationID, identity.Key, identity.PrincipalID)
 	if err != nil {
-		return false, fmt.Errorf("encode idempotency response headers: %w", err)
+		return idempotencyservice.Receipt{}, false, fmt.Errorf("read command receipt: %w", err)
 	}
-	responseBody := make([]byte, response.body.Len())
-	copy(responseBody, response.body.Bytes())
-	if err := records.Store(
-		ctx, operationID, key, principalID,
-		idempotencyservice.Receipt{
-			RequestDigest: digest,
-			HTTPStatus:    response.status,
-			HeadersJSON:   string(encodedHeaders),
-			Body:          responseBody,
-		},
-		nowMS, nowMS+int64(24*time.Hour/time.Millisecond),
-	); err != nil {
-		return false, fmt.Errorf("store idempotency response: %w", err)
-	}
-	return true, nil
+	return receipt, found, nil
 }
 
-func (server *Server) lockIdempotentRequest() {
-	server.idempotencyQueueMu.Lock()
-	server.idempotencyQueueWaiters++
-	server.idempotencyQueueMu.Unlock()
-
-	server.idempotency.Lock()
-
-	server.idempotencyQueueMu.Lock()
-	server.idempotencyQueueWaiters--
-	if server.idempotencyQueueWaiters == 0 {
-		server.idempotencyQueueDrained.Broadcast()
+func (server *Server) writeCommandResponse(ctx context.Context, writer http.ResponseWriter, request *http.Request,
+	identity idempotencyservice.Request, response *bufferedResponse,
+	stored idempotencyservice.Receipt, replay bool,
+) {
+	if replay {
+		if identity.OperationID == "postAdminReviewPreview" && !server.ensureRuntimeSession(writer, request) {
+			return
+		}
+		server.replayIdempotentResponse(writer, request, identity.Digest, stored.RequestDigest,
+			stored.HTTPStatus, stored.HeadersJSON, stored.Body)
+		return
 	}
-	server.idempotencyQueueMu.Unlock()
+	if stored.HTTPStatus == 0 {
+		copyResponse(writer, response)
+		return
+	}
+	// The committed transaction owns the response even if a later read fails or
+	// a worker advances the resource. Identity coordination has already ended.
+	applyCommandReceipt(response, stored)
+	copyResponse(writer, response)
+	started := time.Now()
+	response.runAfterCommit(true)
+	telemetry.RecordTiming(ctx, telemetry.AfterCommit, time.Since(started))
 }
 
-func (server *Server) waitForQueuedIdempotentRequests() {
-	server.idempotencyQueueMu.Lock()
-	defer server.idempotencyQueueMu.Unlock()
-	for server.idempotencyQueueWaiters > 0 {
-		server.idempotencyQueueDrained.Wait()
+func applyCommandReceipt(response *bufferedResponse, receipt idempotencyservice.Receipt) {
+	var headers map[string]string
+	_ = json.Unmarshal([]byte(receipt.HeadersJSON), &headers)
+	for name, value := range headers {
+		response.header.Set(name, value)
 	}
+	response.status = receipt.HTTPStatus
+	response.body.Reset()
+	_, _ = response.body.Write(receipt.Body)
 }
 
 func (server *Server) replayIdempotentResponse(
@@ -258,16 +233,6 @@ func nullableHeader(value string) any {
 	return value
 }
 
-func responseHeadersForReplay(header http.Header) map[string]string {
-	result := make(map[string]string)
-	for _, name := range []string{"Content-Type", "Location", "ETag", "Retry-After"} {
-		if value := header.Get(name); value != "" {
-			result[name] = value
-		}
-	}
-	return result
-}
-
 func copyResponse(writer http.ResponseWriter, response *bufferedResponse) {
 	for name, values := range response.header {
 		for _, value := range values {
@@ -283,4 +248,12 @@ func lowerFirst(value string) string {
 		return ""
 	}
 	return strings.ToLower(value[:1]) + value[1:]
+}
+
+func (server *Server) writeCommandError(writer http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, idempotencyservice.ErrKeyReused) {
+		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
+		return
+	}
+	server.databaseError(writer, request, err)
 }

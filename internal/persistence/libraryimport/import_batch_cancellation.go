@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
 
 	dbapi "retrom/internal/database"
@@ -33,7 +35,23 @@ func (repository *ImportBatchCancellations) Cancel(
 	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
 		var err error
 		result, err = repository.cancelInScope(ctx, tx, request, now)
-		return err
+		if err != nil {
+			return err
+		}
+		// Internal batch disposition owns a different command; only the explicit
+		// cancellation endpoint completes this projection.
+		command := idempotency.RequestFromContext(ctx)
+		if command == nil || command.OperationID != "postAdminImportCancel" {
+			return nil
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"importJobId": result.ImportID,
+				"state":       result.State,
+				"version":     result.Version,
+			},
+			Version: result.Version, Accepted: result.Pending,
+		})
 	})
 	if err != nil {
 		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("Cancel transaction: %w", err)

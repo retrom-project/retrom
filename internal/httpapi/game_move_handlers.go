@@ -12,6 +12,8 @@ import (
 
 	"retrom/internal/authn"
 	gamemove "retrom/internal/service/gamemove"
+	"retrom/internal/service/gamevariant"
+	"retrom/internal/service/idempotency"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -83,14 +85,7 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 			impact.TargetCoreID,
 		)
 		if ensureErr != nil {
-			writeError(
-				writer,
-				request,
-				http.StatusConflict,
-				"VARIANT_VALIDATION_FAILED",
-				"目标核心验证无法创建或已失败",
-				map[string]any{},
-			)
+			server.moveValidationError(writer, request, ensureErr)
 			return
 		}
 		if !pending.Ready {
@@ -99,7 +94,10 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 				http.StatusAccepted,
 				map[string]any{"status": "VALIDATION_PENDING", "jobId": pending.JobID, "retryAfterMs": pending.RetryAfterMS},
 			)
-			server.resumeMoveValidationAfterIdempotency(context.WithoutCancel(request.Context()), pending.JobID)
+			ctx := idempotency.WithoutCommand(context.WithoutCancel(request.Context()))
+			afterIdempotencyCommit(writer, func() {
+				server.resumeMoveValidation(ctx, pending.JobID)
+			})
 			return
 		}
 		impact, err = server.calculateMoveImpact(request, body.TargetPlatformInstanceID, expected)
@@ -115,18 +113,17 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 			return
 		}
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"impact": impact, "impactDigest": moveDigest(impact)})
+	bodyResult := map[string]any{"impact": impact, "impactDigest": moveDigest(impact)}
+	if err := idempotency.CompleteRead(request.Context(), idempotency.Result{Value: bodyResult}); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, bodyResult)
 }
 
-func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, jobID string) {
+func (server *Server) resumeMoveValidation(ctx context.Context, jobID string) {
 	server.deferredWork.Go(func() {
-		// Move preview responses are persisted while this mutex is held. Let
-		// requests already queued for that mutex observe the queued Job before a
-		// very small validation can become READY.
-		server.waitForQueuedIdempotentRequests()
-		server.idempotency.Lock()
 		state, err := server.libraryDeps.Moves.QueuedJobState(ctx, jobID)
-		server.idempotency.Unlock()
 		if err == nil && state == "QUEUED" {
 			server.playDeps.Variants.Resume(ctx, jobID)
 		}
@@ -310,4 +307,13 @@ func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *
 			"evidenceCount": result.EvidenceCount, "items": items,
 		},
 	)
+}
+
+func (server *Server) moveValidationError(writer http.ResponseWriter, request *http.Request, err error) {
+	if !errors.Is(err, gamevariant.ErrBlocked) {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeError(writer, request, http.StatusConflict, "VARIANT_VALIDATION_FAILED",
+		"目标核心验证无法创建或已失败", map[string]any{})
 }

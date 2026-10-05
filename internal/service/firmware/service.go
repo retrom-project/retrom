@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 	"retrom/internal/firmware"
@@ -158,7 +160,10 @@ func (service *Service) Install(
 			}
 		}
 		result, err = persistBrowserInstallation(ctx, scope, current, installationID.String(), status, details, now)
-		return err
+		if err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.ValidatedRequirementVersion})
 	})
 	if err != nil {
 		return Installation{}, fmt.Errorf("install BIOS: %w", err)

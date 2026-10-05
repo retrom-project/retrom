@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"retrom/internal/service/idempotency"
 )
 
 func (service *ImportExecutions) CancelJob(
@@ -32,7 +34,7 @@ func (service *ImportExecutions) CancelJob(
 					ExecutionNo: before.Creation.Execution.ExecutionNo, Version: before.Creation.JobVersion,
 					Pending: before.Creation.JobState == "CANCEL_REQUESTED",
 				}
-				return nil
+				return completeJobCancellation(ctx, result)
 			}
 			if !before.Cancellable || !importCancellable(before) {
 				return ErrVersionConflict
@@ -58,7 +60,7 @@ func (service *ImportExecutions) CancelJob(
 				Version:     before.Creation.JobVersion + 1,
 				Pending:     pending,
 			}
-			return nil
+			return completeJobCancellation(ctx, result)
 		},
 	)
 	if err != nil {
@@ -147,4 +149,19 @@ func normalizeImportCancellation(request ImportJobCancellation) (ImportJobCancel
 		return ImportJobCancellation{}, ErrInvalid
 	}
 	return request, nil
+}
+
+func completeJobCancellation(ctx context.Context, result ImportCancellationResult) error {
+	if err := idempotency.Complete(ctx, idempotency.Result{
+		Value: map[string]any{
+			"jobId":       result.JobID,
+			"state":       result.State,
+			"executionNo": result.ExecutionNo,
+			"version":     result.Version,
+		},
+		Version: result.Version, Accepted: result.Pending,
+	}); err != nil {
+		return fmt.Errorf("complete command receipt: %w", err)
+	}
+	return nil
 }

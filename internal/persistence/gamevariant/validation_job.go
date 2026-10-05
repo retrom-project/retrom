@@ -50,21 +50,8 @@ func (repository *ValidationJobs) Write(ctx context.Context, plan application.Va
 		if err := repository.retry(ctx, plan); err != nil {
 			return err
 		}
-	} else if _, err := repository.executor.ExecContext(
-		ctx,
-		`INSERT INTO jobs(
- id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
- attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'GAME_VARIANT',?,'VARIANT_VALIDATE',?,1,?,0,'QUEUED',0,2,?,?,?)`,
-		plan.JobID,
-		plan.VariantID,
-		plan.DedupeKey,
-		plan.PayloadJSON,
-		plan.NowMS,
-		plan.NowMS,
-		plan.NowMS,
-	); err != nil {
-		return fmt.Errorf("insert validation job: %w", err)
+	} else if err := repository.create(ctx, plan); err != nil {
+		return err
 	}
 	if _, err := repository.executor.ExecContext(ctx, `
 INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
@@ -108,6 +95,37 @@ WHERE id=? AND version=? AND state='FAILED' AND error_retryable=1`,
 		return fmt.Errorf("count validation job changes: %w", err)
 	}
 	if affected != 1 {
+		return application.ErrBlocked
+	}
+	return nil
+}
+
+// A concurrent insertion outside the serializable snapshot aborts the attempt;
+// the enclosing SQL-only retry reloads and shares the already admitted job.
+func (repository *ValidationJobs) create(ctx context.Context, plan application.ValidationJobWrite) error {
+	result, err := repository.executor.ExecContext(
+		ctx,
+		`INSERT INTO jobs(
+ id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+ attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'GAME_VARIANT',?,'VARIANT_VALIDATE',?,1,?,0,'QUEUED',0,2,?,?,?)
+ON CONFLICT(kind,dedupe_key) DO NOTHING`,
+		plan.JobID,
+		plan.VariantID,
+		plan.DedupeKey,
+		plan.PayloadJSON,
+		plan.NowMS,
+		plan.NowMS,
+		plan.NowMS,
+	)
+	if err != nil {
+		return fmt.Errorf("insert validation job: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count admitted validation job: %w", err)
+	}
+	if count != 1 {
 		return application.ErrBlocked
 	}
 	return nil

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 
 	"github.com/google/uuid"
@@ -48,7 +50,14 @@ func (service *Service) Complete(ctx context.Context, id string, version int64) 
 			return fmt.Errorf("mark upload files finalizing: %w", err)
 		}
 		run = job.Run
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"uploadId":       id,
+				"jobId":          run.JobID,
+				"finalizationNo": run.FinalizationNo,
+				"state":          "FINALIZING",
+			},
+		})
 	})
 	if err != nil {
 		return "", 0, fmt.Errorf("complete upload: %w", err)

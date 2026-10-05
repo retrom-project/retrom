@@ -75,7 +75,7 @@ func (service *AttachmentExecutions) CancelJob(
 				JobID: before.ID, State: before.State, ExecutionNo: before.ExecutionNo,
 				Version: before.Version, Pending: before.State == "CANCEL_REQUESTED",
 			}
-			return nil
+			return completeJobCancellation(ctx, result)
 		}
 		if !attachmentCancellable(before) {
 			return ErrVersionConflict
@@ -94,7 +94,10 @@ func (service *AttachmentExecutions) CancelJob(
 			JobID: before.ID, State: state,
 			Version: before.Version + 1, ExecutionNo: before.ExecutionNo, Pending: state == "CANCEL_REQUESTED",
 		}
-		return scheduleFinishedAttachmentInputs(ctx, records, now)
+		if err := scheduleFinishedAttachmentInputs(ctx, records, now); err != nil {
+			return err
+		}
+		return completeJobCancellation(ctx, result)
 	})
 	if err != nil {
 		return ImportCancellationResult{}, fmt.Errorf("cancel attachment: %w", err)

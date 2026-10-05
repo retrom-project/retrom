@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/jobinput"
 )
 
@@ -49,7 +51,7 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 			return fmt.Errorf("retry job: %w", err)
 		}
 		result = Result{Kind: job.Kind, JobID: jobID, State: "QUEUED", ExecutionNo: executionNo, Version: job.Version + 1}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return Result{}, fmt.Errorf("jobs/retry: %w", err)

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 )
 
@@ -53,7 +55,18 @@ func (service *Service) ApplyCandidate(
 	var result ApplyCandidateResult
 	err = service.repository.WithCandidateApply(ctx, func(scope CandidateApplyScope) error {
 		result = ApplyCandidateResult{}
-		return service.applyCandidateInScope(ctx, scope, request, now, &result)
+		if err := service.applyCandidateInScope(ctx, scope, request, now, &result); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"gameId":      request.GameID,
+				"assetIds":    result.AssetIDs,
+				"version":     result.Version,
+				"updatedAtMs": result.UpdatedAtMS,
+			},
+			Version: result.Version,
+		})
 	})
 	if err != nil {
 		return ApplyCandidateResult{}, fmt.Errorf("apply scrape candidate: %w", err)

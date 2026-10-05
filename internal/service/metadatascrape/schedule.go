@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -150,5 +152,5 @@ func (scheduler *Scheduler) start(ctx context.Context, scheduled Scheduled) {
 	if scheduled.Noop || scheduler.runner == nil {
 		return
 	}
-	scheduler.runner.Dispatch(ctx, scheduled.RunID)
+	scheduler.runner.Dispatch(idempotency.WithoutCommand(ctx), scheduled.RunID)
 }

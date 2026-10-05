@@ -2,6 +2,8 @@ package tagging
 
 import (
 	"context"
+
+	"retrom/internal/service/idempotency"
 )
 
 func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (AdminItem, error) {
@@ -35,7 +37,10 @@ func (service *Service) Create(ctx context.Context, actorUserID, rawName string)
 			},
 			service.now().UnixMilli(),
 		)
-		return err
+		if err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, ResourceID: result.TagID})
 	})
 	return result, repositoryError("create", err)
 }
@@ -93,7 +98,7 @@ func (service *Service) Rename(
 		if err != nil {
 			return repositoryError("read renamed tag", err)
 		}
-		return writeAudit(
+		if err := writeAudit(
 			ctx,
 			scope.Audit,
 			actorUserID,
@@ -109,7 +114,10 @@ func (service *Service) Rename(
 				},
 			},
 			now,
-		)
+		); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	return result, repositoryError("rename", err)
 }
@@ -155,7 +163,7 @@ func (service *Service) Delete(
 		if err != nil {
 			return repositoryError("read deleted tag", err)
 		}
-		return writeAudit(
+		if err := writeAudit(
 			ctx,
 			scope.Audit,
 			actorUserID,
@@ -168,7 +176,10 @@ func (service *Service) Delete(
 				"impact": impact,
 			},
 			now,
-		)
+		); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	return result, impact, repositoryError("delete", err)
 }

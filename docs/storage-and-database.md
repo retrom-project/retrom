@@ -93,7 +93,7 @@ PostgreSQL 首版直接创建 `BIGINT` 毫秒列。本次切换不保留业务�
 - `database.DB.BeginTx` 默认使用 `SERIALIZABLE` 写事务；显式 `ReadOnly` 使用 `REPEATABLE READ` 快照。数据库允许不同事务并发，不再依赖进程级单写者。涉及授权、版本、租约和输入快照的最终检查与写入必须同事务；需要阻止同一记录变化时使用条件更新或行锁。
 - PostgreSQL 可能返回序列化失败 `40001` 或死锁 `40P01`。只有经过审查的纯数据库事务边界使用 `database.RetryTransaction`，最多八次、指数退避且受 context 约束。回调每次重读事实、覆盖返回结果，不累积外部状态；文件复制/发布、哈希、网络、Provider 解析和任务派发必须在可重试范围外。事务错误仍保留原始原因。
 - 依赖目录写入使用单独的数据库级 advisory transaction lock 与 `READ COMMITTED`，等待上限 60 秒且服从 context。目录发布者依次提交，等待后重读最新状态；普通游戏、账户和任务写入不获取该锁。大型 DAT 物化不参与全库 SSI 谓词冲突，版本、索引、活动选择和发布收据仍原子提交；测试 DAT 发布也必须取得同一目录锁。
-- 写连接池上限 16、独立只读池上限 8，各保留至多 4 个空闲连接。组合层显式注入 reader/writer，受保护列表与账户鉴权使用 reader，写事务的事实重验与收据不能跨池拆开。
+- 写连接池上限 16、独立只读池上限 8，各保留至多 4 个空闲连接。通用命令另用上限 16、空闲上限 4 的协调池持有 session advisory lock；它不占用 reader/writer 连接，不开启跨 handler 的事务。同身份的本地等待者不占用协调连接；取消后用有界清理释放锁，无法确认释放时丢弃物理连接。组合层显式注入 reader/writer，受保护列表与账户鉴权使用 reader，写事务的事实重验与收据不能跨池拆开。
 - 有效会话续期最多等待写事务 100ms；超时后重读当前已提交的权限和到期事实，不伪造续期。
 - 连接池与事务统计分别记录等待、BEGIN、SQL、行消费、COMMIT 和持有时间。慢调用 500ms、慢写事务 100ms 输出无 SQL/参数/凭据的结构化日志。驱动取消必须释放连接，故障注入连接必须透传驱动的连接有效性与重置语义。
 - 标志列使用 `BIGINT CHECK(value IN (0,1))`，适配器绑定 Go bool 为 0/1；SQL `EXISTS` 等布尔表达式直接扫描到 Go bool。二进制摘要和响应体使用 `BYTEA`。枚举使用 `TEXT` 加 `CHECK` 或字典表。
@@ -386,6 +386,8 @@ PFB loose provider 与 production active descriptor 的 source 和目录必须�
 PostgreSQL、migration、独立文件存储、后台删除统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-AUTH-001`–`002`、`ACC-ISO-*`、`ACC-TAG-001` 与 `ACC-ES-002/004`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`、`ACC-ES-001`。本文不再维护重复通过条件。
 
 ### 请求与 PostgreSQL 分段观测
+
+请求另记录 `idempotency_wait_ms/receipt_io_ms/handler_ms/after_commit_ms`，分别区分身份协调等待、回执读取/事务内保存、handler 和提交后唤醒；协调池等待属于身份等待，普通数据库池计数不包含它。
 
 共享 `telemetry` 只携带请求关联 ID、固定操作名和累计时间；accounts 不依赖数据库包，仍通过业务 repository 获取事务。PostgreSQL adapter 的 `Rows` 边界统计 Next/Scan/Close，分别记录连接池等待、BEGIN、SQL 调用、行消费、COMMIT、写事务持有及扣除 SQL/行消费/提交后的事务内时间。独立查询及取消中的事务必须释放连接；所有连接执行相同 PostgreSQL 初始化设置，生产持久化强度不降低。
 

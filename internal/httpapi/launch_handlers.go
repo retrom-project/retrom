@@ -97,6 +97,9 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核预览请求无效", map[string]any{})
 		return
 	}
+	if !server.ensureRuntimeSession(writer, request) {
+		return
+	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	created, err := server.reviewDeps.Previews.Create(request.Context(), launch.ReviewPreviewRequest{
 		ImportItemID: request.PathValue("importItemId"), ActorUserID: principal.UserID,
@@ -110,9 +113,6 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 		writeError(writer, request, http.StatusUnprocessableEntity, code, message, map[string]any{
 			"bestEffort": true,
 		})
-		return
-	}
-	if !server.ensureRuntimeSession(writer, request) {
 		return
 	}
 	writeJSON(writer, http.StatusCreated, created)

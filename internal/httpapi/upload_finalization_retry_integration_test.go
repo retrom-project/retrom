@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
-	idempotencypersistence "retrom/internal/persistence/idempotency"
+	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
-	idempotencyservice "retrom/internal/service/idempotency"
+	"retrom/internal/service/jobs"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -62,7 +62,8 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 			return nil
 		},
 	})
-	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
+	originalJobs := fixture.server.systemDeps.Jobs
+	fixture.server.systemDeps.Jobs = jobs.New(jobpersistence.New(fault), fixture.now)
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -73,16 +74,23 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
-	if state != "QUEUED" || attempt != 0 {
+	if state != "FAILED" || attempt != 1 {
 		t.Fatalf("receipt failure invoked dispatch: %s/%d", state, attempt)
 	}
-	// The mutation has its own committed transaction. A later durable recovery is still allowed.
+	assertRetryReceiptRollback(t, fixture.validationRetryFixture, 1)
 	if err := fixture.server.importDeps.Uploads.Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	state, _, attempt = waitValidationRetry(t, fixture.validationRetryFixture)
-	if state != "SUCCEEDED" || attempt != 1 {
-		t.Fatalf("durable recovery=%s/%d", state, attempt)
+	assertRetryReceiptRollback(t, fixture.validationRetryFixture, 1)
+	fixture.server.systemDeps.Jobs = originalJobs
+	retry := httptest.NewRecorder()
+	fixture.request(t.Context(), retry)
+	if retry.Code != http.StatusAccepted {
+		t.Fatalf("retry after rollback=%d/%s", retry.Code, retry.Body.String())
+	}
+	state, execution, attempt := waitValidationRetry(t, fixture.validationRetryFixture)
+	if state != "SUCCEEDED" || execution != 2 || attempt != 1 {
+		t.Fatalf("retry after rollback=%s/%d/%d", state, execution, attempt)
 	}
 }
 

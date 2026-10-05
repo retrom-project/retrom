@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -82,7 +81,6 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 			},
 		},
 	}
-	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	t.Cleanup(server.importDeps.Importer.Close)
 	t.Cleanup(server.Wait)
 	session, err := uploader.Create(t.Context(), uploads.CreateRequest{

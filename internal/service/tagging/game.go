@@ -2,6 +2,8 @@ package tagging
 
 import (
 	"context"
+
+	"retrom/internal/service/idempotency"
 )
 
 func (service *Service) ReplaceGameTags(
@@ -46,14 +48,14 @@ func (service *Service) ReplaceGameTags(
 		}
 		if sameReferences(before, after) {
 			result = GameTagResult{GameID: gameID, Version: version, Tags: before}
-			return nil
+			return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 		}
 		if err := scope.Games.Touch(ctx, gameID, expectedVersion, now); err != nil {
 			return repositoryError("advance game version", err)
 		}
 		added, removed := referenceDiff(before, after)
 		result = GameTagResult{GameID: gameID, Version: version + 1, Tags: after}
-		return writeAudit(
+		if err := writeAudit(
 			ctx,
 			scope.Audit,
 			actorUserID,
@@ -67,7 +69,10 @@ func (service *Service) ReplaceGameTags(
 				"removed": removed,
 			},
 			now,
-		)
+		); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	return result, repositoryError("replace game tags", err)
 }

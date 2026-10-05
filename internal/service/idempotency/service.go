@@ -6,10 +6,14 @@ import (
 	"fmt"
 )
 
-var ErrInvalidReceipt = errors.New("IDEMPOTENCY_RECEIPT_INVALID")
+var (
+	ErrInvalidReceipt = errors.New("IDEMPOTENCY_RECEIPT_INVALID")
+	ErrKeyReused      = errors.New("IDEMPOTENCY_KEY_REUSED")
+)
 
 type Service struct {
 	repository Repository
+	gates      gates
 }
 
 func New(repository Repository) *Service {
@@ -33,22 +37,4 @@ func (service *Service) Lookup(
 		return Receipt{}, false, fmt.Errorf("idempotency: lookup receipt: %w", err)
 	}
 	return receipt, found, nil
-}
-
-func (service *Service) Store(
-	ctx context.Context,
-	operationID, key, principalID string,
-	receipt Receipt,
-	createdAtMS, expiresAtMS int64,
-) error {
-	if operationID == "" || key == "" || principalID == "" || receipt.RequestDigest == "" ||
-		receipt.HTTPStatus < 100 || createdAtMS < 0 || expiresAtMS < createdAtMS {
-		return ErrInvalidReceipt
-	}
-	if err := service.repository.Save(
-		ctx, operationID, key, principalID, receipt, createdAtMS, expiresAtMS,
-	); err != nil {
-		return fmt.Errorf("idempotency: store receipt: %w", err)
-	}
-	return nil
 }

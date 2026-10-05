@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/content/arcade"
 	"retrom/internal/format/arcadedat"
 )
@@ -77,7 +79,10 @@ func (s *Service) Ensure(ctx context.Context, gameID, coreID string) (Result, er
 			return ErrBlocked
 		}
 		result, err = Schedule(ctx, scope.Write, current, now, newVariantID, prepared, scope.Read)
-		return err
+		if err != nil {
+			return err
+		}
+		return completeMovePreview(ctx, result)
 	})
 	if err != nil {
 		return Result{}, fmt.Errorf("ensure variant: %w", err)
@@ -107,3 +112,17 @@ func (s *Service) Close()                                  { s.supervisor.Close(
 
 func (s *Service) Stop() { s.supervisor.Stop() }
 func (s *Service) Wait() { s.supervisor.Wait() }
+
+func completeMovePreview(ctx context.Context, result Result) error {
+	command := idempotency.RequestFromContext(ctx)
+	if command == nil || command.OperationID != "postAdminGameMovePreview" || result.Ready {
+		return nil
+	}
+	if err := idempotency.Complete(ctx, idempotency.Result{
+		Value:    map[string]any{"status": "VALIDATION_PENDING", "jobId": result.JobID, "retryAfterMs": result.RetryAfterMS},
+		Accepted: true,
+	}); err != nil {
+		return fmt.Errorf("complete command receipt: %w", err)
+	}
+	return nil
+}

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/authn"
 	"retrom/internal/filestore"
 )
@@ -23,7 +25,12 @@ func (service *ReviewApprovals) preparePublication(ctx context.Context,
 		if !state.Found {
 			return ErrInvalid
 		}
-		if state.State == "PUBLISHED" || state.Intent != nil {
+		if state.State == "PUBLISHED" {
+			return idempotency.Complete(ctx, idempotency.Result{
+				Value: ReviewApproved{GameID: state.GameID, Status: "PUBLISHED"},
+			})
+		}
+		if state.Intent != nil {
 			return nil
 		}
 		run := reviewApprovalRun{ctx: ctx, service: service, scope: scope, request: request}
@@ -45,16 +52,8 @@ func (service *ReviewApprovals) preparePublication(ctx context.Context,
 			ScreenshotOverride: run.screenshotOverride, RuntimeDependencyJSON: run.runtimeDependencyJSON,
 			RPGProfile: run.rpgProfile, RPGDependencies: run.rpgDependencies,
 		}
-		values, err := scope.Publications.PublicationFiles(ctx, run.head)
-		if err != nil {
-			return fmt.Errorf("prepare publication: %w", err)
-		}
-		intent.Files, err = publicationFiles(values, request.ItemID, run.head.SourceSnapshotID)
-		if err != nil {
+		if err := service.savePublicationIntent(ctx, scope, &intent, run.now); err != nil {
 			return err
-		}
-		if err := scope.Publications.BeginPublication(ctx, intent, run.now); err != nil {
-			return fmt.Errorf("prepare publication: %w", err)
 		}
 		state.Intent, state.GameID, state.State = &intent, intent.GameID, "PUBLISHING"
 		return nil
@@ -120,7 +119,7 @@ func (service *ReviewApprovals) completePublication(ctx context.Context, intent 
 			return fmt.Errorf("complete publication: %w", err)
 		}
 		if state.State == "PUBLISHED" && state.GameID == intent.GameID {
-			return nil
+			return completePublicationCommand(ctx, scope, intent, result)
 		}
 		if state.State != "PUBLISHING" || state.Intent == nil || state.GameID != intent.GameID {
 			return ErrInvalid
@@ -143,7 +142,10 @@ func (service *ReviewApprovals) completePublication(ctx context.Context, intent 
 		if err := scope.Publications.PreparePublicationRecords(ctx, intent); err != nil {
 			return fmt.Errorf("complete publication: %w", err)
 		}
-		return run.publish()
+		if err := run.publish(); err != nil {
+			return err
+		}
+		return completePublicationCommand(ctx, scope, intent, result)
 	})
 	if err != nil {
 		return ReviewApproved{}, fmt.Errorf("complete game publication: %w", err)
@@ -185,4 +187,52 @@ func (service *ReviewApprovals) Recover(ctx context.Context) error {
 		}
 	}
 	return errors.Join(failures...)
+}
+
+func completePublicationCommand(ctx context.Context, scope ReviewApprovalScope,
+	intent Publication, result ReviewApproved,
+) error {
+	if intent.Command != nil && !idempotency.SameRequest(ctx, intent.Command.Request) {
+		if err := scope.Commands.SaveCompleted(ctx, *intent.Command); err != nil {
+			return fmt.Errorf("complete original publication command: %w", err)
+		}
+	}
+	if err := idempotency.Complete(ctx, idempotency.Result{Value: result}); err != nil {
+		return fmt.Errorf("complete publication command: %w", err)
+	}
+	return nil
+}
+
+func freezePublicationCommand(ctx context.Context, intent *Publication) error {
+	if !idempotency.Active(ctx) {
+		return nil
+	}
+	command, err := idempotency.Freeze(ctx, idempotency.Result{
+		Value: ReviewApproved{GameID: intent.GameID, Status: "PUBLISHED"},
+	})
+	if err != nil {
+		return fmt.Errorf("freeze publication command: %w", err)
+	}
+	intent.Command = command
+	return nil
+}
+
+func (service *ReviewApprovals) savePublicationIntent(ctx context.Context,
+	scope ReviewApprovalScope, intent *Publication, now int64,
+) error {
+	if err := freezePublicationCommand(ctx, intent); err != nil {
+		return err
+	}
+	values, err := scope.Publications.PublicationFiles(ctx, intent.Head)
+	if err != nil {
+		return fmt.Errorf("prepare publication files: %w", err)
+	}
+	intent.Files, err = publicationFiles(values, intent.Request.ItemID, intent.Head.SourceSnapshotID)
+	if err != nil {
+		return err
+	}
+	if err := scope.Publications.BeginPublication(ctx, *intent, now); err != nil {
+		return fmt.Errorf("begin publication intent: %w", err)
+	}
+	return nil
 }

@@ -10,12 +10,15 @@ import (
 
 type (
 	Repository struct{ database dbapi.DB }
-	records    struct{ executor dbapi.Executor }
+	records    struct{ executor dbapi.Queryer }
 	writes     struct{ transaction dbapi.Tx }
 )
 
 func New(database dbapi.DB) *Repository { return &Repository{database} }
 func (repository *Repository) WithRead(ctx context.Context, work func(importdiscard.Reader) error) error {
+	if reader, found := dbapi.ReadScope(ctx); found {
+		return work(records{reader})
+	}
 	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin discard read: %w", err)

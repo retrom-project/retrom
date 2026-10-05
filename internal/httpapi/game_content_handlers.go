@@ -312,8 +312,6 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 	if !valid {
 		return
 	}
-	server.lockIdempotentRequest()
-	defer server.idempotency.Unlock()
 	principal := input.principal
 	result, err := server.libraryDeps.Content.DeleteAdminGame(request.Context(), gamecontent.DeleteGameRequest{
 		GameID:          request.PathValue("gameId"),

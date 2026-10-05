@@ -20,6 +20,10 @@ const (
 	Commit
 	WriteHold
 	NonSQL
+	IdempotencyWait
+	ReceiptIO
+	Handler
+	AfterCommit
 	phaseCount
 )
 
@@ -59,6 +63,8 @@ func (trace *Trace) Duration(phase TimingPhase) time.Duration {
 func (trace *Trace) Report(ctx context.Context) {
 	milliseconds := func(phase TimingPhase) float64 { return float64(trace.Duration(phase)) / float64(time.Millisecond) }
 	slog.InfoContext(ctx, "request database timing", "request_id", trace.id, "operation", trace.operation,
+		"idempotency_wait_ms", milliseconds(IdempotencyWait), "receipt_io_ms", milliseconds(ReceiptIO),
+		"handler_ms", milliseconds(Handler), "after_commit_ms", milliseconds(AfterCommit),
 		"total_ms", float64(time.Since(trace.started))/float64(time.Millisecond),
 		"pool_wait_ms", milliseconds(PoolWait), "begin_ms", milliseconds(Begin),
 		"reader_pool_wait_ms", milliseconds(ReaderPoolWait), "writer_pool_wait_ms", milliseconds(WriterPoolWait),
