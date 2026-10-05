@@ -602,3 +602,5 @@ Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确�
 Parent Attachment 的任务去重身份包含本次 `uploadFileId`、Item、当前来源快照、依赖 machine 和 DAT 身份。同一字节的新上传是独立提交，先前 CANCELLED/REJECTED 任务不能占据它的去重键；同一 HTTP 幂等键仍重放原结果，陈旧审核版本继续被拒绝。取消和恢复仍由 execution/worker/lease fencing 控制；归档索引随已接纳内容保存。审核始终重算当前内容/依赖事实，不创建不可变 validation 实体或重新建立审核对底层编排的反向依赖。
 
 BIOS 扫描由每次执行自己的监控循环每秒读取一次持久取消/归属状态、每 15 秒续租。遍历非候选文件、哈希读取只检查本地 context，不为每个文件写心跳；逐项进度每秒最多写一次，阶段切换和完成立即持久化。失去租约、执行号/worker 变化或关闭服务都会停止本地工作，最终写入仍在事务内检查 fencing。验收见 `ACC-BIOS-006`。
+
+内容准备的确定性拒绝通过 `ContentRejectedError` 携带稳定 code、来源相对路径和可空 limit（metric、actual、maximum）跨过库导入服务边界；来源导入不重新解析内容，也不把拒绝覆盖为通用 Pegasus 格式错误。普通上传的 `fileOutcomes.rejection` 与来源的 `failureDetails.contentRejection` 使用同一事实结构。多盘分别返回 `MULTI_DISC_COUNT_EXCEEDED`、`MULTI_DISC_TOTAL_BYTES_EXCEEDED`、`MULTI_DISC_PLAYLIST_BYTES_EXCEEDED` 与 `MULTI_DISC_REFERENCE_BYTES_EXCEEDED`；总大小是全部已找到的引用 CHD 之和，原有 8 盘和 1 GiB 上限保持不变。缺失光盘继续产生可审核的 `MULTI_DISC_FILE_MISSING` 证据。确定性内容拒绝不进入自动或人工任务重试；修正来源后重新导入。

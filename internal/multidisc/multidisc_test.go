@@ -2,6 +2,7 @@ package multidisc
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +21,20 @@ func TestParseAcceptsBoundedPlaylistAndBuildsCanonicalView(t *testing.T) {
 		t.Fatalf("canonical playlist = %q, want %q", got, want)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return result.PresentTotalBytes != 17 }, func() bool { return result.Entries[0].State != EntryPresent }, func() bool { return result.Entries[0].File.Basename != "disc one.chd" }, func() bool { return result.Entries[1].NormalizedReference != "光盘二.chd" }), "result = %#v", result)
+}
+
+func TestTotalLimitReportsAllReferencedBytes(t *testing.T) {
+	t.Parallel()
+	_, err := Parse([]byte("a.chd\nb.chd\nc.chd\n"), []File{
+		{Basename: "a.chd", SizeBytes: 12, Header: []byte("MComprHD")},
+		{Basename: "b.chd", SizeBytes: 13, Header: []byte("MComprHD")},
+		{Basename: "c.chd", SizeBytes: 14, Header: []byte("MComprHD")},
+	}, Limits{MaxDiscs: 8, MaxTotalBytes: 16})
+	var rejected *ValidationError
+	if !errors.As(err, &rejected) || rejected.Code != CodeTotalBytesExceeded || rejected.Limit == nil ||
+		rejected.Limit.Actual != 39 || rejected.Limit.Maximum != 16 || rejected.Limit.Metric != "TOTAL_BYTES" {
+		t.Fatalf("incomplete total evidence: %+v", rejected)
+	}
 }
 
 func TestParsePreservesUnicodeBytesWithoutNormalization(t *testing.T) {
@@ -48,7 +63,7 @@ func TestParseBoundaries(t *testing.T) {
 		t.Fatalf("one disc error = %v", err)
 	}
 	nine := append(append([]string{}, eight...), "ninth.chd")
-	if _, err := Parse([]byte(strings.Join(nine, "\n")+"\n"), nil, DefaultLimits()); !ErrorHasCode(err, CodeLimitExceeded) {
+	if _, err := Parse([]byte(strings.Join(nine, "\n")+"\n"), nil, DefaultLimits()); !ErrorHasCode(err, CodeCountExceeded) {
 		t.Fatalf("nine disc error = %v", err)
 	}
 	exactLimit := append([]byte("one.chd\ntwo.chd\n#"), bytes.Repeat([]byte{'x'}, MaxPlaylistBytes-17)...)
@@ -56,7 +71,7 @@ func TestParseBoundaries(t *testing.T) {
 	if _, err := Parse(exactLimit, nil, DefaultLimits()); err != nil {
 		t.Fatalf("65,536 bytes: %v", err)
 	}
-	if _, err := Parse(append(exactLimit, 'x'), nil, DefaultLimits()); !ErrorHasCode(err, CodeLimitExceeded) {
+	if _, err := Parse(append(exactLimit, 'x'), nil, DefaultLimits()); !ErrorHasCode(err, CodePlaylistBytesExceeded) {
 		t.Fatalf("65,537 bytes error = %v", err)
 	}
 	limits := DefaultLimits()
@@ -64,7 +79,7 @@ func TestParseBoundaries(t *testing.T) {
 	if _, err := Parse([]byte("a.chd\nb.chd\n"), []File{
 		{Basename: "a.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 		{Basename: "b.chd", SizeBytes: 9, Header: []byte("MComprHD")},
-	}, limits); !ErrorHasCode(err, CodeLimitExceeded) {
+	}, limits); !ErrorHasCode(err, CodeTotalBytesExceeded) {
 		t.Fatalf("total limit error = %v", err)
 	}
 }

@@ -3420,9 +3420,9 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         &lt;form class=&quot;rt-panel rt-server-result-filter&quot;&gt;&lt;label&gt;搜索标题&lt;input class=&quot;rt-input&quot; value=&quot;&quot;&gt;&lt;/label&gt;&lt;label&gt;结果&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;全部结果&lt;/option&gt;&lt;option&gt;已发布&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label&gt;Collection&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;全部 Collection&lt;/option&gt;&lt;option&gt;Sega Saturn&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;应用筛选&lt;/button&gt;&lt;/form&gt;
         &lt;div class=&quot;rt-panel rt-server-result-table&quot;&gt;
           &lt;article class=&quot;rt-server-result-row rt-source-result-row&quot;&gt;
-            &lt;div&gt;&lt;strong&gt;1944 循环的征服者&lt;/strong&gt;&lt;small&gt;飞机街机 → FBNeo 游戏&lt;/small&gt;&lt;small&gt;metadata.pegasus.txt · SINGLE_FILE&lt;/small&gt;&lt;/div&gt;
+            &lt;div&gt;&lt;strong&gt;多盘冒险&lt;/strong&gt;&lt;small&gt;Sega Saturn → Saturn 游戏&lt;/small&gt;&lt;small&gt;metadata.pegasus.txt · MULTI_DISC&lt;/small&gt;&lt;/div&gt;
             &lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;封面 READY&lt;/span&gt; &lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;视频 READY&lt;/span&gt;&lt;/div&gt;
-            &lt;div class=&quot;rt-source-result-state&quot;&gt;&lt;span class=&quot;rt-badge rt-badge-red&quot;&gt;提交失败&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-source-diagnostic&gt;查看原因&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-source-result-state&quot;&gt;&lt;span class=&quot;rt-badge rt-badge-red&quot;&gt;内容阻断&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-source-diagnostic&gt;查看原因&lt;/button&gt;&lt;/div&gt;
             &lt;span&gt;—&lt;/span&gt;
 
           &lt;/article&gt;
@@ -3432,11 +3432,10 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
                   &lt;dialog class=&quot;rt-source-diagnostic-dialog&quot; aria-label=&quot;原因与处理建议&quot;&gt;&lt;header&gt;&lt;h2&gt;原因与处理建议&lt;/h2&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-source-diagnostic&gt;关闭&lt;/button&gt;&lt;/header&gt;
 
               &lt;div class=&quot;rt-source-diagnostic-body&quot;&gt;
-                &lt;div class=&quot;rt-source-diagnostic-head&quot;&gt;&lt;div&gt;&lt;strong&gt;Arcade companion 候选数量超过内部上限&lt;/strong&gt;&lt;p&gt;系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。&lt;/p&gt;&lt;/div&gt;&lt;code&gt;游戏文件_LIBRARY_IMPORT_FAILED&lt;/code&gt;&lt;/div&gt;
-                &lt;div class=&quot;rt-source-diagnostic-facts&quot;&gt;&lt;div&gt;&lt;span&gt;失败阶段&lt;/span&gt;&lt;code&gt;LIBRARY_IMPORT&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;内部操作&lt;/span&gt;&lt;code&gt;CREATE_SERVER_SOURCE&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;底层原因分类&lt;/span&gt;&lt;code&gt;SOURCE_FILE_LIMIT_EXCEEDED&lt;/code&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;rt-source-diagnostic-facts&quot;&gt;&lt;div&gt;&lt;span&gt;来源项 ID&lt;/span&gt;&lt;code&gt;019ff632-9eb4-73e1-98a9-4af488b914b0&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;来源相对路径&lt;/span&gt;&lt;code&gt;1944j.zip&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;组装文件数量&lt;/span&gt;&lt;strong&gt;109 / 上限 64&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
-                &lt;div class=&quot;rt-source-diagnostic-technical&quot;&gt;&lt;span&gt;技术详情&lt;/span&gt;&lt;code&gt;Source import assembled 109 source files for one Arcade item; library import accepts at most 64.&lt;/code&gt;&lt;/div&gt;
-                &lt;p class=&quot;rt-source-diagnostic-action&quot;&gt;&lt;strong&gt;处理建议：&lt;/strong&gt;这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。&lt;/p&gt;
+                &lt;div class=&quot;rt-source-diagnostic-head&quot;&gt;&lt;div&gt;&lt;strong&gt;光盘总大小超过上限&lt;/strong&gt;&lt;p&gt;已识别 M3U 和引用的 CHD，但光盘总大小超过当前目标允许的上限。&lt;/p&gt;&lt;/div&gt;&lt;code&gt;MULTI_DISC_TOTAL_BYTES_EXCEEDED&lt;/code&gt;&lt;/div&gt;
+                &lt;div class=&quot;rt-source-diagnostic-facts&quot;&gt;&lt;div&gt;&lt;span&gt;内容检查证据&lt;/span&gt;&lt;code&gt;adventure/discs.m3u&lt;/code&gt;&lt;/div&gt;&lt;/div&gt;
+                &lt;p&gt;实际：1.34 GB（1,436,977,078 字节）；上限：1 GB（1,073,741,824 字节）&lt;/p&gt;
+                &lt;p class=&quot;rt-source-diagnostic-action&quot;&gt;&lt;strong&gt;处理建议：&lt;/strong&gt;换用符合上限的内容后重新导入；无需安装 BIOS，也无需重试相同内容。&lt;/p&gt;
               &lt;/div&gt;
             &lt;/dialog&gt;&lt;/section&gt;
 

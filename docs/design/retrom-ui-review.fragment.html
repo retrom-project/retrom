@@ -3213,9 +3213,9 @@
         <form class="rt-panel rt-server-result-filter"><label>搜索标题<input class="rt-input" value=""></label><label>结果<select class="rt-select"><option>全部结果</option><option>已发布</option></select></label><label>Collection<select class="rt-select"><option>全部 Collection</option><option>Sega Saturn</option></select></label><button type="button" class="rt-button">应用筛选</button></form>
         <div class="rt-panel rt-server-result-table">
           <article class="rt-server-result-row rt-source-result-row">
-            <div><strong>1944 循环的征服者</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div>
+            <div><strong>多盘冒险</strong><small>Sega Saturn → Saturn 游戏</small><small>metadata.pegasus.txt · MULTI_DISC</small></div>
             <div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div>
-            <div class="rt-source-result-state"><span class="rt-badge rt-badge-red">提交失败</span><button type="button" class="rt-button" data-open-source-diagnostic>查看原因</button></div>
+            <div class="rt-source-result-state"><span class="rt-badge rt-badge-red">内容阻断</span><button type="button" class="rt-button" data-open-source-diagnostic>查看原因</button></div>
             <span>—</span>
 
           </article>
@@ -3225,11 +3225,10 @@
                   <dialog class="rt-source-diagnostic-dialog" aria-label="原因与处理建议"><header><h2>原因与处理建议</h2><button type="button" class="rt-button" data-close-source-diagnostic>关闭</button></header>
 
               <div class="rt-source-diagnostic-body">
-                <div class="rt-source-diagnostic-head"><div><strong>Arcade companion 候选数量超过内部上限</strong><p>系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。</p></div><code>游戏文件_LIBRARY_IMPORT_FAILED</code></div>
-                <div class="rt-source-diagnostic-facts"><div><span>失败阶段</span><code>LIBRARY_IMPORT</code></div><div><span>内部操作</span><code>CREATE_SERVER_SOURCE</code></div><div><span>底层原因分类</span><code>SOURCE_FILE_LIMIT_EXCEEDED</code></div></div>
-                <div class="rt-source-diagnostic-facts"><div><span>来源项 ID</span><code>019ff632-9eb4-73e1-98a9-4af488b914b0</code></div><div><span>来源相对路径</span><code>1944j.zip</code></div><div><span>组装文件数量</span><strong>109 / 上限 64</strong></div></div>
-                <div class="rt-source-diagnostic-technical"><span>技术详情</span><code>Source import assembled 109 source files for one Arcade item; library import accepts at most 64.</code></div>
-                <p class="rt-source-diagnostic-action"><strong>处理建议：</strong>这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。</p>
+                <div class="rt-source-diagnostic-head"><div><strong>光盘总大小超过上限</strong><p>已识别 M3U 和引用的 CHD，但光盘总大小超过当前目标允许的上限。</p></div><code>MULTI_DISC_TOTAL_BYTES_EXCEEDED</code></div>
+                <div class="rt-source-diagnostic-facts"><div><span>内容检查证据</span><code>adventure/discs.m3u</code></div></div>
+                <p>实际：1.34 GB（1,436,977,078 字节）；上限：1 GB（1,073,741,824 字节）</p>
+                <p class="rt-source-diagnostic-action"><strong>处理建议：</strong>换用符合上限的内容后重新导入；无需安装 BIOS，也无需重试相同内容。</p>
               </div>
             </dialog></section>
 

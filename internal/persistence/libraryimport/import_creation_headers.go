@@ -2,6 +2,8 @@ package libraryimport
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"retrom/internal/persistence/recordstore"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -18,26 +20,37 @@ func (records creationRecords) Header(ctx context.Context, change libraryservice
 		}
 	}
 	for _, file := range change.Plan.Dispositions {
+		var rejection *string
+		if file.Rejection != nil {
+			encoded, err := json.Marshal(file.Rejection)
+			if err != nil {
+				return fmt.Errorf("encode content rejection: %w", err)
+			}
+			value := string(encoded)
+			rejection = &value
+		}
 		var err error
 		if change.Queued == nil {
 			result, writeErr := records.transaction.ExecContext(
 				ctx,
 				`
-INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?)`,
+INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,rejection_json,
+created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?)`,
 				change.ImportID,
 				file.File.ID,
 				file.Disposition,
 				creationNullable(file.Reason),
+				rejection,
 				change.NowMS,
 				change.NowMS,
 			)
 			err = creationMutation(result, writeErr, "insert creation file", 1)
 		} else {
 			result, writeErr := records.transaction.ExecContext(ctx, `
-UPDATE import_job_files SET disposition=?,reason_code=?,updated_at_ms=?
+UPDATE import_job_files SET disposition=?,reason_code=?,rejection_json=?,updated_at_ms=?
 WHERE import_job_id=? AND upload_file_id=? AND disposition='PENDING'`,
-				file.Disposition, creationNullable(file.Reason), change.NowMS, change.ImportID, file.File.ID)
+				file.Disposition, creationNullable(file.Reason), rejection, change.NowMS, change.ImportID, file.File.ID)
 			err = creationMutation(result, writeErr, "resolve queued creation file", 1)
 		}
 		if err != nil {

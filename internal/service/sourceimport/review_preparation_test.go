@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/content/diagnostic"
+
 	library "retrom/internal/service/libraryimport"
 )
 
@@ -77,6 +79,12 @@ func TestReviewPreparationSeedsOnlyOnePendingReview(t *testing.T) {
 			source := &preparationSource{result: library.ServerImportResult{Created: library.ServerCreated{ImportJobID: "job"}, Items: []library.ServerImportItem{{ItemID: "item", State: state}}}}
 			outcomes := &preparationOutcomes{}
 			err := NewReviewPreparation(source, outcomes, outcomes).Create(t.Context(), Work{}, ExecutionItem{Files: []ExecutionFile{{Path: "game.zip"}}}, []library.ServerSourceFile{{RelativePath: "game.zip"}})
+			if state == "BLOCKED" {
+				if !errors.Is(err, ErrInvalid) || outcomes.outcome != nil || outcomes.handoffs != 0 {
+					t.Fatalf("invalid library state disguised as content rejection: %v %+v", err, outcomes)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,6 +96,25 @@ func TestReviewPreparationSeedsOnlyOnePendingReview(t *testing.T) {
 				t.Fatalf("unsupported=%+v", outcomes)
 			}
 		})
+	}
+}
+
+func TestReviewPreparationPreservesStructuredContentRejection(t *testing.T) {
+	t.Parallel()
+	rejection := diagnostic.Rejection{
+		Code: "MULTI_DISC_TOTAL_BYTES_EXCEEDED", RelativePath: "game/discs.m3u",
+		Limit: &diagnostic.Limit{Metric: "TOTAL_BYTES", Actual: 1436977078, Maximum: 1073741824},
+	}
+	source := &preparationSource{failure: &library.ContentRejectedError{Rejection: rejection}}
+	outcomes := &preparationOutcomes{}
+	err := NewReviewPreparation(source, outcomes, outcomes).Create(t.Context(), Work{}, ExecutionItem{}, nil)
+	if err != nil || outcomes.outcome == nil || outcomes.outcome.Retryable || outcomes.handoffs != 0 {
+		t.Fatalf("content decision became retryable work: %v %+v", err, outcomes)
+	}
+	got := outcomes.outcome
+	if got.State != "BLOCKED_CONTENT" || got.Code != rejection.Code || got.Failure == nil ||
+		got.Failure.ContentRejection == nil || *got.Failure.ContentRejection.Limit != *rejection.Limit {
+		t.Fatalf("content evidence lost: %+v", got)
 	}
 }
 

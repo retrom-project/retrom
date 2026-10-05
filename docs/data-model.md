@@ -205,3 +205,5 @@ BIOS 替换在安装事务切换当前安装、撤销旧 Launch/Play，保留 Ga
 `profile_game_activity` 以 `(profile_id,game_id)` 为主键，记录 `last_played_at_ms/active_duration_ms/session_count`。首次有效游玩上报增加会话数，后续上报只增加已接受累计时长与前值的差额，和 `play_sessions` 在同一事务写入；重复或乱序样本不重复计数。删除游戏保留文字墓碑与汇总，停用目录只改变用户可见性。迁移 016 从当前标准会话账本一次生成该读模型，运行时不再以全表聚合充当缺失读模型的回退。
 
 最近时间、时长、次数排序分别由 Profile 开头的覆盖索引支持；会话账本具有 Profile/时间及 Profile/Game/时间索引。后台游戏列表为标题、创建时间、更新时间提供与游标排序一致的索引，首页最新游戏和主封面查询分别使用 `games_latest`、`game_assets_primary`。统计与筛选选项仅在首屏或筛选改变时计算，不随翻页重复传输。
+
+内容拒绝证据存储在 `import_job_files.rejection_json`（可空 JSON），普通上传的文件明细直接投影；来源导入的确定性拒绝通过库服务的类型化错误携带同一 `ContentRejection`，写入来源条目的 failureDetails.contentRejection。二者包含稳定 code、相对路径与可空限额事实，不写入宿主路径或从错误文本反推原因。

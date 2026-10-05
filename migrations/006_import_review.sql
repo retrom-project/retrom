@@ -5,6 +5,7 @@ CREATE TABLE import_job_files (
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
   disposition TEXT NOT NULL CHECK(disposition IN ('PENDING','SOURCE','IGNORED','REJECTED')),
   reason_code TEXT,
+  rejection_json TEXT CHECK(rejection_json IS NULL OR json_valid(rejection_json)),
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   PRIMARY KEY(import_job_id, upload_file_id),

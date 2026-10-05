@@ -88,7 +88,9 @@ item_id='018fbe68-0000-7000-8000-000000000021'`)
 	request.Intent.PrimaryPaths = []string{"unsupported.txt"}
 	request.Files[0].RelativePath = "unsupported.txt"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, libraryservice.ErrSourceGrouping) ||
+	var rejected *libraryservice.ContentRejectedError
+	if !errors.As(err, &rejected) || rejected.Rejection.Code != "UNSUPPORTED_CONTENT_FORMAT" ||
+		rejected.Rejection.RelativePath != "unsupported.txt" ||
 		result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("rejected source created review: %#v %v", result, err)
 	}

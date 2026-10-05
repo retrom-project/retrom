@@ -917,3 +917,5 @@ Target 提供，启动与存档恢复以该次 Envelope 为准。枚举和可选
 ### 密码更新的账号会话边界
 
 `POST /api/v1/auth/change-password` 的当前密码错误返回 `422 CURRENT_PASSWORD_INVALID`，`details.field=currentPassword`，保留当前有效 AuthSession，不清 cookie。`401 AUTHENTICATION_REQUIRED` 只表示请求缺少有效账号会话；浏览器将并发失效通知合并为一次有界的 context 读取，确认匿名后才清理该用户本地状态并转到登录。登录凭据错误的 `401 AUTHENTICATION_FAILED` 及 runtime Launch capability 的 401 不触发账号全局退出。密码更新成功仍轮换当前会话、撤销其他设备，成功与失败共用 ToastProvider。
+
+导入内容拒绝详情：`fileOutcomes[].rejection` 和 `SourceItem.failureDetails.contentRejection` 均为可空 `ContentRejection`，包含 `code`、`relativePath` 和可空 `limit`。limit 的 metric 为 `DISC_COUNT|TOTAL_BYTES|PLAYLIST_BYTES|REFERENCE_BYTES`，actual 与 maximum 是原始整数；字节类值不使用格式化字符串替代。来源条目的 errorCode 与 rejection.code 一致，不得覆盖为 `PEGASUS_CONTENT_FORMAT_UNSUPPORTED`。多盘数量、总大小、播放列表大小和引用长度超限分别使用 `MULTI_DISC_COUNT_EXCEEDED`、`MULTI_DISC_TOTAL_BYTES_EXCEEDED`、`MULTI_DISC_PLAYLIST_BYTES_EXCEEDED`、`MULTI_DISC_REFERENCE_BYTES_EXCEEDED`。

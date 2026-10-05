@@ -126,12 +126,17 @@ func (records *ReviewInputs) ContentLogicalName(ctx context.Context, snapshotID 
 	var logicalName string
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT logical_name
-FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE','PROJECT_FILE')
-ORDER BY CASE role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 ELSE 2 END,
-  sort_order,logical_name
+FROM (
+ SELECT source_reference AS logical_name,0 AS priority,ordinal AS sort_order
+ FROM import_item_multidisc_entries WHERE source_snapshot_id=?
+ UNION ALL
+ SELECT logical_name,CASE role WHEN 'CONTENT' THEN 1 WHEN 'DISC' THEN 2 ELSE 3 END,sort_order
+ FROM import_item_source_snapshot_files
+ WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE','PROJECT_FILE')
+)
+ORDER BY priority,sort_order,logical_name
 LIMIT 1
-`, snapshotID).Scan(&logicalName)
+`, snapshotID, snapshotID).Scan(&logicalName)
 	if err != nil || logicalName == "" {
 		return "", fmt.Errorf("read review content identity: %w", libraryservice.ErrInvalid)
 	}

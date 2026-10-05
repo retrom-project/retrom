@@ -1,3 +1,4 @@
+import type {ContentRejection} from "./content-rejection";
 import type { components } from "@/lib/api/generated/schema";
 
 export type ImportDiscardStatus = components["schemas"]["ImportBatchDiscard"];
@@ -26,6 +27,7 @@ export type ImportListItem = {
 export type ImportTaskFilters = { query: string; directory: string; state: string };
 
 export type ImportFileOutcome = {
+  rejection: ContentRejection | null;
   uploadFileId: string;
   name: string;
   sizeBytes: number;

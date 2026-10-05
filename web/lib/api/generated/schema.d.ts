@@ -3734,7 +3734,20 @@ export interface components {
             code: string;
             field?: string;
         };
+        ContentRejection: {
+            code: string;
+            relativePath: string;
+            limit: {
+                /** @enum {string} */
+                metric: "TOTAL_BYTES" | "DISC_COUNT" | "PLAYLIST_BYTES" | "REFERENCE_BYTES";
+                /** Format: int64 */
+                actual: number;
+                /** Format: int64 */
+                maximum: number;
+            } | null;
+        };
         SourceItemFailureDetails: {
+            contentRejection: components["schemas"]["ContentRejection"] | null;
             /**
              * Format: int64
              * @enum {integer}

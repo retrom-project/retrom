@@ -129,6 +129,32 @@ components:
           enum:
             - HASHEOUS
             - NONE
+    ContentRejection:
+      type: object
+      additionalProperties: false
+      required: [code, relativePath, limit]
+      properties:
+        code:
+          type: string
+        relativePath:
+          type: string
+        limit:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [metric, actual, maximum]
+          properties:
+            metric:
+              type: string
+              enum: [TOTAL_BYTES, DISC_COUNT, PLAYLIST_BYTES, REFERENCE_BYTES]
+            actual:
+              type: integer
+              format: int64
+              minimum: 0
+            maximum:
+              type: integer
+              format: int64
+              minimum: 1
     SourceItemFailureDetails:
       type: object
       additionalProperties: false
@@ -138,12 +164,17 @@ components:
         - operation
         - causeCode
         - technicalDetail
+        - contentRejection
         - relativePath
         - observedFileCount
         - allowedFileCount
         - libraryImportJobId
         - libraryImportItemId
       properties:
+        contentRejection:
+          allOf:
+            - $ref: '#/components/schemas/ContentRejection'
+          nullable: true
         schemaVersion:
           type: integer
           format: int64

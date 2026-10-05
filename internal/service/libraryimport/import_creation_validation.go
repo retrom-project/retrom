@@ -45,16 +45,7 @@ func PrepareCreationStaticBIOS(
 	}
 	for index := range groups {
 		group := &groups[index]
-		name := ""
-		for _, source := range group.Sources {
-			if source.Role == "CONTENT" || source.Role == "DISC" {
-				name = source.LogicalName
-				break
-			}
-		}
-		if name == "" && target.PlatformID == "dos" {
-			name = group.DefaultDOSEntry
-		}
+		name := creationBIOSContentName(*group)
 		if name == "" {
 			return ErrInvalid
 		}
@@ -86,6 +77,19 @@ func PrepareCreationStaticBIOS(
 		}
 	}
 	return nil
+}
+
+// Missing disc bytes do not erase the validated playlist's content kind.
+func creationBIOSContentName(group PreparedGroup) string {
+	if len(group.MultiEntries) > 0 {
+		return group.MultiEntries[0].SourceReference
+	}
+	for _, source := range group.Sources {
+		if source.Role == "CONTENT" || source.Role == "DISC" {
+			return source.LogicalName
+		}
+	}
+	return group.DefaultDOSEntry
 }
 
 func skipsCreationStaticBIOS(platform string) bool {

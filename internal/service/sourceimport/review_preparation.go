@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/content/diagnostic"
 	library "retrom/internal/service/libraryimport"
 )
 
@@ -70,15 +71,22 @@ func (service *ReviewPreparation) Create(
 	files []library.ServerSourceFile,
 ) error {
 	mode := contentcapability.ModeStandard
-	if len(item.Files) > 1 {
-		mode = contentcapability.ModeMultiDisc
+	for _, file := range item.Files {
+		if file.Kind == "PLAYLIST" {
+			mode = contentcapability.ModeMultiDisc
+			break
+		}
 	}
 	result, err := service.sources.CreateOwnedServerSource(ctx, library.OwnedServerSourceRequest{
 		Intent: sourceIntent(unit, item), TargetPlatformInstanceID: item.TargetPlatformID, ContentMode: mode,
 		Files: files, TagIDs: item.TagIDs, AssignedByUserID: unit.CreatedByUserID,
 	})
+	var rejected *library.ContentRejectedError
+	if errors.As(err, &rejected) {
+		return service.blockContent(ctx, unit, item, rejected.Rejection)
+	}
 	if errors.Is(err, library.ErrSourceGrouping) {
-		return service.blockContent(ctx, unit, item)
+		return service.blockContent(ctx, unit, item, diagnostic.Rejection{Code: "SOURCE_GROUPING_INVALID"})
 	}
 	if err != nil {
 		return fmt.Errorf("create Source owned review: %w", err)
@@ -130,7 +138,7 @@ func (service *ReviewPreparation) acceptResult(
 		return nil
 	}
 	if imported.State != "REVIEW_PENDING" {
-		return service.blockContent(ctx, unit, item)
+		return ErrInvalid
 	}
 	if err := service.handoff.Complete(ctx, ReviewHandoffRequest{
 		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
@@ -142,12 +150,21 @@ func (service *ReviewPreparation) acceptResult(
 	return nil
 }
 
-func (service *ReviewPreparation) blockContent(ctx context.Context, unit Work, item ExecutionItem) error {
+func (service *ReviewPreparation) blockContent(
+	ctx context.Context, unit Work, item ExecutionItem, rejected diagnostic.Rejection,
+) error {
+	details := &FailureDetails{
+		SchemaVersion: 1, Stage: "LIBRARY_IMPORT", Operation: "PREPARE_CONTENT",
+		CauseCode: rejected.Code, ContentRejection: &rejected,
+	}
+	if rejected.RelativePath != "" {
+		details.RelativePath = &rejected.RelativePath
+	}
 	if err := service.items.Finish(
 		ctx,
 		unit.Identity(),
 		item.ID,
-		ItemOutcome{State: "BLOCKED_CONTENT", Code: "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"},
+		ItemOutcome{State: "BLOCKED_CONTENT", Code: rejected.Code, Failure: details},
 	); err != nil {
 		return fmt.Errorf("complete unsupported Source content: %w", err)
 	}

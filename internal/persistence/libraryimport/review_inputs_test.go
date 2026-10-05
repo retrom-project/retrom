@@ -58,3 +58,15 @@ VALUES('snapshot','DOS_SOURCE','dos.exe','content-file','content-blob',0,1),
 		t.Fatalf("logical name=%q err=%v", logicalName, err)
 	}
 }
+
+func TestMissingAllDiscsStillIdentifiesDiscContent(t *testing.T) {
+	t.Parallel()
+	database := metadataDatabase(t)
+	metadataExec(t, database, `INSERT INTO import_item_multidisc_entries
+ (source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,created_at_ms)
+ VALUES('snapshot',0,'first.chd','first.chd','disc-001.chd','MISSING',1)`)
+	logicalName, err := BindReviewInputs(database).ContentLogicalName(t.Context(), "snapshot")
+	if err != nil || logicalName != "first.chd" {
+		t.Fatalf("logical name=%q err=%v", logicalName, err)
+	}
+}

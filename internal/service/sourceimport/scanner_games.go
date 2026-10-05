@@ -140,7 +140,9 @@ func validateGameFileSet(current string, files []scannedItemFile, declaredCount 
 			discCount++
 		}
 	}
-	if playlistCount != 1 || discCount < 2 || discCount > 8 || len(files) != declaredCount {
+	// Discovery identifies one explicit playlist with its declared disc files.
+	// The content preparer owns playlist syntax, missing references and limits.
+	if playlistCount != 1 || playlistCount+discCount != len(files) || len(files) != declaredCount {
 		return firstDiscoveryCode(current, "PEGASUS_MULTIPLE_LAUNCH_FILES_UNSUPPORTED")
 	}
 	return current

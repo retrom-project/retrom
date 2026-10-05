@@ -569,6 +569,8 @@ components:
       $ref: ./domains/source-imports.yaml#/components/schemas/SourceItem
     SourceWarningValue:
       $ref: ./domains/source-imports.yaml#/components/schemas/SourceWarningValue
+    ContentRejection:
+      $ref: ./components/common.yaml#/components/schemas/ContentRejection
     SourceItemFailureDetails:
       $ref: ./components/common.yaml#/components/schemas/SourceItemFailureDetails
     SourceRuntimeDependency:

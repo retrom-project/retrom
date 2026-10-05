@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {ContentRejectionEvidence, contentLimitLabels} from "./content-rejection";
 import { ImportBatchDiscard } from "./import-batch-discard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
@@ -28,6 +29,7 @@ const stages = ["上传", "识别", "运行检查", "游戏信息", "人工审�
 type DetailState = { status: "loading" | "ready" | "error"; value?: ImportDetail };
 
 const rejectionLabels: Record<string, string> = {
+  ...contentLimitLabels,
   ARCHIVE_UNSAFE: "归档内容或文件名未通过安全检查",
   ARCHIVE_LIMIT_EXCEEDED: "归档超过数量、大小或压缩比限制",
   ARCHIVE_ENCRYPTED_UNSUPPORTED: "不支持加密归档",
@@ -43,7 +45,6 @@ const rejectionLabels: Record<string, string> = {
   ARCADE_MACHINE_NOT_FOUND: "文件名无法在当前核心启用的街机数据目录中匹配到 machine",
   ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "这是未被同批游戏引用的街机依赖包，请改由 BIOS 文件页面安装",
   MULTI_DISC_CHD_INVALID: "光盘文件不是有效的 CHD",
-  MULTI_DISC_LIMIT_EXCEEDED: "多盘目录超过光盘数量或总大小限制",
   MULTI_DISC_PLAYLIST_INVALID: "M3U 播放列表内容无效",
   MULTI_DISC_REFERENCE_UNSAFE: "M3U 包含不安全或不受支持的引用",
 };
@@ -64,7 +65,10 @@ const rejectionDetails: Record<string, string> = {
   ARCADE_MACHINE_NOT_FOUND: "归档文件名去掉 .zip 后未命中当前核心启用 DAT 的 machine 名；可能选错了街机目录或 DAT 不包含该 ROMset。",
   ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "该街机 BIOS/父级包没有被本批次任何游戏引用，因此没有单独创建游戏。",
   MULTI_DISC_CHD_INVALID: "至少一个被引用文件缺少 CHD 文件头；请重新选择包含完整有效 CHD 的目录。",
-  MULTI_DISC_LIMIT_EXCEEDED: "该目录超过当前核心声明的 2–8 张光盘或 1 GiB 总大小限制。",
+  MULTI_DISC_COUNT_EXCEEDED: "减少光盘数量，使播放列表符合目标核心声明的上限。",
+  MULTI_DISC_TOTAL_BYTES_EXCEEDED: "该多盘集合超过目标核心声明的总大小上限；重新导入相同内容不会改变结果。",
+  MULTI_DISC_PLAYLIST_BYTES_EXCEEDED: "播放列表超过 64 KiB，请检查无效或重复内容。",
+  MULTI_DISC_REFERENCE_BYTES_EXCEEDED: "光盘引用文件名超过 255 字节。",
   MULTI_DISC_PLAYLIST_INVALID: "播放列表必须是 UTF-8 文本，并按顺序包含 2–8 个安全 CHD 文件名。",
   MULTI_DISC_REFERENCE_UNSAFE: "播放列表只能引用同目录的 CHD basename，不能包含路径、URI 或边界空白。",
 };
@@ -119,7 +123,7 @@ function RejectedFiles({ detail }: { detail: DetailState | undefined }) {
   if (detail.status === "error") {return <p>文件明细读取失败，请稍后重试。</p>;}
   return <>{detail.value?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution).map((file) => {
     const code = file.reasonCode ?? "REJECTED";
-    return <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[code] ?? "文件未通过导入规则"}</span><code tabIndex={0} title={rejectionDetails[code] ?? "该稳定错误码暂无补充说明"}>{code}</code></div>;
+    return <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[code] ?? "文件未通过导入规则"}</span><ContentRejectionEvidence rejection={file.rejection} /><code tabIndex={0} title={rejectionDetails[code] ?? "该稳定错误码暂无补充说明"}>{code}</code></div>;
   })}</>;
 }
 

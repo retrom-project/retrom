@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"context"
 	"encoding/json"
+
+	"retrom/internal/content/diagnostic"
 )
 
 // ImportOverviewSummary is the aggregate displayed on the administrator import
@@ -85,6 +87,7 @@ type ImportFileOutcome struct {
 	SizeBytes    int64                 `json:"sizeBytes"`
 	Disposition  string                `json:"disposition"`
 	ReasonCode   *string               `json:"reasonCode"`
+	Rejection    *diagnostic.Rejection `json:"rejection"`
 	Resolution   *ImportFileResolution `json:"resolution"`
 }
 

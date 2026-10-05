@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/content/diagnostic"
 	contentprepare "retrom/internal/content/prepare"
 	contentprofile "retrom/internal/content/profile"
 	corevalidation "retrom/internal/core/validation"
@@ -220,12 +221,13 @@ func (service *ImportPreparation) multiDiscCandidates(
 	return candidates, nil
 }
 
-func multiDiscParseReason(err error) string {
+func multiDiscRejection(err error, relativePath string) *diagnostic.Rejection {
+	result := &diagnostic.Rejection{Code: "MULTI_DISC_PLAYLIST_INVALID", RelativePath: relativePath}
 	var validationError *multidisc.ValidationError
 	if errors.As(err, &validationError) {
-		return string(validationError.Code)
+		result.Code, result.Limit = string(validationError.Code), validationError.Limit
 	}
-	return "MULTI_DISC_PLAYLIST_INVALID"
+	return result
 }
 
 func preparedMultiDiscGroup(
@@ -316,8 +318,9 @@ func (service *ImportPreparation) prepareMultiDiscDirectory(
 		MaxDiscs: limits.MaxDiscs, MaxTotalBytes: limits.MaxTotalBytes,
 	})
 	if err != nil {
+		rejection := multiDiscRejection(err, playlist.Path)
 		return PreparedGroup{}, []PreparedDisposition{{
-			File: playlist, Disposition: "REJECTED", Reason: multiDiscParseReason(err),
+			File: playlist, Disposition: "REJECTED", Reason: rejection.Code, Rejection: rejection,
 		}}, nil
 	}
 	canonical, err := service.blobs.Put(bytes.NewReader(parsed.CanonicalPlaylist))

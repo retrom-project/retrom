@@ -42,7 +42,7 @@ INSERT INTO source_imports VALUES('import','work','scan',1,'RUNNING');
 CREATE TABLE source_import_collections(id TEXT,mapping_action TEXT,target_platform_instance_id TEXT,
 target_dat_version_id TEXT,target_platform_id TEXT);
 CREATE TABLE source_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,
-source_facts_digest TEXT,ordinal INTEGER DEFAULT 0,file_record TEXT);
+source_facts_digest TEXT,ordinal INTEGER DEFAULT 0,file_record TEXT,declared_kind TEXT NOT NULL DEFAULT 'FILE');
 CREATE TABLE dat_machines(dat_version_id TEXT,machine_name TEXT,cloneof TEXT,romof TEXT);
 CREATE TABLE source_import_item_companions(item_id TEXT,candidate_item_id TEXT,file_record TEXT,
 created_at_ms INTEGER,PRIMARY KEY(item_id,candidate_item_id));
