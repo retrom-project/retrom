@@ -1,0 +1,49 @@
+{
+  "retromVersion": "v0.0.107",
+  "runtimeVersion": "v0.58.7",
+  "targetId": "fbneo",
+  "providerBundleSha256": "e90d3e083c5c8cda7843325d252f28f8eecffb2cba4f240d5eaeab86bb75d34f",
+  "coreArchiveSha256": "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
+  "activeDatSha256": "99605be7351a04eb619fe1555483a00229c89e74db7657173d30fde666d73637",
+  "machine": "thoop2",
+  "reviewReadiness": "READY",
+  "coreSourceBinding": {
+    "commit": "c8c70ba4858458c44b7200b88a29ebbb48c9bb23",
+    "associationStatus": "inferred_from_official_build_timestamp"
+  },
+  "datProgramEntries": [
+    {
+      "name": "3.c23",
+      "size_bytes": 524288,
+      "crc32": "6cd4a8dc"
+    },
+    {
+      "name": "2.c22",
+      "size_bytes": 524288,
+      "crc32": "59ba9b43"
+    }
+  ],
+  "observedCoreRequirements": [
+    {
+      "name": "th2c23.c23",
+      "sizeBytes": 524288,
+      "crc32": "3e465753"
+    },
+    {
+      "name": "th2c22.c22",
+      "sizeBytes": 524288,
+      "crc32": "837205b7"
+    }
+  ],
+  "browser": {
+    "freshPersistentProfile": true,
+    "samplesSeconds": [
+      30,
+      90
+    ],
+    "errorVisibleInCanvas": true,
+    "pageErrors": [],
+    "exitCompleted": true
+  },
+  "scope": "One proven machine mismatch; not a claim that all FBNeo games fail."
+}
