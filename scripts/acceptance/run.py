@@ -50,7 +50,7 @@ UZEBOX_CASES = {"ACC-UZEBOX-001"}
 O2EM_CASES = {"ACC-O2EM-001"}
 COMPUTER_CASES = {"ACC-BBC-001", "ACC-SAMCOUPE-001", "ACC-DOSBOX-001"}
 PRODUCT_CASES = WASM4_CASES | BBKRPG_CASES | UZEBOX_CASES | O2EM_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
-PRODUCT_CASES |= COMPUTER_CASES | {"ACC-DB-003", "ACC-RUN-020"}
+PRODUCT_CASES |= COMPUTER_CASES | {"ACC-DB-003", "ACC-RUN-020", "ACC-IDEM-001"}
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -115,6 +115,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
     "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
     "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1"),
+    "ACC-IDEM-001": (300, "node scripts/acceptance/idempotency_product.mjs"),
     "ACC-DB-003": (900, "node scripts/acceptance/protected_reads_product.mjs"),
     "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx features/imports/import-task-discard.test.tsx features/server-import/source-import-manager.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/filestore -count=1"),
@@ -1004,7 +1005,9 @@ def execute_case(case_id: str) -> int:
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
             product_filename = "rpgmaker-product.json"
-            if case_id == "ACC-DB-003":
+            if case_id == "ACC-IDEM-001":
+                product_filename = "idempotency-product.json"
+            elif case_id == "ACC-DB-003":
                 product_filename = "protected-reads-product.json"
             elif case_id == "ACC-RUN-020":
                 product_filename = "emulatorjs-slow-product.json"
