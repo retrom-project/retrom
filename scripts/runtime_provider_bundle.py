@@ -42,7 +42,7 @@ LOWER_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PROVIDER_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
-SUPPORTED_PROVIDER_API_VERSION = 2
+SUPPORTED_PROVIDER_API_VERSION = 1
 
 
 def validate_provider_lock(value: Any) -> dict[str, Any]:

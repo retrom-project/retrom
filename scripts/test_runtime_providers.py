@@ -211,7 +211,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                 )
 
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=2, *, legacy=False, provider_id="fixture"):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture"):
     target = {
         **({
             "gameCompatibilityLine": "fixture-v1",
