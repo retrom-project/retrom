@@ -121,6 +121,8 @@ paths:
       requestBody:
         $ref: ../components/common.yaml#/components/requestBodies/MetadataProvider
       responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/reviews/{importItemId}/assets:

@@ -386,6 +386,13 @@ make acceptance-case CASE=<case-id>
 
 - 写入竞争专项：除上述 100 次读取门禁外，保留小库空闲、仅导入、导入与发布/清理、大项目上传和大库空闲的完整持续样本；每阶段至少 20 次独立会话登录。记录控制请求 p50/p95/max 与全部超过 500ms 的单次请求，以 request ID 关联连接等待、Begin、SQL、Rows、Commit 和事务内非 SQL 时间。不能降低哈希强度、放宽 500ms 阈值或提高普通导入并发；大批量结束后必须验证外键及复制库重开。
 
+### ACC-IDEM-001：通用命令事务与并发重放
+
+- 上限 300 秒；在新命名 PFB 设置 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE` 及 `RETROM_IDEMPOTENCY_ROM`（操作者授权的单文件 NES 游戏，至多 8 MiB），执行 `make acceptance-case CASE=ACC-IDEM-001`。样本仅通过公开上传接口进入本 PFB，不提交 ROM、宿主路径、账号或 Cookie。
+- 流程：Tag 创建、同 key 并发重放、异摘要冲突、改名、删除及删除后的旧修改重放；上传创建、part、complete，待终结完成后仍重放原 202；创建 Import 并在进入审核后重放原 202；NONE 刮削重放 201/SUCCEEDED；审核预览重放并用 Chrome 打开真实 Player canvas；Approve 后重放同一 Game 和原始 201。
+- 通过标准：上述响应的 status/body bytes 与 ETag/Location/Content-Type 保持一致，replay header 为 true；异摘要返回 409/IDEMPOTENCY_KEY_REUSED；删除与状态推进不使原成功请求变成 404/版本冲突。预览非空且无页面异常，批准只有同一 Game UUID。机器证据为 `idempotency-product.json` 和当次预览截图。
+- PostgreSQL 故障和协调补充：`go test -tags=integration ./internal/httpapi ./internal/libraryimport ./internal/service/idempotency -run 'TestCommand|TestEveryRequired|TestSourceCommands|TestDistinctMoveCommands|TestMoveCommands|TestPublicationReceiptFailure|TestFrozen|TestIdentityCoordination|TestDetached' -count=1`；覆盖独立池同 key、取消、无关命令并行、准备阶段无 writer 占用、提交后工作不持锁、回执/commit 回滚、24 小时边界以及发布恢复原回执。补充测试使用合法确定性 fixture，不读取私有游戏。
+
 ### ACC-CAS-001：游戏目录与独立文件
 
 - 上限：120 秒。

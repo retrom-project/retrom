@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"retrom/internal/service/idempotency"
+
 	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/service/cleanupjobs"
 
@@ -75,6 +77,7 @@ type ReviewApprovalRepository interface {
 }
 
 type ReviewApprovalScope struct {
+	Commands     idempotency.RecoveryWriter
 	Publications PublicationRecords
 	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader

@@ -20,13 +20,16 @@ func (records writeRecords) CreateVariant(ctx context.Context, plan application.
 	if plan.Arcade != nil {
 		dependencySnapshot = plan.Arcade.Snapshot
 	}
-	if _, err := recordstore.CreateGameVariants(
+	// An invisible concurrent game/core insertion must abort this snapshot with
+	// a serialization failure, so WithEnsure retries and uses the existing variant.
+	created, err := recordstore.CreateGameVariants(
 		ctx,
 		records.executor,
 		`INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
  status,compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING',?,NULL,1,?,?)`,
+VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING',?,NULL,1,?,?)
+ON CONFLICT(game_id,core_id) DO NOTHING`,
 		source.VariantID,
 		source.GameID,
 		source.CoreID,
@@ -36,8 +39,16 @@ VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING',?,NULL,1,?,?)`,
 		dependencySnapshot,
 		plan.NowMS,
 		plan.NowMS,
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("create product variant: %w", err)
+	}
+	count, err := created.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count created product variant: %w", err)
+	}
+	if count != 1 {
+		return application.ErrBlocked
 	}
 	if plan.Arcade != nil {
 		for _, file := range plan.Arcade.Files {

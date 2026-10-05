@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/filestore"
 
@@ -90,7 +92,10 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 		MediaType: request.Asset.MediaType, Version: request.ExpectedVersion + 1, CreatedAtMS: request.NowMS,
 	}
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		return service.createInScope(ctx, scope, request, assetID, consumptionID)
+		if err := service.createInScope(ctx, scope, request, assetID, consumptionID); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("create game asset: %w", err)
@@ -189,7 +194,7 @@ func (service *Service) Delete(ctx context.Context, request DeleteRequest) (Dele
 			return fmt.Errorf("stage deleted game assets: %w", err)
 		}
 		result.Version = request.ExpectedVersion + 1
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Version: result.Version})
 	})
 	if err != nil {
 		return DeleteResult{}, fmt.Errorf("delete game asset: %w", err)

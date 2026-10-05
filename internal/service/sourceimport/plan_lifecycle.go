@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -71,7 +73,7 @@ func (service *PlanLifecycle) Delete(ctx context.Context, id string, version int
 				err,
 			)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{})
 	})
 	if err != nil {
 		return fmt.Errorf("finish Source deletion: %w", err)

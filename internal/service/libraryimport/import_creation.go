@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
 
 	"retrom/internal/authn"
@@ -67,7 +69,12 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 		// Physical files and identities are prepared once. Only the SQL plan
 		// is copied, so rolled-back counts and dispatches cannot escape.
 		run = prepared.newAttempt()
-		return run.commit(ctx, scope)
+		if err := run.commit(ctx, scope); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: run.result.Created, ResourceID: run.result.Created.ImportJobID,
+		})
 	})
 	if err != nil {
 		return ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
@@ -75,7 +82,7 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 	committed = true
 	for _, scheduled := range run.scheduled {
 		if !scheduled.IsNoop() {
-			service.scraper.Dispatch(ctx, scheduled.ScrapeRunID())
+			service.scraper.Dispatch(idempotency.WithoutCommand(ctx), scheduled.ScrapeRunID())
 		}
 	}
 	return run.result, nil

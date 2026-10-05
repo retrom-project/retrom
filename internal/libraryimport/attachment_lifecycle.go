@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"context"
 	"time"
+
+	"retrom/internal/service/idempotency"
 )
 
 // Attachment work retains the request actor but belongs to the importer lifetime.
@@ -16,7 +18,7 @@ func (service *Service) scheduleAttachment(parent context.Context, delay time.Du
 	if service.attachmentCancels == nil {
 		service.attachmentCancels = make(map[uint64]context.CancelFunc)
 	}
-	ctx, cancel := context.WithCancel(context.WithoutCancel(parent))
+	ctx, cancel := context.WithCancel(context.WithoutCancel(idempotency.WithoutCommand(parent)))
 	service.nextAttachmentID++
 	id := service.nextAttachmentID
 	service.attachmentCancels[id] = cancel

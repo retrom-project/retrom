@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	corevalidation "retrom/internal/core/validation"
 
 	"github.com/google/uuid"
@@ -139,7 +141,15 @@ func (service *Service) Move(ctx context.Context, request MoveRequest) (MoveResu
 		}); err != nil {
 			return fmt.Errorf("write game move audit: %w", err)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: map[string]any{
+				"gameId":             request.GameID,
+				"platformInstanceId": request.TargetPlatformInstanceID,
+				"version":            request.ExpectedVersion + 1,
+				"updatedAtMs":        request.NowMS,
+			},
+			Version: request.ExpectedVersion + 1,
+		})
 	})
 	if err != nil {
 		return MoveResult{}, fmt.Errorf("move game: %w", err)

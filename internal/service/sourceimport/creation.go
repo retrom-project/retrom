@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -79,7 +81,7 @@ func (service *Creation) Create(ctx context.Context, request CreateRequest, acto
 		if err != nil {
 			return fmt.Errorf("persist Source plan: %w", err)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, ResourceID: result.ID})
 	})
 	if err != nil {
 		return Summary{}, fmt.Errorf("create Source import: %w", err)

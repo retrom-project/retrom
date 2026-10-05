@@ -8,6 +8,8 @@ import (
 	"math"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/jobinput"
 
 	"retrom/internal/authn"
@@ -63,7 +65,15 @@ func (service *MultiDiscAttachments) Create(
 		if err := encodeMultiDiscAdmission(&write); err != nil {
 			return err
 		}
-		return persistMultiDiscAdmission(ctx, scope, write)
+		if err := persistMultiDiscAdmission(ctx, scope, write); err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{
+			Value: MultiDiscAttachmentCreated{
+				AttachmentID: write.Input.AttachmentID, JobID: write.JobID, State: "QUEUED", ReviewVersion: version + 1,
+			},
+			Version: version + 1, ResourceID: write.JobID,
+		})
 	})
 	if err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(multiDiscAdmissionErrorCode(err), err)

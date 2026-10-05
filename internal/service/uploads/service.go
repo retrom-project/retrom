@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/uploadfiles"
 
 	"github.com/google/uuid"
@@ -77,7 +79,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Sess
 		})
 	}
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		return scope.Sessions.Create(
+		if err := scope.Sessions.Create(
 			ctx,
 			Registration{
 				Session: session,
@@ -86,7 +88,10 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Sess
 				),
 				AtMS: now,
 			},
-		)
+		); err != nil {
+			return fmt.Errorf("create upload session: %w", err)
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: session, Version: session.Version})
 	})
 	if err != nil {
 		return Session{}, fmt.Errorf("create upload: %w", err)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -131,7 +133,7 @@ func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string
 			}
 			result.CreatedItems = append(result.CreatedItems, created)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result})
 	})
 	return result, repositoryError("ensure common tags", err)
 }

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/content/arcade"
 	"retrom/internal/jobinput"
 
@@ -113,7 +115,10 @@ func (service *Service) CreateArcadeParentAttachment(
 		}
 		var err error
 		result, err = setup.persist()
-		return err
+		if err != nil {
+			return err
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, ResourceID: result.JobID})
 	})
 	if err != nil {
 		err = fmt.Errorf("admit arcade parent attachment: %w", err)

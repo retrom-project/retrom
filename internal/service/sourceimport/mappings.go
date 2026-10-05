@@ -7,6 +7,8 @@ import (
 	"math"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/service/tagging"
 )
 
@@ -101,7 +103,7 @@ func (service *Mappings) Update(
 		if err != nil {
 			return fmt.Errorf("read updated Source mappings: %w", err)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return Summary{}, fmt.Errorf("finish Source mappings: %w", err)

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -74,7 +76,7 @@ func (service *Control) Cancel(
 		}
 		result = after.Summary
 		pending = plan.Pending
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, Accepted: pending})
 	})
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("commit server import cancellation: %w", err)
@@ -107,7 +109,7 @@ func (service *Control) Retry(ctx context.Context, id string, version int64, act
 			return fmt.Errorf("read retried import: %w", err)
 		}
 		result = after.Summary
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return Summary{}, fmt.Errorf("commit server import retry: %w", err)

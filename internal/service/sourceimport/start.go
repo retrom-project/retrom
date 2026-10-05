@@ -8,6 +8,8 @@ import (
 	"math"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	"github.com/google/uuid"
@@ -69,7 +71,10 @@ func (service *Starter) Start(ctx context.Context, id string, version int64, act
 		return Summary{}, false, fmt.Errorf("inspect Source start: %w", err)
 	}
 	if alreadyStarted(before.Summary.State) {
-		return before.Summary, false, nil
+		if !idempotency.Active(ctx) {
+			return before.Summary, false, nil
+		}
+		return service.queue(ctx, StartPlan{Before: before}, version)
 	}
 	if err := readyToStart(before, version, service.now().UnixMilli()); err != nil {
 		return Summary{}, false, err
@@ -151,7 +156,7 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 		}
 		if alreadyStarted(current.Summary.State) {
 			result = current.Summary
-			return nil
+			return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 		}
 		attemptPlan.NowMS = service.now().UnixMilli()
 		if err := readyToStart(current, version, attemptPlan.NowMS); err != nil {
@@ -173,7 +178,7 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 			return fmt.Errorf("read queued Source import: %w", err)
 		}
 		result, queued = after.Summary, true
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("finish Source start: %w", err)

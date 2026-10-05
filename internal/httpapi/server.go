@@ -40,24 +40,20 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
-	deferredWork            sync.WaitGroup
-	config                  config.Config
-	startupReadinessMu      sync.Mutex
-	startupReady            atomic.Bool
-	cursors                 *cursor.Codec
-	now                     func() time.Time
-	sseHeartbeat            time.Duration
-	idempotency             sync.Mutex
-	idempotencyQueueMu      sync.Mutex
-	idempotencyQueueWaiters int
-	idempotencyQueueDrained *sync.Cond
-	accountDeps             AccountDependencies
-	libraryDeps             LibraryDependencies
-	importDeps              ImportDependencies
-	reviewDeps              ReviewDependencies
-	playDeps                PlayDependencies
-	systemDeps              SystemDependencies
-	contentDeps             ContentDependencies
+	deferredWork       sync.WaitGroup
+	config             config.Config
+	startupReadinessMu sync.Mutex
+	startupReady       atomic.Bool
+	cursors            *cursor.Codec
+	now                func() time.Time
+	sseHeartbeat       time.Duration
+	accountDeps        AccountDependencies
+	libraryDeps        LibraryDependencies
+	importDeps         ImportDependencies
+	reviewDeps         ReviewDependencies
+	playDeps           PlayDependencies
+	systemDeps         SystemDependencies
+	contentDeps        ContentDependencies
 }
 
 type Authenticator interface {
@@ -80,7 +76,6 @@ func New(settings config.Config, deps Dependencies, now func() time.Time) *Serve
 	if server.playDeps.Provider == nil {
 		server.playDeps.Provider = http.NotFoundHandler()
 	}
-	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	return server
 }
 

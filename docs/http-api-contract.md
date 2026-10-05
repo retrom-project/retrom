@@ -151,13 +151,17 @@ Next 开发服务器可以覆盖为其开发态禁缓存策略。
 - 创建上传、上传终结、ImportJob、Launch、账号管理、可能投递兼容性任务的游戏移动预览、游戏永久删除、审核通过/Discard 等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `principal + operationId + key` 保存语义请求摘要和结果 24 小时；同一账号同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`，跨账号使用同 key 是独立命名空间。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header、密码或任意 capability；Launch 与一次性链接 replay 按服务端 key/公开 ID重新派生同一 secret 响应。
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复业务决定。
 
-语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的独立文件存储 Blob 交给 后台删除。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
+语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 PostgreSQL 短写事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的独立文件存储 Blob 交给 后台删除。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
 
-### 3.1 当前事务覆盖与待迁移接口（2026-10-01）
+### 3.1 事务所有权与命令协调
 
 手动目录创建 `postAdminPlatformInstance` 已由 `platforminstance.Service.CreateIdempotent` 拥有事务：HTTP 层严格解码有界 JSON 并计算语义请求摘要，领域在同一个写事务内检查/清理过期回执、创建目录、写审计、计算响应并保存 status/body/白名单头。回执或 commit 失败时整体回滚；并发同 key 返回唯一目录及原始 `201`、ETag 和响应 bytes，同 key 异请求返回 409。HTTP middleware 对此 operation 直接交给领域，不能再次后置保存回执。领域回执使用 `platforminstance.create` 命名空间；旧 HTTP operation 回执不读取、不转换、不重放。共享存储表结构保持当前领域回执格式，不需要数据迁移。推荐目录批量应用已有独立的领域事务覆盖，本次不改其行为。
 
-以下 40 个 operation 仍走 `internal/httpapi/idempotency_middleware.go` 的通用路径：先执行 handler，再调用 `idempotency.Service.Store` 保存回执。静态排查确认它们的业务提交和 HTTP 回执之间存在分离边界；下表表示**尚未保证崩溃后的原响应重放**，不代表逐个接口均已复现重复实体。版本检查、自然键/唯一约束、消费标记和持久队列恢复可以限制部分重复副作用，但不能代替业务与原始回执的共同提交。本次仅列明，不迁移这些接口。
+其余 39 个 operation 使用通用命令上下文，由各应用模块在最终短写事务中显式完成回执。HTTP 只负责有界解析、语义摘要与响应投影；资源/版本、审计、Job/Event 和原始响应使用同一事务提交。回执写入或 commit 失败，当前业务变更也回滚；成功重放不再次进入业务 handler，不因资源随后更新或删除而改变 status/body/ETag/Location。OpenAPI 中全部 57 个要求幂等键的 operation 必须恰有一个事务所有者，新增接口由契约测试拒绝遗漏或重叠。
+
+协调粒度固定为 `principal + operationId + key`，同身份的不同摘要也必须等待并在完成后返回 409。进程内可取消的身份等待器减少重复请求占用连接；跨实例使用 PostgreSQL session advisory lock，在独立协调连接池中获取和释放。handler 的文件检查、复制、哈希和网络操作期间不持有数据库事务；不同身份可并行。协调结束后才发送响应和执行提交后唤醒，重放不重复派发，进程中断由持久队列恢复。发布恢复与请求准备交错时，最终事务只接受身份、摘要及响应均一致的已完成回执，并保留原创建时间和有效期；异摘要仍返回 409，不覆盖原结果。全局 HTTP mutex、全局队列排空屏障以及 handler 成功后另起事务保存回执的路径均已删除。
+
+以下 operation 的回执由应用模块拥有：
 
 | operationId | HTTP 端点 | OpenAPI 来源 |
 | --- | --- | --- |
@@ -195,20 +199,17 @@ Next 开发服务器可以覆盖为其开发态禁缓存策略。
 | `postAdminServerImportCancel` | `POST /api/v1/admin/server-imports/{serverImportId}/cancel` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
 | `postAdminServerImportRetry` | `POST /api/v1/admin/server-imports/{serverImportId}/retry` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
 | `postAdminBIOSInstallation` | `POST /api/v1/admin/bios/{requirementId}/installations` | [`server-imports.yaml`](../api/domains/server-imports.yaml) |
-| `postAdminSourceImport` SourceImport 摘要必带 `scanOutcome=PENDING|READY|PARTIAL|INVALID|EMPTY|NO_METADATA` 和 `scanDiagnostics`。诊断按来源相对路径排序，最多 100 条，每条包含 `relativePath/line/code/message`；行号不能确定时为 null，原因只包含受限解析说明，不含宿主路径、文件正文或底层 IO 文本。原始 invalidMetadata 计数不截断。无可映射游戏的扫描结束为 `FAILED`，错误码为 `SOURCE_SCAN_INVALID|SOURCE_SCAN_EMPTY|SOURCE_SCAN_NO_METADATA`；合法集合与无效 metadata 共存时保留 `AWAITING_MAPPING/PARTIAL`。重新扫描通过现有创建接口形成新计划，Item 执行 retry 不重解释已冻结扫描输入。
-
-| `POST /api/v1/admin/source-imports` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
+| `postAdminSourceImport` | `POST /api/v1/admin/source-imports` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `deleteAdminSourceImport` | `DELETE /api/v1/admin/source-imports/{sourceImportId}` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `putAdminSourceImportCollectionMappings` | `PUT /api/v1/admin/source-imports/{sourceImportId}/collection-mappings` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `postAdminSourceImportStart` | `POST /api/v1/admin/source-imports/{sourceImportId}/start` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 | `postAdminSourceImportRetry` | `POST /api/v1/admin/source-imports/{sourceImportId}/retry` | [`source-imports.yaml`](../api/domains/source-imports.yaml) |
 
-后续按业务领域逐批迁移，而不是让 HTTP middleware 包住全部 handler 的事务：
+移动预览首次接受校验任务时保存原始 `202/VALIDATION_PENDING`，任务完成后相同 key 仍重放该响应；新 key 才能读取 `200` 的 READY impact。只读 READY 预览在计算后用独立短事务保存结果，不写业务变更。审核刮削的 `NONE` 分支保持 `201/SUCCEEDED`，异步分支保持 `202/QUEUED`。
 
-- 上传、Import/ServerImport/SourceImport 创建及启动、Review Preview、附件、审核通过/丢弃、批量操作、刮削和游戏移动预览优先检查资源/任务分配与响应回执。领域在短事务内同时保存引用、资源/Job、审计及回执；文件接收和网络抓取在事务外，任务派发在 commit 后，由持久队列恢复进程中断。
-- 修改、删除、替换、安装和移动接口将版本/消费条件判断与完整回执放入领域事务，确保已执行请求的重试返回原成功响应，不因资源版本已变或资源已删除而变成冲突/404。
-- 取消/重试接口保留现有租约与执行 fencing；将接受决定、执行轮次和回执一起提交，再唤醒 worker。现有 `postAdminJobRetry` 的“队列已提交、回执失败不即时唤醒、启动恢复”行为见 [runtime-and-play-data.md](./runtime-and-play-data.md)，不能误报为本次已修复。
-- 每批迁移都应使用回执写入/commit 故障注入、并发同 key、异请求冲突、不同账号隔离、24 小时过期及进程恢复验证；不能只验证同进程顺序重放。
+审核批准涉及原子目录移动，使用可恢复发布意图：准备事务冻结 Game UUID、原身份/摘要和白名单响应，尚不写成功回执；文件工作完成后，最终事务共同提交 Game/Variant、Item 决定及回执。后台恢复从意图补全原请求的回执，不能发布第二个 Game 或丢失原响应。已过期的身份不被恢复重新激活。已有领域事务接口继续自行管理回执，不进入通用命令注册表。
+
+回归覆盖独立连接池的同 key 并发、不同身份并行、异摘要冲突、取消与锁释放、过期重用、回执/commit 故障回滚、恢复及提交后工作。产品验收见 [ACC-IDEM-001](./project-acceptance.md#acc-idem-001通用命令事务与并发重放)。
 
 ## 4. 浏览器文件与目录上传
 
@@ -238,7 +239,7 @@ Idempotency-Key: <uuid>
 
 终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
 
-Server 启动拾取持久队列和失效租约；人工 retry 仅在幂等 receipt 成功后派发，重放不重复派发。receipt 失败不触发本次派发，已独立提交的 retry 仍可由持久队列恢复。取消每秒检查；匹配当前轮次的已取消 Job 会补齐 UploadSession 取消状态，未完成文件保持 `FAILED` / `UPLOAD_CANCELLED`。关闭先禁止新任务登记，再取消并等待已登记执行退出。失败持久化和临时文件清理使用独立、最多 5 秒的清理 context，不能借此继续业务执行。
+Server 启动拾取持久队列和失效租约；人工 retry 仅在幂等 receipt 成功后派发，重放不重复派发。receipt 失败时 retry 决定、执行轮次、快照和事件整体回滚，不触发本次派发；成功提交后的未派发任务由持久队列恢复。取消每秒检查；匹配当前轮次的已取消 Job 会补齐 UploadSession 取消状态，未完成文件保持 `FAILED` / `UPLOAD_CANCELLED`。关闭先禁止新任务登记，再取消并等待已登记执行退出。失败持久化和临时文件清理使用独立、最多 5 秒的清理 context，不能借此继续业务执行。
 
 Complete 的输入、版本或当前状态冲突返回 `409 VERSION_CONFLICT`；数据库读取或写入失败返回 `500 INTERNAL_ERROR`，服务端保留原始原因。
 
@@ -575,7 +576,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/platforms`、`GET /api/v1/admin/runtime-targets` | 平台/启用 Core 关系与 Provider Target 只读字典。Target 项固定返回 `providerId/providerVersion/providerApiVersion/bundleSha256/targetId/displayName/coreId/coreName/launchPolicy/checkpoint`，不返回宿主路径或 Provider 私有实现。 |
 | `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 游戏目录 CRUD；创建、列表和详情投影 `gameCount` 与基础平台的 `supportedExtensions[]`，PATCH 不允许改 platform/slug/default core。扩展名是带前导点、ASCII 小写、稳定有序且无重复的已验证游戏 payload 格式；不从目录默认核心反推。NES 为 `.nes/.unf/.unif/.fds`，Arcade 合并目录后仍只返回一次 `.zip`。普通 ROM 的 ZIP/7z 只作上传 wrapper，不进入该字段；DOS `.exe/.com/.bat` 是 payload，必须进入。 |
 | `GET /api/v1/admin/platform-instances/recommendations` | 返回代码 catalog 的 `catalogVersion/items/summary`。每项包含 template key、顺序、名称/说明、Platform/Core 展示引用、从基础平台 profile 读取的扩展名、`ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED/MISSING` 状态和可空目录 ID；无 query，不修改数据库。 |
-| `POST /api/v1/admin/platform-instances/recommendations/apply` | ADMIN-only 一键补齐；body 必须是严格空对象 `{}` 并携带 UUID `Idempotency-Key`。一个 `BEGIN IMMEDIATE` 事务只为当前 `MISSING` 项创建目录，把它们按 catalog 顺序追加到现有最大顺序之后，同时提交逐项 AuditEvent 与幂等响应。成功为 200，返回 `created[]/createdTemplateKeys[]/items/summary`；重复、并发、已有等价目录、自定义/停用/软删除模板均不覆盖、不恢复、不重排。相同 key 重放原 status/body 并带 `X-Retrom-Idempotent-Replay: true`；任何创建或审计失败整体回滚。 |
+| `POST /api/v1/admin/platform-instances/recommendations/apply` | ADMIN-only 一键补齐；body 必须是严格空对象 `{}` 并携带 UUID `Idempotency-Key`。一个 PostgreSQL 短写事务只为当前 `MISSING` 项创建目录，把它们按 catalog 顺序追加到现有最大顺序之后，同时提交逐项 AuditEvent 与幂等响应。成功为 200，返回 `created[]/createdTemplateKeys[]/items/summary`；重复、并发、已有等价目录、自定义/停用/软删除模板均不覆盖、不恢复、不重排。相同 key 重放原 status/body 并带 `X-Retrom-Idempotent-Replay: true`；任何创建或审计失败整体回滚。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。预览的 `limit` 可省略，默认 50；显式值只接受 1–100 的整数，`null` 无效。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
 | `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换原子切换当前安装，新 BIOS 对后续启动生效；依赖旧 BIOS 的 Launch/Play 被撤销，存档保留，旧 Installation 引用由后台释放，结构化审计保留；一期没有独立删除 Installation API。 |
@@ -716,6 +717,9 @@ DAT_MACHINE 可安装目录只包含同一 DAT 中已定义且具有完整可校
 服务器 BIOS 导入条目新增 `CATALOG_INVALID`（目录依据不可用）和 `VALIDATION_FAILED`（内部校验失败）；候选还可用 `INVALID_ARCHIVE` 表示损坏压缩包。`evaluationDetails.stage` 记录 `CATALOG/ARCHIVE/VALIDATION` 阶段，`code` 保留 `DAT_UNAVAILABLE/DAT_MACHINE_UNDEFINED/DAT_ENTRIES_UNVERIFIABLE` 等稳定原因。文件无法读取、压缩包不安全和 DAT 内容不匹配分别诊断；取消和执行超时保留任务控制语义。
 
 ## 12. 统一来源导入与详情 VIDEO API
+
+SourceImport 摘要必带 `scanOutcome=PENDING|READY|PARTIAL|INVALID|EMPTY|NO_METADATA` 和 `scanDiagnostics`。诊断按来源相对路径排序，最多 100 条，每条包含 `relativePath/line/code/message`；行号不能确定时为 null，原因只包含受限解析说明，不含宿主路径、文件正文或底层 IO 文本。原始 invalidMetadata 计数不截断。无可映射游戏的扫描结束为 `FAILED`，错误码为 `SOURCE_SCAN_INVALID|SOURCE_SCAN_EMPTY|SOURCE_SCAN_NO_METADATA`；合法集合与无效 metadata 共存时保留 `AWAITING_MAPPING/PARTIAL`。重新扫描通过现有创建接口形成新计划，Item 执行 retry 不重解释已冻结扫描输入。
+
 
 Source route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/CSRF、UUID Idempotency-Key 与 `If-Match`。DTO 只返回 root ID/label、规范相对路径、稳定 code 和审计投影，不返回宿主路径、source facts/inode、内部文件记录或摘要 或原始 metadata/command。
 

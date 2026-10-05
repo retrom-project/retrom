@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/authn"
 
 	"github.com/google/uuid"
@@ -88,7 +90,7 @@ func (service *ReviewBulk) Create(ctx context.Context) (ReviewBulkSummary, error
 		if createErr != nil {
 			return fmt.Errorf("create bounded global review: %w", createErr)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: created, Version: 1})
 	})
 	if err != nil {
 		_, active, readErr := service.repository.ActiveSummary(ctx)

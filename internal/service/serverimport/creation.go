@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"retrom/internal/service/idempotency"
 )
 
 type Creation struct {
@@ -49,7 +51,7 @@ func (service *Creation) Create(ctx context.Context, request CreateRequest, acto
 		if err != nil {
 			return fmt.Errorf("persist import creation: %w", err)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, ResourceID: result.ID})
 	})
 	if err != nil {
 		return Summary{}, fmt.Errorf("create server import: %w", err)

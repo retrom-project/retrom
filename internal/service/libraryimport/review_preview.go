@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"retrom/internal/cleanup"
 	launch "retrom/internal/service/launch"
 )
@@ -42,6 +44,9 @@ func (service *ReviewPreviews) Create(
 		if err != nil {
 			return launch.ReviewPreviewCreated{}, fmt.Errorf("replay review preview: %w", err)
 		}
+		if err := idempotency.CompleteRead(ctx, idempotency.Result{Value: result}); err != nil {
+			return launch.ReviewPreviewCreated{}, fmt.Errorf("complete replayed preview: %w", err)
+		}
 		return result, nil
 	}
 	snapshot, found, err := service.repository.Snapshot(ctx, request.ImportItemID)
@@ -74,7 +79,7 @@ func (service *ReviewPreviews) commit(
 			if err != nil {
 				return fmt.Errorf("replay final review preview: %w", err)
 			}
-			return nil
+			return idempotency.Complete(ctx, idempotency.Result{Value: result})
 		}
 		current, profile, found, err := scope.Current(ctx, request)
 		if err != nil {
@@ -87,7 +92,7 @@ func (service *ReviewPreviews) commit(
 		if err != nil {
 			return fmt.Errorf("persist review preview session: %w", err)
 		}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result})
 	})
 	if err != nil {
 		return launch.ReviewPreviewCreated{}, fmt.Errorf("create review preview: %w", err)

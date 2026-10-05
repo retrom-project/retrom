@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
 
 	"retrom/internal/service/cleanupjobs"
@@ -32,7 +34,10 @@ func (service *ReviewDiscards) Discard(
 	err = service.repository.WithDiscard(ctx, func(scope ReviewDiscardScope) error {
 		var discardErr error
 		result, discardErr = service.DiscardInScope(ctx, scope, request)
-		return discardErr
+		if discardErr != nil {
+			return discardErr
+		}
+		return idempotency.Complete(ctx, idempotency.Result{Value: result})
 	})
 	if err != nil {
 		return ReviewDecisionResult{}, fmt.Errorf("commit review discard: %w", err)

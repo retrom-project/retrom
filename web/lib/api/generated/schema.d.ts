@@ -6614,6 +6614,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["MetadataProvider"];
         responses: {
+            201: components["responses"]["JSONResponse"];
             202: components["responses"]["JSONResponse"];
         };
     };

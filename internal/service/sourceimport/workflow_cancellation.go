@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 )
 
@@ -68,7 +70,7 @@ func (service *WorkflowControl) cancel(
 		}
 		if before.JobState == "CANCEL_REQUESTED" || before.JobState == "CANCELLED" {
 			result, pending = before, before.JobState == "CANCEL_REQUESTED"
-			return nil
+			return completeSourceCancellation(ctx, request.JobID, result, pending)
 		}
 		plan, err := service.cancellationPlan(before, request.JobCancellationRequest)
 		if err != nil {
@@ -87,7 +89,7 @@ func (service *WorkflowControl) cancel(
 			return fmt.Errorf("read cancelled Source import: %w", err)
 		}
 		result, pending = after, plan.Pending
-		return nil
+		return completeSourceCancellation(ctx, request.JobID, result, pending)
 	})
 	if err != nil {
 		return WorkflowSnapshot{}, false, fmt.Errorf("finish Source cancellation: %w", err)
@@ -162,4 +164,23 @@ func matchesCancellationJob(before WorkflowSnapshot, request JobCancellationRequ
 		return *before.Summary.ImportJobID == request.JobID && request.Kind == "IMPORT_RECEIVE"
 	}
 	return before.Summary.ScanJobID == request.JobID && request.Kind == "IMPORT_SCAN"
+}
+
+func completeSourceCancellation(ctx context.Context, jobID string, result WorkflowSnapshot, pending bool) error {
+	command := idempotency.RequestFromContext(ctx)
+	if command == nil || command.OperationID != "postAdminJobCancel" {
+		return nil
+	}
+	if err := idempotency.Complete(ctx, idempotency.Result{
+		Value: map[string]any{
+			"jobId":       jobID,
+			"state":       result.JobState,
+			"executionNo": result.Execution,
+			"version":     result.JobVersion,
+		},
+		Version: result.JobVersion, Accepted: pending,
+	}); err != nil {
+		return fmt.Errorf("complete command receipt: %w", err)
+	}
+	return nil
 }

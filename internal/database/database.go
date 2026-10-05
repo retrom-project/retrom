@@ -38,6 +38,7 @@ type DB interface {
 	Executor
 	// BeginTx starts a write transaction unless ReadOnly is explicitly set.
 	BeginTx(context.Context, *TxOptions) (Tx, error)
+	WithAdvisoryLock(context.Context, int64, func() error) error
 	PingContext(context.Context) error
 	SetMaxOpenConns(int)
 	Stats() Stats

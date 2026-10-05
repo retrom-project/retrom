@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -54,7 +56,7 @@ func (service *ImportAdmissions) Queue(ctx context.Context, raw ImportRequest) (
 			return fmt.Errorf("persist admitted import: %w", err)
 		}
 		result = ServerCreated{ImportJobID: change.ImportID, JobID: change.JobID, State: "QUEUED"}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, ResourceID: result.ImportJobID})
 	})
 	if err != nil {
 		return ServerCreated{}, fmt.Errorf("admit import: %w", err)

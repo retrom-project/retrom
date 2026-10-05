@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"retrom/internal/service/idempotency"
 )
 
 var (
@@ -60,7 +62,7 @@ func (service *Service) Cancel(
 		if job.State == "CANCELLED" || job.State == "CANCEL_REQUESTED" {
 			result = Result{JobID: jobID, State: job.State, ExecutionNo: job.ExecutionNo, Version: job.Version}
 			pending = job.State == "CANCEL_REQUESTED"
-			return nil
+			return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, Accepted: pending})
 		}
 		if !job.Cancellable || !cancellableJobState(job.State, job.Retryable) {
 			return ErrConflict
@@ -88,7 +90,7 @@ func (service *Service) Cancel(
 			return err
 		}
 		result = Result{JobID: jobID, State: change.State, ExecutionNo: job.ExecutionNo, Version: job.Version + 1}
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version, Accepted: pending})
 	})
 	if err != nil {
 		return Result{}, false, fmt.Errorf("jobs/cancel: %w", err)

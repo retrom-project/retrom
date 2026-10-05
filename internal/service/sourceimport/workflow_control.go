@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	"retrom/internal/service/idempotency"
+
 	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	"github.com/google/uuid"
@@ -86,7 +88,7 @@ func (service *WorkflowControl) Retry(ctx context.Context, id string, version in
 			return fmt.Errorf("read retried Source import: %w", err)
 		}
 		result = after.Summary
-		return nil
+		return idempotency.Complete(ctx, idempotency.Result{Value: result, Version: result.Version})
 	})
 	if err != nil {
 		return Summary{}, fmt.Errorf("finish Source retry: %w", err)

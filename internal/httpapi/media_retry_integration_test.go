@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
-	idempotencypersistence "retrom/internal/persistence/idempotency"
-	idempotencyservice "retrom/internal/service/idempotency"
+	jobpersistence "retrom/internal/persistence/jobs"
+	"retrom/internal/service/jobs"
 	"retrom/internal/testsupport"
 )
 
@@ -59,7 +59,8 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 			return nil
 		},
 	})
-	fixture.server.systemDeps.Idempotency = idempotencyservice.New(idempotencypersistence.New(fault))
+	originalJobs := fixture.server.systemDeps.Jobs
+	fixture.server.systemDeps.Jobs = jobs.New(jobpersistence.New(fault), fixture.now)
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -70,16 +71,23 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
-	if state != "QUEUED" || attempt != 0 {
+	if state != "FAILED" || attempt != 0 {
 		t.Fatalf("receipt failure invoked dispatch: %s/%d", state, attempt)
 	}
-	// The mutation has its own committed transaction. A later durable recovery is still allowed.
+	assertRetryReceiptRollback(t, fixture, 0)
 	if err := fixture.server.reviewDeps.Metadata.Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	state, _, attempt = waitValidationRetry(t, fixture)
-	if state != "SUCCEEDED" || attempt != 1 {
-		t.Fatalf("durable recovery=%s/%d", state, attempt)
+	assertRetryReceiptRollback(t, fixture, 0)
+	fixture.server.systemDeps.Jobs = originalJobs
+	retry := httptest.NewRecorder()
+	fixture.request(t.Context(), retry)
+	if retry.Code != http.StatusAccepted {
+		t.Fatalf("retry after rollback=%d/%s", retry.Code, retry.Body.String())
+	}
+	state, execution, attempt := waitValidationRetry(t, fixture)
+	if state != "SUCCEEDED" || execution != 2 || attempt != 1 {
+		t.Fatalf("retry after rollback=%s/%d/%d", state, execution, attempt)
 	}
 }
 

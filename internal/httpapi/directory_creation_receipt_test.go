@@ -8,7 +8,6 @@ import (
 
 	"retrom/internal/config"
 	dbapi "retrom/internal/database"
-	idempotencyservice "retrom/internal/service/idempotency"
 
 	"github.com/google/uuid"
 )
@@ -35,8 +34,10 @@ func TestDirectoryCreationDoesNotReadRetiredHTTPReceipts(t *testing.T) {
 	}
 	original := []byte(`{"id":"01980000-0000-7000-8000-000000000099","legacy":true}`)
 	now := server.now().UnixMilli()
-	err := server.systemDeps.Idempotency.Store(t.Context(), "postAdminPlatformInstance", request.Header.Get("Idempotency-Key"), principalID,
-		idempotencyservice.Receipt{RequestDigest: digest, HTTPStatus: http.StatusCreated, HeadersJSON: `{"Content-Type":"application/json; charset=utf-8","ETag":"\"v1\""}`, Body: original}, now, now+86400000)
+	_, err := server.database.ExecContext(t.Context(), `INSERT INTO idempotency_records
+    (operation_id,key,principal_id,request_digest,http_status,response_headers_json,response_body,created_at_ms,expires_at_ms)
+    VALUES(?,?,?,?,?,?,?,?,?)`, "postAdminPlatformInstance", request.Header.Get("Idempotency-Key"), principalID,
+		digest, http.StatusCreated, `{"Content-Type":"application/json; charset=utf-8","ETag":"\"v1\""}`, original, now, now+86400000)
 	if err != nil {
 		t.Fatal(err)
 	}

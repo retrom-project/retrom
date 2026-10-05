@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"retrom/internal/service/idempotency"
 	"retrom/internal/service/jobs"
 )
 
@@ -81,6 +82,10 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	if err != nil {
+		if !errors.Is(err, jobs.ErrConflict) {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(
 			writer,
 			request,
@@ -93,6 +98,6 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(writer, http.StatusAccepted, result)
-	ctx := context.WithoutCancel(request.Context())
+	ctx := idempotency.WithoutCommand(context.WithoutCancel(request.Context()))
 	afterIdempotencyCommit(writer, func() { server.systemDeps.Jobs.WakeRetry(ctx, result) })
 }

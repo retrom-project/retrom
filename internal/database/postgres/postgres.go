@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -26,6 +27,7 @@ type Options struct {
 type (
 	handle struct {
 		raw          *sql.DB
+		coordination *sql.DB
 		readOnly     bool
 		now          func() time.Time
 		observations observations
@@ -67,14 +69,18 @@ func Open(dsn string, options Options) (database.DB, error) {
 	}
 	raw := stdlib.OpenDB(*config)
 	configure(raw, options)
-	return &handle{raw: raw, now: clock(options), readOnly: options.ReadOnly}, nil
+	coordination := stdlib.OpenDB(*config)
+	configure(coordination, options)
+	return &handle{raw: raw, coordination: coordination, now: clock(options), readOnly: options.ReadOnly}, nil
 }
 
 // OpenConnector supports driver-boundary fault injection without exposing a SQL pool.
 func OpenConnector(connector driver.Connector, options Options) database.DB {
 	raw := sql.OpenDB(connector)
 	configure(raw, options)
-	return &handle{raw: raw, now: clock(options), readOnly: options.ReadOnly}
+	coordination := sql.OpenDB(connector)
+	configure(coordination, options)
+	return &handle{raw: raw, coordination: coordination, now: clock(options), readOnly: options.ReadOnly}
 }
 
 func clock(options Options) func() time.Time {
@@ -153,7 +159,7 @@ func (db *handle) PingContext(ctx context.Context) error {
 }
 
 func (db *handle) Close() error {
-	if err := db.raw.Close(); err != nil {
+	if err := errors.Join(db.raw.Close(), db.coordination.Close()); err != nil {
 		return fmt.Errorf("close postgres database: %w", err)
 	}
 	return nil
@@ -195,12 +201,13 @@ func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (dat
 		_ = raw.Rollback()
 		_ = connection.Close()
 	})
-	return &transaction{
+	tx := &transaction{
 		stopCancellation: stopCancellation,
 		raw:              raw, connection: connection, owner: transactionOwner(), now: db.now,
 		database: db, context: ctx, started: time.Now(),
 		beginDuration: acquisition, readOnly: options != nil && options.ReadOnly,
-	}, nil
+	}
+	return database.ObserveTransaction(ctx, tx, options), nil
 }
 
 func (tx *transaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {

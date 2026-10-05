@@ -23,6 +23,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/config"
 	"retrom/internal/service/accounts"
+	"retrom/internal/service/idempotency"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -159,14 +160,22 @@ func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
 	handler := server.idempotencyHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		calls++
 		principal, _ := authn.PrincipalFromContext(request.Context())
-		writeJSON(writer, http.StatusCreated, map[string]string{"userId": principal.UserID})
+		payload := map[string]string{"userId": principal.UserID}
+		ctx := request.Context()
+		if err := dbapi.RetryTransaction(ctx, server.database, func(dbapi.Tx) error {
+			return idempotency.Complete(ctx, idempotency.Result{Value: payload})
+		}); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
+		writeJSON(writer, http.StatusCreated, payload)
 	}))
 	key := uuid.NewString()
 	send := func(userID string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/test-principal-scope", strings.NewReader(`{"value":1}`))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", key)
-		ctx := context.WithValue(request.Context(), operationIDContextKey, "PostPrincipalScopeFixture")
+		ctx := context.WithValue(request.Context(), operationIDContextKey, "postAdminUpload")
 		ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: userID, ProfileID: userID + "-profile"})
 		request = request.WithContext(ctx)
 		response := httptest.NewRecorder()
@@ -189,7 +198,7 @@ func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
 		firstA.Body.String(), firstB.Code, firstB.Body.String(), replayA.Code, replayA.Body.String(), calls)
 	var records int
 	if err := dbapi.QueryRowContext(context.Background(), server.database,
-		`SELECT count(*) FROM idempotency_records WHERE operation_id='postPrincipalScopeFixture' AND key=?`,
+		`SELECT count(*) FROM idempotency_records WHERE operation_id='postAdminUpload' AND key=?`,
 		key,
 	).Scan(&records); err != nil || records != 2 {
 		t.Fatalf("principal idempotency records = %d, error=%v", records, err)
