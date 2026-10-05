@@ -141,7 +141,7 @@ web/components/           无业务状态的通用组件
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。PostgreSQL 适配器在 `internal/database/postgres` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，写事务使用 SERIALIZABLE，纯数据库提交边界显式处理可重试冲突；具体只读与写事务规则见 [PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。PostgreSQL 适配器在 `internal/database/postgres` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，写事务默认使用 SERIALIZABLE，来源映射等已明确锁定不变量的局部事务使用存储专题规定的隔离级别，纯数据库提交边界显式处理可重试冲突；具体只读与写事务规则见 [PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
 公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，文件路径与摘要随领域记录保存，不设全局文件目录。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 

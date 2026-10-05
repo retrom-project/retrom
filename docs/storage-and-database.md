@@ -91,6 +91,7 @@ PostgreSQL 首版直接创建 `BIGINT` 毫秒列。本次切换不保留业务�
 
 - 每个物理连接设置 UTC、`application_name=retrom`、`lock_timeout=5s`。生产保持 PostgreSQL 默认持久化保证，不关闭 fsync、full_page_writes 或 synchronous_commit。
 - `database.DB.BeginTx` 默认使用 `SERIALIZABLE` 写事务；显式 `ReadOnly` 使用 `REPEATABLE READ` 快照。数据库允许不同事务并发，不再依赖进程级单写者。涉及授权、版本、租约和输入快照的最终检查与写入必须同事务；需要阻止同一记录变化时使用条件更新或行锁。
+- Source 集合映射是按当前来源行锁串行化的局部编辑，显式使用 `REPEATABLE READ`，避免无关来源进度引起 SSI 谓词冲突；所选目标使用共享行锁，标签关联写入推进标签行版本，最终仍以 Source/version/mapping_version 条件更新并原子保存幂等回执。全局来源接收容量、重试准入和游戏发布等跨对象不变量继续使用默认 SERIALIZABLE。
 - PostgreSQL 可能返回序列化失败 `40001` 或死锁 `40P01`。只有经过审查的纯数据库事务边界使用 `database.RetryTransaction`，最多八次、指数退避且受 context 约束。回调每次重读事实、覆盖返回结果，不累积外部状态；文件复制/发布、哈希、网络、Provider 解析和任务派发必须在可重试范围外。事务错误仍保留原始原因。
 - 并发审核预览请求命中同一用户与幂等键的唯一约束时，预览持久化边界允许在回滚后重新开启一次事务，沿既有幂等检查返回已提交的会话；其他唯一约束错误不得重试。
 - 依赖目录写入使用单独的数据库级 advisory transaction lock 与 `READ COMMITTED`，等待上限 60 秒且服从 context。目录发布者依次提交，等待后重读最新状态；普通游戏、账户和任务写入不获取该锁。大型 DAT 物化不参与全库 SSI 谓词冲突，版本、索引、活动选择和发布收据仍原子提交；测试 DAT 发布也必须取得同一目录锁。
