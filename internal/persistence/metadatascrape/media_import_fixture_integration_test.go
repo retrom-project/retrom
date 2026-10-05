@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/composition"
@@ -47,7 +49,7 @@ func createMediaImport(t *testing.T, client hasheous.HTTPDoer) (*store.DB, strin
 func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImportFixture {
 	t.Helper()
 	root := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(root, "retrom.db"), mediaFixtureNow)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), mediaFixtureNow)
 	if err != nil {
 		t.Fatal(err)
 	}

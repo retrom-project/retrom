@@ -271,14 +271,12 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	if _, err := server.database.ExecContext(context.Background(), `UPDATE games SET platform_instance_id=NULL WHERE id=?`, gameID); err == nil {
 		t.Fatal("published game accepted an empty platform instance owner")
 	}
-	columns, err := server.database.QueryContext(context.Background(), `PRAGMA table_info(games)`)
+	columns, err := server.database.QueryContext(context.Background(), `SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='games'`)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", columns.Close()) }()
 	for columns.Next() {
-		var cid, notNull, primaryKey int
-		var name, dataType string
-		var defaultValue any
-		if err := columns.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+		var name string
+		if err := columns.Scan(&name); err != nil {
 			t.Fatal(err)
 		}
 		testassert.False(t, name == "platform_id", "games table exposes a second direct platform owner")
@@ -793,7 +791,7 @@ func seedMovableGame(t *testing.T, server *testServer) (string, string) {
 		args       []any
 		references string
 	}{
-		{`PRAGMA defer_foreign_keys=ON`, nil, ""},
+		{`SET CONSTRAINTS ALL DEFERRED`, nil, ""},
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
@@ -850,7 +848,7 @@ func cloneMovableGame(
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := transaction.ExecContext(ctx, `SET CONSTRAINTS ALL DEFERRED`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
@@ -907,14 +905,14 @@ func seedProductSave(t *testing.T, server *testServer, saveID, launchID, name st
 	var payloadSize int64
 	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT launch.profile_id,launch.game_id,
- json_extract(target.checkpoint_json,'$.writeFormat'),
- content.file_record,json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes'),
+ ((target.checkpoint_json)::jsonb #>> '{writeFormat}'),
+ content.file_record,((blob.value)::jsonb #>> '{sha256}'),(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
  launch.dos_entry_path
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN game_files content
   ON content.game_id=launch.game_id AND content.role='CONTENT'
-JOIN json_each(json_array(content.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT content.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE launch.id=?
 ORDER BY content.sort_order,content.logical_name
 LIMIT 1

@@ -3,7 +3,6 @@ package composition
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type accountFixture struct {
@@ -31,7 +31,7 @@ func newAccountFixture(t *testing.T, mode config.Mode) accountFixture {
 	t.Helper()
 	root := t.TempDir()
 	fixed := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(context.Background(), filepath.Join(root, "retrom.db"), func() time.Time { return fixed })
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), func() time.Time { return fixed })
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)

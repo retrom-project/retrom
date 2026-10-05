@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,12 +10,13 @@ import (
 	dbapi "retrom/internal/database"
 	jobservice "retrom/internal/service/jobs"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {
 	t.Parallel()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "jobs.db"), func() time.Time { return now })
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {
 func TestRetrySnapshotRollsBackOnVersionConflict(t *testing.T) {
 	t.Parallel()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "jobs.db"), func() time.Time { return now })
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}

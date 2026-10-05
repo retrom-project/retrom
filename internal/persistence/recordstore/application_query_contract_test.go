@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,11 +13,12 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestApplicationWriteQueriesReferenceCurrentSchema(t *testing.T) {
 	t.Parallel()
-	opened, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	opened, err := store.Open(t.Context(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(1786000000000)
 	})
 	if err != nil {
@@ -66,7 +68,7 @@ func TestApplicationWriteQueriesReferenceCurrentSchema(t *testing.T) {
 
 func checkApplicationWriteQuery(t *testing.T, db dbapi.DB, path, query string) {
 	t.Helper()
-	args := make([]any, strings.Count(query, "?"))
+	args := make([]any, strings.Count(regexp.MustCompile(`'([^']|'')*'`).ReplaceAllString(query, ""), "?"))
 	rows, err := db.QueryContext(t.Context(), query, args...)
 	if err != nil {
 		t.Errorf("%s: %v", path, err)

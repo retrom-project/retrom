@@ -41,7 +41,7 @@ WHERE entry.dat_version_id=? AND entry.machine_name=? AND COALESCE(entry.status,
 AND (entry.bios_name IS NULL OR EXISTS(
  SELECT 1 FROM dat_bios_sets bios WHERE bios.dat_version_id=entry.dat_version_id
  AND bios.machine_name=entry.machine_name AND bios.bios_name=entry.bios_name AND bios.is_default=1
-)) ORDER BY entry.name COLLATE BINARY,entry.ordinal
+)) ORDER BY entry.name COLLATE "C",entry.ordinal
 `, versionID, machineName)
 	if err != nil {
 		return nil, fmt.Errorf("query expected DAT entries: %w", err)

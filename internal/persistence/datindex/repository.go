@@ -166,7 +166,7 @@ updated_at_ms=?
 provider_id=? AND target_id=?
 AND source_kind='DAT_MACHINE'
 AND enabled=1
-AND (source_version!=? OR dat_machine_name NOT IN (SELECT value FROM json_each(?)))
+AND (source_version!=? OR dat_machine_name NOT IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb)))
 `,
 			Args: []any{input.ProviderID, input.TargetID, input.CurrentVersionID, string(machines)},
 		},

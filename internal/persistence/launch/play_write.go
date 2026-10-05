@@ -32,7 +32,7 @@ WHERE id=? AND launch_session_id=? AND version=? AND state='ACTIVE' AND active_d
 INSERT INTO profile_game_activity(profile_id,game_id,last_played_at_ms,active_duration_ms,session_count)
 SELECT profile_id,game_id,started_at_ms,active_duration_ms,1 FROM play_sessions WHERE id=?
 ON CONFLICT(profile_id,game_id) DO UPDATE SET
-last_played_at_ms=max(profile_game_activity.last_played_at_ms,excluded.last_played_at_ms),
+last_played_at_ms=GREATEST(profile_game_activity.last_played_at_ms,excluded.last_played_at_ms),
 active_duration_ms=profile_game_activity.active_duration_ms+?,
 session_count=profile_game_activity.session_count+?`, plan.PlayID, delta, newSession))
 }

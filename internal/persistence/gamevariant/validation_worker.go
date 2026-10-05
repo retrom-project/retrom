@@ -24,16 +24,12 @@ func (repository *ValidationWorker) WithWorker(
 	ctx context.Context,
 	work func(application.ValidationWorkerScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Content inspection runs outside the claim, heartbeat and settlement scopes.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := validationWorkerRecords{executor: tx}
+		return work(application.ValidationWorkerScope{Jobs: records, Facts: records, Variants: records})
+	})
 	if err != nil {
-		return fmt.Errorf("begin validation worker: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := validationWorkerRecords{executor: tx}
-	if err := work(application.ValidationWorkerScope{Jobs: records, Facts: records, Variants: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit validation worker: %w", err)
 	}
 	return nil

@@ -23,21 +23,20 @@ func (repository *ImportExecutions) WithExecution(
 	ctx context.Context,
 	work func(libraryservice.ImportExecutionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		scope := libraryservice.ImportExecutionScope{
+			Records: importExecutionRecords{executor: tx},
+			Facts:   BindImportFacts(tx),
+			Payload: payload.BindScheduling(tx),
+		}
+		if err := work(scope); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin import execution: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	scope := libraryservice.ImportExecutionScope{
-		Records: importExecutionRecords{executor: tx},
-		Facts:   BindImportFacts(tx),
-		Payload: payload.BindScheduling(tx),
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit import execution: %w", err)
+		return fmt.Errorf("commit libraryimport transaction: %w", err)
 	}
 	return nil
 }

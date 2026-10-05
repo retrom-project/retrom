@@ -34,15 +34,13 @@ func writeScope(database dbapi.Executor) tagging.WriteScope {
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(tagging.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(writeScope(transaction)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("tagging: begin write: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(writeScope(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("tagging: commit: %w", err)
 	}
 	return nil

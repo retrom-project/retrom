@@ -104,12 +104,12 @@ func listConditions(request application.ListRequest) ([]string, []any) {
 		conditions = append(conditions, "g.status='DELETED'")
 	}
 	if request.Filters.Query != "" {
-		search := `(instr(g.search_text,?)>0 OR EXISTS(
+		search := `(strpos(g.search_text,?)>0 OR EXISTS(
 SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE relation.game_id=g.id AND instr(tag.search_text,?)>0))`
+WHERE relation.game_id=g.id AND strpos(tag.search_text,?)>0))`
 		arguments = append(arguments, request.Filters.Query, request.Filters.Query)
 		if request.IncludeDeleted {
-			search = "(" + search + " OR instr(lower(p.name),?)>0 OR instr(lower(pi.name),?)>0 OR instr(lower(dc.name),?)>0)"
+			search = "(" + search + " OR strpos(lower(p.name),?)>0 OR strpos(lower(pi.name),?)>0 OR strpos(lower(dc.name),?)>0)"
 			arguments = append(arguments, request.Filters.Query, request.Filters.Query, request.Filters.Query)
 		}
 		conditions = append(conditions, search)
@@ -200,7 +200,7 @@ FROM profile_game_activity activity WHERE activity.game_id=g.id AND activity.pro
 func listOrder(sort string) string {
 	switch sort {
 	case application.SortRecentDesc:
-		return " ORDER BY last_played_at_ms DESC,g.created_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
+		return " ORDER BY last_played_at_ms DESC NULLS LAST,g.created_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
 	case application.SortAddedDesc:
 		return " ORDER BY g.created_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
 	case application.SortUpdatedDesc:

@@ -125,7 +125,7 @@ func TestWorkspaceRejectsEscapesSymlinksAndChangedSource(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, destination, "game.bin")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("kept corrupt output: %v", err)
 	}
-	for _, relative := range []string{".", "files", "staging/items", "retrom.db", "secrets/launch-capability.key"} {
+	for _, relative := range []string{".", "files", "staging/items", "postgres-test.json", "secrets/launch-capability.key"} {
 		if err := store.RemovePath(t.Context(), relative); !errors.Is(err, ErrRecordInvalid) {
 			t.Fatalf("unsafe removal %q: %v", relative, err)
 		}

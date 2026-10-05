@@ -15,7 +15,7 @@ import (
 const previewCreationSourceSQL = `
 SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,instance.name,platform.id,
 	validation.provider_id,validation.target_id,provider.bundle_sha256,validation.core_id,binding.delivery_profile,
-COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
+COALESCE(((draft.metadata_json)::jsonb #>> '{title}'),''),snapshot.content_kind,
 validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
 validation.dat_version_id
 FROM import_items item

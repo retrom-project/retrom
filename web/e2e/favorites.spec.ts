@@ -259,8 +259,8 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
     await expect(page.getByRole("button", { name: /键盘收藏夹/ })).toBeVisible();
   }
 
-  const database = process.env.RETROM_E2E_DATABASE;
-  expect(database, "RETROM_E2E_DATABASE must point to the temporary acceptance database").toBeTruthy();
+  const database = process.env.RETROM_E2E_DATA_ROOT;
+  expect(database, "RETROM_E2E_DATA_ROOT must point to the temporary acceptance data directory").toBeTruthy();
   execFileSync(path.resolve("../scripts/acceptance/seed-favorites-layout.sh"), [database!], { stdio: "pipe" });
   await page.goto("/favorites");
   await expect(page.locator(".favorite-game-card")).toHaveCount(50);

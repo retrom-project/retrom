@@ -22,27 +22,18 @@ type (
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Parsing and downloads are completed before these catalog writes.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := datindex.LockCatalogWrites(ctx, tx); err != nil {
+			return fmt.Errorf("acquire dependency catalog: %w", err)
+		}
+		return work(service.WriteScope{
+			Targets: targetRecords{executor: tx}, BIOS: biosRecords{executor: tx},
+			DAT: datRecords{executor: tx}, Catalog: catalogRecords{transaction: tx},
+			Jobs: jobRecords{executor: tx}, Requirements: datindex.Bind(tx),
+		})
+	})
 	if err != nil {
-		return fmt.Errorf("dependencies/begin: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	scope := service.WriteScope{
-		Targets: targetRecords{executor: tx}, BIOS: biosRecords{executor: tx},
-		DAT: datRecords{
-			executor: tx,
-		}, Catalog: catalogRecords{
-			transaction: tx,
-		}, Jobs: jobRecords{
-			executor: tx,
-		}, Requirements: datindex.Bind(
-			tx,
-		),
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("dependencies/commit: %w", err)
 	}
 	return nil

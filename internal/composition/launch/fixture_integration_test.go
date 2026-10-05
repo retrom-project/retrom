@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	librarycomposition "retrom/internal/composition/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
@@ -55,7 +57,7 @@ func newAssemblyFixture(t *testing.T) assemblyFixture {
 	t.Helper()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(dir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

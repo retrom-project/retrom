@@ -21,7 +21,8 @@ func UpdateFavoriteGames(
 }
 
 const FavoriteGamesUpdateRule = `
-WITH previous(profile_id,game_id) AS (VALUES(?,?))
+WITH previous(profile_id,game_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- favorite_games_immutable_update
 WHEN (1=1) THEN 'immutable'

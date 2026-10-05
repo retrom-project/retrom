@@ -4,23 +4,25 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/database/postgres"
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/database/sqlite"
 	application "retrom/internal/service/launch"
 )
 
 func TestPlayActivityIsAtomicAndCountsOnlyAcceptedDuration(t *testing.T) {
-	db, err := sqlite.Open(":memory:", sqlite.Options{MaxOpenConns: 1})
+	db, err := postgres.Open(testpostgres.DSN(t), postgres.Options{MaxOpenConns: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	_, err = db.ExecContext(t.Context(), `CREATE TABLE play_sessions(
 id TEXT PRIMARY KEY,launch_session_id TEXT UNIQUE,profile_id TEXT,game_id TEXT,
-started_at_ms INTEGER,last_reported_at_ms INTEGER,active_duration_ms INTEGER,
-state TEXT,version INTEGER,created_at_ms INTEGER,updated_at_ms INTEGER);
-CREATE TABLE profile_game_activity(profile_id TEXT,game_id TEXT,last_played_at_ms INTEGER,
-active_duration_ms INTEGER CHECK(active_duration_ms>=0),session_count INTEGER,
+started_at_ms BIGINT,last_reported_at_ms BIGINT,active_duration_ms BIGINT,
+state TEXT,version BIGINT,created_at_ms BIGINT,updated_at_ms BIGINT);
+CREATE TABLE profile_game_activity(profile_id TEXT,game_id TEXT,last_played_at_ms BIGINT,
+active_duration_ms BIGINT CHECK(active_duration_ms>=0),session_count BIGINT,
 PRIMARY KEY(profile_id,game_id));`)
 	if err != nil {
 		t.Fatal(err)

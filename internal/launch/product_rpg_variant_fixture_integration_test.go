@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/cleanup"
@@ -44,7 +46,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	t.Helper()
 	ctx, dataDir := t.Context(), t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

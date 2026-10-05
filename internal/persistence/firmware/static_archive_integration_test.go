@@ -10,9 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/firmware"
@@ -38,7 +39,7 @@ func TestStaticArchiveUploadValidatesMembersAndSupportsInspection(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			dir := t.TempDir()
-			database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), time.Now)
+			database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 			if err != nil {
 				t.Fatal(err)
 			}

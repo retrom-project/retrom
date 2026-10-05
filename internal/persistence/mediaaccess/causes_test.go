@@ -4,17 +4,18 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	service "retrom/internal/service/mediaaccess"
 	"retrom/internal/testsupport"
 )
 
 func TestMediaSnapshotsPreserveStorageAndCancellationCauses(t *testing.T) {
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), func() time.Time {
 		return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC)
 	})
 	if err != nil {

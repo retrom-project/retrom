@@ -27,7 +27,7 @@ LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.profile_id=l
 AND save.game_id=launch.game_id AND save.deleted_at_ms IS NULL
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 WHERE launch.id=? AND launch.game_id IS NOT NULL
-AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE'`,
+AND ((target.checkpoint_json)::jsonb #>> '{semantics}')='GAME_SAVE'`,
 		id,
 	); err != nil {
 		return fmt.Errorf("bind launch save version: %w", err)
@@ -35,7 +35,7 @@ AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE'`,
 	return nil
 }
 
-// CASE keeps scalar min semantics independent of SQLite's min(a,b) function.
+// CASE selects the earlier expiration without changing null handling.
 const retirementDeadline = `CASE
 WHEN state IN ('FINISHED','EXPIRED','REVOKED') THEN finished_at_ms
 WHEN state='CREATED' THEN CASE WHEN bootstrap_expires_at_ms<hard_expires_at_ms

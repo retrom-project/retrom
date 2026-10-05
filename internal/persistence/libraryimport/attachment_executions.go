@@ -24,15 +24,13 @@ func NewAttachmentExecutions(database dbapi.DB) *AttachmentExecutions {
 func (repository *AttachmentExecutions) WithRecovery(
 	ctx context.Context, run func(libraryservice.AttachmentRecoveryRecords) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := run(attachmentRecoveryRecords{executor: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin attachment recovery: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := run(attachmentRecoveryRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit attachment recovery: %w", err)
 	}
 	return nil
@@ -183,7 +181,7 @@ SELECT state,leased_until_ms,execution_deadline_at_ms FROM jobs WHERE id=? AND w
 
 func HeartbeatAttachment(ctx context.Context, executor dbapi.Executor, jobID, workerID string, now int64) error {
 	result, err := executor.ExecContext(ctx, `UPDATE jobs
-SET leased_until_ms=MIN(?,execution_deadline_at_ms),heartbeat_at_ms=?,updated_at_ms=?
+SET leased_until_ms=LEAST(?,execution_deadline_at_ms),heartbeat_at_ms=?,updated_at_ms=?
 WHERE id=? AND worker_id=? AND state='RUNNING' AND leased_until_ms>? AND execution_deadline_at_ms>?
 `, now+60_000, now, now, jobID, workerID, now, now)
 	return requireAttachmentChange(result, err, "heartbeat attachment execution")
@@ -195,7 +193,7 @@ func claimAttachmentRecords(
 	result, err := tx.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,worker_id=?,
 execution_started_at_ms=COALESCE(execution_started_at_ms,?),
 execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),
-leased_until_ms=MIN(?,COALESCE(execution_deadline_at_ms,?)),heartbeat_at_ms=?,version=version+1,updated_at_ms=?
+leased_until_ms=LEAST(?,COALESCE(execution_deadline_at_ms,?)),heartbeat_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND kind=? AND state='QUEUED' AND available_at_ms<=? AND attempt_count<max_attempts
 AND (execution_deadline_at_ms IS NULL OR execution_deadline_at_ms>?)`, workerID, now, now+durationMS,
 		now+60_000, now+durationMS, now, now, jobID, kind, now, now)
@@ -204,7 +202,7 @@ AND (execution_deadline_at_ms IS NULL OR execution_deadline_at_ms>?)`, workerID,
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 SELECT id,scope_type,scope_id,'STARTED',
-json_object('schemaVersion',1,'executionNo',execution_no,'attempt',attempt_count),?
+jsonb_build_object('schemaVersion',1,'executionNo',execution_no,'attempt',attempt_count)::text,?
 FROM jobs WHERE id=?`, now, jobID)
 	if err != nil {
 		return fmt.Errorf("record attachment start: %w", err)

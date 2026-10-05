@@ -11,7 +11,7 @@ import (
 
 func TestAdminUserDirectoryStorageFailureIsServerError(t *testing.T) {
 	server := newAuthHTTPServer(t, config.ModeTest)
-	if _, err := server.database.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
+	if _, err := server.database.ExecContext(t.Context(), `DROP TABLE auth_sessions CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	request := httptest.NewRequestWithContext(authn.WithPrincipal(t.Context(), authn.Principal{UserID: "admin", Role: "ADMIN"}), http.MethodGet, "/api/v1/admin/users", nil)

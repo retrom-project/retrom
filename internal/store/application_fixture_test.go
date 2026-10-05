@@ -1,9 +1,10 @@
 package store
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type applicationFixture struct {
@@ -13,7 +14,7 @@ type applicationFixture struct {
 
 func openApplicationFixture(t *testing.T) applicationFixture {
 	t.Helper()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

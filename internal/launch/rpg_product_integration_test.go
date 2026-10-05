@@ -5,10 +5,11 @@ package launch
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/testsupport/importfixture"
 
@@ -22,7 +23,7 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), func() time.Time { return now })
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"),
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t),
 		func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)

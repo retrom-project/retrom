@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/persistence/contentquery"
 
 	variantcomposition "retrom/internal/composition/gamevariant"
@@ -112,7 +114,7 @@ func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -251,7 +253,7 @@ AND EXISTS(
 		t.Fatal(err)
 	}
 	entries := queryAttachmentStrings(t, database.SQL, `
-SELECT printf('%d:%s:%s:%s',ordinal,state,normalized_reference,canonical_name)
+SELECT concat((ordinal)::text,':',(state)::text,':',(normalized_reference)::text,':',(canonical_name)::text)
 FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, firstSnapshotID)
 	testassert.Falsef(t,
@@ -261,7 +263,7 @@ FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 SELECT blob.value
 FROM (`+contentquery.CurrentContentSQL+`) validation
 JOIN import_item_runtime_files file ON file.import_item_id=validation.import_item_id
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE validation.source_snapshot_id=? AND file.role='MULTI_DISC_PLAYLIST'
 `, firstSnapshotID).Scan(&playlistID); err != nil {
 		t.Fatal(err)
@@ -283,7 +285,7 @@ AND disposition='IGNORED' AND reason_code='NOT_REFERENCED_BY_PLAYLIST'
 	approved, err := importer.Approve(ctx, firstItemID, 1)
 	testassert.False(t, err != nil, err)
 	published := queryAttachmentStrings(t, database.SQL, `
-SELECT game.content_kind||':'||file.role||':'||printf('%d',file.sort_order)
+SELECT game.content_kind||':'||file.role||':'||concat((file.sort_order)::text)
 FROM games game
 JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.sort_order

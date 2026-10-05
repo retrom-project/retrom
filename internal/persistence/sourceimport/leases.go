@@ -16,15 +16,13 @@ type Leases struct{ database dbapi.DB }
 
 func NewLeases(database dbapi.DB) *Leases { return &Leases{database: database} }
 func (repository *Leases) WithLease(ctx context.Context, work func(application.LeaseRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(leaseRecords{tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source lease: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(leaseRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source lease: %w", err)
 	}
 	return nil
@@ -81,7 +79,7 @@ func (records leaseRecords) Claim(ctx context.Context, change application.LeaseC
 execution_started_at_ms=?,execution_deadline_at_ms=?,leased_until_ms=?,heartbeat_at_ms=?,worker_id=?,
 version=version+1,updated_at_ms=? WHERE id=? AND version=? AND state='QUEUED' AND execution_no=?
 AND attempt_count=? AND attempt_count<max_attempts AND available_at_ms<=?
-AND execution_started_at_ms IS ? AND execution_deadline_at_ms IS ?
+AND execution_started_at_ms IS NOT DISTINCT FROM ? AND execution_deadline_at_ms IS NOT DISTINCT FROM ?
 AND EXISTS(SELECT 1 FROM source_imports plan WHERE plan.id=? AND plan.version=? AND plan.state=?
 AND ((jobs.kind='IMPORT_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_job_id IS NULL)
 OR (jobs.kind='IMPORT_RECEIVE' AND plan.import_job_id=jobs.id)))`,

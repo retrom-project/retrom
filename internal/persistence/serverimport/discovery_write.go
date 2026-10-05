@@ -13,15 +13,13 @@ type Discovery struct{ database dbapi.DB }
 
 func NewDiscovery(database dbapi.DB) *Discovery { return &Discovery{database} }
 func (repository *Discovery) WithWrite(ctx context.Context, work func(serverimport.DiscoveryRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(discoveryRecords{tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin discovery write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(discoveryRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit discovery write: %w", err)
 	}
 	return nil

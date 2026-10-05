@@ -106,7 +106,7 @@ func TestProjectIndexAuthorizesBeforeFilesAndPreservesFileFailure(t *testing.T) 
 			}
 			fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
-					if strings.Contains(query, table) && strings.Contains(query, "json_each") && len(args) > 0 && args[0].Value == id {
+					if strings.Contains(query, table) && strings.Contains(query, "JOIN LATERAL") && len(args) > 0 && args[0].Value == id {
 						hits++
 						return cause
 					}

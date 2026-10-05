@@ -74,7 +74,7 @@ ON attachment.job_id=job.id WHERE job.id=?`, fixture.jobID).Scan(&oldState, &att
 	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `SELECT count(*) FROM jobs WHERE id=? AND state='CANCELLED'`, fixture.jobID).Scan(&cancelled); err != nil {
 		t.Fatal(err)
 	}
-	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `SELECT count(*) FROM pragma_foreign_key_check`).Scan(&violations); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `SELECT count(*) FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND contype='f' AND NOT convalidated`).Scan(&violations); err != nil {
 		t.Fatal(err)
 	}
 	if cancelled != 1 || violations != 0 {

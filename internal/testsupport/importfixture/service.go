@@ -7,7 +7,7 @@ import (
 	"retrom/internal/composition/importworkflow"
 	"retrom/internal/core/scummvm"
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -25,7 +25,7 @@ type Options struct {
 func New(t *testing.T, database dbapi.DB, files *filestore.Store, options Options) *libraryimport.Service {
 	t.Helper()
 	if database == nil {
-		db, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+		db, err := dbpostgres.Open(":memory:", dbpostgres.Options{})
 		if err != nil {
 			t.Fatal(err)
 		}

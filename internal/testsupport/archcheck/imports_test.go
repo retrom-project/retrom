@@ -4,7 +4,7 @@ import "testing"
 
 func TestBusinessImportBoundaries(t *testing.T) {
 	for _, dependency := range []string{
-		"database/sql", "retrom/internal/persistence/libraryimport", "retrom/internal/database/sqlite",
+		"database/sql", "retrom/internal/persistence/libraryimport", "retrom/internal/database/postgres",
 		"retrom/internal/application", "retrom/internal/composition/cleanupjobs",
 		"retrom/internal/httpapi", "retrom/cmd/retrom",
 	} {

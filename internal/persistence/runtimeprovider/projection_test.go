@@ -3,18 +3,18 @@ package runtimeprovider
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	service "retrom/internal/service/runtimeprovider"
 
 	runtimebundle "retrom/internal/runtime/bundle"
 	runtimecatalog "retrom/internal/runtime/catalog"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestReconcileProjectsProviderTargetsAndCatalogAtomically(t *testing.T) {
@@ -156,13 +156,13 @@ INSERT INTO bios_requirements(
 }
 
 func TestReconcileRejectsUnreadableStoredCheckpointFormat(t *testing.T) {
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.ExecContext(t.Context(), `
-CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER,source_launch_session_id TEXT);
+CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms BIGINT,source_launch_session_id TEXT);
 CREATE TABLE launch_sessions(id TEXT,core_id TEXT);
 INSERT INTO launch_sessions VALUES('source','owner');
 CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT,core_id TEXT);
@@ -183,7 +183,7 @@ INSERT INTO save_states(game_id,checkpoint_format,source_launch_session_id) VALU
 
 func openProjectionDatabase(t *testing.T) *store.DB {
 	t.Helper()
-	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

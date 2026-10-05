@@ -25,7 +25,7 @@ test("ACC-UI-011 default favicon resolves to the existing brand icon", async ({ 
 test("ACC-UI-011 launch selector is aligned before hydration", async ({ page, browser }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
-  const games = await (await page.request.get("/api/v1/games?limit=1")).json() as { items: Array<{ gameId: string }> };
+  const games = await (await page.request.get("/api/v1/games?q=Sudoku&limit=1")).json() as { items: Array<{ gameId: string }> };
   const route = `/games/${games.items[0]!.gameId}`;
   const serverOnly = await browser.newContext({ baseURL: origin,
     storageState: await page.context().storageState(), viewport: page.viewportSize(), deviceScaleFactor: testInfo.project.use.deviceScaleFactor });

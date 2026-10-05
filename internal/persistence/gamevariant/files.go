@@ -15,16 +15,16 @@ func Files(
 	owner string,
 	variant bool,
 ) ([]application.File, error) {
-	query := `SELECT file.role,file.file_record,file.logical_name,json_extract(blob.value, '$.sha256'),
-json_extract(blob.value, '$.size_bytes'),file.sort_order
-FROM game_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL WHERE
+	query := `SELECT file.role,file.file_record,file.logical_name,((blob.value)::jsonb #>> '{sha256}'),
+(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,file.sort_order
+FROM game_files file JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL WHERE
 file.game_id=?
 ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 WHEN 'DOS_SOURCE' THEN 2 ELSE 3 END,
 file.sort_order,file.logical_name`
 	if variant {
-		query = `SELECT file.role,file.file_record,file.logical_name,json_extract(blob.value, '$.sha256'),
-json_extract(blob.value, '$.size_bytes'),file.sort_order
-FROM variant_files file JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+		query = `SELECT file.role,file.file_record,file.logical_name,((blob.value)::jsonb #>> '{sha256}'),
+(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,file.sort_order
+FROM variant_files file JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.game_variant_id=?
 ORDER BY file.role,file.sort_order,file.logical_name`
 	}

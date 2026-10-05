@@ -49,7 +49,7 @@ func TestProductCreateHTTPPendingReceiptRollsBackValidation(t *testing.T) {
 	if _, err := server.database.ExecContext(t.Context(), `UPDATE game_variants SET status='BLOCKED',compatibility_code='VALIDATION_PENDING',emulator_game_id=NULL WHERE game_id=?`, gameID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records ADD COLUMN product_receipt_guard INTEGER CHECK(operation_id!='postLaunch')`); err != nil {
+	if _, err := server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records ADD COLUMN product_receipt_guard BIGINT CHECK(operation_id!='postLaunch')`); err != nil {
 		t.Fatal(err)
 	}
 	response := productCreateHTTP(t, server, gameID)
@@ -103,7 +103,7 @@ func productCreateHTTPCounts(t *testing.T, server *testServer) (int, int) {
 func TestProductCreateHTTPReceiptFailureRollsBackLaunch(t *testing.T) {
 	server := newReadyHTTPServer(t)
 	gameID, _ := seedMovableGame(t, server)
-	if _, err := server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records ADD COLUMN product_receipt_guard INTEGER CHECK(operation_id!='postLaunch')`); err != nil {
+	if _, err := server.database.ExecContext(t.Context(), `ALTER TABLE idempotency_records ADD COLUMN product_receipt_guard BIGINT CHECK(operation_id!='postLaunch')`); err != nil {
 		t.Fatal(err)
 	}
 	response := productCreateHTTP(t, server, gameID)

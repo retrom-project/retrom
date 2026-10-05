@@ -27,7 +27,7 @@ func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database dbapi
 	var refs, candidates int
 	err = dbapi.QueryRowContext(ctx, database, `SELECT
  (SELECT count(*) FROM launch_external_files WHERE launch_session_id=? AND file_record=?),
- (SELECT count(*) FROM job_input_snapshots WHERE json_extract(input_json,'$.inputs.relativePath')=?)`, lifecycle.launchID, fileRecord, "bios/"+installationID).Scan(&refs, &candidates)
+ (SELECT count(*) FROM job_input_snapshots WHERE ((input_json)::jsonb #>> '{inputs,relativePath}')=?)`, lifecycle.launchID, fileRecord, "bios/"+installationID).Scan(&refs, &candidates)
 	testassert.False(t, err != nil, err)
 	testassert.Truef(t, refs == 0 && candidates == 1,
 		"replaced BIOS remained unqueued: launch refs=%d, DeletionQueue candidates=%d", refs, candidates)

@@ -11,7 +11,6 @@ export async function expectSourceHandoffDuringCleanup(page: Page, sourceImportI
     return result.items[0].payloadState;
   }).toBe("RELEASED");
   await page.route(pattern, async (route) => {
-    itemReads += 1;
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     const result = await response.json() as SourceItemList;
@@ -25,6 +24,7 @@ export async function expectSourceHandoffDuringCleanup(page: Page, sourceImportI
       result.items[0].media = { cover: "MISSING", video: "MISSING" };
     }
     await route.fulfill({ response, json: result });
+    itemReads += 1;
   });
   try {
     await page.getByRole("button", { name: "应用筛选" }).click();
@@ -38,6 +38,7 @@ export async function expectSourceHandoffDuringCleanup(page: Page, sourceImportI
     await expect(results).not.toContainText("封面 MISSING");
     await expect(results).not.toContainText("视频 MISSING");
   } finally {
-    await page.unroute(pattern);
+    // Navigation must not cancel a response whose handler is still fulfilling it.
+    await page.unrouteAll({ behavior: "wait" });
   }
 }

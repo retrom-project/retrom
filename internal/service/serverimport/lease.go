@@ -65,6 +65,7 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 	var result Work
 	var found bool
 	err := service.repository.WithWrite(ctx, func(records LeaseRecords) error {
+		result, found = Work{}, false
 		now := service.now().UnixMilli()
 		before, ok, err := records.Next(ctx, now)
 		if err != nil {
@@ -152,7 +153,7 @@ func (service *Leases) touch(ctx context.Context, unit Work, phase string, event
 	return nil
 }
 
-// Check observes cancellation and fencing without acquiring the SQLite writer.
+// Check observes cancellation and fencing without opening a write transaction.
 func (service *Leases) Check(ctx context.Context, unit Work) error {
 	before, err := service.repository.Current(ctx, unit.JobID)
 	if err != nil {

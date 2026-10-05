@@ -12,12 +12,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/testsupport/importfixture"
 
@@ -52,7 +53,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	t.Helper()
 	now := func() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC) }
 	root := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(root, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

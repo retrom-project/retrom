@@ -16,10 +16,10 @@ func (records *ReviewDependencies) MultiDiscSource(
 ) (libraryservice.MultiDiscSource, error) {
 	var result libraryservice.MultiDiscSource
 	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT file.logical_name,json_extract(blob.value, '$.size_bytes'),json_extract(blob.value, '$.sha256'),
-coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
-coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxTotalBytes'),?)
-FROM import_item_source_snapshot_files file JOIN json_each(json_array(file.file_record)) blob ON
+SELECT file.logical_name,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,((blob.value)::jsonb #>> '{sha256}'),
+coalesce((((job.config_snapshot_json)::jsonb #>> '{multiDisc,maxDiscs}'))::bigint,?),
+coalesce((((job.config_snapshot_json)::jsonb #>> '{multiDisc,maxTotalBytes}'))::bigint,?)
+FROM import_item_source_snapshot_files file JOIN LATERAL (SELECT file.file_record AS value) blob ON
 blob.value IS NOT NULL
 JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
 JOIN import_items item ON item.id=snapshot.import_item_id JOIN import_jobs job ON job.id=item.import_job_id
@@ -36,10 +36,10 @@ WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'`,
 	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.ordinal,entry.source_reference,entry.canonical_name,entry.state,
-entry.source_logical_name,json_extract(blob.value, '$.size_bytes'),json_extract(blob.value, '$.sha256')
+entry.source_logical_name,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,((blob.value)::jsonb #>> '{sha256}')
 FROM import_item_multidisc_entries
 entry
-LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
+LEFT JOIN LATERAL (SELECT entry.file_record AS value) blob ON blob.value IS NOT NULL WHERE
 entry.source_snapshot_id=?
 ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
@@ -76,7 +76,7 @@ WHEN job.state='FAILED' AND job.error_retryable=1 THEN 'FAILED_RETRYABLE'
 WHEN job.state='CANCEL_REQUESTED' THEN 'RUNNING' ELSE job.state END,
 COALESCE(attachment.error_code,job.error_code),attachment.diagnostics_json,
 attachment.job_id,job.state,job.error_retryable,job.version,
-attachment.version,attachment.created_at_ms,MAX(attachment.updated_at_ms,job.updated_at_ms),
+attachment.version,attachment.created_at_ms,GREATEST(attachment.updated_at_ms,job.updated_at_ms),
 COALESCE(attachment.finished_at_ms,job.finished_at_ms)
 FROM review_multidisc_attachments attachment JOIN jobs job ON job.id=attachment.job_id
 WHERE attachment.import_item_id=? ORDER BY attachment.created_at_ms DESC,attachment.id

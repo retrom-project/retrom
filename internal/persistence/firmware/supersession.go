@@ -72,8 +72,8 @@ func (records supersessionRecords) revokeBIOSLaunches(
 SELECT DISTINCT launch.id FROM launch_sessions launch
 JOIN launch_external_files file ON file.launch_session_id=launch.id
 WHERE file.file_record=? AND file.kind IN ('BIOS','BIOS_BUNDLE')
-AND EXISTS(SELECT 1 FROM json_each(launch.dependency_snapshot_json,'$.bios') dependency
- WHERE json_extract(dependency.value,'$.installationId')=?)`, fileRecord, installationID)
+AND EXISTS(SELECT 1 FROM jsonb_array_elements_text(((launch.dependency_snapshot_json)::jsonb #> '{bios}')) dependency
+ WHERE ((dependency.value)::jsonb #>> '{installationId}')=?)`, fileRecord, installationID)
 	if err != nil {
 		return fmt.Errorf("find launches using superseded BIOS: %w", err)
 	}

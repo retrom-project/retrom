@@ -49,31 +49,29 @@ func (r *Repository) ExtendRun(ctx context.Context, profile, id string, now, exp
 	if !needsRenewal {
 		return nil
 	}
-	tx, err := r.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin runtime run renewal: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	_, err = sessionstore.ChangeLaunch(ctx, tx, recordstore.Update{
-		Set: `hard_expires_at_ms=?,updated_at_ms=?`, Values: []any{expires, now},
-		Scope: recordstore.Scope{
-			Where: `id=? AND profile_id=? AND state='ACTIVE' AND hard_expires_at_ms>? AND hard_expires_at_ms<?`,
-			Args:  []any{id, profile, now, expires},
-		},
+	err = dbapi.RetryTransaction(ctx, r.database, func(tx dbapi.Tx) error {
+		_, err := sessionstore.ChangeLaunch(ctx, tx, recordstore.Update{
+			Set: `hard_expires_at_ms=?,updated_at_ms=?`, Values: []any{expires, now},
+			Scope: recordstore.Scope{
+				Where: `id=? AND profile_id=? AND state='ACTIVE' AND hard_expires_at_ms>? AND hard_expires_at_ms<?`,
+				Args:  []any{id, profile, now, expires},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("renew runtime run: %w", err)
+		}
+		_, err = recordstore.UpdateIsolatedRuntimeCapabilities(ctx, tx, recordstore.Update{
+			Set: `expires_at_ms=?`, Values: []any{expires},
+			Scope: recordstore.Scope{Where: `launch_id=? AND profile_id=? AND revoked_at_ms IS NULL AND expires_at_ms>?
+	 AND expires_at_ms<? AND EXISTS(SELECT 1 FROM launch_sessions l WHERE l.id=launch_id AND l.state='ACTIVE'
+	 AND l.hard_expires_at_ms>=?)`, Args: []any{id, profile, now, expires, expires}},
+		})
+		if err != nil {
+			return fmt.Errorf("renew isolated runtime grant: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("renew runtime run: %w", err)
-	}
-	_, err = recordstore.UpdateIsolatedRuntimeCapabilities(ctx, tx, recordstore.Update{
-		Set: `expires_at_ms=?`, Values: []any{expires},
-		Scope: recordstore.Scope{Where: `launch_id=? AND profile_id=? AND revoked_at_ms IS NULL AND expires_at_ms>?
- AND expires_at_ms<? AND EXISTS(SELECT 1 FROM launch_sessions l WHERE l.id=launch_id AND l.state='ACTIVE'
- AND l.hard_expires_at_ms>=?)`, Args: []any{id, profile, now, expires, expires}},
-	})
-	if err != nil {
-		return fmt.Errorf("renew isolated runtime grant: %w", err)
-	}
-	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit runtime run renewal: %w", err)
 	}
 	return nil

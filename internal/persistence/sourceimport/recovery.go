@@ -18,20 +18,18 @@ type Recovery struct{ database dbapi.DB }
 
 func NewRecovery(database dbapi.DB) *Recovery { return &Recovery{database: database} }
 func (repository *Recovery) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(
+			application.RecoveryScope{
+				Payload: payload.BindReleases(tx), Records: recoveryRecords{tx},
+				Metadata: library.BindMetadata(tx),
+			},
+		); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source recovery: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(
-		application.RecoveryScope{
-			Payload: payload.BindReleases(tx), Records: recoveryRecords{tx},
-			Metadata: library.BindMetadata(tx),
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source recovery: %w", err)
 	}
 	return nil

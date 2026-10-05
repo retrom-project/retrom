@@ -129,6 +129,7 @@ func (service *LinkIssuanceService) issue(
 	var result AccountLink
 	var replayed bool
 	err := service.repository.WithIssueWrite(ctx, func(scope LinkIssueScope) error {
+		result, replayed = AccountLink{}, false
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("read account link replay: %w", err)

@@ -12,7 +12,7 @@ import (
 	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func productCreationFixture(t *testing.T) (reviewCheckpointFixture, CreateRequest) {
@@ -63,7 +63,7 @@ func TestProductCreationPreservesSourceStorageCause(t *testing.T) {
 	before := playRows(t, fixture.database)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE platform_instances RENAME TO unavailable_product_instances`)
 	result, err := fixture.launcher.Create(t.Context(), "local", request)
-	var storage *sqlite.Error
+	var storage *pgconn.PgError
 	if !errors.As(err, &storage) || result.LaunchID != "" {
 		t.Fatalf("source failure: launch=%q error=%v", result.LaunchID, err)
 	}

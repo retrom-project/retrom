@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
+import postgres_fixture as pg
 import sys
 from pathlib import Path
 
@@ -14,8 +14,8 @@ def main() -> int:
         raise SystemExit("usage: seed-bios-catalog.py DATABASE TARGET_COUNT")
     database_path = Path(sys.argv[1]).resolve()
     target_count = int(sys.argv[2])
-    connection = sqlite3.connect(database_path)
-    connection.row_factory = sqlite3.Row
+    connection = pg.connect(database_path)
+    connection.row_factory = pg.row_factory
     try:
         current = connection.execute(
             "SELECT count(*) FROM bios_requirements WHERE enabled=1"
@@ -29,8 +29,8 @@ def main() -> int:
         ).fetchone()
         if template is None:
             raise RuntimeError("the dedicated Yabause BIOS seed template is unavailable")
-        columns = [row[1] for row in connection.execute("PRAGMA table_info(bios_requirements)")]
-        placeholders = ",".join("?" for _ in columns)
+        columns = [row[0] for row in connection.execute("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='bios_requirements' AND is_generated='NEVER' ORDER BY ordinal_position")]
+        placeholders = ",".join("%s" for _ in columns)
         insert = f"INSERT INTO bios_requirements({','.join(columns)}) VALUES({placeholders})"
         for index in range(target_count - current):
             logical_name = f"acceptance_catalog_{index:03d}.bin"

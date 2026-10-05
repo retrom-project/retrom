@@ -66,6 +66,7 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 	var unit Work
 	found := false
 	err := service.repository.WithLease(ctx, func(records LeaseRecords) error {
+		unit, found = Work{}, false
 		now := service.now().UnixMilli()
 		before, exists, err := records.Next(ctx, now)
 		if err != nil {

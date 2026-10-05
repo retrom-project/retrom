@@ -9,7 +9,7 @@
 
 ## 1. 文档边界
 
-本文档定义 SQLite 类型约定、时间字段、核心表目录、独立文件存储、Archive 安全以及后台删除。
+本文档定义 PostgreSQL 类型约定、时间字段、核心表目录、独立文件存储、Archive 安全以及后台删除。
 
 关联文档：
 
@@ -25,7 +25,7 @@
 
 ### 2.1 时间点
 
-所有表示“某一时刻”的数据库字段统一使用 SQLite `INTEGER`，保存 UTC Unix epoch milliseconds：
+所有表示“某一时刻”的数据库字段统一使用 PostgreSQL `BIGINT`，保存 UTC Unix epoch milliseconds：
 
 - 单位固定为毫秒，不允许同库混用秒、微秒或纳秒。
 - 字段名统一使用 `_at_ms` 后缀，例如 `created_at_ms`、`updated_at_ms`、`started_at_ms`、`last_reported_at_ms`、`expires_at_ms`。
@@ -36,7 +36,7 @@
 禁止：
 
 - 用 `TEXT` 保存 RFC 3339 时间作为业务表的主时间字段。
-- 使用 SQLite `CURRENT_TIMESTAMP`，因为它生成文本且精度/格式与本约定不一致。
+- 使用 `CURRENT_TIMESTAMP` 作为毫秒整数主存储；其类型和单位不符合本约定。
 - 保存服务器本地时区时间。
 - 使用无单位语义的字段名，例如 `timestamp`、`time` 或 `created`。
 
@@ -47,10 +47,10 @@ CREATE TABLE play_sessions (
     id TEXT PRIMARY KEY,
     profile_id TEXT NOT NULL,
     game_id TEXT NOT NULL,
-    started_at_ms INTEGER NOT NULL CHECK (started_at_ms >= 0),
-    last_reported_at_ms INTEGER NOT NULL CHECK (last_reported_at_ms >= started_at_ms),
-    ended_at_ms INTEGER,
-    active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (active_duration_ms >= 0),
+    started_at_ms BIGINT NOT NULL CHECK (started_at_ms >= 0),
+    last_reported_at_ms BIGINT NOT NULL CHECK (last_reported_at_ms >= started_at_ms),
+    ended_at_ms BIGINT,
+    active_duration_ms BIGINT NOT NULL DEFAULT 0 CHECK (active_duration_ms >= 0),
     CHECK (ended_at_ms IS NULL OR ended_at_ms >= started_at_ms)
 );
 
@@ -62,9 +62,9 @@ CREATE INDEX idx_play_sessions_started_at_ms
 
 并非所有“与时间有关”的值都是时间戳：
 
-- 时长使用 `INTEGER` 毫秒并以 `_duration_ms` 或 `_interval_ms` 结尾，例如 `active_duration_ms`、`heartbeat_interval_ms`。
+- 时长使用 `BIGINT` 毫秒并以 `_duration_ms` 或 `_interval_ms` 结尾，例如 `active_duration_ms`、`heartbeat_interval_ms`。
 - EmulatorJS 固定保存间隔等原生以毫秒定义的配置继续使用毫秒。
-- 游戏发行年份使用 `INTEGER` 年份，例如 `release_year = 1996`，不能伪造为某年 1 月 1 日时间戳。
+- 游戏发行年份使用 `BIGINT` 年份，例如 `release_year = 1996`，不能伪造为某年 1 月 1 日时间戳。
 - 只有年/月/日、没有精确时刻的历史发行日期应拆为 `release_date_precision` 与整数年/月/日字段；一期只需要 `release_year`。
 - DAT 中的原始日期文本若需要审计，可保存在 raw payload，不作为排序和状态机时间字段。
 
@@ -81,56 +81,41 @@ CREATE INDEX idx_play_sessions_started_at_ms
 
 前端不得通过字段值位数猜测单位。OpenAPI schema 应声明 `type: integer`、`format: int64` 并在 description 中写明 `Unix epoch milliseconds (UTC)`。
 
-### 2.4 旧 TEXT 时间迁移
+### 2.4 建库与数据切换
 
-当前仓库尚无已发布数据库，一期首版 migration 直接创建整数时间列；不得为了兼容一个不存在的旧 schema 增加 TEXT 列、双写层或伪造旧版本 fixture。只有未来确实存在已交付的 TEXT 时间 schema 时，才在独立 migration 变更中按下列流程处理并把该真实旧版本加入支持清单：
+PostgreSQL 首版直接创建 `BIGINT` 毫秒列。本次切换不保留业务数据，不提供旧库转换器、双写或双后端模式；数据库与领域文件必须作为同一环境整体重建。未来已发布的 PostgreSQL schema 只通过追加 migration 演进，不改写已应用 checksum。
 
-1. 先确认所有旧值均为带时区的 RFC 3339/ISO 8601，无法解析的记录进入迁移错误表，不能取当前时间掩盖。
-2. 新增 `_at_ms INTEGER` 列并由 Go 迁移程序解析为 UTC 后调用 `UnixMilli()`；不要依赖 SQLite 对各种时区字符串的宽松解析。
-3. 比较记录数量、最小/最大值和抽样格式化结果。
-4. 使用 SQLite 表重建移除旧 TEXT 列并补上 `NOT NULL`、`CHECK` 和索引。
+## 3. PostgreSQL 基线
 
-一期尚未产生业务数据，实施结论就是直接按新字段建表，不保留双写兼容层；本小节不是首版实施任务。
+唯一数据库为 PostgreSQL 18，Go 使用 `github.com/jackc/pgx/v5` 的 `database/sql` 适配器，版本由 `go.mod/go.sum` 固定。PFB、CI 与部署示例使用同一固定 PostgreSQL 镜像。服务必须提供 `RETROM_DATABASE_URL`（本地 `make dev` 可自动启动 PostgreSQL 并注入；开发生命周期见[运维专题](./backend-api-and-operations.md#73-make-dev-只运行本地进程)），连接 URL 必须包含服务器和数据库；凭据不能写入日志、诊断或版本库。应用文件仍位于 `RETROM_DATA_DIR`，数据库由独立 PostgreSQL 服务持久化。
 
-## 3. SQLite 基线
+- 每个物理连接设置 UTC、`application_name=retrom`、`lock_timeout=5s`。生产保持 PostgreSQL 默认持久化保证，不关闭 fsync、full_page_writes 或 synchronous_commit。
+- `database.DB.BeginTx` 默认使用 `SERIALIZABLE` 写事务；显式 `ReadOnly` 使用 `REPEATABLE READ` 快照。数据库允许不同事务并发，不再依赖进程级单写者。涉及授权、版本、租约和输入快照的最终检查与写入必须同事务；需要阻止同一记录变化时使用条件更新或行锁。
+- PostgreSQL 可能返回序列化失败 `40001` 或死锁 `40P01`。只有经过审查的纯数据库事务边界使用 `database.RetryTransaction`，最多八次、指数退避且受 context 约束。回调每次重读事实、覆盖返回结果，不累积外部状态；文件复制/发布、哈希、网络、Provider 解析和任务派发必须在可重试范围外。事务错误仍保留原始原因。
+- 依赖目录写入使用单独的数据库级 advisory transaction lock 与 `READ COMMITTED`，等待上限 60 秒且服从 context。目录发布者依次提交，等待后重读最新状态；普通游戏、账户和任务写入不获取该锁。大型 DAT 物化不参与全库 SSI 谓词冲突，版本、索引、活动选择和发布收据仍原子提交；测试 DAT 发布也必须取得同一目录锁。
+- 写连接池上限 16、独立只读池上限 8，各保留至多 4 个空闲连接。组合层显式注入 reader/writer，受保护列表与账户鉴权使用 reader，写事务的事实重验与收据不能跨池拆开。
+- 有效会话续期最多等待写事务 100ms；超时后重读当前已提交的权限和到期事实，不伪造续期。
+- 连接池与事务统计分别记录等待、BEGIN、SQL、行消费、COMMIT 和持有时间。慢调用 500ms、慢写事务 100ms 输出无 SQL/参数/凭据的结构化日志。驱动取消必须释放连接，故障注入连接必须透传驱动的连接有效性与重置语义。
+- 标志列使用 `BIGINT CHECK(value IN (0,1))`，适配器绑定 Go bool 为 0/1；SQL `EXISTS` 等布尔表达式直接扫描到 Go bool。二进制摘要和响应体使用 `BYTEA`。枚举使用 `TEXT` 加 `CHECK` 或字典表。
+- JSON 快照保持经过 `IS JSON` 校验的 `TEXT`，保留生成时的字节与摘要；查询使用原生 JSON/JSONB 操作，嵌套快照提取使用 `json` 保留文本表示。可查询关系仍规范化，不以 JSON 替代表和外键。
+- 参数由适配器将组合完成的匿名 `?` 编号为 PostgreSQL `$n`；表达式、目录查询、upsert、聚合均为 PostgreSQL SQL。字节序比较显式使用 `COLLATE "C"`；RPG 路径回退使用 ASCII `translate`，不扩大为 Unicode 模糊匹配。
+- 游标比较与 `ORDER BY` 必须使用相同的 collation。可空排序列显式声明空值位置；游戏库最近游玩使用 `DESC NULLS LAST`，游标把未玩时间映射为 `-1`，保证已玩和未玩游戏之间不漏项、不重复。
+- UUIDv7 业务主键保持规范小写文本；稳定字典使用 code。EmulatorJS 的 `emulator_game_id` 为 `BIGINT`，范围为 `1..9007199254740991`。
+- 不创建业务 VIEW/TRIGGER。外键和 CHECK 在数据库中执行；跨表所有权、状态转换与上限通过 `recordstore` 参数化 SQL 及保存点校验。会话和回收排期由 `sessionstore` 在同一事务更新。
 
-一期固定使用 pure-Go `modernc.org/sqlite`，避免后端镜像隐式依赖 CGO/系统 SQLite。精确 module 版本由 `go.mod/go.sum` 锁定；更换 driver 属于数据库基线变更，必须重跑全部 migration、并发与完整性 Case。
+### 3.1 migration lineage
 
-写 handle 打开数据库时设置持久的 `journal_mode=WAL`。每个物理连接（包括中断后连接池重建的连接）通过驱动 DSN `_pragma` 初始化：
+`001_schema.sql` 直接创建当前最终表、约束和索引；循环外键在所有表建立后以 `ALTER TABLE` 声明，保持全程事务性。建库只包含实例初始化状态，不包含业务游戏、账户或目录。Provider/Platform/Core 由正常启动同步。
 
-~~~sql
-PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
-PRAGMA synchronous = FULL;
-~~~
+`store.Open` 使用 `READ COMMITTED` 迁移事务与 advisory transaction lock 串行化 schema 初始化，确保锁等待结束后能看到前一初始化事务的提交；检查 `schema_migrations` 的版本、名称和 checksum；只接受空库、当前精确有序前缀或完整当前 lineage。未知/未来版本、缺失历史、名称或 checksum 不匹配会拒绝启动。迁移和历史记录同事务提交；失败回滚。取消或期限错误保留原始 context 原因。
 
-规则：
+PFB 不兼容切换必须先停止应用与 PostgreSQL，再执行 exact-ID `pfb-data-reset`；`data/` 与 `postgres/` 一起归档到 `reset-backups/`，保留 Provider、依赖和构建缓存及稳定 URL。新 PFB 直接初始化空库。不得把旧数据库与另一份领域文件混用。
 
-- 所有写操作通过短事务完成；耗时哈希、网络请求和 DAT 解析不得占用写事务。
-- 事务统一通过 `database.DB.BeginTx` 开始。SQLite 接入层固定驱动参数 `_txlock=immediate`，非只读事务在开始时取得写保留，避免先读后写的锁升级冲突；只读事务必须显式传入 `ReadOnly: true`，由驱动使用普通 `BEGIN`，不预占写锁。提交、回滚、context 取消和连接归还统一由 `database/sql` 与驱动管理，不另行持有 `sql.Conn` 手写事务状态机。驱动故障注入连接也必须使用相同事务策略。
-- 隔离性沿用 SQLite 自身的事务语义；`TxOptions` 只提供 `ReadOnly`，不暴露逐事务隔离级别选择。`_txlock` 控制取得写锁的时机，不用于切换隔离级别。
-- SQLite 数据库和 WAL 必须位于本机磁盘；不支持把数据库放在 NFS/SMB/分布式文件系统。独立文件存储可单独挂载，但必须满足原子 rename 语义。
-- 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；独立只读 handle 使用 `mode=ro` 且最多 4 个连接，健康探测等只读控制面查询不能排在唯一写连接之后。两种 handle 的连接初始化策略由存储入口统一传入 SQLite 适配器；单连接池同样可能换连接，不能只对池执行一次 PRAGMA。只读连接不设置 journal mode。完整性验收同时检查 `foreign_key_check` 和数据库重新打开，不能仅以 `quick_check` 通过判断健康。
-- 组合层必须显式注入 reader 和 writer。独立账户事实、会话鉴权与业务列表/详情查询走 reader；显式 `ReadOnly` 快照也走 reader。写事务内的事实重验、收据、领域变更、租约与 fencing 继续共享该 writer 事务，不能跨池拆开原子提交，也不缓存授权事实。
-- 有效会话的定期续期最多等待写事务 100ms；续期超时但请求仍有效时重新读取当前账户/会话事实，并仅使用已提交的 idle/absolute expiry。停用、撤销、密码版本变化或到期仍立即拒绝。续期不会排队拖住普通 GET，也不会在写入失败时伪造延期；其他存储故障及请求取消保持失败语义。
-- 连接池统计暴露等待次数/累计等待时间，SQLite 适配器分别记录 SQL 调用次数/累计调用耗时与事务次数/累计持有时间，包括批量导入使用的 prepared statements。普通 SQL 调用耗时包括池等待，不等于纯 SQL 执行时间；事务中的 SQL 调用不再经过池排队，持有时间包含业务回调、行扫描与提交。慢调用或事务取得（500ms）和慢写事务（100ms）输出结构化耗时日志，日志不含 SQL、参数或凭据；以池等待、事务内 SQL 和事务持有时间判断瓶颈，不能从总请求时间猜测缺失索引。
-- 外键删除策略默认 `RESTRICT`，业务软删除通过状态字段实现。
-- 布尔值使用 `INTEGER NOT NULL CHECK (value IN (0, 1))`。
-- 枚举使用 `TEXT` 加 `CHECK` 或稳定字典表，不使用依赖插入顺序的整数枚举。
-- JSON 只用于不可变快照、低频配置和 provider raw payload；可查询关系必须规范化。
-- 代码种子 ID 使用稳定 code；其他业务实体使用规范小写 UUIDv7 文本。EmulatorJS 要求 number 类型 `EJS_gameID` 的 GameVariant 另存稳定唯一 `INTEGER` surrogate key，范围固定 `1..9007199254740991`，API 不把它字符串化。
+### 3.2 测试、备份与恢复
 
-### 3.1 clean migration lineage
+Go 测试通过 `RETROM_TEST_DATABASE_URL` 连接专用测试服务器，角色需要建库权限；每个测试创建独立 `retrom_test_*` 数据库并注册删除，不复用产品数据库。浏览器夹具创建 `retrom_acceptance_*` 库，与临时文件根绑定，结束后同时清理。`make prepare-postgres-tools` 准备锁定的 psycopg 工具；普通应用不依赖 Python 数据库驱动。
 
-当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`，`015_shared_runtime_sessions.sql` 兼容追加共享运行凭据，保留现有游戏、存档和会话；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger 或 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
-
-`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
-
-只读 schema 预检被取消或超过启动期限时保留对应的 context 错误，不将其误报为 `DATABASE_SCHEMA_INVALID`；超时本身不构成重建数据库的依据。
-
-跨表与新旧状态校验由 `recordstore` 的参数化 SQL 执行；会话、存档与回收排期的联动由 `sessionstore` 在同一事务完成。保存点保证校验失败时撤销该次写入，不能依赖调用方最终选择 rollback 来维持不变量。共享查询在 `storequery` 中维护；完整职责及空操作语义见[数据模型](./data-model.md#应用写入与数据库职责)。
-
-不兼容开发数据库必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。新建且未启动过的 PFB 直接初始化空库。程序不提供转换器、双写或隐式导入，也不得把旧数据库与文件目录拆开混入新库。默认开发数据根为 `.dev-data/data`，测试和验收使用独立临时根。未来发布后的兼容演进仍须追加 migration 并验证明确支持的升级路径，不能改写已发布 checksum。
+备份先停止 Retrom 写入（含后台任务），使用与服务器主版本匹配的 `pg_dump --format=custom` 导出，并复制同一时刻的整个 `RETROM_DATA_DIR` 和 Provider 活动配置。恢复到空 PostgreSQL 数据库与配套文件根，再用实际 `store.Open` 路径校验迁移历史、约束/索引目录和领域文件所有权；单独的存活探测不等于业务完整性证明。正常备份不直接复制正在运行的 PGDATA。
 
 ## 4. 表目录
 
@@ -265,7 +250,6 @@ data/
 
 .dev-data/data/              # 开发 RETROM_DATA_DIR，不进入版本控制
   retrom.lock
-  retrom.db
   files/<game-id-last2>/<game-uuid>/{content,media}/
   secrets/launch-capability.key
   tmp/uploads/<upload-id>/
@@ -381,7 +365,7 @@ Preview 对输入文件只持有冻结读取授权；截图属于 Item，临时 
 
 ## 14. 标签数据边界
 
-Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 SQLite，不新增独立文件存储 payload、Blob reference、外部 taxonomy 或运行期下载。软删除保留 DELETED tombstone、历史关系、mapping 名称 snapshot 与审计；同名新 Tag 不继承旧关系。领域文件所有权、物理文件枚举和依赖物化均不因标签改变。
+Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 PostgreSQL，不新增独立文件存储 payload、Blob reference、外部 taxonomy 或运行期下载。软删除保留 DELETED tombstone、历史关系、mapping 名称 snapshot 与审计；同名新 Tag 不继承旧关系。领域文件所有权、物理文件枚举和依赖物化均不因标签改变。
 
 Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。lineage 不匹配的应用不能写库。字段与当前应用写入约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
 
@@ -399,11 +383,11 @@ PFB loose provider 与 production active descriptor 的 source 和目录必须�
 
 ## 16. 统一验收入口
 
-SQLite、migration、独立文件存储、后台删除统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-AUTH-001`–`002`、`ACC-ISO-*`、`ACC-TAG-001` 与 `ACC-ES-002/004`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`、`ACC-ES-001`。本文不再维护重复通过条件。
+PostgreSQL、migration、独立文件存储、后台删除统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-AUTH-001`–`002`、`ACC-ISO-*`、`ACC-TAG-001` 与 `ACC-ES-002/004`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`、`ACC-ES-001`。本文不再维护重复通过条件。
 
-### 请求与 SQLite 分段观测
+### 请求与 PostgreSQL 分段观测
 
-共享 `telemetry` 只携带请求关联 ID、固定操作名和累计时间；accounts 不依赖数据库包，仍通过业务 repository 获取事务。SQLite adapter 的 `Rows` 边界统计 Next/Scan/Close，分别记录连接池等待、BEGIN、SQL 调用、行消费、COMMIT、写事务持有及扣除 SQL/行消费/提交后的事务内时间。独立查询及取消中的事务必须释放连接；所有连接仍按初始化 PRAGMA 配置，WAL/同步强度不降低。
+共享 `telemetry` 只携带请求关联 ID、固定操作名和累计时间；accounts 不依赖数据库包，仍通过业务 repository 获取事务。PostgreSQL adapter 的 `Rows` 边界统计 Next/Scan/Close，分别记录连接池等待、BEGIN、SQL 调用、行消费、COMMIT、写事务持有及扣除 SQL/行消费/提交后的事务内时间。独立查询及取消中的事务必须释放连接；所有连接执行相同 PostgreSQL 初始化设置，生产持久化强度不降低。
 
 上传完成准入与异步文件组装各自拥有独立计时范围。上传后台任务使用新的不透明关联 ID 和固定操作名 `BACKGROUND uploads.finalize`，不能把 HTTP context 中继承的计时对象用于后台执行，避免将后台 writer 等待累计到已返回的请求。
 

@@ -15,6 +15,7 @@ import (
 
 func TestConcurrentPartReplaysCountBytesOnce(t *testing.T) {
 	service, database, session := partFixture(t, true)
+	database.SetMaxOpenConns(8)
 	var workers sync.WaitGroup
 	failures := make(chan error, 8)
 	for range 8 {

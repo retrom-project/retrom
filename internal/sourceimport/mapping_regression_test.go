@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestMappingReadFailurePreservesDatabaseCause(t *testing.T) {
@@ -16,7 +16,7 @@ func TestMappingReadFailurePreservesDatabaseCause(t *testing.T) {
 	}
 	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
 	value, err := service.UpdateMappings(t.Context(), "import", 4, []Mapping{{CollectionID: "019b0000-0000-7000-8000-000000000001", Action: "SKIP", TagIDs: []string{}}})
-	var databaseError *sqlite.Error
+	var databaseError *pgconn.PgError
 	if !errors.As(err, &databaseError) || value.ID != "" {
 		t.Fatalf("mapping storage failure masked: %#v, %v", value, err)
 	}

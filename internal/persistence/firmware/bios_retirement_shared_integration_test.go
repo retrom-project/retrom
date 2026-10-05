@@ -76,11 +76,11 @@ func seedRetiringInstallation(t *testing.T, database dbapi.DB, id string, active
 	_, err = recordstore.InsertRows(t.Context(), database, "bios_installations", `INSERT INTO bios_installations(
 id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,validated_requirement_version,
 status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
-SELECT ?,requirement.id,blob.value,'gba_bios.bin',json_extract(blob.value,'$.size_bytes'),
-json_extract(blob.value,'$.md5'),json_extract(blob.value,'$.sha1'),json_extract(blob.value,'$.sha256'),
+SELECT ?,requirement.id,blob.value,'gba_bios.bin',(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
+((blob.value)::jsonb #>> '{md5}'),((blob.value)::jsonb #>> '{sha1}'),((blob.value)::jsonb #>> '{sha256}'),
 requirement.version,
 'HASH_WARNING','{}',?,1,?,? FROM bios_requirements requirement
-JOIN json_each(json_array(?)) blob ON blob.value IS NOT NULL WHERE requirement.core_id='mgba' AND
+JOIN LATERAL (SELECT ? AS value) blob ON blob.value IS NOT NULL WHERE requirement.core_id='mgba' AND
 requirement.logical_name='gba_bios.bin' AND requirement.enabled=1`, id, active, now, now, fileID)
 	testassert.False(t, err != nil, err)
 }

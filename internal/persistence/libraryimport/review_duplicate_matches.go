@@ -35,8 +35,7 @@ func (records *ContentDuplicates) PublishedMatches(
 	return result, nil
 }
 
-// Materializing the platform candidates prevents SQLite from running correlated
-// content comparisons before the platform predicate. The incoming multiset is
+// Materializing candidates bounds content comparisons to the selected platform. The incoming multiset is
 // also computed once, not once for every published game.
 const duplicateCandidates = `
 WITH candidates AS MATERIALIZED (
@@ -47,27 +46,27 @@ WITH candidates AS MATERIALIZED (
 ), incoming AS MATERIALIZED (`
 
 const unorderedDuplicateQuery = duplicateCandidates + `
- SELECT role,json_extract(file_record,'$.sha256') AS sha256,count(*) AS file_count
+ SELECT role,((file_record)::jsonb #>> '{sha256}') AS sha256,count(*) AS file_count
  FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
- GROUP BY role,json_extract(file_record,'$.sha256')
+ GROUP BY role,((file_record)::jsonb #>> '{sha256}')
 )
 SELECT game.id,game.title,game.instance_id,game.instance_name FROM candidates game
 WHERE (SELECT count(*) FROM game_files WHERE game_id=game.id)=(SELECT coalesce(sum(file_count),0) FROM incoming)
 AND NOT EXISTS(
- SELECT role,json_extract(file_record,'$.sha256'),count(*) FROM game_files WHERE game_id=game.id
- GROUP BY role,json_extract(file_record,'$.sha256')
+ SELECT role,((file_record)::jsonb #>> '{sha256}'),count(*) FROM game_files WHERE game_id=game.id
+ GROUP BY role,((file_record)::jsonb #>> '{sha256}')
  EXCEPT SELECT role,sha256,file_count FROM incoming
 )
 AND NOT EXISTS(
  SELECT role,sha256,file_count FROM incoming
  EXCEPT
- SELECT role,json_extract(file_record,'$.sha256'),count(*) FROM game_files WHERE game_id=game.id
- GROUP BY role,json_extract(file_record,'$.sha256')
+ SELECT role,((file_record)::jsonb #>> '{sha256}'),count(*) FROM game_files WHERE game_id=game.id
+ GROUP BY role,((file_record)::jsonb #>> '{sha256}')
 )
 ORDER BY game.created_at_ms,game.id`
 
 const orderedDuplicateQuery = duplicateCandidates + `
- SELECT sort_order,json_extract(file_record,'$.sha256') AS sha256
+ SELECT sort_order,((file_record)::jsonb #>> '{sha256}') AS sha256
  FROM import_item_source_snapshot_files WHERE source_snapshot_id=? AND role='DISC'
 )
 SELECT game.id,game.title,game.instance_id,game.instance_name FROM candidates game
@@ -76,10 +75,10 @@ AND (SELECT count(*) FROM game_files WHERE game_id=game.id AND role='DISC')=(SEL
 AND NOT EXISTS(
  SELECT sort_order,sha256 FROM incoming
  EXCEPT
- SELECT sort_order,json_extract(file_record,'$.sha256') FROM game_files WHERE game_id=game.id AND role='DISC'
+ SELECT sort_order,((file_record)::jsonb #>> '{sha256}') FROM game_files WHERE game_id=game.id AND role='DISC'
 )
 AND NOT EXISTS(
- SELECT sort_order,json_extract(file_record,'$.sha256') FROM game_files WHERE game_id=game.id AND role='DISC'
+ SELECT sort_order,((file_record)::jsonb #>> '{sha256}') FROM game_files WHERE game_id=game.id AND role='DISC'
  EXCEPT SELECT sort_order,sha256 FROM incoming
 )
 ORDER BY game.created_at_ms,game.id`

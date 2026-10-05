@@ -9,41 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/testsupport"
+
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
-
-	"modernc.org/sqlite"
 )
-
-type metadataFaultConnector struct {
-	path       string
-	countError error
-}
-
-func (connector metadataFaultConnector) Connect(context.Context) (driver.Conn, error) {
-	conn, err := connector.Driver().Open(connector.path + "?_txlock=immediate")
-	if err != nil {
-		return nil, err
-	}
-	return metadataFaultConnection{Conn: conn, countError: connector.countError}, nil
-}
-func (metadataFaultConnector) Driver() driver.Driver { return &sqlite.Driver{} }
-
-type metadataFaultConnection struct {
-	driver.Conn
-	countError error
-}
-
-func (connection metadataFaultConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if strings.HasPrefix(query, "UPDATE import_items SET") {
-		return metadataFaultResult{cause: connection.countError}, nil
-	}
-	executor, ok := connection.Conn.(driver.ExecerContext)
-	if !ok {
-		return nil, driver.ErrSkip
-	}
-	return executor.ExecContext(ctx, query, args)
-}
 
 type metadataFaultResult struct{ cause error }
 
@@ -59,21 +28,21 @@ func TestServerMetadataRequiresSuccessfulDraftCAS(t *testing.T) {
 func assertMetadataDraftCAS(t *testing.T, phase string) {
 	t.Helper()
 	fixture, itemID := metadataFixture(t)
-	var ordinal int
-	var name, path string
-	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
-		t.Fatal(err)
-	}
 	var cause error
 	if phase == "affected count failure" {
 		cause = errors.New("affected row count unavailable")
 	}
-	intercepted := dbsqlite.OpenConnector(metadataFaultConnector{path: path, countError: cause}, dbsqlite.Options{})
-	t.Cleanup(func() {
-		if err := intercepted.Close(); err != nil {
-			t.Error(err)
-		}
+
+	intercepted := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+		BeforeExec: nil,
+		AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+			if strings.Contains(query, "UPDATE import_items SET") {
+				return metadataFaultResult{cause: cause}, nil
+			}
+			return result, nil
+		},
 	})
+
 	fixture.service = newTestImporter(t, intercepted, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	version, _, err := fixture.service.SeedServerReviewMetadata(fixture.ctx, itemID, ServerMetadata{Title: "Changed"})
 	expected := cause

@@ -49,7 +49,8 @@ func (repository *Repository) References(
 SELECT draft.id,tag.id,tag.name FROM review_draft_tags relation
 JOIN import_items draft ON draft.id=relation.review_draft_id
 JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE draft.id IN (SELECT value FROM json_each(?)) ORDER BY draft.id,tag.name_key,tag.id
+WHERE draft.id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb)) ORDER BY draft.id,tag.name_key,
+ tag.id
 `, ownerIDs)
 	}
 	table, column, err := ownerTable(kind)
@@ -58,6 +59,7 @@ WHERE draft.id IN (SELECT value FROM json_each(?)) ORDER BY draft.id,tag.name_ke
 	}
 	query := `SELECT relation.` + column + `,tag.id,tag.name FROM ` + table + ` relation
 JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE relation.` + column + ` IN (SELECT value FROM json_each(?)) ORDER BY relation.` + column + `,tag.name_key,tag.id`
+WHERE relation.` + column + ` IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
+ORDER BY relation.` + column + `,tag.name_key,tag.id`
 	return batchReferences(ctx, repository.database, query, ownerIDs)
 }

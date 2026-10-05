@@ -540,7 +540,7 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
+	mustExecHTTPTest(t, transaction, `SET CONSTRAINTS ALL DEFERRED`)
 	const baseTime = int64(1_786_000_000_000)
 	gameIDs := []string{
 		"01980000-0000-7000-8000-000000001001",
@@ -669,7 +669,7 @@ func seedRecentGameHistory(t *testing.T, database dbapi.DB, now int64, count int
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
+	mustExecHTTPTest(t, transaction, "SET CONSTRAINTS ALL DEFERRED")
 	for index := 0; index < count; index++ {
 		gameID := uuid.NewString()
 		variantID := uuid.NewString()
@@ -696,7 +696,7 @@ INSERT INTO game_variants(
 INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,
 state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',decode(repeat('00',(32)::integer),'hex'),'FINISHED',?,?,
 ?,?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now, now+120_000, now, now)
@@ -728,7 +728,7 @@ func seedGameDetailMedia(
 	now := fixture.now
 	var err error
 	mustExecHTTPTest(t, transaction, `
-PRAGMA defer_foreign_keys=ON
+SET CONSTRAINTS ALL DEFERRED
 `)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
@@ -835,7 +835,7 @@ INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,
 updated_at_ms,version)
-VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',decode(repeat('00',(32)::integer),'hex'),'FINISHED',?,?,?, ?,?,1)
 `, sourceLaunchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
@@ -866,7 +866,7 @@ INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,
 updated_at_ms,version)
-VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',decode(repeat('00',(32)::integer),'hex'),'FINISHED',?,?,?, ?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `

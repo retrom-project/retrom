@@ -25,17 +25,15 @@ func (repository *ReviewHandoff) WithReviewHandoff(
 	ctx context.Context,
 	work func(application.ReviewHandoffScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(
+			application.ReviewHandoffScope{Records: reviewHandoffRecords{tx}, Metadata: library.BindMetadata(tx)},
+		); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source review handoff: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(
-		application.ReviewHandoffScope{Records: reviewHandoffRecords{tx}, Metadata: library.BindMetadata(tx)},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source review handoff: %w", err)
 	}
 	return nil

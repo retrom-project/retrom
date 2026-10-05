@@ -67,7 +67,7 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 
 .NOTPARALLEL: dev
 
-install-deps: prepare-go install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser public-fixtures-check
+install-deps: prepare-local-postgres prepare-postgres-tools prepare-go install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser public-fixtures-check
 	@go mod download
 
 install-go-formatters: prepare-go
@@ -109,11 +109,11 @@ build: prepare-go api-generate-go
 
 test: prepare-go api-generate-go
 	@python3 scripts/test_firmware_catalog.py
-	@go test $(GO_PACKAGES)
+	@go test -p 4 -parallel 4 $(GO_PACKAGES)
 
 lint-go: api-generate-go install-golangci-lint
 	@python3 scripts/test_architecture_rules.py
-	@bin/golangci-lint run $(GO_PACKAGES)
+	@bin/golangci-lint run --allow-serial-runners $(GO_PACKAGES)
 
 backend-check: quality-structure-check fmt-check build test lint-go
 
@@ -164,7 +164,7 @@ web-build: prepare-node
 web-check: quality-structure-check web-install web-lint web-typecheck web-test web-build
 
 integration-test: prepare-go api-generate-go
-	@go test -tags=integration $(GO_PACKAGES)
+	@go test -p 4 -parallel 4 -timeout 20m -tags=integration $(GO_PACKAGES)
 
 api-generate: api-generate-go web-install
 	@cd web && $(NPM) run api:generate
@@ -202,6 +202,7 @@ data-check:
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
+	@python3 scripts/test_verify_backend_image.py
 	@python3 scripts/acceptance/tests/test_dist_cleanup.py
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
@@ -261,14 +262,27 @@ workspace-check:
 	@python3 workspace/catalog.py
 	@python3 -m unittest discover -s workspace -p 'test_*.py'
 
-ci-contracts: workspace-check quality-structure-check api-check data-check
+ci-contracts: workspace-check quality-structure-check api-check data-check test-local-postgres
 
-ci: workspace-check quality-structure-check api-check backend-check web-check integration-test data-check
+ci: workspace-check quality-structure-check api-check backend-check web-check integration-test data-check test-local-postgres
 
 require-local-user:
 	@python3 scripts/local_user.py
 
-dev: require-local-user prepare-go api-generate-go web-install runtime-provider-prepare-auto
+.PHONY: prepare-local-postgres dev-stop test-local-postgres
+prepare-local-postgres: require-local-user
+	@if [[ -z "$(RETROM_DATABASE_URL)" ]]; then scripts/prepare-postgres.sh; fi
+
+dev-stop: require-local-user
+	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" RETROM_DATA_DIR="$(RETROM_DATA_DIR)" \
+	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" NEXT_DEV_PORT="$(NEXT_DEV_PORT)" scripts/dev.sh --stop
+
+test-local-postgres: require-local-user
+	@scripts/prepare-postgres.sh
+	@python3 -m unittest discover -s scripts -p 'test_dev_postgres*.py'
+	@python3 scripts/acceptance/tests/test_local_postgres.py
+
+dev: require-local-user prepare-local-postgres prepare-go api-generate-go web-install runtime-provider-prepare-auto
 	@$(MAKE) prepare-deps
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
@@ -278,6 +292,7 @@ dev: require-local-user prepare-go api-generate-go web-install runtime-provider-
 	 RETROM_MULTI_DISC_IMPORT_ENABLED="$(RETROM_MULTI_DISC_IMPORT_ENABLED)" \
 	 RETROM_MODE="$(RETROM_MODE)" \
 	 RETROM_DATA_DIR="$(RETROM_DATA_DIR)" \
+	 RETROM_DATABASE_URL="$(RETROM_DATABASE_URL)" \
 	 RETROM_DEPENDENCY_ROOT="$(RETROM_DEPENDENCY_ROOT)" \
 	 RETROM_DEPENDENCY_VERSIONS="$(RETROM_DEPENDENCY_VERSIONS)" \
 	 RETROM_ACTIVE_EMULATORJS_VERSION="$(RETROM_ACTIVE_EMULATORJS_VERSION)" \
@@ -351,10 +366,10 @@ build-images: build-backend-image build-web-image
 	 web="$$( $(DOCKER) image inspect --format '{{ index .Config.Labels "io.retrom.release-input-sha256" }}' "$(WEB_IMAGE):$(IMAGE_TAG)" )"; \
 	 [[ "$$backend" == "$$expected" && "$$web" == "$$expected" ]]
 
-acceptance-prepare:
+acceptance-prepare: prepare-postgres-tools
 	@scripts/acceptance/run.sh prepare
 
-acceptance-case: prepare-go prepare-node
+acceptance-case: prepare-postgres-tools prepare-go prepare-node
 	@test -n "$(CASE)" || { echo 'CASE is required' >&2; exit 2; }
 	@NODE_HOME="$(NODE_HOME)" scripts/acceptance/run.sh case "$(CASE)"
 
@@ -375,3 +390,7 @@ content-io-product-check:
 	@python3 -m scripts.acceptance.content_io_product_check --env "$(IO_ENV)"
 
 .PHONY: web-ui-check
+
+.PHONY: prepare-postgres-tools
+prepare-postgres-tools:
+	@scripts/prepare-postgres-tools.sh

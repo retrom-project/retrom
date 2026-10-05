@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"retrom/internal/persistence/filedeletion"
 	application "retrom/internal/service/cleanupjobs"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 type interruptedRemoval struct {
@@ -40,7 +40,7 @@ func TestDirectoryDeletionRetriesWithoutTouchingAnotherGame(t *testing.T) {
 	now := time.Now()
 	clock := func() time.Time { return now }
 	root := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(root, "retrom.db"), clock)
+	database, err := store.Open(ctx, testpostgres.DSN(t), clock)
 	if err != nil {
 		t.Fatal(err)
 	}

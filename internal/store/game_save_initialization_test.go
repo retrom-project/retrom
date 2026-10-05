@@ -2,9 +2,10 @@ package store
 
 import (
 	"database/sql"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -15,11 +16,11 @@ import (
 
 func TestFreshGameSavePreservesDataAndBindsRunningLaunches(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "fresh.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { testassert.False(t, database.Close() != nil, "close fresh database") })
 	seedCurrentRuntimeGraph(t, database.SQL)
-	_, err = database.SQL.ExecContext(t.Context(), `UPDATE runtime_targets SET checkpoint_json=json_set(checkpoint_json,'$.semantics','GAME_SAVE') WHERE
+	_, err = database.SQL.ExecContext(t.Context(), `UPDATE runtime_targets SET checkpoint_json=(jsonb_set((checkpoint_json)::jsonb,'{semantics}',to_jsonb(('GAME_SAVE')::text),true))::text WHERE
 target_id='target-a'`)
 	testassert.False(t, err != nil, err)
 	tx := lifecycleTransaction(t, database.SQL)
@@ -33,7 +34,7 @@ target_id='target-a'`)
  dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,save_state_id)
  SELECT 'restoring-launch',profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
- dependency_snapshot_json,compatibility_code,return_to,zeroblob(32),state,
+ dependency_snapshot_json,compatibility_code,return_to,decode(repeat('00',(32)::integer),'hex'),state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,'current-save'
  FROM launch_sessions WHERE id='current-launch'`)
 	testassert.False(t, err != nil, err)

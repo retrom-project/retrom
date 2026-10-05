@@ -21,11 +21,11 @@ func (records Records) ClearReview(ctx context.Context, itemID string, now int64
 	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(
 		ctx,
 		"review_draft_screenshot_assets",
-		`rowid IN (SELECT rowid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY rowid LIMIT 200)`,
+		`ctid IN (SELECT ctid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY ctid LIMIT 200)`,
 		[]any{itemID},
 		`
-DELETE FROM review_draft_screenshot_assets WHERE rowid IN
- (SELECT rowid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY rowid LIMIT 200)
+DELETE FROM review_draft_screenshot_assets WHERE ctid IN
+ (SELECT ctid FROM review_draft_screenshot_assets WHERE review_draft_id=? ORDER BY ctid LIMIT 200)
 `,
 		itemID,
 	); err != nil {
@@ -37,7 +37,7 @@ DELETE FROM review_draft_screenshot_assets WHERE rowid IN
 cover_candidate_asset_id=NULL,background_candidate_asset_id=NULL,cover_uploaded_asset_id=NULL,
 video_uploaded_asset_id=NULL,
 review_version=CASE WHEN review_version>0 THEN review_version+1 ELSE 0 END,
-review_updated_at_ms=CASE WHEN review_version>0 THEN ? ELSE NULL END
+review_updated_at_ms=CASE WHEN review_version>0 THEN ?::bigint ELSE NULL END
 `,
 			Scope: recordstore.Scope{
 				Where: `id=? AND (cover_candidate_asset_id IS NOT NULL OR background_candidate_asset_id IS NOT NULL

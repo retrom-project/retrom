@@ -79,17 +79,17 @@ erDiagram
 | description | 可选说明 |
 | enabled | 是否允许继续导入和出现在普通筛选项中 |
 | version | 乐观并发版本，从 1 开始 |
-| created_at_ms / updated_at_ms | UTC Unix 毫秒时间戳，SQLite INTEGER |
+| created_at_ms / updated_at_ms | UTC Unix 毫秒时间戳，PostgreSQL BIGINT |
 | deleted_at_ms | 软删除时刻；正常记录为空 |
 | catalog_template_key | 可空的 release 推荐模板 key；只由一键补全写入，管理员手动创建始终为空 |
 
-SQLite 关键约束示意：
+PostgreSQL 关键约束示意：
 
 ~~~sql
 CREATE TABLE platform_cores (
     platform_id TEXT NOT NULL,
     core_id TEXT NOT NULL,
-    enabled INTEGER NOT NULL DEFAULT 1,
+    enabled BIGINT NOT NULL DEFAULT 1,
     PRIMARY KEY (platform_id, core_id),
     FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE RESTRICT,
     FOREIGN KEY (core_id) REFERENCES cores(id) ON DELETE RESTRICT
@@ -102,11 +102,11 @@ CREATE TABLE platform_instances (
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-    version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
-    created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
-    updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms),
-    deleted_at_ms INTEGER,
+    enabled BIGINT NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    version BIGINT NOT NULL DEFAULT 1 CHECK (version >= 1),
+    created_at_ms BIGINT NOT NULL CHECK (created_at_ms >= 0),
+    updated_at_ms BIGINT NOT NULL CHECK (updated_at_ms >= created_at_ms),
+    deleted_at_ms BIGINT,
     catalog_template_key TEXT,
     UNIQUE (platform_id, slug),
     FOREIGN KEY (platform_id, default_core_id)
@@ -128,7 +128,7 @@ CREATE TABLE games (
 );
 ~~~
 
-SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须由服务层调用应用存储 SQL，在同一事务中校验，并有空库及集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
+上述外键不能验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须由服务层调用应用存储 SQL，在同一事务中校验，并有空库及集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
 
 所有其他时间点与时长字段遵循 [存储与数据库设计](./storage-and-database.md) 的 Unix 毫秒规则，不使用 TEXT 时间。
 
@@ -154,7 +154,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 普通启动的 canonical source 是 Game 当前 `source_manifest_json` 与 `game_files`，不从目录默认核心或旧 Launch 反向猜测。详情 API 对每个启用核心读取唯一稳定 GameVariant；不存在或其输入已漂移时返回 `NEEDS_VALIDATION`。已有 READY 结果继续使用其 DAT/依赖快照；活动 DAT 后来变化只通过 `revalidationStatus=PENDING|FAILED` 提示后台重校验，成功后原位更新 GameVariant，不改变 Game 文件。
 
-详情 API 只返回只读兼容状态，不提供另一个“预热”写接口。用户选择“需验证”核心并点击开始时，`POST /launches` 使用同一个幂等 `EnsureVariant` 领域流程；这不增加第二个开始按钮，但允许需要生成大依赖 bundle 的验证通过可观察 Worker 完成，而不占住 HTTP/SQLite：
+详情 API 只返回只读兼容状态，不提供另一个“预热”写接口。用户选择“需验证”核心并点击开始时，`POST /launches` 使用同一个幂等 `EnsureVariant` 领域流程；这不增加第二个开始按钮，但允许需要生成大依赖 bundle 的验证通过可观察 Worker 完成，而不占住 HTTP/PostgreSQL：
 
 1. 只读取已持久化的 Game source manifest、`game_files`、Blob/hash、ArchiveEntry、活动 Provider Target/DAT 和 BIOS 状态；禁止调用 Hasheous、下载 payload、重新扫大文件或试跑另一个 core。
 2. 当前 GameVariant 为 READY 且验证输入没有漂移时直接复用；同一 input 已是 BLOCKED/INCOMPATIBLE 时直接返回稳定 Blocker。

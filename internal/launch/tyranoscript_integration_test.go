@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	dbapi "retrom/internal/database"
@@ -41,7 +43,7 @@ func TestTyranoScriptReviewPreviewPublishesProductLaunch(t *testing.T) {
 	ctx := t.Context()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +221,7 @@ SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id
 `, previewID, previewID).Scan(&retained); err != nil || retained != 0 {
 		t.Fatalf("retained TyranoScript preview credentials=%d, %v", retained, err)
 	}
-	rows, err := database.QueryContext(ctx, `PRAGMA foreign_key_check`)
+	rows, err := database.QueryContext(ctx, `SELECT conname FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND NOT convalidated`)
 	if err != nil {
 		t.Fatal(err)
 	}

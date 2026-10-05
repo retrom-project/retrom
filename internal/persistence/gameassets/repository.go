@@ -34,10 +34,10 @@ func (repository *Repository) Upload(
 	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT f.upload_session_id,
 b.value,
-json_extract(b.value, '$.sha256'),
-json_extract(b.value, '$.size_bytes')
+((b.value)::jsonb #>> '{sha256}'),
+(((b.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM upload_files f
-JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT f.final_file_record AS value) b ON b.value IS NOT NULL
 WHERE f.id=?
 AND f.state='COMPLETE'
 `, uploadFileID).Scan(&upload.UploadID, &upload.FileRecord, &upload.Digest, &upload.SizeBytes)
@@ -53,16 +53,11 @@ AND f.state='COMPLETE'
 func (repository *Repository) WithWrite(
 	ctx context.Context, work func(application.WriteScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(writeScope{executor: tx, releases: repository.releases})
+	})
 	if err != nil {
-		return fmt.Errorf("begin game asset write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(writeScope{executor: tx, releases: repository.releases}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit game asset write: %w", err)
+		return fmt.Errorf("commit gameassets transaction: %w", err)
 	}
 	return nil
 }

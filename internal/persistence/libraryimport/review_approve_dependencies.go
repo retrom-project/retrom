@@ -36,11 +36,11 @@ func (records approvalDependencyRecords) MultiDisc(
 	var facts libraryservice.ApprovalMultiDisc
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT entry.ordinal,entry.state,entry.file_record,entry.source_logical_name,
- file.file_record,file.logical_name,file.sort_order,json_extract(blob.value, '$.size_bytes')
+ file.file_record,file.logical_name,file.sort_order,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint
 FROM import_item_multidisc_entries entry
 LEFT JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=entry.source_snapshot_id
  AND file.role='DISC' AND file.sort_order=entry.ordinal
-LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL
+LEFT JOIN LATERAL (SELECT entry.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return facts, fmt.Errorf("query approval discs: %w", err)

@@ -263,15 +263,15 @@ func (repository *Repository) coreOptions(
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT c.id,
 c.name,
-COALESCE(json_extract(bound_target.capabilities_json,'$.requiresThreads'),
- (SELECT max(json_extract(candidate_target.capabilities_json,'$.requiresThreads'))
+COALESCE(((((bound_target.capabilities_json)::jsonb #>> '{requiresThreads}'))::boolean)::integer,
+ (SELECT max(((((candidate_target.capabilities_json)::jsonb #>> '{requiresThreads}'))::boolean)::integer)
   FROM runtime_target_bindings candidate
   JOIN runtime_binding_platforms candidate_platform ON candidate_platform.binding_id=candidate.binding_id
    AND candidate_platform.platform_id=pi.platform_id AND candidate_platform.core_id=c.id
   JOIN runtime_targets candidate_target ON candidate_target.provider_id=candidate.provider_id
    AND candidate_target.target_id=candidate.target_id
   WHERE candidate.core_id=c.id AND candidate.launch_policy<>'DISABLED'),0),
-json_extract(bound_target.capabilities_json,'$.contentLoading'),
+((bound_target.capabilities_json)::jsonb #>> '{contentLoading}'),
 pi.default_core_id,
 v.id,
 v.provider_id,

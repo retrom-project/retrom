@@ -119,11 +119,11 @@ WHERE g.id=?
 
 func (records records) adminGameFiles(ctx context.Context, gameID string) ([]application.AdminGameFile, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.sort_order,json_extract(blob.value, '$.size_bytes'),
-json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.md5'),
-json_extract(blob.value, '$.sha1'),json_extract(blob.value, '$.crc32'),json_extract(blob.value, '$.media_type')
+SELECT file.role,file.logical_name,file.sort_order,(((blob.value)::jsonb #>> '{size_bytes}'))::bigint,
+((blob.value)::jsonb #>> '{sha256}'),((blob.value)::jsonb #>> '{md5}'),
+((blob.value)::jsonb #>> '{sha1}'),((blob.value)::jsonb #>> '{crc32}'),((blob.value)::jsonb #>> '{media_type}')
 FROM game_files file
-JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
+JOIN LATERAL (SELECT file.file_record AS value) blob ON blob.value IS NOT NULL
 WHERE file.game_id=?
 ORDER BY file.sort_order,file.role,file.logical_name
 `, gameID)

@@ -22,33 +22,15 @@ type (
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Receiving and assembling bytes happen before this database-only scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(service.WriteScope{
+			Finalize: finalizationRecords{tx}, Leases: leaseRecords{tx},
+			Sessions: sessionRecords{tx}, Files: fileRecords{tx}, Parts: partRecords{tx},
+			Jobs: jobRecords{tx}, Blobs: blobRecords{tx},
+		})
+	})
 	if err != nil {
-		return fmt.Errorf("uploads/begin write: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	scope := service.WriteScope{
-		Finalize: finalizationRecords{tx}, Leases: leaseRecords{tx},
-		Sessions: sessionRecords{
-			tx,
-		},
-		Files: fileRecords{
-			tx,
-		},
-		Parts: partRecords{
-			tx,
-		},
-		Jobs: jobRecords{
-			tx,
-		},
-		Blobs: blobRecords{
-			tx,
-		},
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("uploads/commit write: %w", err)
 	}
 	return nil

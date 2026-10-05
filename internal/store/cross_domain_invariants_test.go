@@ -1,10 +1,11 @@
 package store
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
@@ -15,12 +16,12 @@ import (
 
 func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndex(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 
 	names := queryStrings(t, database.SQL, `
-SELECT name FROM sqlite_schema
+SELECT name FROM (SELECT c.relname AS name, CASE c.relkind WHEN 'r' THEN 'table' WHEN 'i' THEN 'index' WHEN 'v' THEN 'view' END AS type FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()) objects
 WHERE name='runtime_targets_game_compatibility'
 ORDER BY name`)
 	testassert.Truef(t, len(names) == 0, "legacy compatibility index remains: %v", names)
@@ -28,7 +29,7 @@ ORDER BY name`)
 
 func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 
@@ -70,7 +71,7 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 
 func TestCurrentSessionSnapshotsRejectForeignGameVariantAndLaunchOwners(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := Open(t.Context(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	seedCurrentRuntimeGraph(t, database.SQL)
@@ -100,7 +101,7 @@ INSERT INTO launch_sessions(
 ) VALUES(
  ?,'current-profile',?,'fceumm','current-provider',?,
  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','SINGLE_FILE',
- '{}','READY','/',zeroblob(32),'CREATED',10,20,1,1
+ '{}','READY','/',decode(repeat('00',(32)::integer),'hex'),'CREATED',10,20,1,1
 )`
 
 const currentSaveInsertSQL = `

@@ -6,9 +6,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
@@ -96,7 +97,7 @@ func publishedWASMGame(t *testing.T) (dbapi.DB, *filestore.Store, *uploads.Servi
 	t.Helper()
 	ctx := t.Context()
 	directory := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(directory, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

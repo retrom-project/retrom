@@ -113,6 +113,7 @@ test("protected cover images bypass the unauthenticated Next.js optimizer", asyn
   test.skip(!coveredGame, "The current fixture has no published cover image.");
 
   await page.goto("/library");
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill(coveredGame!.title);
   const cover = page.getByRole("img", { name: `${coveredGame!.title} 封面` }).first();
   await expect(cover).toHaveAttribute("src", coveredGame!.coverUrl!);
   await expect.poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);

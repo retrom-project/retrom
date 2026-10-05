@@ -6,14 +6,10 @@ const reviewQueueSelect = `
 SELECT i.id,
 d.review_version,
 i.import_job_id,
-json_extract(d.metadata_json,
-'$.title'),
-COALESCE(json_extract(i.source_manifest_json,
-'$[0].logicalName'),
-json_extract(i.source_manifest_json,
-'$.files[0].logicalName'),
-json_extract(d.metadata_json,
-'$.title')),
+((d.metadata_json)::jsonb #>> '{title}'),
+COALESCE(((i.source_manifest_json)::jsonb #>> '{0,logicalName}'),
+((i.source_manifest_json)::jsonb #>> '{files,0,logicalName}'),
+((d.metadata_json)::jsonb #>> '{title}')),
 pi.id,
 pi.name,
 v.status,
@@ -24,13 +20,13 @@ FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE r.import_item_id=i.id
 AND r.state='COMPLETED'),
-(SELECT COALESCE(sum(json_extract(b.value, '$.size_bytes')),0)
+(SELECT COALESCE(sum((((b.value)::jsonb #>> '{size_bytes}'))::bigint),0)
  FROM import_item_source_snapshot_files source_file
- JOIN json_each(json_array(source_file.file_record)) b ON b.value IS NOT NULL
+ JOIN LATERAL (SELECT source_file.file_record AS value) b ON b.value IS NOT NULL
  WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id),
-(SELECT json_extract(b.value, '$.md5')
+(SELECT ((b.value)::jsonb #>> '{md5}')
  FROM import_item_source_snapshot_files source_file
- JOIN json_each(json_array(source_file.file_record)) b ON b.value IS NOT NULL
+ JOIN LATERAL (SELECT source_file.file_record AS value) b ON b.value IS NOT NULL
  WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id
  ORDER BY CASE source_file.role WHEN 'CONTENT' THEN 0 WHEN 'DOS_SOURCE' THEN 1 ELSE 2 END,
  source_file.sort_order,

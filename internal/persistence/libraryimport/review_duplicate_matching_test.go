@@ -15,9 +15,9 @@ import (
 func TestDuplicateMatchingPreservesRolesMultiplicityPlatformAndCurrentContent(t *testing.T) {
 	db := duplicateScaleDatabase(t, 6, 3)
 	metadataExec(t, db, `UPDATE import_item_source_snapshot_files
- SET file_record=json_object('sha256',printf('%064x',1)) WHERE sort_order=2`)
+ SET file_record=jsonb_build_object('sha256',concat(lpad(to_hex((1)::bigint),64,'0')))::text WHERE sort_order=2`)
 	copyDuplicateSource(t, db)
-	metadataExec(t, db, `UPDATE game_files SET file_record=json_object('sha256',printf('%064x',3))
+	metadataExec(t, db, `UPDATE game_files SET file_record=jsonb_build_object('sha256',concat(lpad(to_hex((3)::bigint),64,'0')))::text
  WHERE game_id='game-2' AND sort_order=2`)
 	metadataExec(t, db, `UPDATE game_files SET role='COMPANION' WHERE game_id='game-3' AND sort_order=3`)
 	otherDirectory := "other-nes-directory"
@@ -33,13 +33,13 @@ func TestDuplicateMatchingPreservesRolesMultiplicityPlatformAndCurrentContent(t 
  payload_release_job_id='cleanup' WHERE id='game-6'`)
 	assertDuplicateGames(t, db, "SINGLE_FILE", []string{"game-1", "game-4"})
 	// Content replacement immediately changes matching; no derived digest can go stale.
-	metadataExec(t, db, `UPDATE game_files SET file_record=json_object('sha256',printf('%064x',99))
+	metadataExec(t, db, `UPDATE game_files SET file_record=jsonb_build_object('sha256',concat(lpad(to_hex((99)::bigint),64,'0')))::text
  WHERE game_id='game-1' AND sort_order=1`)
 	assertDuplicateGames(t, db, "SINGLE_FILE", []string{"game-4"})
 	// Parent attachment changes the current source multiset, including its role.
 	metadataExec(t, db, `INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,
  upload_file_id,file_record,sort_order,created_at_ms)
- VALUES('snapshot','COMPANION','parent.zip','scale-upload',json_object('sha256',printf('%064x',100)),4,1)`)
+ VALUES('snapshot','COMPANION','parent.zip','scale-upload',jsonb_build_object('sha256',concat(lpad(to_hex((100)::bigint),64,'0')))::text,4,1)`)
 	assertDuplicateGames(t, db, "SINGLE_FILE", []string{})
 }
 
@@ -50,7 +50,7 @@ func TestMultiDiscDuplicateMatchingUsesDiscOrderAndIgnoresWrapper(t *testing.T) 
 	copyDuplicateSource(t, db)
 	metadataExec(t, db, `UPDATE game_files SET sort_order=3-sort_order WHERE game_id='game-2'`)
 	metadataExec(t, db, `INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
- VALUES('game-3','PLAYLIST_SOURCE','renamed.m3u',json_object('sha256',printf('%064x',99)),0)`)
+ VALUES('game-3','PLAYLIST_SOURCE','renamed.m3u',jsonb_build_object('sha256',concat(lpad(to_hex((99)::bigint),64,'0')))::text,0)`)
 	assertDuplicateGames(t, db, "MULTI_DISC", []string{"game-1", "game-3"})
 }
 

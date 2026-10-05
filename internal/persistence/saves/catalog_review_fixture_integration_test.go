@@ -62,11 +62,6 @@ UPDATE import_items SET target_platform_instance_id=?,metadata_json='{}',review_
  review_created_at_ms=?,review_updated_at_ms=?,effective_source_snapshot_id=? WHERE id=?`,
 		ids["directory"], now, now, ids["snapshot"], ids["item"])
 	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE import_items SET review_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',json_object(
- 'generation','RPG2000','evidenceFamily','RPG2K','evidenceGeneration','RPG2000',
- 'evidenceConfidence','MATCHED','engineVersion',NULL,'entryHtmlPath',NULL,
- 'fileCount',1,'totalBytes',10,'projectFingerprint',?,'requirementsSha256',?,
- 'analysis',json('{}'),'selfContainedOverride',1,'providerId',?,'targetId',?,
- 'dependencySnapshotSha256',?)) WHERE id=?`, strings.Repeat("5", 64), strings.Repeat("6", 64),
+UPDATE import_items SET review_profile_json=jsonb_build_object('kind','RPG_MAKER_PROJECT','data',jsonb_build_object('generation','RPG2000','evidenceFamily','RPG2K','evidenceGeneration','RPG2000','evidenceConfidence','MATCHED','engineVersion',NULL,'entryHtmlPath',NULL,'fileCount',1,'totalBytes',10,'projectFingerprint',?,'requirementsSha256',?,'analysis',('{}')::jsonb,'selfContainedOverride',1,'providerId',?,'targetId',?,'dependencySnapshotSha256',?))::text WHERE id=?`, strings.Repeat("5", 64), strings.Repeat("6", 64),
 		target.ProviderID, target.TargetID, strings.Repeat("7", 64), ids["review"])
 }

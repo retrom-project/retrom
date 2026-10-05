@@ -21,10 +21,11 @@ func UpdateGames(
 }
 
 const GamesUpdateRule = `
-WITH previous(id,created_at_ms,status,updated_at_ms,version) AS (VALUES(?,?,?,?,?))
+WITH previous(id,created_at_ms,status,updated_at_ms,version)
+AS (VALUES(?::text,?::bigint,?::text,?::bigint,?::bigint))
 SELECT CASE
 -- games_deleted_is_terminal
-WHEN ((candidate.status IS NOT previous.status) AND (previous.status='DELETED' AND
+WHEN ((candidate.status IS DISTINCT FROM previous.status) AND (previous.status='DELETED' AND
 candidate.status<>'DELETED')) THEN 'deleted game is terminal'
 -- games_guarded_update
 WHEN (candidate.id<>previous.id

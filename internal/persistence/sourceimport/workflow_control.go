@@ -19,18 +19,16 @@ func NewWorkflowControl(database dbapi.DB) *WorkflowControl {
 }
 
 func (repository *WorkflowControl) WithControl(ctx context.Context, work func(application.WorkflowScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := workflowRecords{transaction: tx}
+		if err := work(application.WorkflowScope{
+			Payload: payload.BindReleases(tx), Read: records, Write: records,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source workflow control: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := workflowRecords{transaction: tx}
-	if err := work(application.WorkflowScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
-	}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source workflow control: %w", err)
 	}
 	return nil

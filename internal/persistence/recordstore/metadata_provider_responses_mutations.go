@@ -23,7 +23,8 @@ func UpdateMetadataProviderResponses(
 
 const MetadataProviderResponsesUpdateRule = `
 WITH previous(id,expires_at_ms,fetched_at_ms,http_status,outcome,provider,raw_payload_state,
-request_digest) AS (VALUES(?,?,?,?,?,?,?,?))
+request_digest)
+AS (VALUES(?::text,?::bigint,?::bigint,?::bigint,?::text,?::text,?::text,?::text))
 SELECT CASE
 -- provider_responses_immutable_update
 WHEN (NOT (
@@ -31,7 +32,7 @@ WHEN (NOT (
   AND candidate.raw_response_file_record IS NULL AND candidate.raw_payload_released_at_ms IS NOT NULL
   AND candidate.id=previous.id AND candidate.provider=previous.provider AND
 candidate.request_digest=previous.request_digest
-  AND candidate.http_status IS previous.http_status AND candidate.outcome=previous.outcome
+  AND candidate.http_status IS NOT DISTINCT FROM previous.http_status AND candidate.outcome=previous.outcome
   AND candidate.fetched_at_ms=previous.fetched_at_ms AND candidate.expires_at_ms=previous.expires_at_ms
 )) THEN 'immutable'
 ELSE '' END
@@ -52,7 +53,8 @@ func DeleteMetadataProviderResponses(
 }
 
 const MetadataProviderResponsesDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- provider_responses_immutable_delete
 WHEN (1=1) THEN 'immutable'

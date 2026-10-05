@@ -32,7 +32,7 @@ func seedReplacementSave(
 	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT variant.id,variant.provider_id,variant.target_id,variant.core_id,
        variant.compatibility_code,game.content_kind,
-       provider.bundle_sha256,json_extract(target.checkpoint_json,'$.writeFormat'),
+       provider.bundle_sha256,((target.checkpoint_json)::jsonb #>> '{writeFormat}'),
        variant.dependency_snapshot_json,file.logical_name,file.file_record
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -174,8 +174,7 @@ SELECT
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
-'$.inputs.relativePath') || '/%'`, fileRecord,
+			`SELECT count(*) FROM job_input_snapshots WHERE ((?)::jsonb #>> '{path}') LIKE ((input_json)::jsonb #>> '{inputs,relativePath}') || '/%'`, fileRecord,
 		).Scan(&candidates); err != nil || candidates != 1 {
 			t.Fatalf("save payload %s DeletionQueue candidates = %d, error=%v", fileRecord, candidates, err)
 		}

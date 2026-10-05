@@ -23,6 +23,7 @@ import (
 	runtimecatalog "retrom/internal/runtime/catalog"
 	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestLoadInstallationValidatesAndReconcilesBeforeServing(t *testing.T) {
@@ -33,7 +34,7 @@ func TestLoadInstallationValidatesAndReconcilesBeforeServing(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	database, err := store.Open(ctx, filepath.Join(root, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/persistence/recordstore"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -50,7 +52,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	seedLocalProfile(t, database.SQL)

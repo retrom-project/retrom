@@ -8,16 +8,17 @@ import (
 	"time"
 
 	"retrom/internal/config"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/metadatascrape"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func newLifecycleFixture(t *testing.T) *Services {
 	t.Helper()
 	// An empty schema proves construction never performs worker recovery.
-	db, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	db, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

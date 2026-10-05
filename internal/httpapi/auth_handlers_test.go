@@ -22,13 +22,14 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func newAuthHTTPServer(t *testing.T, mode config.Mode) *testServer {
 	t.Helper()
 	root := t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000).UTC() }
-	database, err := store.Open(context.Background(), filepath.Join(root, "retrom.db"), now)
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), now)
 	testassert.False(t, err != nil, err)
 	if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
 		t.Fatal(err)

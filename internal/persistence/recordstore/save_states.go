@@ -46,8 +46,8 @@ target.target_id=launch.target_id
     AND launch.game_id=candidate.game_id AND launch.profile_id=candidate.profile_id
     AND target.checkpoint_json IS NOT NULL
     AND EXISTS(
-      SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
-      WHERE readable.type='text' AND readable.value=candidate.checkpoint_format
+      SELECT 1 FROM jsonb_array_elements(((target.checkpoint_json)::jsonb #> '{readFormats}')) readable
+      WHERE jsonb_typeof(readable.value)='string' AND (readable.value #>> '{}')=candidate.checkpoint_format
     )
 )) THEN 'invalid runtime checkpoint snapshot'
 ELSE '' END

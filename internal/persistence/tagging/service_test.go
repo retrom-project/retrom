@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 func openTaggingTest(t *testing.T) (*store.DB, *tagging.Service, *int64) {
 	t.Helper()
 	clock := int64(1_000)
-	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(clock)
 	})
 	testassert.False(t, err != nil, err)
@@ -33,7 +34,7 @@ func openTaggingTest(t *testing.T) (*store.DB, *tagging.Service, *int64) {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
-PRAGMA defer_foreign_keys=ON;
+SET CONSTRAINTS ALL DEFERRED;
 BEGIN;
 INSERT INTO profiles(id,display_name,created_at_ms)
 VALUES('01980000-0000-7000-8000-00000000a401','Tag Admin',1);
@@ -327,8 +328,8 @@ INSERT INTO tags(
   id,name,name_key,search_text,status,version,created_by_user_id,updated_by_user_id,
   created_at_ms,updated_at_ms,deleted_at_ms
 )
-SELECT printf('01980000-0000-7000-8001-%012x',value),
-       printf('Tag %04d',value),printf('tag %04d',value),printf('tag %04d',value),
+SELECT concat('01980000-0000-7000-8001-',lpad(to_hex((value)::bigint),12,'0')),
+       concat('Tag ',lpad((value)::text,4,'0')),concat('tag ',lpad((value)::text,4,'0')),concat('tag ',lpad((value)::text,4,'0')),
        'ACTIVE',1,?, ?,1,1,NULL
 FROM sequence
 `, testAdminID, testAdminID); err != nil {
@@ -362,14 +363,17 @@ INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms) VALUES(?
 			t.Fatalf("insert assignment %d: %v", index, err)
 		}
 	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO tags(
-  id,name,name_key,search_text,status,version,created_by_user_id,updated_by_user_id,
-  created_at_ms,updated_at_ms,deleted_at_ms
-) VALUES('01980000-0000-7000-8002-000000000001','Extra','extra','extra','ACTIVE',1,?,?,1,1,NULL);
-INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms)
-VALUES(?,'01980000-0000-7000-8002-000000000001',?,2)
-`, testAdminID, testAdminID, testGameID, testAdminID); err == nil {
-		t.Fatal("database accepted a twenty-first active game tag")
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO tags(
+ id,name,name_key,search_text,status,version,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
+ VALUES('01980000-0000-7000-8002-000000000001','Extra','extra','extra','ACTIVE',1,?,?,1,1)`, testAdminID, testAdminID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recordstore.CreateGameTags(ctx, database.SQL, `INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms)
+ VALUES(?,'01980000-0000-7000-8002-000000000001',?,2)`, testGameID, testAdminID); !errors.Is(err, recordstore.ErrInvariant) {
+		t.Fatalf("accepted twenty-first active game tag: %v", err)
+	}
+	var count int
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM game_tags WHERE game_id=?", testGameID).Scan(&count); err != nil || count != tagging.MaxTagsPerOwner {
+		t.Fatalf("assignment rollback count=%d error=%v", count, err)
 	}
 }

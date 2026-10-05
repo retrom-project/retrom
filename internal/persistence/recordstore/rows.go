@@ -14,7 +14,7 @@ func InsertRows(ctx context.Context, db dbapi.Executor, table, query string, arg
 	if !validTable(table) {
 		return nil, ErrInvariant
 	}
-	return create(ctx, db, query, args, table, "rowid", nil)
+	return create(ctx, db, query, args, table, "1", nil)
 }
 
 func UpdateRows(ctx context.Context, db dbapi.Executor, table string, change Update) (sql.Result, error) {

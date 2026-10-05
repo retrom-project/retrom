@@ -3,6 +3,8 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$repository_root/scripts/acceptance/dev-dist-cleanup.sh"
+"$repository_root/scripts/prepare-postgres-tools.sh"
+export PATH="$repository_root/.cache/tools/postgres-python/bin:$PATH"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-web-e2e.XXXXXX")"
 backend_port=18084
 web_port=13004
@@ -46,6 +48,9 @@ cleanup() {
   fi
   cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
   cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
+  if [[ -f "$temporary_root/data/postgres-test.json" ]]; then
+    python3 "$repository_root/scripts/acceptance/postgres_fixture.py" drop "$temporary_root/data"
+  fi || status=1
   rm -rf -- "$temporary_root"
   if ! remove_dev_dist "$repository_root/web/.next-e2e"; then
     status=1
@@ -62,6 +67,8 @@ for port in "$backend_port" "$web_port"; do
 done
 
 mkdir -p "$temporary_root/data"
+RETROM_DATABASE_URL="$(python3 "$repository_root/scripts/acceptance/postgres_fixture.py" create "$temporary_root/data")"
+export RETROM_DATABASE_URL
 mkdir -p "$temporary_root/source/BIOS"
 mkdir -p "$temporary_root/source/Games/media/Acceptance Game"
 printf 'collection: NES\ngame: Acceptance Game\ndescription: Pegasus E2E fixture\nfile: acceptance.nes\n' >"$temporary_root/source/Games/metadata.pegasus.txt"
@@ -116,31 +123,31 @@ RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-snes9x.json" \
   scripts/acceptance/console-flow.sh snes9x
 go run scripts/acceptance/seed-public-arcade-dat.go \
-  --database "$temporary_root/data/retrom.db" --fixture mame2003 \
+  --database "$RETROM_DATABASE_URL" --fixture mame2003 \
   >"$temporary_root/mame2003-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
   scripts/acceptance/arcade-flow.sh mame2003
 go run scripts/acceptance/seed-public-arcade-dat.go \
-  --database "$temporary_root/data/retrom.db" --fixture fbneo \
+  --database "$RETROM_DATABASE_URL" --fixture fbneo \
   >"$temporary_root/fbneo-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-fbneo.json" \
   scripts/acceptance/arcade-flow.sh fbneo
 for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture "$fixture_id" \
+    --database "$RETROM_DATABASE_URL" --fixture "$fixture_id" \
     >"$temporary_root/$fixture_id-smoke-dat.json"
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/console-$fixture_id.json" \
     scripts/acceptance/arcade-flow.sh "$fixture_id"
 done
-python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
-python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
-scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
-scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
-python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
-python3 scripts/acceptance/check-owned-files.py "$temporary_root/data/retrom.db"
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data" mame2003
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data" fbneo
+scripts/acceptance/seed-review-queue.sh "$temporary_root/data"
+scripts/acceptance/seed-run-blocker.sh "$temporary_root/data"
+python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data" 286
+python3 scripts/acceptance/check-owned-files.py "$temporary_root/data"
 playwright_command=(npm run test:e2e)
 if [[ -n "$e2e_grep" ]]; then
   playwright_command+=(-- --grep "$e2e_grep")
@@ -153,14 +160,14 @@ emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulat
 (cd web && TMPDIR=/tmp \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_SERVER_SOURCE="$temporary_root/source" \
-  RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  RETROM_E2E_DATA_ROOT="$temporary_root/data" \
   RETROM_E2E_EMULATORJS_BUNDLE_SHA256="$emulatorjs_bundle_sha256" \
   RETROM_FBNEO_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/console-fbneo.json")" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
   RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/console-fceumm.json" "$temporary_root/console-snes9x.json" "$temporary_root/console-nestopia.json" "$temporary_root/console-mame2003_plus.json" "$temporary_root/console-fbalpha2012_cps1.json" "$temporary_root/console-fbalpha2012_cps2.json")" \
   "${playwright_command[@]}")
 
-python3 scripts/acceptance/check-owned-files.py "$temporary_root/data/retrom.db"
+python3 scripts/acceptance/check-owned-files.py "$temporary_root/data"
 RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e
 wait "$process_id"

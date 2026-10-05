@@ -21,7 +21,8 @@ func UpdateMetadataScrapeQueryAttempts(
 }
 
 const MetadataScrapeQueryAttemptsUpdateRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- scrape_attempts_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteMetadataScrapeQueryAttempts(
 }
 
 const MetadataScrapeQueryAttemptsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- scrape_attempts_immutable_delete
 WHEN (1=1) THEN 'immutable'

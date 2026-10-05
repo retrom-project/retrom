@@ -41,16 +41,16 @@ func duplicateScaleDatabase(t *testing.T, games, files int) dbapi.DB {
 	metadataExec(t, db, `WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<?)
  INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
  file_record,sort_order,created_at_ms)
- SELECT 'snapshot','CONTENT',printf('file-%d',x),'scale-upload',json_object('sha256',printf('%064x',x)),x,1 FROM n`, files)
+ SELECT 'snapshot','CONTENT',concat('file-',(x)::text),'scale-upload',jsonb_build_object('sha256',concat(lpad(to_hex((x)::bigint),64,'0')))::text,x,1 FROM n`, files)
 	if games > 0 {
 		metadataExec(t, db, `WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<?)
  INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
  metadata_source_kind,content_source_kind,source_manifest_json,source_manifest_digest,status,search_text,
  created_at_ms,updated_at_ms)
- SELECT printf('game-%d',x),?,'Game','G','','','','','IMPORT_REVIEW','IMPORT_REVIEW','{}',printf('%064x',x),
+ SELECT concat('game-',(x)::text),?,'Game','G','','','','','IMPORT_REVIEW','IMPORT_REVIEW','{}',concat(lpad(to_hex((x)::bigint),64,'0')),
  'PUBLISHED','game',x,x FROM n`, games, instance)
 		metadataExec(t, db, `INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order)
- SELECT id,'CONTENT','game.nes',json_object('sha256',printf('%064x',created_at_ms)),0 FROM games`)
+ SELECT id,'CONTENT','game.nes',jsonb_build_object('sha256',concat(lpad(to_hex((created_at_ms)::bigint),64,'0')))::text,0 FROM games`)
 	}
 	return db
 }

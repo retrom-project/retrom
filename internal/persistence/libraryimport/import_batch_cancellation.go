@@ -29,11 +29,21 @@ type importCancellationEvidence struct {
 func (repository *ImportBatchCancellations) Cancel(
 	ctx context.Context, request libraryservice.ImportBatchCancellationRequest, now int64,
 ) (libraryservice.ImportBatchCancellationResult, error) {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	var result libraryservice.ImportBatchCancellationResult
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		var err error
+		result, err = repository.cancelInScope(ctx, tx, request, now)
+		return err
+	})
 	if err != nil {
-		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("begin import cancellation: %w", err)
+		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("Cancel transaction: %w", err)
 	}
-	defer dbapi.Rollback(tx)
+	return result, nil
+}
+
+func (repository *ImportBatchCancellations) cancelInScope(
+	ctx context.Context, tx dbapi.Tx, request libraryservice.ImportBatchCancellationRequest, now int64,
+) (libraryservice.ImportBatchCancellationResult, error) {
 	evidence, err := loadImportCancellationEvidence(ctx, tx, request.ImportID, request.ExpectedVersion)
 	if err != nil {
 		return libraryservice.ImportBatchCancellationResult{}, err
@@ -59,7 +69,7 @@ AND (state<>'REVIEW_PENDING' OR ?=0)`, Args: []any{request.ImportID, request.Pre
 UPDATE import_jobs SET state=?,cancel_requested_at_ms=?,cancel_reason=?,
 cancelled_item_count=cancelled_item_count+?+?+?,queued_item_count=queued_item_count-?,
 review_pending_item_count=review_pending_item_count-?,failed_item_count=failed_item_count-?,
-version=version+1,updated_at_ms=?,completed_at_ms=CASE WHEN ?='CANCELLED' THEN ? ELSE NULL END
+version=version+1,updated_at_ms=?,completed_at_ms=CASE WHEN ?='CANCELLED' THEN ?::bigint ELSE NULL END
 WHERE id=?
 `, state, now, request.Reason, evidence.queued, evidence.reviewPending, evidence.failed,
 		evidence.queued, evidence.reviewPending, evidence.failed, now, state, now, request.ImportID); err != nil {
@@ -70,9 +80,6 @@ WHERE id=?
 	}
 	if err := scheduleCancelledImportPayloads(ctx, tx, request.ImportID, now); err != nil {
 		return libraryservice.ImportBatchCancellationResult{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return libraryservice.ImportBatchCancellationResult{}, fmt.Errorf("commit import cancellation: %w", err)
 	}
 	return libraryservice.ImportBatchCancellationResult{
 		ImportID: request.ImportID, GroupJobID: evidence.groupJobID.String,
@@ -117,8 +124,8 @@ WHERE id=? AND state IN ('QUEUED','FAILED')
 		}
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT id,scope_type,scope_id,'CANCELLED',json_object('schemaVersion',1,'executionNo',execution_no,
-'attempt',attempt_count,'reason',?),? FROM jobs WHERE id=?
+SELECT id,scope_type,scope_id,'CANCELLED',jsonb_build_object('schemaVersion',1,'executionNo',execution_no,
+ 'attempt',attempt_count,'reason',?)::text,? FROM jobs WHERE id=?
 `, reason, now, evidence.groupJobID.String); err != nil {
 			return fmt.Errorf("record import group cancellation: %w", err)
 		}
@@ -134,8 +141,8 @@ WHERE id=? AND state='RUNNING'
 		}
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',json_object('schemaVersion',1,'executionNo',execution_no,
-'attempt',attempt_count,'reason',?),? FROM jobs WHERE id=?
+SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',jsonb_build_object('schemaVersion',1,'executionNo',
+ execution_no,'attempt',attempt_count,'reason',?)::text,? FROM jobs WHERE id=?
 `, reason, now, evidence.groupJobID.String); err != nil {
 			return fmt.Errorf("record import group cancellation request: %w", err)
 		}

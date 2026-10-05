@@ -2,18 +2,18 @@ package store_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestWriterConfigurationSurvivesCancelledTransaction(t *testing.T) {
 	ctx, stop := context.WithTimeout(t.Context(), 10*time.Second)
 	defer stop()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,9 +32,9 @@ func TestWriterConfigurationSurvivesCancelledTransaction(t *testing.T) {
 	cancel()
 	var foreignKeys, busyTimeout, synchronous int
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
-       (SELECT timeout FROM pragma_busy_timeout),
-       (SELECT synchronous FROM pragma_synchronous)
+SELECT CASE WHEN current_setting('session_replication_role')='origin' THEN 1 ELSE 0 END,
+ (extract(epoch FROM current_setting('lock_timeout')::interval)*1000)::bigint,
+ CASE WHEN current_setting('synchronous_commit')='on' THEN 2 ELSE 0 END
 `).Scan(&foreignKeys, &busyTimeout, &synchronous); err != nil {
 		t.Fatal(err)
 	}

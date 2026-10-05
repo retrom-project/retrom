@@ -22,7 +22,7 @@ import (
 	datservice "retrom/internal/service/datindex"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/database/sqlite"
+	"retrom/internal/database/postgres"
 
 	"github.com/google/uuid"
 
@@ -38,8 +38,6 @@ var (
 	errSmokeFixtureMachineDrift = errors.New("smoke fixture machine set drift")
 	errRepositoryRootNotFound   = errors.New("acceptance repository root not found")
 )
-
-const acceptanceSQLiteBusyTimeoutMS = 30_000
 
 type smokeFixture struct {
 	CoreID       string
@@ -82,7 +80,7 @@ func main() {
 	arguments := flag.NewFlagSet("seed-public-arcade-dat", flag.ContinueOnError)
 	fixtureID := arguments.String("fixture", "", "allowlisted public fixture ID")
 	candidateDir := arguments.String("candidate-dir", "", "MAME Current PFB core candidate directory")
-	databasePath := arguments.String("database", "", "acceptance SQLite database")
+	databasePath := arguments.String("database", "", "acceptance PostgreSQL URL")
 	parseErr := arguments.Parse(os.Args[1:])
 	invalidArguments := parseErr != nil || arguments.NArg() != 0 || *fixtureID == "" || *databasePath == "" ||
 		((*fixtureID == "mame_arcade") != (*candidateDir != ""))
@@ -335,19 +333,14 @@ func findRepositoryRoot() (string, error) {
 	}
 }
 
-func openSmokeDatabase(ctx context.Context, databasePath string) (dbapi.DB, error) {
-	database, err := sqlite.Open(databasePath, sqlite.Options{MaxOpenConns: 1})
+func openSmokeDatabase(ctx context.Context, databaseURL string) (dbapi.DB, error) {
+	database, err := postgres.Open(databaseURL, postgres.Options{MaxOpenConns: 1})
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, fmt.Errorf("open acceptance database: %w", err)
 	}
-	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
+	if err := database.PingContext(ctx); err != nil {
 		cleanup.Error("close acceptance database", database.Close())
-		return nil, fmt.Errorf("enable foreign keys: %w", err)
-	}
-	pragma := fmt.Sprintf("PRAGMA busy_timeout=%d", acceptanceSQLiteBusyTimeoutMS)
-	if _, err := database.ExecContext(ctx, pragma); err != nil {
-		cleanup.Error("close acceptance database", database.Close())
-		return nil, fmt.Errorf("set busy timeout: %w", err)
+		return nil, fmt.Errorf("connect acceptance database: %w", err)
 	}
 	return database, nil
 }
@@ -371,6 +364,9 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 		return "", "", "", fmt.Errorf("begin transaction: %w", err)
 	}
 	defer dbapi.Rollback(transaction)
+	if err := datindex.LockCatalogWrites(ctx, transaction); err != nil {
+		return "", "", "", err
+	}
 	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+providerID+":"+targetID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats

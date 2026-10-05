@@ -20,16 +20,14 @@ func (repository *Companions) WithCompanions(
 	ctx context.Context,
 	work func(application.CompanionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := companionRecords{tx: tx}
+		if err := work(application.CompanionScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source companion transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := companionRecords{tx: tx}
-	if err := work(application.CompanionScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source companion transaction: %w", err)
 	}
 	return nil
@@ -90,8 +88,8 @@ item.execution_state='COPYING'`+
 	var existing, digest string
 	var size int64
 	err = dbapi.QueryRowContext(ctx, records.tx, `
-SELECT file.value,json_extract(file.value, '$.sha256'),json_extract(file.value, '$.size_bytes')
- FROM source_import_item_companions companion JOIN json_each(json_array(companion.file_record)) file ON
+SELECT file.value,((file.value)::jsonb #>> '{sha256}'),(((file.value)::jsonb #>> '{size_bytes}'))::bigint
+ FROM source_import_item_companions companion JOIN LATERAL (SELECT companion.file_record AS value) file ON
 file.value IS NOT NULL
  WHERE companion.item_id=? AND companion.candidate_item_id=?`, owner, candidate).Scan(&existing, &digest, &size)
 	if err == nil {

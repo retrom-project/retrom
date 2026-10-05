@@ -106,7 +106,8 @@ def set_selected(root: Path, pfb_id: str | None) -> None:
 def workspace_paths(root: Path) -> dict[str, Path]:
     workspace = root / ".pfb/workspace"
     return {
-        "root": workspace, "data": workspace / "data", "devState": workspace / "dev-state",
+        "root": workspace, "data": workspace / "data", "postgres": workspace / "postgres",
+        "devState": workspace / "dev-state",
         "providers": workspace / "providers", "providerInstalled": workspace / "providers/installed",
         "providerActive": workspace / "providers/active.json", "providerDev": workspace / "providers/dev",
         "webNode": workspace / "web-node", "runtimeNode": workspace / "runtime-node",
@@ -337,15 +338,20 @@ def app_container_running(project: str) -> bool:
     return container is not None and container_running(container)
 
 
+def database_container_running(project: str) -> bool:
+    container = _compose_service_container(project, "postgres")
+    return container is not None and container_running(container)
+
+
 def app_container_health(project: str) -> str:
     container = _compose_service_container(project)
     return container_health(container) if container is not None else "absent"
 
 
-def _compose_service_container(project: str) -> str | None:
+def _compose_service_container(project: str, service: str = "app") -> str | None:
     result = subprocess.run(["docker", "container", "ls", "--all", "--quiet",
                              "--filter", f"label=com.docker.compose.project={project}",
-                             "--filter", "label=com.docker.compose.service=app",
+                             "--filter", f"label=com.docker.compose.service={service}",
                              "--filter", "label=com.docker.compose.oneoff=False"],
                             capture_output=True, text=True, check=False)
     if result.returncode != 0:

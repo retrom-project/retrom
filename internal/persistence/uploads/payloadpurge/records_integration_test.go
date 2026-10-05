@@ -3,7 +3,6 @@
 package payloadpurge
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,13 +12,15 @@ import (
 	"retrom/internal/filestore"
 	"retrom/internal/store"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"github.com/google/uuid"
 )
 
 func TestUploadDirectoryWaitsForEveryFileToBeReleased(t *testing.T) {
 	ctx := t.Context()
 	root := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(root, "retrom.db"), time.Now)
+	database, err := store.Open(ctx, testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,16 +1,17 @@
 package store
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	dbapi "retrom/internal/database"
 )
 
 func TestFreshDatabaseHasNoRuntimeProofWorkflow(t *testing.T) {
 	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "review.db"), func() time.Time {
+	database, err := Open(t.Context(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(0)
 	})
 	if err != nil {
@@ -23,7 +24,7 @@ func TestFreshDatabaseHasNoRuntimeProofWorkflow(t *testing.T) {
 	})
 	var count int
 	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
-SELECT count(*) FROM sqlite_schema
+SELECT count(*) FROM (`+testpostgres.SchemaObjectsSQL+`) objects
 WHERE name LIKE 'rpgmaker_runtime_validation%'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}

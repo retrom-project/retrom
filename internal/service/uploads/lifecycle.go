@@ -101,6 +101,7 @@ func (service *Service) Cancel(ctx context.Context, id string, version int64) (C
 	var result Canceled
 	var pending bool
 	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		result, pending = Canceled{}, false
 		current, err := scope.Sessions.Current(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read upload cancellation state: %w", err)

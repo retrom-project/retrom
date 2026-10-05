@@ -16,15 +16,11 @@ type Creation struct{ database dbapi.DB }
 
 func NewCreation(database dbapi.DB) *Creation { return &Creation{database: database} }
 func (repository *Creation) WithCreate(ctx context.Context, work func(application.CreationWriter) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Source selection and plan construction happen before this SQL-only scope.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return work(creationRecords{executor: tx})
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source creation: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(creationRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source creation: %w", err)
 	}
 	return nil

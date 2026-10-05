@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	firmwareservice "retrom/internal/service/firmware"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -43,7 +45,7 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -107,11 +109,11 @@ AND enabled=1
 	testassert.False(t, err != nil, err)
 	var md5Value, sha1Value, sha256Value string
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
-SELECT json_extract(b.value, '$.md5'),
-json_extract(b.value, '$.sha1'),
-json_extract(b.value, '$.sha256')
+SELECT ((b.value)::jsonb #>> '{md5}'),
+((b.value)::jsonb #>> '{sha1}'),
+((b.value)::jsonb #>> '{sha256}')
 FROM upload_files f
-JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
+JOIN LATERAL (SELECT f.final_file_record AS value) b ON b.value IS NOT NULL
 WHERE f.id=?
 `, upload.Files[0].ID).Scan(&md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
@@ -175,7 +177,7 @@ func seedFirmwareReplacementLifecycle(
 		t.Fatal(err)
 	}
 	defer dbapi.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := transaction.ExecContext(ctx, `SET CONSTRAINTS ALL DEFERRED`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
@@ -310,8 +312,7 @@ SELECT
 		var candidates int
 		if err := dbapi.QueryRowContext(
 			ctx, database,
-			`SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
-'$.inputs.relativePath') || '/%'`, fileRecord,
+			`SELECT count(*) FROM job_input_snapshots WHERE ((?)::jsonb #>> '{path}') LIKE ((input_json)::jsonb #>> '{inputs,relativePath}') || '/%'`, fileRecord,
 		).Scan(&candidates); err != nil || candidates != 0 {
 			t.Fatalf("BIOS replacement payload %s candidates = %d, error=%v", fileRecord, candidates, err)
 		}
@@ -370,7 +371,7 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)

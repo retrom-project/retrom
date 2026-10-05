@@ -89,7 +89,7 @@ SELECT i.id,
 i.state,
 pi.name,
 i.metadata_provider,
-coalesce(json_extract(i.config_snapshot_json,'$.contentMode'),'STANDARD'),
+coalesce(((i.config_snapshot_json)::jsonb #>> '{contentMode}'),'STANDARD'),
 i.total_item_count,
 i.review_pending_item_count,
 i.failed_item_count,
@@ -104,7 +104,7 @@ i.updated_at_ms
 FROM import_jobs i
 JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
 WHERE ` + userVisibleImportJobPredicate + `
-AND (?='' OR instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)
+AND (?='' OR strpos(lower(i.id),lower(?))>0 OR strpos(lower(pi.name),lower(?))>0)
 AND (?='' OR i.state=?)
 AND (?='' OR i.target_platform_instance_id=?)
 AND (?='' OR
@@ -287,7 +287,7 @@ func (repository *ImportReads) MultiDiscItemSummaries(
 ) ([]libraryservice.ImportMultiDiscItemSummary, error) {
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
-count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
+count(entry.ordinal),coalesce(sum((entry.state='PRESENT')::integer),0),coalesce(sum((entry.state='MISSING')::integer),0)
 FROM import_items item
 LEFT JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=COALESCE(
@@ -411,7 +411,7 @@ ORDER BY u.relative_path,u.id
 		var outcome libraryservice.ImportFileOutcome
 		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
 		var resolvedAtMS sql.NullInt64
-		var alreadyImported int64
+		var alreadyImported bool
 		if err := rows.Scan(
 			&outcome.UploadFileID,
 			&outcome.Name,
@@ -426,7 +426,7 @@ ORDER BY u.relative_path,u.id
 			return nil, fmt.Errorf("scan import file outcome: %w", err)
 		}
 		outcome.ReasonCode = importReadString(reasonCode)
-		if alreadyImported == 1 {
+		if alreadyImported {
 			value := "ALREADY_IMPORTED"
 			outcome.Disposition = value
 			outcome.ReasonCode = &value

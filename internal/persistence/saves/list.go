@@ -50,7 +50,7 @@ func (repository *Repository) List(
 	conditions := []string{"s.profile_id=?", "s.deleted_at_ms IS NULL", "pi.enabled=1"}
 	arguments := []any{query.ProfileID}
 	if query.Query != "" {
-		conditions = append(conditions, "(instr(g.search_text,?)>0 OR instr(lower(s.name),?)>0)")
+		conditions = append(conditions, "(strpos(g.search_text,?)>0 OR strpos(lower(s.name),?)>0)")
 		arguments = append(arguments, query.Query, query.Query)
 	}
 	for _, filter := range []struct {

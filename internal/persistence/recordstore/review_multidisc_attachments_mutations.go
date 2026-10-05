@@ -25,18 +25,23 @@ func UpdateReviewMultidiscAttachments(
 const ReviewMultidiscAttachmentsUpdateRule = `
 WITH previous(id,base_source_snapshot_id,created_at_ms,expected_set_digest,import_item_id,job_id,
 requested_by_user_id,result_source_snapshot_id,review_draft_id,state,
-upload_session_id) AS (VALUES(?,?,?,?,?,?,?,?,?,?,?))
+upload_session_id)
+AS (VALUES(?::text,?::text,?::bigint,?::text,?::text,?::text,?::text,?::text,?::text,?::text,?::text))
 SELECT CASE
 -- review_multidisc_attachment_identity_update
-WHEN ((candidate.import_item_id IS NOT previous.import_item_id OR candidate.review_draft_id IS NOT
-previous.review_draft_id OR candidate.requested_by_user_id IS NOT previous.requested_by_user_id OR
-candidate.base_source_snapshot_id IS NOT previous.base_source_snapshot_id OR candidate.upload_session_id
-IS NOT previous.upload_session_id OR candidate.expected_set_digest IS NOT previous.expected_set_digest
-OR candidate.job_id IS NOT previous.job_id OR candidate.created_at_ms IS NOT previous.created_at_ms) AND
+WHEN ((candidate.import_item_id IS DISTINCT FROM previous.import_item_id OR candidate.review_draft_id IS
+ DISTINCT FROM previous.review_draft_id OR candidate.requested_by_user_id IS DISTINCT FROM
+ previous.requested_by_user_id OR
+candidate.base_source_snapshot_id IS DISTINCT FROM previous.base_source_snapshot_id OR
+ candidate.upload_session_id
+IS DISTINCT FROM previous.upload_session_id OR candidate.expected_set_digest IS DISTINCT FROM
+ previous.expected_set_digest
+OR candidate.job_id IS DISTINCT FROM previous.job_id OR candidate.created_at_ms IS DISTINCT FROM
+ previous.created_at_ms) AND
 (1=1)) THEN 'multi-disc attachment identity is immutable'
 -- review_multidisc_attachment_result_update
-WHEN ((candidate.state IS NOT previous.state OR candidate.result_source_snapshot_id IS NOT
-previous.result_source_snapshot_id) AND (candidate.state='ACCEPTED' AND NOT EXISTS(
+WHEN ((candidate.state IS DISTINCT FROM previous.state OR candidate.result_source_snapshot_id IS DISTINCT
+ FROM previous.result_source_snapshot_id) AND (candidate.state='ACCEPTED' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot
   WHERE snapshot.id=candidate.result_source_snapshot_id AND
 snapshot.import_item_id=candidate.import_item_id
@@ -48,7 +53,7 @@ snapshot.import_item_id=candidate.import_item_id
 WHEN (previous.state IN ('ACCEPTED','REJECTED','CANCELLED')) THEN
 'terminal multi-disc attachment is immutable'
 -- review_multidisc_attachment_transition_update
-WHEN ((candidate.state IS NOT previous.state) AND (NOT (
+WHEN ((candidate.state IS DISTINCT FROM previous.state) AND (NOT (
   previous.state='PENDING' AND candidate.state IN ('ACCEPTED','REJECTED','CANCELLED')
 ))) THEN 'invalid multi-disc attachment state transition'
 ELSE '' END
@@ -69,7 +74,8 @@ func DeleteReviewMultidiscAttachments(
 }
 
 const ReviewMultidiscAttachmentsDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- review_multidisc_attachment_delete
 WHEN (1=1) THEN 'immutable'

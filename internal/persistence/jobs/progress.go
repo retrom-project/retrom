@@ -63,7 +63,7 @@ FROM import_jobs WHERE id=?`, id).Scan(&snapshot.State, &snapshot.Version, &snap
 
 func (store records) EventMaximum(ctx context.Context) (int64, error) {
 	var maximum int64
-	if err := dbapi.QueryRowContext(ctx, store.executor, `SELECT COALESCE(MAX(id),0) FROM job_events`).
+	if err := dbapi.QueryRowContext(ctx, store.executor, `SELECT COALESCE(max(id),0) FROM job_events`).
 		Scan(&maximum); err != nil {
 		return 0, fmt.Errorf("query event high water mark: %w", err)
 	}

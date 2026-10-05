@@ -31,10 +31,10 @@ func recentConditions(query application.RecentQuery) ([]string, []any) {
 		args = append(args, *query.FromAtMS)
 	}
 	if query.Query != "" {
-		conditions = append(conditions, `(instr(g.search_text,?)>0 OR instr(lower(p.name),?)>0
-OR instr(lower(pi.name),?)>0 OR EXISTS(SELECT 1 FROM game_tags relation
+		conditions = append(conditions, `(strpos(g.search_text,?)>0 OR strpos(lower(p.name),?)>0
+OR strpos(lower(pi.name),?)>0 OR EXISTS(SELECT 1 FROM game_tags relation
 JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE relation.game_id=g.id AND instr(tag.search_text,?)>0))`)
+WHERE relation.game_id=g.id AND strpos(tag.search_text,?)>0))`)
 		args = append(args, query.Query, query.Query, query.Query, query.Query)
 	}
 	return conditions, args

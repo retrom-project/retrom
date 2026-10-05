@@ -21,16 +21,18 @@ func UpdateUsers(
 }
 
 const UsersUpdateRule = `
-WITH previous(id,created_at_ms,profile_id,role,status,username) AS (VALUES(?,?,?,?,?,?))
+WITH previous(id,created_at_ms,profile_id,role,status,username)
+AS (VALUES(?::text,?::bigint,?::text,?::text,?::text,?::text))
 SELECT CASE
 -- users_deleted_terminal
-WHEN ((candidate.status IS NOT previous.status) AND (previous.status='DELETED' AND
+WHEN ((candidate.status IS DISTINCT FROM previous.status) AND (previous.status='DELETED' AND
 candidate.status!='DELETED')) THEN 'deleted user is terminal'
 -- users_identity_immutable
-WHEN ((candidate.profile_id IS NOT previous.profile_id OR candidate.username IS NOT previous.username OR
-candidate.created_at_ms IS NOT previous.created_at_ms) AND (1=1)) THEN 'immutable user identity'
+WHEN ((candidate.profile_id IS DISTINCT FROM previous.profile_id OR candidate.username IS DISTINCT FROM
+ previous.username OR
+candidate.created_at_ms IS DISTINCT FROM previous.created_at_ms) AND (1=1)) THEN 'immutable user identity'
 -- users_last_enabled_admin
-WHEN ((candidate.role IS NOT previous.role OR candidate.status IS NOT previous.status) AND
+WHEN ((candidate.role IS DISTINCT FROM previous.role OR candidate.status IS DISTINCT FROM previous.status) AND
 ((previous.role='ADMIN' AND previous.status='ENABLED' AND
      (candidate.role!='ADMIN' OR candidate.status!='ENABLED')) AND (NOT EXISTS (
     SELECT 1 FROM users
@@ -54,7 +56,8 @@ func DeleteUsers(
 }
 
 const UsersDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- users_no_physical_delete
 WHEN (1=1) THEN 'users are soft deleted'

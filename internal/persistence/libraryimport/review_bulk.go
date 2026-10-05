@@ -18,18 +18,14 @@ func NewReviewBulk(database dbapi.DB) *ReviewBulk {
 }
 
 func (repository *ReviewBulk) WithStep(ctx context.Context, run func(libraryservice.ReviewBulkStep) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	// Publishing files is a separate step after the database decision commits.
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		return run(libraryservice.ReviewBulkStep{
+			Worker: BindReviewBulkWorker(tx), Recovery: BindReviewBulkWorker(tx), Writes: BindReviewBulkWrites(tx),
+			Candidates: BindReviewBulkQueries(tx), Approval: BindReviewApproval(tx),
+		})
+	})
 	if err != nil {
-		return fmt.Errorf("begin bulk review: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := run(libraryservice.ReviewBulkStep{
-		Worker: BindReviewBulkWorker(tx), Recovery: BindReviewBulkWorker(tx), Writes: BindReviewBulkWrites(tx),
-		Candidates: BindReviewBulkQueries(tx), Approval: BindReviewApproval(tx),
-	}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit bulk review: %w", err)
 	}
 	return nil

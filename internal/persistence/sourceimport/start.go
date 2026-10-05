@@ -31,16 +31,14 @@ func (repository *Starter) Inspect(ctx context.Context, id string) (application.
 }
 
 func (repository *Starter) WithStart(ctx context.Context, work func(application.StartScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := startRecords{transaction: tx}
+		if err := work(application.StartScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source start: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := startRecords{transaction: tx}
-	if err := work(application.StartScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source start: %w", err)
 	}
 	return nil
@@ -56,8 +54,9 @@ func (records startRecords) Current(ctx context.Context, id string) (application
 	result := application.StartSnapshot{Summary: summary}
 	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT root_config_digest,COALESCE(source_snapshot_digest,''),
-NOT EXISTS(SELECT 1 FROM source_import_collections collection JOIN json_each(collection.tag_snapshot_json) entry
-LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'
+NOT EXISTS(SELECT 1 FROM source_import_collections collection CROSS JOIN
+ jsonb_array_elements_text((collection.tag_snapshot_json)::jsonb) entry
+LEFT JOIN tags tag ON tag.id=((entry.value)::jsonb #>> '{tagId}') AND tag.status='ACTIVE'
 WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL),
 EXISTS(SELECT 1 FROM source_imports active WHERE active.id<>?
 AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))

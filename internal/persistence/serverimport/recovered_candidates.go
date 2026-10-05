@@ -21,7 +21,7 @@ size_bytes,md5,sha1,sha256,crc32,state,
 exact_hash,expected_size_match,exact_basename,safe_archive,launchable,matched_count,aliased_count,
 mismatched_count,missing_count,extra_count,evaluation_details_json
 FROM server_bios_import_candidates WHERE server_import_id=?
-ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807),id
+ORDER BY requirement_id COLLATE "C",COALESCE(rank_ordinal,9223372036854775807),id
 `, importID)
 	if err != nil {
 		return nil, fmt.Errorf("query persisted server import candidates: %w", err)

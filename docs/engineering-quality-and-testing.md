@@ -5,14 +5,14 @@
 | 文档状态 | 当前工程基线与持续验证要求 |
 | 版本 | 2.1 |
 | 日期 | 2026-10-04 |
-| 适用范围 | Go 后端、Next.js 前端、SQLite/XML 集成、EmulatorJS/retrom-runtime Provider 验证 |
+| 适用范围 | Go 后端、Next.js 前端、PostgreSQL/XML 集成、EmulatorJS/retrom-runtime Provider 验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
 ## 1. 文档职责
 
 本文是 Retrom 工程质量的唯一详细基线，供后续 Agent 实施 lint、测试和 CI 使用。根级 [`AGENTS.md`](../AGENTS.md) 只保留必须遵守的行为铁律；全部可执行验收 Case 由 [`project-acceptance.md`](./project-acceptance.md) 统一维护，本文不重复 Case 流程。
 
-本文参考了 Fireman 项目中已经使用的严格 Go/Next.js 门禁、固定工具版本、统一 Makefile 入口和测试纪律，但已按 Retrom 的模块边界、SQLite/独立文件存储、EmulatorJS 与本地二进制约束重新整理。后续实施不依赖外部仓库，也不得直接复制其中的业务规则或包路径。
+本文参考了 Fireman 项目中已经使用的严格 Go/Next.js 门禁、固定工具版本、统一 Makefile 入口和测试纪律，但已按 Retrom 的模块边界、PostgreSQL/独立文件存储、EmulatorJS 与本地二进制约束重新整理。后续实施不依赖外部仓库，也不得直接复制其中的业务规则或包路径。
 
 本文不替代实际配置文件；第 10 节记录已落地的配置、命令、CI 和测试基础设施及其维护要求，不是待实施清单。实际通过情况以当前源码和当次可执行结果为准。
 
@@ -35,7 +35,7 @@
 
 ### 2.3 一期工具链基线
 
-脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime 及 Chrome for Testing `149.0.7827.55`）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
+脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`github.com/jackc/pgx/v5 v5.11.0`；`github.com/google/uuid v1.6.0`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime 及 Chrome for Testing `149.0.7827.55`）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
 
 前端测试配套固定为 `@testing-library/react 16.3.2`、`@testing-library/dom 10.4.1`、`@testing-library/user-event 14.6.3`、`@testing-library/jest-dom 6.9.1`、`jsdom 29.1.1`、`@vitejs/plugin-react 6.0.2`、`axe-core 4.13.0`、`postcss 8.5.26`、`@types/node 24.13.3`、`@types/react 19.2.18`、`@types/react-dom 19.2.4`。Vite 必须作为直接 devDependency，不能只依赖 Vitest 的传递依赖；`@testing-library/dom` 同理是 React Testing Library 的必需 peer；`axe-core` 作为 `ACC-UI-009` 的浏览器无障碍扫描器也必须直接锁定，不能依赖 Playwright 的传递安装。`package.json` 的全部直接依赖/devDependency 使用精确版本而非 `^`/`~`，`package-lock.json` 和 `go.sum` 必须提交；若首次 `npm ci` 证明某组合存在 peer incompatibility，必须作为独立工具链修订更新本节与锁文件，不能在功能 PR 中静默漂移到 `latest`。TypeScript 固定 5.9.3 是因为 `openapi-typescript 7.13.0` 的正式 peer range 为 `^5.x`；升级到 TypeScript 6 前必须先升级/验证生成器，不能使用 `--force` 或 `legacy-peer-deps` 绕过。
 
@@ -71,7 +71,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make web-test` | `vitest run` | 否 |
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
-| `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
+| `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、PostgreSQL、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
 | `make api-generate` | 先把 OpenAPI 领域文件确定性合并为统一 bundle、以锁文件安装前端依赖，再生成被忽略的 Go models/server/spec 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
 | `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与产品链路 | 会写浏览器缓存并产生本地报告 |
@@ -84,9 +84,11 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `RETROM_PROVIDER_CANDIDATE_ROOT=/abs/path make runtime-provider-prepare-candidate` | 显式验证并安装已经构建好的完整候选 Provider；候选不进入生产镜像。PFB 源码联调使用基座 Bundle 与 watcher，具体边界见 PFB 专题 | 写开发安装目录和 active descriptor，不构建核心 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make workspace-check` | 离线校验开发仓库清单、依赖闭包与 runtime 仓库覆盖，并运行清单解析器回归 | 否 |
-| `make ci-contracts` | `workspace-check + quality-structure-check + api-check + data-check`；供 PR 的契约与数据 job 使用 | 仅依赖产物 |
-| `make ci` | `workspace-check + quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
-| `make dev` | 先准备 Go、生成被忽略的 Go API 文件、安装 Web 依赖并执行 `runtime-provider-prepare-auto`；显式设置 `RETROM_PROVIDER_CANDIDATE_ROOT` 时安装完整候选，否则安装正式 Provider，再执行 `prepare-deps` 并在宿主机启动 Go/Next.js、统一处理退出信号；跨仓库源码联调使用 PFB 流程 | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
+| `make ci-contracts` | `workspace-check + quality-structure-check + api-check + data-check + test-local-postgres`；供 PR 的契约与数据 job 使用 | 仅依赖产物 |
+| `make ci` | `workspace-check + quality-structure-check + api-check + backend-check + web-check + integration-test + data-check + test-local-postgres` | 仅依赖/构建产物与被忽略的 Go 生成物 |
+| `make dev` | 先准备 Go、生成被忽略的 Go API 文件、安装 Web 依赖并执行 `runtime-provider-prepare-auto`；显式设置 `RETROM_PROVIDER_CANDIDATE_ROOT` 时安装完整候选，否则安装正式 Provider，再执行 `prepare-deps` 并在宿主机启动独立 PostgreSQL 和 Go/Next.js、统一处理退出信号（外部 URL 只连接）；跨仓库源码联调使用 PFB 流程 | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
+| `make dev-stop` | 停止同一配置的开发应用与自管 PostgreSQL，保留数据；不接管外部 URL 的服务器 | 停止本地开发进程 |
+| `make test-local-postgres` | 准备固定原生 PostgreSQL，验证持久化、隔离、正常/异常退出、接管与外部数据库边界 | 仅工具缓存与临时测试数据库 |
 | `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写 worktree `.pfb/` 与根工作区被忽略、owner-only 的 `.pfb/registry-v1.json`，其余只读 |
 | `make pfb-build` | 仅在工具链或 package/API 生成输入变化时准备开发镜像、Node/Go依赖与生成代码；不构建 core、Provider archive、candidate tar或生产镜像 | 写 `.pfb/workspace` 中的可复用开发cache；相同输入幂等复用 |
 | `make pfb-up/use/restart/down/status/logs` | `up` 只执行 Compose `--no-build`，`restart` 只重启 app；管理共享 loopback网关、选择和状态，不运行 `npm ci` 或切换数据 | 写 PFB状态/日志并管理开发容器；workspace、旧卷、URL均保留 |
@@ -117,7 +119,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - Makefile 固定 golangci-lint `v2.11.4`；升级必须显式修改变量和本节并运行完整门禁，不能在安装命令使用 `@latest`。
 - Makefile 固定 `DOCKER ?= docker`、`BACKEND_IMAGE ?= retrom`、`WEB_IMAGE ?= retrom-web`、`IMAGE_TAG ?= latest`。默认输出必须是 `retrom:latest` 与 `retrom-web:latest`，同时允许调用者显式覆盖 tag 或完整镜像仓库前缀。
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
-- `make dev` 必须先拒绝 real/effective UID 为 0 或带任一 sudo 调用标记的进程，再前置执行 `make prepare-go`、Go API 生成、`make prepare-deps` 与 `make web-install`，之后只能以当前普通用户运行宿主机的 `go run ./cmd/retrom` 与固定 `--webpack` 的 `npm run dev`（可以由 `scripts/dev.sh` 编排）。固定 bundler 是开发入口的可重复性要求：当前锁定的 Next/Tailwind 组合在 Turbopack PostCSS transform 中会生成无法解析的内部 `@vercel/turbopack/postcss` 引用，不能让标准开发入口因机器缓存不同而有时可用、有时 500。脚本必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
+- `make dev` 必须先拒绝 real/effective UID 为 0 或带任一 sudo 调用标记的进程，再前置执行 `make prepare-go`、Go API 生成、`make prepare-deps` 与 `make web-install`，准备固定 PostgreSQL 工具并等待自管数据库就绪后，以当前普通用户运行宿主机的 `go run ./cmd/retrom` 与固定 `--webpack` 的 `npm run dev`（可以由 `scripts/dev.sh` 编排）。固定 bundler 是开发入口的可重复性要求：当前锁定的 Next/Tailwind 组合在 Turbopack PostCSS transform 中会生成无法解析的内部 `@vercel/turbopack/postcss` 引用，不能让标准开发入口因机器缓存不同而有时可用、有时 500。脚本必须正确转发 `SIGINT/SIGTERM` 并在任一应用进程或自管数据库异常退出时结束其余进程；数据库按状态目录隔离、仅监听 loopback、校验进程身份，停机保留数据；显式外部 URL 不参与数据库生命周期；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
 - `make dev` 的默认网络基线是 `http://localhost:4000`、Next `127.0.0.1:4000`、Go `127.0.0.1:8080` 与 runtime `http://{launchId}.rpg.localhost:8080`。PFB 命令与 `make dev` 并列且不成为其依赖；共享 PFB 网关继续独占宿主 3000，普通开发独占 4000，两者必须能够同时运行。全部 `make pfb-*` 命令和直接 PFB CLI 同样拒绝 root/sudo，PFB 应用与共享网关容器都显式使用发起命令的普通用户 UID/GID。
 - 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须通过初始化表单或 API 创建首位管理员，不得用测试账号旁路。
 
@@ -265,7 +267,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 层级 | 适用问题 | 建议位置与工具 | 默认 CI |
 | --- | --- | --- | --- |
 | Go 单元测试 | 状态机、哈希、依赖闭包、校验、时间累计、纯领域逻辑 | 与源码同包或 `_test` 包，`*_test.go` | 是 |
-| Go 集成测试 | SQLite migration、事务、独立文件存储文件系统、HTTP 契约、跨模块流程 | `*_integration_test.go` + `integration` build tag | 是 |
+| Go 集成测试 | PostgreSQL migration、事务、独立文件存储文件系统、HTTP 契约、跨模块流程 | `*_integration_test.go` + `integration` build tag | 是 |
 | Web 单元/组件测试 | 页面状态、表单、路由 payload、错误映射、用户交互 | 源文件旁 `*.test.ts(x)` + Vitest/RTL | 是 |
 | Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
@@ -306,7 +308,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览；存档按 Profile+Game 归属并记录 checkpoint format，恢复时由该 Game 当前 READY Target 的 `readFormats` 判定兼容，不匹配时保留存档并明确拒绝；Launch 已物化 payload 由自身引用保护，不依赖业务版本表；Provider 只向前升级时普通启动使用当前 Bundle，旧存档只要格式可读即可恢复；审核 Preview 的临时 checkpoint 与恢复不进入持久 SaveState；当前 Item 运行截图只按审核人工放行规则影响批准许可，不要求独立运行证明 gate |
 | RPG Maker 项目与运行时 | selected-core×signature outcome（含 RPG2K family-only）、LCF/INI/HTML/JSON/parser fuzz、路径/gencache 冲突、V2 fileset、外部资源声明与自包含确认、当前审核事实与截图放行、已退役运行包表/API/上传用途缺席、route uniqueness、bootstrap ticket 一次消费、native bundle codec、checkpoint compatibility；恢复必须断言 A→B 保存→C→不同 Launch 的 map/坐标/变量回到 B |
 | 游玩时长 | 累计 progress 取最大值、重复/乱序/丢失上报、页面不可见/暂停不累计、统计失败不改变 Launch 权限、异常时钟、整数毫秒持久化 |
-| SQLite migration | 空库 001–014 直接建最终模型，无 trigger/view，显式所有权与事务回滚、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
+| PostgreSQL migration | 空库 001_schema.sql 直接建最终模型，无 trigger/view，显式所有权与事务回滚、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `BIGINT` |
 | 文件所有权与后台删除 | 同内容文件物理隔离、交接原子性、旧 owner 无权退休、退休不可撤销、崩溃后删除重试、未退休文件保留 |
 
 ### 7.2 前端与浏览器
@@ -396,7 +398,7 @@ make web-e2e
 - 时间相关逻辑注入 clock；不得用真实 sleep 验证租约、心跳和过期。
 - 随机或抖动逻辑使用固定 seed，并断言范围与状态，不依赖执行顺序。
 - 文件测试使用测试框架临时目录，不写仓库 `data/` 或用户数据目录。
-- SQLite 测试每个 case 使用独立数据库；需要共享内存库时必须证明连接语义，事务/锁竞争优先使用临时文件库。
+- PostgreSQL 测试通过 `RETROM_TEST_DATABASE_URL` 在专用服务器创建独立数据库；序列化冲突、行锁和重试使用真实连接并发验证，结束后删除各自数据库。
 - 网络适配器使用本地 `httptest`/fake server，覆盖超时、断连、非 JSON、限流和重试；默认测试不访问 Hasheous 或 CDN。
 - 并发测试应可重复运行；涉及租约、独立文件存储、发布或 后台删除 竞争的包额外运行 `go test -race`，但 race 不必成为所有普通改动的默认全仓门禁。
 
@@ -425,7 +427,7 @@ Q0–Q3 所列配置、命令、测试框架与流水线已存在于仓库。以
 
 ### Phase Q1：基础测试
 
-1. Go 测试覆盖 SQLite migration、时间字段类型、独立文件原子发布、相同内容独立 ID/路径/inode 和路径安全。
+1. Go 测试覆盖 PostgreSQL migration、时间字段类型、独立文件原子发布、相同内容独立 ID/路径/inode 和路径安全。
 2. 集成测试覆盖 API 错误 envelope、健康检查、HTTP 契约及跨领域不变量。
 3. Vitest/RTL 测试覆盖 App Shell、导航层级和 API client 错误映射。
 4. 后续领域能力仍按第 7 节矩阵扩展，不允许先发布关键路径再追测试。
@@ -445,7 +447,7 @@ Q0–Q3 所列配置、命令、测试框架与流水线已存在于仓库。以
 3. `.dockerignore` 与 `web/.dockerignore` 排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、公开测试 ROM、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. Makefile 提供三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
 5. PR 的 `quality` 汇总检查要求上述五个独立 job 全部通过；独立的 `branch-image/build` 在 GitHub runner 上执行 `make build-images` 并发布同仓库 PR 的分支测试镜像。涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须在合并前确认镜像检查通过，不要求开发机执行生产镜像构建。分支镜像不能被提升或标记为生产镜像。
-6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。PR 和 tag 镜像流水线随后单独运行 `scripts/verify-backend-image.sh`，以部署基线 UID/GID `1000:1000` 和临时数据根实际启动后端，60 秒内必须达到 ready；构建 target 本身仍不启动容器。两个镜像及非 root 启动校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
+6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。PR 和 tag 镜像流水线随后单独运行 `scripts/verify-backend-image.sh`，先在临时内部网络启动固定 PostgreSQL 并等待就绪，再以部署基线 UID/GID `1000:1000`、临时文件数据根和该数据库连接实际启动后端，60 秒内必须达到 ready；成功或失败都清理两个验证容器与网络；构建 target 本身仍不启动容器。两个镜像及非 root 启动校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 当前配置与生成产物
 
@@ -473,7 +475,7 @@ Q0–Q3 所列配置、命令、测试框架与流水线已存在于仓库。以
 | `/web/e2e/` | Chrome 关键路径、响应式与 4K 验收 |
 | `/Dockerfile`、`/.dockerignore` | 后端 `retrom` 多阶段镜像与构建上下文 |
 | `/web/Dockerfile`、`/web/.dockerignore` | 前端 `retrom-web` 多阶段镜像与构建上下文 |
-| `/scripts/dev.sh` | 仅编排宿主机 Go/Next.js 开发进程，不接触 Docker |
+| `/scripts/dev.sh` | 编排宿主机 PostgreSQL/Go/Next.js 开发进程，不接触 Docker |
 | `/scripts/release-input-digest` | 以依赖专题的唯一算法计算两镜像共用指纹，不联网/不写工作树 |
 
 ### 10.2 统一验收入口
@@ -559,7 +561,7 @@ Q0–Q3 所列配置、命令、测试框架与流水线已存在于仓库。以
 ## 13.2 RPG Maker 测试矩阵
 
 - 纯逻辑：唯一用户虚拟 Core、Provider 声明的七世代 Target 与 Host 受限接入策略、七世代自动检测与 42 个跨世代 mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、安全逻辑路径与 fileset、deterministic mkxpz、项目资源声明与人工自包含确认、checkpoint codec 和唯一 Provider 生命周期；parser/codec 使用固定 seed fuzz，不能引入 I/O/panic/无界分配或第二份映射 registry。
-- SQLite/HTTP：当前完整 migration 链、Provider/Target/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/当前发布输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无运行包或运行证明专用表/API。
+- PostgreSQL/HTTP：当前完整 migration 链、Provider/Target/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/当前发布输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无运行包或运行证明专用表/API。
 - Web：上传目的及 ZIP/目录自动识别、依赖就绪与普通试运行、唯一用户 Core、准确世代显示、loading/disabled/error、按需截图、会话级 checkpoint/恢复、dispatcher、Provider 启动取消/存档中退出/主动退出/失败清理，以及移动/桌面/4K/focus/axe。覆盖所有直接消费共享生命周期的普通和沉浸分支；不保留 gate 面板或第二层 controller/factory。
 - Chrome 产品链：七世代都经过真实上传、审核、Launch、受授权内容、普通 Player、marker、输入/音频/连续帧、checkpoint、结束和不同 Launch 恢复。A、B、C、restore 与继续输入均由研发 harness 观察普通 checkpoint、真实核心/fixture 和可见画面；证明 restore=B 且与 A/C 可区分。HTTP 201、load 成功、Blob/hash 相等、同进程 load 或单张截图均不能替代运行证明。
 - 项目资源策略：`ACC-RPG-009` 在现有开发实例中增量添加自有 fixture，验证五个 RTP 世代的默认阻断、人工确认、取消确认及发布；安装接口、专用上传和挂载已退役。保留已有游戏/存档，不清库。运行验证仍按受影响世代分别执行，不以审核就绪代替真实运行。具体步骤与证据只以[统一验收 ACC-RPG-009](./project-acceptance.md#acc-rpg-009项目资源与人工自包含确认)为准。
@@ -607,4 +609,4 @@ make acceptance-case CASE=ACC-RPG-001
 
 ### 补传 Job 重试与恢复回归
 
-`internal/jobinput` 校验统一 execution 信封并验证 Retry 仅刷新 executionId；补传真实入队编码必须能交给通用 Retry。`internal/service/libraryimport` 的恢复策略覆盖 live/expired lease、execution deadline、attempt 耗尽和取消优先级；`internal/persistence/libraryimport` 使用独立 SQLite 库验证两类补传恢复、持久 backoff、重复恢复无重复事件、同事务取消、late failure 回滚、旧 worker 失效，以及手动 Retry 后 Review 状态投影和冻结快照保留。HTTP 的幂等重放不能重复唤醒。端到端补充运行 `ACC-MDISC-002` 和 `ACC-IMP-007` 的既有 Case。
+`internal/jobinput` 校验统一 execution 信封并验证 Retry 仅刷新 executionId；补传真实入队编码必须能交给通用 Retry。`internal/service/libraryimport` 的恢复策略覆盖 live/expired lease、execution deadline、attempt 耗尽和取消优先级；`internal/persistence/libraryimport` 使用独立 PostgreSQL 库验证两类补传恢复、持久 backoff、重复恢复无重复事件、同事务取消、late failure 回滚、旧 worker 失效，以及手动 Retry 后 Review 状态投影和冻结快照保留。HTTP 的幂等重放不能重复唤醒。端到端补充运行 `ACC-MDISC-002` 和 `ACC-IMP-007` 的既有 Case。

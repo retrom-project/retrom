@@ -45,7 +45,7 @@ func (records gameRecords) RequireVisible(ctx context.Context, gameIDs []string)
 SELECT count(*)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
-WHERE g.id IN (SELECT value FROM json_each(?))
+WHERE g.id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 AND g.status='PUBLISHED'
 AND pi.enabled=1`
 	if err := dbapi.QueryRowContext(ctx, records.database, query, encodedStringList(gameIDs)).Scan(&count); err != nil {
@@ -65,7 +65,7 @@ func (records folderRecords) Require(ctx context.Context, profileID string, fold
 	query := `
 SELECT count(*)
 FROM favorite_folders
-WHERE profile_id=? AND id IN (SELECT value FROM json_each(?))`
+WHERE profile_id=? AND id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))`
 	if err := dbapi.QueryRowContext(
 		ctx, records.database,
 		query, profileID, encodedStringList(folderIDs),
@@ -168,7 +168,7 @@ func (records folderRecords) Existing(
 	rows, err := records.database.QueryContext(ctx, `
 SELECT id
 FROM favorite_folders
-WHERE profile_id=? AND id IN (SELECT value FROM json_each(?))
+WHERE profile_id=? AND id IN (SELECT value FROM jsonb_array_elements_text((?)::jsonb))
 `, profileID, encodedStringList(requested))
 	if err != nil {
 		return nil, fmt.Errorf("favorites: query restore folders: %w", err)

@@ -21,7 +21,8 @@ func UpdateImportJobFileResolutions(
 }
 
 const ImportJobFileResolutionsUpdateRule = `
-WITH previous(import_job_id,upload_file_id) AS (VALUES(?,?))
+WITH previous(import_job_id,upload_file_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- import_job_file_resolutions_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteImportJobFileResolutions(
 }
 
 const ImportJobFileResolutionsDeleteRule = `
-WITH previous(import_job_id,upload_file_id) AS (VALUES(?,?))
+WITH previous(import_job_id,upload_file_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- import_job_file_resolutions_immutable_delete
 WHEN (1=1) THEN 'immutable'

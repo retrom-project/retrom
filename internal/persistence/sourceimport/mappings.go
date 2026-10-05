@@ -17,16 +17,14 @@ type Mappings struct{ database dbapi.DB }
 
 func NewMappings(database dbapi.DB) *Mappings { return &Mappings{database: database} }
 func (repository *Mappings) WithMappings(ctx context.Context, work func(application.MappingScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := mappingRecords{executor: tx}
+		if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.Bind(tx)}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Source mappings: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := mappingRecords{executor: tx}
-	if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.Bind(tx)}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Source mappings: %w", err)
 	}
 	return nil

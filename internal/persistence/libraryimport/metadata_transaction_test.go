@@ -3,10 +3,11 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/authn"
 	dbapi "retrom/internal/database"
@@ -16,7 +17,7 @@ import (
 
 func metadataDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	owner, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "metadata.db"), time.Now)
+	owner, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

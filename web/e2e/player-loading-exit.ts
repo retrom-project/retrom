@@ -34,6 +34,7 @@ export async function verifyExitDuringProviderLoading(page: Page, testInfo: Test
   });
   await page.route(pattern, routeHandler);
   try {
+    await page.getByRole("searchbox", {name: "搜索游戏"}).fill("Sudoku");
     await page.locator(".library-game-card").filter({hasText: "Sudoku"}).getByRole("link").first().click();
     await page.getByRole("button", {name: "开始游戏"}).click();
     await requested;
@@ -48,7 +49,7 @@ export async function verifyExitDuringProviderLoading(page: Page, testInfo: Test
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("retrom:loading-exit-events") ?? "[]")))
       .toEqual(["module-aborted"]);
     await page.goBack();
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/library\?q=Sudoku$/);
   } finally {
     await page.unrouteAll({behavior: "ignoreErrors"});
     release();

@@ -10,14 +10,15 @@ import (
 	arcaderecords "retrom/internal/persistence/arcade"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	repository "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 	t.Parallel()
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

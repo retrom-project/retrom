@@ -15,7 +15,7 @@ func (store records) LoadLaunch(ctx context.Context, id string) (saves.Launch, e
 	var result saves.Launch
 	var checkpoint []byte
 	err := dbapi.QueryRowContext(ctx, store.executor, `
-SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.game_id,
+SELECT COALESCE(actor.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.game_id,
  launch.provider_id,launch.target_id,launch.dos_entry_path,launch.credential_sha256,launch.state,
  launch.hard_expires_at_ms,target.checkpoint_json,
  CASE WHEN EXISTS(SELECT 1 FROM launch_content_files file
@@ -28,14 +28,14 @@ SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.ga
 binding.launch_session_id=launch.id)
 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
-LEFT JOIN users user ON user.profile_id=launch.profile_id WHERE launch.id=?
+LEFT JOIN users actor ON actor.profile_id=launch.profile_id WHERE launch.id=?
 UNION ALL
 SELECT actor.id,actor.profile_id,'REVIEW_PREVIEW','',
  preview.provider_id,preview.target_id,preview.default_dos_entry,preview.credential_sha256,preview.state,
  preview.hard_expires_at_ms,target.checkpoint_json,preview.content_format,
  (SELECT count(*) FROM runtime_preview_files file WHERE file.preview_session_id=preview.id AND
 file.role='DISC'),
- 0,'',0
+ 0,'',false
 FROM runtime_preview_sessions preview JOIN users actor ON actor.id=preview.actor_user_id
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
 WHERE preview.id=?`, id, id).Scan(&result.PrincipalID, &result.ProfileID, &result.Purpose, &result.GameID,
@@ -60,25 +60,25 @@ func (store records) Restore(ctx context.Context, id string) (saves.Restore, err
 	var result saves.Restore
 	var checkpoint []byte
 	err := dbapi.QueryRowContext(ctx, store.executor, `
-SELECT target.checkpoint_json,blob.value,json_extract(blob.value, '$.sha256'),json_extract(blob.value,
-'$.size_bytes'),save.checkpoint_format
+SELECT target.checkpoint_json,blob.value,((blob.value)::jsonb #>> '{sha256}'),(((blob.value)::jsonb #>>
+ '{size_bytes}'))::bigint,save.checkpoint_format
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
  AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=launch.id
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN json_each(json_array(save.payload_file_record)) blob ON blob.value IS NOT NULL
- AND json_extract(blob.value, '$.sha256')=save.payload_sha256 AND json_extract(blob.value,
-'$.size_bytes')=save.payload_size_bytes
+JOIN LATERAL (SELECT save.payload_file_record AS value) blob ON blob.value IS NOT NULL
+ AND ((blob.value)::jsonb #>> '{sha256}')=save.payload_sha256 AND (((blob.value)::jsonb #>>
+ '{size_bytes}'))::bigint=save.payload_size_bytes
 WHERE launch.id=? AND (binding.launch_session_id IS NULL OR
  (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))
 UNION ALL
-SELECT target.checkpoint_json,blob.value,json_extract(blob.value, '$.sha256'),json_extract(blob.value,
-'$.size_bytes'),preview.restore_checkpoint_format
+SELECT target.checkpoint_json,blob.value,((blob.value)::jsonb #>> '{sha256}'),(((blob.value)::jsonb #>>
+ '{size_bytes}'))::bigint,preview.restore_checkpoint_format
 FROM runtime_preview_sessions preview
 JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
-JOIN json_each(json_array(preview.restore_payload_file_record)) blob ON blob.value IS NOT NULL WHERE
+JOIN LATERAL (SELECT preview.restore_payload_file_record AS value) blob ON blob.value IS NOT NULL WHERE
 preview.id=?`, id, id).
 		Scan(&checkpoint, &result.FileRecord, &result.Digest, &result.Size, &result.Format)
 	if errors.Is(err, sql.ErrNoRows) {

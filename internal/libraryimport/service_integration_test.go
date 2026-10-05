@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/persistence/contentquery"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 
@@ -60,7 +62,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -133,12 +135,12 @@ SELECT i.id,
        source.logical_name,
        entry.archive_format,
        entry.compression_profile,
-       json_extract(content.value, '$.sha256')
+       ((content.value)::jsonb #>> '{sha256}')
 FROM import_items i
 JOIN import_item_source_files source ON source.import_item_id=i.id AND source.role='CONTENT'
 JOIN archive_entries entry ON entry.archive_file_record=source.source_archive_file_record
  AND entry.ordinal=source.source_archive_entry_ordinal
-JOIN json_each(json_array(source.file_record)) content ON content.value IS NOT NULL
+JOIN LATERAL (SELECT source.file_record AS value) content ON content.value IS NOT NULL
 WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(
 		&itemID,
@@ -186,7 +188,7 @@ func TestUploadImportReviewPublishPipeline(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
@@ -294,7 +296,7 @@ FROM import_jobs job
 JOIN import_items item ON item.import_job_id=job.id
 JOIN import_items draft ON draft.id=item.id
 JOIN review_draft_tags relation ON relation.review_draft_id=draft.id AND relation.tag_id=?
-WHERE job.id=?
+WHERE job.id=? GROUP BY job.id
 `, defaultTag.TagID, created.ImportJobID).Scan(&inheritedDrafts, &initialConfigSnapshot); err != nil ||
 		inheritedDrafts != 2 || !strings.Contains(initialConfigSnapshot, `"name":"待通关"`) {
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)

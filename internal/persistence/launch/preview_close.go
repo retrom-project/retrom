@@ -19,15 +19,13 @@ func NewPreviewClose(database dbapi.DB) *PreviewClose { return &PreviewClose{dat
 func (repository *PreviewClose) WithPreviewClose(
 	ctx context.Context, work func(application.PreviewCloseScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		if err := work(previewCloseRecords{transaction: tx}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin preview close: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(previewCloseRecords{transaction: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit preview close: %w", err)
 	}
 	return nil

@@ -23,12 +23,13 @@ func UpdateIsolatedRuntimeBootstrapTickets(
 
 const IsolatedRuntimeBootstrapTicketsUpdateRule = `
 WITH previous(ticket_sha256,consumed_at_ms,expected_origin,expires_at_ms,launch_id,preview_id,
-profile_id) AS (VALUES(?,?,?,?,?,?,?))
+profile_id)
+AS (VALUES(?::bytea,?::bigint,?::text,?::bigint,?::text,?::text,?::text))
 SELECT CASE
 -- isolated_runtime_bootstrap_tickets_consume
 WHEN (previous.consumed_at_ms IS NOT NULL
-  OR candidate.ticket_sha256<>previous.ticket_sha256 OR candidate.launch_id IS NOT previous.launch_id
-  OR candidate.preview_id IS NOT previous.preview_id
+  OR candidate.ticket_sha256<>previous.ticket_sha256 OR candidate.launch_id IS DISTINCT FROM previous.launch_id
+  OR candidate.preview_id IS DISTINCT FROM previous.preview_id
   OR candidate.profile_id<>previous.profile_id OR candidate.expected_origin<>previous.expected_origin
   OR candidate.expires_at_ms<>previous.expires_at_ms OR candidate.consumed_at_ms IS NULL
   OR NOT (
@@ -57,7 +58,8 @@ func DeleteIsolatedRuntimeBootstrapTickets(
 }
 
 const IsolatedRuntimeBootstrapTicketsDeleteRule = `
-WITH previous(ticket_sha256,launch_id,preview_id) AS (VALUES(?,?,?))
+WITH previous(ticket_sha256,launch_id,preview_id)
+AS (VALUES(?::bytea,?::text,?::text))
 SELECT CASE
 -- isolated_runtime_bootstrap_tickets_immutable_delete
 WHEN (previous.launch_id IS NOT NULL OR EXISTS(

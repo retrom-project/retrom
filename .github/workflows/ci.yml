@@ -39,12 +39,33 @@ jobs:
         with:
           path: .cache/tools/node-v24.18.0-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Prepare native PostgreSQL build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y bison flex zlib1g-dev
+      - name: Cache native PostgreSQL tools
+        uses: actions/cache@v5
+        with:
+          path: .cache/tools/postgresql-18.3
+          key: retrom-postgresql-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-postgres.sh') }}
       - name: Check workspace, structure, API and data contracts
         run: make ci-contracts
 
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      RETROM_TEST_DATABASE_URL: postgres://retrom:retrom-test@127.0.0.1:5432/postgres?sslmode=disable
+    services:
+      postgres:
+        image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+        env:
+          POSTGRES_USER: retrom
+          POSTGRES_PASSWORD: retrom-test
+          POSTGRES_INITDB_ARGS: "-c max_connections=200"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U retrom -d postgres"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6
@@ -78,6 +99,20 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      RETROM_TEST_DATABASE_URL: postgres://retrom:retrom-test@127.0.0.1:5432/postgres?sslmode=disable
+    services:
+      postgres:
+        image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+        env:
+          POSTGRES_USER: retrom
+          POSTGRES_PASSWORD: retrom-test
+          POSTGRES_INITDB_ARGS: "-c max_connections=200"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U retrom -d postgres"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6
@@ -135,7 +170,21 @@ jobs:
   browser_ui:
     name: browser-ui
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
+    env:
+      RETROM_TEST_DATABASE_URL: postgres://retrom:retrom-test@127.0.0.1:5432/postgres?sslmode=disable
+    services:
+      postgres:
+        image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+        env:
+          POSTGRES_USER: retrom
+          POSTGRES_PASSWORD: retrom-test
+          POSTGRES_INITDB_ARGS: "-c max_connections=200"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U retrom -d postgres"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6

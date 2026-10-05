@@ -19,7 +19,7 @@ func attachmentExecutionFixture(t *testing.T, kind, state string) dbapi.DB {
 		metadataExec(t, database, `INSERT INTO review_multidisc_attachments
 (id,import_item_id,review_draft_id,requested_by_user_id,base_source_snapshot_id,upload_session_id,
 expected_set_digest,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
-VALUES('attachment','item','item','actor','snapshot','upload',lower(hex(randomblob(32))),
+VALUES('attachment','item','item','actor','snapshot','upload',lower(upper(encode(decode(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''),'hex'),'hex'))),
 'PENDING','{}','parent-job',1,1)`)
 	}
 	metadataExec(t, database, `UPDATE jobs SET leased_until_ms=10,execution_deadline_at_ms=2000 WHERE id='parent-job'`)
@@ -131,7 +131,7 @@ func TestAttachmentQueueFiltersBothKindsDueTimeAndBudget(t *testing.T) {
 	} {
 		metadataExec(t, database, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
 payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'IMPORT_ITEM','item',?,lower(hex(randomblob(32))),1,'{}',1,?,?,4,?,1,1)`, job.id, job.kind, job.state, job.attempt, job.available)
+VALUES(?,'IMPORT_ITEM','item',?,lower(upper(encode(decode(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''),'hex'),'hex'))),1,'{}',1,?,?,4,?,1,1)`, job.id, job.kind, job.state, job.attempt, job.available)
 	}
 	repository := NewAttachmentExecutions(database)
 	jobs, err := repository.Queued(t.Context(), 20)

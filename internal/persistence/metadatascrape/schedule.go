@@ -29,15 +29,13 @@ func (repository *ScheduleRepository) WithWrite(
 	ctx context.Context,
 	work func(metadatascrape.ScheduleScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		if err := work(BindSchedule(transaction)); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin scrape scheduling: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	if err := work(BindSchedule(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit scrape scheduling: %w", err)
 	}
 	return nil

@@ -69,14 +69,14 @@ FROM runtime_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState,
 	err = releaser.ReconcileDeletion(t.Context())
 	var state string
 	var version int64
-	var retained, candidates int
+	var retained bool
+	var candidates int
 	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_file_record IS NOT NULL,
-(SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
-'$.inputs.relativePath') || '/%')
+(SELECT count(*) FROM job_input_snapshots WHERE ((?)::jsonb #>> '{path}') LIKE ((input_json)::jsonb #>> '{inputs,relativePath}') || '/%')
 FROM runtime_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||
-		retained != 1 || candidates != 0 {
-		t.Fatalf("preview expiry retained partial writes: state=%s version=%d payload=%d candidates=%d hits=%d err=%v read=%v",
+		!retained || candidates != 0 {
+		t.Fatalf("preview expiry retained partial writes: state=%s version=%d payload=%t candidates=%d hits=%d err=%v read=%v",
 			state, version, retained, candidates, hits.Load(), err, readErr)
 	}
 }

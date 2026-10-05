@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 	service "retrom/internal/service/dependencies"
-
-	_ "modernc.org/sqlite"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestDATClaimEventFailureRollsBackState(t *testing.T) {
-	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
+	database, err := dbpostgres.Open(testpostgres.DSN(t), dbpostgres.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,12 +20,12 @@ func TestDATClaimEventFailureRollsBackState(t *testing.T) {
 	// Omit job_events to inject a write failure without database triggers.
 	_, err = database.ExecContext(t.Context(), `
 CREATE TABLE jobs (
- id TEXT PRIMARY KEY, state TEXT, attempt_count INTEGER,
- execution_started_at_ms INTEGER, execution_deadline_at_ms INTEGER,
- leased_until_ms INTEGER, heartbeat_at_ms INTEGER, worker_id TEXT,
- version INTEGER, updated_at_ms INTEGER
+ id TEXT PRIMARY KEY, state TEXT, attempt_count BIGINT,
+ execution_started_at_ms BIGINT, execution_deadline_at_ms BIGINT,
+ leased_until_ms BIGINT, heartbeat_at_ms BIGINT, worker_id TEXT,
+ version BIGINT, updated_at_ms BIGINT
 );
-CREATE TABLE dat_versions (id TEXT PRIMARY KEY, parse_status TEXT, version INTEGER, updated_at_ms INTEGER);
+CREATE TABLE dat_versions (id TEXT PRIMARY KEY, parse_status TEXT, version BIGINT, updated_at_ms BIGINT);
 INSERT INTO jobs(id,state,attempt_count,version) VALUES('job','QUEUED',0,1);
 INSERT INTO dat_versions(id,parse_status,version) VALUES('dat','PENDING',1);
 `)

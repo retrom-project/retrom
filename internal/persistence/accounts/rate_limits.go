@@ -40,16 +40,15 @@ func (records rateLimitRecords) Clear(ctx context.Context, key accounts.RateLimi
 }
 
 func (repository *RateLimits) WithWrite(ctx context.Context, work func(accounts.RateLimitRecords) error) error {
-	tx, err := repository.writer.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.writer, func(tx dbapi.Tx) error {
+		if err := work(rateLimitRecords{tx}); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin authentication rate limits: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	if err := work(rateLimitRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit authentication rate limit records: %w", err)
+		return fmt.Errorf("commit accounts transaction: %w", err)
 	}
 	return nil
 }

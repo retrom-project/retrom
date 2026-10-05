@@ -21,7 +21,8 @@ func UpdateSourceImportMetadataFiles(
 }
 
 const SourceImportMetadataFilesUpdateRule = `
-WITH previous(import_id,relative_path) AS (VALUES(?,?))
+WITH previous(import_id,relative_path)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- source_metadata_files_immutable_update
 WHEN (1=1) THEN 'immutable'

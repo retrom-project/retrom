@@ -8,9 +8,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/testsupport/importfixture"
 
@@ -40,7 +41,7 @@ func newReviewCheckpointFixture(t *testing.T) reviewCheckpointFixture {
 	now := time.UnixMilli(1_786_000_000_000)
 	clock := func() time.Time { return now }
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(dataDir, "review.db"), clock)
+	database, err := testsupport.OpenDatabase(t.Context(), testpostgres.DSN(t), clock)
 	if err != nil {
 		t.Fatal(err)
 	}

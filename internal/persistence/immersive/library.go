@@ -260,8 +260,8 @@ WHERE game.status='PUBLISHED' AND instance.enabled=1 AND (` + condition + ")"
 		} else {
 			query += ` AND (
  metadata.title_initial>?
- OR (metadata.title_initial=? AND metadata.title COLLATE NOCASE>? COLLATE NOCASE)
- OR (metadata.title_initial=? AND metadata.title COLLATE NOCASE=? COLLATE NOCASE AND game.id>?)
+ OR (metadata.title_initial=? AND lower(metadata.title) COLLATE "C">lower(?) COLLATE "C")
+ OR (metadata.title_initial=? AND lower(metadata.title) COLLATE "C"=lower(?) COLLATE "C" AND game.id>?)
 )`
 			arguments = append(
 				arguments,
@@ -277,7 +277,7 @@ WHERE game.status='PUBLISHED' AND instance.enabled=1 AND (` + condition + ")"
 	if kind == immersive.LibraryRecent {
 		query += " ORDER BY profile_play.last_played_at_ms DESC,game.id DESC LIMIT ?"
 	} else {
-		query += " ORDER BY metadata.title_initial,metadata.title COLLATE NOCASE,game.id LIMIT ?"
+		query += " ORDER BY metadata.title_initial,lower(metadata.title) COLLATE \"C\",game.id LIMIT ?"
 	}
 	arguments = append(arguments, limit+1)
 	rows, err := records.database.QueryContext(ctx, query, arguments...)

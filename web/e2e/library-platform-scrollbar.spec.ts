@@ -10,7 +10,7 @@ test.use({launchOptions: {
 }});
 
 test("ACC-UI-001 overflowing platform scrollbar shows only on hover without moving the layout", async ({page}, testInfo) => {
-  const database = process.env.RETROM_E2E_DATABASE;
+  const database = process.env.RETROM_E2E_DATA_ROOT;
   expect(database).toBeTruthy();
   execFileSync("python3", [path.resolve("../scripts/acceptance/seed-library-platforms.py"), database!]);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";

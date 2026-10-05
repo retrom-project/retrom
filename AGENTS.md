@@ -71,7 +71,7 @@
 - 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/filestore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
 - 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。
 - 已发布数据库只能通过有序 migration 演进；运行时代码不得动态修补 schema。每个迁移都要覆盖新建库和旧库升级路径。
-- SQLite 中表示业务时刻的字段必须为 Unix 毫秒 `INTEGER`，命名为 `*_at_ms`；Go/API 使用 `int64`。详细规则见存储专题。
+- PostgreSQL 中表示业务时刻的字段必须为 Unix 毫秒 `BIGINT`，命名为 `*_at_ms`；Go/API 使用 `int64`。详细规则见存储专题。
 
 ### 4.2 Web 前端
 
@@ -82,7 +82,7 @@
 
 ### 4.3 构建与部署
 
-- `make dev` 只启动宿主机上的 Go 与 Next.js 开发进程，不得调用 Docker、Compose、容器镜像或容器网络。
+- `make dev` 只启动宿主机上的 Go、Next.js 与当前用户的 PostgreSQL 开发进程（显式外部数据库 URL 时仅连接），不得调用 Docker、Compose、容器镜像或容器网络。
 - `make dev` 可以且必须先调用幂等 `make prepare-deps`；依赖准备结束后仍只启动宿主机进程。应用启动期只校验依赖，不自行联网下载。
 - 全新 checkout 使用 `make install-deps` 初始化固定 Go/Node/Web 工具、应用依赖及缓存中的 Chrome for Testing；`make web-e2e` 必须自行依赖浏览器准备 target，不得要求开发机预装系统 Chrome。
 - `make build-backend-image`、`make build-web-image` 和 `make build-images` 只构建/检查镜像；不得隐式执行 `docker run`、Compose、push、部署或修改运行数据。两个镜像必须使用依赖专题的同一 `io.retrom.release-input-sha256`，不得用 tag 相同冒充可组合证据。
@@ -110,10 +110,10 @@
 
 - 不设置单元测试覆盖率百分比门槛；覆盖率报告只用于发现风险，不代替测试设计。
 - 关键路径中可分离的业务决策、状态转换、校验和计算必须有单元测试；集成/E2E/smoke 作为跨边界补充，不能替代这些单元测试。普通改动至少覆盖受影响的正常路径、错误路径和边界条件。
-- 纯逻辑优先单元测试；SQLite、migration、HTTP 契约和跨模块事务使用集成测试；关键浏览器交互与核心运行兼容性使用经过 Retrom 导入、Launch、内容端点和 Player 的 Chrome E2E。
+- 纯逻辑优先单元测试；PostgreSQL、migration、HTTP 契约和跨模块事务使用集成测试；关键浏览器交互与核心运行兼容性使用经过 Retrom 导入、Launch、内容端点和 Player 的 Chrome E2E。
 - 任意在开发自测、验收、评审或生产使用中发现的 bug，都必须留下能阻止同类问题再次出现的回归用例。修复前应先证明用例在旧行为上失败，修复后运行聚焦用例及受影响的完整测试集。
 - 若浏览器权限、第三方运行时或不得提交的 ROM/BIOS 使普通自动化无法完整复现，仍须在最近的确定性边界增加自动化测试，并补充可执行 smoke 用例和机器可读验收记录；不得只留下文字说明。
-- 测试必须可重复：常规测试不依赖真实外网、真实时间、随机执行顺序或用户本机状态；使用 fake clock、固定 seed、临时目录和独立 SQLite 数据库。
+- 测试必须可重复：常规测试不依赖真实外网、真实时间、随机执行顺序或用户本机状态；使用 fake clock、固定 seed、临时目录和独立 PostgreSQL 数据库。
 - 测试夹具只包含合法可分发内容。格式兼容性测试应同时覆盖小型确定性夹具与仓库中固定版本的真实 DAT 基线，不得用臆造数据冒充生产基线。
 - 项目验收必须按 `docs/project-acceptance.md` 的 Case ID 和硬超时执行；不得临时合并 Case、复用历史截图，或加入 soak、压力、无限等待类验收。
 - 测试源码不因属于 fixture、集成或 E2E 获得结构性豁免；拆分时使用稳定行为命名的 case、builder 和断言 helper，不得删除、skip、合并验收 Case 或弱化断言。
@@ -126,13 +126,13 @@
 
 | 修改场景 | 默认必须验证 | 何时扩大 |
 | --- | --- | --- |
-| Go 纯领域逻辑、parser、状态机 | 目标包单元测试 + 后端基础门禁 | 进入 SQLite/HTTP/后台任务事务时追加 integration |
-| migration、SQLite 约束、事务、HTTP route/DTO/error | 聚焦集成测试 + `make integration-test`；API 变化再跑 generate/check | 跨多个应用模块或影响面无法证明时跑 `make ci` |
+| Go 纯领域逻辑、parser、状态机 | 目标包单元测试 + 后端基础门禁 | 进入 PostgreSQL/HTTP/后台任务事务时追加 integration |
+| migration、PostgreSQL 约束、事务、HTTP route/DTO/error | 聚焦集成测试 + `make integration-test`；API 变化再跑 generate/check | 跨多个应用模块或影响面无法证明时跑 `make ci` |
 | 普通 Web 组件、排版、焦点、响应式 | 组件测试 + 前端基础门禁；有真实浏览器行为时跑对应 `ACC-UI/MOB/TAG/FAV/...` 精确 Case | 修改共享 App Shell、认证或全局样式时扩大到全部直接消费页面，不自动进入 Core 矩阵 |
 | 沉浸模式入口、平台/游戏浏览、资料库、收藏、存档、音频、焦点、全屏恢复、菜单或返回导航 | `ACC-IMM-001`–`012` 中与改动直接对应的精确 Case；涉及真实启动/返回时覆盖对应 Player Case，并保留普通 UI 隔离 | 只有改到共享 adapter、Core 帧执行、runtime config/content 时才追加 `ACC-RUN/SAVE` |
 | 普通 Player 外围 UI（工具栏、全屏、方向门禁、退出导航） | 对应 `ACC-RUN-002`–`004`、`ACC-MOB-*` 或领域精确 Case；共享分支需补普通/沉浸隔离 | 进入 iframe 装载、帧步进、state、输入 adapter 或内容装配时扩大到受影响 Core 产品 Case |
 | Core adapter、EmulatorJS 版本、运行配置、ROM/BIOS/Parent、存档/多盘恢复 | 对应 `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-MDISC-*` 与受影响 Core 的真实产品链 | 修改所有 Core 共享 adapter/loader、manifest 或无法枚举消费者时运行完整 `make web-e2e` |
-| 导入、审核、媒体、删除、容量/文件删除 | 对应格式和链路的 `ACC-PEG/ES/GAME/MEDIA/STOR-*`，以及相关 HTTP/SQLite/独立文件存储集成测试 | 只有修改共享导入/审核/ownership/release 基础设施时扩大到所有直接消费者 |
+| 导入、审核、媒体、删除、容量/文件删除 | 对应格式和链路的 `ACC-PEG/ES/GAME/MEDIA/STOR-*`，以及相关 HTTP/PostgreSQL/独立文件存储集成测试 | 只有修改共享导入/审核/ownership/release 基础设施时扩大到所有直接消费者 |
 | 依赖 manifest、DAT、许可、镜像 | `data-check/prepare-deps/deps-check` 或 `build-images` | 物化结果进入 Player/Core 时再追加对应运行产品 Case |
 
 Case 的步骤、硬超时和通过标准只以 `docs/project-acceptance.md` 为准；上表只负责选用场景，不复制验收规范。
@@ -170,7 +170,7 @@ make web-test
 make web-build
 ```
 
-涉及 migration、SQLite 事务、HTTP 契约或跨模块主链路时：
+涉及 migration、PostgreSQL 事务、HTTP 契约或跨模块主链路时：
 
 ```bash
 make integration-test

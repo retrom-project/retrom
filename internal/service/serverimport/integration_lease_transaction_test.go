@@ -33,12 +33,13 @@ func TestLeaseClaimFailureRollsBackOwnerBudgetAndEvents(t *testing.T) {
 		t.Fatalf("failed claim: %+v %v %v", unit, found, err)
 	}
 	var state string
-	var version, attempt, leases, deadlines, events int64
+	var version, attempt, events int64
+	var leases, deadlines bool
 	err = dbapi.QueryRowContext(t.Context(), database, `SELECT state,version,attempt_count,worker_id IS NOT NULL,
 execution_deadline_at_ms IS NOT NULL,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='STARTED')
 FROM jobs WHERE id=?`, created.JobID).Scan(&state, &version, &attempt, &leases, &deadlines, &events)
-	if err != nil || state != "QUEUED" || version != 1 || attempt != 0 || leases != 0 || deadlines != 0 || events != 0 {
-		t.Fatalf("partial claim: %s/%d attempt=%d lease=%d deadline=%d events=%d %v", state, version, attempt, leases, deadlines, events, err)
+	if err != nil || state != "QUEUED" || version != 1 || attempt != 0 || leases || deadlines || events != 0 {
+		t.Fatalf("partial claim: %s/%d attempt=%d lease=%t deadline=%t events=%d %v", state, version, attempt, leases, deadlines, events, err)
 	}
 	current, err := legacy.Get(t.Context(), created.ID)
 	if err != nil || current.State != "QUEUED" || current.Version != created.Version {

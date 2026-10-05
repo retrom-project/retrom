@@ -2,14 +2,14 @@
 set -euo pipefail
 
 database_path="${1:-}"
-if [[ -z "$database_path" || ! -f "$database_path" ]]; then
+if [[ -z "$database_path" || ! -d "$database_path" ]]; then
   echo "usage: seed-favorites-user-flow.sh DATABASE" >&2
   exit 2
 fi
 
-sqlite3 -bail "$database_path" <<'SQL'
-PRAGMA foreign_keys=ON;
-BEGIN IMMEDIATE;
+python3 "$(dirname "${BASH_SOURCE[0]}")/postgres_fixture.py" query "$database_path" <<'SQL'
+
+BEGIN;
 
 INSERT INTO games(
   id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
@@ -27,7 +27,7 @@ INSERT INTO games(
 COMMIT;
 SQL
 
-count="$(sqlite3 "$database_path" "SELECT count(*) FROM games WHERE status='PUBLISHED';")"
+count="$(python3 "$(dirname "${BASH_SOURCE[0]}")/postgres_fixture.py" query "$database_path" "SELECT count(*) FROM games WHERE status='PUBLISHED';")"
 if (( count < 2 )); then
   echo "favorite user-flow seed expected at least two published games, got: $count" >&2
   exit 1

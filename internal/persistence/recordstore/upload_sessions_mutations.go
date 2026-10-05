@@ -21,10 +21,11 @@ func UpdateUploadSessions(
 }
 
 const UploadSessionsUpdateRule = `
-WITH previous(id,purpose) AS (VALUES(?,?))
+WITH previous(id,purpose)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- upload_sessions_purpose_immutable
-WHEN ((candidate.purpose IS NOT previous.purpose) AND (1=1)) THEN 'upload purpose is immutable'
+WHEN ((candidate.purpose IS DISTINCT FROM previous.purpose) AND (1=1)) THEN 'upload purpose is immutable'
 ELSE '' END
 FROM upload_sessions candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`

@@ -39,7 +39,7 @@ AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CA
 	}
 	if _, err := records.transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'SOURCE_IMPORT',?,'MANUAL_RETRY',json_object('schemaVersion',1,'executionNo',?),?)`,
+VALUES(?,'SOURCE_IMPORT',?,'MANUAL_RETRY',jsonb_build_object('schemaVersion',1,'executionNo',?)::text,?)`,
 		*plan.Before.Summary.ImportJobID, plan.Before.Summary.ID, plan.Execution, plan.NowMS); err != nil {
 		return fmt.Errorf("record Source manual retry: %w", err)
 	}
@@ -51,7 +51,7 @@ VALUES(?,'SOURCE_IMPORT',?,'MANUAL_RETRY',json_object('schemaVersion',1,'executi
 
 func (records workflowRecords) queueRetryJob(ctx context.Context, plan application.RetryPlan) error {
 	result, err := records.transaction.ExecContext(ctx, `
-UPDATE jobs SET state='QUEUED',execution_no=?,payload_json=json_object('inputExecutionNo',?),
+UPDATE jobs SET state='QUEUED',execution_no=?,payload_json=jsonb_build_object('inputExecutionNo',?)::text,
 attempt_count=0,available_at_ms=?,execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,
 leased_until_ms=NULL,heartbeat_at_ms=NULL,finished_at_ms=NULL,worker_id=NULL,error_code=NULL,error_retryable=NULL,
 cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?

@@ -24,6 +24,7 @@ func NewWorker(repository WorkerRepository, executor WorkExecutor, options Worke
 func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 	var claimed Work
 	err := worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+		claimed = Work{}
 		now := worker.now().UnixMilli()
 		before, found, err := scope.Read.Next(ctx, now)
 		if err != nil {

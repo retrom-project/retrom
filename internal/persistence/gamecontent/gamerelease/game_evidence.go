@@ -12,8 +12,8 @@ import (
 )
 
 func (records Records) ClearEvidence(ctx context.Context, gameID string, now int64) error {
-	paths, err := dbapi.QueryStrings(ctx, records.Executor, `SELECT 'saves/'||id FROM save_states WHERE game_id=?1
- UNION SELECT 'scrapes/'||id FROM metadata_scrape_runs WHERE game_id=?1`, gameID)
+	paths, err := dbapi.QueryStrings(ctx, records.Executor, `SELECT 'saves/'||id FROM save_states WHERE game_id=$1
+ UNION SELECT 'scrapes/'||id FROM metadata_scrape_runs WHERE game_id=$1`, gameID)
 	if err != nil {
 		return fmt.Errorf("clear evidence: %w", err)
 	}

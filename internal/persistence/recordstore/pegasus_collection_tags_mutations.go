@@ -21,7 +21,8 @@ func UpdateSourceCollectionTags(
 }
 
 const SourceCollectionTagsUpdateRule = `
-WITH previous(collection_id,tag_id) AS (VALUES(?,?))
+WITH previous(collection_id,tag_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- source_collection_tags_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -43,7 +44,8 @@ func DeleteSourceCollectionTags(
 }
 
 const SourceCollectionTagsDeleteRule = `
-WITH previous(collection_id,tag_id) AS (VALUES(?,?))
+WITH previous(collection_id,tag_id)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- source_collection_tags_validate_delete
 WHEN (EXISTS(SELECT 1 FROM tags WHERE id=previous.tag_id AND status='ACTIVE')

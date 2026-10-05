@@ -1,7 +1,6 @@
 package importfiles
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/store"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 func TestReceiveIsImmutableAndTransactional(t *testing.T) {
@@ -54,7 +54,7 @@ WHERE id='ready'),received_size_bytes=3 WHERE id='pending'`)
 
 func receiveFixture(t *testing.T) dbapi.DB {
 	t.Helper()
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "files.db"), time.Now)
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestRetiredFormatAndReviewHistoryTablesAreAbsent(t *testing.T) {
 	t.Parallel()
 	db := receiveFixture(t)
 	var retiredTables int
-	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN ('review_events','pegasus_imports',
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM pg_tables WHERE schemaname=current_schema() AND tablename IN ('review_events','pegasus_imports',
 'emulationstation_imports','stored_files','file_deletions')`).Scan(&retiredTables); err != nil || retiredTables != 0 {
 		t.Fatalf("retired workflows remain: %d %v", retiredTables, err)
 	}

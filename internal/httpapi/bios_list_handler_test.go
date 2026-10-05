@@ -18,16 +18,23 @@ func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
 	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
 	testassert.False(t, err != nil, err)
+	requireHTTPTestRuntimeTarget(t, server.database, "yabause")
+	otherTarget, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "yabause")
+	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	for index := 0; index < 286; index++ {
+		coreID, binding := "mgba", target
+		if index%2 == 1 {
+			coreID, binding = "yabause", otherTarget
+		}
 		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?, 'mgba',?,?,'STATIC',NULL,?,'REQUIRED',NULL,NULL,lower(hex(zeroblob(32))),
-1,lower(hex(randomblob(16))),NULL,NULL,'https://example.invalid/bios','paging-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`, fmt.Sprintf("paging-requirement-%03d", index), target.ProviderID, target.TargetID,
+VALUES(?,?,?,?,'STATIC',NULL,?,'REQUIRED',NULL,NULL,lower(upper(encode(decode(repeat('00',(32)::integer),'hex'),'hex'))),
+1,lower(upper(encode(decode(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''),'hex'),'hex'))),NULL,NULL,'https://example.invalid/bios','paging-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
+`, fmt.Sprintf("paging-requirement-%03d", index), coreID, binding.ProviderID, binding.TargetID,
 			fmt.Sprintf("bios-%03d.bin", index)); err != nil {
 			_ = transaction.Rollback()
 			t.Fatal(err)

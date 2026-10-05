@@ -20,10 +20,10 @@ func ValidateScrapeCandidateAssets(ctx context.Context, db dbapi.Executor, keys 
 const scrape_candidate_assetsOwnership = `
 SELECT CASE
 WHEN (EXISTS(
-  SELECT 1 FROM scrape_candidates candidate
-  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
+  SELECT 1 FROM scrape_candidates scrape_candidate
+  JOIN metadata_scrape_runs run ON run.id=scrape_candidate.scrape_run_id
   JOIN games game ON game.id=run.game_id
-  WHERE candidate.id=candidate.scrape_candidate_id AND game.status<>'PUBLISHED'
+  WHERE scrape_candidate.id=candidate.scrape_candidate_id AND game.status<>'PUBLISHED'
 )) THEN 'game payload owner is not published'
 ELSE '' END
 FROM scrape_candidate_assets candidate

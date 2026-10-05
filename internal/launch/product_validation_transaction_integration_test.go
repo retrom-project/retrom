@@ -13,7 +13,7 @@ import (
 	variantrepository "retrom/internal/persistence/gamevariant"
 	gamevariant "retrom/internal/service/gamevariant"
 
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	contentcapability "retrom/internal/content/capability"
 	dbapi "retrom/internal/database"
@@ -39,8 +39,8 @@ func productValidationRows(t *testing.T, fixture reviewCheckpointFixture) map[st
 	result := make(map[string]string)
 	for _, table := range []string{"jobs", "job_input_snapshots", "job_events", "game_variants"} {
 		var value string
-		query := `SELECT COALESCE(json_group_array(json(row_json)),'[]') FROM (SELECT json_object(`
-		columns, err := fixture.database.QueryContext(t.Context(), `SELECT name FROM pragma_table_info(?) ORDER BY cid`, table)
+		query := `SELECT COALESCE(jsonb_agg((row_json)::jsonb)::text,'[]') FROM (SELECT jsonb_build_object(`
+		columns, err := fixture.database.QueryContext(t.Context(), `SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=? ORDER BY ordinal_position`, table)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +62,7 @@ func productValidationRows(t *testing.T, fixture reviewCheckpointFixture) map[st
 		if err := columns.Close(); err != nil {
 			t.Fatal(err)
 		}
-		query += `) AS row_json FROM ` + table + ` ORDER BY rowid)`
+		query += `) AS row_json FROM ` + table + ` ORDER BY row_json)`
 		if err := dbapi.QueryRowContext(t.Context(), fixture.database, query).Scan(&value); err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +74,7 @@ func productValidationRows(t *testing.T, fixture reviewCheckpointFixture) map[st
 func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T) {
 	fixture, request := productCreationFixture(t)
 	input := productValidationInput(t, fixture, request)
-	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE job_events ADD COLUMN product_queue_guard INTEGER CHECK(scope_type!='GAME_VARIANT' OR event_type!='QUEUED')`)
+	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE job_events ADD COLUMN product_queue_guard BIGINT CHECK(scope_type!='GAME_VARIANT' OR event_type!='QUEUED')`)
 	before := productValidationRows(t, fixture)
 	tx, err := fixture.database.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T)
 	}
 	scheduler := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(tx), gamevariant.ValidationEnvironment{Now: fixture.launcher.now})
 	result, err := scheduler.Queue(t.Context(), input)
-	var storage *sqlite.Error
+	var storage *pgconn.PgError
 	if !errors.As(err, &storage) || result.JobID != "" {
 		dbapi.Rollback(tx)
 		t.Fatalf("result=%+v error=%v", result, err)
@@ -119,7 +119,7 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 		t.Fatalf("first=%+v second=%+v", first, second)
 	}
 	var counts string
-	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT json_array((SELECT count(*) FROM jobs WHERE id=?),(SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM job_events WHERE job_id=?))`, first.result.JobID, first.result.JobID, first.result.JobID).Scan(&counts); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT jsonb_build_array((SELECT count(*) FROM jobs WHERE id=?),(SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM job_events WHERE job_id=?))::text`, first.result.JobID, first.result.JobID, first.result.JobID).Scan(&counts); err != nil {
 		t.Fatal(err)
 	}
 	var values []int
@@ -132,16 +132,13 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 }
 
 func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture, input gamevariant.ValidationInputs) (gamevariant.ValidationQueued, error) {
-	tx, err := fixture.database.BeginTx(ctx, nil)
+	var result gamevariant.ValidationQueued
+	err := dbapi.RetryTransaction(ctx, fixture.database, func(tx dbapi.Tx) error {
+		var err error
+		result, err = gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(tx), gamevariant.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
+		return err
+	})
 	if err != nil {
-		return gamevariant.ValidationQueued{}, err
-	}
-	defer dbapi.Rollback(tx)
-	result, err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(tx), gamevariant.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
-	if err != nil {
-		return gamevariant.ValidationQueued{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return gamevariant.ValidationQueued{}, err
 	}
 	return result, nil

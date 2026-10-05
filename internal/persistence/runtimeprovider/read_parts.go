@@ -38,8 +38,8 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 	transaction := records.executor
 	providerID, targetID := target.ProviderID, target.TargetID
 	references := []struct{ table, providerColumn, targetColumn, live string }{
-		{"bios_requirements", "provider_id", "target_id", "1"},
-		{"dat_versions", "provider_id", "target_id", "1"},
+		{"bios_requirements", "provider_id", "target_id", "true"},
+		{"dat_versions", "provider_id", "target_id", "true"},
 		{"server_bios_import_items", "provider_id", "target_id", "state IN ('PENDING','EVALUATING')"},
 		{"import_jobs", "provider_id", "target_id", `
  EXISTS(SELECT 1 FROM import_items item WHERE item.import_job_id=import_jobs.id
@@ -49,8 +49,8 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		{"review_runtime_screenshots", "provider_id", "target_id", `
  EXISTS(SELECT 1 FROM import_items item WHERE item.id=review_runtime_screenshots.import_item_id
  AND item.state IN ('REVIEW_PENDING','PUBLISHING'))`},
-		{"game_variants", "provider_id", "target_id", "1"},
-		{"launch_sessions", "provider_id", "target_id", "1"},
+		{"game_variants", "provider_id", "target_id", "true"},
+		{"launch_sessions", "provider_id", "target_id", "true"},
 		{"source_import_collections", "target_provider_id", "target_id", `EXISTS(
  SELECT 1 FROM source_imports source WHERE source.id=source_import_collections.import_id
  AND source.state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED'))
@@ -71,8 +71,8 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 	var reviewProfileReferenced bool
 	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT EXISTS(SELECT 1 FROM import_items
- WHERE state IN ('REVIEW_PENDING','PUBLISHING') AND json_extract(review_profile_json,'$.data.providerId')=?
- AND json_extract(review_profile_json,'$.data.targetId')=? LIMIT 1)`, providerID, targetID,
+ WHERE state IN ('REVIEW_PENDING','PUBLISHING') AND ((review_profile_json)::jsonb #>> '{data,providerId}')=?
+ AND ((review_profile_json)::jsonb #>> '{data,targetId}')=? LIMIT 1)`, providerID, targetID,
 	).Scan(&reviewProfileReferenced); err != nil {
 		return false, fmt.Errorf("reconcile runtime providers: inspect review profiles: %w", err)
 	}

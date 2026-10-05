@@ -12,7 +12,7 @@ import (
 	application "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func newProductPlayFixture(t *testing.T, activate bool) (reviewCheckpointFixture, Created) {
@@ -81,7 +81,7 @@ func TestPlaySnapshotPreservesSourceStorageError(t *testing.T) {
 	fixture, created := newProductPlayFixture(t, true)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE launch_sessions RENAME TO unavailable_launch_sessions`)
 	result, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{})
-	var storageError *sqlite.Error
+	var storageError *pgconn.PgError
 	if !errors.As(err, &storageError) || result.PlaySessionID != "" {
 		t.Fatalf("source storage cause lost: %#v %v", result, err)
 	}

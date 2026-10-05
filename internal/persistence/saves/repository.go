@@ -28,19 +28,17 @@ func (repository *Repository) Restore(ctx context.Context, id string) (saves.Res
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(saves.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(transaction dbapi.Tx) error {
+		bound := writes{records: records{executor: transaction}, transaction: transaction}
+		if err := work(saves.WriteScope{
+			Launches: bound, Idempotency: bound,
+			Checkpoints: bound, GameSaves: bound,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin checkpoint transaction: %w", err)
-	}
-	defer dbapi.Rollback(transaction)
-	bound := writes{records: records{executor: transaction}, transaction: transaction}
-	if err := work(saves.WriteScope{
-		Launches: bound, Idempotency: bound,
-		Checkpoints: bound, GameSaves: bound,
-	}); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit checkpoint transaction: %w", err)
 	}
 	return nil

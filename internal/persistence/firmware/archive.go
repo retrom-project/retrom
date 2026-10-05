@@ -19,7 +19,7 @@ JOIN bios_requirements q ON q.provider_id=d.provider_id AND q.target_id=d.target
  AND q.dat_machine_name=r.machine_name AND q.source_version=r.dat_version_id
 WHERE q.id=? AND COALESCE(r.status,'GOOD')!='NODUMP' AND (r.bios_name IS NULL OR EXISTS(
  SELECT 1 FROM dat_bios_sets b WHERE b.dat_version_id=r.dat_version_id AND b.machine_name=r.machine_name
- AND b.bios_name=r.bios_name AND b.is_default=1)) ORDER BY r.name COLLATE BINARY,r.ordinal`, id)
+ AND b.bios_name=r.bios_name AND b.is_default=1)) ORDER BY r.name COLLATE "C",r.ordinal`, id)
 	if err != nil {
 		return nil, fmt.Errorf("query BIOS DAT entries: %w", err)
 	}

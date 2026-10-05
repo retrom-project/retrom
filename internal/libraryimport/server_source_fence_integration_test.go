@@ -6,8 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	dbapi "retrom/internal/database"
-	dbsqlite "retrom/internal/database/sqlite"
+	dbpostgres "retrom/internal/database/postgres"
 )
 
 func TestOwnedSourceRechecksPreparedInputsAndExecutionBeforeWriting(t *testing.T) {
@@ -24,19 +26,18 @@ item_id='018fbe68-0000-7000-8000-000000000021'`,
 	for name, statement := range cases {
 		t.Run(name, func(t *testing.T) {
 			fixture, request := ownedSourceFixture(t)
-			var ordinal int
-			var schema, path string
-			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &schema, &path); err != nil {
+			var databaseName string
+			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT current_database()`).Scan(&databaseName); err != nil {
 				t.Fatal(err)
 			}
-			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{
-				path: path,
+			intercepted := dbpostgres.OpenConnector(sourceFaultConnector{
+				path: testpostgres.ForDatabase(t, databaseName),
 				beforeCreation: func() error {
 					_, err := fixture.database.ExecContext(fixture.ctx,
 						statement)
 					return err
 				},
-			}, dbsqlite.Options{})
+			}, dbpostgres.Options{})
 			intercepted.SetMaxOpenConns(1)
 			t.Cleanup(func() {
 				if err := intercepted.Close(); err != nil {

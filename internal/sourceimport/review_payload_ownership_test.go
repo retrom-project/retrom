@@ -30,7 +30,7 @@ func TestReviewOwnsMediaAfterIndependentSourceReleaseAndHandoffReplay(t *testing
  (SELECT count(*) FROM source_import_item_assets WHERE item_id=source.id AND file_record IS NOT NULL),
  (SELECT count(*) FROM import_item_assets WHERE import_item_id=item.id),
  (SELECT count(*) FROM import_item_assets a WHERE a.import_item_id=item.id AND
-json_extract(a.file_record,'$.path') LIKE 'staging/items/' || item.id || '/scratch/%')
+((a.file_record)::jsonb #>> '{path}') LIKE 'staging/items/' || item.id || '/scratch/%')
  FROM source_import_items source JOIN import_items item ON item.id=source.library_import_item_id
  WHERE source.id='018fbe68-0000-7000-8000-000000000010'`).Scan(&sourceState, &itemState, &sourceRefs, &itemRefs, &count)
 	if err != nil || sourceState != "RELEASED" || itemState != "RETAINED" || sourceRefs != 0 ||

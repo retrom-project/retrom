@@ -22,13 +22,14 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 const testUserID = "01980000-0000-7000-8000-000000009901"
 
 func newService(t *testing.T) (*platforminstance.Service, dbapi.DB) {
 	t.Helper()
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
+	database, err := store.Open(t.Context(), testpostgres.DSN(t), func() time.Time {
 		return time.UnixMilli(1_786_000_000_000)
 	})
 	testassert.False(t, err != nil, err)

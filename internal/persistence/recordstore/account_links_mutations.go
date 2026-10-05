@@ -21,7 +21,8 @@ func UpdateAccountLinks(
 }
 
 const AccountLinksUpdateRule = `
-WITH previous(id,consumed_at_ms,revoked_at_ms) AS (VALUES(?,?,?))
+WITH previous(id,consumed_at_ms,revoked_at_ms)
+AS (VALUES(?::text,?::bigint,?::bigint))
 SELECT CASE
 -- account_links_terminal_immutable
 WHEN (previous.consumed_at_ms IS NOT NULL OR previous.revoked_at_ms IS NOT NULL) THEN
@@ -44,7 +45,8 @@ func DeleteAccountLinks(
 }
 
 const AccountLinksDeleteRule = `
-WITH previous(id) AS (VALUES(?))
+WITH previous(id)
+AS (VALUES(?::text))
 SELECT CASE
 -- account_links_no_delete
 WHEN (1=1) THEN 'account links are retained'

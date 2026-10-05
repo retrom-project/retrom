@@ -209,7 +209,7 @@ func seedImmersiveGame(t *testing.T, server *testServer, seed immersiveGameSeed,
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer dbapi.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
+	mustExecHTTPTest(t, transaction, "SET CONSTRAINTS ALL DEFERRED")
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
@@ -251,7 +251,7 @@ INSERT INTO launch_sessions(
  content_kind,dependency_snapshot_json,compatibility_code,
  return_to,credential_sha256,state,
  bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version
-) VALUES(?,?,?,'mgba',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+) VALUES(?,?,?,'mgba',?,?,?,'SINGLE_FILE','{}','READY','/',decode(repeat('00',(32)::integer),'hex'),'FINISHED',?,?,?,?,?,1)
 `, launchID, profileID, seed.GameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		startedAtMS+1000, startedAtMS+500,
 		startedAtMS+2000, startedAtMS, startedAtMS+500)

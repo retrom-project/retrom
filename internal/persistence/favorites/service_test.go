@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
+	"retrom/internal/testsupport/testpostgres"
 )
 
 const (
@@ -47,14 +47,14 @@ INSERT INTO games(
 
 func newFavoriteTestDatabase(t *testing.T) *store.DB {
 	t.Helper()
-	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := store.Open(context.Background(), testpostgres.DSN(t), time.Now)
 	testassert.False(t, err != nil, err)
 	if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	transaction, err := database.SQL.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	if _, err := transaction.ExecContext(context.Background(), "PRAGMA defer_foreign_keys=ON"); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), "SET CONSTRAINTS ALL DEFERRED"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `

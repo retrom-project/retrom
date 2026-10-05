@@ -17,16 +17,14 @@ func (repository *Repository) WithLaunchRetirement(
 		application.LaunchRetirementScope,
 	) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := Records{Executor: tx}
+		if err := run(application.LaunchRetirementScope{Read: records, Launch: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin payloadlaunch transaction: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := Records{Executor: tx}
-	if err := run(application.LaunchRetirementScope{Read: records, Launch: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit payloadlaunch transaction: %w", err)
 	}
 	return nil

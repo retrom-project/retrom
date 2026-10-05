@@ -194,7 +194,7 @@ LEFT JOIN platform_instances pi ON pi.platform_id=p.id AND pi.enabled=1 AND pi.d
 LEFT JOIN games g ON g.platform_instance_id=pi.id AND g.status='PUBLISHED'
 LEFT JOIN profile_game_activity activity ON activity.game_id=g.id AND activity.profile_id=?
 WHERE EXISTS (SELECT 1 FROM platform_cores pc WHERE pc.platform_id=p.id AND pc.enabled=1)
-GROUP BY p.id,p.name ORDER BY p.name COLLATE NOCASE,p.id`, profileID)
+GROUP BY p.id,p.name ORDER BY lower(p.name) COLLATE "C",p.id`, profileID)
 	if err != nil {
 		return nil, fmt.Errorf("query home platforms: %w", err)
 	}

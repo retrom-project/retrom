@@ -5,10 +5,11 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport/testpostgres"
 
 	"retrom/internal/cleanup"
 	variantcomposition "retrom/internal/composition/gamevariant"
@@ -29,7 +30,7 @@ func TestPublishedArcadeAlternateCoreUsesOwnDATWithoutCreatingImportWork(t *test
 	ctx := t.Context()
 	now := func() time.Time { return time.UnixMilli(1786000000000) }
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}

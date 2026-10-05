@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
+import postgres_fixture as pg
 import sys
 from pathlib import Path
 from fixture_files import own_rows
@@ -35,7 +35,7 @@ def title_cases() -> list[tuple[str, str]]:
     ]
 
 
-def base_game(database: sqlite3.Connection) -> sqlite3.Row:
+def base_game(database: pg.Connection) -> pg.row_factory:
     row = database.execute(
         """
 SELECT game.*,variant.id AS variant_id,variant.core_id,variant.provider_id,variant.target_id,
@@ -54,8 +54,8 @@ ORDER BY variant.updated_at_ms DESC LIMIT 1
 
 
 def seed_game(
-    database: sqlite3.Connection,
-    base: sqlite3.Row,
+    database: pg.Connection,
+    base: pg.row_factory,
     index: int,
     title: str,
     title_initial: str,
@@ -70,8 +70,8 @@ INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
  metadata_source_kind,content_kind,content_source_kind,
  source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,'Retrom','','Acceptance',1,2026,'ADMIN_EDIT',?,'ADMIN_REPLACE',?,?,
- 'PUBLISHED','RETAINED',lower(?),1,?,?)
+) VALUES(%s,%s,%s,%s,%s,'Retrom','','Acceptance',1,2026,'ADMIN_EDIT',%s,'ADMIN_REPLACE',%s,%s,
+ 'PUBLISHED','RETAINED',lower(%s),1,%s,%s)
 """,
         (
             game_id, base["platform_instance_id"], title, title_initial,
@@ -85,8 +85,8 @@ INSERT INTO games(
 INSERT INTO game_files(
  game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
-FROM game_files WHERE game_id=?
+SELECT %s,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
+FROM game_files WHERE game_id=%s
 """,
         (game_id, base["id"]),
     )
@@ -95,7 +95,7 @@ FROM game_files WHERE game_id=?
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
  compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 """,
         (
             variant_id, game_id, base["core_id"], base["provider_id"], base["target_id"],
@@ -108,10 +108,10 @@ INSERT INTO game_variants(
 
 
 def seed_play(
-    database: sqlite3.Connection,
+    database: pg.Connection,
     profile_id: str,
     game_id: str,
-    base: sqlite3.Row,
+    base: pg.row_factory,
     index: int,
     started_at_ms: int,
 ) -> None:
@@ -124,7 +124,7 @@ INSERT INTO launch_sessions(
  dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,activated_at_ms,finished_at_ms,hard_expires_at_ms,
  created_at_ms,updated_at_ms,version,initial_disc_index
-) VALUES(?,?,?,?,?,?,?,?,?,?,'/immersive',?,'FINISHED',?,?,?,?,?,?,1,0)
+) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'/immersive',%s,'FINISHED',%s,%s,%s,%s,%s,%s,1,0)
 """,
         (
             launch_id, profile_id, game_id, base["core_id"], base["provider_id"],
@@ -137,9 +137,9 @@ INSERT INTO launch_sessions(
     )
     database.execute(
         "INSERT INTO profile_game_activity(profile_id,game_id,last_played_at_ms,active_duration_ms,session_count) "
-        "VALUES(?,?,?,1000,1) ON CONFLICT(profile_id,game_id) DO UPDATE SET "
-        "last_played_at_ms=max(last_played_at_ms,excluded.last_played_at_ms), "
-        "active_duration_ms=active_duration_ms+1000,session_count=session_count+1",
+        "VALUES(%s,%s,%s,1000,1) ON CONFLICT(profile_id,game_id) DO UPDATE SET "
+        "last_played_at_ms=GREATEST(profile_game_activity.last_played_at_ms,excluded.last_played_at_ms), "
+        "active_duration_ms=profile_game_activity.active_duration_ms+1000,session_count=profile_game_activity.session_count+1",
         (profile_id, game_id, started_at_ms),
     )
     database.execute(
@@ -147,7 +147,7 @@ INSERT INTO launch_sessions(
 INSERT INTO play_sessions(
  id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,ended_at_ms,
  active_duration_ms,state,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,1000,'FINISHED',1,?,?)
+) VALUES(%s,%s,%s,%s,%s,%s,%s,1000,'FINISHED',1,%s,%s)
 """,
         (
             play_id, launch_id, profile_id, game_id, started_at_ms,
@@ -158,20 +158,19 @@ INSERT INTO play_sessions(
 
 
 def seed(database_path: Path) -> dict[str, object]:
-    database = sqlite3.connect(database_path, timeout=30)
-    database.row_factory = sqlite3.Row
+    database = pg.connect(database_path)
+    database.row_factory = pg.row_factory
     try:
-        database.execute("PRAGMA foreign_keys=ON")
-        database.execute("BEGIN IMMEDIATE")
+
         profile_id = database.execute("SELECT profile_id FROM users WHERE username='test'").fetchone()[0]
         existing = database.execute(
-            "SELECT profile_id FROM favorite_folders WHERE id=?", (FOLDER_ID,),
+            "SELECT profile_id FROM favorite_folders WHERE id=%s", (FOLDER_ID,),
         ).fetchone()
         if existing is not None:
             if existing["profile_id"] != profile_id:
                 raise RuntimeError("IMMERSIVE_ACCEPTANCE_FOLDER_OWNER_MISMATCH")
             game_count = database.execute(
-                "SELECT count(*) FROM favorite_folder_games WHERE profile_id=? AND folder_id=?",
+                "SELECT count(*) FROM favorite_folder_games WHERE profile_id=%s AND folder_id=%s",
                 (profile_id, FOLDER_ID),
             ).fetchone()[0]
             if game_count != GAME_COUNT:
@@ -188,15 +187,15 @@ def seed(database_path: Path) -> dict[str, object]:
         ).fetchone()[0]
         database.execute(
             "INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms) "
-            "VALUES(?,?,'验收分页','验收分页',1,?,?)", (FOLDER_ID, profile_id, latest_play, latest_play),
+            "VALUES(%s,%s,'验收分页','验收分页',1,%s,%s)", (FOLDER_ID, profile_id, latest_play, latest_play),
         )
         database.execute(
-            "INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Immersive Other',?)",
+            "INSERT INTO profiles(id,display_name,created_at_ms) VALUES(%s,'Immersive Other',%s)",
             (OTHER_PROFILE_ID, latest_play),
         )
         database.execute(
             "INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms) "
-            "VALUES(?,?,'另一玩家私有','另一玩家私有',1,?,?)",
+            "VALUES(%s,%s,'另一玩家私有','另一玩家私有',1,%s,%s)",
             (OTHER_FOLDER_ID, OTHER_PROFILE_ID, latest_play, latest_play),
         )
         game_ids: list[str] = []
@@ -209,11 +208,11 @@ def seed(database_path: Path) -> dict[str, object]:
             game_ids.append(game_id)
             seed_play(database, profile_id, game_id, base, index, timestamp)
             database.execute(
-                "INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,?)",
+                "INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(%s,%s,%s)",
                 (profile_id, game_id, timestamp),
             )
             database.execute(
-                "INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(?,?,?,?)",
+                "INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(%s,%s,%s,%s)",
                 (profile_id, FOLDER_ID, game_id, timestamp),
             )
         seed_play(
@@ -221,11 +220,11 @@ def seed(database_path: Path) -> dict[str, object]:
             latest_play + GAME_COUNT + 1,
         )
         database.execute(
-            "INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,?)",
+            "INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(%s,%s,%s)",
             (OTHER_PROFILE_ID, game_ids[0], latest_play),
         )
         database.execute(
-            "INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(?,?,?,?)",
+            "INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(%s,%s,%s,%s)",
             (OTHER_PROFILE_ID, OTHER_FOLDER_ID, game_ids[0], latest_play),
         )
         database.commit()

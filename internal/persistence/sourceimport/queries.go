@@ -21,10 +21,10 @@ import.game_count,import.estimated_source_bytes,import.mapped_collection_count,i
 import.processable_item_count,import.blocked_item_count,import.review_pending_item_count,
 import.published_item_count,import.review_discarded_item_count,import.existing_item_count,
 import.failed_item_count,import.cancelled_item_count,import.media_warning_count,import.discovered_cover_count,
-import.discovered_video_count,import.mapping_version,import.version,import.created_by_user_id,user.display_name,
+import.discovered_video_count,import.mapping_version,import.version,import.created_by_user_id,actor.display_name,
 import.scan_outcome,import.scan_diagnostics_json,import.last_error_code,
 import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms` + retrySummaryProjection + `
-FROM source_imports import JOIN users user ON user.id=import.created_by_user_id` + retrySummaryJoin
+FROM source_imports import JOIN users actor ON actor.id=import.created_by_user_id` + retrySummaryJoin
 
 type Queries struct {
 	database dbapi.Executor

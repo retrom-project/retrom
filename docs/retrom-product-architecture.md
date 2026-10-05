@@ -6,7 +6,7 @@
 | 版本 | 1.6 |
 | 日期 | 2026-10-04 |
 | 适用范围 | Retrom 一期 |
-| 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 Runtime Provider（EmulatorJS 与 retrom-runtime）、OCI/Docker 镜像 |
+| 技术栈 | Go、Next.js、React、Tailwind CSS、PostgreSQL、本地文件存储、版本锁定 Runtime Provider（EmulatorJS 与 retrom-runtime）、OCI/Docker 镜像 |
 
 ## 1. 文档职责
 
@@ -24,7 +24,7 @@
 | [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md) | 真实 DAT 的来源、SHA-256、统计值、artifact 绑定与升级校验 |
 | [运行时、启动与游玩数据](./runtime-and-play-data.md) | 一键启动、默认全屏、预检、EmulatorJS、DOS、存档与游玩时长 |
 | [核心运行时验证基线](./core-runtime-validation.md) | 35 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
-| [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、独立文件存储、归档安全、后台删除 |
+| [存储与数据库](./storage-and-database.md) | PostgreSQL 时间戳规则、表目录、独立文件存储、归档安全、后台删除 |
 | [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、当前态、外键、索引与数据库级保护 |
 | [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、认证/CSRF、上传分块、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
@@ -105,7 +105,7 @@ flowchart LR
 
 ### 3.3 时间统一为整数时间戳
 
-数据库中表示“某个时刻”的字段一律使用 SQLite `INTEGER`，存 UTC Unix 毫秒时间戳，并命名为 `*_at_ms`；Go 使用 `int64`，API 使用 `createdAtMs` 等 camelCase `int64`。不得以 TEXT/RFC 3339 或 `CURRENT_TIMESTAMP` 作为业务时刻的主存储。
+数据库中表示“某个时刻”的字段一律使用 PostgreSQL `BIGINT`，存 UTC Unix 毫秒时间戳，并命名为 `*_at_ms`；Go 使用 `int64`，API 使用 `createdAtMs` 等 camelCase `int64`。不得以 TEXT/RFC 3339 或 `CURRENT_TIMESTAMP` 作为业务时刻的主存储。
 
 时长也使用 `INTEGER` 毫秒，命名为 `*_duration_ms` 或 `*_interval_ms`。发行年份等日历属性是普通 `INTEGER`，不伪装成时间戳。唯一完整规范及迁移规则见 [存储与数据库](./storage-and-database.md)。
 
@@ -141,11 +141,11 @@ HTTP 只接收自身声明的 `httpapi.Dependencies`，按账号、资料库、�
 构造不启动后台任务。导入队列通知只发送唤醒信号，`Start` 才启动 Worker；`Close` 取消并等待所属任务，关闭后不可重启。新建与恢复的附件任务都注册到 Importer 生命周期，显式发布恢复也受 Worker 的取消与等待约束。应用启动失败自动发起已构造服务的取消，进程所有者通过 `Close` 等待完成。DAT 索引同样由 application 管理。停止时先取消所有生产任务并拒绝新任务，再等待结束，最后关闭清理 Worker；`Shutdown(ctx)` 超时只表示调用方停止等待，不表示任务已经退出，也不允许释放共享资源。进程总关闭期限与强制退出策略以运维专题为准。
 
 
-一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
+一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、PostgreSQL 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
 
 生产环境由已有 NG（Nginx/网关/反向代理）对外暴露同一个 HTTPS origin，再通过明文 HTTP 路由至两个应用。Retrom 不加载证书、不监听 HTTPS，也不负责 TLS 跳转或 HSTS。开发环境的 `make dev` 直接启动宿主机 Go 与 Next.js 进程，不使用 Docker。
 
-SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.js + React + Tailwind CSS 位于仓库根目录 `web/`。
+PostgreSQL 使用 WAL；所有用户文件写入一个明确的数据目录。Next.js + React + Tailwind CSS 位于仓库根目录 `web/`。
 
 ### 3.7 账户边界与数据库 lineage
 
@@ -204,7 +204,7 @@ Provider 激活只向前：允许更高版本在稳定 Target 仍存在且 check
 
 ### 3.15 本机开发与 PFB 联调边界
 
-普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
+普通开发入口 `make dev` 启动宿主 Go、Next 与独立 PostgreSQL 进程（显式外部数据库 URL 时仅连接），默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
 需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/独立文件存储/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关，registry、锁和生成的网关配置由根工作区被Git忽略的`.pfb/`管理而不写入用户全局目录。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
 
@@ -220,9 +220,9 @@ flowchart LR
     W --> PD["Provider dispatcher"]
     PD --> EP["EmulatorJS Provider · 55 Targets"]
     PD --> RP["retrom-runtime Provider · 22 Targets"]
-    S --> D["SQLite WAL"]
+    S --> D["PostgreSQL WAL"]
     S --> B["本地 SHA-256 独立文件存储"]
-    S --> J["SQLite 队列 + 进程内 Worker"]
+    S --> J["PostgreSQL 队列 + 进程内 Worker"]
     J --> A["Arcade DAT 解析器"]
     J --> H["Hasheous 哈希元信息查询"]
     EP -->|受授权资源 / 检查点 / 累计游玩进度| N
@@ -439,7 +439,7 @@ flowchart LR
 
 - EmulatorJS Provider Bundle 锁定 declaration 中全部 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
-- SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
+- PostgreSQL schema 中业务时刻全部为 Unix 毫秒 `BIGINT`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时独立文件存储，不提交到代码仓库。
 - 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。旧 DatVersion 只为已创建 Launch 的冻结证据和审计提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
@@ -460,10 +460,10 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 1：基础设施
 
-- Go 模块化单体、SQLite migrations、统一错误、OpenAPI。
+- Go 模块化单体、PostgreSQL migrations、统一错误、OpenAPI。
 - Platform/Core 种子、PlatformInstance 约束与初始目录。
 - 本地独立文件存储、受控内容端点、任务队列和 Next.js App Shell。
-- 按[工程质量、Lint 与测试规范](./engineering-quality-and-testing.md)建立固定版本 lint、统一 Makefile、关键路径测试和 CI；补齐 `make dev` 本地进程编排，以及 `retrom`/`retrom-web` 的只构建镜像 targets；拒绝 SQLite TEXT 业务时刻字段。
+- 按[工程质量、Lint 与测试规范](./engineering-quality-and-testing.md)建立固定版本 lint、统一 Makefile、关键路径测试和 CI；补齐 `make dev` 本地进程编排，以及 `retrom`/`retrom-web` 的只构建镜像 targets；拒绝 PostgreSQL TEXT 业务时刻字段。
 
 ### Phase 2：导入与管理
 
@@ -509,7 +509,7 @@ Agent 不得根据本总览自行省略或合并 Case，也不得用 soak、压�
 
 ## 12. 已锁定边界与后续议题
 
-以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；RPG Maker 对用户只显示一个虚拟核心并由服务端按内容证据路由到七个内部世代，MV/MZ 项目只在每 Launch 独立 runtime origin 执行，该安全例外不改变普通 app/API 的同源契约；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
+以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `BIGINT`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；RPG Maker 对用户只显示一个虚拟核心并由服务端按内容证据路由到七个内部世代，MV/MZ 项目只在每 Launch 独立 runtime origin 执行，该安全例外不改变普通 app/API 的同源契约；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
 
 ## 13. 评审入口与参考

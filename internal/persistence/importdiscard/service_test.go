@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/testpostgres"
+
 	"retrom/internal/testsupport/importfixture"
 
 	"retrom/internal/composition"
@@ -44,7 +46,7 @@ func newFixture(t *testing.T) *fixture {
 	now := func() time.Time { return time.UnixMilli(1788000000000) }
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: adminID, Role: "ADMIN"})
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), now)
+	database, err := testsupport.OpenDatabase(ctx, testpostgres.DSN(t), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,8 +208,7 @@ func TestDiscardPreservesPublishedGameAndOtherBatch(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_items WHERE import_job_id=? AND state='REVIEW_PENDING'`, other.Created.ImportJobID); n != 1 {
 		t.Fatal("unrelated batch changed")
 	}
-	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN job_input_snapshots deletion ON json_extract(file.file_record,
-'$.path') LIKE json_extract(deletion.input_json,'$.inputs.relativePath') || '/%'`); n != 0 {
+	if n := f.count(t, `SELECT count(*) FROM game_files file JOIN job_input_snapshots deletion ON ((file.file_record)::jsonb #>> '{path}') LIKE ((deletion.input_json)::jsonb #>> '{inputs,relativePath}') || '/%'`); n != 0 {
 		t.Fatal("published content entered DeletionQueue")
 	}
 }
@@ -252,7 +253,7 @@ func TestDiscardKeepsOtherReviewsIndependentCopy(t *testing.T) {
 		t.Fatal("another review lost its content")
 	}
 	if n := f.count(t, `SELECT count(*) FROM job_input_snapshots deletion JOIN import_items item ON
-json_extract(deletion.input_json,'$.inputs.relativePath')='staging/items/' || item.id WHERE
+((deletion.input_json)::jsonb #>> '{inputs,relativePath}')='staging/items/' || item.id WHERE
 item.import_job_id=?`, second.Created.ImportJobID); n != 0 {
 		t.Fatal("shared pending content entered DeletionQueue")
 	}

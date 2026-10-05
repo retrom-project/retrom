@@ -26,11 +26,11 @@ source.actor_user_id=candidate.actor_user_id
  AND source.scope_id=candidate.scope_id AND
 source.content_revision=candidate.content_revision
  AND source.provider_id=candidate.provider_id AND source.target_id=candidate.target_id
- AND json_extract(source.checkpoint_payload_file_record,'$.sha256')=
- json_extract(candidate.restore_payload_file_record,'$.sha256')
- AND json_extract(source.checkpoint_payload_file_record,'$.size_bytes')=
- json_extract(candidate.restore_payload_file_record,'$.size_bytes')
- AND json_extract(candidate.restore_payload_file_record,'$.path') LIKE 'previews/'||candidate.id||'/restore/%'
+ AND ((source.checkpoint_payload_file_record)::jsonb #>> '{sha256}')=
+ ((candidate.restore_payload_file_record)::jsonb #>> '{sha256}')
+ AND (((source.checkpoint_payload_file_record)::jsonb #>> '{size_bytes}'))::bigint=
+ (((candidate.restore_payload_file_record)::jsonb #>> '{size_bytes}'))::bigint
+ AND ((candidate.restore_payload_file_record)::jsonb #>> '{path}') LIKE 'previews/'||candidate.id||'/restore/%'
  AND source.checkpoint_format=candidate.restore_checkpoint_format
  AND source.state IN ('ACTIVE','FINISHED') AND source.hard_expires_at_ms>candidate.created_at_ms
 )) THEN 'invalid preview restore source'

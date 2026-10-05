@@ -13,16 +13,14 @@ type Control struct{ database dbapi.DB }
 
 func NewControl(database dbapi.DB) *Control { return &Control{database} }
 func (repository *Control) WithWrite(ctx context.Context, work func(serverimport.ControlScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		records := controlRecords{tx}
+		if err := work(serverimport.ControlScope{Read: records, Write: records}); err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin server import control: %w", err)
-	}
-	defer dbapi.Rollback(tx)
-	records := controlRecords{tx}
-	if err := work(serverimport.ControlScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit server import control: %w", err)
 	}
 	return nil

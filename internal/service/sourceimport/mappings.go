@@ -87,10 +87,11 @@ func (service *Mappings) Update(
 		if err != nil {
 			return err
 		}
-		if actorID == "" {
-			actorID = before.CreatedBy.ID
+		mappingActor := actorID
+		if mappingActor == "" {
+			mappingActor = before.CreatedBy.ID
 		}
-		if err := service.saveMappings(ctx, scope, prepared, actorID); err != nil {
+		if err := service.saveMappings(ctx, scope, prepared, mappingActor); err != nil {
 			return err
 		}
 		if err := scope.Write.Advance(ctx, MappingAdvance{Before: before, NowMS: prepared[0].NowMS}); err != nil {

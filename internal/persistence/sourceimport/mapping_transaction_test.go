@@ -213,7 +213,7 @@ collection.target_platform_id=instance.platform_id
 AND collection.target_default_core_id=instance.default_core_id
 AND EXISTS(SELECT 1 FROM runtime_target_bindings binding WHERE binding.core_id=instance.default_core_id
 AND binding.provider_id=collection.target_provider_id AND binding.target_id=collection.target_id),
-json_extract(collection.tag_snapshot_json,'$[0].tagId')
+((collection.tag_snapshot_json)::jsonb #>> '{0,tagId}')
 FROM source_import_collections collection JOIN platform_instances instance ON instance.id=?
 WHERE collection.id=?`, instance, mappingCollection).Scan(&exact, &tagID); err != nil {
 		t.Fatal(err)

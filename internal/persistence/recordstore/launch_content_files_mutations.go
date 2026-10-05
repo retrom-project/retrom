@@ -21,7 +21,8 @@ func UpdateLaunchContentFiles(
 }
 
 const LaunchContentFilesUpdateRule = `
-WITH previous(launch_session_id,logical_name) AS (VALUES(?,?))
+WITH previous(launch_session_id,logical_name)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- launch_content_files_immutable_update
 WHEN (1=1) THEN 'immutable'
@@ -44,7 +45,8 @@ func DeleteLaunchContentFiles(
 }
 
 const LaunchContentFilesDeleteRule = `
-WITH previous(launch_session_id,logical_name) AS (VALUES(?,?))
+WITH previous(launch_session_id,logical_name)
+AS (VALUES(?::text,?::text))
 SELECT CASE
 -- launch_content_files_immutable_delete
 WHEN (NOT EXISTS(
