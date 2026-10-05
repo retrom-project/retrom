@@ -1207,7 +1207,7 @@ CREATE TABLE "review_arcade_parent_attachments" (
 CREATE TABLE review_preview_bindings (
   preview_session_id TEXT PRIMARY KEY ,
   import_item_id TEXT NOT NULL ,
-  source_snapshot_id TEXT NOT NULL 
+  source_snapshot_id TEXT NOT NULL
 );
 
 CREATE TABLE "review_runtime_screenshots" (
@@ -1897,7 +1897,7 @@ CREATE TABLE game_save_versions (
   save_state_id TEXT PRIMARY KEY ,
   data_version BIGINT NOT NULL DEFAULT 1 CHECK(data_version>=1),
   last_synced_at_ms BIGINT CHECK(last_synced_at_ms>=0),
-  last_writer_launch_session_id TEXT 
+  last_writer_launch_session_id TEXT
 );
 
 CREATE TABLE launch_game_save_bindings (
