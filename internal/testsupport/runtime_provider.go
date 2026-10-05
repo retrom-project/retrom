@@ -189,13 +189,14 @@ func runtimeProjectionFixtures(
 }
 
 func insertFixtureProviders(ctx context.Context, transaction dbapi.Tx, providerIDs []string) error {
+	const providerAPIVersion = 1
 	for _, providerID := range providerIDs {
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_providers(
  provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,
  source,release_repository,release_tag,release_commit,activated_at_ms
-) VALUES(?,'1.0.0',2,?,?,?,'candidate',NULL,NULL,NULL,0)
-`, providerID, fixtureDigest("bundle:"+providerID), fixtureDigest("manifest:"+providerID),
+) VALUES(?,'1.0.0',?,?,?,?,'candidate',NULL,NULL,NULL,0)
+`, providerID, providerAPIVersion, fixtureDigest("bundle:"+providerID), fixtureDigest("manifest:"+providerID),
 			fixtureDigest("module:"+providerID)); err != nil {
 			return fmt.Errorf("testsupport: insert provider %s: %w", providerID, err)
 		}
