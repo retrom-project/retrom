@@ -107,8 +107,8 @@ func (run *evaluation) check(node ClosureNode) error {
 		run.result.Snapshot.MissingEntries = append(run.result.Snapshot.MissingEntries, missing...)
 		run.result.Snapshot.MismatchedEntries = append(run.result.Snapshot.MismatchedEntries, mismatch...)
 		run.result.Snapshot.Warnings = append(run.result.Snapshot.Warnings, warnings...)
-		if len(missing)+len(mismatch) > 0 {
-			run.result.Status, run.result.Code = "BLOCKED", "ARCADE_CONTENT_MISSING_ENTRY"
+		if code := contentMismatchCode(len(missing), len(mismatch)); code != "" {
+			run.result.Status, run.result.Code = "BLOCKED", code
 		}
 		return nil
 	}
@@ -156,7 +156,8 @@ func (run *evaluation) resolveDependency(
 		return nil
 	}
 	dependency.State = "SATISFIED_EXTERNAL"
-	if resolved.InstallationStatus != nil && *resolved.InstallationStatus != "MATCHED" {
+	if resolved.InstallationStatus != nil &&
+		*resolved.InstallationStatus != "MATCHED" && *resolved.InstallationStatus != "UNVERIFIED" {
 		dependency.State = "HASH_WARNING"
 		run.result.Snapshot.Warnings = append(run.result.Snapshot.Warnings, dependency.ExpectedLogicalName)
 	}
@@ -192,4 +193,17 @@ func (run *evaluation) resolveCompanion(
 		Role: role, LogicalName: archive.LogicalName, FileRecord: archive.FileRecord, SortOrder: len(run.result.Companions),
 	})
 	return nil
+}
+
+func contentMismatchCode(missing, mismatch int) string {
+	switch {
+	case missing > 0 && mismatch > 0:
+		return "ARCADE_CONTENT_MISSING_AND_MISMATCHED"
+	case missing > 0:
+		return "ARCADE_CONTENT_MISSING_ENTRY"
+	case mismatch > 0:
+		return "ARCADE_CONTENT_MISMATCH"
+	default:
+		return ""
+	}
 }

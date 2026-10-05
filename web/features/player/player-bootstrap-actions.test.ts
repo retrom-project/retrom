@@ -83,7 +83,7 @@ function bootstrapParams(): PlayerBootstrapParams {
     orientationStateRef: {current: {...initialPlayerOrientationState}}, videoRenderingModeRef: {current: "pixel"},
     pausedRef: {current: false}, started: {current: false}, finishing: {current: false}, progressTimer: {current: null},
     progressClock: {current: {start: vi.fn(), setPaused: vi.fn(), stop: vi.fn()} as unknown as PlayerBootstrapParams["progressClock"]["current"]},
-    toastTimer: {current: null}, setMessage: vi.fn(), setLoadProgress: vi.fn(), setContentLoadingCapability: vi.fn(),
+    toastTimer: {current: null}, setFailure: vi.fn(), setMessage: vi.fn(), setLoadProgress: vi.fn(), setContentLoadingCapability: vi.fn(),
     setState: vi.fn(), setManualSaveAvailable: vi.fn(), setProgramSelectionRequired: vi.fn(), setWarnings: vi.fn(),
     setGameTitle: vi.fn(), setCoreName: vi.fn(), setPlatformName: vi.fn(), setDebugRuntime: vi.fn(), setDiscState: vi.fn(),
     setOrientationState: vi.fn(), setSyncText: vi.fn(), setSyncTone: vi.fn(), setEmulatorVolume: vi.fn(),

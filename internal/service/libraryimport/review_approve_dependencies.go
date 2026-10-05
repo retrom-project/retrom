@@ -29,10 +29,11 @@ func ValidateApprovalDependencies(
 	if err != nil {
 		return fmt.Errorf("resolve current approval BIOS: %w", err)
 	}
-	if status != "READY" {
+	if status != "READY" || snapshot.ContentRejection != nil {
 		return ErrInvalid
 	}
 	current.MultiDisc = snapshot.MultiDisc
+	current.ContentFacts = snapshot.ContentFacts
 	encoded, err := current.JSON()
 	if err != nil {
 		return fmt.Errorf("encode current approval dependencies: %w", err)

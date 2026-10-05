@@ -20,7 +20,7 @@ requirement.condition_code,requirement.activation_options_json,requirement.deliv
 requirement.emulator_path,
 requirement.source_version,requirement.catalog_digest,
 CASE WHEN requirement.source_kind='DAT_MACHINE' THEN dat.id END,requirement.dat_machine_name,
-requirement.size_bytes,requirement.md5,requirement.sha1,requirement.sha256,
+requirement.size_bytes,NULLIF(requirement.md5,''),NULLIF(requirement.sha1,''),NULLIF(requirement.sha256,''),
 installation.id,installation.version,((blob.value)::jsonb #>> '{sha256}'),installation.status,
 installation.validated_requirement_version,
 dat.parse_status,dat.is_active

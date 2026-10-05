@@ -13,7 +13,7 @@ import (
 func (store requirementRecords) Get(ctx context.Context, id string) (firmware.Requirement, bool, error) {
 	var value firmware.Requirement
 	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT q.id,q.source_kind,q.file_kind,q.logical_name,q.size_bytes,
- q.md5,q.sha1,q.sha256,q.version,q.enabled,q.provider_id,q.target_id,q.source_version,
+ NULLIF(q.md5,''),NULLIF(q.sha1,''),NULLIF(q.sha256,''),q.version,q.enabled,q.provider_id,q.target_id,q.source_version,
 q.catalog_digest,q.archive_members_json
 FROM bios_requirements q JOIN runtime_targets target ON target.provider_id=q.provider_id
 AND target.target_id=q.target_id

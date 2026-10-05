@@ -1,6 +1,9 @@
 package sourceimport
 
-import "retrom/internal/service/tagging"
+import (
+	"retrom/internal/content/diagnostic"
+	"retrom/internal/service/tagging"
+)
 
 type RootRef struct {
 	ID    string `json:"id"`
@@ -118,16 +121,17 @@ type Item struct {
 }
 
 type FailureDetails struct {
-	SchemaVersion       int64   `json:"schemaVersion"`
-	Stage               string  `json:"stage"`
-	Operation           string  `json:"operation"`
-	CauseCode           string  `json:"causeCode"`
-	TechnicalDetail     string  `json:"technicalDetail"`
-	RelativePath        *string `json:"relativePath"`
-	ObservedFileCount   *int64  `json:"observedFileCount"`
-	AllowedFileCount    *int64  `json:"allowedFileCount"`
-	LibraryImportJobID  *string `json:"libraryImportJobId"`
-	LibraryImportItemID *string `json:"libraryImportItemId"`
+	ContentRejection    *diagnostic.Rejection `json:"contentRejection"`
+	SchemaVersion       int64                 `json:"schemaVersion"`
+	Stage               string                `json:"stage"`
+	Operation           string                `json:"operation"`
+	CauseCode           string                `json:"causeCode"`
+	TechnicalDetail     string                `json:"technicalDetail"`
+	RelativePath        *string               `json:"relativePath"`
+	ObservedFileCount   *int64                `json:"observedFileCount"`
+	AllowedFileCount    *int64                `json:"allowedFileCount"`
+	LibraryImportJobID  *string               `json:"libraryImportJobId"`
+	LibraryImportItemID *string               `json:"libraryImportItemId"`
 }
 
 type RuntimeCheck struct {

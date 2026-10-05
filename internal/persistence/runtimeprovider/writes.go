@@ -82,7 +82,7 @@ ON CONFLICT(provider_id,target_id) DO UPDATE SET
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write target: %w", err)
 	}
-	return nil
+	return writeTargetInputLimits(ctx, transaction, providerID, projected.Target, projected.RequirementCatalog)
 }
 
 func writeHostBindings(

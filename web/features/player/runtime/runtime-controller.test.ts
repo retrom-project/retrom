@@ -16,11 +16,11 @@ describe("provider runtime controller", () => {
       dispatcher: verifiedDispatcher(), importer, onExitRequested, onFatalError,
     });
     expect(runtime.mount).toHaveBeenCalledWith(target);
-    runtime.emit({type: "FATAL_ERROR", code: "FIXTURE_FATAL"});
-    runtime.emit({type: "FATAL_ERROR", code: "SECOND_FATAL"});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("FIXTURE_FATAL")});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("SECOND_FATAL")});
     runtime.emit({type: "EXIT_REQUESTED"});
     expect(onExitRequested).not.toHaveBeenCalled();
-    expect(onFatalError).toHaveBeenCalledWith("FIXTURE_FATAL");
+    expect(onFatalError).toHaveBeenCalledWith(fatal("FIXTURE_FATAL"));
     expect(onFatalError).toHaveBeenCalledOnce();
 
     await controller.exit();
@@ -113,7 +113,7 @@ describe("provider runtime controller", () => {
     const controller = await mountProviderRuntime(envelope(), document.createElement("div"), {
       dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), onRuntimeEvent,
     });
-    runtime.emit({type: "FATAL_ERROR", code: "CONTENT_IO_NETWORK_FAILED"});
+    runtime.emit({type: "FATAL_ERROR", failure: fatal("CONTENT_IO_NETWORK_FAILED")});
     onRuntimeEvent.mockClear();
     runtime.emit({type: "LOAD_TASK", task: {id: "provider:1", kind: "GAME_START", state: "FAILED", progress: null}});
     expect(onRuntimeEvent).not.toHaveBeenCalled();
@@ -181,3 +181,5 @@ function envelope(): LaunchEnvelopeV1 {
     targetOptions: {},
   };
 }
+
+function fatal(code: string) {return {code, phase: "PLAYING" as const, category: "CORE" as const, retryable: false, diagnostics: []};}

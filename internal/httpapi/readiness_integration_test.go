@@ -4,8 +4,12 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +23,7 @@ import (
 func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
+	seedReadinessProviderDAT(t, server)
 	server.startupReady.Store(false)
 	ctx := context.Background()
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
@@ -46,6 +51,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 func TestStartupReadinessGateDoesNotReprobeForEveryBusinessRequest(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
+	seedReadinessProviderDAT(t, server)
 	server.startupReady.Store(false)
 	ctx := context.Background()
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
@@ -71,4 +77,19 @@ func TestStartupReadinessGateDoesNotReprobeForEveryBusinessRequest(t *testing.T)
 	testassert.Falsef(t, testassert.Any(func() bool { return liveReadiness.Code != http.StatusServiceUnavailable }, func() bool {
 		return !strings.Contains(liveReadiness.Body.String(), `"reasonCode":"DATABASE_UNAVAILABLE"`)
 	}), "live readiness after read pool close = %d %s", liveReadiness.Code, liveReadiness.Body.String())
+}
+
+// FBNeo is supplied by the Provider; the host DAT bootstrap no longer supplies it.
+// Use an owned one-entry catalog to exercise the same installation boundary.
+func seedReadinessProviderDAT(t *testing.T, server *testServer) {
+	t.Helper()
+	contents := []byte(`<datafile><game name="readiness"><description>Readiness fixture</description><rom name="fixture.bin" size="1" crc="00000000"/></game></datafile>`)
+	path := filepath.Join(t.TempDir(), "provider.dat")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(contents)
+	if err := server.dependencies.UsePairedDAT(t.Context(), "emulatorjs", "fbneo", path, hex.EncodeToString(digest[:]), strings.Repeat("a", 40)); err != nil {
+		t.Fatal(err)
+	}
 }

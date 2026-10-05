@@ -454,6 +454,7 @@ components:
             - PENDING
             - EVALUATING
             - IMPORTED_MATCHED
+            - IMPORTED_UNVERIFIED
             - IMPORTED_WARNING
             - IMPORTED_MISSING_ENTRY
             - NOT_FOUND
@@ -494,6 +495,7 @@ components:
           nullable: true
           enum:
             - MATCHED
+            - UNVERIFIED
             - HASH_WARNING
             - MISSING_ENTRY
             - INVALID
@@ -502,6 +504,7 @@ components:
           nullable: true
           enum:
             - MATCHED
+            - UNVERIFIED
             - HASH_WARNING
             - MISSING_ENTRY
             - INVALID

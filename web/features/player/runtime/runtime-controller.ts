@@ -1,5 +1,6 @@
+import {readRuntimeFailure} from "./runtime-failure";
 import {runHostStartup} from "./startup-task";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1, RuntimeFinalSnapshotV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeFailureV1} from "./contract";
 import {
   loadProviderRuntime, type DispatcherEnvironment, type ProviderImporter,
 } from "./provider-dispatcher";
@@ -16,7 +17,7 @@ type ControllerOptions = {
   host?: RuntimeHostOptions;
   importer?: ProviderImporter;
   onExitRequested?: (snapshot?: RuntimeFinalSnapshotV1) => void;
-  onFatalError?: (code: string) => void;
+  onFatalError?: (failure: RuntimeFailureV1) => void;
   onRuntimeEvent?: (event: RuntimeEventV1) => void;
   signal?: AbortSignal;
 };
@@ -60,7 +61,7 @@ export async function mountProviderRuntime(
       if (terminalEventHandled || event.type !== "EXIT_REQUESTED" && event.type !== "FATAL_ERROR") {return;}
       terminalEventHandled = true;
       if (event.type === "EXIT_REQUESTED") {options.onExitRequested?.(event.finalSnapshot);}
-      if (event.type === "FATAL_ERROR") {options.onFatalError?.(event.code);}
+      if (event.type === "FATAL_ERROR") {options.onFatalError?.(readRuntimeFailure(event.failure));}
       void exit().catch(() => undefined);
     });
     await runtime.mount(target);

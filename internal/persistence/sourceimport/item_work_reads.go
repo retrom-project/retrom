@@ -80,7 +80,7 @@ ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importI
 func (records itemWorkRecords) files(ctx context.Context, itemID string) ([]application.ExecutionFile, error) {
 	rows, err := records.tx.QueryContext(
 		ctx,
-		`SELECT ordinal,relative_path,size_bytes,source_facts_digest,COALESCE(file_record,'')
+		`SELECT ordinal,relative_path,size_bytes,source_facts_digest,COALESCE(file_record,''),declared_kind
 FROM source_import_item_files WHERE item_id=? ORDER BY ordinal`,
 		itemID,
 	)
@@ -91,7 +91,7 @@ FROM source_import_item_files WHERE item_id=? ORDER BY ordinal`,
 	result := []application.ExecutionFile{}
 	for rows.Next() {
 		var file application.ExecutionFile
-		if err := rows.Scan(&file.Ordinal, &file.Path, &file.Size, &file.Facts, &file.FileRecord); err != nil {
+		if err := rows.Scan(&file.Ordinal, &file.Path, &file.Size, &file.Facts, &file.FileRecord, &file.Kind); err != nil {
 			return nil, fmt.Errorf("read Source work file: %w", err)
 		}
 		result = append(result, file)

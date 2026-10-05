@@ -247,6 +247,9 @@ func (tx *transaction) Commit() error {
 		telemetry.RecordTiming(tx.context, telemetry.Commit, tx.commitDuration)
 	}()
 	if err := tx.raw.Commit(); err != nil {
+		if errors.Is(err, sql.ErrTxDone) && tx.context.Err() != nil {
+			return fmt.Errorf("commit canceled postgres transaction: %w", errors.Join(err, tx.context.Err()))
+		}
 		return fmt.Errorf("commit postgres transaction: %w", err)
 	}
 	return nil

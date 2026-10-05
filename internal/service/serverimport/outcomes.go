@@ -199,6 +199,7 @@ func movePending(counts map[string]int64, state string) map[string]int64 {
 func terminalCounts(counts map[string]int64) TerminalCounts {
 	return TerminalCounts{
 		Matched:          counts["IMPORTED_MATCHED"],
+		Unverified:       counts["IMPORTED_UNVERIFIED"],
 		Warning:          counts["IMPORTED_WARNING"],
 		Missing:          counts["IMPORTED_MISSING_ENTRY"],
 		NotFound:         counts["NOT_FOUND"],

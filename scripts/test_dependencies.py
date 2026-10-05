@@ -33,12 +33,12 @@ class VersionTests(unittest.TestCase):
 class DATManifestTests(unittest.TestCase):
     def test_mame_current_dat_is_bound_to_published_core_and_provider(self) -> None:
         manifest = dependencies.load_mame_manifest()
-        self.assertEqual("v0.58.7", manifest["provider_release"]["tag"])
+        self.assertEqual("v0.59.0", manifest["provider_release"]["tag"])
         self.assertEqual("retrom-core-gf65d5ba9bc42-r2", manifest["core_release"]["tag"])
         self.assertEqual("mame_arcade", manifest["cores"][0]["core_id"])
         self.assertEqual(10049, manifest["cores"][0]["parse_stats"]["machine_count"])
         entries = dependencies.image_export_entries([], [], dependencies.load_auth_manifest(), manifest)
-        self.assertIn("dat/mame-current/v0.58.7/mame-arcade.xml", entries)
+        self.assertIn("dat/mame-current/v0.59.0/mame-arcade.xml", entries)
         self.assertIn("runtime-providers/release.json", entries)
 
     def test_repository_manifests_are_provider_neutral(self) -> None:

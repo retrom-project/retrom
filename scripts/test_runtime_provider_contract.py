@@ -60,6 +60,7 @@ def valid_manifest() -> dict[str, object]:
                         "kind": "WASM4_CART",
                         "cardinality": "ONE",
                         "optional": False,
+                        "maxFileBytes": None,
                     }
                 ],
                 "checkpoint": {
@@ -114,7 +115,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
 
     def test_manifest_structure_version_is_not_the_provider_api_support_policy(self) -> None:
         future_api = deepcopy(valid_manifest())
-        future_api["providerApiVersion"] = 2
+        future_api["providerApiVersion"] = 3
         validate_provider_manifest(future_api)
 
     def test_semantic_contract_values_do_not_embed_versions(self) -> None:

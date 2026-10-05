@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"retrom/internal/content/requirements"
 )
 
 var (
@@ -52,20 +54,23 @@ type Manifest struct {
 }
 
 type Target struct {
-	ID                  string              `json:"id"`
-	DisplayName         string              `json:"displayName"`
-	TargetOptionsSchema TargetOptionsSchema `json:"targetOptionsSchema"`
-	Inputs              []Input             `json:"inputs"`
-	Capabilities        Capabilities        `json:"capabilities"`
-	Checkpoint          *Checkpoint         `json:"checkpoint"`
-	AssetPaths          []string            `json:"assetPaths"`
+	ArcadeDAT           *ArcadeDAT           `json:"arcadeDAT,omitempty"`
+	ContentRequirements *requirements.Policy `json:"contentRequirements,omitempty"`
+	ID                  string               `json:"id"`
+	DisplayName         string               `json:"displayName"`
+	TargetOptionsSchema TargetOptionsSchema  `json:"targetOptionsSchema"`
+	Inputs              []Input              `json:"inputs"`
+	Capabilities        Capabilities         `json:"capabilities"`
+	Checkpoint          *Checkpoint          `json:"checkpoint"`
+	AssetPaths          []string             `json:"assetPaths"`
 }
 
 type Input struct {
-	Role        string `json:"role"`
-	Kind        string `json:"kind"`
-	Cardinality string `json:"cardinality"`
-	Optional    bool   `json:"optional"`
+	MaxFileBytes *int64 `json:"maxFileBytes"`
+	Role         string `json:"role"`
+	Kind         string `json:"kind"`
+	Cardinality  string `json:"cardinality"`
+	Optional     bool   `json:"optional"`
 }
 
 type Capabilities struct {
@@ -230,8 +235,20 @@ func validManifestRawShape(contents []byte) bool {
 
 func validManifestRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
-	if !ok || !exactMap(target, "id", "displayName",
-		"targetOptionsSchema", "inputs", "capabilities", "checkpoint", "assetPaths") {
+	keys := []string{"id", "displayName", "targetOptionsSchema", "inputs", "capabilities", "checkpoint", "assetPaths"}
+	if raw, exists := target["contentRequirements"]; exists {
+		keys = append(keys, "contentRequirements")
+		if !validRequirementShape(raw) {
+			return false
+		}
+	}
+	if raw, exists := target["arcadeDAT"]; exists {
+		keys = append(keys, "arcadeDAT")
+		if !validDATShape(raw) {
+			return false
+		}
+	}
+	if !ok || !exactMap(target, keys...) {
 		return false
 	}
 	capabilities, ok := target["capabilities"].(map[string]any)
@@ -266,7 +283,7 @@ func validManifestRawCapabilities(capabilities map[string]any) bool {
 func validManifestRawInputs(inputs []any) bool {
 	for _, value := range inputs {
 		input, ok := value.(map[string]any)
-		if !ok || !exactMap(input, "role", "kind", "cardinality", "optional") {
+		if !ok || !exactMap(input, "role", "kind", "cardinality", "optional", "maxFileBytes") {
 			return false
 		}
 	}
@@ -274,6 +291,12 @@ func validManifestRawInputs(inputs []any) bool {
 }
 
 func validTarget(target Target) bool {
+	if target.ContentRequirements != nil && !target.ContentRequirements.Valid() {
+		return false
+	}
+	if !validRequirementAssets(target) {
+		return false
+	}
 	if !identityPattern.MatchString(target.ID) || len(target.DisplayName) == 0 || len(target.DisplayName) > 120 ||
 		!validTargetOptionsSchema(target.TargetOptionsSchema, 0, true) ||
 		!validCapabilities(target.Capabilities) || !validInputs(target.Inputs) || !sortedPaths(target.AssetPaths) {
@@ -304,6 +327,11 @@ func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, er
 		byPath[file.Path] = file
 	}
 	for _, target := range manifest.Targets {
+		for _, asset := range targetRequirementAssets(target) {
+			if byPath[asset.Path].SHA256 != asset.SHA256 {
+				return Manifest{}, ErrManifestInvalid
+			}
+		}
 		for _, path := range target.AssetPaths {
 			_, exists := byPath[path]
 			if !exists {
@@ -339,6 +367,9 @@ func validInputs(values []Input) bool {
 	for _, value := range values {
 		if !identityPattern.MatchString(value.Role) || roles[value.Role] || !resourceKinds[value.Kind] ||
 			(value.Cardinality != "ONE" && value.Cardinality != "MANY") {
+			return false
+		}
+		if value.MaxFileBytes != nil && (*value.MaxFileBytes < 1 || *value.MaxFileBytes > 9007199254740991) {
 			return false
 		}
 		roles[value.Role] = true

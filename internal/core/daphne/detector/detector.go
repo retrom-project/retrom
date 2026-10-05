@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"retrom/internal/content/diagnostic"
 )
 
 var ErrProjectInvalid = errors.New("DAPHNE_PROJECT_INVALID")
@@ -28,8 +30,9 @@ type Profile struct {
 }
 
 type snapshot struct {
-	SchemaVersion int     `json:"schemaVersion"`
-	Daphne        Profile `json:"daphne"`
+	ContentRejection *diagnostic.Rejection `json:"contentRejection,omitempty"`
+	SchemaVersion    int                   `json:"schemaVersion"`
+	Daphne           Profile               `json:"daphne"`
 }
 
 func Detect(index Index) (Profile, error) {

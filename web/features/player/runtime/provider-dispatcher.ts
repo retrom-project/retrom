@@ -138,10 +138,10 @@ function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asse
     throw invalidModule();
   }
   if (runtime.getState() !== "CREATED" ||
-    !capabilitiesEqual(runtime.getCapabilities(), envelope.runtime.capabilities)) {throw invalidModule();}
+    !validSessionCapabilities(runtime.getCapabilities(), envelope.runtime.capabilities)) {throw invalidModule();}
 }
 
-function capabilitiesEqual(
+function validSessionCapabilities(
   actual: ReturnType<PlayerRuntimeV1["getCapabilities"]>,
   expected: LaunchEnvelopeV1["runtime"]["capabilities"],
 ) {
@@ -151,10 +151,11 @@ function capabilitiesEqual(
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   const scalarKeys = [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+    "checkpoint", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
   ] as const;
-  return actual.contentLoading === expected.contentLoading && scalarKeys.every((key) => actual[key] === expected[key]) &&
+  return typeof actual.discSwitch === "boolean" && (!actual.discSwitch || expected.discSwitch) &&
+    actual.contentLoading === expected.contentLoading && scalarKeys.every((key) => actual[key] === expected[key]) &&
     stringArraysEqual(actual.videoModes, expected.videoModes);
 }
 

@@ -22,6 +22,7 @@ type (
 		Assets                                                                 []ExecutionAsset
 	}
 	ExecutionFile struct {
+		Kind        string
 		Ordinal     int64
 		Path, Facts string
 		Size        int64

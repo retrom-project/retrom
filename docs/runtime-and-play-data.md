@@ -31,7 +31,7 @@
 
 Binding 只选择接入策略、产品允许的内容子集和独立的启用策略；固定 delivery、review 和 options 行为从 `runtimecatalog` 的同一策略派生，不能在 JSON binding 中重复声明后再比较是否相等。现有数据库列是派生投影，不是第二份声明权威。
 
-项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。`internal/persistence/contentquery` 统一提供查询投影与扫描适配，领域 `Policy` 只保留能力判断、规范化和摘要。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询、不在 SQL 中组装策略 JSON。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
+项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。`internal/persistence/contentquery` 统一提供查询投影与扫描适配，领域 `Policy` 只保留能力判断、规范化和摘要。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询；SQL 仅以 JSON 标量传递内容类型和当前 Provider 输入上限的关系化事实，不组装领域策略。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
 
 Launch options 按声明绑定的明确接入策略一次组装，再接受 Provider 的闭合 schema 校验；不得在多个无关入口逐一猜测未知属性，更不能把不支持的配置伪装成认证错误。依赖快照中的静态 BIOS/多盘与 Arcade 是不同业务类型，使用明确 discriminator，不以 v1/v2 伪装历史兼容链。
 
@@ -384,3 +384,13 @@ retrom-runtime 的公共光标模块统一负责采样、绘制、死区、移�
 
 产品验证见 [ACC-KIRIKIRI-001](./project-acceptance.md#acc-kirikiri-001kirikiri2-kag-最小产品闭环) 与
 [ACC-FLASH-001](./project-acceptance.md#acc-flash-001ruffle-单文件与-sharedobject-产品闭环)。
+
+Target/Envelope capabilities 描述目标声明；PlayerRuntime.getCapabilities() 描述当前会话能力。当前唯一随资源收窄的字段是 discSwitch：没有 MULTI_DISC 资源的合法单盘会话返回 false，其他字段仍与声明相等，不允许扩大任何能力。Host 的初始化、换盘菜单与存档盘位均使用会话能力；Provider 请求仍精确验证目标声明，不能通过改写 Envelope 掩盖缺失或不合法资源。
+
+挂载完成后的设置、恢复或输入配置失败与 Runtime 致命错误都必须收尾本次启动：中止请求、退出核心、释放输入和表面订阅、停止进度时钟与定时器。收尾幂等且在下一次挂载前完成；错误面板持续显示原错误，不把失效实例留在后台运行。
+
+### Provider 输入限制与终止错误
+
+当前 Provider Manifest 使用 schemaVersion=2，Module 使用 providerApiVersion=1；Bundle 完整性清单和 Launch Envelope 仍为 V1。旧 Manifest/Module 不再加载。每个公开 input 必带 maxFileBytes：受管内容从同一 Content I/O 策略投影正整数上限，非受管输入为 null。它约束交给核心的单个文件，不能用上传 ZIP 的压缩大小代替展开内容，也不能把文件树总大小当作单文件。导入在展开和 Target 解析后校验，审核和变体重检使用当前投影，策略摘要绑定所选输入上限。超过上限为不可自动重试的 CONTENT_FILE_BYTES_EXCEEDED，并展示相对路径、实际字节和上限；截图审批仍保留该阻断证据。
+
+Module V1 的 FATAL_ERROR 携带结构化 failure（稳定 code、STARTUP/PLAYING 阶段、CONTENT/NETWORK/STORAGE/SECURITY/CORE/CONFIGURATION 分类、retryable 和有界 diagnostics）。Provider 在释放核心前复制并清理原生诊断；最多 8 条、每条 500 字符，不能含授权信息、URL 或宿主绝对路径。只有已识别的临时网络错误提供重试。Host 只按公共分类展示处置建议，保留失败面板和返回入口，不解析核心英文日志作业务决策；退出会话后禁止存档和截图。

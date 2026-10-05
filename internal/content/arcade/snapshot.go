@@ -3,6 +3,7 @@ package arcade
 import (
 	"encoding/json"
 
+	"retrom/internal/content/diagnostic"
 	corevalidation "retrom/internal/core/validation"
 )
 
@@ -18,15 +19,16 @@ type Dependency struct {
 }
 
 type Snapshot struct {
-	SchemaVersion     int           `json:"schemaVersion"`
-	Kind              string        `json:"kind"`
-	Machine           string        `json:"machine"`
-	DatVersionID      string        `json:"datVersionId"`
-	Closure           []ClosureNode `json:"closure"`
-	Dependencies      []Dependency  `json:"dependencies"`
-	MissingEntries    []string      `json:"missingEntries"`
-	MismatchedEntries []string      `json:"mismatchedEntries"`
-	Warnings          []string      `json:"warnings"`
+	ContentRejection  *diagnostic.Rejection `json:"contentRejection,omitempty"`
+	SchemaVersion     int                   `json:"schemaVersion"`
+	Kind              string                `json:"kind"`
+	Machine           string                `json:"machine"`
+	DatVersionID      string                `json:"datVersionId"`
+	Closure           []ClosureNode         `json:"closure"`
+	Dependencies      []Dependency          `json:"dependencies"`
+	MissingEntries    []string              `json:"missingEntries"`
+	MismatchedEntries []string              `json:"mismatchedEntries"`
+	Warnings          []string              `json:"warnings"`
 }
 
 func ParseSnapshot(raw string) (Snapshot, bool) {

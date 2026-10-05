@@ -112,7 +112,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
     def test_installer_rejects_an_unsupported_provider_api(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root, provider_api=2)
+            archive, lock = fixture_bundle(root, provider_api=3)
             with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_API_UNSUPPORTED"):
                 install_provider_bundle(archive, lock, root / "installed")
 
@@ -228,7 +228,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "checkpoint": None,
         "displayName": "Fixture",
         "id": "fixture",
-        "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game"}],
+        "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game", "maxFileBytes": None}],
         "targetOptionsSchema": {
             "additionalProperties": False, "properties": {}, "required": [], "type": "object",
         },

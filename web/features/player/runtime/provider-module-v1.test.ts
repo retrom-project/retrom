@@ -4,6 +4,17 @@ import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeHostV1} from "./contract"
 import {loadProviderRuntime} from "./provider-dispatcher";
 
 describe("Provider Module V1 dispatcher", () => {
+  it("accepts unavailable session disc switching without weakening target identity", async () => {
+    const envelope = fixtureEnvelope();
+    envelope.runtime.capabilities.discSwitch = true;
+    const runtime = fixtureRuntime();
+    const importer = async () => ({createRuntime: async () => runtime, providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0"});
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope))).resolves.toBe(runtime);
+    envelope.runtime.capabilities.discSwitch = false;
+    runtime.getCapabilities = () => ({...envelope.runtime.capabilities, discSwitch: true});
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope))).rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
+  });
+
   it("rejects a Provider that omits the required input policy", async () => {
     const envelope = fixtureEnvelope();
     const runtime = fixtureRuntime();

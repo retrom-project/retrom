@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/firmware"
 	"retrom/internal/persistence/recordstore"
 	service "retrom/internal/service/dependencies"
 
@@ -80,7 +81,8 @@ updated_at_ms=excluded.updated_at_ms
 `,
 		input.ID, input.CoreID, input.ProviderID, input.TargetID, input.LogicalName,
 		input.Mode, input.ConditionCode, input.Options,
-		input.Digest, input.SizeBytes, input.MD5, input.SHA256, input.SourceURL, input.VersionName, input.AtMS, input.AtMS,
+		input.Digest, input.SizeBytes, firmware.OptionalHash(input.MD5), input.SHA256,
+		input.SourceURL, input.VersionName, input.AtMS, input.AtMS,
 		input.Delivery, input.EmulatorPath, input.ArchiveMembers)
 	if err != nil {
 		return fmt.Errorf("dependencies/upsert BIOS requirement: %w", err)
@@ -89,6 +91,10 @@ updated_at_ms=excluded.updated_at_ms
 }
 
 func (records datRecords) Register(ctx context.Context, input service.DATRegistration) (service.RegisteredDAT, error) {
+	if err := records.requireTargetDAT(ctx, input); err != nil {
+		return service.RegisteredDAT{}, err
+	}
+
 	var id string
 	err := dbapi.QueryRowContext(
 		ctx, records.executor,

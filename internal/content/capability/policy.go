@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"slices"
+
+	"retrom/internal/content/requirements"
 )
 
 type MultiDiscPolicy struct {
@@ -13,8 +15,10 @@ type MultiDiscPolicy struct {
 }
 
 type Policy struct {
-	SupportedContentKinds []string         `json:"supportedContentKinds"`
-	MultiDisc             *MultiDiscPolicy `json:"multiDisc"`
+	Requirements          *requirements.Policy `json:"requirements,omitempty"`
+	InputMaxFileBytes     map[string]int64     `json:"inputMaxFileBytes,omitempty"`
+	SupportedContentKinds []string             `json:"supportedContentKinds"`
+	MultiDisc             *MultiDiscPolicy     `json:"multiDisc"`
 }
 
 func NewPolicy(kinds ...string) Policy {
@@ -58,9 +62,23 @@ func (policy Policy) DigestFor(contentKind string) string {
 		multiDisc = policy.MultiDisc
 	}
 	encoded, _ := json.Marshal(struct {
-		ContentKind string           `json:"contentKind"`
-		MultiDisc   *MultiDiscPolicy `json:"multiDisc"`
-	}{ContentKind: contentKind, MultiDisc: multiDisc})
+		Requirements *requirements.Policy `json:"requirements,omitempty"`
+		ContentKind  string               `json:"contentKind"`
+		MaxFileBytes int64                `json:"maxFileBytes"`
+		MultiDisc    *MultiDiscPolicy     `json:"multiDisc"`
+	}{
+		Requirements: policy.Requirements, ContentKind: contentKind, MultiDisc: multiDisc,
+		MaxFileBytes: policy.MaxFileBytes(contentKind),
+	})
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:])
+}
+
+// MaxFileBytes selects the actual delivered content role, not the upload container.
+func (policy Policy) MaxFileBytes(contentKind string) int64 {
+	role := "game"
+	if contentKind == ModeMultiDisc {
+		role = "discs"
+	}
+	return policy.InputMaxFileBytes[role]
 }

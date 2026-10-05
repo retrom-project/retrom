@@ -26,7 +26,15 @@ type FileFacts struct {
 	CRC32        string
 }
 
+type StaticChecks struct {
+	Size   string `json:"size"`
+	MD5    string `json:"md5"`
+	SHA1   string `json:"sha1"`
+	SHA256 string `json:"sha256"`
+}
+
 type StaticEvaluation struct {
+	Checks              StaticChecks
 	Facts               FileFacts
 	ExactHash           bool
 	ExpectedSizeMatched bool
@@ -36,24 +44,53 @@ type StaticEvaluation struct {
 }
 
 func EvaluateStatic(expectation StaticExpectation, facts FileFacts) StaticEvaluation {
-	exactHash := expectation.MD5 != "" || expectation.SHA1 != "" || expectation.SHA256 != ""
-	exactHash = exactHash &&
-		(expectation.SizeBytes == nil || facts.SizeBytes == *expectation.SizeBytes) &&
-		(expectation.MD5 == "" || strings.EqualFold(expectation.MD5, facts.MD5)) &&
-		(expectation.SHA1 == "" || strings.EqualFold(expectation.SHA1, facts.SHA1)) &&
-		(expectation.SHA256 == "" || strings.EqualFold(expectation.SHA256, facts.SHA256))
-	expectedSize := expectation.SizeBytes != nil && facts.SizeBytes == *expectation.SizeBytes
-	result := StaticEvaluation{
-		Facts: facts, ExactHash: exactHash, ExpectedSizeMatched: expectedSize,
-		ExactBasename: facts.Basename == expectation.LogicalName, Status: "HASH_WARNING",
-		Method: "LARGEST_SIZE_FALLBACK",
+	checks := StaticChecks{
+		Size: "NOT_CHECKED", MD5: hashCheck(expectation.MD5, facts.MD5),
+		SHA1: hashCheck(expectation.SHA1, facts.SHA1), SHA256: hashCheck(expectation.SHA256, facts.SHA256),
 	}
-	if exactHash {
+	if expectation.SizeBytes != nil {
+		checks.Size = "MISMATCHED"
+		if facts.SizeBytes == *expectation.SizeBytes {
+			checks.Size = "MATCHED"
+		}
+	}
+	declaredHash := checks.MD5 != "NOT_CHECKED" || checks.SHA1 != "NOT_CHECKED" || checks.SHA256 != "NOT_CHECKED"
+	mismatch := checks.Size == "MISMATCHED" || checks.MD5 == "MISMATCHED" ||
+		checks.SHA1 == "MISMATCHED" || checks.SHA256 == "MISMATCHED"
+	result := StaticEvaluation{
+		Facts: facts, Checks: checks, ExactHash: declaredHash && !mismatch,
+		ExpectedSizeMatched: checks.Size == "MATCHED", ExactBasename: facts.Basename == expectation.LogicalName,
+		Status: "UNVERIFIED", Method: "LARGEST_SIZE_FALLBACK",
+	}
+	if mismatch {
+		result.Status = "HASH_WARNING"
+	}
+	if result.ExactHash {
 		result.Status, result.Method = "MATCHED", "EXACT_HASH"
-	} else if expectedSize {
+	} else if result.ExpectedSizeMatched {
 		result.Method = "EXPECTED_SIZE_FALLBACK"
 	}
 	return result
+}
+
+func hashCheck(expected, actual string) string {
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		return "NOT_CHECKED"
+	}
+	if strings.EqualFold(expected, actual) {
+		return "MATCHED"
+	}
+	return "MISMATCHED"
+}
+
+// OptionalHash is the canonical catalog boundary for absent hash requirements.
+func OptionalHash(value string) *string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func CompareStatic(left, right StaticEvaluation) int {
@@ -116,32 +153,21 @@ func EvaluateDAT(
 	actual []importing.ArchiveEntry,
 ) DATEvaluation {
 	result := DATEvaluation{Facts: facts, SafeArchive: true, ExactBasename: facts.Basename == logicalName}
-	used := make(map[int]struct{}, len(actual))
-	for _, wanted := range expected {
-		exact := findDATEntry(actual, used, func(entry importing.ArchiveEntry) bool {
-			return strings.EqualFold(entry.NormalizedPath, wanted.Name)
-		})
-		if exact >= 0 && datEntryMatches(wanted, actual[exact]) {
-			used[exact] = struct{}{}
+	comparisons, _, _, _ := CompareArchiveEntries(expected, actual)
+	for _, comparison := range comparisons {
+		switch comparison.Status {
+		case "MATCHED":
 			result.MatchedCount++
-			continue
-		}
-		alias := findDATEntry(actual, used, func(entry importing.ArchiveEntry) bool {
-			return datEntryMatches(wanted, entry)
-		})
-		if alias >= 0 {
-			used[alias] = struct{}{}
+		case "ALIASED":
 			result.AliasedCount++
-			continue
-		}
-		if exact >= 0 {
-			used[exact] = struct{}{}
+		case "MISMATCHED":
 			result.MismatchedCount++
-			continue
+		case "MISSING":
+			result.MissingCount++
+		case "EXTRA":
+			result.ExtraCount++
 		}
-		result.MissingCount++
 	}
-	result.ExtraCount = len(actual) - len(used)
 	result.Launchable = true
 	switch {
 	case result.MissingCount > 0:
@@ -200,27 +226,4 @@ func compareTrueFirst(left, right bool) int {
 		return -1
 	}
 	return 1
-}
-
-func findDATEntry(
-	entries []importing.ArchiveEntry,
-	used map[int]struct{},
-	matches func(importing.ArchiveEntry) bool,
-) int {
-	for index, entry := range entries {
-		if _, exists := used[index]; !exists && matches(entry) {
-			return index
-		}
-	}
-	return -1
-}
-
-func datEntryMatches(expected ExpectedDATEntry, actual importing.ArchiveEntry) bool {
-	if expected.SizeBytes != actual.Size {
-		return false
-	}
-	if expected.SHA1 != "" {
-		return strings.EqualFold(expected.SHA1, actual.SHA1)
-	}
-	return expected.CRC32 != "" && strings.EqualFold(expected.CRC32, actual.CRC32)
 }

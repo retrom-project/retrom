@@ -38,6 +38,8 @@ RuntimeProvider
 
 `runtime_targets` 的主键是 `(provider_id,target_id)`，保存当前 Provider manifest 投影的展示名、闭合 options schema、能力、checkpoint declaration 和公开 fragment。稳定引用只使用 Provider/Target；Bundle digest 只在需要重现实际执行字节的 Launch 与 Preview 中冻结。
 
+`runtime_target_input_limits` 以 `(provider_id,target_id,role)` 保存 Manifest V2 输入的 `max_file_bytes`；null 表示非受管输入。它随 Target 投影在同一事务内替换，外键级联删除，不能由导入模块维护第二份核心上限。
+
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
 平台、核心和内容分类的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtime/catalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心等用户选择不被声明同步覆盖。
@@ -61,6 +63,8 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 BIOS 的“当前库所需”范围以当前已发布 Game 的 Provider/Target 判断成员资格，按 `game_variants_provider_target_game(provider_id,target_id,game_id)` 联合索引查找候选，再检查 Game 发布状态；不得按每条 BIOS 要求重复遍历整个已发布游戏库。多款游戏共享 Target 不重复增加 BIOS 项数，只有已删除游戏使用的 Target 不进入该范围。
 
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base 和多盘的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并记录文件标识；Blob 引用仍由领域 owner 持有。
+
+静态 BIOS requirement 的空 hash 归一为 NULL；安装状态 UNVERIFIED 表示文件可用但未提供 hash 校验依据，不计为警告或已匹配。服务器导入的 imported_unverified_count 独立计数，并参与终态合计约束。
 
 静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
 
@@ -203,3 +207,5 @@ BIOS 替换在安装事务切换当前安装、撤销旧 Launch/Play，保留 Ga
 `profile_game_activity` 以 `(profile_id,game_id)` 为主键，记录 `last_played_at_ms/active_duration_ms/session_count`。首次有效游玩上报增加会话数，后续上报只增加已接受累计时长与前值的差额，和 `play_sessions` 在同一事务写入；重复或乱序样本不重复计数。删除游戏保留文字墓碑与汇总，停用目录只改变用户可见性。迁移 016 从当前标准会话账本一次生成该读模型，运行时不再以全表聚合充当缺失读模型的回退。
 
 最近时间、时长、次数排序分别由 Profile 开头的覆盖索引支持；会话账本具有 Profile/时间及 Profile/Game/时间索引。后台游戏列表为标题、创建时间、更新时间提供与游标排序一致的索引，首页最新游戏和主封面查询分别使用 `games_latest`、`game_assets_primary`。统计与筛选选项仅在首屏或筛选改变时计算，不随翻页重复传输。
+
+内容拒绝证据存储在 `import_job_files.rejection_json`（可空 JSON），普通上传的文件明细直接投影；来源导入的确定性拒绝通过库服务的类型化错误携带同一 `ContentRejection`，写入来源条目的 failureDetails.contentRejection。二者包含稳定 code、相对路径与可空限额事实，不写入宿主路径或从错误文本反推原因。

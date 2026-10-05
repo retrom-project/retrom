@@ -28,7 +28,7 @@ func getSummary(ctx context.Context, executor dbapi.Executor, importID string) (
 const summaryQuery = `
 SELECT import.id,import.kind,import.root_id,import.root_label_snapshot,import.source_relative_path,
 import.replace_if_better,import.state,import.phase,import.catalog_item_count,import.candidate_count,
-import.evaluated_item_count,import.imported_matched_count,import.imported_warning_count,
+import.evaluated_item_count,import.imported_matched_count,import.imported_unverified_count,import.imported_warning_count,
 import.imported_missing_entry_count,import.not_found_count,import.skipped_existing_count,
 import.skipped_not_better_count,import.same_bytes_count,import.failed_item_count,import.cancelled_item_count,
 import.job_id,import.created_by_user_id,actor.display_name,import.last_error_code,import.version,
@@ -43,11 +43,12 @@ func NewQueries(database dbapi.DB) *Queries { return &Queries{database} }
 func scanSummary(row dbapi.Scanner) (serverimport.Summary, error) {
 	var summary serverimport.Summary
 	var replace int
-	var catalog, candidates, evaluated, matched, warnings, missingEntry int64
+	var catalog, candidates, evaluated, matched, unverified, warnings, missingEntry int64
 	var notFound, skippedExisting, skippedNotBetter, same, failed, cancelled int64
 	if err := row.Scan(
 		&summary.ID, &summary.Kind, &summary.Root.ID, &summary.Root.Label, &summary.SourceRelativePath,
-		&replace, &summary.State, &summary.Phase, &catalog, &candidates, &evaluated, &matched, &warnings, &missingEntry,
+		&replace, &summary.State, &summary.Phase, &catalog, &candidates, &evaluated,
+		&matched, &unverified, &warnings, &missingEntry,
 		&notFound, &skippedExisting, &skippedNotBetter, &same, &failed, &cancelled, &summary.JobID,
 		&summary.CreatedBy.ID, &summary.CreatedBy.DisplayName, &summary.LastErrorCode, &summary.Version,
 		&summary.CreatedAtMS, &summary.UpdatedAtMS, &summary.CompletedAtMS,
@@ -57,7 +58,7 @@ func scanSummary(row dbapi.Scanner) (serverimport.Summary, error) {
 	summary.ReplaceIfBetter = replace == 1
 	summary.Counts = serverimport.Counts{
 		CatalogItems: catalog, Candidates: candidates, EvaluatedItems: evaluated,
-		Imported: matched + warnings + missingEntry, Matched: matched, Warnings: warnings + missingEntry,
+		Imported: matched + unverified + warnings + missingEntry, Matched: matched, Warnings: warnings + missingEntry,
 		NotFound: notFound, Skipped: skippedExisting + skippedNotBetter + same,
 		Conflicts: skippedNotBetter, Failed: failed, Cancelled: cancelled,
 	}

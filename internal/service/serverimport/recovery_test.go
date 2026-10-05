@@ -91,3 +91,16 @@ func TestRecoveryUsesFrozenStaticArchiveRequirements(t *testing.T) {
 		t.Fatalf("empty DAT: %v", err)
 	}
 }
+
+func TestRecoveryReevaluatesUndeclaredHashesAsUnverified(t *testing.T) {
+	item := CatalogItem{RequirementID: "requirement", SourceKind: "STATIC", LogicalName: "bios.bin"}
+	facts := firmware.FileFacts{Basename: "bios.bin", SizeBytes: 8, MD5: "md5", SHA256: "digest"}
+	record := CandidateEvidence{ID: "candidate", RequirementID: item.RequirementID, State: "ELIGIBLE", Facts: facts, Static: &firmware.StaticEvaluation{}}
+	candidate, err := restoreCandidate(record, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate.Static == nil || *candidate.Static != firmware.EvaluateStatic(item.StaticExpectation(), facts) {
+		t.Fatalf("restored evaluation differs from fresh discovery: %+v", candidate.Static)
+	}
+}

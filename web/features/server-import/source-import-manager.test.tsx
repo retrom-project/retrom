@@ -353,7 +353,7 @@ describe("SourceImportDetailManager", () => {
       failureDetails: {
         schemaVersion: 1, stage: "LIBRARY_IMPORT", operation: "CREATE_SERVER_SOURCE",
         causeCode: "SOURCE_FILE_LIMIT_EXCEEDED",
-        technicalDetail: "Source assembled 109 source files for one Arcade item; library import accepts at most 64.",
+        contentRejection: null, technicalDetail: "Source assembled 109 source files for one Arcade item; library import accepts at most 64.",
         relativePath: "1944j.zip", observedFileCount: 109, allowedFileCount: 64,
         libraryImportJobId: null, libraryImportItemId: null,
       },

@@ -360,7 +360,7 @@ describe("UploadPicker", () => {
       createdAtMs: 1,
       updatedAtMs: 2,
       configSnapshot: { tags: [{ tagId: "tag-handheld", name: "掌机" }] },
-      fileOutcomes: [{ uploadFileId: "file-1", name: "game.iso", sizeBytes: 1024, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }],
+      fileOutcomes: [{ uploadFileId: "file-1", name: "game.iso", sizeBytes: 1024, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", rejection: null, resolution: null }],
     }} />);
 
     expect(screen.getByText("复用服务器中已上传的内容")).toBeVisible();

@@ -101,7 +101,7 @@ function validateLimits(limits: MultiDiscPreflightLimits) {
 
 async function inspectPlaylist(file: File, maxDiscs: number): Promise<ParsedPlaylist> {
   if (file.size > 65_536) {
-    return { references: [], reasonCode: "MULTI_DISC_LIMIT_EXCEEDED", reason: "M3U 超过 64 KiB" };
+    return { references: [], reasonCode: "MULTI_DISC_PLAYLIST_BYTES_EXCEEDED", reason: "M3U 超过 64 KiB" };
   }
   const text = await readPlaylistText(file);
   if (text === null) {
@@ -112,6 +112,9 @@ async function inspectPlaylist(file: File, maxDiscs: number): Promise<ParsedPlay
   for (const rawLine of text.split("\n")) {
     const value = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
     if (!value || value.startsWith("#")) {continue;}
+    if (textEncoder.encode(value).length > 255) {
+      return {references: [], reasonCode: "MULTI_DISC_REFERENCE_BYTES_EXCEEDED", reason: "光盘引用文件名超过 255 字节"};
+    }
     if (!safeBasename(value)) {
       return { references: [], reasonCode: "MULTI_DISC_REFERENCE_UNSAFE", reason: "M3U 引用必须是安全的同目录文件名" };
     }
@@ -124,9 +127,9 @@ async function inspectPlaylist(file: File, maxDiscs: number): Promise<ParsedPlay
     }
     seen.add(normalized);
     references.push(value);
-    if (references.length > maxDiscs) {
-      return { references: [], reasonCode: "MULTI_DISC_LIMIT_EXCEEDED", reason: `每组最多 ${maxDiscs} 张光盘` };
-    }
+  }
+  if (references.length > maxDiscs) {
+    return { references: [], reasonCode: "MULTI_DISC_COUNT_EXCEEDED", reason: `实际 ${references.length} 张光盘，上限 ${maxDiscs} 张` };
   }
   if (references.length < 2) {
     return { references: [], reasonCode: "MULTI_DISC_PLAYLIST_INVALID", reason: "每组必须至少包含 2 张光盘" };
@@ -184,9 +187,9 @@ async function inspectGroup(
   const inspected = await inspectDiscReferences(parsed.references, candidates, limits, referencedPaths);
   if (inspected.error) {
     const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
-    return rejected(
+    return {...rejected(
       directory, basename(playlist.path), playlist.file.size, inspected.error.code, inspected.error.reason, ignored,
-    );
+    ), entries: inspected.entries, discCount: parsed.references.length, presentTotalBytes: inspected.presentTotalBytes};
   }
   const { entries, presentTotalBytes } = inspected;
   const missing = entries.filter((entry) => entry.state === "MISSING").map((entry) => entry.sourceReference);
@@ -237,9 +240,6 @@ async function inspectDiscReferences(
       if (!await hasCHDMagic(matched.file)) {
         return { entries, presentTotalBytes, error: { code: "MULTI_DISC_CHD_INVALID", reason: `${reference} 不是有效 CHD` } };
       }
-      if (matched.file.size > limits.maxTotalBytes - presentTotalBytes) {
-        return { entries, presentTotalBytes, error: { code: "MULTI_DISC_LIMIT_EXCEEDED", reason: `光盘总大小超过 ${limits.maxTotalBytes} bytes` } };
-      }
       referencedPaths.add(matched.path);
       presentTotalBytes += matched.file.size;
     }
@@ -253,7 +253,10 @@ async function inspectDiscReferences(
       sizeBytes: matched?.file.size ?? null,
     });
   }
-  return { entries, presentTotalBytes, error: null };
+  const error = presentTotalBytes > limits.maxTotalBytes
+    ? {code: "MULTI_DISC_TOTAL_BYTES_EXCEEDED", reason: `光盘总大小 ${presentTotalBytes} 字节，上限 ${limits.maxTotalBytes} 字节`}
+    : null;
+  return { entries, presentTotalBytes, error };
 }
 
 export async function preflightMultiDisc(
@@ -287,7 +290,7 @@ export async function preflightMultiDisc(
   for (const directory of directories) {
     if (!validateLimits(normalizedLimits)) {
       const groupPlaylists = byDirectory.get(directory) ?? [];
-      groups.push(rejected(directory, groupPlaylists.length === 1 ? basename(groupPlaylists[0].path) : "", groupPlaylists[0]?.file.size ?? 0, "MULTI_DISC_LIMIT_EXCEEDED", "平台返回的多盘限制无效", []));
+      groups.push(rejected(directory, groupPlaylists.length === 1 ? basename(groupPlaylists[0].path) : "", groupPlaylists[0]?.file.size ?? 0, "MULTI_DISC_PLAYLIST_INVALID", "平台返回的多盘限制无效", []));
       continue;
     }
     groups.push(await inspectGroup(directory, byDirectory.get(directory) ?? [], files, normalizedLimits, referencedPaths));

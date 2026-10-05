@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	libraryservice "retrom/internal/service/libraryimport"
 
 	dbapi "retrom/internal/database"
@@ -104,9 +106,17 @@ func (repository *ReviewPreviewCreation) WithCreation(
 	work func(libraryservice.ReviewPreviewScope) error,
 ) error {
 	// Preparation and external effects stay outside this replayable database scope.
-	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+	create := func(tx dbapi.Tx) error {
 		return work(reviewPreviewRecords{executor: tx})
-	})
+	}
+	err := dbapi.RetryTransaction(ctx, repository.database, create)
+	var conflict *pgconn.PgError
+	if errors.As(err, &conflict) && conflict.Code == "23505" &&
+		conflict.ConstraintName == "runtime_preview_sessions_actor_user_id_idempotency_key_key" {
+		// The winning transaction is committed. Reopen the snapshot once so the
+		// existing replay boundary returns its receipt; other constraints stay errors.
+		err = dbapi.RetryTransaction(ctx, repository.database, create)
+	}
 	if err != nil {
 		return fmt.Errorf("commit libraryimport transaction: %w", err)
 	}

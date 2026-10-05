@@ -71,7 +71,7 @@ describe("preflightMultiDisc", () => {
     expect(unsafe.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_REFERENCE_UNSAFE" });
     expect(duplicate.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_INVALID" });
     expect(invalidUTF8.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_INVALID" });
-    expect(oversized.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_LIMIT_EXCEEDED" });
+    expect(oversized.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_BYTES_EXCEEDED" });
     expect(ambiguous.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_AMBIGUOUS" });
   });
 
@@ -103,8 +103,8 @@ describe("preflightMultiDisc", () => {
     ], { maxDiscs: 2, maxTotalBytes: 1024 });
 
     expect(invalid.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_CHD_INVALID" });
-    expect(tooLarge.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_LIMIT_EXCEEDED" });
-    expect(tooMany.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_LIMIT_EXCEEDED" });
+    expect(tooLarge.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_TOTAL_BYTES_EXCEEDED" });
+    expect(tooMany.groups[0]).toMatchObject({ state: "REJECTED", reasonCode: "MULTI_DISC_COUNT_EXCEEDED" });
   });
 
   it("does not classify an ordinary upload as multi-disc", async () => {

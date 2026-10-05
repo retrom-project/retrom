@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"golang.org/x/mod/semver"
 
+	"retrom/internal/content/requirements"
 	runtimebundle "retrom/internal/runtime/bundle"
 	runtimecatalog "retrom/internal/runtime/catalog"
 )
@@ -37,11 +39,12 @@ type ProviderProjection struct {
 }
 
 type TargetProjection struct {
-	Target            runtimebundle.Target
-	CapabilitiesJSON  string
-	CheckpointJSON    *string
-	TargetOptionsJSON string
-	ManifestFragment  string
+	Target             runtimebundle.Target
+	RequirementCatalog []byte
+	CapabilitiesJSON   string
+	CheckpointJSON     *string
+	TargetOptionsJSON  string
+	ManifestFragment   string
 }
 
 type CurrentProvider struct {
@@ -131,6 +134,10 @@ func targetMatchesActiveProjection(target runtimebundle.Target, active runtimebu
 }
 
 func projectTarget(target runtimebundle.Target) (TargetProjection, error) {
+	catalog, err := projectContentCatalog(target)
+	if err != nil {
+		return TargetProjection{}, err
+	}
 	capabilities, err := json.Marshal(target.Capabilities)
 	if err != nil {
 		return TargetProjection{}, projectionInvalid(err)
@@ -158,8 +165,20 @@ func projectTarget(target runtimebundle.Target) (TargetProjection, error) {
 	}
 	return TargetProjection{
 		Target: frozen, CapabilitiesJSON: string(capabilities), CheckpointJSON: checkpointJSON,
-		TargetOptionsJSON: string(optionsSchema), ManifestFragment: string(fragment),
+		TargetOptionsJSON: string(optionsSchema), ManifestFragment: string(fragment), RequirementCatalog: catalog,
 	}, nil
+}
+
+func projectContentCatalog(target runtimebundle.Target) ([]byte, error) {
+	policy := target.ContentRequirements
+	if policy == nil || policy.Kind != requirements.FlycastCartridge {
+		return nil, nil
+	}
+	contents := slices.Clone(policy.CatalogJSON)
+	if _, err := requirements.ParseFlycastCatalog(contents, policy); err != nil {
+		return nil, projectionInvalid(err)
+	}
+	return contents, nil
 }
 
 func validateProviderVersion(

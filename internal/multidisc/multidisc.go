@@ -8,9 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"retrom/internal/content/diagnostic"
 )
 
 const (
@@ -25,15 +28,26 @@ const (
 type ErrorCode string
 
 const (
-	CodePlaylistInvalid ErrorCode = "MULTI_DISC_PLAYLIST_INVALID"
-	CodeReferenceUnsafe ErrorCode = "MULTI_DISC_REFERENCE_UNSAFE"
-	CodeCHDInvalid      ErrorCode = "MULTI_DISC_CHD_INVALID"
-	CodeLimitExceeded   ErrorCode = "MULTI_DISC_LIMIT_EXCEEDED"
+	CodePlaylistInvalid        ErrorCode = "MULTI_DISC_PLAYLIST_INVALID"
+	CodeReferenceUnsafe        ErrorCode = "MULTI_DISC_REFERENCE_UNSAFE"
+	CodeCHDInvalid             ErrorCode = "MULTI_DISC_CHD_INVALID"
+	CodeCountExceeded          ErrorCode = "MULTI_DISC_COUNT_EXCEEDED"
+	CodeTotalBytesExceeded     ErrorCode = "MULTI_DISC_TOTAL_BYTES_EXCEEDED"
+	CodePlaylistBytesExceeded  ErrorCode = "MULTI_DISC_PLAYLIST_BYTES_EXCEEDED"
+	CodeReferenceBytesExceeded ErrorCode = "MULTI_DISC_REFERENCE_BYTES_EXCEEDED"
 )
 
 type ValidationError struct {
 	Code   ErrorCode
 	Reason string
+	Limit  *diagnostic.Limit
+}
+
+func limitExceeded(code ErrorCode, metric string, actual, maximum int64) error {
+	return &ValidationError{
+		Code: code, Reason: "content exceeds declared limit",
+		Limit: &diagnostic.Limit{Metric: metric, Actual: actual, Maximum: maximum},
+	}
 }
 
 func (validationError *ValidationError) Error() string {
@@ -114,8 +128,11 @@ func Parse(playlist []byte, files []File, limits Limits) (Result, error) {
 			return Result{}, matchErr
 		}
 		if present {
-			if matchErr := validateMatchedFile(matched, result.PresentTotalBytes, limits.MaxTotalBytes); matchErr != nil {
+			if matchErr := validateMatchedFile(matched); matchErr != nil {
 				return Result{}, matchErr
+			}
+			if matched.SizeBytes > math.MaxInt64-result.PresentTotalBytes {
+				return Result{}, invalid(CodeTotalBytesExceeded, "referenced CHD total exceeds integer range")
 			}
 			entry.State = EntryPresent
 			entry.File = matched
@@ -124,6 +141,9 @@ func Parse(playlist []byte, files []File, limits Limits) (Result, error) {
 		result.Entries = append(result.Entries, entry)
 		canonical = append(canonical, entry.CanonicalName...)
 		canonical = append(canonical, '\n')
+	}
+	if result.PresentTotalBytes > limits.MaxTotalBytes {
+		return Result{}, limitExceeded(CodeTotalBytesExceeded, "TOTAL_BYTES", result.PresentTotalBytes, limits.MaxTotalBytes)
 	}
 	result.CanonicalPlaylist = canonical
 	return result, nil
@@ -142,10 +162,10 @@ func References(playlist []byte, limits Limits) ([]string, error) {
 
 func validatePlaylistInput(playlist []byte, limits Limits) ([]byte, error) {
 	if limits.MaxDiscs < MinDiscs || limits.MaxDiscs > MaxDiscs || limits.MaxTotalBytes <= 0 {
-		return nil, invalid(CodeLimitExceeded, "invalid frozen limits")
+		return nil, invalid(CodePlaylistInvalid, "invalid frozen limits")
 	}
 	if len(playlist) > MaxPlaylistBytes {
-		return nil, invalid(CodeLimitExceeded, "playlist exceeds byte limit")
+		return nil, limitExceeded(CodePlaylistBytesExceeded, "PLAYLIST_BYTES", int64(len(playlist)), MaxPlaylistBytes)
 	}
 	if bytes.HasPrefix(playlist, []byte{0xef, 0xbb, 0xbf}) {
 		playlist = playlist[3:]
@@ -175,12 +195,9 @@ func matchFile(
 	}
 }
 
-func validateMatchedFile(file *File, currentTotal, maximumTotal int64) error {
+func validateMatchedFile(file *File) error {
 	if file.SizeBytes <= 0 || len(file.Header) < 8 || !bytes.Equal(file.Header[:8], []byte("MComprHD")) {
 		return invalid(CodeCHDInvalid, "referenced CHD is empty or has invalid magic")
-	}
-	if file.SizeBytes > maximumTotal-currentTotal {
-		return invalid(CodeLimitExceeded, "referenced CHD total exceeds byte limit")
 	}
 	return nil
 }
@@ -206,9 +223,9 @@ func parseReferences(playlist []byte, maxDiscs int) ([]string, error) {
 		}
 		seen[normalized] = struct{}{}
 		references = append(references, reference)
-		if len(references) > maxDiscs {
-			return nil, invalid(CodeLimitExceeded, "playlist has too many discs")
-		}
+	}
+	if len(references) > maxDiscs {
+		return nil, limitExceeded(CodeCountExceeded, "DISC_COUNT", int64(len(references)), int64(maxDiscs))
 	}
 	if len(references) < MinDiscs {
 		return nil, invalid(CodePlaylistInvalid, "playlist must contain at least two discs")
@@ -218,7 +235,7 @@ func parseReferences(playlist []byte, maxDiscs int) ([]string, error) {
 
 func validateReference(rawLine []byte) (string, error) {
 	if len(rawLine) > MaxReferenceBytes {
-		return "", invalid(CodeLimitExceeded, "playlist reference exceeds byte limit")
+		return "", limitExceeded(CodeReferenceBytesExceeded, "REFERENCE_BYTES", int64(len(rawLine)), MaxReferenceBytes)
 	}
 	if !safeBasename(string(rawLine)) {
 		return "", invalid(CodeReferenceUnsafe, "playlist reference is not a safe basename")

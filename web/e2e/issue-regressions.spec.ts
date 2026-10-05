@@ -164,7 +164,13 @@ test("ACC-RUN-019 immutable ROM bytes survive same-core, cross-core and restore 
       await route.fulfill({response, body: partial, headers: {...response.headers(), "content-length": String(partial.length)}});
     });
     await interruptedPage.goto((await launch(interruptedPage, interruptedHeaders, game.gameId, "fceumm")).playUrl);
-    await expect(interruptedPage.locator(".player-loading").getByRole("link", {name: "返回游戏库"})).toBeVisible({timeout: 60_000});
+    const failure = interruptedPage.locator(".player-failure");
+    await expect(failure).toBeVisible({timeout: 60_000});
+    await expect(failure.locator("code")).toHaveText("CONTENT_IO_LENGTH_MISMATCH");
+    await expect(failure).toContainText("游戏内容不符合当前核心要求");
+    await expect(failure.getByRole("link", {name: "返回游戏详情", exact: true})).toHaveAttribute("href", `/games/${game.gameId}`);
+    await expect(interruptedPage.locator("iframe.player-frame")).toHaveCount(0);
+    await expect(interruptedPage.locator(".player-save-button:enabled")).toHaveCount(0);
     expect(truncated).toBeGreaterThan(0);
     const evidence: object[] = [], resources: unknown[] = [];
     let save: string | null = null;

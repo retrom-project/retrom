@@ -46,7 +46,7 @@ FROM dat_machines
 `).Scan(&machines); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, machines != 7_980+4_727+5_257+227+284, "machine rows = %d", machines)
+	testassert.Falsef(t, machines != 4_727+5_257+227+284, "machine rows = %d", machines)
 	var activeDATs, succeededJobs, nonCancellableJobs, snapshots int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
@@ -69,7 +69,7 @@ WHERE j.kind='DAT_PARSE')
 `).Scan(&activeDATs, &succeededJobs, &nonCancellableJobs, &snapshots); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return activeDATs != 5 }, func() bool { return succeededJobs != 5 }, func() bool { return nonCancellableJobs != 5 }, func() bool { return snapshots != 5 }), "published DAT/job/snapshot contract = %d/%d/%d/%d", activeDATs, succeededJobs, nonCancellableJobs, snapshots)
+	testassert.Falsef(t, testassert.Any(func() bool { return activeDATs != 4 }, func() bool { return succeededJobs != 4 }, func() bool { return nonCancellableJobs != 4 }, func() bool { return snapshots != 4 }), "published DAT/job/snapshot contract = %d/%d/%d/%d", activeDATs, succeededJobs, nonCancellableJobs, snapshots)
 	var requirements int64
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*)
@@ -77,7 +77,7 @@ FROM bios_requirements
 WHERE source_kind='DAT_MACHINE'
 AND enabled=1
 `).Scan(&requirements); err != nil ||
-		requirements != 45 {
+		requirements != 32 {
 		t.Fatalf("active DAT requirements = %d, error=%v", requirements, err)
 	}
 	assertVerifiableDATRequirements(t, database.SQL)
@@ -96,7 +96,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT d.provider_id,d.target_id,d.id
 FROM dat_versions d
-WHERE d.core_id='fbneo' AND d.is_active=1
+WHERE d.core_id='mame2003' AND d.is_active=1
 `).Scan(&providerID, &targetID, &selectedDATID); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
+VALUES(?,'mame2003',?,?,'legacy/mame2003.dat',?,'legacy-parser','READY',1,
 0,0,0,0,0,0,0,0,1,1,1,1,1)
 `, supersededID, providerID, targetID, strings.Repeat("e", 64)); err != nil {
 		t.Fatal(err)

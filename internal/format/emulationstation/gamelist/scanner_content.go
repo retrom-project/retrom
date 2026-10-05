@@ -262,7 +262,8 @@ func referencedDiscPaths(
 func multidiscCode(err error) string {
 	for _, code := range []multidisc.ErrorCode{
 		multidisc.CodePlaylistInvalid, multidisc.CodeReferenceUnsafe,
-		multidisc.CodeCHDInvalid, multidisc.CodeLimitExceeded,
+		multidisc.CodeCHDInvalid, multidisc.CodeCountExceeded, multidisc.CodeTotalBytesExceeded,
+		multidisc.CodePlaylistBytesExceeded, multidisc.CodeReferenceBytesExceeded,
 	} {
 		if multidisc.ErrorHasCode(err, code) {
 			return string(code)

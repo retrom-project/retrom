@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/content/requirements"
 	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/format/nintendo3ds"
 	biosservice "retrom/internal/service/corevalidation"
 )
 
@@ -17,6 +19,26 @@ type readinessBIOS struct{ biosservice.Repository }
 
 func (readinessBIOS) BIOS(context.Context, string, string) ([]biosservice.BIOSRecord, error) {
 	return []biosservice.BIOSRecord{}, nil
+}
+
+func TestReviewApprovalPreservesInspectedContentFacts(t *testing.T) {
+	snapshot := corevalidation.Snapshot{
+		SchemaVersion: 1, Kind: "STATIC", BIOS: []corevalidation.BIOSDependency{},
+		ContentFacts: &requirements.Facts{Nintendo3DS: &nintendo3ds.Facts{Format: "NCSD"}},
+	}
+	encoded, err := snapshot.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ValidateApprovalDependencies(t.Context(), ApprovalDependencyScope{
+		Reader: readinessContent{}, BIOS: readinessBIOS{},
+	}, ApprovalDependencyInput{
+		ProviderID: "emulatorjs", TargetID: "azahar",
+		ContentKind: "SINGLE_FILE", DependencyJSON: string(encoded),
+	})
+	if err != nil {
+		t.Fatalf("unchanged content inspection prevents approval: %v", err)
+	}
 }
 
 func TestReviewApprovalRequiresReadyContentEvenWhenBIOSIsReady(t *testing.T) {

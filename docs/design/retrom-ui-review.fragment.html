@@ -3024,7 +3024,8 @@
           </ol><small>固定标题、四汉字名称与十格进度；长名称停留后往返滚动。未知进度循环扫动，100% 后仍需等待阶段完成才勾选，失败停止动画。最多三条实际步骤，整组上移、固定行间距，完成重排不交叉；减少动态效果时停止持续动画。</small></div>
         </details>
         <details class="rt-card" aria-label="本地内容缓存状态评审"><summary>下载完成后开始</summary><p>正在下载游戏内容… 384 MiB / 768 MiB · 50%</p><p>无法完成本地缓存，请检查浏览器存储权限和可用空间。</p><button class="rt-button rt-button-primary">重试下载</button><button class="rt-button">改为按需加载</button><p>已下载的有效内容会在重试时复用。</p></details>
-        <details class="rt-card" aria-label="启动失败状态评审"><summary>启动失败与重试</summary><p>资源下载已停止推进，请检查网络后重试。</p><p>资源已就绪，但核心初始化超时。请重试启动。</p><p>运行资源被浏览器安全策略阻止，请联系管理员更新运行依赖。</p><button type="button" class="rt-button rt-button-primary">重试启动</button><p>已下载的有效内容会在重试时复用。 <a href="#">返回游戏库</a></p></details>
+        <details class="rt-card" aria-label="启动失败状态评审"><summary>启动失败与重试</summary><p>资源下载已停止推进，请检查网络后重试。</p><p>资源已就绪，但核心初始化超时。请重试启动。</p><p>运行资源被浏览器安全策略阻止，请联系管理员更新运行依赖。</p><button type="button" class="rt-button rt-button-primary">重试启动</button><p>已下载的有效内容会在重试时复用。 <a href="#">返回游戏详情</a></p></details>
+        <details class="rt-card" aria-label="运行失败诊断状态评审"><summary>持久失败诊断</summary><section role="alert"><strong>游戏启动失败</strong><p>游戏内容不符合当前核心要求。请根据诊断修正内容，或联系管理员检查兼容性。</p><code>OPENBOR_CORE_EXITED</code><details open><summary>诊断详情</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto">Unknown constant PLAYER_MIN_Z in data/scripts/game.c</pre></details><a href="#">返回游戏详情</a></section><p>游玩中异常使用“游戏运行中断”；诊断保留到离开页面，不提供无效重试。窄屏换行并限制诊断区域高度。</p></details>
         <details class="rt-card" aria-label="原生存档交互状态评审">
           <summary>原生游戏存档与本地草稿</summary>
           <fieldset><legend>退出时：持久存储容器</legend><p>游戏原生数据已发生变化，是否保存到存档容器？</p><p>存档是游戏原生数据的存储容器，可能仅包含设置、统计等内容，不是即时快照，也不保证恢复关卡进度。从某个存档启动后，后续保存会更新同一个存档；只有不选存档、重新开始游戏时才使用新的空容器。</p><button class="rt-button">返回游戏</button><button class="rt-button">直接退出</button><button class="rt-button">存档并退出</button></fieldset>
@@ -3213,9 +3214,9 @@
         <form class="rt-panel rt-server-result-filter"><label>搜索标题<input class="rt-input" value=""></label><label>结果<select class="rt-select"><option>全部结果</option><option>已发布</option></select></label><label>Collection<select class="rt-select"><option>全部 Collection</option><option>Sega Saturn</option></select></label><button type="button" class="rt-button">应用筛选</button></form>
         <div class="rt-panel rt-server-result-table">
           <article class="rt-server-result-row rt-source-result-row">
-            <div><strong>1944 循环的征服者</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div>
+            <div><strong>多盘冒险</strong><small>Sega Saturn → Saturn 游戏</small><small>metadata.pegasus.txt · MULTI_DISC</small></div>
             <div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div>
-            <div class="rt-source-result-state"><span class="rt-badge rt-badge-red">提交失败</span><button type="button" class="rt-button" data-open-source-diagnostic>查看原因</button></div>
+            <div class="rt-source-result-state"><span class="rt-badge rt-badge-red">内容阻断</span><button type="button" class="rt-button" data-open-source-diagnostic>查看原因</button></div>
             <span>—</span>
 
           </article>
@@ -3225,11 +3226,10 @@
                   <dialog class="rt-source-diagnostic-dialog" aria-label="原因与处理建议"><header><h2>原因与处理建议</h2><button type="button" class="rt-button" data-close-source-diagnostic>关闭</button></header>
 
               <div class="rt-source-diagnostic-body">
-                <div class="rt-source-diagnostic-head"><div><strong>Arcade companion 候选数量超过内部上限</strong><p>系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。</p></div><code>游戏文件_LIBRARY_IMPORT_FAILED</code></div>
-                <div class="rt-source-diagnostic-facts"><div><span>失败阶段</span><code>LIBRARY_IMPORT</code></div><div><span>内部操作</span><code>CREATE_SERVER_SOURCE</code></div><div><span>底层原因分类</span><code>SOURCE_FILE_LIMIT_EXCEEDED</code></div></div>
-                <div class="rt-source-diagnostic-facts"><div><span>来源项 ID</span><code>019ff632-9eb4-73e1-98a9-4af488b914b0</code></div><div><span>来源相对路径</span><code>1944j.zip</code></div><div><span>组装文件数量</span><strong>109 / 上限 64</strong></div></div>
-                <div class="rt-source-diagnostic-technical"><span>技术详情</span><code>Source import assembled 109 source files for one Arcade item; library import accepts at most 64.</code></div>
-                <p class="rt-source-diagnostic-action"><strong>处理建议：</strong>这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。</p>
+                <div class="rt-source-diagnostic-head"><div><strong>光盘总大小超过上限</strong><p>已识别 M3U 和引用的 CHD，但光盘总大小超过当前目标允许的上限。</p></div><code>MULTI_DISC_TOTAL_BYTES_EXCEEDED</code></div>
+                <div class="rt-source-diagnostic-facts"><div><span>内容检查证据</span><code>adventure/discs.m3u</code></div></div>
+                <p>实际：1.34 GB（1,436,977,078 字节）；上限：1 GB（1,073,741,824 字节）</p>
+                <p class="rt-source-diagnostic-action"><strong>处理建议：</strong>换用符合上限的内容后重新导入；无需安装 BIOS，也无需重试相同内容。</p>
               </div>
             </dialog></section>
 
@@ -3485,8 +3485,8 @@
           <div class="rt-page-head"><div><h1>运行依赖</h1><p class="rt-subtitle">管理模拟器所需的 BIOS 文件与归档，查看缺失状态并安装。</p></div></div>
           <div>
           <div class="rt-runtime-scope"><button type="button" class="is-active">当前游戏库需要 <strong>12</strong></button><button type="button">完整 BIOS 目录 <strong>27</strong></button></div>
-          <div class="rt-runtime-kpis"><article><span>当前范围</span><strong>12</strong><small>游戏库实际引用的依赖</small></article><article><span>缺失 / 阻断</span><strong>2</strong><small>必需文件缺失会阻断相关游戏</small></article><article><span>需要核对</span><strong>1</strong><small>哈希不同仍可启动，建议替换</small></article><article><span>已就绪</span><strong>9</strong><small>已经安装并通过当前校验</small></article></div>
-          <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option></select></label><label>依赖筛选<select class="rt-select"><option>全部依赖</option><option>需要处理</option><option>必需</option><option>可选</option></select></label></div>
+          <div class="rt-runtime-kpis"><article><span>当前范围</span><strong>12</strong><small>游戏库实际引用的依赖</small></article><article><span>缺失 / 阻断</span><strong>2</strong><small>必需文件缺失会阻断相关游戏</small></article><article><span>需要核对</span><strong>1</strong><small>哈希不同仍可启动，建议替换</small></article><article><span>已就绪</span><strong>9</strong><small>已安装且当前可用</small></article></div>
+          <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option><option>已安装·未校验</option></select></label><label>依赖筛选<select class="rt-select"><option>全部依赖</option><option>需要处理</option><option>必需</option><option>可选</option></select></label></div>
           <div class="rt-runtime-section-head"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>3 项</span></div>
           <div class="rt-runtime-list">
             <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>neogeo.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>mame2003</small></div><span class="rt-badge rt-badge-red">缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>缺少必需依赖会阻断相关游戏</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></div></div>

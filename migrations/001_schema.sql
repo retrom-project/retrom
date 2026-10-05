@@ -247,6 +247,21 @@ CREATE TABLE "runtime_targets" (
   PRIMARY KEY(provider_id,target_id)
 );
 
+CREATE TABLE runtime_target_input_limits (
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  max_file_bytes BIGINT CHECK(max_file_bytes IS NULL OR max_file_bytes BETWEEN 1 AND 9007199254740991),
+  PRIMARY KEY(provider_id,target_id,role),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE
+);
+
+CREATE TABLE runtime_requirement_catalogs (
+  sha256 TEXT PRIMARY KEY CHECK(length(sha256)=64),
+  document_json TEXT NOT NULL CHECK(document_json IS JSON)
+);
+
+
 CREATE TABLE "job_events" (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   job_id TEXT NOT NULL ,
@@ -468,7 +483,7 @@ CREATE TABLE bios_installations (
   sha1 TEXT NOT NULL CHECK(length(sha1) = 40),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
   validated_requirement_version BIGINT NOT NULL CHECK(validated_requirement_version >= 1),
-  status TEXT NOT NULL CHECK(status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY','INVALID')),
+  status TEXT NOT NULL CHECK(status IN ('MATCHED','UNVERIFIED','HASH_WARNING','MISSING_ENTRY','INVALID')),
   validation_details_json TEXT NOT NULL,
   is_active BIGINT NOT NULL CHECK(is_active IN (0,1)),
   version BIGINT NOT NULL DEFAULT 1,
@@ -547,6 +562,7 @@ CREATE TABLE server_imports (
   evaluated_item_count BIGINT NOT NULL DEFAULT 0 CHECK(evaluated_item_count>=0),
   multi_candidate_item_count BIGINT NOT NULL DEFAULT 0 CHECK(multi_candidate_item_count>=0),
   imported_matched_count BIGINT NOT NULL DEFAULT 0 CHECK(imported_matched_count>=0),
+  imported_unverified_count BIGINT NOT NULL DEFAULT 0 CHECK(imported_unverified_count>=0),
   imported_warning_count BIGINT NOT NULL DEFAULT 0 CHECK(imported_warning_count>=0),
   imported_missing_entry_count BIGINT NOT NULL DEFAULT 0 CHECK(imported_missing_entry_count>=0),
   not_found_count BIGINT NOT NULL DEFAULT 0 CHECK(not_found_count>=0),
@@ -568,10 +584,10 @@ CREATE TABLE server_imports (
   completed_at_ms BIGINT,
   CHECK((state IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED'))=(completed_at_ms IS NOT NULL)),
   CHECK((state IN ('CANCEL_REQUESTED','CANCELLED'))=(cancel_requested_at_ms IS NOT NULL)),
-  CHECK(imported_matched_count+imported_warning_count+imported_missing_entry_count+not_found_count+
+  CHECK(imported_matched_count+imported_unverified_count+imported_warning_count+imported_missing_entry_count+not_found_count+
         skipped_existing_count+skipped_not_better_count+same_bytes_count+failed_item_count+cancelled_item_count<=catalog_item_count),
   CHECK(state NOT IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED') OR
-        imported_matched_count+imported_warning_count+imported_missing_entry_count+not_found_count+
+        imported_matched_count+imported_unverified_count+imported_warning_count+imported_missing_entry_count+not_found_count+
         skipped_existing_count+skipped_not_better_count+same_bytes_count+failed_item_count+cancelled_item_count=catalog_item_count)
 );
 
@@ -699,7 +715,7 @@ CREATE TABLE "server_bios_import_items" (
   active_blob_sha256_snapshot TEXT,
   active_status_snapshot TEXT,
   active_validated_requirement_version_snapshot BIGINT,
-  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','CATALOG_INVALID','VALIDATION_FAILED','READ_FAILED','INVALID_ARCHIVE','COMMIT_FAILED','CANCELLED')),
+  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_UNVERIFIED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','CATALOG_INVALID','VALIDATION_FAILED','READ_FAILED','INVALID_ARCHIVE','COMMIT_FAILED','CANCELLED')),
   candidate_count BIGINT NOT NULL DEFAULT 0 CHECK(candidate_count>=0),
   match_method TEXT CHECK(match_method IS NULL OR match_method IN ('EXACT_HASH','EXPECTED_SIZE_FALLBACK','LARGEST_SIZE_FALLBACK','DAT_ENTRY_MATCH','DAT_ENTRY_WARNING','DAT_PARTIAL_FALLBACK')),
   selection_details_json TEXT,
@@ -720,6 +736,7 @@ CREATE TABLE import_job_files (
   upload_file_id TEXT NOT NULL ,
   disposition TEXT NOT NULL CHECK(disposition IN ('PENDING','SOURCE','IGNORED','REJECTED')),
   reason_code TEXT,
+  rejection_json TEXT CHECK(rejection_json IS NULL OR rejection_json IS JSON),
   created_at_ms BIGINT NOT NULL,
   updated_at_ms BIGINT NOT NULL,
   PRIMARY KEY(import_job_id, upload_file_id),

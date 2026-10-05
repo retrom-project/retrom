@@ -13,11 +13,15 @@ func (records datRecords) Activation(ctx context.Context, id string) (service.Ac
 	var state service.ActivationState
 	var active int
 	err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT d.provider_id,d.target_id,d.parse_status,d.is_active
+SELECT d.provider_id,d.target_id,d.parse_status,d.is_active,d.sha256,
+(target.manifest_fragment_json)::jsonb #>> '{arcadeDAT,asset,sha256}'
 FROM dat_versions d
 JOIN runtime_targets target ON target.provider_id=d.provider_id AND target.target_id=d.target_id
 WHERE d.id=?
-`, id).Scan(&state.Target.ProviderID, &state.Target.TargetID, &state.ParseStatus, &active)
+`, id).Scan(
+		&state.Target.ProviderID, &state.Target.TargetID, &state.ParseStatus, &active,
+		&state.DATDigest, &state.ExpectedDigest,
+	)
 	if err != nil {
 		return service.ActivationState{}, fmt.Errorf("dependencies/read DAT activation: %w", err)
 	}
@@ -56,6 +60,20 @@ VALUES(?,?,?,?,'BUILTIN_DAT_ACTIVATED','DAT_VERSION',?,
 '{"active":false}','{"active":true}',jsonb_build_object('source','release-manifest')::text,?)
 `, input.AuditID, input.Actor.Kind, input.Actor.UserID, input.Actor.Label, input.ID, input.AtMS); err != nil {
 		return fmt.Errorf("dependencies/audit DAT selection: %w", err)
+	}
+	return nil
+}
+
+func (records datRecords) requireTargetDAT(ctx context.Context, input service.DATRegistration) error {
+	var expected *string
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
+SELECT (manifest_fragment_json)::jsonb #>> '{arcadeDAT,asset,sha256}'
+FROM runtime_targets WHERE provider_id=? AND target_id=?`, input.Target.ProviderID, input.Target.TargetID,
+	).Scan(&expected); err != nil {
+		return fmt.Errorf("read required DAT identity: %w", err)
+	}
+	if expected != nil && *expected != input.SHA256 {
+		return fmt.Errorf("%w: DAT does not match active runtime core", dependencies.ErrInvalid)
 	}
 	return nil
 }

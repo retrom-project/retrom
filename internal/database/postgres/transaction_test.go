@@ -161,6 +161,9 @@ func TestCancelledTransactionRollsBackAndReleasesWriter(t *testing.T) {
 	cancel()
 	// Reacquiring the sole connection waits for database/sql's automatic rollback.
 	requireItemSum(ctx, t, first, 1)
+	if err := tx.Commit(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("commit after automatic rollback lost cancellation: %v", err)
+	}
 	if first.Stats().InUse != 0 {
 		t.Fatal("cancelled transaction leaked a connection")
 	}

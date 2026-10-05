@@ -39,7 +39,20 @@ func (service *Service) prepareStandardReplacement(ctx context.Context, snapshot
 			SHA256: prepared.File.SHA256, SizeBytes: prepared.File.Size,
 		}}
 	}
-	return buildStandardReplacement(files)
+	for _, file := range files {
+		if rejection := snapshot.ContentPolicy.CheckFile("SINGLE_FILE", file.LogicalName, file.SizeBytes); rejection != nil {
+			return PreparedReplacement{}, &replacementValidationError{code: rejection.Code}
+		}
+	}
+	prepared, err := buildStandardReplacement(files)
+	if err != nil {
+		return PreparedReplacement{}, err
+	}
+	if err := service.inspectReplacementRequirements(ctx, snapshot, files[0], &prepared); err != nil {
+		return PreparedReplacement{}, err
+	}
+
+	return prepared, nil
 }
 
 func buildStandardReplacement(files []UploadedFile) (PreparedReplacement, error) {

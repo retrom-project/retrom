@@ -41,7 +41,7 @@ func TestPublishedPreparationUsesSelectedTargetDATAndKeepsBIOSGapSeparate(t *tes
 		"unrelated-record": {{NormalizedPath: "other.bin", Size: 1, CRC32: "good"}},
 	})
 	files := []SourceFile{{Role: "CONTENT", LogicalName: "child.zip", FileRecord: "child-record"}, {Role: "COMPANION", LogicalName: "parent.zip", FileRecord: "parent-record"}, {Role: "COMPANION", LogicalName: "unrelated.zip", FileRecord: "unrelated-record"}}
-	for _, test := range []struct{ dat, code string }{{"source-core", "LAUNCH_BIOS_MISSING"}, {"different-core", "ARCADE_CONTENT_MISSING_ENTRY"}} {
+	for _, test := range []struct{ dat, code string }{{"source-core", "LAUNCH_BIOS_MISSING"}, {"different-core", "ARCADE_CONTENT_MISMATCH"}} {
 		result, err := preparation.Prepare(t.Context(), files, test.dat, "child", "child.zip")
 		if err != nil || result.Status != "BLOCKED" || result.Code != test.code || result.Snapshot.DatVersionID != test.dat || len(result.Companions) != 1 || result.Companions[0].LogicalName != "parent.zip" {
 			t.Fatalf("selected DAT %s: result=%+v error=%v", test.dat, result, err)

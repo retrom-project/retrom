@@ -1,7 +1,7 @@
 "use client";
 
 import {runHostStartup} from "./runtime/startup-task";
-import type {RuntimeStartupTaskV1} from "./runtime/contract";
+import type {RuntimeStartupTaskV1, RuntimeFailureV1} from "./runtime/contract";
 import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
 import {readContentLoading, resolveContentLoading, type ContentLoadingCapability} from "./content-loading";
 
@@ -46,6 +46,7 @@ export type PlayerBootstrapParams = {
   progressTimer: Mutable<number | null>;
   progressClock: Mutable<PlayProgressClock>;
   toastTimer: Mutable<number | null>;
+  setFailure: Dispatch<SetStateAction<RuntimeFailureV1 | null>>;
   setMessage: Dispatch<SetStateAction<string>>;
   setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
   setContentLoadingCapability: Dispatch<SetStateAction<ContentLoadingCapability | undefined>>;
@@ -79,6 +80,7 @@ export type PlayerBootstrapParams = {
 };
 
 type BootstrapResources = {
+  cleanupPromise?: Promise<void>;
   controller?: RuntimeController;
   surfaceControlsCleanup?: () => void;
   inputSubscription?: () => void;
@@ -108,6 +110,7 @@ function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   params.reportStartupTask?.(null);
+  params.setFailure(null);
   params.setLoadProgress(null);
   params.setContentLoadingCapability(undefined);
   params.setMessage("正在验证 Provider 启动信息…");
@@ -124,9 +127,14 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     host: {contentLoading: resolveContentLoading(envelope.runtime.capabilities.contentLoading, readContentLoading(params.userId), envelope.session.purpose)},
     signal: abort.signal,
     onExitRequested: params.onExitRequested,
-    onFatalError: (code) => {
-      params.setMessage(code);
+    onFatalError: (failure) => {
+      params.setFailure(failure);
+      params.setMessage(failure.code);
+      params.manualSaveAvailableRef.current = false;
+      params.setManualSaveAvailable(false);
+      params.setReviewScreenshotAvailable(false);
       params.setState("error");
+      void cleanupBootstrap(params, resources, abort);
     },
     onRuntimeEvent: (event) => handleRuntimeEvent(event, params),
   });
@@ -300,7 +308,12 @@ function handleBootstrapError(error: unknown, abort: AbortController, params: Pl
   params.setState("error");
 }
 
-async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+  resources.cleanupPromise ??= releaseBootstrap(params, resources, abort);
+  return resources.cleanupPromise;
+}
+
+async function releaseBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   abort.abort();
   resources.surfaceControlsCleanup?.();
   resources.inputSubscription?.();

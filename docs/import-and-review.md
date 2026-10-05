@@ -195,7 +195,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 | PlayStation / 3DO / PC-FX | 对应目录中的单个原始 `.chd` | 不展开、不接受 archive wrapper；不支持 CUE/BIN、M3U、多盘或伴随音轨。 |
 | Saturn | STANDARD 为单个原始 `.chd`；显式 `MULTI_DISC` 为同目录一个 M3U 与其引用的 2–8 个 CHD | 多盘仅对 capability 返回支持的 yabause artifact 开放；不接受跨目录引用、archive wrapper、CUE/BIN 或非 CHD entry。 |
 | PSP (`psp`) | 单个原始 `.iso` 或 `.cso` | 两者均为 `RAW_FILE` CONTENT，直接交给 PPSSPP；服务端不转码，也不接受 `.iso.7z/.cso.7z`。 |
-| Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE` CONTENT 直接交给 Azahar；本期不接受 archive wrapper 或其他 3DS 容器/可执行格式。 |
+| Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE` CONTENT 交给 Azahar；校验 NCSD/NCCH 容器、分区范围、主分区可执行标志与解密状态。不接受 archive wrapper、加密镜像或其他 3DS 容器/可执行格式；不解密、不管理密钥。 |
 | WASM-4 (`wasm4`) | 单个原始 `.wasm`，1–65,536 bytes | 每个文件形成一个 `SINGLE_FILE/SOURCE_V1` Item；服务端冻结 size/SHA-256 并在启动前再次逐字节校验。ZIP/7z、空文件、超限 cart 和其他扩展名均拒绝。审核预览与产品 Launch 使用独立 `WASM4/WASM4_WEB` runtime，不经 EmulatorJS。 |
 | Arcade (`arcade`) | 一个未加密 `.zip` ROMset archive | 顶层 ZIP 必须精确命中活动 DAT machine；ZIP 本身不是 Hasheous hash 来源。只有 NORMAL machine 是 primary 候选。相同 UploadSession 中经 DAT 闭包明确采用的其他顶层 ZIP 作为该 Item 的 COMPANION parent/BIOS/base；NORMAL parent 也可形成自己的 Item，而 EXPLICIT_BIOS/ROMOF_INFERENCE 只能作为依赖。不能把无关全局 Blob 猜成依赖。 |
 | MS-DOS (`dos`) | 一个目录树，或一个未加密 `.zip` | 整棵目录/整个 ZIP 是一项，必须至少有一个 `.exe/.com/.bat` entry，全部候选均保留。`game/go/launch/play/run/start` 优先，setup/install/config/uninstall/readme/驱动/解包工具降权，再按扩展名、深度和路径稳定排序；这只决定审核默认值。目录输入会生成确定性 ZIP。ISO/CUE/IMG/VHD/M3U 和安装介质流程不在一期范围。 |
@@ -468,6 +468,8 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 `internal/service/sourceimport.ImportExecutor` 编排未完成任务的工作关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与独立文件存储读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
+已复制素材的重放身份只包含持久文件记录、大小与内容哈希；本机绝对访问路径仅属于文件存储适配器，不进入 `VerifiedBlob` 或重放比较。恢复重复复制游戏和媒体时返回同一绑定，仍须重验冻结来源事实和当前执行所有权。
+
 来源任务的重试准入统一由来源领域的当前事实判断：必须存在可重试的 READ_FAILED/COMMIT_FAILED 条目、接收 Job 已终止、执行身份可递增且无其他活动来源接收。列表/详情投影与提交事务使用同一规则，不信任旧摘要中的 retryable 标记；完成时仅统计确实可重试的失败项。SOURCE_CHANGED 不可用旧扫描快照重试，应修正来源后重新扫描创建计划。命令仍在写事务内核对资源版本、Job 版本和实际待重置条目数量，竞态失败不改变原任务。
 
 普通 ImportJob/Item 的创建与 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的记录、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。未完成父任务恢复先按工作关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/独立文件存储来源重新选取结果。
@@ -486,7 +488,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 执行领取、续租、子项领取/恢复/结果以及导入完成由 Service 决定，Repository 在事务内检查当前 worker、execution、attempt、Job/计划/子项版本和未过期的租约及 deadline。每次领取生成独立且经过错误检查的 worker 身份；自动接管返回原先持久化的执行截止时刻，续租不能越过它。心跳失败或上下文结束时停止续租，执行返回前等待心跳退出。队列和维护由独立循环运行，扫描或复制不能阻塞过期恢复。启动幂等；关闭时取消队列、维护与当前执行的上下文，并等待操作和心跳全部退出。运行中的取消通过提交后通知与每秒持久状态检查传递到执行上下文；确认取消后使用独立的 30 秒清理上下文，并在收口事务重新核对当前归属。失去归属或到期只能停止执行，不能据此冒充取消权限。完成导入前必须确认没有 PENDING/COPYING/VALIDATING 子项，结果计数、终态释放与事件整体提交；重复结果不追加事件，旧 worker 不得领取子项、写审核元数据或关闭当前执行。
 
-过期执行恢复由 来源 Service 决定取消、超时、重试耗尽或自动重排队，Repository 按每个候选事务核对 Job/计划版本、execution、attempt、worker 和原租约。每轮最多读取 100 个候选，并在每个事务最多补齐 100 个已绑定的普通审核；剩余交接留在过期执行中由后续维护继续。恢复先原子补齐审核元数据与来源状态，再关闭未交接条目、重算计数并登记事件和终态释放。取消优先于超时；超时原因必须一致传递给未完成条目。自动恢复保留原始输入、execution、attempt、开始时刻和 deadline，不覆盖已经交接的结果。重排队后耗尽原始时限或次数的 Job 直接按原预算收口，不能再次领取并重置预算。维护在运行期间持续执行，失败保留原因并记录诊断。
+过期执行恢复由 来源 Service 决定取消、超时、重试耗尽或自动重排队，Repository 按每个候选事务核对 Job/计划版本、execution、attempt、worker 和原租约。每轮最多读取 100 个候选，并在每个事务最多补齐 100 个已绑定的普通审核；剩余交接留在过期执行中由后续维护继续。恢复先原子补齐审核元数据与来源状态，再关闭未交接条目、重算计数并登记事件和终态释放。取消优先于超时；超时原因必须一致传递给未完成条目。自动恢复保留原始输入、execution、attempt、开始时刻和 deadline，不覆盖已经交接的结果。重排队后耗尽原始时限或次数的 Job 直接按原预算收口，不能再次领取并重置预算。维护在运行期间持续执行，失败保留原因并记录诊断。 接收执行因超时或 attempt 耗尽而失败时，未完成条目标记为可人工重试的执行故障，保留已复制素材及工作关联；预算耗尽后不自动领取，人工重试创建新的 execution 并重置预算。取消仍优先收口且不可重试。
 
 未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
 
@@ -602,3 +604,5 @@ Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确�
 Parent Attachment 的任务去重身份包含本次 `uploadFileId`、Item、当前来源快照、依赖 machine 和 DAT 身份。同一字节的新上传是独立提交，先前 CANCELLED/REJECTED 任务不能占据它的去重键；同一 HTTP 幂等键仍重放原结果，陈旧审核版本继续被拒绝。取消和恢复仍由 execution/worker/lease fencing 控制；归档索引随已接纳内容保存。审核始终重算当前内容/依赖事实，不创建不可变 validation 实体或重新建立审核对底层编排的反向依赖。
 
 BIOS 扫描由每次执行自己的监控循环每秒读取一次持久取消/归属状态、每 15 秒续租。遍历非候选文件、哈希读取只检查本地 context，不为每个文件写心跳；逐项进度每秒最多写一次，阶段切换和完成立即持久化。失去租约、执行号/worker 变化或关闭服务都会停止本地工作，最终写入仍在事务内检查 fencing。验收见 `ACC-BIOS-006`。
+
+内容准备的确定性拒绝通过 `ContentRejectedError` 携带稳定 code、来源相对路径和可空 limit（metric、actual、maximum）跨过库导入服务边界；来源导入不重新解析内容，也不把拒绝覆盖为通用 Pegasus 格式错误。普通上传的 `fileOutcomes.rejection` 与来源的 `failureDetails.contentRejection` 使用同一事实结构。多盘分别返回 `MULTI_DISC_COUNT_EXCEEDED`、`MULTI_DISC_TOTAL_BYTES_EXCEEDED`、`MULTI_DISC_PLAYLIST_BYTES_EXCEEDED` 与 `MULTI_DISC_REFERENCE_BYTES_EXCEEDED`；总大小是全部已找到的引用 CHD 之和，原有 8 盘和 1 GiB 上限保持不变。缺失光盘继续产生可审核的 `MULTI_DISC_FILE_MISSING` 证据。确定性内容拒绝不进入自动或人工任务重试；修正来源后重新导入。

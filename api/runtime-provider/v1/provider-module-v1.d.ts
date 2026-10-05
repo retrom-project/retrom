@@ -171,6 +171,16 @@ export type RuntimeStartupTaskV1 = {
   summary?: boolean;
 };
 
+/** Failure survives core teardown. Diagnostics are bounded, plain text and sanitized by the Provider. */
+export type RuntimeFailureV1 = {
+  code: string;
+  phase: "STARTUP" | "PLAYING";
+  category: "CONTENT" | "NETWORK" | "STORAGE" | "SECURITY" | "CORE" | "CONFIGURATION";
+  retryable: boolean;
+  /** At most 8 entries, each at most 500 characters; no credentials, URLs or host paths. */
+  diagnostics: readonly {source: "CORE" | "RUNTIME"; message: string}[];
+};
+
 export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
@@ -179,7 +189,7 @@ export type RuntimeEventV1 =
   | { type: "DISC_CHANGED"; state: RuntimeDiscStateV1 }
   /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
   | { type: "EXIT_REQUESTED"; finalSnapshot?: RuntimeFinalSnapshotV1 }
-  | { type: "FATAL_ERROR"; code: string }
+  | { type: "FATAL_ERROR"; failure: RuntimeFailureV1 }
   | { type: "DIAGNOSTIC"; code: string; message: string };
 
 export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;
@@ -200,6 +210,10 @@ export interface PlayerRuntimeV1 {
   switchDisc(index: number): Promise<RuntimeDiscStateV1>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
+  /** Session capabilities. Envelope capabilities remain the exact Target declaration.
+   * discSwitch may narrow to false when this session has no MULTI_DISC resource.
+   * All other fields must match the Target; sessions cannot grant undeclared capabilities.
+   */
   getCapabilities(): RuntimeCapabilitiesV1;
   /** Declares which Host shortcuts may intercept the focused game's keyboard input. */
   getInputCapabilities(): RuntimeInputCapabilitiesV1;
@@ -207,7 +221,7 @@ export interface PlayerRuntimeV1 {
   getCanvas(): HTMLCanvasElement | null;
   getGamepadCursor?(): RuntimeGamepadCursorV1 | null;
   getFrameCount(): number | null;
-  /** Absent on older Providers. Observation only; never pauses or resumes the game. */
+  /** Optional adapter observation capability; never pauses or resumes the game. */
   startInputDiagnostics?(): RuntimeInputDiagnosticsV1;
   /** Absent when the current runtime does not expose editable game values. */
   getGameEditor?(): RuntimeGameEditorV1 | null;

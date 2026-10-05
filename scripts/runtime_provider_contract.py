@@ -35,7 +35,7 @@ _CAPABILITY_KEYS = {
     "volume", "discSwitch", "nativeSettings", "inputFilter",
     "videoModes", "requiresThreads", "frameMode",
 }
-_INPUT_KEYS = {"role", "kind", "cardinality", "optional"}
+_INPUT_KEYS = {"role", "kind", "cardinality", "optional", "maxFileBytes"}
 _CHECKPOINT_KEYS = {"writeFormat", "readFormats", "maxBytes"}
 _FRAME_MODES = {
     "NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE",
@@ -537,7 +537,26 @@ def _pretty_json(value: object) -> bytes:
 
 def _validate_target(target: Mapping[str, object], index: int) -> str:
     label = f"manifest.targets[{index}]"
-    _exact_keys(target, _TARGET_KEYS, label)
+    _exact_keys(target, _TARGET_KEYS | ({"contentRequirements", "arcadeDAT"} & set(target)), label)
+    if "contentRequirements" in target:
+        rule = _record(target["contentRequirements"], f"{label}.contentRequirements")
+        if rule.get("kind") == "DECRYPTED_NCSD_NCCH":
+            _exact_keys(rule, {"kind"}, label)
+        elif rule.get("kind") == "FLYCAST_CARTRIDGE":
+            _exact_keys(rule, {"kind", "platform", "catalog", "core"}, label)
+            if rule["platform"] not in ("naomi", "naomi2", "atomiswave"):
+                _fail(f"{label}.contentRequirements platform unsupported")
+            for key in ("catalog", "core"):
+                _validate_requirement_asset(rule[key], target, label)
+        else:
+            _fail(f"{label}.contentRequirements kind unsupported")
+    if "arcadeDAT" in target:
+        dat = _record(target["arcadeDAT"], label)
+        _exact_keys(dat, {"format", "asset", "core", "provenance"}, label)
+        if dat["format"] != "ARCADE_XML":
+            _fail(f"{label}.arcadeDAT format unsupported")
+        for key in ("asset", "core", "provenance"):
+            _validate_requirement_asset(dat[key], target, label)
     target_id = _identity(target["id"], f"{label}.id")
     _bounded_text(target["displayName"], f"{label}.displayName", 1, 120)
     _validate_target_options_schema(target["targetOptionsSchema"], f"{label}.targetOptionsSchema", 0, root=True)
@@ -676,6 +695,8 @@ def _validate_inputs(inputs: Sequence[object], target_label: str) -> None:
             _fail(f"{label}.kind is unsupported")
         if input_item["cardinality"] not in {"ONE", "MANY"}:
             _fail(f"{label}.cardinality is unsupported")
+        if input_item["maxFileBytes"] is not None:
+            _positive_integer(input_item["maxFileBytes"], f"{label}.maxFileBytes")
         if not isinstance(input_item["optional"], bool):
             _fail(f"{label}.optional must be a boolean")
 
@@ -808,3 +829,11 @@ def _sorted_unique(values: Sequence[str], label: str) -> None:
 
 def _fail(message: str) -> NoReturn:
     raise ContractError(message)
+
+
+def _validate_requirement_asset(raw, target, label):
+    asset = _record(raw, label)
+    _exact_keys(asset, {"path", "sha256"}, label)
+    _safe_path(asset["path"], label)
+    if asset["path"] not in target["assetPaths"] or not isinstance(asset["sha256"], str) or re.fullmatch(r"[a-f0-9]{64}", asset["sha256"]) is None:
+        _fail(f"{label} content requirement asset invalid")

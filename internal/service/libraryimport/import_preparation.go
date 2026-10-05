@@ -61,6 +61,12 @@ func (service *ImportPreparation) Prepare(ctx context.Context, raw ImportRequest
 	if err != nil {
 		return PreparedImport{}, fmt.Errorf("prepare import artifacts: %w", err)
 	}
+	if err := applyPreparedInputLimits(&plan); err != nil {
+		return PreparedImport{}, err
+	}
+	if err := service.applyInputRequirements(ctx, &plan); err != nil {
+		return PreparedImport{}, err
+	}
 	if err := service.prepareOwnedFiles(ctx, &plan); err != nil {
 		return PreparedImport{}, err
 	}

@@ -5,15 +5,18 @@ import (
 	"encoding/json"
 	"io"
 	"slices"
+
+	"retrom/internal/content/diagnostic"
 )
 
 const ContentKind = "SCUMMVM_PROJECT"
 
 type Snapshot struct {
-	SchemaVersion       int    `json:"schemaVersion"`
-	Kind                string `json:"kind"`
-	Detection           Result `json:"detection"`
-	SelectedCandidateID string `json:"selectedCandidateId"`
+	ContentRejection    *diagnostic.Rejection `json:"contentRejection,omitempty"`
+	SchemaVersion       int                   `json:"schemaVersion"`
+	Kind                string                `json:"kind"`
+	Detection           Result                `json:"detection"`
+	SelectedCandidateID string                `json:"selectedCandidateId"`
 }
 
 func NewSnapshot(result Result) (Snapshot, error) {

@@ -97,7 +97,7 @@ describe("BIOSManager", () => {
     await waitFor(() => expect(screen.queryByText("gba.bin")).not.toBeInTheDocument());
     expect(within(core).getAllByRole("option")).toHaveLength(3);
     expect(core).toHaveValue("pcsx_rearmed");
-    expect(within(screen.getByRole("combobox", { name: "文件状态" })).getAllByRole("option")).toHaveLength(6);
+    expect(within(screen.getByRole("combobox", { name: "文件状态" })).getAllByRole("option")).toHaveLength(7);
     expect(within(screen.getByRole("combobox", { name: "依赖筛选" })).getAllByRole("option")).toHaveLength(4);
   });
 

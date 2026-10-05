@@ -1,6 +1,8 @@
 "use client";
 
+import {contentRequirementReasons} from "@/lib/content-requirements";
 import { SourceScanDiagnostics } from "./source-scan-diagnostics";
+import {ContentRejectionEvidence} from "@/components/content-rejection";
 
 import Link from "next/link";
 import { BrowserTime } from "@/components/browser-time";
@@ -36,9 +38,23 @@ export type DetailFilters = { query: string; outcome: string; warning: string; c
 type RuntimeReason = { code: string; title: string; explanation: string; action: string };
 
 const runtimeReasonCatalog: Record<string, Omit<RuntimeReason, "code">> = {
+  ...contentRequirementReasons,
+  CONTENT_FILE_BYTES_EXCEEDED: {title: "游戏内容超过核心大小上限", explanation: "文件大小超过当前游戏核心支持的上限。", action: "更换符合限制的内容或选择合适的核心；无需重试相同内容。"},
+  MULTI_DISC_COUNT_EXCEEDED: {title: "光盘数量超过上限", explanation: "播放列表的光盘数量超过当前目标允许的数量。", action: "按上限调整来源内容后重新导入；重试相同内容不会解除阻断。"},
+  MULTI_DISC_TOTAL_BYTES_EXCEEDED: {title: "光盘总大小超过上限", explanation: "已识别 M3U 和引用的 CHD，但光盘总大小超过当前目标允许的上限。", action: "换用符合上限的内容后重新导入；无需安装 BIOS，也无需重试相同内容。"},
+  MULTI_DISC_PLAYLIST_BYTES_EXCEEDED: {title: "播放列表大小超过上限", explanation: "M3U 文本超过 64 KiB。", action: "检查并修正播放列表后重新导入。"},
+  MULTI_DISC_REFERENCE_BYTES_EXCEEDED: {title: "光盘引用文件名过长", explanation: "播放列表中的引用超过 255 字节。", action: "同时修改 CHD 文件名及 M3U 中的对应引用后重新导入。"},
+  MULTI_DISC_PLAYLIST_INVALID: {title: "播放列表无效", explanation: "M3U 不是有效 UTF-8 文本，或没有组成有效的多盘列表。", action: "使用至少两张 CHD，移除重复引用并检查文件名后重新导入。"},
+  MULTI_DISC_REFERENCE_UNSAFE: {title: "播放列表引用不安全", explanation: "引用包含路径、URI 或不允许的字符。", action: "将 CHD 放在同一目录，让 M3U 只引用对应文件名。"},
+  MULTI_DISC_CHD_INVALID: {title: "光盘内容不是有效 CHD", explanation: "被引用文件为空或缺少 CHD 文件头。", action: "替换无效光盘后重新导入。"},
+  UNSUPPORTED_CONTENT_FORMAT: {title: "目标目录不支持此格式", explanation: "内容不符合所选目录的格式要求。", action: "选择与内容匹配的目标目录或更换文件格式。"},
+  ARCADE_MACHINE_NOT_FOUND: {title: "当前 DAT 没有此 ROM", explanation: "ZIP 文件名未匹配到目标核心 DAT 的 machine。", action: "核对目标目录及 ROMset 版本后重新导入。"},
+  SOURCE_GROUPING_INVALID: {title: "来源文件未组成一个游戏", explanation: "声明的主文件无法归入同一个内容组。", action: "核对来源元数据与目录结构后重新导入。"},
   LAUNCH_BIOS_MISSING: { title: "缺少运行所需的 BIOS / 基础 ROM", explanation: "当前核心要求的 BIOS 或 Arcade 基础归档没有安装，运行检查无法组成完整启动内容。", action: "前往 BIOS 管理安装缺失文件，再在本任务中重新运行检查。" },
   LAUNCH_PARENT_MISSING: { title: "缺少父 ROM", explanation: "这是 split ROM，当前 ZIP 只包含子机差异，仍需要 DAT 指定的 parent archive。", action: "把缺失的父 ROM ZIP 放入同一来源目录并声明到相同目标目录，然后重新运行检查。" },
   ARCADE_CONTENT_MISSING_ENTRY: { title: "ROM ZIP 缺少必要条目", explanation: "ZIP 文件名可以识别，但归档内部没有包含当前活动 DAT 要求的全部 ROM 条目。", action: "换用与当前核心和 DAT 版本匹配的完整 ROM ZIP。" },
+  ARCADE_CONTENT_MISMATCH: { title: "ROM 内容与当前 DAT 不匹配", explanation: "必要条目已存在，但大小或校验值不符。", action: "换用与当前核心和 DAT 版本匹配的 ROMset；无需重复补充已满足的 Parent 或 BIOS。" },
+  ARCADE_CONTENT_MISSING_AND_MISMATCHED: { title: "ROM ZIP 缺少条目且内容不匹配", explanation: "归档既有缺失条目，也有大小或校验值不符的条目。", action: "核对缺失和不匹配列表，换用与当前核心和 DAT 版本匹配的完整 ROMset。" },
   ARCADE_DEPENDENCY_MISMATCH: { title: "父 ROM 或 BIOS 内容不匹配", explanation: "依赖归档存在，但其中的文件名、大小或校验信息与当前活动 DAT 不一致。", action: "替换为与当前核心和 DAT 版本匹配的依赖归档。" },
   UNSUPPORTED_MERGED_ROMSET: { title: "当前不支持 merged ROM set", explanation: "该归档需要从 merged ROM set 中拆分依赖，当前自动准备流程无法安全构造可审核的运行内容。", action: "改用 split 或 non-merged ROM set 后重新导入。" },
   UNSUPPORTED_CHD: { title: "当前核心不支持此 CHD 组合", explanation: "DAT 识别到了 CHD 依赖，但当前核心的导入能力无法装配这种内容。", action: "换用该核心支持的 ROM set，或映射到支持此内容的游戏目录。" },
@@ -73,6 +89,12 @@ function runtimeReason(item: SourceItem): RuntimeReason | null {
 function FailureDetails({ item }: { item: SourceItem }) {
   const failure = item.failureDetails;
   if (!failure) {return null;}
+  if (failure.contentRejection) {
+    return <section className="source-internal-diagnostic" aria-label="内容检查证据"><h4>内容检查证据</h4>
+      {failure.contentRejection.relativePath ? <code>{failure.contentRejection.relativePath}</code> : null}
+      <ContentRejectionEvidence rejection={failure.contentRejection} />
+    </section>;
+  }
   return <section className="source-internal-diagnostic" aria-label="内部排查信息"><h4>内部排查信息</h4><dl>
     <div><dt>失败阶段</dt><dd><code>{failure.stage}</code></dd></div><div><dt>内部操作</dt><dd><code>{failure.operation}</code></dd></div>
     <div><dt>底层原因分类</dt><dd><code>{failure.causeCode}</code></dd></div><div><dt>来源条目 ID</dt><dd><code>{item.id}</code></dd></div>
@@ -80,7 +102,7 @@ function FailureDetails({ item }: { item: SourceItem }) {
     {failure.observedFileCount !== null ? <div><dt>组装文件数量</dt><dd><code>{failure.observedFileCount}{failure.allowedFileCount !== null ? ` / 上限 ${failure.allowedFileCount}` : ""}</code></dd></div> : null}
     {failure.libraryImportJobId ? <div><dt>内部 ImportJob</dt><dd><code>{failure.libraryImportJobId}</code></dd></div> : null}
     {failure.libraryImportItemId ? <div><dt>内部 ImportItem</dt><dd><code>{failure.libraryImportItemId}</code></dd></div> : null}
-  </dl><div className="source-technical-detail"><strong>技术详情</strong><code>{failure.technicalDetail || "服务端没有返回额外文本；请使用阶段、操作和原因码定位。"}</code></div></section>;
+  </dl><ContentRejectionEvidence rejection={failure.contentRejection} />{failure.technicalDetail ? <div className="source-technical-detail"><strong>技术详情</strong><code>{failure.technicalDetail}</code></div> : null}</section>;
 }
 
 function RuntimeEvidence({ item }: { item: SourceItem }) {

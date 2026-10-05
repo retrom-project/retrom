@@ -46,16 +46,6 @@ func SelectedStatus(candidate *EvaluatedCandidate) (string, string) {
 	return candidate.DAT.Status, candidate.DAT.Method
 }
 
-func StaticStatusMethod(value firmware.StaticEvaluation) (string, string) {
-	if value.ExactHash {
-		return "MATCHED", "EXACT_HASH"
-	}
-	if value.ExpectedSizeMatched {
-		return "HASH_WARNING", "EXPECTED_SIZE_FALLBACK"
-	}
-	return "HASH_WARNING", "LARGEST_SIZE_FALLBACK"
-}
-
 func DATStatusMethod(value firmware.DATEvaluation) (string, string) {
 	if value.MissingCount > 0 {
 		return "MISSING_ENTRY", "DAT_PARTIAL_FALLBACK"

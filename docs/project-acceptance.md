@@ -2926,6 +2926,7 @@ Parent 缓存回归：对通过 Current DAT 的 Split 样本，设置 `RETROM_MA
 ### ACC-RUN-019：不可变 ROM 跨核心复用
 
 - 执行：`make acceptance-case CASE=ACC-RUN-019`，使用当前验证的 Provider；本地开发候选通过标准 candidate 准备接口提供。
+- 截断响应后，持久失败面板须保留 `CONTENT_IO_LENGTH_MISMATCH`，返回链接的文案和目标均指向该游戏详情；运行 iframe 已销毁，不能继续创建存档。
 - 使用真实 persistent profile，先将 ROM 响应截断并确认启动失败；完整关闭浏览器后允许网络重试，必须重新取得有效字节。此后每阶段均关闭、重开浏览器，同一公开 NES ROM 在 FCEUmm、Nestopia 与 Nestopia 存档恢复中复用 SHA/长度相同的资源；禁用 HTTP 缓存，暖启动阻断 ROM 网络，要求零 ROM 请求且真实输入改变画面和 checkpoint。新字节的另一个公开 NES ROM 必须重新 GET。不同 Core/Provider revision 的稳定 URL 由 Service 回归覆盖，公共 Content I/O 的取消/失败/完整提交回归保证部分字节不能成为完整缓存。
 - 证据：各阶段 canvas PNG 与 `rom-cache` JSON，记录非秘密 Launch、Core、ROM 身份、SHA/长度与请求数；不得记录凭据、profile、ROM 正文或主机路径。共享 BIOS/parent 另运行 ACC-RUN-006/007，冷响应的 SHA/长度与 Envelope 一致；完整关闭、重开同一 profile 后，在另一个游戏中必须零请求复用两种依赖。
 

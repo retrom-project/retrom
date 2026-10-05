@@ -63,12 +63,18 @@ export function useSerializedPlayerBootstrap<Params, Resources>(
     const scheduled = schedulePlayerBootstrap(
       lifecycle, controller.signal, () => bootstrap(activeParams, resources, controller),
     );
-    const cancel = () => {controller.abort(); return scheduled.catch(() => undefined);};
+    let cleanupPromise: Promise<void> | undefined;
+    const dispose = () => cleanupPromise ??= cleanup(activeParams, resources, controller);
+    const settled = scheduled.catch(async (error: unknown) => {
+      handleError(error, controller, activeParams);
+      await dispose();
+    });
+    joinPlayerBootstrapCleanup(lifecycle, settled);
+    const cancel = () => {controller.abort(); return settled;};
     cancellation.current = cancel;
-    void scheduled.catch((error: unknown) => handleError(error, controller, activeParams));
     return () => {
       if (cancellation.current === cancel) {cancellation.current = null;}
-      joinPlayerBootstrapCleanup(lifecycle, cleanup(activeParams, resources, controller));
+      joinPlayerBootstrapCleanup(lifecycle, dispose());
     };
   }, [bootstrap, bootstrapKey, cleanup, createResources, handleError, lifecycle]);
   return useCallback(async () => {await cancellation.current?.();}, []);

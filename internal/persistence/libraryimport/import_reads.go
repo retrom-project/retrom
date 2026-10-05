@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -372,6 +373,7 @@ u.relative_path,
 u.size_bytes,
 f.disposition,
 f.reason_code,
+COALESCE(f.rejection_json,'null'),
 resolution.action,
 resolution.replacement_import_job_id,
 resolution.created_at_ms,
@@ -412,12 +414,14 @@ ORDER BY u.relative_path,u.id
 		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
 		var resolvedAtMS sql.NullInt64
 		var alreadyImported bool
+		var rejectionJSON string
 		if err := rows.Scan(
 			&outcome.UploadFileID,
 			&outcome.Name,
 			&outcome.SizeBytes,
 			&outcome.Disposition,
 			&reasonCode,
+			&rejectionJSON,
 			&resolutionAction,
 			&replacementImportJobID,
 			&resolvedAtMS,
@@ -426,6 +430,9 @@ ORDER BY u.relative_path,u.id
 			return nil, fmt.Errorf("scan import file outcome: %w", err)
 		}
 		outcome.ReasonCode = importReadString(reasonCode)
+		if err := json.Unmarshal([]byte(rejectionJSON), &outcome.Rejection); err != nil {
+			return nil, fmt.Errorf("decode import content rejection: %w", err)
+		}
 		if alreadyImported {
 			value := "ALREADY_IMPORTED"
 			outcome.Disposition = value

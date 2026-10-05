@@ -276,6 +276,9 @@ func validateOwnedImportPlan(plan PreparedImport, source *OwnedImportCreation) e
 			before.TargetDATVersionID != plan.DATVersionID) {
 		return ErrVersionConflict
 	}
+	if err := rejectedPrimaryContent(plan, source.Intent.PrimaryPaths); err != nil {
+		return err
+	}
 	groups := make([][]string, 0, len(plan.Groups))
 	for _, group := range plan.Groups {
 		paths := []string{}

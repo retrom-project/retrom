@@ -49,7 +49,7 @@ export function summarizeBIOS(items: BIOSRequirement[]) {
     total: items.length,
     blocking: items.filter(isBIOSBlocking).length,
     warnings: items.filter((item) => ["HASH_WARNING", "MISSING_ENTRY"].includes(item.status)).length,
-    ready: items.filter((item) => item.status === "MATCHED" || item.status === "SATISFIED_BY_CONTENT").length,
+    ready: items.filter((item) => item.status === "MATCHED" || item.status === "UNVERIFIED" || item.status === "SATISFIED_BY_CONTENT").length,
   };
 }
 export function filterBIOS(items: BIOSRequirement[], filters: BIOSFilters) {

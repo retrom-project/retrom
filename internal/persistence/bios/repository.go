@@ -121,7 +121,7 @@ SELECT count(*),
 COALESCE(sum(CASE WHEN requirement.requirement_mode<>'OPTIONAL' AND `+statusExpression+`
  IN ('MISSING','INVALID') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN `+statusExpression+` IN ('HASH_WARNING','MISSING_ENTRY') THEN 1 ELSE 0 END),0),
-COALESCE(sum(CASE WHEN `+statusExpression+`='MATCHED' THEN 1 ELSE 0 END),0),
+COALESCE(sum(CASE WHEN `+statusExpression+` IN ('MATCHED','UNVERIFIED') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN (requirement.requirement_mode<>'OPTIONAL' AND `+statusExpression+`
  IN ('MISSING','INVALID')) OR `+statusExpression+` IN ('HASH_WARNING','MISSING_ENTRY') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN requirement.requirement_mode='REQUIRED' THEN 1 ELSE 0 END),0),
@@ -170,7 +170,7 @@ func listItems(
 SELECT requirement.id,requirement.core_id,core.name,requirement.provider_id,requirement.target_id,
 requirement.logical_name,
 requirement.source_kind,requirement.file_kind,requirement.requirement_mode,
-requirement.condition_code,requirement.md5,requirement.enabled,
+requirement.condition_code,NULLIF(requirement.md5,''),requirement.enabled,
 requirement.version,` + statusExpression + `,installation.id,installation.md5,installation.sha1,installation.sha256,
 installation.validated_requirement_version,installation.created_at_ms
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id

@@ -3512,7 +3512,7 @@ export interface components {
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
             /** @enum {string} */
-            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_UNVERIFIED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** Format: int64 */
             candidateCount: number;
             /** @enum {string|null} */
@@ -3520,9 +3520,9 @@ export interface components {
             outcomeCode: string | null;
             selectedRelativePath: string | null;
             /** @enum {string|null} */
-            previousInstallationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+            previousInstallationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
             /** @enum {string|null} */
-            newInstallationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+            newInstallationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
             replaced: boolean;
             selectionDetails?: {
                 [key: string]: unknown;
@@ -3734,7 +3734,20 @@ export interface components {
             code: string;
             field?: string;
         };
+        ContentRejection: {
+            code: string;
+            relativePath: string;
+            limit: {
+                /** @enum {string} */
+                metric: "TOTAL_BYTES" | "DISC_COUNT" | "PLAYLIST_BYTES" | "REFERENCE_BYTES";
+                /** Format: int64 */
+                actual: number;
+                /** Format: int64 */
+                maximum: number;
+            } | null;
+        };
         SourceItemFailureDetails: {
+            contentRejection: components["schemas"]["ContentRejection"] | null;
             /**
              * Format: int64
              * @enum {integer}
@@ -3771,7 +3784,7 @@ export interface components {
             requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
             conditionCode: string | null;
             /** @enum {string|null} */
-            installationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+            installationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
         };
         SourceRuntimeMissingDisc: {
             /** Format: int64 */
@@ -3824,7 +3837,7 @@ export interface components {
             /** Format: int64 */
             version: number;
             /** @enum {string} */
-            status: "MATCHED" | "MISSING" | "HASH_WARNING" | "MISSING_ENTRY" | "OPTIONAL_MISSING" | "INVALID";
+            status: "MATCHED" | "UNVERIFIED" | "MISSING" | "HASH_WARNING" | "MISSING_ENTRY" | "OPTIONAL_MISSING" | "INVALID";
             activeInstallation: components["schemas"]["BIOSInstallationSummary"] | null;
         };
         BIOSListResponseBody: {

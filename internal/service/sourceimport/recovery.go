@@ -23,6 +23,7 @@ type (
 		Before                                                  RecoverySnapshot
 		JobState, ImportState, ItemState, Code, ItemCode, Event string
 		NowMS                                                   int64
+		ManualRetry                                             bool
 	}
 	RecoveryReviewChange struct {
 		Execution RecoverySnapshot
@@ -172,6 +173,7 @@ func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
 	if change.Code != "" {
 		change.ItemCode = change.Code
 		change.JobState, change.ImportState, change.ItemState, change.Event = "FAILED", "FAILED", "COMMIT_FAILED", "FAILED"
+		change.ManualRetry = before.Kind == "IMPORT_RECEIVE"
 	}
 	return change, nil
 }

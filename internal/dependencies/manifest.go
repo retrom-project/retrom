@@ -24,35 +24,39 @@ type Manifest struct {
 	EmulatorJS    struct {
 		Version string `json:"version"`
 	} `json:"emulatorjs"`
-	Cores []struct {
-		CoreID     string `json:"core_id"`
-		CoreSource struct {
-			Commit            string `json:"commit"`
-			AssociationStatus string `json:"association_status"`
-		} `json:"core_source"`
-		DAT *struct {
-			LocalPath string `json:"local_path"`
-			SizeBytes int64  `json:"size_bytes"`
-			SHA256    string `json:"sha256"`
-		} `json:"dat"`
-		ParseStats struct {
-			MachineCount              int64 `json:"machine_count"`
-			ROMEntryCount             int64 `json:"rom_entry_count"`
-			DiskEntryCount            int64 `json:"disk_entry_count"`
-			BIOSSetCount              int64 `json:"bios_set_count"`
-			DefaultBIOSSetCount       int64 `json:"default_bios_set_count"`
-			ExplicitBIOSMachineCount  int64 `json:"explicit_bios_machine_count"`
-			BaseDependencyTargetCount int64 `json:"base_dependency_target_count"`
-			UnresolvedCloneofCount    int64 `json:"unresolved_cloneof_target_count"`
-			UnresolvedRomofCount      int64 `json:"unresolved_romof_target_count"`
-		} `json:"parse_stats"`
-		Override *struct {
-			BundleVersion string `json:"core_bundle_emulatorjs_version"`
-		} `json:"tested_runtime_override"`
-	} `json:"cores"`
+	Cores []Core `json:"cores"`
+}
+
+type Core struct {
+	CoreID     string `json:"core_id"`
+	CoreSource struct {
+		Commit            string `json:"commit"`
+		AssociationStatus string `json:"association_status"`
+	} `json:"core_source"`
+	DAT        *DATArtifact `json:"dat"`
+	ParseStats struct {
+		MachineCount              int64 `json:"machine_count"`
+		ROMEntryCount             int64 `json:"rom_entry_count"`
+		DiskEntryCount            int64 `json:"disk_entry_count"`
+		BIOSSetCount              int64 `json:"bios_set_count"`
+		DefaultBIOSSetCount       int64 `json:"default_bios_set_count"`
+		ExplicitBIOSMachineCount  int64 `json:"explicit_bios_machine_count"`
+		BaseDependencyTargetCount int64 `json:"base_dependency_target_count"`
+		UnresolvedCloneofCount    int64 `json:"unresolved_cloneof_target_count"`
+		UnresolvedRomofCount      int64 `json:"unresolved_romof_target_count"`
+	} `json:"parse_stats"`
+	Override *struct {
+		BundleVersion string `json:"core_bundle_emulatorjs_version"`
+	} `json:"tested_runtime_override"`
+}
+type DATArtifact struct {
+	LocalPath string `json:"local_path"`
+	SizeBytes int64  `json:"size_bytes"`
+	SHA256    string `json:"sha256"`
 }
 
 type Version struct {
+	Paired         bool
 	Manifest       Manifest
 	ManifestSHA256 string
 	DATRoot        string
@@ -81,7 +85,7 @@ func LoadProduction(root string, versions []string, active string) (*Set, error)
 }
 
 func loadMAMEVersion(root string) (*Version, error) {
-	datRoot := filepath.Join(root, "dat", "mame-current", "v0.58.7")
+	datRoot := filepath.Join(root, "dat", "mame-current", "v0.59.0")
 	contents, err := os.ReadFile(filepath.Join(datRoot, "manifest.json"))
 	if err != nil {
 		return nil, fmt.Errorf("%w: MAME DAT manifest unavailable", ErrInvalid)
@@ -130,7 +134,7 @@ func parseMAMEManifest(contents []byte) (Manifest, string, error) {
 
 func validMAMEProvider(provider mameReleaseIdentity) bool {
 	return provider.Repository == "https://github.com/retrom-project/retrom-runtime" &&
-		provider.Tag == "v0.58.7" && provider.Commit == "6e0ab6b129b8fd76282c56c013fb4daf3faa31a9" &&
+		provider.Tag == "v0.59.0" && provider.Commit == "3d42edb8994e2f6e39338ddfd226164dd2d953a5" &&
 		provider.ProviderID == "retrom-runtime" && provider.TargetID == "mame-arcade"
 }
 

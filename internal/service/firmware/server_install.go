@@ -176,7 +176,6 @@ func persistServerInstallation(ctx context.Context, scope WriteScope, request Se
 	if err := SupersedeInScope(ctx, scope.Retirements, request.RequirementID, now); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("retire server BIOS: %w", err)
 	}
-	request.Details["schemaVersion"] = 1
 	request.Details["matchMethod"] = request.MatchMethod
 	encoded, err := json.Marshal(request.Details)
 	if err != nil {
@@ -196,6 +195,8 @@ func persistServerInstallation(ctx context.Context, scope WriteScope, request Se
 	switch request.Status {
 	case "MATCHED":
 		result.Outcome = "IMPORTED_MATCHED"
+	case "UNVERIFIED":
+		result.Outcome = "IMPORTED_UNVERIFIED"
 	case "HASH_WARNING":
 		result.Outcome = "IMPORTED_WARNING"
 	default:

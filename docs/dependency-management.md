@@ -222,19 +222,31 @@ Launch 与 Preview 必须用 `bundleSha256` 追溯到精确 Provider 字节；�
 ### Flycast 核心与开发候选
 
 Flycast 的 workspace 依赖由 Retrom catalog 指向 `retrom-project/flycast-wasm` 的
-`retrom/1.0` 维护分支。正式输入固定 `retrom-core-1.0-r2` Release，其 commit、
-资产摘要、大小和 ABI 由 runtime 的 `src/providers/emulatorjs/source-catalog.ts` 声明。
+`retrom/1.0` 维护分支。核心 commit、资产摘要、大小和 ABI 由 runtime 的来源清单声明；
+当前分支的配套需求目录改造使用显式 development input，正式发布前必须切换到不可移动的 fork Release。
 PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 `candidate:build` 消费同一 PFB 的闭合 candidate descriptor。Provider 校验仓库、ABI、
-源码身份、成员集合和每个文件的大小/SHA-256，并将核心、report 和许可合入 EmulatorJS
+源码身份、完整成员集合和每个文件的大小/SHA-256，并将核心、ROM 需求目录、report 和许可合入 EmulatorJS
 4.2.3 的独立 Bundle。普通 release 构建拒绝未发布的 development input；候选构建不能
 被解释为已发布核心版本。升级 core 字节须重建完整候选 Provider 并提高 Provider 版本，
-不能用 loose watcher 覆盖已安装 Bundle 内的核心。
+本地 loose 核心覆盖必须通过同一闭合 descriptor 校验，且不得与基座中绑定的内容目录或 DAT 摘要错配。
 
 构建固定 nasomers v1.0 补丁、Flycast/RetroArch commit 和 Emscripten 镜像 digest。
 源码桥接替代预编译 stub，链接拒绝未解析符号并核验 WASM JIT 所需 HEAP 导出；
 核心归档与 Bundle 均携带对应许可。具体源码锁定值以 fork 的构建脚本及 runtime 的
 `src/providers/emulatorjs/source-catalog.ts` 为准，BIOS 和游戏不进入核心或 Provider 归档。
+
+### FBNeo 核心与 DAT 配套
+
+FBNeo 由 `retrom-project/FBNeo` 的维护分支构建，DAT 从同次构建的发货 Wasm 导出。
+Provider Target 的 `arcadeDAT` 显式绑定 DAT、核心和 provenance 资产的路径及 SHA-256；
+provenance 记录源码基线、Wasm、生成器与构建配置身份。安装和激活均核验配套关系，缺失或错配立即失败。
+删除按时间戳猜测核心来源的独立 FBNeo DAT，不能回退到旧配对。其他 Arcade Target 继续按各自声明的 DAT 来源处理。
+激活配套 DAT 使用现有依赖重算流程重新校验变体；导入/审核消费领域投影，不加载浏览器核心或解析 Provider 私有源码。
+
+Manifest V2 的 `contentRequirements` 为可空的闭合规则：`DECRYPTED_NCSD_NCCH` 声明解密容器要求；
+`FLYCAST_CARTRIDGE` 另绑定硬件和核心/需求目录资产。经过校验的目录原文随 Target 投影保存，摘要进入内容策略，
+上传、来源导入、审核发布和变体重检共用同一规则。旧 Manifest 不参与兼容读取；正式锁定仍只消费已发布 Provider。
 
 ### Play! PS2 核心
 

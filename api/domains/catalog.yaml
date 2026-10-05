@@ -1449,6 +1449,7 @@ components:
           type: string
           enum:
             - MATCHED
+            - UNVERIFIED
             - MISSING
             - HASH_WARNING
             - MISSING_ENTRY

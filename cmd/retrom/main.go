@@ -193,6 +193,13 @@ func bootstrapServerResources(
 	if err != nil {
 		return fmt.Errorf("verify dependencies: %w", err)
 	}
+	for _, paired := range result.runtimeProviders.PairedDATs {
+		if err := result.dependencies.UsePairedDAT(ctx,
+			paired.ProviderID, paired.TargetID, paired.Path, paired.SHA256, paired.SourceCommit,
+		); err != nil {
+			return fmt.Errorf("verify paired DAT: %w", err)
+		}
+	}
 	result.scummVMDetector, err = result.runtimeProviders.ScummVMDetector(
 		filepath.Join(configuration.DataDir, "runtime-tools", "scummvm"),
 	)

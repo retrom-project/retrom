@@ -105,5 +105,13 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate import runtime bindings: %w", err)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close import bindings: %w", err)
+	}
+	for index := range result {
+		if err := contentquery.LoadRequirements(ctx, records.executor, result[index].Policy.Requirements); err != nil {
+			return nil, fmt.Errorf("load target content requirements: %w", err)
+		}
+	}
 	return result, nil
 }

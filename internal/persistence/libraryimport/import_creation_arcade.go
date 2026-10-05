@@ -41,7 +41,7 @@ FROM bios_requirements q
 JOIN bios_installations i ON i.requirement_id=q.id
 AND i.is_active=1
 AND i.validated_requirement_version=q.version
-AND i.status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY')
+AND i.status IN ('MATCHED','UNVERIFIED','HASH_WARNING','MISSING_ENTRY')
 WHERE q.provider_id=? AND q.target_id=?
 AND q.source_kind='DAT_MACHINE'
 AND q.enabled=1

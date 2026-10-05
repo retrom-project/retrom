@@ -92,10 +92,11 @@ PostgreSQL 首版直接创建 `BIGINT` 毫秒列。本次切换不保留业务�
 - 每个物理连接设置 UTC、`application_name=retrom`、`lock_timeout=5s`。生产保持 PostgreSQL 默认持久化保证，不关闭 fsync、full_page_writes 或 synchronous_commit。
 - `database.DB.BeginTx` 默认使用 `SERIALIZABLE` 写事务；显式 `ReadOnly` 使用 `REPEATABLE READ` 快照。数据库允许不同事务并发，不再依赖进程级单写者。涉及授权、版本、租约和输入快照的最终检查与写入必须同事务；需要阻止同一记录变化时使用条件更新或行锁。
 - PostgreSQL 可能返回序列化失败 `40001` 或死锁 `40P01`。只有经过审查的纯数据库事务边界使用 `database.RetryTransaction`，最多八次、指数退避且受 context 约束。回调每次重读事实、覆盖返回结果，不累积外部状态；文件复制/发布、哈希、网络、Provider 解析和任务派发必须在可重试范围外。事务错误仍保留原始原因。
+- 并发审核预览请求命中同一用户与幂等键的唯一约束时，预览持久化边界允许在回滚后重新开启一次事务，沿既有幂等检查返回已提交的会话；其他唯一约束错误不得重试。
 - 依赖目录写入使用单独的数据库级 advisory transaction lock 与 `READ COMMITTED`，等待上限 60 秒且服从 context。目录发布者依次提交，等待后重读最新状态；普通游戏、账户和任务写入不获取该锁。大型 DAT 物化不参与全库 SSI 谓词冲突，版本、索引、活动选择和发布收据仍原子提交；测试 DAT 发布也必须取得同一目录锁。
 - 写连接池上限 16、独立只读池上限 8，各保留至多 4 个空闲连接。通用命令另用上限 16、空闲上限 4 的协调池持有 session advisory lock；它不占用 reader/writer 连接，不开启跨 handler 的事务。同身份的本地等待者不占用协调连接；取消后用有界清理释放锁，无法确认释放时丢弃物理连接。组合层显式注入 reader/writer，受保护列表与账户鉴权使用 reader，写事务的事实重验与收据不能跨池拆开。
 - 有效会话续期最多等待写事务 100ms；超时后重读当前已提交的权限和到期事实，不伪造续期。
-- 连接池与事务统计分别记录等待、BEGIN、SQL、行消费、COMMIT 和持有时间。慢调用 500ms、慢写事务 100ms 输出无 SQL/参数/凭据的结构化日志。驱动取消必须释放连接，故障注入连接必须透传驱动的连接有效性与重置语义。
+- 连接池与事务统计分别记录等待、BEGIN、SQL、行消费、COMMIT 和持有时间。慢调用 500ms、慢写事务 100ms 输出无 SQL/参数/凭据的结构化日志。驱动取消必须释放连接；自动回滚与提交竞争时，错误仍须保留 context 取消原因。故障注入连接必须透传驱动的连接有效性与重置语义。
 - 标志列使用 `BIGINT CHECK(value IN (0,1))`，适配器绑定 Go bool 为 0/1；SQL `EXISTS` 等布尔表达式直接扫描到 Go bool。二进制摘要和响应体使用 `BYTEA`。枚举使用 `TEXT` 加 `CHECK` 或字典表。
 - JSON 快照保持经过 `IS JSON` 校验的 `TEXT`，保留生成时的字节与摘要；查询使用原生 JSON/JSONB 操作，嵌套快照提取使用 `json` 保留文本表示。可查询关系仍规范化，不以 JSON 替代表和外键。
 - 参数由适配器将组合完成的匿名 `?` 编号为 PostgreSQL `$n`；表达式、目录查询、upsert、聚合均为 PostgreSQL SQL。字节序比较显式使用 `COLLATE "C"`；RPG 路径回退使用 ASCII `translate`，不扩大为 Unicode 模糊匹配。

@@ -60,7 +60,9 @@
         "daphne",
         "gearboy",
         "dosbox-pure",
-        "mame"
+        "mame",
+        "fbneo",
+        "azahar"
       ]
     },
     {
@@ -566,6 +568,24 @@
       "gitlink": "git@github.com:retrom-project/Gearboy.git",
       "defaultBranch": "retrom/g340ebe3c2588",
       "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "fbneo",
+      "path": "project/retrom-core/FBNeo",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/FBNeo.git",
+      "defaultBranch": "retrom/gd5f072e147cf",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "azahar",
+      "path": "project/retrom-core/azahar",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/azahar.git",
+      "defaultBranch": "retrom/g62cfcfb5e488",
+      "submodules": true,
       "dependsOn": []
     }
   ]

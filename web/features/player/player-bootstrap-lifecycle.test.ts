@@ -117,3 +117,25 @@ describe("player bootstrap lifecycle", () => {
     unmount();
   });
 });
+
+it("releases a mounted runtime when its post-mount configuration fails, before remount", async () => {
+  const actions: string[] = [];
+  let finishCleanup: (() => void) | undefined;
+  const resources = () => ({});
+  const bootstrap = vi.fn(async () => {actions.push("mounted"); throw new Error("setup failed");});
+  const cleanup = vi.fn(async () => {
+    actions.push("cleanup");
+    await new Promise<void>(resolve => {finishCleanup = resolve;});
+  });
+  const error = vi.fn(() => {actions.push("error");});
+  const {rerender, unmount} = renderHook(({key}) => useSerializedPlayerBootstrap(key, {}, resources, bootstrap, cleanup, error), {initialProps:{key:"first"}});
+  await waitFor(() => expect(cleanup).toHaveBeenCalledOnce());
+  expect(actions).toEqual(["mounted", "error", "cleanup"]);
+  rerender({key:"second"});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  expect(bootstrap).toHaveBeenCalledOnce();
+  await act(async () => {finishCleanup?.();});
+  await waitFor(() => expect(bootstrap).toHaveBeenCalledTimes(2));
+  unmount();
+  finishCleanup?.();
+});
