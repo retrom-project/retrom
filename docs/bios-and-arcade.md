@@ -21,6 +21,9 @@ Arcade 的 DAT 默认 BIOS 选择、ROM 匹配、Parent/BIOS 闭包、循环限�
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
 
+BIOS DAT 成员要求按名称、大小、CRC32、SHA1 组成集合；重复的同一声明只要求一个实际成员，同名但不同内容的要求不合并。上传安装、归档对比和服务器扫描共享这一比较入口。
+
+
 ## 2. 哈希规则
 
 本地文件按领域 owner 独立持有，以 UUID 文件标识分配存储，不按 SHA-256 共享或物理去重。SHA-256 用于内容身份、完整性和重复内容判断；外部规范的身份 hash 独立保存：

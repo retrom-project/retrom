@@ -26,6 +26,7 @@ func CompareArchiveEntries(
 	expected []ExpectedDATEntry,
 	actual []importing.ArchiveEntry,
 ) ([]ArchiveEntryComparison, []map[string]any, []map[string]any, []string) {
+	expected = uniqueDATRequirements(expected)
 	comparisons := make([]ArchiveEntryComparison, 0, len(expected)+len(actual))
 	missing := make([]map[string]any, 0)
 	mismatched := make([]map[string]any, 0)
@@ -68,6 +69,25 @@ func CompareArchiveEntries(
 		})
 	}
 	return comparisons, missing, mismatched, warnings
+}
+
+// A DAT can repeat a declaration for one physical BIOS member. Only complete,
+// equivalent requirements collapse; distinct names or hash constraints remain.
+func uniqueDATRequirements(entries []ExpectedDATEntry) []ExpectedDATEntry {
+	result := make([]ExpectedDATEntry, 0, len(entries))
+	seen := make(map[ExpectedDATEntry]struct{}, len(entries))
+	for _, entry := range entries {
+		key := entry
+		key.Name = strings.ToLower(key.Name)
+		key.CRC32 = strings.ToLower(key.CRC32)
+		key.SHA1 = strings.ToLower(key.SHA1)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, entry)
+	}
+	return result
 }
 
 func archiveComparison(

@@ -116,32 +116,21 @@ func EvaluateDAT(
 	actual []importing.ArchiveEntry,
 ) DATEvaluation {
 	result := DATEvaluation{Facts: facts, SafeArchive: true, ExactBasename: facts.Basename == logicalName}
-	used := make(map[int]struct{}, len(actual))
-	for _, wanted := range expected {
-		exact := findDATEntry(actual, used, func(entry importing.ArchiveEntry) bool {
-			return strings.EqualFold(entry.NormalizedPath, wanted.Name)
-		})
-		if exact >= 0 && datEntryMatches(wanted, actual[exact]) {
-			used[exact] = struct{}{}
+	comparisons, _, _, _ := CompareArchiveEntries(expected, actual)
+	for _, comparison := range comparisons {
+		switch comparison.Status {
+		case "MATCHED":
 			result.MatchedCount++
-			continue
-		}
-		alias := findDATEntry(actual, used, func(entry importing.ArchiveEntry) bool {
-			return datEntryMatches(wanted, entry)
-		})
-		if alias >= 0 {
-			used[alias] = struct{}{}
+		case "ALIASED":
 			result.AliasedCount++
-			continue
-		}
-		if exact >= 0 {
-			used[exact] = struct{}{}
+		case "MISMATCHED":
 			result.MismatchedCount++
-			continue
+		case "MISSING":
+			result.MissingCount++
+		case "EXTRA":
+			result.ExtraCount++
 		}
-		result.MissingCount++
 	}
-	result.ExtraCount = len(actual) - len(used)
 	result.Launchable = true
 	switch {
 	case result.MissingCount > 0:
