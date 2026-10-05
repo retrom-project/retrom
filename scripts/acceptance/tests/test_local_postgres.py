@@ -141,7 +141,13 @@ while True: time.sleep(0.1)
         lock = str(self.state / "dev-takeover.lock")
         for pid in children:
             for descriptor in Path(f"/proc/{pid}/fd").iterdir():
-                self.assertNotEqual(lock, os.readlink(descriptor), f"child {pid} inherited the takeover lock")
+                try:
+                    target = os.readlink(descriptor)
+                except FileNotFoundError:
+                    # The running child may close an unrelated file between
+                    # enumeration and readlink; a closed fd cannot retain a lock.
+                    continue
+                self.assertNotEqual(lock, target, f"child {pid} inherited the takeover lock")
 
     def test_database_failure_stops_application(self):
         process = self.start_dev()
