@@ -1,5 +1,5 @@
 import {describe, expect, it, vi} from "vitest";
-import type {RuntimeCheckpointAvailabilityV1, RuntimeEventV2} from "./runtime/contract";
+import type {RuntimeCheckpointAvailabilityV1, RuntimeEventV1} from "./runtime/contract";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import {GameSaveConflict} from "./game-save-upload-error";
 import {GameSaveSync} from "./game-save-sync";
@@ -10,10 +10,10 @@ vi.mock("./manual-save-screenshot", () => ({
 
 function fixture() {
   let availability: RuntimeCheckpointAvailabilityV1 = {available: false, reason: "NO_SAVE"};
-  const listeners = new Set<(event: RuntimeEventV2) => void>();
+  const listeners = new Set<(event: RuntimeEventV1) => void>();
   const runtime = {
     getCheckpointAvailability: () => availability,
-    subscribe: (fn: (event: RuntimeEventV2) => void) => {listeners.add(fn); return () => {listeners.delete(fn);};},
+    subscribe: (fn: (event: RuntimeEventV1) => void) => {listeners.add(fn); return () => {listeners.delete(fn);};},
     checkpoint: vi.fn(async () => ({bytes: Uint8Array.of(Number(availability.revision)), format: "native-v1", metadata: null})),
     screenshot: vi.fn(async () => new Blob(["image"], {type: "image/png"})),
     acknowledgeCheckpoint: vi.fn(async () => {availability = {available: false, reason: "UNCHANGED"};}),

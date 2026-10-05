@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import {saveReviewScreenshot} from "./review-preview-screenshot";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -10,7 +10,7 @@ describe("ordinary review screenshot", () => {
     return {
       getCapabilities: () => ({screenshot: supported}),
       screenshot: vi.fn(async () => png),
-    } as unknown as PlayerRuntimeV2;
+    } as unknown as PlayerRuntimeV1;
   }
   it("uses the launch-scoped authenticated endpoint and notifies only after success", async () => {
     const postMessage = vi.fn();

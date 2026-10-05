@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
-import type {PlayerRuntimeV2, RuntimeVideoModeV1} from "./runtime/contract";
+import type {PlayerRuntimeV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {
   applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode,
   videoRenderingModeOptions, writeVideoRenderingMode,
@@ -25,11 +25,11 @@ describe("Player video rendering modes", () => {
     unsubscribe();
   });
 
-  it("delegates supported modes to PlayerRuntimeV2", () => {
+  it("delegates supported modes to PlayerRuntimeV1", () => {
     const setVideoMode = vi.fn(async () => undefined);
     const runtime = {
       getCapabilities: () => ({videoModes: ["pixel", "smooth"] as RuntimeVideoModeV1[]}), setVideoMode,
-    } as unknown as PlayerRuntimeV2;
+    } as unknown as PlayerRuntimeV1;
     expect(applyVideoRenderingMode(runtime, "smooth")).toBe(true);
     expect(setVideoMode).toHaveBeenCalledWith("smooth");
     expect(applyVideoRenderingMode(runtime, "original")).toBe(false);

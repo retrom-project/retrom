@@ -1,11 +1,11 @@
 import {afterEach, describe, expect, test, vi} from "vitest";
-import type {PlayerRuntimeV2} from "./contract";
+import type {PlayerRuntimeV1} from "./contract";
 import {installRuntimeE2EDiagnostics} from "./e2e-diagnostics";
 
 describe("runtime E2E diagnostics", () => {
   afterEach(() => {delete window.__RETROM_E2E_RUNTIME_V1__;});
 
-  test("only projects observations from the standard PlayerRuntimeV2 contract", async () => {
+  test("only projects observations from the standard PlayerRuntimeV1 contract", async () => {
     const runtime = {
       getState: vi.fn(() => "RUNNING"),
       getFrameCount: vi.fn(() => 42),
@@ -14,7 +14,7 @@ describe("runtime E2E diagnostics", () => {
         bytes: Uint8Array.from([1, 2, 3]),
         metadata: {private: "not exposed"},
       })),
-    } as unknown as PlayerRuntimeV2;
+    } as unknown as PlayerRuntimeV1;
 
     const cleanup = installRuntimeE2EDiagnostics(runtime, "development");
     expect(window.__RETROM_E2E_RUNTIME_V1__?.getState()).toBe("RUNNING");
@@ -31,8 +31,8 @@ describe("runtime E2E diagnostics", () => {
   });
 
   test("is absent from production and cleanup cannot remove a newer runtime", () => {
-    const first = {} as PlayerRuntimeV2;
-    const second = {} as PlayerRuntimeV2;
+    const first = {} as PlayerRuntimeV1;
+    const second = {} as PlayerRuntimeV1;
     installRuntimeE2EDiagnostics(first, "production");
     expect(window.__RETROM_E2E_RUNTIME_V1__).toBeUndefined();
 

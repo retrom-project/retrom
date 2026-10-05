@@ -1,5 +1,5 @@
 import {shouldRevealPlayerControlsForKey} from "../player-controls-visibility";
-import type {PlayerRuntimeV2} from "./contract";
+import type {PlayerRuntimeV1} from "./contract";
 
 type RuntimeSurfaceControlOptions = {
   experience: "standard" | "immersive";
@@ -11,7 +11,7 @@ type RuntimeSurfaceControlOptions = {
 };
 
 export function installRuntimeSurfaceControls(
-  runtime: PlayerRuntimeV2,
+  runtime: PlayerRuntimeV1,
   options: RuntimeSurfaceControlOptions,
 ) {
   const frameDocument = runtime.getCanvas()?.ownerDocument;

@@ -45,7 +45,7 @@ func TestActivationPreservesVerifiedCatalogOutsidePublicManifest(t *testing.T) {
 		Providers: []runtimebundle.ActiveProvider{provider},
 	}, map[string]runtimebundle.Manifest{
 		"fixture": {
-			SchemaVersion: 2, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 2,
+			SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1,
 			ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
 		},
 	}, runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})

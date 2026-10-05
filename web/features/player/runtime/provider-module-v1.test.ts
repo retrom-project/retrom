@@ -1,14 +1,14 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeHostV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeHostV1} from "./contract";
 import {loadProviderRuntime} from "./provider-dispatcher";
 
-describe("Provider Module V2 dispatcher", () => {
+describe("Provider Module V1 dispatcher", () => {
   it("accepts unavailable session disc switching without weakening target identity", async () => {
     const envelope = fixtureEnvelope();
     envelope.runtime.capabilities.discSwitch = true;
     const runtime = fixtureRuntime();
-    const importer = async () => ({createRuntime: async () => runtime, providerApiVersion: 2, providerId: "fixture", providerVersion: "1.0.0"});
+    const importer = async () => ({createRuntime: async () => runtime, providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0"});
     await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope))).resolves.toBe(runtime);
     envelope.runtime.capabilities.discSwitch = false;
     runtime.getCapabilities = () => ({...envelope.runtime.capabilities, discSwitch: true});
@@ -20,7 +20,7 @@ describe("Provider Module V2 dispatcher", () => {
     const runtime = fixtureRuntime();
     Reflect.deleteProperty(runtime, "getInputCapabilities");
     await expect(loadProviderRuntime(envelope, fixtureHost(), async () => ({
-      createRuntime: async () => runtime, providerApiVersion: 2, providerId: "fixture", providerVersion: "1.0.0",
+      createRuntime: async () => runtime, providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
     }), verifiedEnvironment(envelope))).rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
   });
 
@@ -31,7 +31,7 @@ describe("Provider Module V2 dispatcher", () => {
     const runtime = fixtureRuntime();
     runtime.getCapabilities = () => envelope.runtime.capabilities;
     const importer = async () => ({createRuntime: async () => runtime,
-      providerApiVersion: 2, providerId: "fixture", providerVersion: "1.0.0"});
+      providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0"});
     await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope)))
       .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
     runtime.acknowledgeCheckpoint = vi.fn(async () => undefined);
@@ -43,7 +43,7 @@ describe("Provider Module V2 dispatcher", () => {
     const createRuntime = vi.fn(async () => runtime);
     const importer = vi.fn(async () => ({
       createRuntime,
-      providerApiVersion: 2,
+      providerApiVersion: 1,
       providerId: "fixture",
       providerVersion: "1.0.0",
     }));
@@ -73,7 +73,7 @@ describe("Provider Module V2 dispatcher", () => {
     try {
       await expect(loadProviderRuntime(envelope, fixtureHost(), async () => ({
         createRuntime: vi.fn(async () => runtime),
-        providerApiVersion: 2,
+        providerApiVersion: 1,
         providerId: "fixture",
         providerVersion: "1.0.0",
       }), {
@@ -92,7 +92,7 @@ describe("Provider Module V2 dispatcher", () => {
     const envelope = fixtureEnvelope();
     const base = {
       createRuntime: vi.fn(async () => fixtureRuntime()),
-      providerApiVersion: 2,
+      providerApiVersion: 1,
       providerId: "other",
       providerVersion: "1.0.0",
     };
@@ -116,8 +116,8 @@ describe("Provider Module V2 dispatcher", () => {
 
   it("rejects a runtime whose initial state or capabilities differ from the target contract", async () => {
     const envelope = fixtureEnvelope();
-    const providerModule = (runtime: PlayerRuntimeV2) => ({
-      createRuntime: vi.fn(async () => runtime), providerApiVersion: 2 as const, providerId: "fixture",
+    const providerModule = (runtime: PlayerRuntimeV1) => ({
+      createRuntime: vi.fn(async () => runtime), providerApiVersion: 1 as const, providerId: "fixture",
       providerVersion: "1.0.0",
     });
     const wrongState = fixtureRuntime();
@@ -160,7 +160,7 @@ describe("Provider Module V2 dispatcher", () => {
     Object.assign(envelope.targetOptions, {providerOwnedOption: true});
     const createRuntime = vi.fn(async () => {throw new Error("PROVIDER_LAUNCH_REQUEST_INVALID");});
     const importer = vi.fn(async () => ({
-      createRuntime, providerApiVersion: 2, providerId: "fixture",
+      createRuntime, providerApiVersion: 1, providerId: "fixture",
       providerVersion: "1.0.0",
     }));
     await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope)))
@@ -220,7 +220,7 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
       checkpoint: null,
       moduleSha256: digest,
       moduleUrl: `/runtime/providers/fixture/${bundle}/client.mjs`,
-      providerApiVersion: 2,
+      providerApiVersion: 1,
       providerId: "fixture",
       providerVersion: "1.0.0",
       runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`,
@@ -246,7 +246,7 @@ function fixtureHost(): RuntimeHostV1 {
   };
 }
 
-function fixtureRuntime(): PlayerRuntimeV2 {
+function fixtureRuntime(): PlayerRuntimeV1 {
   return {
     checkpoint: vi.fn(async () => {throw new Error("unused");}),
     closeNativeSettings: vi.fn(async () => {throw new Error("unused");}),

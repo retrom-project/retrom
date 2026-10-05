@@ -226,7 +226,7 @@ describe("ServerImportDetailManager", () => {
       state: "SELECTED" as const,
       rankOrdinal: 1,
       notSelectedReason: null,
-      evaluationDetails: { schemaVersion: 2, checks: {md5: "NOT_CHECKED", sha256: "MATCHED"} },
+      evaluationDetails: { schemaVersion: 1, checks: {md5: "NOT_CHECKED", sha256: "MATCHED"} },
     };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(filtered))

@@ -1,6 +1,6 @@
 import {readRuntimeFailure} from "./runtime-failure";
 import {runHostStartup} from "./startup-task";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeEventV2, RuntimeFinalSnapshotV1, RuntimeFailureV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeFailureV1} from "./contract";
 import {
   loadProviderRuntime, type DispatcherEnvironment, type ProviderImporter,
 } from "./provider-dispatcher";
@@ -8,7 +8,7 @@ import {createRuntimeHost, type RuntimeHostOptions} from "./runtime-host";
 
 export type RuntimeController = {
   exit(): Promise<void>;
-  runtime: PlayerRuntimeV2;
+  runtime: PlayerRuntimeV1;
   signal: AbortSignal;
 };
 
@@ -18,7 +18,7 @@ type ControllerOptions = {
   importer?: ProviderImporter;
   onExitRequested?: (snapshot?: RuntimeFinalSnapshotV1) => void;
   onFatalError?: (failure: RuntimeFailureV1) => void;
-  onRuntimeEvent?: (event: RuntimeEventV2) => void;
+  onRuntimeEvent?: (event: RuntimeEventV1) => void;
   signal?: AbortSignal;
 };
 
@@ -29,7 +29,7 @@ export async function mountProviderRuntime(
 ): Promise<RuntimeController> {
   const abort = new AbortController();
   const host = createRuntimeHost(envelope, abort.signal, options.host);
-  let runtime: PlayerRuntimeV2 | null = null;
+  let runtime: PlayerRuntimeV1 | null = null;
   let unsubscribe: (() => void) | null = null;
   let exitPromise: Promise<void> | null = null;
   let terminalEventHandled = false;

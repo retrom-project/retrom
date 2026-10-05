@@ -4,7 +4,7 @@ import type {Dispatch, SetStateAction} from "react";
 import type {EmulatorSettingsPanel} from "./emulator-settings";
 import type {GameSaveSync} from "./game-save-sync";
 import {multiDiscPlayerResultCode, type MultiDiscPlayerEvent} from "./multi-disc-telemetry";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeDiscStateV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import {captureRuntimeSave, setRuntimeVideoMode, setRuntimeVolume, switchRuntimeDisc, type RuntimeSavePayload} from "./runtime/runtime-actions";
 import {writeVideoRenderingMode, type VideoRenderingMode} from "./video-rendering";
 
@@ -15,7 +15,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type RuntimeActionParams = {
   userId: string | undefined;
   state: ShellState;
-  runtime: Mutable<PlayerRuntimeV2 | null>;
+  runtime: Mutable<PlayerRuntimeV1 | null>;
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   manualSaveAvailableRef: Mutable<boolean>;
   programSelectionRequiredRef: Mutable<boolean>;

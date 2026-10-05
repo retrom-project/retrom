@@ -80,7 +80,7 @@ ORDER BY provider.provider_id,target.target_id
 			providerIndex = len(active.Providers) - 1
 			providerIndexes[provider.ProviderID] = providerIndex
 			manifests[provider.ProviderID] = runtimebundle.Manifest{
-				SchemaVersion: 2, ProviderID: provider.ProviderID, ProviderVersion: provider.ProviderVersion,
+				SchemaVersion: 1, ProviderID: provider.ProviderID, ProviderVersion: provider.ProviderVersion,
 				ProviderAPI: provider.ProviderAPI, ClientModulePath: provider.ClientModulePath,
 			}
 		}

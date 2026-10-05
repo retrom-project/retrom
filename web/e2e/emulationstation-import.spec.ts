@@ -441,7 +441,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   expect(config).toMatchObject({
     schemaVersion: 1,
     session: {title, purpose: "PRODUCT", mode: "SINGLE"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: "mgba"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
   const gameURL = runtimeResourceURL(runtimeResource(config, "game"));
   expect(gameURL).toMatch(

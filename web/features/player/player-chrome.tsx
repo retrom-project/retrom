@@ -8,7 +8,7 @@ import {checkpointSyncText, gameSaveInstructions, nativeSaveInstructions, noSave
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
-import type {RuntimeDiscStateV1, PlayerRuntimeV2, RuntimeGameEditorV1} from "./runtime/contract";
+import type {RuntimeDiscStateV1, PlayerRuntimeV1, RuntimeGameEditorV1} from "./runtime/contract";
 import { playerActionPriority } from "./player-actions";
 import type { PlayerDebugMetrics } from "./player-debug";
 import { type VideoRenderingMode } from "./video-rendering";
@@ -32,7 +32,7 @@ export type PlayerDiscSet = {count: number; entries: Array<{index: number; label
 
 export type PlayerChromeProps = {
   gamepadCursor?: PlayerGamepadCursorControl | null;
-  inputRuntime?: RefObject<PlayerRuntimeV2 | null>;
+  inputRuntime?: RefObject<PlayerRuntimeV1 | null>;
   checkpointSemantics?: CheckpointSemantics;
   nativeSave?: NativeSaveCapabilities;
   nativeRetryAvailable?: boolean;
@@ -53,7 +53,7 @@ export type PlayerChromeProps = {
   onToggleDebug: () => void; onGameSurface: () => void; onExit: () => void;
 };
 
-function availableGameEditor(state: PlayerChromeProps["runtimeState"], runtime?: RefObject<PlayerRuntimeV2 | null>) {
+function availableGameEditor(state: PlayerChromeProps["runtimeState"], runtime?: RefObject<PlayerRuntimeV1 | null>) {
   return state === "running" ? runtime?.current?.getGameEditor?.() ?? null : null;
 }
 
@@ -349,7 +349,7 @@ function PlayerToolbar(props: ToolbarProps) {
   return <header className={`player-toolbar${props.controlsVisible || props.paused ? " is-visible" : ""}`} onClickCapture={(event) => {if (!(event.target instanceof Element && event.target.closest(".player-back,.player-disc-wrap,.player-debug-control"))) {props.onPause();}}} onBlurCapture={(event) => {if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) {props.onFocus(false); releaseIfClear();}}} onFocusCapture={() => {props.onFocus(true); props.onHold();}} onPointerEnter={() => {props.onHover(true); props.onHold();}} onPointerLeave={() => {props.onHover(false); releaseIfClear();}} onPointerMove={(event) => event.stopPropagation()}><button className="player-back button ghost icon-only" type="button" aria-label="返回并退出游戏" title="返回并退出游戏" onClick={props.onExit}><AppIcon name="arrow-left" /></button><div className="player-game-meta"><strong>{props.gameTitle}</strong><span>{[props.coreName, props.platformName].filter(Boolean).join(" · ")}</span></div><div className={`player-sync-status is-${props.syncTone}`} role="status" aria-live="polite"><i aria-hidden="true" /><span>{props.syncText}</span>{props.warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => props.onWarning(props.warningCopy)} /> : null}</div><ToolbarActions props={props} /></header>;
 }
 
-function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, coreName, discSet, discState, inputRuntime }: { inputRuntime?: RefObject<PlayerRuntimeV2 | null>; open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; coreName: string; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null }) {
+function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, coreName, discSet, discState, inputRuntime }: { inputRuntime?: RefObject<PlayerRuntimeV1 | null>; open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; coreName: string; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null }) {
   const panelRef = useRef<HTMLElement>(null);
   const returnFocus = useRef(false);
   useLayoutEffect(() => {

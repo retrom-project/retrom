@@ -4,12 +4,12 @@ import {useEffect, useRef} from "react";
 import {holdDraftLease} from "./game-save-draft-lease";
 import {gameSaveDraftStore} from "./game-save-draft-store";
 import {GameSaveSync, type GameSavePresentation} from "./game-save-sync";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 
 export function useGameSaveSync(
   enabled: boolean,
-  runtime: {current: PlayerRuntimeV2 | null},
+  runtime: {current: PlayerRuntimeV1 | null},
   upload: (payload: RuntimeSavePayload) => Promise<boolean>,
   present: (state: GameSavePresentation) => void,
   userId: string | undefined,

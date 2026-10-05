@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {PlayerRuntimeV2} from "./contract";
+import type {PlayerRuntimeV1} from "./contract";
 import {installRuntimeSurfaceControls} from "./surface-controls";
 
 describe("Provider-neutral runtime surface controls", () => {
@@ -65,7 +65,7 @@ describe("Provider-neutral runtime surface controls", () => {
 });
 
 function runtime(canvas: HTMLCanvasElement, hostShortcuts: ("PAUSE" | "MENU")[] = ["PAUSE", "MENU"]) {
-  return {getCanvas: () => canvas, getInputCapabilities: () => ({hostShortcuts})} as PlayerRuntimeV2;
+  return {getCanvas: () => canvas, getInputCapabilities: () => ({hostShortcuts})} as PlayerRuntimeV1;
 }
 
 

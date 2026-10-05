@@ -1,12 +1,12 @@
 import {GameSaveConflict} from "./game-save-upload-error";
 import {newUuid} from "@/lib/crypto";
-import type {PlayerRuntimeV2, RuntimeCheckpointRequestV1, RuntimeFinalSnapshotV1} from "./runtime/contract";
+import type {PlayerRuntimeV1, RuntimeCheckpointRequestV1, RuntimeFinalSnapshotV1} from "./runtime/contract";
 import type {NativeSaveCapabilities} from "./checkpoint-semantics";
 import {captureRuntimeSave, type RuntimeSavePayload} from "./runtime/runtime-actions";
 import type {GameSaveDraftStore} from "./game-save-draft-store";
 import {prepareManualSaveScreenshot} from "./manual-save-screenshot";
 
-type GameSaveRuntime = Pick<PlayerRuntimeV2,
+type GameSaveRuntime = Pick<PlayerRuntimeV1,
   "checkpoint" | "screenshot" | "acknowledgeCheckpoint" | "subscribe" | "getCheckpointAvailability">;
 export type GameSavePresentation = {
   available: boolean; dirty: boolean; retryAvailable: boolean; save?: NativeSaveCapabilities;

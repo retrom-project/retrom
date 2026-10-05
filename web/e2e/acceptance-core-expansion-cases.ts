@@ -112,7 +112,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   expect(initialConfiguration).toMatchObject({
     schemaVersion: 1,
     session: {purpose: "PRODUCT", mode: "SINGLE"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: expectation.targetId},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: expectation.targetId},
     restore: null,
   });
   const gameURLs = runtimeResourceURLs(runtimeResource(initialConfiguration, "game"));

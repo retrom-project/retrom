@@ -17,8 +17,8 @@ func TestParseManifestIsClosed(t *testing.T) {
 		t.Fatalf("manifest = %#v", manifest)
 	}
 
-	_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, `"schemaVersion":2`,
-		`"schemaVersion":2,"adapterId":"leaked"`, 1)))
+	_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, `"schemaVersion":1`,
+		`"schemaVersion":1,"adapterId":"leaked"`, 1)))
 	if !errors.Is(err, ErrManifestInvalid) {
 		t.Fatalf("unknown field error = %v", err)
 	}
@@ -123,10 +123,10 @@ func TestParseIntegrityClosesMediaAndOrdering(t *testing.T) {
 }
 
 const fixtureManifest = `{
-  "schemaVersion":2,
+  "schemaVersion":1,
   "providerId":"fixture",
   "providerVersion":"1.0.0",
-  "providerApiVersion":2,
+  "providerApiVersion":1,
   "clientModulePath":"client.mjs",
   "targets":[{
     "id":"core",

@@ -2,7 +2,7 @@ import {act, renderHook} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 import type {GameSaveSync} from "./game-save-sync";
 import {PlayProgressClock} from "./play-progress-clock";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
 import {useRuntimeSessionAuthority} from "./use-runtime-session-authority";
 
@@ -17,7 +17,7 @@ it("stops producers, uploads, core and progress once without creating an exit sa
   const save = vi.fn();
   const stop = vi.fn(async () => {order.push("stop saves");});
   const exit = vi.fn(async () => {order.push("exit core");});
-  const runtime = {current: {} as PlayerRuntimeV2 | null};
+  const runtime = {current: {} as PlayerRuntimeV1 | null};
   const controller = {current: {exit, runtime: runtime.current!, signal: new AbortController().signal} as RuntimeController | null};
   const progressClock = new PlayProgressClock();
   progressClock.start(performance.now(), true);

@@ -37,7 +37,7 @@
 - 同一映射配置中，一个手柄按钮只对应一个具体目标输入；禁止多个键或原生按钮与键盘同时发送，不能为补足确认/取消叠加 A+Enter、B+Escape。真实键盘保持独立；同一目标的按下/释放属于一个输入生命周期。宿主菜单 B 返回不受游戏内可选取消影响。
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
-- `runtime.capabilities` 必须与返回的 `PlayerRuntimeV2` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
+- `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
 - 所有通过 RuntimeHost 挂载的核心 iframe 共用 `1920×1080` CSS 运行视口上限；大屏幕由宿主等比放大到 Player 区域，窗口尺寸变化后重新计算，小于上限时保持原尺寸。Provider 可在此基础上声明更低的画布上限；4K 帧率证据必须同时记录 iframe 视口、核心画布尺寸和 GPU renderer。
 - checkpoint 只按 format/size/hash 处理，Host 不解析字节；恢复必须由 Target `readFormats` 明确允许。
 - content、BIOS、parent、多盘、pack、unique-origin 资源必须全部来自 envelope grant。

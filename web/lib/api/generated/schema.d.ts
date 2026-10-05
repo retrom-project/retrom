@@ -2874,7 +2874,7 @@ export interface components {
                 providerId: string;
                 providerVersion: string;
                 /** @enum {unknown} */
-                providerApiVersion: 2;
+                providerApiVersion: 1;
                 bundleSha256: string;
                 targetId: string;
                 capabilities: {

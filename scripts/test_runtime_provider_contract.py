@@ -25,10 +25,10 @@ from runtime_provider_contract import (  # noqa: E402
 
 def valid_manifest() -> dict[str, object]:
     return {
-        "schemaVersion": 2,
+        "schemaVersion": 1,
         "providerId": "retrom-runtime",
         "providerVersion": "0.12.0",
-        "providerApiVersion": 2,
+        "providerApiVersion": 1,
         "clientModulePath": "client.mjs",
         "targets": [
             {
@@ -86,7 +86,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                 "provider-integrity.schema.json",
                 "provider-lock.schema.json",
                 "provider-manifest.schema.json",
-                "provider-module-v2.d.ts",
+                "provider-module-v1.d.ts",
                 "runtime-resource.schema.json",
             ],
         )
@@ -201,7 +201,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
             validate_provider_manifest(candidate)
 
     def test_module_abi_covers_every_host_action_without_provider_private_types(self) -> None:
-        source = (ROOT / "api/runtime-provider/v1/provider-module-v2.d.ts").read_text(encoding="utf-8")
+        source = (ROOT / "api/runtime-provider/v1/provider-module-v1.d.ts").read_text(encoding="utf-8")
         for operation in (
             "setVideoMode(", "openNativeSettings(", "closeNativeSettings(", "getDiscState(",
             "switchDisc(", "setInputFilter(",
@@ -329,7 +329,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "provider-integrity.schema.json",
                     "provider-lock.schema.json",
                     "provider-manifest.schema.json",
-                    "provider-module-v2.d.ts",
+                    "provider-module-v1.d.ts",
                     "runtime-resource.schema.json",
                 ],
             )

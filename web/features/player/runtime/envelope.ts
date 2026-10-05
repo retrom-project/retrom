@@ -31,7 +31,7 @@ function launchRuntime(value: unknown): LaunchEnvelopeV1["runtime"] | null {
 }
 
 function validRuntimeIdentity(value: Record<string, unknown>) {
-  return value.providerApiVersion === 2 && validIdentity(value.providerId) && validIdentity(value.targetId) &&
+  return value.providerApiVersion === 1 && validIdentity(value.providerId) && validIdentity(value.targetId) &&
     typeof value.providerVersion === "string" && semver.test(value.providerVersion);
 }
 

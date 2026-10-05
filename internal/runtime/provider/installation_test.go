@@ -205,7 +205,7 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 	t.Helper()
 	module := []byte("export{}")
 	moduleDigest := sha256Hex(module)
-	providerJSON := []byte(`{"schemaVersion":2,"providerId":"fixture","providerVersion":"1.0.0","providerApiVersion":2,"clientModulePath":"client.mjs","targets":[{"id":"fixture","displayName":"Fixture","targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},"inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false,"maxFileBytes":null}],"capabilities":{"pause":false,"screenshot":false,"checkpoint":false,"standardGamepad":false,"frameCounter":false,"volume":false,"discSwitch":false,"nativeSettings":false,"inputFilter":false,"videoModes":[],"requiresThreads":false,"frameMode":"NONE"},"checkpoint":null,"assetPaths":["client.mjs"]}]}`)
+	providerJSON := []byte(`{"schemaVersion":1,"providerId":"fixture","providerVersion":"1.0.0","providerApiVersion":1,"clientModulePath":"client.mjs","targets":[{"id":"fixture","displayName":"Fixture","targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},"inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false,"maxFileBytes":null}],"capabilities":{"pause":false,"screenshot":false,"checkpoint":false,"standardGamepad":false,"frameCounter":false,"volume":false,"discSwitch":false,"nativeSettings":false,"inputFilter":false,"videoModes":[],"requiresThreads":false,"frameMode":"NONE"},"checkpoint":null,"assetPaths":["client.mjs"]}]}`)
 	providerDigest := sha256Hex(providerJSON)
 	integrityValue := map[string]any{
 		"schemaVersion": 1,
@@ -244,7 +244,7 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 	writeJSON(t, activePath, map[string]any{
 		"schemaVersion": 1, "source": "candidate", "sourceTreeSha256": strings.Repeat("e", 64), "release": nil,
 		"providers": []map[string]any{{
-			"providerId": "fixture", "providerVersion": "1.0.0", "providerApiVersion": 2,
+			"providerId": "fixture", "providerVersion": "1.0.0", "providerApiVersion": 1,
 			"bundleSha256": bundle, "bundleSizeBytes": 1, "manifestSha256": providerDigest,
 			"moduleSha256": moduleDigest, "clientModulePath": "client.mjs",
 			"installationPath": "fixture/" + bundle, "fileCount": 4,

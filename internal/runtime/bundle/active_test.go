@@ -19,7 +19,7 @@ func TestParseActiveDescriptorClosesCandidateIdentity(t *testing.T) {
 	for _, mutation := range []string{
 		strings.Replace(validCandidateActive, `"source":"candidate"`, `"source":"production"`, 1),
 		strings.Replace(validCandidateActive, `"schemaVersion":1`, `"schemaVersion":1,"extra":true`, 1),
-		strings.Replace(validCandidateActive, `"providerApiVersion":2`, `"providerApiVersion":1`, 1),
+		strings.Replace(validCandidateActive, `"providerApiVersion":1`, `"providerApiVersion":3`, 1),
 		strings.Replace(validCandidateActive, `"providerId":"fixture"`, `"providerId":"fixture","providerId":"other"`, 1),
 	} {
 		if _, err := ParseActiveDescriptor([]byte(mutation)); !errors.Is(err, ErrActiveInvalid) {
@@ -58,7 +58,7 @@ const validCandidateActive = `{
     "installationPath":"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "manifestSha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "moduleSha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "providerApiVersion":2,
+    "providerApiVersion":1,
     "providerId":"fixture",
     "providerVersion":"1.0.0",
     "targets":[{

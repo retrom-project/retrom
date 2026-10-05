@@ -127,7 +127,7 @@ data/runtime-target-bindings/ 产品 Core 到 Provider Target 的唯一绑定 ca
 web/app/                  Next.js 路由与页面壳
 web/proxy.ts              HTML 每请求 nonce/CSP 与跨源隔离响应头
 web/features/library/     游戏库和游戏详情
-web/features/player/runtime/ Launch Envelope parser、Provider dispatcher 与标准 PlayerRuntimeV2
+web/features/player/runtime/ Launch Envelope parser、Provider dispatcher 与标准 PlayerRuntimeV1
 web/features/player/      持久 Player Shell、预检与 Provider-neutral 控件
 web/features/saves/       存档列表及快速启动
 web/features/admin/       导入、审核、游戏、游戏目录、BIOS/DAT

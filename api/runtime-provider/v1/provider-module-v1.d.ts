@@ -1,4 +1,4 @@
-export type ProviderApiVersionV2 = 2;
+export type ProviderApiVersionV1 = 1;
 
 export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW";
 export type RuntimeModeV1 = "SINGLE";
@@ -181,7 +181,7 @@ export type RuntimeFailureV1 = {
   diagnostics: readonly {source: "CORE" | "RUNTIME"; message: string}[];
 };
 
-export type RuntimeEventV2 =
+export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
@@ -192,9 +192,9 @@ export type RuntimeEventV2 =
   | { type: "FATAL_ERROR"; failure: RuntimeFailureV1 }
   | { type: "DIAGNOSTIC"; code: string; message: string };
 
-export type RuntimeEventListenerV2 = (event: RuntimeEventV2) => void;
+export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;
 
-export interface PlayerRuntimeV2 {
+export interface PlayerRuntimeV1 {
   mount(target: HTMLElement): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
@@ -221,11 +221,11 @@ export interface PlayerRuntimeV2 {
   getCanvas(): HTMLCanvasElement | null;
   getGamepadCursor?(): RuntimeGamepadCursorV1 | null;
   getFrameCount(): number | null;
-  /** Absent on older Providers. Observation only; never pauses or resumes the game. */
+  /** Optional adapter observation capability; never pauses or resumes the game. */
   startInputDiagnostics?(): RuntimeInputDiagnosticsV1;
   /** Absent when the current runtime does not expose editable game values. */
   getGameEditor?(): RuntimeGameEditorV1 | null;
-  subscribe(listener: RuntimeEventListenerV2): () => void;
+  subscribe(listener: RuntimeEventListenerV1): () => void;
   exit(): Promise<void>;
 }
 
@@ -305,7 +305,7 @@ export type LaunchEnvelopeV1 = {
   runtime: {
     providerId: string;
     providerVersion: string;
-    providerApiVersion: 2;
+    providerApiVersion: 1;
     bundleSha256: string;
     targetId: string;
     capabilities: RuntimeCapabilitiesV1;
@@ -322,9 +322,9 @@ export type LaunchEnvelopeV1 = {
 
 export type ProviderLaunchRequestV1 = LaunchEnvelopeV1;
 
-export interface ProviderModuleV2 {
+export interface ProviderModuleV1 {
   providerId: string;
   providerVersion: string;
-  providerApiVersion: 2;
-  createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV2>;
+  providerApiVersion: 1;
+  createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV1>;
 }

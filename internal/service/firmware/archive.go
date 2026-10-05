@@ -53,7 +53,7 @@ func evaluateInstall(ctx context.Context, records RequirementRecords, snapshot i
 		SizeBytes: upload.Size, MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256,
 	})
 	return evaluation.Status, map[string]any{
-		"schemaVersion": 2, "logicalName": requirement.LogicalName, "sourceKind": requirement.SourceKind,
+		"schemaVersion": 1, "logicalName": requirement.LogicalName, "sourceKind": requirement.SourceKind,
 		"checks": evaluation.Checks,
 	}, nil
 }

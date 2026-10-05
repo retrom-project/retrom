@@ -189,7 +189,7 @@ func ParseManifest(contents []byte) (Manifest, error) {
 		return Manifest{}, ErrManifestInvalid
 	}
 	var wire manifestWire
-	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 2 ||
+	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 ||
 		!identityPattern.MatchString(wire.ProviderID) || !semverPattern.MatchString(wire.ProviderVersion) ||
 		wire.ProviderAPI < 1 || wire.ClientModulePath != "client.mjs" || len(wire.Targets) == 0 {
 		return Manifest{}, invalidManifest(err)

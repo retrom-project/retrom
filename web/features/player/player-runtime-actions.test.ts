@@ -1,7 +1,7 @@
 import {renderHook, cleanup} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 import {usePlayerRuntimeActions} from "./player-runtime-actions";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import {readVideoRenderingMode} from "./video-rendering";
 
 afterEach(cleanup);
@@ -14,7 +14,7 @@ function setup(nativeSettings = true) {
     setVideoMode: vi.fn(async () => undefined),
   };
   const params: Params = {
-    userId: "settings-test", state: "running", runtime: {current: runtime as unknown as PlayerRuntimeV2}, envelope: {current: null},
+    userId: "settings-test", state: "running", runtime: {current: runtime as unknown as PlayerRuntimeV1}, envelope: {current: null},
     manualSaveAvailableRef: {current: true}, programSelectionRequiredRef: {current: false}, uploadManualState: vi.fn(async () => true),
     discState: null, setDiscState: vi.fn(), reportPlayerEvent: vi.fn(), showToast: vi.fn(), setSyncText: vi.fn(), setSyncTone: vi.fn(),
     setEmulatorToolbarOpen: vi.fn(), holdControls: vi.fn(), releaseControls: vi.fn(), lastAudibleVolume: {current: 0.5},

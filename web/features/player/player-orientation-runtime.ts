@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { observeStableOrientation, portraitPlayerQuery, reducePlayerOrientation, requestFullscreenAndLandscape, type PlayerOrientationEffect, type PlayerOrientationState } from "./orientation";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
 type Mutable<T> = { current: T };
 
 type OrientationParams = {
-  runtime: Mutable<PlayerRuntimeV2 | null>; pausedRef: Mutable<boolean>; orientationStateRef: Mutable<PlayerOrientationState>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
+  runtime: Mutable<PlayerRuntimeV1 | null>; pausedRef: Mutable<boolean>; orientationStateRef: Mutable<PlayerOrientationState>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
   setPaused: Dispatch<SetStateAction<boolean>>; setOrientationHelp: Dispatch<SetStateAction<string>>;
   showControls: () => void; showToast: (message: string, timeout?: number) => void;
 };

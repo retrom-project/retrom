@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
 type Params = {
-  runtime: MutableRefObject<PlayerRuntimeV2 | null>;
+  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   keyboardPauseActionRef: MutableRefObject<() => void>;
   running: MutableRefObject<boolean>;
   chromePinned: MutableRefObject<boolean>;

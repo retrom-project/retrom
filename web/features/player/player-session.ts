@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import { uploadWithRestartRetry, type SaveUploadProgress } from "./upload-with-progress";
 import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
@@ -19,7 +19,7 @@ type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
   sessionSignal: AbortSignal;
-  launchId: string; runtime: Mutable<PlayerRuntimeV2 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
+  launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
   progressClock: Mutable<PlayProgressClock>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   progressTimer: Mutable<number | null>; saveUploadQueue: Mutable<Promise<void>>;
   orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;

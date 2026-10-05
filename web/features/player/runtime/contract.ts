@@ -1,1 +1,1 @@
-export type * from "./generated/provider-module-v2";
+export type * from "./generated/provider-module-v1";

@@ -167,7 +167,7 @@ async function launchSelectedGame(page: Page, targetId = "mgba") {
   expect(configuration).toMatchObject({
     schemaVersion: 1,
     session: {mode: "SINGLE", purpose: "PRODUCT"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId},
     restore: null,
   });
   await expect(page.locator(".player-toolbar")).toHaveCount(0);
@@ -563,7 +563,7 @@ test("ACC-IMM-008 ordinary Player and navigation remain outside immersive mode",
   const config = await (await configResponse).json() as RuntimeEnvelope;
   expect(config).toMatchObject({
     session: {purpose: "PRODUCT", mode: "SINGLE"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: "mgba"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
   await expect(page.locator(".player-toolbar")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "游戏菜单" })).toHaveCount(0);

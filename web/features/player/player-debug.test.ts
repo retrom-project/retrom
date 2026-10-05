@@ -1,9 +1,9 @@
 import {describe, expect, it} from "vitest";
 import { samplePlayerDebugMetrics } from "./player-debug";
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
-function runtime(frame: number | (() => number)): PlayerRuntimeV2 {
-  return {getFrameCount: typeof frame === "function" ? frame : () => frame} as PlayerRuntimeV2;
+function runtime(frame: number | (() => number)): PlayerRuntimeV1 {
+  return {getFrameCount: typeof frame === "function" ? frame : () => frame} as PlayerRuntimeV1;
 }
 
 describe("samplePlayerDebugMetrics", () => {

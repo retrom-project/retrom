@@ -37,7 +37,7 @@ import {useGamepadCursor} from "./use-gamepad-cursor";
 import {usePlayerKeyboardPause, usePauseForToolbar} from "./use-player-keyboard-pause";
 import type {ContentLoadingCapability} from "./content-loading";
 import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeDiscStateV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
 import {captureRuntimeSave} from "./runtime/runtime-actions";
 import {canResumeFromGameSurface} from "./player-shell-model";
@@ -64,7 +64,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
   const orientationButtonRef = useRef<HTMLButtonElement>(null);
-  const runtime = useRef<PlayerRuntimeV2 | null>(null);
+  const runtime = useRef<PlayerRuntimeV1 | null>(null);
   const runtimeController = useRef<RuntimeController | null>(null);
   const envelope = useRef<LaunchEnvelopeV1 | null>(null);
   const [state, setState] = useState<ShellState>("loading");
@@ -379,7 +379,7 @@ function OrientationGate({state, gameTitle, help, buttonRef, onRetry}: {
 }
 
 function usePlayerVideoMode(
-  runtimeRef: RefObject<PlayerRuntimeV2 | null>, currentModeRef: RefObject<VideoRenderingMode>, mode: VideoRenderingMode,
+  runtimeRef: RefObject<PlayerRuntimeV1 | null>, currentModeRef: RefObject<VideoRenderingMode>, mode: VideoRenderingMode,
 ) {
   useEffect(() => {
     currentModeRef.current = mode;

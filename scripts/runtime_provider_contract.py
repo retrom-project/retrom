@@ -53,7 +53,7 @@ _AUTHORITY_FILES = (
     "provider-integrity.schema.json",
     "provider-lock.schema.json",
     "provider-manifest.schema.json",
-    "provider-module-v2.d.ts",
+    "provider-module-v1.d.ts",
     "runtime-resource.schema.json",
     "fixtures/invalid/checkpoint-missing-read-formats.json",
     "fixtures/invalid/duplicate-field.json",
@@ -69,13 +69,13 @@ _AUTHORITY_FILES = (
 )
 _AUTHORITY_REPOSITORY = "https://github.com/retrom-project/retrom"
 _AUTHORITY_PATH = "api/runtime-provider/v1"
-_GENERATED_TYPE = "provider-module-v2.d.ts"
+_GENERATED_TYPE = "provider-module-v1.d.ts"
 
 
 def validate_provider_manifest(value: object) -> None:
     manifest = _record(value, "manifest")
     _exact_keys(manifest, _MANIFEST_KEYS, "manifest")
-    _equal(manifest["schemaVersion"], 2, "manifest.schemaVersion")
+    _equal(manifest["schemaVersion"], 1, "manifest.schemaVersion")
     _identity(manifest["providerId"], "manifest.providerId")
     _semver(manifest["providerVersion"], "manifest.providerVersion")
     _positive_integer(manifest["providerApiVersion"], "manifest.providerApiVersion")
@@ -172,8 +172,8 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
         "bundleSha256", "capabilities", "checkpoint", "moduleSha256", "moduleUrl",
         "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetId",
     }, "runtime")
-    if runtime["providerApiVersion"] != 2:
-        _fail("runtime.providerApiVersion must be 2")
+    if runtime["providerApiVersion"] != 1:
+        _fail("runtime.providerApiVersion must be 1")
     for key in ("providerId", "targetId"):
         if not isinstance(runtime[key], str) or not _IDENTITY.fullmatch(runtime[key]):
             _fail(f"runtime.{key} is invalid")
@@ -498,8 +498,8 @@ def _contract_digest(authority_root: Path) -> str:
 def _generated_type_paths(runtime_root: Path) -> tuple[Path, Path]:
     repository_root = Path(__file__).resolve().parents[1]
     return (
-        repository_root / "web/features/player/runtime/generated/provider-module-v2.ts",
-        runtime_root / "src/provider/generated/provider-module-v2.ts",
+        repository_root / "web/features/player/runtime/generated/provider-module-v1.ts",
+        runtime_root / "src/provider/generated/provider-module-v1.ts",
     )
 
 

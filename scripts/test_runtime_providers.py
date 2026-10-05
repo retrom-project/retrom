@@ -238,7 +238,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=2
         "providerApiVersion": provider_api,
         "providerId": provider_id,
         "providerVersion": "1.0.0",
-        "schemaVersion": 2,
+        "schemaVersion": 1,
         "targets": [target],
     })
     files = {
@@ -324,7 +324,7 @@ def legacy_active_fixture(root: Path):
             "installationPath": f'fixture/{lock["bundleSha256"]}',
             "manifestSha256": lock["manifestSha256"],
             "moduleSha256": entries["client.mjs"]["sha256"],
-            "providerApiVersion": 2,
+            "providerApiVersion": 1,
             "providerId": "fixture",
             "providerVersion": "1.0.0",
             "targets": [{
@@ -359,7 +359,7 @@ def active_fixture(*, version, bundle, read_formats):
             "installationPath": f"fixture/{bundle * 64}",
             "manifestSha256": "c" * 64,
             "moduleSha256": "d" * 64,
-            "providerApiVersion": 2,
+            "providerApiVersion": 1,
             "providerId": "fixture",
             "providerVersion": version,
             "targets": [{

@@ -291,7 +291,7 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		evaluation := firmware.EvaluateStatic(item.StaticExpectation(), facts)
 		candidate.Static = &evaluation
 		candidate.Details = map[string]any{
-			"schemaVersion":       2,
+			"schemaVersion":       1,
 			"checks":              evaluation.Checks,
 			"exactHash":           evaluation.ExactHash,
 			"expectedSizeMatched": evaluation.ExpectedSizeMatched,

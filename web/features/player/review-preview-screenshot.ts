@@ -1,6 +1,6 @@
-import type {PlayerRuntimeV2} from "./runtime/contract";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
-export async function saveReviewScreenshot(runtime: PlayerRuntimeV2, previewId: string, signal?: AbortSignal) {
+export async function saveReviewScreenshot(runtime: PlayerRuntimeV1, previewId: string, signal?: AbortSignal) {
   if (!runtime.getCapabilities().screenshot) {throw new Error("REVIEW_SCREENSHOT_UNSUPPORTED");}
   const screenshot = await runtime.screenshot();
   signal?.throwIfAborted();

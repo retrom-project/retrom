@@ -15,7 +15,7 @@ import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayProgressClock} from "./play-progress-clock";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV2, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV2, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeCheckpointAvailabilityV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {readLaunchConfig} from "./launch-config";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
@@ -32,7 +32,7 @@ export type PlayerBootstrapParams = {
   experience: "standard" | "immersive";
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
   stage: RefObject<HTMLDivElement | null>;
-  runtime: Mutable<PlayerRuntimeV2 | null>;
+  runtime: Mutable<PlayerRuntimeV1 | null>;
   runtimeController: Mutable<RuntimeController | null>;
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   returnTo: Mutable<string>;
@@ -74,7 +74,7 @@ export type PlayerBootstrapParams = {
   onRevealControls: (clientY: number) => void;
   onShowControls: () => void;
   onGameSurface: () => void;
-  onGamepadCursorReady?: (runtime: PlayerRuntimeV2) => void;
+  onGamepadCursorReady?: (runtime: PlayerRuntimeV1) => void;
   onExitRequested: (snapshot?: RuntimeFinalSnapshotV1) => void;
   reportProgress: () => Promise<void>;
 };
@@ -191,7 +191,7 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
 async function configureMountedRuntime(
   params: PlayerBootstrapParams,
   resources: BootstrapResources,
-  runtime: PlayerRuntimeV2,
+  runtime: PlayerRuntimeV1,
 ) {
   const capabilities = runtime.getCapabilities();
   if (capabilities.volume) {
@@ -231,7 +231,7 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   params.progressTimer.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
 }
 
-function handleRuntimeEvent(event: RuntimeEventV2, params: PlayerBootstrapParams) {
+function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
   if (event.type === "LOAD_TASK") {params.reportStartupTask?.(event.task); return;}
   if (event.type === "LOAD_PROGRESS") {
     params.setLoadProgress(event.totalBytes === null ? null : {

@@ -418,7 +418,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
   expect(configuration).toMatchObject({
     schemaVersion: 1,
     session: {title, purpose: "PRODUCT", mode: "SINGLE"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 2, targetId: "mgba"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
   expect(runtimeResourceURL(runtimeResource(configuration, "game"))).toMatch(
     /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
