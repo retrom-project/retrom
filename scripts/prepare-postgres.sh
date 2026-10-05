@@ -39,9 +39,11 @@ printf '%s  %s\n' "$expected_sha256" "$temporary/source.tar.bz2" | sha256sum --c
 tar -xjf "$temporary/source.tar.bz2" -C "$temporary"
 (
   cd "$temporary/postgresql-$version"
-  ./configure --prefix="$target" --without-icu --without-readline
-  make -j "$(nproc)"
-  make install DESTDIR="$temporary/stage"
+  # PostgreSQL generates prerequisite headers only at its own top-level Make.
+  # Do not inherit Retrom's recursion depth, jobserver or command-line overrides.
+  ./configure --prefix="$target" --without-icu --without-readline &&
+    env -u MAKELEVEL -u MAKEFLAGS -u MFLAGS -u MAKEOVERRIDES make -j "$(nproc)" &&
+    env -u MAKELEVEL -u MAKEFLAGS -u MFLAGS -u MAKEOVERRIDES make install DESTDIR="$temporary/stage"
 ) >"$temporary/build.log" 2>&1 || { cat "$temporary/build.log" >&2; exit 1; }
 candidate="$temporary/stage$target"
 valid "$candidate"

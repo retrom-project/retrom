@@ -227,6 +227,8 @@ jobs:
         run: |
           scripts/prepare-e2e-fonts.sh
           echo "FONTCONFIG_FILE=$PWD/.cache/tools/e2e-fonts/fonts.conf" >> "$GITHUB_ENV"
+      - name: Prepare the development application before acceptance timing
+        run: make build web-install runtime-provider-prepare-auto
       - name: Verify UI consistency in the product browser
         run: |
           make prepare-e2e-browser

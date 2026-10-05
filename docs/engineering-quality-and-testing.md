@@ -435,7 +435,7 @@ Q0–Q3 所列配置、命令、测试框架与流水线已存在于仓库。以
 ### Phase Q2：CI 与浏览器门禁
 
 1. `.github/workflows/ci.yml` 在所有 pull request 上并行运行 `contracts`（`make ci-contracts`）、`backend`（`make backend-check`）、`integration`（`make integration-test`）、`web`（`make web-check`）及 `browser-ui`（`ACC-UI-011`）；每个 job 在自己的 runner 上准备所需 Go、Node/npm、Python 和缓存。使用运行时 payload 的 job 先执行幂等且逐字节校验的 `make prepare-deps`。汇总 `quality` 只在五项全部成功时通过；本地完整串行入口仍为 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
-2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载第三方 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器；仓库自有公开测试 ROM 直接从 checkout 读取并验证生成一致性。
+2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载第三方 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器；仓库自有公开测试 ROM 直接从 checkout 读取并验证生成一致性。`browser-ui` 在验收计时前执行 `make build web-install runtime-provider-prepare-auto`，完成 Go 编译、Web 依赖和正式 Provider 安装；空缓存下载与编译不占用服务就绪时限，Case 内仍从全新 PostgreSQL 数据库启动并完成 DAT 索引。
 3. Linux CI 在浏览器验收前运行 `scripts/prepare-e2e-fonts.sh`，并将 `FONTCONFIG_FILE` 指向 checkout 内的 `.cache/tools/e2e-fonts/fonts.conf`；本地可使用相同命令复现。脚本从 Ubuntu 官方归档下载固定版本的 Droid Sans Fallback 和 DejaVu Sans 包，校验包与字体 SHA-256，保留各自许可说明，只在忽略的缓存中解包，不安装系统软件、不提交或分发字体二进制。Fontconfig 固定 Linux 默认无衬线字体及中文后备字体，避免宿主字体指标变化影响像素级回归；这只作用于测试环境，不改变产品字体栈。浏览器环境必须能区分渲染不同汉字；缺字方框不能作为布局、对比度或文字居中的有效证据。
 4. `web/e2e/` 提供固定 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
 5. 真实核心覆盖只能加入 Retrom 产品 E2E；不得建立绕过导入、Launch、内容端点或 Player 的独立示例门禁。

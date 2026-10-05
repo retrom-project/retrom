@@ -71,6 +71,47 @@ class PreparationTests(unittest.TestCase):
                               env={**os.environ, "PATH": str(self.fake_bin) + ":" + os.environ["PATH"]},
                               capture_output=True, text=True, timeout=10)
 
+    def test_native_build_clears_outer_make_recursion_and_overrides(self):
+        import subprocess
+        commands = {
+            "curl": "#!/bin/sh\nexit 0\n",
+            "sha256sum": "#!/bin/sh\ncat >/dev/null\nexit 0\n",
+            "tar": """#!/usr/bin/env python3
+import pathlib, sys
+root = pathlib.Path(sys.argv[sys.argv.index('-C') + 1]) / 'postgresql-18.3'
+root.mkdir()
+configure = root / 'configure'
+configure.write_text('#!/bin/sh\\nexit 0\\n')
+configure.chmod(0o755)
+""",
+            "make": """#!/usr/bin/env python3
+import os, pathlib, sys
+for key in ('MAKELEVEL', 'MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES'):
+    if key in os.environ: raise SystemExit('inherited ' + key)
+if 'install' in sys.argv:
+    stage = pathlib.Path(next(arg[8:] for arg in sys.argv if arg.startswith('DESTDIR=')))
+    target = stage / os.environ['NATIVE_TEST_TARGET'].lstrip('/') / 'bin'
+    target.mkdir(parents=True)
+    for name in ('postgres', 'initdb', 'psql', 'pg_isready'):
+        tool = target / name
+        tool.write_text(f'#!/bin/sh\\necho "{name} (PostgreSQL) 18.3"\\n')
+        tool.chmod(0o755)
+""",
+        }
+        for name, source in commands.items():
+            path = self.fake_bin / name
+            path.write_text(source)
+            path.chmod(0o755)
+        result = subprocess.run(
+            ["bash", "scripts/prepare-postgres.sh"], cwd=self.root,
+            env={**os.environ, "PATH": str(self.fake_bin) + ":" + os.environ["PATH"],
+                 "MAKELEVEL": "1", "MAKEFLAGS": "inherited", "MFLAGS": "inherited",
+                 "MAKEOVERRIDES": "inherited", "NATIVE_TEST_TARGET": str(self.target)},
+            capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertTrue((self.target / "bin/postgres").is_file())
+
     def test_verified_cache_never_downloads(self):
         (self.target / "bin").mkdir(parents=True)
         for name in ("postgres", "initdb", "psql", "pg_isready"):
