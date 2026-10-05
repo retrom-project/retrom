@@ -79,7 +79,7 @@ func (service *Companions) Record(
 	if err != nil {
 		return "", fmt.Errorf("record: %w", err)
 	}
-	blob.ID, blob.StoragePath = file.Record, file.Path
+	blob.ID = file.Record
 	var result string
 	err = service.repository.WithCompanions(ctx, func(scope CompanionScope) error {
 		before, now, err := service.owner(ctx, scope.Read, id, itemID)

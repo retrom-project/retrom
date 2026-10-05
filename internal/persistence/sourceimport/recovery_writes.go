@@ -68,7 +68,7 @@ func (records recoveryRecords) Apply(ctx context.Context, change application.Rec
 		finished = &change.NowMS
 	}
 	result, err := records.tx.ExecContext(ctx, `UPDATE jobs SET state=?,available_at_ms=?,finished_at_ms=?,
- leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,error_code=?,error_retryable=0,
+ leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,error_code=?,error_retryable=?,
 version=version+1,updated_at_ms=?
  WHERE id=? AND version=? AND state=? AND execution_no=? AND attempt_count=? AND COALESCE(worker_id,'')=?
  AND COALESCE(leased_until_ms,0)=? AND ((state='QUEUED' AND leased_until_ms IS NULL)
@@ -76,7 +76,8 @@ version=version+1,updated_at_ms=?
  AND EXISTS(SELECT 1 FROM source_imports plan WHERE plan.id=? AND plan.version=? AND plan.state=?
  AND ((jobs.kind='IMPORT_RECEIVE' AND plan.import_job_id=jobs.id)
  OR (jobs.kind='IMPORT_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_job_id IS NULL)))`,
-		change.JobState, change.NowMS, finished, optionalText(change.Code), change.NowMS, before.JobID, before.JobVersion,
+		change.JobState, change.NowMS, finished, optionalText(change.Code), change.ManualRetry,
+		change.NowMS, before.JobID, before.JobVersion,
 		before.JobState, before.ExecutionNo, before.Attempt, before.WorkerID, before.LeaseUntilMS, change.NowMS,
 		before.DeadlineMS,
 		before.ImportID, before.ImportVersion, before.ImportState)
@@ -95,9 +96,9 @@ version=version+1,updated_at_ms=?
 		return err
 	}
 	result, err = recordstore.UpdateSourceImports(ctx, records.tx, recordstore.Update{
-		Set: `state=?,phase=NULL,last_error_code=?,retryable=0,completed_at_ms=?,
+		Set: `state=?,phase=NULL,last_error_code=?,retryable=?,completed_at_ms=?,
 version=version+1,updated_at_ms=?`,
-		Values: []any{change.ImportState, optionalText(change.Code), finished, change.NowMS},
+		Values: []any{change.ImportState, optionalText(change.Code), change.ManualRetry, finished, change.NowMS},
 		Scope: recordstore.Scope{
 			Where: `id=? AND version=? AND state=?`,
 			Args:  []any{before.ImportID, before.ImportVersion + 1, before.ImportState},
@@ -119,12 +120,13 @@ func (records recoveryRecords) recoverItems(
 		scope = `import_id=? AND execution_state IN ('COPYING','VALIDATING')`
 	}
 	_, err := recordstore.UpdateSourceImportItems(ctx, records.tx, recordstore.Update{
-		Set: `execution_state=?,error_code=?,error_details_json=NULL,retryable=0,completed_at_ms=?,
+		Set: `execution_state=?,error_code=?,error_details_json=NULL,retryable=?,completed_at_ms=?,
 version=version+1,updated_at_ms=?,
-library_import_job_id=CASE WHEN ?='PENDING' THEN library_import_job_id ELSE NULL END,
-library_import_item_id=CASE WHEN ?='PENDING' THEN library_import_item_id ELSE NULL END`,
+library_import_job_id=CASE WHEN ? THEN library_import_job_id ELSE NULL END,
+library_import_item_id=CASE WHEN ? THEN library_import_item_id ELSE NULL END`,
 		Values: []any{
-			change.ItemState, optionalText(change.ItemCode), finished, change.NowMS, change.ItemState, change.ItemState,
+			change.ItemState, optionalText(change.ItemCode), change.ManualRetry, finished, change.NowMS,
+			change.ItemState == "PENDING" || change.ManualRetry, change.ItemState == "PENDING" || change.ManualRetry,
 		},
 		Scope: recordstore.Scope{Where: scope, Args: []any{change.Before.ImportID}},
 	})

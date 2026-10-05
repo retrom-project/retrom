@@ -24,7 +24,7 @@ func (service *Materialization) Copy(
 	if err != nil {
 		return "", fmt.Errorf("copy: %w", err)
 	}
-	blob.ID, blob.StoragePath = file.Record, file.Path
+	blob.ID = file.Record
 	var result string
 	err = service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
 		before, now, err := service.source(ctx, scope.Read, id, source)

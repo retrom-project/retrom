@@ -18,7 +18,6 @@ func registerVerifiedMaterial(
 ) (string, error) {
 	metadata := filestore.Metadata{
 		Record: blob.ID,
-		Path:   blob.StoragePath,
 		SHA256: blob.SHA256,
 		MD5:    blob.MD5,
 		SHA1:   blob.SHA1,
