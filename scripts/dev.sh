@@ -293,17 +293,19 @@ if [[ -z "${RETROM_DATABASE_URL:-}" ]]; then
   managed_postgres=true
   RETROM_DATABASE_URL="$(postgres_command start)"
   export RETROM_DATABASE_URL
+  # A killed supervisor must release the takeover lock even before registration
+  # finishes. Long-lived children must never inherit its file description.
   python3 "$repository_root/scripts/dev_postgres.py" watch \
-    --state "$state_directory" --data "$data_root" &
+    --state "$state_directory" --data "$data_root" 9>&- &
   postgres_watch_pid=$!
 fi
 
 process_start_ticks="$(read_start_ticks "$$")"
-setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" &
+setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" 9>&- &
 backend_pid=$!
 setsid env -u RETROM_DEV_STATE_DIR -u RETROM_PUBLIC_ORIGIN -u RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE \
   bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3" --webpack' \
-  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-4000}" &
+  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-4000}" 9>&- &
 web_pid=$!
 backend_start_ticks="$(read_start_ticks "$backend_pid")"
 web_start_ticks="$(read_start_ticks "$web_pid")"

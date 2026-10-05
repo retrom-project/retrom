@@ -132,6 +132,17 @@ while True: time.sleep(0.1)
         self.assert_children_stopped(children)
         self.assertNotEqual(orphan_pg["pid"], self.cluster.process()["pid"])
 
+    def test_children_do_not_inherit_takeover_lock(self):
+        process = self.start_dev()
+        # Wait for the supervisor to finish registration and close its own lock.
+        wait_for(lambda: not Path(f"/proc/{process.pid}/fd/9").exists())
+        children = Path(f"/proc/{process.pid}/task/{process.pid}/children").read_text().split()
+        self.assertEqual(3, len(children))  # Go, Web and PostgreSQL watcher.
+        lock = str(self.state / "dev-takeover.lock")
+        for pid in children:
+            for descriptor in Path(f"/proc/{pid}/fd").iterdir():
+                self.assertNotEqual(lock, os.readlink(descriptor), f"child {pid} inherited the takeover lock")
+
     def test_database_failure_stops_application(self):
         process = self.start_dev()
         children = self.registered_children()
