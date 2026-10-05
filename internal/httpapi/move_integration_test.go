@@ -625,7 +625,7 @@ WHERE g.id=?
 		func() bool { return version != 3 }, func() bool { return saveCount != 0 },
 		func() bool { return gameCount != 1 }, func() bool { return contentFileCount != 0 },
 		func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 },
-		func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }),
+		func() bool { return auditCount != 1 }, func() bool { return launchState != "ACTIVE" }),
 		"deleted aggregate = %s/%s/%v v%d saves:%d games:%d content:%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
 	afterDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, gameURL, nil)
 	afterDeleteRequest.Header.Set("Cache-Control", "no-cache")

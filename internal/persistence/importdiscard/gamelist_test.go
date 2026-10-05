@@ -32,7 +32,7 @@ func (f *fixture) gamelistSource(t *testing.T, file libraryimport.ServerSourceFi
 		t.Fatal(err)
 	}
 	service := composition.NewSourceImport(
-		f.db, f.blobs, f.importer, credentials, []serversource.Root{{ID: "games", Label: "Games", Path: dir}}, f.now,
+		f.db, f.blobs, f.importer, credentials, []serversource.Root{{ID: "games", Label: "Games", Path: dir}}, f.now, map[string]int{"IMPORT_SCAN": 1, "IMPORT_RECEIVE": 1},
 	)
 	service.Start()
 	t.Cleanup(service.Close)

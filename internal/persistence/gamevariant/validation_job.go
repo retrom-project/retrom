@@ -100,7 +100,7 @@ WHERE id=? AND version=? AND state='FAILED' AND error_retryable=1`,
 	return nil
 }
 
-// A concurrent insertion outside the serializable snapshot aborts the attempt;
+// A concurrent insertion outside the transaction snapshot aborts the attempt;
 // the enclosing SQL-only retry reloads and shares the already admitted job.
 func (repository *ValidationJobs) create(ctx context.Context, plan application.ValidationJobWrite) error {
 	result, err := repository.executor.ExecContext(

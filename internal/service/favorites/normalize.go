@@ -45,7 +45,7 @@ func ValidID(value string) bool {
 }
 
 func validateUniqueIDs(values []string, maximum int) error {
-	if len(values) > maximum {
+	if maximum > 0 && len(values) > maximum {
 		return ErrBatchTooLarge
 	}
 	seen := make(map[string]struct{}, len(values))

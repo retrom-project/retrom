@@ -29,7 +29,7 @@ func TestExhaustedSourceRecoveryRequiresExplicitNewExecution(t *testing.T) {
 			if before.JobState != "FAILED" || !application.RetryAvailable(before) || before.RetryableItems != 1 {
 				t.Fatalf("exhaustion lost manual retry: %+v", before)
 			}
-			if _, found, err := application.NewLeases(NewLeases(db), clock).Claim(t.Context()); err != nil || found {
+			if _, found, err := application.NewLeases(NewLeases(db), clock).Claim(t.Context(), "IMPORT_RECEIVE"); err != nil || found {
 				t.Fatalf("exhaustion automatically restarted: %v %v", found, err)
 			}
 			control := application.NewWorkflowControl(NewWorkflowControl(db), clock)

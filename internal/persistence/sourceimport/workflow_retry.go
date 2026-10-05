@@ -26,11 +26,9 @@ func (records workflowRecords) Retry(ctx context.Context, plan application.Retry
 failed_item_count=(SELECT count(*) FROM source_import_items WHERE import_id=?
 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 completed_at_ms=NULL,version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{Where: `id=? AND version=? AND state=? AND import_job_id=?
-AND NOT EXISTS(SELECT 1 FROM source_imports active WHERE active.id<>?
-AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
+		Scope: recordstore.Scope{Where: `id=? AND version=? AND state=? AND import_job_id=?`, Args: []any{
 			plan.Before.Summary.ID, plan.Before.Summary.Version, plan.Before.Summary.State,
-			*plan.Before.Summary.ImportJobID, plan.Before.Summary.ID,
+			*plan.Before.Summary.ImportJobID,
 		}},
 		Values: []any{plan.Before.Summary.ID, plan.NowMS},
 	})

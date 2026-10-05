@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayTarget } from "./overlay-target";
 
@@ -29,23 +29,17 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDism
   </div>, target);
 }
 
-export function FlashToast() {
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const raw = sessionStorage.getItem(flashKey);
-      if (!raw) {return;}
-      sessionStorage.removeItem(flashKey);
-      try {
-        const parsed = JSON.parse(raw) as Partial<ToastMessage>;
-        if (typeof parsed.message === "string" && (parsed.tone === "good" || parsed.tone === "warn" || parsed.tone === "bad")) {
-          setToast({ message: parsed.message, tone: parsed.tone });
-        }
-      } catch {
-        // A malformed, local-only flash value is safe to discard.
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-  return <Toast toast={toast} onDismiss={() => setToast(null)} />;
+export function takeFlashToast(): ToastMessage | null {
+  const raw = sessionStorage.getItem(flashKey);
+  if (!raw) {return null;}
+  sessionStorage.removeItem(flashKey);
+  try {
+    const parsed = JSON.parse(raw) as Partial<ToastMessage>;
+    if (typeof parsed.message === "string" && (parsed.tone === "good" || parsed.tone === "warn" || parsed.tone === "bad")) {
+      return { message: parsed.message, tone: parsed.tone };
+    }
+  } catch {
+    // Malformed local notification state can be discarded.
+  }
+  return null;
 }

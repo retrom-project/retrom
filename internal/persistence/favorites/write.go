@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/dberrors"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/favorites"
 )
@@ -36,24 +37,12 @@ func (records gameRecords) Remove(ctx context.Context, profileID, gameID string)
 	return nil
 }
 
-func (records folderRecords) Count(ctx context.Context, profileID string) (int, error) {
-	var count int
-	err := dbapi.QueryRowContext(
-		ctx, records.database,
-		"SELECT count(*) FROM favorite_folders WHERE profile_id=?", profileID,
-	).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("count favorite folders: %w", err)
-	}
-	return count, nil
-}
-
 func (records folderRecords) Create(ctx context.Context, change favorites.FolderWrite) error {
 	_, err := records.database.ExecContext(ctx, `
 INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,1,?,?)`, change.FolderID, change.ProfileID, change.Name, change.NameKey, change.NowMS, change.NowMS)
 	if err != nil {
-		return fmt.Errorf("create favorite folder: %w", err)
+		return fmt.Errorf("create favorite folder: %w", folderWriteError(err))
 	}
 	return nil
 }
@@ -68,7 +57,7 @@ func (records folderRecords) Rename(ctx context.Context, change favorites.Folder
 		Values: []any{change.Name, change.NameKey, change.NowMS},
 	})
 	if err != nil {
-		return fmt.Errorf("rename favorite folder: %w", err)
+		return fmt.Errorf("rename favorite folder: %w", folderWriteError(err))
 	}
 	count, err := result.RowsAffected()
 	if err != nil {
@@ -98,4 +87,11 @@ func (records folderRecords) Delete(ctx context.Context, profileID, folderID str
 		return favorites.ErrVersionConflict
 	}
 	return nil
+}
+
+func folderWriteError(err error) error {
+	if dberrors.Unique(err, "favorite_folders_profile_id_name_key_key") {
+		return favorites.ErrFolderNameConflict
+	}
+	return err
 }

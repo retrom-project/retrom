@@ -19,7 +19,12 @@ func (records reviewApprovalRecords) ReadPublication(ctx context.Context,
 	var result libraryservice.PublicationState
 	var encoded sql.NullString
 	err := dbapi.QueryRowContext(ctx, records.transaction, `
-SELECT state,COALESCE(publication_game_id,''),publication_json FROM import_items WHERE id=?
+SELECT CASE WHEN state='DISCARDED' AND EXISTS(SELECT 1 FROM import_item_duplicate_matches
+ WHERE import_item_id=import_items.id)
+ THEN 'SKIPPED_EXISTING' ELSE state END,
+ COALESCE(publication_game_id,(SELECT existing_game_id FROM import_item_duplicate_matches
+ WHERE import_item_id=import_items.id ORDER BY existing_game_id LIMIT 1),''),publication_json
+ FROM import_items WHERE id=?
 `, id).Scan(&result.State, &result.GameID, &encoded)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, nil
@@ -54,7 +59,7 @@ func (records reviewApprovalRecords) BeginPublication(ctx context.Context,
 			return fmt.Errorf("read concurrent publication: %w", err)
 		}
 		if pending {
-			return libraryservice.ErrVersionConflict
+			return libraryservice.ErrPublicationBusy
 		}
 	}
 	var bulkID any

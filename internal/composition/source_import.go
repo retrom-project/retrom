@@ -19,7 +19,7 @@ import (
 )
 
 func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer application.ReviewSourceCreator,
-	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
+	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time, workers map[string]int,
 ) *application.Service {
 	source := sourceimport.NewSources(blobs, credentials, roots)
 	tags := tagging.New(tagrepository.New(database), now)
@@ -42,8 +42,9 @@ func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer applica
 		},
 	})
 	worker := application.NewWorker(application.WorkerDependencies{
-		Now:    now,
-		Leases: application.NewLeases(repository.NewLeases(database), now), Executor: dispatcher,
+		Concurrency: workers,
+		Now:         now,
+		Leases:      application.NewLeases(repository.NewLeases(database), now), Executor: dispatcher,
 		Maintenance: application.NewMaintenance(
 			application.NewRecovery(repository.NewRecovery(database), metadata, now), lifecycle),
 		Cancellation: application.NewWorkerCancellation(material, settlement), Report: report,

@@ -12,9 +12,7 @@ func (records Records) Remaining(ctx context.Context, id string) (int64, error) 
 			ctx,
 			`
 SELECT
- (SELECT count(*) FROM play_sessions WHERE game_id=? AND state='ACTIVE')+
- (SELECT count(*) FROM launch_sessions WHERE game_id=? AND (state IN ('CREATED','ACTIVE') OR save_state_id
-IS NOT NULL))+
+ (SELECT count(*) FROM launch_sessions WHERE game_id=? AND save_state_id IS NOT NULL)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)+
  (SELECT count(*) FROM game_files file
   WHERE file.game_id=?)+
@@ -33,7 +31,6 @@ IS NOT NULL))+
   JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
   JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id WHERE run.game_id=?)
 `,
-			id,
 			id,
 			id,
 			id,

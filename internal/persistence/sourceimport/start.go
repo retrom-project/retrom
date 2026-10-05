@@ -57,11 +57,9 @@ SELECT root_config_digest,COALESCE(source_snapshot_digest,''),
 NOT EXISTS(SELECT 1 FROM source_import_collections collection CROSS JOIN
  jsonb_array_elements_text((collection.tag_snapshot_json)::jsonb) entry
 LEFT JOIN tags tag ON tag.id=((entry.value)::jsonb #>> '{tagId}') AND tag.status='ACTIVE'
-WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL),
-EXISTS(SELECT 1 FROM source_imports active WHERE active.id<>?
-AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))
-FROM source_imports WHERE id=?`, id, id, id).
-		Scan(&result.RootConfigDigest, &result.SourceSnapshotDigest, &result.TagsValid, &result.OtherActive)
+WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL)
+FROM source_imports WHERE id=?`, id, id).
+		Scan(&result.RootConfigDigest, &result.SourceSnapshotDigest, &result.TagsValid)
 	if err != nil {
 		return application.StartSnapshot{}, fmt.Errorf("read Source start readiness: %w", err)
 	}

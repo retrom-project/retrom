@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"errors"
 	"reflect"
-	"slices"
 	"testing"
 
 	"retrom/internal/filestore"
@@ -14,7 +13,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
+func TestOwnedSourceSkipsDuplicateAndKeepsExistingGameBinding(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
 	first, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", request.Files, nil, "")
@@ -30,7 +29,7 @@ func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
 		t.Fatal(err)
 	}
 	duplicate, err := fixture.service.ApproveWithDecision(fixture.ctx, second.Items[0].ItemID, 1,
-		ApprovalDecision{DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{original.GameID}})
+		ApprovalDecision{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +37,10 @@ func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
 	if err != nil || len(result.Items) != 1 {
 		t.Fatalf("duplicate ownership: %#v %v", result, err)
 	}
-	expected := []string{original.GameID, duplicate.GameID}
-	slices.Sort(expected)
+	expected := []string{original.GameID}
+	if duplicate.GameID != original.GameID || duplicate.Status != "SKIPPED_EXISTING" {
+		t.Fatalf("duplicate=%+v", duplicate)
+	}
 	actual := make([]string, 0, len(result.Items[0].ExistingMatches))
 	for _, match := range result.Items[0].ExistingMatches {
 		actual = append(actual, match.GameID)

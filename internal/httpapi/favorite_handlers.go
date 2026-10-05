@@ -34,11 +34,6 @@ func writeFavoriteError(writer http.ResponseWriter, request *http.Request, err e
 			writer, request, http.StatusRequestEntityTooLarge,
 			"FAVORITE_BATCH_TOO_LARGE", "收藏批量请求超过限制", map[string]any{},
 		)
-	case errors.Is(err, favorites.ErrFolderLimit):
-		writeError(
-			writer, request, http.StatusUnprocessableEntity,
-			"FAVORITE_FOLDER_LIMIT_REACHED", "收藏夹数量已达上限", map[string]any{},
-		)
 	case errors.Is(err, favorites.ErrInvalidCursor):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 	case errors.Is(err, favorites.ErrInvalid), errors.Is(err, favorites.ErrInvalidFolderName),

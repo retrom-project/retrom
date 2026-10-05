@@ -38,7 +38,6 @@ type FolderRecords interface {
 	Existing(context.Context, string, []string) (map[string]struct{}, error)
 	RequireAvailableName(context.Context, string, string, string) error
 	Get(context.Context, string, string) (Folder, error)
-	Count(context.Context, string) (int, error)
 }
 
 type FolderWrites interface {

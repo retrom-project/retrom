@@ -137,10 +137,15 @@ while True: time.sleep(0.1)
         # Wait for the supervisor to finish registration and close its own lock.
         wait_for(lambda: not Path(f"/proc/{process.pid}/fd/9").exists())
         children = Path(f"/proc/{process.pid}/task/{process.pid}/children").read_text().split()
-        self.assertEqual(3, len(children))  # Go, Web and PostgreSQL watcher.
+        self.assertTrue({str(pid) for pid, _ in self.registered_children()}.issubset(children))
+        self.assertGreaterEqual(len(children), 3)  # Application, watcher and any transient supervisor sleep.
         lock = str(self.state / "dev-takeover.lock")
         for pid in children:
-            for descriptor in Path(f"/proc/{pid}/fd").iterdir():
+            try:
+                descriptors = list(Path(f"/proc/{pid}/fd").iterdir())
+            except FileNotFoundError:
+                continue  # A transient supervisor child already exited.
+            for descriptor in descriptors:
                 try:
                     target = os.readlink(descriptor)
                 except FileNotFoundError:

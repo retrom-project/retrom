@@ -104,7 +104,7 @@ func assertCreationCounts(t *testing.T, db dbapi.DB, want int) {
 	}
 }
 
-func TestCreationEnforcesTwentyPlanCapacityAtInsert(t *testing.T) {
+func TestCreationQueuesMoreThanTwentyPlans(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	repo := NewCreation(db)
@@ -121,8 +121,8 @@ func TestCreationEnforcesTwentyPlanCapacityAtInsert(t *testing.T) {
 		_, err := writer.Insert(t.Context(), creationPlan(20))
 		return err
 	})
-	if !errors.Is(err, application.ErrActive) {
-		t.Fatalf("capacity: %v", err)
+	if err != nil {
+		t.Fatalf("queue next plan: %v", err)
 	}
-	assertCreationCounts(t, db, 20)
+	assertCreationCounts(t, db, 21)
 }

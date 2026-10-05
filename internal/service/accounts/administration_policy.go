@@ -9,7 +9,6 @@ var (
 	ErrUserVersion       = errors.New("USER_VERSION_CONFLICT")
 	ErrUserNoChange      = errors.New("USER_NO_STATE_CHANGE")
 	ErrUserSelfChange    = errors.New("USER_SELF_CHANGE_FORBIDDEN")
-	ErrLastAdmin         = errors.New("LAST_ENABLED_ADMIN")
 	ErrUserDeleted       = errors.New("USER_ALREADY_DELETED")
 	ErrUserTransition    = errors.New("USER_INVALID_TRANSITION")
 	ErrConfirmation      = errors.New("CONFIRMATION_MISMATCH")
@@ -91,8 +90,4 @@ func validateUserDeletion(before AdminUser, actorID, confirmation string) error 
 		return ErrConfirmation
 	}
 	return nil
-}
-
-func removesEnabledAdmin(before AdminUser, role, status string) bool {
-	return before.Role == "ADMIN" && before.Status == "ENABLED" && (role != "ADMIN" || status != "ENABLED")
 }

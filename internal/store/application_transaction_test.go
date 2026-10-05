@@ -61,7 +61,7 @@ func TestInvalidSessionCreationDoesNotLeakIntoContinuingTransaction(t *testing.T
 	}
 }
 
-func TestBatchAdminDowngradeRollsBackEverySelectedUser(t *testing.T) {
+func TestBatchAdminDowngradeAllowsNoRemainingAdministrator(t *testing.T) {
 	t.Parallel()
 	fixture := openApplicationFixture(t)
 	db := fixture.database.SQL
@@ -75,14 +75,14 @@ func TestBatchAdminDowngradeRollsBackEverySelectedUser(t *testing.T) {
 	_, err := recordstore.UpdateUsers(t.Context(), tx, recordstore.Update{
 		Set: "role='USER'", Scope: recordstore.Scope{Where: "role='ADMIN'"},
 	})
-	if !errors.Is(err, recordstore.ErrInvariant) {
-		t.Fatalf("batch removed all administrators: %v", err)
+	if err != nil {
+		t.Fatalf("batch downgrade: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	var count int
-	if err := dbapi.QueryRowContext(t.Context(), db, "SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'").Scan(&count); err != nil || count != 2 {
+	if err := dbapi.QueryRowContext(t.Context(), db, "SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("surviving admins = %d, error = %v", count, err)
 	}
 }

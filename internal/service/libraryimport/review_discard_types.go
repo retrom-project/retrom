@@ -20,10 +20,18 @@ type ReviewOwnerState string
 
 const (
 	ReviewOwnerPublished ReviewOwnerState = "PUBLISHED"
+	ReviewOwnerExisting  ReviewOwnerState = "SKIPPED_EXISTING"
 	ReviewOwnerDiscarded ReviewOwnerState = "REVIEW_DISCARDED"
 )
 
+type ReviewExistingContent struct {
+	BulkID   *string
+	Identity string
+	Games    []DuplicateGame
+}
+
 type ReviewDiscardRequest struct {
+	Existing        *ReviewExistingContent
 	ItemID, Reason  string
 	ExpectedVersion int64
 	Mode            ReviewDiscardMode
@@ -52,6 +60,7 @@ type ReviewDiscardAggregateChange struct {
 	Projection                       importprogress.Projection
 }
 type ReviewDiscardChange struct {
+	Existing         *ReviewExistingContent
 	ItemID, ImportID string
 	ExpectedVersion  int64
 	NowMS            int64

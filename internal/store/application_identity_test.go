@@ -8,7 +8,7 @@ import (
 	"retrom/internal/persistence/recordstore"
 )
 
-func TestApplicationUserWritesPreserveIdentityAndLastAdministrator(t *testing.T) {
+func TestApplicationUserWritesPreserveIdentity(t *testing.T) {
 	t.Parallel()
 	fixture := openApplicationFixture(t)
 	db := fixture.database.SQL
@@ -17,7 +17,6 @@ func TestApplicationUserWritesPreserveIdentityAndLastAdministrator(t *testing.T)
 		name, set string
 		values    []any
 	}{
-		{"last administrator", "role=?", []any{"USER"}},
 		{"identity", "username=?", []any{"new-identity"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -306,7 +306,6 @@ func sourceImportErrorCode(err error) string {
 		sourceimport.ErrNoSelection,
 		sourceimport.ErrSourceChanged,
 		sourceimport.ErrExpired,
-		sourceimport.ErrActive,
 		sourceimport.ErrNotCancellable,
 		sourceimport.ErrNotRetryable,
 	} {

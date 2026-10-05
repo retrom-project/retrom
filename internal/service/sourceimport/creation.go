@@ -36,7 +36,6 @@ type (
 		WithCreate(context.Context, func(CreationWriter) error) error
 	}
 	CreationWriter interface {
-		PendingPlans(context.Context) (int, error)
 		Insert(context.Context, CreationPlan) (Summary, error)
 	}
 	Creation struct {
@@ -70,13 +69,6 @@ func (service *Creation) Create(ctx context.Context, request CreateRequest, acto
 	}
 	var result Summary
 	err = service.repository.WithCreate(ctx, func(writer CreationWriter) error {
-		count, err := writer.PendingPlans(ctx)
-		if err != nil {
-			return fmt.Errorf("count pending Source plans: %w", err)
-		}
-		if count >= 20 {
-			return ErrActive
-		}
 		result, err = writer.Insert(ctx, plan)
 		if err != nil {
 			return fmt.Errorf("persist Source plan: %w", err)

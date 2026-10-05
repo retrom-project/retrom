@@ -159,7 +159,7 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 	}
 }
 
-func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
+func TestServiceConcurrentFavoriteFolderConflictVersionAndUnlimitedCount(t *testing.T) {
 	database := newFavoriteTestDatabase(t)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(2000) })
 	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
@@ -242,7 +242,7 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 	}
 	transaction, err := database.SQL.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	for index := 0; index < favorites.MaxFolders; index++ {
+	for index := 0; index < 105; index++ {
 		name := fmt.Sprintf("Folder %03d", index)
 		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms)
@@ -256,9 +256,9 @@ VALUES(?,?,?,lower(?),1,3000,3000)
 		t.Fatal(err)
 	}
 	if _, err := service.CreateFolder(
-		context.Background(), alice, favoriteBoundaryID('6', 12), "Over limit", []string{},
-	); !errors.Is(err, favorites.ErrFolderLimit) {
-		t.Fatalf("folder limit error = %v", err)
+		context.Background(), alice, favoriteBoundaryID('6', 12), "Additional folder", []string{},
+	); err != nil {
+		t.Fatalf("additional folder: %v", err)
 	}
 }
 

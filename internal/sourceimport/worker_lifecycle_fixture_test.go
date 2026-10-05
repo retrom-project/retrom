@@ -13,6 +13,7 @@ func (service *Service) backgroundWorker() *application.Worker {
 	service.workerOnce.Do(func() {
 		adapter := workerAdapter{service: service}
 		service.worker = application.NewWorker(application.WorkerDependencies{
+			Concurrency: map[string]int{"IMPORT_SCAN": 1, "IMPORT_RECEIVE": 1},
 			Leases:      application.NewLeases(repository.NewLeases(service.database), service.now),
 			Maintenance: adapter, Executor: adapter,
 			Cancellation: workerCancellation{observer: service.materialization(), settlement: service.workerSettlement()},

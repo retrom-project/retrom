@@ -4,7 +4,7 @@ import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { scalarSearchParams, withQuery, type ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
 import { ReviewQueue, ReviewQueueRecovery, type ReviewQueueItem } from "@/features/reviews/review-queue";
-import { FlashToast } from "@/components/flash-toast";
+import { FlashToast } from "@/components/toast-provider";
 import { loadActiveTags } from "@/features/tags/tag-library";
 import { ReviewBulkApproval } from "@/features/reviews/review-bulk-approval";
 

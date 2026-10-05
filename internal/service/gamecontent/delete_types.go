@@ -34,7 +34,7 @@ type DeleteGameReader interface {
 // audit persistence, and durable replay records.
 type DeleteGameWriter interface {
 	ScheduleGameDeletion(context.Context, string, int64, int64) (string, error)
-	TransitionDeletedGameRuntime(context.Context, string, int64) error
+	CancelDeletedGameJobs(context.Context, string, int64) error
 	RecordDeleteGameAudit(context.Context, DeleteGameAudit) error
 	StoreDeleteGameReplay(context.Context, DeleteGameReplayWrite) error
 }

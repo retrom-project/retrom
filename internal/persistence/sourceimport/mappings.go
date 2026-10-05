@@ -18,13 +18,9 @@ type Mappings struct{ database dbapi.DB }
 func NewMappings(database dbapi.DB) *Mappings { return &Mappings{database: database} }
 func (repository *Mappings) WithMappings(ctx context.Context, work func(application.MappingScope) error) error {
 	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
-		// Mapping is scoped to one locked Source. Predicate locks on unrelated
-		// Sources must not turn their progress updates into mapping conflicts.
+		// Mapping is scoped to one locked Source in the default RR transaction.
 		// Targets are share-locked, tag changes touch their versioned rows, and
 		// Advance retains the Source version CAS in this same transaction.
-		if _, err := tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
-			return fmt.Errorf("set Source mapping isolation: %w", err)
-		}
 		records := mappingRecords{executor: tx}
 		if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.Bind(tx)}); err != nil {
 			return err

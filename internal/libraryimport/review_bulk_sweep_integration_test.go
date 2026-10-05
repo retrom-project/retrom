@@ -17,8 +17,31 @@ import (
 )
 
 func TestReviewBulkResumesProgressAfterGamePublication(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "published"
+		if existing {
+			name = "skipped-existing"
+		}
+		t.Run(name, func(t *testing.T) { verifyReviewBulkResume(t, existing) })
+	}
+}
+
+func verifyReviewBulkResume(t *testing.T, existing bool) {
+	t.Helper()
 	fixture := newDeduplicateFixture(t)
+	originalID := ""
+	initialGames := 0
+	if existing {
+		original := fixture.create(t, "original", "bulk transaction content", 1)
+		originalID = original.Items[0].ItemID
+		initialGames = 1
+	}
 	created := fixture.create(t, "atomic-bulk", "bulk transaction content", 1)
+	if originalID != "" {
+		if _, err := fixture.service.Approve(fixture.ctx, originalID, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
 	itemID := created.Items[0].ItemID
 	profileID, actorID := uuid.NewString(), uuid.NewString()
 	fixture.execute(t, `INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Bulk Admin',1)`, profileID)
@@ -70,7 +93,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		Scan(&games, &published, &scanned); err != nil {
 		t.Fatal(err)
 	}
-	if games != 0 || published != 0 || scanned != 0 {
+	if games != initialGames || published != 0 || scanned != 0 {
 		t.Fatalf("rollback games=%d published=%d scanned=%d", games, published, scanned)
 	}
 	if err := approve(workerID); err != nil {
@@ -96,6 +119,13 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 			t.Fatal(readErr)
 		}
 		if summary.State == "COMPLETED" {
+			expectedPublished, expectedSkipped := 1, 0
+			if existing {
+				expectedPublished, expectedSkipped = 0, 1
+			}
+			if summary.ScannedCount != 1 || summary.PublishedCount != expectedPublished || summary.SkippedDuplicateCount != expectedSkipped {
+				t.Fatalf("recovered progress=%+v", summary)
+			}
 			break
 		}
 		if summary.State == "FAILED" || time.Now().After(deadline) {

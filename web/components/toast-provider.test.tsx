@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { ToastProvider, useToast } from "./toast-provider";
+import { FlashToast, ToastProvider, useToast } from "./toast-provider";
+
+import { queueFlashToast } from "./flash-toast";
 
 function Actions() {
   const { notify, clear } = useToast();
@@ -48,4 +50,21 @@ it("clears the existing notification before a retry", () => {
   fireEvent.click(screen.getByRole("button", { name: "报错" }));
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("replaces a still-visible error when the destination consumes a success message", async () => {
+  vi.useFakeTimers();
+  const view = render(<ToastProvider><Actions /></ToastProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "报错" }));
+  await act(() => vi.advanceTimersByTimeAsync(1_000));
+  queueFlashToast({ tone: "good", message: "游戏已成功发布" });
+  view.rerender(<ToastProvider><Actions /><FlashToast /></ToastProvider>);
+  expect(document.querySelectorAll(".app-toast")).toHaveLength(1);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("status")).toHaveTextContent("游戏已成功发布");
+  expect(sessionStorage.getItem("retrom:flash-toast")).toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(2_999));
+  expect(screen.getByRole("status")).toBeVisible();
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(screen.queryByRole("status")).toBeNull();
 });

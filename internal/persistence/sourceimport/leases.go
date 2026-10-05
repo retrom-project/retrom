@@ -30,19 +30,21 @@ func (repository *Leases) WithLease(ctx context.Context, work func(application.L
 
 type leaseRecords struct{ tx dbapi.Tx }
 
-func (records leaseRecords) Next(ctx context.Context, now int64) (application.LeaseCandidate, bool, error) {
+func (records leaseRecords) Next(
+	ctx context.Context, kind string, now int64,
+) (application.LeaseCandidate, bool, error) {
 	var result application.LeaseCandidate
 	err := dbapi.QueryRowContext(ctx, records.tx, `
 SELECT plan.format,plan.extension_filter,job.id,plan.id,job.kind,plan.root_id,plan.root_config_digest,
 plan.source_relative_path,plan.created_by_user_id,job.execution_no,job.attempt_count,job.version,plan.version,
 plan.state,job.max_attempts,job.execution_started_at_ms,job.execution_deadline_at_ms
 FROM jobs job JOIN source_imports plan ON plan.id=job.scope_id
-WHERE job.scope_type='SOURCE_IMPORT' AND job.state='QUEUED' AND job.available_at_ms<=?
+WHERE job.scope_type='SOURCE_IMPORT' AND job.kind=? AND job.state='QUEUED' AND job.available_at_ms<=?
 AND ((job.kind='IMPORT_SCAN' AND plan.scan_job_id=job.id AND plan.import_job_id IS NULL
 AND plan.state='SCANNING')
 OR (job.kind='IMPORT_RECEIVE' AND plan.import_job_id=job.id AND plan.state='QUEUED'))
 AND job.attempt_count<job.max_attempts AND (job.execution_deadline_at_ms IS NULL OR job.execution_deadline_at_ms>?)
-ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1`, now, now).Scan(
+ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1 FOR UPDATE OF job SKIP LOCKED`, kind, now, now).Scan(
 
 		&result.Work.Format,
 		&result.Work.ExtensionFilter,

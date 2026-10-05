@@ -301,7 +301,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、静态 BIOS schema v1 与 Arcade DAT schema v2 分流、Arcade 冻结 BIOS bundle、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
 | 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保持当前内容 |
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release 首位管理员初始化、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
-| 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销 |
+| 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、停用/删除级联撤销 |
 | 通用幂等命令 | OpenAPI 必需 operation 的唯一所有权、不同身份并行、独立池/多实例同 key、异摘要 409、取消释放锁、过期重用、回执与 commit 故障整体回滚、发布意图恢复原响应；提交后唤醒不持锁且重放不重复执行 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState 和 Launch 探测均不泄露也不串写 |
 | 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；卡片 E2E 锁定收藏前后相同的按钮/图标几何、居中位置及红色实心状态；current-schema 复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
@@ -325,7 +325,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | DOS 启动 | 程序列表、默认项、缺失选择校验和 launch payload；不能在浏览器端猜测可执行文件；4.3 thread core 的 7z/ZIP Worker 在生产 CSP 下完成无 `eval` 精确转换，源形状漂移 fail closed |
 | 管理侧信息架构 | “游戏入库”为父级总览；导入、本地扫描、任务、待审核同级缩进；父/子高亮和直接路由一致 |
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |
-| 用户管理 | 1280/2560/物理 4K 150% 表格、筛选、Drawer/焦点、本人/最后管理员禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
+| 用户管理 | 1280/2560/物理 4K 150% 表格、筛选、Drawer/焦点、本人禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
 | 账户切换与 Player | 同一 Chrome profile 中 A 的平台图钉、DOS 偏好、查询缓存和 EJS IDBFS bytes 不得被 B 读取；无服务器保存时清除旧 IDBFS 路径 |
 | Player 画面模式 | 单测锁定模式到 shader/CSS 合成策略的映射、默认“锐利像素”、未知偏好回退和用户命名空间，并证明 750ms 暂停期限不会丢弃随后在 5 秒窗口内完成的截图；真实 Chrome E2E 在 mGBA、MAME 2003、FBNeo 上确认默认 shader 关闭、`image-rendering: pixelated`、动画帧与零页面异常，并在 mGBA 回归“清晰增强”等模式切换及 Core 设置切换到显示设置后的 shader 入口；物理 4K 150% 生成 3840×2160 当次截图，并完成 core framebuffer 优先的状态存档截图、服务端解码与继续游戏 |
 | Player 换盘 | loader 前盘组/大小校验、真实 diskCount 不匹配阻断、初始盘/当前盘回读、no-op/失败保持、busy/live region、菜单键盘与焦点、光盘 2 SaveState 恢复、两个账号保存隔离 |

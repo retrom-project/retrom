@@ -64,7 +64,7 @@ func clearPayload(ctx context.Context, executor dbapi.Executor, before applicati
 	}
 	id := before.Owner.Scope.ID
 	records := Records{Executor: executor}
-	if err := records.StopRuntime(ctx, id, now); err != nil {
+	if err := records.UnlinkSaves(ctx, id); err != nil {
 		return wrapErr(err)
 	}
 	if err := records.ClearEvidence(ctx, id, now); err != nil {

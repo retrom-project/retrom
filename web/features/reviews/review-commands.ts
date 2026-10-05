@@ -11,7 +11,7 @@ import { responseError, uploadOne, waitForJob } from "@/lib/upload";
 import { readReviewPreviewNotification } from "./review-preview-notification";
 import {
   candidateForm, readyCover, scrapeResult,
-  type Comparison, type CoverSelection, type DraftPayload, type DuplicateGame, type MetadataForm,
+  type Comparison, type CoverSelection, type DraftPayload, type MetadataForm,
   type ReviewCandidate, type ReviewWorkspace, type UploadedReviewAsset,
 } from "./review-actions-model";
 
@@ -35,7 +35,6 @@ type CommandParams = {
 export function useReviewCommands(params: CommandParams) {
   const router = useRouter();
   const { context } = useAuth();
-  const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
 
   const [checkpoint, setCheckpoint] = useState<{id: string; itemId: string} | null>(null);
   const restorePreviewId = checkpoint?.itemId === params.review.itemId ? checkpoint.id : null;
@@ -121,21 +120,17 @@ export function useReviewCommands(params: CommandParams) {
 
   const destination = () => params.nextItemId ? `/admin/reviews/${params.nextItemId}?returnTo=${encodeURIComponent(params.returnTo)}` : params.returnTo;
 
-  async function publish(duplicateGames: DuplicateGame[] = []) {
+  async function publish() {
     await params.run("发布", async () => {
-      const body = duplicateGames.length ? { duplicatePolicy: "ALLOW_NEW", acknowledgedGameIds: duplicateGames.map((game) => game.gameId) } : {};
-      const published = await publishUntilTerminal(body, params, setDuplicateConfirmation);
-      if (!published) {return;}
+      const published = await publishReview(params);
       clearQueueCache();
-      queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
+      queueFlashToast({ message: published.status === "SKIPPED_EXISTING" ? "游戏已存在，已跳过重复导入。" : "游戏已成功发布，待审核队列已更新。", tone: "good" });
       router.replace(destination());
     });
   }
 
   async function approve() {
     if (!await params.flushDraft()) {return;}
-    const duplicates = params.review.duplicateGames ?? [];
-    if (duplicates.length) {setDuplicateConfirmation(duplicates); return;}
     await publish();
   }
 
@@ -150,11 +145,6 @@ export function useReviewCommands(params: CommandParams) {
     if (!succeeded && !popup.closed) {popup.close();}
   }
 
-  async function confirmDuplicatePublish() {
-    if (!duplicateConfirmation || !await params.flushDraft()) {return;}
-    await publish(duplicateConfirmation);
-  }
-
   async function discard() {
     if (!await params.flushDraft()) {return;}
     await params.run("丢弃", async () => {
@@ -166,7 +156,7 @@ export function useReviewCommands(params: CommandParams) {
     });
   }
 
-  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, uploadVideo, applyComparison, approve, launchPreview, restorePreviewId, confirmDuplicatePublish, discard };
+  return { rescrape, uploadCover, uploadVideo, applyComparison, approve, launchPreview, restorePreviewId, discard };
 }
 
 function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: string, updated: ReviewWorkspace, params: CommandParams) {
@@ -183,20 +173,10 @@ function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: 
   params.setComparison({ candidate: latest, current: { ...params.form }, next: candidateForm(latest, params.form), currentCover: params.cover, nextCover: { candidateId: readyCover(latest)?.candidateAssetId ?? null, uploadedId: null } });
 }
 
-async function publishUntilTerminal(body: object, params: CommandParams, setDuplicateConfirmation: Dispatch<SetStateAction<DuplicateGame[] | null>>) {
-  const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
-  if (response.ok) {setDuplicateConfirmation(null); return true;}
-  const payload = await response.json().catch(() => null) as ApprovalErrorPayload;
-  const duplicates = duplicateGamesFrom(payload);
-  if (duplicates) {setDuplicateConfirmation(duplicates); return false;}
-  throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
-}
-
-type ApprovalErrorPayload = { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
-
-function duplicateGamesFrom(payload: ApprovalErrorPayload) {
-  if (payload?.error?.code !== "DUPLICATE_GAME_CONFIRMATION_REQUIRED") {return null;}
-  return payload.error.details?.games?.length ? payload.error.details.games : null;
+async function publishReview(params: CommandParams): Promise<{gameId: string; status: "PUBLISHED" | "SKIPPED_EXISTING"}> {
+  const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: "{}" });
+  if (!response.ok) {throw new Error(await responseError(response, "发布失败：请确认实时保存和运行检查均已完成"));}
+  return response.json();
 }
 
 function openPreviewWindow(setToast: (toast: ToastMessage) => void) {

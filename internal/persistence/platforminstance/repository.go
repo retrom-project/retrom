@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/dberrors"
 	"retrom/internal/service/platforminstance"
 )
 
@@ -31,10 +32,17 @@ func (repository *Repository) WithRead(ctx context.Context, work func(platformin
 }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(platforminstance.WriteScope) error) error {
-	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+	write := func(tx dbapi.Tx) error {
 		bound := records{tx}
 		return work(platforminstance.WriteScope{Reader: bound, Directories: bound, Idempotency: bound})
-	})
+	}
+	err := dbapi.RetryTransaction(ctx, repository.database, write)
+	if dberrors.Unique(err, "platform_instances_platform_id_slug_key") ||
+		dberrors.Unique(err, "idempotency_records_pkey") {
+		// A concurrent commit may allocate the same slug or command receipt under RR.
+		// Reopen once to replay its receipt or recompute the available slug.
+		err = dbapi.RetryTransaction(ctx, repository.database, write)
+	}
 	if err != nil {
 		return fmt.Errorf("commit platforminstance transaction: %w", err)
 	}

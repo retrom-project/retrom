@@ -36,7 +36,7 @@ func TestSourceImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	}
 	server.importDeps.Source = composition.NewSourceImport(
 		server.database, server.contentDeps.Files, server.importDeps.Importer, server.contentDeps.Credentials,
-		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now,
+		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now, map[string]int{"IMPORT_SCAN": 1, "IMPORT_RECEIVE": 1},
 	)
 	t.Cleanup(server.importDeps.Source.Close)
 	server.importDeps.Source.Start()

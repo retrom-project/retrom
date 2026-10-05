@@ -52,7 +52,6 @@ type MediaOutcome struct {
 type MediaReader interface {
 	Snapshot(context.Context, string) (MediaSnapshot, error)
 	Ordering(context.Context, string) ([]MediaOrder, error)
-	Running(context.Context, int64) (int, error)
 	RunExecuting(context.Context, string, int64) (bool, error)
 }
 type MediaLeases interface {

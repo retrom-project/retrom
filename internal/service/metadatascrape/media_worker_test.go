@@ -74,18 +74,3 @@ func TestMediaCompletionDistinguishesPersistedAndCallerDeadlines(t *testing.T) {
 		})
 	}
 }
-
-func TestMediaGlobalCapacityDoesNotClaimOrSpendAttempt(t *testing.T) {
-	memory, err := newMediaMemory()
-	if err != nil {
-		t.Fatal(err)
-	}
-	memory.running = 2
-	source := &assetFetcher{}
-	if err := NewMediaWorker(memory, source, &assetBytes{}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID); err != nil {
-		t.Fatal(err)
-	}
-	if source.calls != 0 || memory.snapshot.Job.Attempt != 0 || memory.snapshot.Charged != 0 {
-		t.Fatalf("full instance started media: calls=%d snapshot=%+v", source.calls, memory.snapshot)
-	}
-}

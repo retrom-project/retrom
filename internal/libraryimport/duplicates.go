@@ -8,11 +8,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-var ErrDuplicateContent = libraryservice.ErrDuplicateContent
-
 type DuplicateGame = libraryservice.DuplicateGame
-
-type DuplicateConflict = libraryservice.DuplicateConflict
 
 func (service *Service) DuplicateGames(
 	ctx context.Context,

@@ -47,7 +47,14 @@ func (service *Service) execute(ctx context.Context, unit work) {
 }
 
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
-	return application.NewLeases(repository.NewLeases(service.database), service.now).Claim(ctx)
+	leases := application.NewLeases(repository.NewLeases(service.database), service.now)
+	for _, kind := range []string{"IMPORT_SCAN", "IMPORT_RECEIVE"} {
+		unit, found, err := leases.Claim(ctx, kind)
+		if found || err != nil {
+			return unit, found, err
+		}
+	}
+	return work{}, false, nil
 }
 
 func (service *Service) scan(ctx context.Context, root Root, path string) (scanResult, error) {

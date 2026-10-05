@@ -90,6 +90,11 @@ quality-structure-check:
 	@python3 scripts/test_quality_structure.py
 	@python3 scripts/quality_structure.py
 
+.PHONY: database-isolation-check
+database-isolation-check:
+	@python3 scripts/test_database_isolation.py
+	@python3 scripts/database_isolation.py
+
 api-bundle: $(API_BUNDLE)
 
 $(API_BUNDLE): $(API_OPENAPI_SOURCES) scripts/openapi-bundle/main.go go.mod go.sum | prepare-go
@@ -115,7 +120,7 @@ lint-go: api-generate-go install-golangci-lint
 	@python3 scripts/test_architecture_rules.py
 	@bin/golangci-lint run --allow-serial-runners $(GO_PACKAGES)
 
-backend-check: quality-structure-check fmt-check build test lint-go
+backend-check: database-isolation-check quality-structure-check fmt-check build test lint-go
 
 prepare-go:
 	@if [[ "$(GO_PREPARE_MODE)" = system ]]; then \
@@ -262,9 +267,9 @@ workspace-check:
 	@python3 workspace/catalog.py
 	@python3 -m unittest discover -s workspace -p 'test_*.py'
 
-ci-contracts: workspace-check quality-structure-check api-check data-check test-local-postgres
+ci-contracts: workspace-check database-isolation-check quality-structure-check api-check data-check test-local-postgres
 
-ci: workspace-check quality-structure-check api-check backend-check web-check integration-test data-check test-local-postgres
+ci: workspace-check database-isolation-check quality-structure-check api-check backend-check web-check integration-test data-check test-local-postgres
 
 require-local-user:
 	@python3 scripts/local_user.py

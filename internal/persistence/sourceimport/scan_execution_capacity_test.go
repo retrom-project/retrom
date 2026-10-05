@@ -37,9 +37,6 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if before.OtherActive {
-		t.Fatal("canceling scan occupies import capacity")
-	}
 	result, err := service.Retry(t.Context(), "import-0", before.Summary.Version, "actor")
 	if err != nil || result.State != "QUEUED" {
 		t.Fatalf("retry blocked by independent scan: %#v %v", result, err)

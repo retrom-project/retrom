@@ -23,11 +23,9 @@ func (records startRecords) Queue(ctx context.Context, plan application.StartPla
 blocked_item_count=(SELECT count(*) FROM source_import_items WHERE import_id=?
 AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{Where: `id=? AND version=? AND state='AWAITING_MAPPING' AND import_job_id IS NULL
-AND root_config_digest=? AND source_snapshot_digest=? AND expires_at_ms>?
-AND NOT EXISTS(SELECT 1 FROM source_imports active WHERE active.id<>?
-AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
+AND root_config_digest=? AND source_snapshot_digest=? AND expires_at_ms>?`, Args: []any{
 			plan.Before.Summary.ID, plan.Before.Summary.Version, plan.Before.RootConfigDigest,
-			plan.Before.SourceSnapshotDigest, plan.NowMS, plan.Before.Summary.ID,
+			plan.Before.SourceSnapshotDigest, plan.NowMS,
 		}},
 		Values: []any{plan.JobID, plan.Before.Summary.ID, plan.NowMS},
 	})

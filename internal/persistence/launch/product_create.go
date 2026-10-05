@@ -8,6 +8,7 @@ import (
 	gamevariant "retrom/internal/service/gamevariant"
 
 	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/dberrors"
 	application "retrom/internal/service/launch"
 )
 
@@ -53,9 +54,15 @@ func (repository *ProductCreation) WithCreation(
 	work func(application.ProductCreationScope) error,
 ) error {
 	// Preparation and external effects stay outside this replayable database scope.
-	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+	create := func(tx dbapi.Tx) error {
 		return work(productCreationRecords{executor: tx, transaction: tx})
-	})
+	}
+	err := dbapi.RetryTransaction(ctx, repository.database, create)
+	if dberrors.Unique(err, "idempotency_records_pkey") {
+		// The winner committed the complete launch and receipt; a fresh RR snapshot
+		// returns that receipt instead of leaking the unique-key race to the caller.
+		err = dbapi.RetryTransaction(ctx, repository.database, create)
+	}
 	if err != nil {
 		return fmt.Errorf("commit launch transaction: %w", err)
 	}

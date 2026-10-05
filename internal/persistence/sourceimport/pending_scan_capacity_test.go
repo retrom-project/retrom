@@ -1,7 +1,6 @@
 package sourceimport
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -9,56 +8,16 @@ import (
 	application "retrom/internal/service/sourceimport"
 )
 
-func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
+func TestCreationQueuesWhileScanCancellationIsPending(t *testing.T) {
 	t.Parallel()
-	database := pendingScanCapacityDatabase(t)
-	repository := NewCreation(database)
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		count, err := writer.PendingPlans(t.Context())
-		if err != nil {
-			return err
-		}
-		if count != 20 {
-			t.Errorf("canceling scan released plan capacity: got %d, want 20", count)
-		}
-		return nil
+	db := pendingScanCapacityDatabase(t)
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+		_, err := writer.Insert(t.Context(), creationPlan(20))
+		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
-	control := application.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
-	if _, pending, err := control.CancelJob(t.Context(), application.JobCancellationRequest{
-		JobID: "job-1", ScopeID: "import-1", Kind: "IMPORT_SCAN",
-		Reason: "Stop queued scan", ActorID: "actor",
-	}); err != nil || pending {
-		t.Fatalf("close queued scan: pending=%v err=%v", pending, err)
-	}
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		count, err := writer.PendingPlans(t.Context())
-		if err != nil {
-			return err
-		}
-		if count != 19 {
-			t.Errorf("closed scan still occupies capacity or pending scan was omitted: %d", count)
-		}
-		_, err = writer.Insert(t.Context(), creationPlan(20))
-		return err
-	}); err != nil {
-		t.Fatalf("reuse terminal scan capacity: %v", err)
-	}
-	assertScanCapacityCounts(t, database, 21, 2)
-}
-
-func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
-	t.Parallel()
-	database := pendingScanCapacityDatabase(t)
-	err := NewCreation(database).WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(20))
-		return err
-	})
-	if !errors.Is(err, application.ErrActive) {
-		t.Fatalf("21st unstarted plan accepted while scan cancellation is pending: %v", err)
-	}
-	assertScanCapacityCounts(t, database, 20, 1)
+	assertScanCapacityCounts(t, db, 21, 1)
 }
 
 func pendingScanCapacityDatabase(t *testing.T) dbapi.DB {

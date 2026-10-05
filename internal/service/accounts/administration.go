@@ -75,17 +75,6 @@ func (service *AdministrationService) Update(
 	return after, replayed, nil
 }
 
-func anotherAdmin(ctx context.Context, reader AdministrationReader, targetID string) error {
-	exists, err := reader.AnotherEnabledAdmin(ctx, targetID)
-	if err != nil {
-		return fmt.Errorf("check remaining enabled administrator: %w", err)
-	}
-	if !exists {
-		return ErrLastAdmin
-	}
-	return nil
-}
-
 func auditUserChange(
 	ctx context.Context,
 	writer AdministrationWriter,
@@ -163,11 +152,6 @@ func updateManagedUser(
 	change, err := resolveUserChange(before.User, patch, operation.PrincipalID == targetID)
 	if err != nil {
 		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
-	}
-	if removesEnabledAdmin(before.User, change.Role, change.Status) {
-		if err := anotherAdmin(ctx, scope.Read, targetID); err != nil {
-			return AdminUser{}, fmt.Errorf("apply account change: %w", err)
-		}
 	}
 	if err := scope.Write.Update(
 		ctx,

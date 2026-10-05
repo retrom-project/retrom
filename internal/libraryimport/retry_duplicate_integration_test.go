@@ -259,22 +259,9 @@ SELECT id FROM import_items WHERE import_job_id=?
 		func() bool { return duplicates[0].GameID != firstGame.GameID },
 		func() bool { return len(identityDigest) != 64 }),
 		"review duplicates = %#v digest=%s error=%v", duplicates, identityDigest, err)
-	if _, err := importer.Approve(ctx, secondItemID, 1); err == nil {
-		t.Fatal("duplicate review published without confirmation")
-	} else {
-		var conflict *DuplicateConflict
-		testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &conflict) },
-			func() bool { return !errors.Is(err, ErrDuplicateContent) },
-			func() bool { return len(conflict.Games) != 1 },
-			func() bool { return conflict.Games[0].GameID != firstGame.GameID }),
-			"duplicate approval error = %#v", err)
-	}
-	secondGame, err := importer.ApproveWithDecision(ctx, secondItemID, 1, ApprovalDecision{
-		DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{firstGame.GameID},
-	})
-	testassert.False(t, err != nil, err)
-	if secondGame.GameID == "" || secondGame.GameID == firstGame.GameID {
-		t.Fatalf("confirmed duplicate did not publish a separate game: %+v", secondGame)
+	secondGame, err := importer.Approve(ctx, secondItemID, 1)
+	if err != nil || secondGame.GameID != firstGame.GameID || secondGame.Status != "SKIPPED_EXISTING" {
+		t.Fatalf("duplicate was not skipped: %+v %v", secondGame, err)
 	}
 
 	thirdImport, thirdItemID := createImport("another-wrapper-name.gba")
@@ -306,7 +293,7 @@ FROM import_items WHERE id=?
 		func() bool { return itemState != "DISCARDED" }, func() bool { return alreadyItems != 1 },
 		func() bool { return alreadyFiles != 1 }, func() bool { return discarded != 1 },
 		func() bool { return pending != 0 }, func() bool { return draftCount != 0 },
-		func() bool { return matchCount != 2 }, func() bool { return gameCount != 2 }),
+		func() bool { return matchCount != 1 }, func() bool { return gameCount != 1 }),
 		"identification projection = job:%s item:%s already:%d/%d discarded:%d pending:%d drafts:%d matches:%d games:%d", jobState, itemState, alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount)
 }
 

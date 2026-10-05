@@ -51,7 +51,7 @@ func verifyCancelledSourceCannotRestart(t *testing.T, phase string) {
 	}
 	before := workflowRows(t, db)
 	assertSourceRetryRejected(t, control, db)
-	if _, found, err := leases.Claim(t.Context()); err != nil || found {
+	if _, found, err := leases.Claim(t.Context(), "IMPORT_RECEIVE"); err != nil || found {
 		t.Fatalf("cancelled work claimed: %v %v", found, err)
 	}
 	if err := application.NewRecovery(NewRecovery(db), nil, clock).Recover(t.Context()); err != nil {
@@ -79,7 +79,7 @@ func claimCancellationWork(t *testing.T, leases *application.Leases, phase strin
 	if phase == "backoff" {
 		return application.Work{}
 	}
-	work, found, err := leases.Claim(t.Context())
+	work, found, err := leases.Claim(t.Context(), "IMPORT_RECEIVE")
 	if err != nil || !found {
 		t.Fatalf("claim: %v %v", found, err)
 	}

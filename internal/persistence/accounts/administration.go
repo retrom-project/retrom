@@ -62,19 +62,3 @@ func (records administrationRecords) Current(
 	}
 	return result, true, nil
 }
-
-func (records administrationRecords) AnotherEnabledAdmin(ctx context.Context, id string) (bool, error) {
-	var exists bool
-	err := dbapi.QueryRowContext(
-		ctx, records.executor,
-
-		`SELECT EXISTS(SELECT 1 FROM users WHERE id!=? AND role='ADMIN' AND status='ENABLED')`,
-		id,
-	).Scan(
-		&exists,
-	)
-	if err != nil {
-		return false, fmt.Errorf("query remaining administrator: %w", err)
-	}
-	return exists, nil
-}

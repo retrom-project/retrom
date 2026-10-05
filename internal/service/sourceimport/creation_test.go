@@ -8,7 +8,6 @@ import (
 )
 
 type creationMemory struct {
-	count          int
 	err, commitErr error
 	inserted       bool
 	plan           CreationPlan
@@ -20,7 +19,7 @@ func (m *creationMemory) WithCreate(_ context.Context, work func(CreationWriter)
 	}
 	return m.commitErr
 }
-func (m *creationMemory) PendingPlans(context.Context) (int, error) { return m.count, m.err }
+
 func (m *creationMemory) Insert(_ context.Context, plan CreationPlan) (Summary, error) {
 	m.inserted = true
 	m.plan = plan
@@ -64,19 +63,10 @@ func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
 	}
 }
 
-func TestCreationRejectsCapacityWithinWriteScope(t *testing.T) {
-	t.Parallel()
-	repo := &creationMemory{count: 20}
-	value, err := NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), CreateRequest{Format: "PEGASUS"}, "actor")
-	if !errors.Is(err, ErrActive) || value.ID != "" || repo.inserted {
-		t.Fatalf("capacity: %#v, %v, inserted=%v", value, err, repo.inserted)
-	}
-}
-
 func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("failed")
-	for _, phase := range []string{"source", "count", "commit"} {
+	for _, phase := range []string{"source", "insert", "commit"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			repo := &creationMemory{}
@@ -84,7 +74,7 @@ func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 			switch phase {
 			case "source":
 				source.err = cause
-			case "count":
+			case "insert":
 				repo.err = cause
 			case "commit":
 				repo.commitErr = cause
@@ -93,7 +83,7 @@ func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 			if !errors.Is(err, cause) || value.ID != "" {
 				t.Fatalf("failed creation: %#v, %v", value, err)
 			}
-			if phase != "commit" && repo.inserted {
+			if phase == "source" && repo.inserted {
 				t.Fatal("creation continued after failure")
 			}
 		})

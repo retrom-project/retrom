@@ -14,7 +14,8 @@ import (
 func TransitionReviewOwners(
 	ctx context.Context, executor dbapi.Executor, change libraryservice.ReviewOwnerTransition,
 ) error {
-	if change.State != libraryservice.ReviewOwnerPublished && change.State != libraryservice.ReviewOwnerDiscarded {
+	if change.State != libraryservice.ReviewOwnerPublished && change.State != libraryservice.ReviewOwnerDiscarded &&
+		change.State != libraryservice.ReviewOwnerExisting {
 		return libraryservice.ErrInvalid
 	}
 	var sourceImportID string

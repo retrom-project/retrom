@@ -13,27 +13,7 @@ import (
 
 type Records struct{ Executor dbapi.Executor }
 
-func (records Records) StopRuntime(ctx context.Context, gameID string, now int64) error {
-	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "launch_sessions",
-		sessionstore.ChangeLaunch, recordstore.Update{
-			Set: `
-state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1
-`, Scope: recordstore.Scope{
-				Where: `game_id=? AND state IN ('CREATED','ACTIVE')`,
-				Args:  []any{gameID},
-			},
-			Values: []any{now, now},
-		}); err != nil {
-		return fmt.Errorf("cleanupjobs/revoke launches: %w", err)
-	}
-	if err := (releaseops.Records{Executor: records.Executor}).ExecUpdate(ctx, "play_sessions",
-		"ctid IN (SELECT ctid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY ctid LIMIT 200)",
-		[]any{gameID}, `
-UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE ctid IN (SELECT ctid FROM play_sessions WHERE game_id=? AND state='ACTIVE' ORDER BY ctid LIMIT 200)
-`, now, now, gameID); err != nil {
-		return fmt.Errorf("cleanupjobs/end play sessions: %w", err)
-	}
+func (records Records) UnlinkSaves(ctx context.Context, gameID string) error {
 	if err := (releaseops.Records{Executor: records.Executor}).CheckedUpdate(ctx, "launch_sessions",
 		sessionstore.ChangeLaunch, recordstore.Update{
 			Set: `save_state_id=NULL`,

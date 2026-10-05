@@ -37,7 +37,7 @@ type (
 		NowMS, LeaseUntilMS int64
 	}
 	LeaseRecords interface {
-		Next(context.Context, int64) (LeaseCandidate, bool, error)
+		Next(context.Context, string, int64) (LeaseCandidate, bool, error)
 		Claim(context.Context, LeaseClaim) error
 		Current(context.Context, string) (ExecutionSnapshot, error)
 		Renew(context.Context, LeaseRenewal) error
@@ -62,13 +62,16 @@ func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {
 	return &Leases{repository: repository, now: now}
 }
 
-func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
+func (service *Leases) Claim(ctx context.Context, kind string) (Work, bool, error) {
+	if kind != "IMPORT_SCAN" && kind != "IMPORT_RECEIVE" {
+		return Work{}, false, ErrInvalid
+	}
 	var unit Work
 	found := false
 	err := service.repository.WithLease(ctx, func(records LeaseRecords) error {
 		unit, found = Work{}, false
 		now := service.now().UnixMilli()
-		before, exists, err := records.Next(ctx, now)
+		before, exists, err := records.Next(ctx, kind, now)
 		if err != nil {
 			return fmt.Errorf("read Source lease candidate: %w", err)
 		}

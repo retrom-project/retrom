@@ -10,7 +10,8 @@ import (
 func (records reviewApprovalRecords) ClaimIdentity(ctx context.Context, platformID, digest string, now int64) error {
 	result, err := records.transaction.ExecContext(ctx, `
 INSERT INTO content_identity_claims(platform_id,content_identity_digest,created_at_ms)
-VALUES(?,?,?) ON CONFLICT(platform_id,content_identity_digest) DO NOTHING`, platformID, digest, now)
+VALUES(?,?,?) ON CONFLICT(platform_id,content_identity_digest)
+DO UPDATE SET created_at_ms=EXCLUDED.created_at_ms`, platformID, digest, now)
 	return approvalMutation(result, err, "claim approval identity", false)
 }
 

@@ -19,7 +19,7 @@ func (fake *leaseFake) WithLease(_ context.Context, run func(LeaseRecords) error
 	return run(fake)
 }
 
-func (fake *leaseFake) Next(context.Context, int64) (LeaseCandidate, bool, error) {
+func (fake *leaseFake) Next(context.Context, string, int64) (LeaseCandidate, bool, error) {
 	return fake.candidate, true, fake.failure
 }
 
@@ -51,7 +51,7 @@ func TestLeasePreservesBudgetAndAssignsFreshOwner(t *testing.T) {
 	fake.candidate.StartedAtMS, fake.candidate.DeadlineAtMS = &started, &deadline
 	fake.candidate.Work.Attempt = 1
 	service := NewLeases(fake, func() time.Time { return time.UnixMilli(10) })
-	unit, found, err := service.Claim(t.Context())
+	unit, found, err := service.Claim(t.Context(), "IMPORT_RECEIVE")
 	if err != nil || !found || unit.WorkerID == "" || unit.DeadlineAtMS != 100 || unit.Attempt != 2 {
 		t.Fatalf("claim = %+v, %v, %v", unit, found, err)
 	}
@@ -77,7 +77,7 @@ func TestLeaseRejectsInvalidQueueWithoutWriting(t *testing.T) {
 				start := int64(1)
 				fake.candidate.StartedAtMS = &start
 			}
-			_, found, err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context())
+			_, found, err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context(), "IMPORT_RECEIVE")
 			if err == nil || found || fake.claimed != nil {
 				t.Fatalf("invalid queue claimed: %v %v", found, err)
 			}
@@ -123,7 +123,7 @@ func TestLeaseReadFailureKeepsCause(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("storage unavailable")
 	fake := &leaseFake{failure: cause}
-	_, _, err := NewLeases(fake, time.Now).Claim(t.Context())
+	_, _, err := NewLeases(fake, time.Now).Claim(t.Context(), "IMPORT_RECEIVE")
 	if !errors.Is(err, cause) {
 		t.Fatalf("claim hid cause: %v", err)
 	}

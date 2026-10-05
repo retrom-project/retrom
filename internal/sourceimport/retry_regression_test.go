@@ -69,7 +69,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,er
 	}
 }
 
-func TestRetryReportsActiveExecutionWithoutChangingFailedPlan(t *testing.T) {
+func TestRetryQueuesWhileAnotherSourceIsActive(t *testing.T) {
 	t.Parallel()
 	db := newSourceRetryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
@@ -89,15 +89,15 @@ VALUES('other','games','Games','Other',
 	}
 	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
 	value, err := service.Retry(t.Context(), "import", 4, "user")
-	if !errors.Is(err, ErrNotRetryable) || value.ID != "" {
-		t.Fatalf("busy retry: %#v, %v", value, err)
+	if err != nil || value.ID != "import" || value.State != "QUEUED" {
+		t.Fatalf("queued retry: %#v, %v", value, err)
 	}
 	var state string
 	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
-	if state != "COMMIT_FAILED" {
-		t.Fatalf("busy retry changed item: %s", state)
+	if state != "PENDING" {
+		t.Fatalf("retry did not reset failed item: %s", state)
 	}
 }
 

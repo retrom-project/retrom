@@ -76,15 +76,13 @@ func TestWorkflowRetryUsesNextExecutionAndCurrentActor(t *testing.T) {
 
 func TestWorkflowRetryRejectsStaleBusyAndExhaustedIdentity(t *testing.T) {
 	t.Parallel()
-	for _, reason := range []string{"version", "active", "items", "execution", "job"} {
+	for _, reason := range []string{"version", "items", "execution", "job"} {
 		t.Run(reason, func(t *testing.T) {
 			t.Parallel()
 			m := workflowFixture()
 			switch reason {
 			case "version":
 				m.before.Summary.Version++
-			case "active":
-				m.before.OtherActive = true
 			case "items":
 				m.before.RetryableItems = 0
 			case "execution":

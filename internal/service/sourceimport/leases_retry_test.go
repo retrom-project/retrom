@@ -20,16 +20,16 @@ func (fake *replayedLease) WithLease(_ context.Context, run func(LeaseRecords) e
 	return run(fake)
 }
 
-func (fake *replayedLease) Next(ctx context.Context, now int64) (LeaseCandidate, bool, error) {
+func (fake *replayedLease) Next(ctx context.Context, kind string, now int64) (LeaseCandidate, bool, error) {
 	if fake.absent {
 		return LeaseCandidate{}, false, nil
 	}
-	return fake.leaseFake.Next(ctx, now)
+	return fake.leaseFake.Next(ctx, kind, now)
 }
 
 func TestLeaseRetryDoesNotReturnRolledBackWorker(t *testing.T) {
 	fake := &replayedLease{leaseFake: leaseFake{candidate: leaseCandidate()}}
-	unit, found, err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context())
+	unit, found, err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context(), "IMPORT_RECEIVE")
 	if err != nil || found || unit != (Work{}) {
 		t.Fatalf("rolled-back lease escaped retry: unit=%+v found=%v error=%v", unit, found, err)
 	}

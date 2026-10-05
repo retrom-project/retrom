@@ -60,7 +60,7 @@ func (repository *deleteGameTestRepository) ScheduleGameDeletion(
 	return "release-job", nil
 }
 
-func (repository *deleteGameTestRepository) TransitionDeletedGameRuntime(
+func (repository *deleteGameTestRepository) CancelDeletedGameJobs(
 	_ context.Context, _ string, _ int64,
 ) error {
 	repository.runtimeCalls++
