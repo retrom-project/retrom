@@ -56,14 +56,10 @@ item.published_game_id,item.existing_game_id,item.existing_matches_json,item.upd
 validation.status,validation.compatibility_code,validation.core_id,core.name,
 validation.dependency_snapshot_json,
 COALESCE(collection.tag_snapshot_json,'[]'),
-EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.state IN ('COPIED','RELEASED')
-),
-EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.state IN ('COPIED','RELEASED')
-)
+COALESCE((SELECT asset.state FROM source_import_item_assets asset
+ WHERE asset.item_id=item.id AND asset.kind='COVER'),'MISSING'),
+COALESCE((SELECT asset.state FROM source_import_item_assets asset
+ WHERE asset.item_id=item.id AND asset.kind='VIDEO'),'MISSING')
 FROM source_import_items item
 LEFT JOIN jobs release_job ON release_job.id=item.payload_release_job_id
 LEFT JOIN source_import_collections collection ON collection.id=item.collection_id
@@ -155,7 +151,7 @@ func scanItem(row dbapi.Scanner) (application.Item, error) {
 	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
 	var warnings, flags, existingMatches, tagSnapshot string
 	var retryable int
-	var hasCover, hasVideo bool
+	var coverState, videoState string
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
 		&value.MetadataRelativePath, &value.ExecutionState, &value.PayloadState, &payloadReleaseJob,
@@ -163,7 +159,7 @@ func scanItem(row dbapi.Scanner) (application.Item, error) {
 		&retryable, &reviewItem, &published, &existing, &existingMatches, &value.UpdatedAtMS,
 		&validationStatus, &compatibilityCode, &coreID, &coreName, &dependencySnapshot,
 		&tagSnapshot,
-		&hasCover, &hasVideo,
+		&coverState, &videoState,
 	); err != nil {
 		return application.Item{}, fmt.Errorf("sourceimport/scan item: %w", err)
 	}
@@ -205,8 +201,8 @@ func scanItem(row dbapi.Scanner) (application.Item, error) {
 		return application.Item{}, fmt.Errorf("sourceimport/decode item tag snapshot: %w", err)
 	}
 	value.Media = application.ItemMedia{
-		Cover: application.ProjectMedia(hasCover, value.Warnings, "cover"),
-		Video: application.ProjectMedia(hasVideo, value.Warnings, "video"),
+		Cover: application.ProjectMedia(coverState, value.Warnings, "cover"),
+		Video: application.ProjectMedia(videoState, value.Warnings, "video"),
 	}
 	return value, nil
 }

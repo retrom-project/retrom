@@ -2,7 +2,10 @@ package sourceimport
 
 import "strings"
 
-func ProjectMedia(present bool, warnings []map[string]any, field string) string {
+func ProjectMedia(state string, warnings []map[string]any, field string) string {
+	if state == "RELEASED" {
+		return "RELEASED"
+	}
 	for _, warning := range warnings {
 		warningField, _ := warning["field"].(string)
 		code, _ := warning["code"].(string)
@@ -13,8 +16,14 @@ func ProjectMedia(present bool, warnings []map[string]any, field string) string 
 			return "WARNING"
 		}
 	}
-	if present {
+	switch state {
+	case "COPIED":
 		return "READY"
+	case "DISCOVERED":
+		return "PENDING"
+	case "", "MISSING":
+		return "MISSING"
+	default:
+		return "WARNING"
 	}
-	return "MISSING"
 }

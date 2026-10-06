@@ -33,6 +33,7 @@ type Metadata struct {
 
 type Store struct {
 	publicationMu sync.Mutex
+	publications  map[string]*publicationLock
 	root          string
 	tmp           string
 }
@@ -235,10 +236,4 @@ func (store *Store) checkParents(relative string) error {
 		}
 	}
 	return nil
-}
-
-// LockPublication serializes the short publication phase for this data root.
-func (store *Store) LockPublication() func() {
-	store.publicationMu.Lock()
-	return store.publicationMu.Unlock
 }

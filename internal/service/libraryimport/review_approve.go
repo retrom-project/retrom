@@ -61,7 +61,10 @@ func (service *ReviewApprovals) Approve(
 func (service *ReviewApprovals) approveOnce(
 	ctx context.Context, request ReviewApprovalRequest,
 ) (ReviewApproved, error) {
-	unlock := service.files.LockPublication()
+	unlock, err := service.files.LockPublication(ctx, request.ItemID)
+	if err != nil {
+		return ReviewApproved{}, fmt.Errorf("wait for item publication: %w", err)
+	}
 	defer unlock()
 	state, err := service.preparePublication(ctx, request)
 	if err != nil {

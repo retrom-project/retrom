@@ -687,7 +687,6 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 | 409 | `IDEMPOTENCY_KEY_REUSED` | 同 operation/key 已绑定不同语义请求。 |
 | 412 | `RESOURCE_VERSION_CONFLICT` | Folder `If-Match` 已过期。 |
 | 413 | `FAVORITE_BATCH_TOO_LARGE` | 超过 Game、Folder 或总边数任一上限。 |
-| 422 | `FAVORITE_FOLDER_LIMIT_REACHED` | 当前 Profile 已有 100 个 Folder。 |
 | 428 | `PRECONDITION_REQUIRED` | Folder PATCH/DELETE 缺少或携带非法 `If-Match`。 |
 
 精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的领域文件集为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。

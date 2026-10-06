@@ -70,7 +70,7 @@ LIMIT 1
     game_id, variant_id = fixture_id(core_id, "game"), fixture_id(core_id, "variant")
     now = int(time.time() * 1000)
     emulator_game_id = connection.execute(
-        "SELECT COALESCE(max(emulator_game_id),1000)+1 FROM game_variants"
+        "SELECT nextval('emulator_game_numbers')"
     ).fetchone()[0]
     connection.execute("BEGIN")
     connection.execute(

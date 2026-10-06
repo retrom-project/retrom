@@ -29,8 +29,12 @@ func (m *mappingMemory) WithMappings(_ context.Context, work func(MappingScope) 
 
 func (m *mappingMemory) Import(context.Context, string) (Summary, error) { return m.before, m.readErr }
 
-func (m *mappingMemory) CollectionOwner(context.Context, string) (string, error) {
-	return m.owner, m.readErr
+func (m *mappingMemory) CollectionOwners(_ context.Context, ids []string) (map[string]string, error) {
+	owners := make(map[string]string, len(ids))
+	for _, id := range ids {
+		owners[id] = m.owner
+	}
+	return owners, m.readErr
 }
 
 func (m *mappingMemory) EligibleTarget(context.Context, string) (MappingTarget, bool, error) {

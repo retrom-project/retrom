@@ -366,7 +366,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 },
 		func() bool { return response.GeneratedAtMS != fixed.UnixMilli() },
-		func() bool { return response.DatabaseSchemaVersion != 1 },
+		func() bool { return response.DatabaseSchemaVersion != 2 },
 		func() bool { return len(response.RuntimeProviders) != 2 },
 		func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" },
 		func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }),

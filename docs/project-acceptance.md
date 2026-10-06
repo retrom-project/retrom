@@ -506,7 +506,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-AUTH-005`。
 - 流程：管理员以当前 ETag 修改角色/状态、停用/启用/软删除目标用户，提交陈旧 ETag，并证明 username/displayName/Profile/密码没有管理修改入口；再尝试停用/降级/删除自己及最后一名 enabled ADMIN。
-- 通过标准：合法变化原子更新 User、session version、AuthSession、未使用 AccountLink、必要的 Launch 与审计；陈旧 ETag 为 412 且不写入。self/last-admin 全部拒绝；DELETED 不恢复、username 不复用且私有 Profile/历史保留。
+- 通过标准：合法变化原子更新 User、session version、AuthSession、未使用 AccountLink、必要的 Launch 与审计；陈旧 ETag 为 412 且不写入。自身停用、降级或删除仍拒绝；不按启用管理员人数额外保护其他目标用户；DELETED 不恢复、username 不复用且私有 Profile/历史保留。
 - 证据：API/UI 记录、会话/link/launch/User/Profile/审计前后摘要及 CLI 脱敏输出。
 
 ### ACC-AUTH-006：管理员授权与响应最小化
@@ -1259,7 +1259,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-009`。
 - 流程：在 `1280×800`、`2560×1440` 和物理 4K 150% 场景完成 setup、test login、邀请复制/注册、logout/login、管理员创建密码重置链接、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认登录页不提供自助找回密码，账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
-- 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
+- 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身停用、降级和删除控件禁用并解释原因；其他目标不按启用管理员人数禁用，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
 - 操作反馈回归：邀请、重置、状态与删除的正常/异常提示均通过 ToastProvider，完整一次性链接仍只在结果对话框中出现。ConfirmDialog、Drawer、Sheet 在 busy 时由容器持有焦点，Tab/Shift+Tab 不离开当前最上层，Escape 不关闭；失败后恢复可操作控件，关闭后返回触发器。

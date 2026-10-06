@@ -44,17 +44,23 @@ func (records mappingRecords) Import(ctx context.Context, id string) (applicatio
 	return value, err
 }
 
-func (records mappingRecords) CollectionOwner(ctx context.Context, id string) (string, error) {
-	var result string
-	err := dbapi.QueryRowContext(
-		ctx, records.executor, `SELECT import_id FROM source_import_collections WHERE id=?`, id).Scan(
-		&result,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", application.ErrInvalid
-	}
+func (records mappingRecords) CollectionOwners(ctx context.Context, ids []string) (map[string]string, error) {
+	rows, err := records.executor.QueryContext(ctx,
+		`SELECT id,import_id FROM source_import_collections WHERE id=ANY(?::text[])`, ids)
 	if err != nil {
-		return "", fmt.Errorf("read Source collection owner: %w", err)
+		return nil, fmt.Errorf("read Source collection owners: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	result := make(map[string]string, len(ids))
+	for rows.Next() {
+		var id, owner string
+		if err := rows.Scan(&id, &owner); err != nil {
+			return nil, fmt.Errorf("scan Source collection owner: %w", err)
+		}
+		result[id] = owner
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate Source collection owners: %w", err)
 	}
 	return result, nil
 }

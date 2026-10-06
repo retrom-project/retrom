@@ -3705,9 +3705,9 @@ export interface components {
             tags: components["schemas"]["TagReference"][];
             media: {
                 /** @enum {string} */
-                cover: "READY" | "MISSING" | "WARNING";
+                cover: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
                 /** @enum {string} */
-                video: "READY" | "MISSING" | "WARNING";
+                video: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
             };
             sourceFlags: {
                 hidden: boolean;

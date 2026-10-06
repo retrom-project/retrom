@@ -286,7 +286,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := testpostgres.DSN(t)
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 1, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 2, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

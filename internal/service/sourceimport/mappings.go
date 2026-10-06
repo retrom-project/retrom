@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"retrom/internal/service/idempotency"
@@ -20,7 +21,7 @@ type (
 	}
 	MappingReader interface {
 		Import(context.Context, string) (Summary, error)
-		CollectionOwner(context.Context, string) (string, error)
+		CollectionOwners(context.Context, []string) (map[string]string, error)
 		EligibleTarget(context.Context, string) (MappingTarget, bool, error)
 	}
 	MappingWriter interface {
@@ -144,29 +145,60 @@ func prepareMappings(
 	mappings []Mapping,
 	now int64,
 ) ([]CollectionMapping, error) {
-	result := make([]CollectionMapping, 0, len(mappings))
+	ids := make([]string, 0, len(mappings))
 	for _, mapping := range mappings {
-		owner, err := reader.CollectionOwner(ctx, mapping.CollectionID)
-		if err != nil {
-			return nil, fmt.Errorf("read Source mapping owner: %w", err)
-		}
-		if owner != id {
+		ids = append(ids, mapping.CollectionID)
+	}
+	owners, err := reader.CollectionOwners(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("read Source mapping owners: %w", err)
+	}
+	for _, collectionID := range ids {
+		if owners[collectionID] != id {
 			return nil, ErrInvalid
 		}
+	}
+	targets, err := selectedMappingTargets(ctx, reader, mappings)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]CollectionMapping, 0, len(mappings))
+	for _, mapping := range mappings {
 		change := CollectionMapping{ImportID: id, Mapping: mapping, NowMS: now}
 		if mapping.Action == "IMPORT" {
-			target, found, err := reader.EligibleTarget(ctx, mapping.PlatformInstanceID)
-			if err != nil {
-				return nil, fmt.Errorf("read Source mapping target: %w", err)
-			}
-			if !found {
-				return nil, ErrInvalid
-			}
+			target := targets[mapping.PlatformInstanceID]
 			change.Target = &target
 		}
 		result = append(result, change)
 	}
 	return result, nil
+}
+
+func selectedMappingTargets(
+	ctx context.Context, reader MappingReader, mappings []Mapping,
+) (map[string]MappingTarget, error) {
+	ids := make([]string, 0)
+	seen := make(map[string]bool)
+	for _, mapping := range mappings {
+		if mapping.Action == "IMPORT" && !seen[mapping.PlatformInstanceID] {
+			ids = append(ids, mapping.PlatformInstanceID)
+			seen[mapping.PlatformInstanceID] = true
+		}
+	}
+	// Lock distinct targets in a stable order, within this mapping transaction.
+	sort.Strings(ids)
+	targets := make(map[string]MappingTarget, len(ids))
+	for _, id := range ids {
+		target, found, err := reader.EligibleTarget(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("read Source mapping target: %w", err)
+		}
+		if !found {
+			return nil, ErrInvalid
+		}
+		targets[id] = target
+	}
+	return targets, nil
 }
 
 func (service *Mappings) saveMappings(

@@ -48,7 +48,7 @@ RuntimeProvider
 
 `games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源类别、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
-`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
+`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。模拟器编号由有界 PostgreSQL `emulator_game_numbers` sequence 原子分配，审核发布和变体处理共用同一分配入口；回滚允许留下间隙，编号不复用、不循环，上限为 JavaScript 安全整数。`002_emulator_game_numbers.sql` 从现有 Variant 最大编号之后初始化 sequence，已有编号不变。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
 
 Game 不保存指向审核 Item、导入 Job 或刮削 Candidate 的来源引用；来源类别保留为描述，具体操作证据进入 AuditEvent。产品启动、存档、媒体与删除只读取 Game、Variant 和各自运行对象，已完成的导入及审核记录可独立删除。
 

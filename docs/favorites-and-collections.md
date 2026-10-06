@@ -46,7 +46,7 @@ stateDiagram-v2
 - 取消收藏前必须说明会同时移除多少个 FolderMembership，默认焦点为“保留收藏”。成功后提供固定两秒的内存撤销；快照不得写入 URL 或浏览器存储。
 - 撤销不重建期间已删除的 Folder：可见 Game 恢复 Favorite，只恢复当前仍存在且属于同一 Profile 的 Folder，并报告跳过项。
 - Folder 不做软删除。重命名只改变规范名称并把 `version` 精确加一，不改变 ID、创建时间、成员或顺序；删除后名称可以复用，旧 ID 永不复用。
-- 每个 Profile 最多 100 个 Folder，固定按 `created_at_ms ASC, id ASC` 展示；“全部收藏”和“未分类”不能重命名或删除。
+- 每个 Profile 的 Folder 不设总数上限，固定按 `created_at_ms ASC, id ASC` 展示；“全部收藏”和“未分类”不能重命名或删除。
 
 ## 3. 模块与事务边界
 

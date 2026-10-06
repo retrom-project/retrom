@@ -72,10 +72,8 @@ SELECT emulator_game_id FROM game_variants WHERE id=?
 	if existing.Valid {
 		return defaultDOSEntry, existing.Int64, nil
 	}
-	var emulatorGameID int64
-	if err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT COALESCE(max(emulator_game_id),1000)+1 FROM game_variants
-`).Scan(&emulatorGameID); err != nil {
+	emulatorGameID, err := recordstore.NextEmulatorGameID(ctx, records.executor)
+	if err != nil {
 		return sql.NullString{}, nil, fmt.Errorf("allocate emulator game ID: %w", err)
 	}
 	return defaultDOSEntry, emulatorGameID, nil
