@@ -1,0 +1,55 @@
+{
+  "itemState": "COMMIT_FAILED",
+  "errorCode": "INTERNAL_ERROR",
+  "failureDetails": null,
+  "libraryJobCreated": false,
+  "libraryItemCreated": false,
+  "payloadState": "RETAINED",
+  "materials": [
+    {
+      "ordinal": 0,
+      "state": "COPIED",
+      "declaredSize": 94,
+      "recordPresent": true,
+      "targetExists": true,
+      "targetBytes": 94
+    },
+    {
+      "ordinal": 1,
+      "state": "COPIED",
+      "declaredSize": 259075317,
+      "recordPresent": true,
+      "targetExists": true,
+      "targetBytes": 259075317
+    },
+    {
+      "ordinal": 2,
+      "state": "COPIED",
+      "declaredSize": 371984267,
+      "recordPresent": true,
+      "targetExists": true,
+      "targetBytes": 371984267
+    },
+    {
+      "ordinal": 3,
+      "state": "DISCOVERED",
+      "declaredSize": 329960363,
+      "recordPresent": false,
+      "targetExists": false,
+      "targetBytes": null
+    }
+  ],
+  "scope": "Root physical/database cause was not retained; this proves missing diagnostic evidence, not a specific disk or isolation failure.",
+  "uiObserved": {
+    "title": "处理被阻断",
+    "explanation": "服务端返回了稳定诊断码，请结合下面的检查证据处理。",
+    "code": "INTERNAL_ERROR",
+    "action": "按缺失文件和依赖信息修正来源后重新导入或重试。",
+    "missingFileEvidenceAvailable": false,
+    "layoutWidthsWithoutOverflow": [
+      1440,
+      1024,
+      800
+    ]
+  }
+}

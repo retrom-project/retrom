@@ -1,0 +1,150 @@
+[
+  {
+    "name": "phone",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "states": [
+      {
+        "state": "before",
+        "cards": 50,
+        "footer": {
+          "x": 16,
+          "documentY": 7772.59375,
+          "width": 358,
+          "height": 64
+        },
+        "text": "已加载 50 / 201 款游戏继续加载",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "继续加载",
+            "x": 280,
+            "documentY": 7782.59375,
+            "width": 94,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "state": "failure",
+        "cards": 50,
+        "footer": {
+          "x": 16,
+          "documentY": 7772.59375,
+          "width": 358,
+          "height": 91.1875
+        },
+        "text": "已加载 50 / 201 款游戏暂时无法读取游戏库，请稍后重试，点击重试",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "暂时无法读取游戏库，请稍后重试，点击重试",
+            "x": 16,
+            "documentY": 7809.78125,
+            "width": 318,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "state": "recovered",
+        "cards": 100,
+        "footer": {
+          "x": 16,
+          "documentY": 16865.171875,
+          "width": 358,
+          "height": 64
+        },
+        "text": "已加载 100 / 201 款游戏继续加载",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "继续加载",
+            "x": 280,
+            "documentY": 16875.171875,
+            "width": 94,
+            "height": 44
+          }
+        ]
+      }
+    ],
+    "injectedFailures": 1,
+    "recovered": true
+  },
+  {
+    "name": "narrow",
+    "viewport": {
+      "width": 320,
+      "height": 760
+    },
+    "states": [
+      {
+        "state": "before",
+        "cards": 50,
+        "footer": {
+          "x": 16,
+          "documentY": 6605.796875,
+          "width": 288,
+          "height": 64
+        },
+        "text": "已加载 50 / 201 款游戏继续加载",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "继续加载",
+            "x": 210,
+            "documentY": 6615.796875,
+            "width": 94,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "state": "failure",
+        "cards": 50,
+        "footer": {
+          "x": 16,
+          "documentY": 6605.796875,
+          "width": 288,
+          "height": 91.1875
+        },
+        "text": "已加载 50 / 201 款游戏暂时无法读取游戏库，请稍后重试，点击重试",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "暂时无法读取游戏库，请稍后重试，点击重试",
+            "x": 16,
+            "documentY": 6642.984375,
+            "width": 318,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "state": "recovered",
+        "cards": 100,
+        "footer": {
+          "x": 16,
+          "documentY": 14531.578125,
+          "width": 288,
+          "height": 64
+        },
+        "text": "已加载 100 / 201 款游戏继续加载",
+        "overflow": false,
+        "buttons": [
+          {
+            "text": "继续加载",
+            "x": 210,
+            "documentY": 14541.578125,
+            "width": 94,
+            "height": 44
+          }
+        ]
+      }
+    ],
+    "injectedFailures": 1,
+    "recovered": true
+  }
+]

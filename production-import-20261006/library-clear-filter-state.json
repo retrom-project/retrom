@@ -1,0 +1,158 @@
+[
+  {
+    "name": "desktop",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "states": [
+      {
+        "state": "initial",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "query-entered",
+        "path": "/library?q=retrom-no-match-20261006",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "clear-link-clicked",
+        "path": "/library",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "reload-after-cleared-url",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "direct-query-navigation",
+        "path": "/library?q=retrom-no-match-20261006",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "direct-query-clear-link",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      }
+    ],
+    "requests": [
+      {
+        "path": "/api/v1/games?limit=50&sort=RECENT_DESC&q=retrom-no-match-20261006",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games?limit=50&sort=RECENT_DESC",
+        "status": 200
+      }
+    ],
+    "pageErrors": [],
+    "completed": true
+  },
+  {
+    "name": "phone",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "states": [
+      {
+        "state": "initial",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "query-entered",
+        "path": "/library?q=retrom-no-match-20261006",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "clear-link-clicked",
+        "path": "/library",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "reload-after-cleared-url",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "direct-query-navigation",
+        "path": "/library?q=retrom-no-match-20261006",
+        "searchValue": "retrom-no-match-20261006",
+        "count": "已加载 0 / 0 款游戏",
+        "cards": 0,
+        "empty": "◇没有找到游戏当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。清除筛选",
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      },
+      {
+        "state": "direct-query-clear-link",
+        "path": "/library",
+        "searchValue": "",
+        "count": "已加载 50 / 5630 款游戏",
+        "cards": 50,
+        "nextHistoryFlag": true,
+        "horizontalOverflow": false
+      }
+    ],
+    "requests": [
+      {
+        "path": "/api/v1/games?limit=50&sort=RECENT_DESC&q=retrom-no-match-20261006",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games?limit=50&sort=RECENT_DESC",
+        "status": 200
+      }
+    ],
+    "pageErrors": [],
+    "completed": true
+  }
+]

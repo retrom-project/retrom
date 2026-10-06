@@ -1,0 +1,290 @@
+[
+  {
+    "name": "desktop",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "dropdown": {
+      "option": {
+        "x": 723,
+        "y": 500.734375,
+        "width": 675,
+        "height": 38.390625
+      },
+      "listZIndex": "180",
+      "hitTag": "BUTTON",
+      "hitClass": "is-active",
+      "pointerHitsOption": true,
+      "drawerZIndex": "131"
+    },
+    "states": [
+      {
+        "state": "before",
+        "section": {
+          "x": 703,
+          "y": 328.5625,
+          "width": 715,
+          "height": 290.359375
+        },
+        "actions": {
+          "x": 716,
+          "y": 561.921875,
+          "width": 689,
+          "height": 44
+        },
+        "button": {
+          "x": 716,
+          "y": 561.921875,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": null,
+        "firstCollection": {
+          "x": 703,
+          "y": 627.921875,
+          "width": 700,
+          "height": 106.75
+        },
+        "footer": {
+          "x": 681,
+          "y": 925,
+          "width": 759,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      },
+      {
+        "state": "success",
+        "section": {
+          "x": 703,
+          "y": 328.5625,
+          "width": 715,
+          "height": 290.359375
+        },
+        "actions": {
+          "x": 716,
+          "y": 561.921875,
+          "width": 689,
+          "height": 44
+        },
+        "button": {
+          "x": 716,
+          "y": 561.921875,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": "已追加到 3 个未跳过 Collection，覆盖 3 个游戏；仍可在下方逐项调整。",
+        "firstCollection": {
+          "x": 703,
+          "y": 627.921875,
+          "width": 700,
+          "height": 106.75
+        },
+        "footer": {
+          "x": 681,
+          "y": 925,
+          "width": 759,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      }
+    ],
+    "selectionMethod": "keyboard Enter; separate pointer observation retained",
+    "localOnly": true
+  },
+  {
+    "name": "tablet",
+    "viewport": {
+      "width": 1024,
+      "height": 768
+    },
+    "dropdown": {
+      "option": {
+        "x": 547,
+        "y": 556.515625,
+        "width": 435,
+        "height": 38.390625
+      },
+      "listZIndex": "180",
+      "hitTag": "SECTION",
+      "hitClass": "source-batch-tags",
+      "pointerHitsOption": false,
+      "drawerZIndex": "206"
+    },
+    "states": [
+      {
+        "state": "before",
+        "section": {
+          "x": 527,
+          "y": 347.15625,
+          "width": 475,
+          "height": 327.546875
+        },
+        "actions": {
+          "x": 540,
+          "y": 617.703125,
+          "width": 449,
+          "height": 44
+        },
+        "button": {
+          "x": 540,
+          "y": 617.703125,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": null,
+        "firstCollection": {
+          "x": 527,
+          "y": 683.703125,
+          "width": 460,
+          "height": 170.75
+        },
+        "footer": {
+          "x": 505,
+          "y": 693,
+          "width": 519,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      },
+      {
+        "state": "success",
+        "section": {
+          "x": 527,
+          "y": 347.15625,
+          "width": 475,
+          "height": 327.546875
+        },
+        "actions": {
+          "x": 540,
+          "y": 617.703125,
+          "width": 449,
+          "height": 44
+        },
+        "button": {
+          "x": 540,
+          "y": 617.703125,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": "已追加到 3 个未跳过 Collection，覆盖 3 个游戏；仍可在下方逐项调整。",
+        "firstCollection": {
+          "x": 527,
+          "y": 683.703125,
+          "width": 460,
+          "height": 170.75
+        },
+        "footer": {
+          "x": 505,
+          "y": 693,
+          "width": 519,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      }
+    ],
+    "selectionMethod": "keyboard Enter; separate pointer observation retained",
+    "localOnly": true
+  },
+  {
+    "name": "compact",
+    "viewport": {
+      "width": 800,
+      "height": 760
+    },
+    "dropdown": {
+      "option": {
+        "x": 323,
+        "y": 556.515625,
+        "width": 435,
+        "height": 38.390625
+      },
+      "listZIndex": "180",
+      "hitTag": "SECTION",
+      "hitClass": "source-batch-tags",
+      "pointerHitsOption": false,
+      "drawerZIndex": "206"
+    },
+    "states": [
+      {
+        "state": "before",
+        "section": {
+          "x": 303,
+          "y": 347.15625,
+          "width": 475,
+          "height": 327.546875
+        },
+        "actions": {
+          "x": 316,
+          "y": 617.703125,
+          "width": 449,
+          "height": 44
+        },
+        "button": {
+          "x": 316,
+          "y": 617.703125,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": null,
+        "firstCollection": {
+          "x": 303,
+          "y": 683.703125,
+          "width": 460,
+          "height": 170.75
+        },
+        "footer": {
+          "x": 281,
+          "y": 685,
+          "width": 519,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      },
+      {
+        "state": "success",
+        "section": {
+          "x": 303,
+          "y": 347.15625,
+          "width": 475,
+          "height": 327.546875
+        },
+        "actions": {
+          "x": 316,
+          "y": 617.703125,
+          "width": 449,
+          "height": 44
+        },
+        "button": {
+          "x": 316,
+          "y": 617.703125,
+          "width": 233.234375,
+          "height": 44
+        },
+        "message": "已追加到 3 个未跳过 Collection，覆盖 3 个游戏；仍可在下方逐项调整。",
+        "firstCollection": {
+          "x": 303,
+          "y": 683.703125,
+          "width": 460,
+          "height": 170.75
+        },
+        "footer": {
+          "x": 281,
+          "y": 685,
+          "width": 519,
+          "height": 75
+        },
+        "toasts": [],
+        "viewportOverflow": false
+      }
+    ],
+    "selectionMethod": "keyboard Enter; separate pointer observation retained",
+    "localOnly": true
+  }
+]

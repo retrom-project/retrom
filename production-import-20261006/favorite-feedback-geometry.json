@@ -1,0 +1,544 @@
+{
+  "cases": [
+    {
+      "device": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "states": [
+        {
+          "label": "create-before",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 490,
+              "y": 382.40625,
+              "width": 460,
+              "height": 235.171875,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 748,
+                  "y": 553.578125,
+                  "width": 66,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 822,
+                  "y": 553.578125,
+                  "width": 108,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "create-success",
+          "dialogs": [],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-desktop”×",
+              "className": "favorite-toast",
+              "x": 1086,
+              "y": 920,
+              "width": 330,
+              "height": 56
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "duplicate-before",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 490,
+              "y": 382.40625,
+              "width": 460,
+              "height": 235.171875,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 748,
+                  "y": 553.578125,
+                  "width": 66,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 822,
+                  "y": 553.578125,
+                  "width": 108,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-desktop”×",
+              "className": "favorite-toast",
+              "x": 1086,
+              "y": 920,
+              "width": 330,
+              "height": 56
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "duplicate-error",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 490,
+              "y": 382.40625,
+              "width": 460,
+              "height": 235.171875,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 748,
+                  "y": 553.578125,
+                  "width": 66,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 822,
+                  "y": 553.578125,
+                  "width": 108,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-desktop”×",
+              "className": "favorite-toast",
+              "x": 1086,
+              "y": 920,
+              "width": 330,
+              "height": 56
+            },
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 500,
+              "y": 32,
+              "width": 440,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "delete-before",
+          "dialogs": [
+            {
+              "text": "!删除“验收临时收藏夹-desktop”？收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。此操作不会删除游戏文件、存档或取消游戏收藏。取消删除收藏夹",
+              "x": 460,
+              "y": 383.203125,
+              "width": 520,
+              "height": 233.578125,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 774,
+                  "y": 549.78125,
+                  "width": 66,
+                  "height": 44
+                },
+                {
+                  "text": "删除收藏夹",
+                  "x": 849,
+                  "y": 549.78125,
+                  "width": 108,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-desktop”×",
+              "className": "favorite-toast",
+              "x": 1086,
+              "y": 920,
+              "width": 330,
+              "height": 56
+            },
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 500,
+              "y": 32,
+              "width": 440,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "delete-error",
+          "dialogs": [
+            {
+              "text": "!删除“验收临时收藏夹-desktop”？收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。此操作不会删除游戏文件、存档或取消游戏收藏。服务暂时不可用，请稍后重试（SERVICE_UNAVAILABLE）取消删除收藏夹",
+              "x": 460,
+              "y": 369.609375,
+              "width": 520,
+              "height": 260.765625,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 774,
+                  "y": 563.375,
+                  "width": 66,
+                  "height": 44
+                },
+                {
+                  "text": "删除收藏夹",
+                  "x": 849,
+                  "y": 563.375,
+                  "width": 108,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-desktop”×",
+              "className": "favorite-toast",
+              "x": 1086,
+              "y": 920,
+              "width": 330,
+              "height": 56
+            },
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 500,
+              "y": 32,
+              "width": 440,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        },
+        {
+          "label": "delete-success",
+          "dialogs": [],
+          "toasts": [
+            {
+              "text": "已删除收藏夹“验收临时收藏夹-desktop”，收藏仍保留×",
+              "className": "favorite-toast",
+              "x": 1059.296875,
+              "y": 920,
+              "width": 356.703125,
+              "height": 56
+            },
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 500,
+              "y": 32,
+              "width": 440,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 1440,
+          "scrollWidth": 1440
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "status": 201
+        },
+        {
+          "method": "POST",
+          "status": 409
+        },
+        {
+          "method": "DELETE",
+          "status": 503
+        },
+        {
+          "method": "DELETE",
+          "status": 204
+        }
+      ],
+      "cleaned": true,
+      "injectedFailures": 1
+    },
+    {
+      "device": "phone",
+      "width": 390,
+      "height": 844,
+      "states": [
+        {
+          "label": "create-before",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 16,
+              "y": 523.640625,
+              "width": 358,
+              "height": 304.359375,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 35,
+                  "y": 713,
+                  "width": 320,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 35,
+                  "y": 765,
+                  "width": 320,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "create-success",
+          "dialogs": [],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-phone”×",
+              "className": "favorite-toast",
+              "x": 16,
+              "y": 712,
+              "width": 358,
+              "height": 56
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "duplicate-before",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 16,
+              "y": 523.640625,
+              "width": 358,
+              "height": 304.359375,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 35,
+                  "y": 713,
+                  "width": 320,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 35,
+                  "y": 765,
+                  "width": 320,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-phone”×",
+              "className": "favorite-toast",
+              "x": 16,
+              "y": 712,
+              "width": 358,
+              "height": 56
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "duplicate-error",
+          "dialogs": [
+            {
+              "text": "新建收藏夹为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。收藏夹名称取消创建收藏夹",
+              "x": 16,
+              "y": 523.640625,
+              "width": 358,
+              "height": 304.359375,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 35,
+                  "y": 713,
+                  "width": 320,
+                  "height": 44
+                },
+                {
+                  "text": "创建收藏夹",
+                  "x": 35,
+                  "y": 765,
+                  "width": 320,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已创建收藏夹“验收临时收藏夹-phone”×",
+              "className": "favorite-toast",
+              "x": 16,
+              "y": 712,
+              "width": 358,
+              "height": 56
+            },
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 16,
+              "y": 32,
+              "width": 358,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "delete-before",
+          "dialogs": [
+            {
+              "text": "!删除“验收临时收藏夹-phone”？收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。此操作不会删除游戏文件、存档或取消游戏收藏。取消删除收藏夹",
+              "x": 16,
+              "y": 527.03125,
+              "width": 358,
+              "height": 300.96875,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 35,
+                  "y": 712,
+                  "width": 320,
+                  "height": 44
+                },
+                {
+                  "text": "删除收藏夹",
+                  "x": 35,
+                  "y": 765,
+                  "width": 320,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 16,
+              "y": 32,
+              "width": 358,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "delete-error",
+          "dialogs": [
+            {
+              "text": "!删除“验收临时收藏夹-phone”？收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。此操作不会删除游戏文件、存档或取消游戏收藏。服务暂时不可用，请稍后重试（SERVICE_UNAVAILABLE）取消删除收藏夹",
+              "x": 16,
+              "y": 480.65625,
+              "width": 358,
+              "height": 347.34375,
+              "buttons": [
+                {
+                  "text": "取消",
+                  "x": 35,
+                  "y": 712,
+                  "width": 320,
+                  "height": 44
+                },
+                {
+                  "text": "删除收藏夹",
+                  "x": 35,
+                  "y": 765,
+                  "width": 320,
+                  "height": 44
+                }
+              ]
+            }
+          ],
+          "toasts": [
+            {
+              "text": "已经存在同名收藏夹。",
+              "className": "app-toast bad",
+              "x": 16,
+              "y": 32,
+              "width": 358,
+              "height": 56.390625
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        },
+        {
+          "label": "delete-success",
+          "dialogs": [],
+          "toasts": [
+            {
+              "text": "已删除收藏夹“验收临时收藏夹-phone”，收藏仍保留×",
+              "className": "favorite-toast",
+              "x": 16,
+              "y": 712,
+              "width": 358,
+              "height": 56
+            }
+          ],
+          "viewport": 390,
+          "scrollWidth": 390
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "status": 201
+        },
+        {
+          "method": "POST",
+          "status": 409
+        },
+        {
+          "method": "DELETE",
+          "status": 503
+        },
+        {
+          "method": "DELETE",
+          "status": 204
+        }
+      ],
+      "cleaned": true,
+      "injectedFailures": 1
+    }
+  ]
+}

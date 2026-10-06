@@ -1,0 +1,24 @@
+[
+  {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "closeBounds": {
+      "x": 1372,
+      "y": 14,
+      "width": 16,
+      "height": 16
+    },
+    "hudBounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 32
+    },
+    "centerHitClass": "player-hud-handle",
+    "centerClick": "INTERCEPTED",
+    "lowerEdgeClick": "INTERCEPTED",
+    "hostExitConfirmed": true
+  }
+]
