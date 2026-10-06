@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { EmptyState, StatusBadge } from "@/components/ui";
@@ -81,7 +81,7 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
       } else {setEditor(null); notify({ tone: "good", message: "标签已更新" });}
       await refreshList();
     } catch (caught) { reportError(caught, "标签保存失败"); }
-    finally { setBusy(false); window.requestAnimationFrame(() => nameRef.current?.focus()); }
+    finally { setBusy(false); }
   }
 
   async function remove() {
@@ -208,6 +208,9 @@ function TagEditorSheet({ busy, editor, error, name, nameRef, save, setEditor, s
   TagManagerViewProps, "busy" | "editor" | "error" | "name" | "nameRef" | "save" | "setEditor" | "setName" |
   "triggerRef" | "setError"
 >) {
+  useLayoutEffect(() => {
+    if (editor && !busy) {nameRef.current?.focus();}
+  }, [busy, editor, nameRef]);
   const close = () => {setEditor(null); setError("");};
   const validName = Boolean(name.trim()) && [...name].length <= 40;
   return <ResponsiveSheet open={Boolean(editor)} busy={busy} title={editor?.mode === "create" ? "新建标签" : "编辑标签"} description="名称会进行 Unicode 规范化、空白折叠和不区分大小写的唯一性检查。" placement="right" onClose={() => {if (!busy) {close();}}} returnFocusRef={triggerRef} initialFocusRef={nameRef} className="tag-editor-sheet" footer={<div className="tag-editor-footer-content"><div className="tag-editor-actions"><button className="button secondary" type="button" disabled={busy} onClick={close}>取消</button><button className="button" type="button" disabled={busy || !validName} onClick={() => void save()}>{busy ? "正在保存…" : "保存标签"}</button></div></div>}>

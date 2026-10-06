@@ -55,6 +55,8 @@ describe("TagManager", () => {
   });
 
   it("keeps the create drawer open for repeated additions and restores input focus", async () => {
+    // A frame may run before React commits the sheet unlock.
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { callback(0); return 0; });
     const items = [initialTag];
     const fetchMock = vi.fn().mockImplementation(async (_url, init) => {
       if (!init?.body) {return json({ ...initial, items: [...items] });}
@@ -160,6 +162,7 @@ describe("TagManager", () => {
   });
 
   it("keeps the editor input visible when the API reports a name conflict", async () => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { callback(0); return 0; });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ error: { code: "TAG_NAME_CONFLICT", message: "已存在同名活动标签" } }, 409)));
     const user = userEvent.setup();
     render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
@@ -172,5 +175,6 @@ describe("TagManager", () => {
     expect(within(sheet).queryByRole("alert")).toBeNull();
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveValue("Action Duplicate");
+    await waitFor(() => expect(input).toHaveFocus());
   });
 });
