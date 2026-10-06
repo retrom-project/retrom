@@ -6,7 +6,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 当前实现基线
 
-当前数据库由 PostgreSQL `001_schema.sql` 创建完整建库基线；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.59.0 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-05 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
+当前数据库由 PostgreSQL `001_schema.sql` 创建完整建库基线；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.59.1 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-06 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
 
 全新数据库在启动时从 Host catalog 同步 Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期继续使用各自领域契约。
 
