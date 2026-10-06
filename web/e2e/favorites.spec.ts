@@ -207,8 +207,8 @@ test("ACC-FAV-003 library undo stays fixed while hovering its transformed card a
   const toast = page.locator(".app-toast");
   await expect(toast).toBeVisible();
   const before = (await toast.boundingBox())!;
-  expect(before.x + before.width).toBeCloseTo(page.viewportSize()!.width - 24, 0);
-  expect(before.y + before.height).toBeCloseTo(page.viewportSize()!.height - 24, 0);
+  expect(before.x + before.width / 2).toBeCloseTo(page.viewportSize()!.width / 2, 0);
+  expect(before.y).toBeCloseTo(32, 0);
   await card.hover();
   const undo = toast.getByRole("button", { name: "撤销" });
   await undo.hover();
@@ -227,7 +227,7 @@ test("ACC-FAV-003 library undo stays fixed while hovering its transformed card a
   await undo.click();
   await expect(heart).toHaveAttribute("aria-pressed", "true");
   await expect(toast).toContainText("已恢复收藏");
-  await page.clock.runFor(2_001);
+  await page.clock.runFor(3_001);
   await expect(toast).toHaveCount(0);
 });
 
