@@ -52,8 +52,8 @@ func TestConcurrentOpenSeesSchemaCommittedByLockPredecessor(t *testing.T) {
 	if err := dbapi.QueryRowContext(ctx, observer, "SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatal(err)
 	}
-	if migrations != 1 {
-		t.Fatalf("migration records = %d, want 1", migrations)
+	if migrations != 2 {
+		t.Fatalf("migration records = %d, want 2", migrations)
 	}
 }
 

@@ -124,7 +124,7 @@ func New(ctx context.Context, input Inputs) (*Services, error) {
 	)
 
 	sourceImportService := composition.NewSourceImport(
-		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
+		database, blobs, importer, credentials, serversource.FilesystemRoots(), now, config.SourceWorkers,
 	)
 
 	server := &Services{

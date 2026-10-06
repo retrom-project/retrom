@@ -68,13 +68,17 @@ func (service *ReviewDiscards) DiscardInScope(
 	}
 	change := ReviewDiscardChange{
 		ItemID: request.ItemID, ImportID: snapshot.ImportID, ExpectedVersion: request.ExpectedVersion,
-		NowMS: now, Aggregate: aggregate,
+		NowMS: now, Aggregate: aggregate, Existing: request.Existing,
 	}
 	if err := persistReviewDiscard(ctx, scope, request, change); err != nil {
 		return ReviewDecisionResult{}, err
 	}
+	status := "DISCARDED"
+	if request.Existing != nil {
+		status = "SKIPPED_EXISTING"
+	}
 	return ReviewDecisionResult{
-		ItemID: request.ItemID, Status: "DISCARDED",
+		ItemID: request.ItemID, Status: status,
 		Version: snapshot.Version + 1, UpdatedAtMS: now,
 	}, nil
 }
@@ -83,6 +87,9 @@ func normalizeReviewDiscard(request ReviewDiscardRequest) (ReviewDiscardRequest,
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.Mode == "" {
 		request.Mode = ReviewDiscardSingle
+	}
+	if request.Existing != nil && (len(request.Existing.Games) == 0 || len(request.Existing.Identity) != 64) {
+		return ReviewDiscardRequest{}, ErrInvalid
 	}
 	if request.ItemID == "" || request.ExpectedVersion < 1 || !validField(request.Reason, 500, true) ||
 		(request.Mode != ReviewDiscardSingle && request.Mode != ReviewDiscardBatch) {
@@ -114,9 +121,11 @@ func persistReviewDiscard(
 	if err := writer.DiscardItem(ctx, change); err != nil {
 		return fmt.Errorf("discard review and aggregate: %w", err)
 	}
-	if err := writer.TransitionOwner(ctx, ReviewOwnerTransition{
-		ItemID: request.ItemID, State: ReviewOwnerDiscarded, Mode: request.Mode, NowMS: now,
-	}); err != nil {
+	owner := ReviewOwnerTransition{ItemID: request.ItemID, State: ReviewOwnerDiscarded, Mode: request.Mode, NowMS: now}
+	if request.Existing != nil {
+		owner.State, owner.GameID = ReviewOwnerExisting, &request.Existing.Games[0].GameID
+	}
+	if err := writer.TransitionOwner(ctx, owner); err != nil {
 		return fmt.Errorf("transition discarded review owner: %w", err)
 	}
 	if err := importcleanup.Review(ctx, cleanupjobs.NewScheduler(nil),

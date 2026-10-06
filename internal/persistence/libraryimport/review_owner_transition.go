@@ -21,8 +21,11 @@ func transitionServerReviewOwner(
 		return 0, libraryservice.ErrInvalid
 	}
 	result, err := update(ctx, transaction, recordstore.Update{
-		Set: `execution_state=?,published_game_id=?,library_import_item_id=NULL,library_import_job_id=NULL,
-version=version+1,updated_at_ms=?`, Values: []any{state, gameID, now},
+		Set: `execution_state=?,
+published_game_id=CASE WHEN ?='PUBLISHED' THEN ? ELSE NULL END,
+existing_game_id=CASE WHEN ?='SKIPPED_EXISTING' THEN ? ELSE NULL END,
+library_import_item_id=NULL,library_import_job_id=NULL,
+version=version+1,updated_at_ms=?`, Values: []any{state, state, gameID, state, gameID, now},
 		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
  OR ?=1 AND ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
 `, Args: []any{importItemID, change.Mode == libraryservice.ReviewDiscardBatch, state}},
@@ -63,6 +66,8 @@ published_item_count=(
   SELECT count(*) FROM source_import_items item
   WHERE item.import_id=source_imports.id AND item.execution_state='PUBLISHED'
 ),
+existing_item_count=(SELECT count(*) FROM source_import_items item
+ WHERE item.import_id=source_imports.id AND item.execution_state='SKIPPED_EXISTING'),
 review_discarded_item_count=(
   SELECT count(*) FROM source_import_items item
   WHERE item.import_id=source_imports.id AND item.execution_state='REVIEW_DISCARDED'

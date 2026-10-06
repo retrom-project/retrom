@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { evidencePath, noPageOverflow, pngDimensions } from "./acceptance-support";
+import { createReviewFixture } from "./review-fixture-support";
 
 async function measureReview(page: Page) {
   return page.locator(".review-workflow-columns").evaluate((element) => {
@@ -125,10 +126,14 @@ test("ACC-UI-008 review sections and media keep independent natural heights", as
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") { errors.push(message.text()); } });
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  expect((await page.request.post("/api/v1/auth/login", {
+  const login = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" }, headers: { Origin: origin },
-  })).ok()).toBe(true);
-  await page.goto("/admin/reviews/30000000-0000-7000-8001-000000000056");
+  });
+  expect(login.ok()).toBe(true);
+  const { csrfToken } = await login.json() as { csrfToken: string };
+  // Own the pending item: bulk approval is allowed to consume every earlier fixture.
+  const itemId = await createReviewFixture(page, `layout-${testInfo.project.name}`, csrfToken);
+  await page.goto(`/admin/reviews/${itemId}`);
   await expect(page.getByRole("heading", { name: "② 发布成什么？" })).toBeVisible();
   await page.getByRole("textbox", { name: "标题", exact: true }).focus();
   await page.getByRole("textbox", { name: "标题", exact: true }).blur();

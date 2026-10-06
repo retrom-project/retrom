@@ -101,4 +101,18 @@ describe("ReviewBulkApproval", () => {
     expect(screen.getByText("继续待审").parentElement).toHaveTextContent("1");
     await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
   });
+
+  it("separates completed duplicate skips from items that still need review", async () => {
+    const done = { ...queued, state: "COMPLETED", initialPendingCount: 5,
+      scannedCount: 5, publishedCount: 1, skippedDuplicateCount: 1,
+      skippedChangedCount: 1, skippedNotReadyCount: 2 };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(respond({ activeBulkApproval: null }))
+      .mockResolvedValueOnce(respond(done)));
+    renderApproval(queued.bulkApprovalId);
+    await screen.findByRole("heading", { name: "快速审批已完成" });
+    expect(screen.getByText("继续待审").parentElement).toHaveTextContent("继续待审3");
+    expect(screen.getByText("重复已跳过").parentElement).toHaveTextContent("重复已跳过1");
+    expect(screen.getByText("已发布", { exact: true }).parentElement).toHaveTextContent("已发布1");
+  });
+
 });

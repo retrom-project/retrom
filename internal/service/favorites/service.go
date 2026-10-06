@@ -86,7 +86,7 @@ func (service *Service) ReplaceFolders(
 	gameID string,
 	folderIDs []string,
 ) (State, error) {
-	if !ValidID(gameID) || validateUniqueIDs(folderIDs, MaxFolders) != nil {
+	if !ValidID(gameID) || validateUniqueIDs(folderIDs, 0) != nil {
 		return State{}, ErrInvalid
 	}
 	desired := append([]string{}, folderIDs...)
@@ -452,7 +452,7 @@ func normalizeRestoreItems(items []RestoreItem) ([]RestoreItem, error) {
 			return nil, ErrInvalid
 		}
 		gameSeen[item.GameID] = struct{}{}
-		if err := validateUniqueIDs(item.FolderIDs, MaxFolders); err != nil {
+		if err := validateUniqueIDs(item.FolderIDs, 0); err != nil {
 			return nil, repositoryError("normalizeRestoreItems", err)
 		}
 		edges += len(item.FolderIDs)
@@ -489,13 +489,6 @@ func (service *Service) CreateFolder(
 	}{name, games}
 	return service.idempotent(ctx, principal, "postFavoriteFolder", key, request,
 		func(connection WriteScope) (int, map[string]string, any, error) {
-			count, err := connection.Folders.Count(ctx, principal.ProfileID)
-			if err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			if count >= MaxFolders {
-				return 0, nil, nil, ErrFolderLimit
-			}
 			if err := connection.Folders.RequireAvailableName(ctx, principal.ProfileID, nameKey, ""); err != nil {
 				return 0, nil, nil, repositoryError("CreateFolder", err)
 			}

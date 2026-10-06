@@ -134,3 +134,7 @@
 .admin-game-remove > .panel-body { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .admin-game-remove p { margin: 5px 0 0; color: var(--danger); font-size: var(--text-caption); }
 .admin-game-remove > .panel-body > .button { margin-left: auto; flex: 0 0 auto; }
+/* Both labels reserve the same space when a failed page becomes retryable. */
+.admin-game-page-next { display: inline-grid; }
+.admin-game-page-next > span { grid-area: 1 / 1; }
+.admin-game-page-next > span[aria-hidden="true"] { visibility: hidden; }

@@ -143,8 +143,8 @@ func (service *Service) persistNewDelete(
 	if err != nil {
 		return fmt.Errorf("schedule deleted game payload release: %w", err)
 	}
-	if err := repository.TransitionDeletedGameRuntime(ctx, request.GameID, now); err != nil {
-		return fmt.Errorf("transition deleted game runtime: %w", err)
+	if err := repository.CancelDeletedGameJobs(ctx, request.GameID, now); err != nil {
+		return fmt.Errorf("cancel deleted game writers: %w", err)
 	}
 	if err := repository.RecordDeleteGameAudit(ctx, DeleteGameAudit{
 		GameID: request.GameID,

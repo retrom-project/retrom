@@ -41,7 +41,7 @@ func TestLeaseClaimRollsBackJobParentAndStartedEvent(t *testing.T) {
 	before := workflowRows(t, db)
 	cause := errors.New("late lease write failure")
 	service := application.NewLeases(failingLeaseRepository{NewLeases(db), cause}, func() time.Time { return time.UnixMilli(10) })
-	unit, found, err := service.Claim(t.Context())
+	unit, found, err := service.Claim(t.Context(), "IMPORT_RECEIVE")
 	if !errors.Is(err, cause) || found || unit != (application.Work{}) {
 		t.Fatalf("claim returned %+v %v %v", unit, found, err)
 	}
@@ -54,7 +54,7 @@ func TestLeaseClaimPreservesBudgetAndRenewsCurrentOwner(t *testing.T) {
 	t.Parallel()
 	db := queuedLeaseDatabase(t)
 	service := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(10) })
-	unit, found, err := service.Claim(t.Context())
+	unit, found, err := service.Claim(t.Context(), "IMPORT_RECEIVE")
 	if err != nil || !found || unit.WorkerID == "" || unit.DeadlineAtMS != 100 || unit.Attempt != 2 {
 		t.Fatalf("claim=%+v found=%v err=%v", unit, found, err)
 	}
@@ -79,7 +79,7 @@ func TestLeaseRenewalSQLRejectsEveryStaleFence(t *testing.T) {
 			t.Parallel()
 			db := queuedLeaseDatabase(t)
 			repository := NewLeases(db)
-			if _, _, err := application.NewLeases(repository, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context()); err != nil {
+			if _, _, err := application.NewLeases(repository, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context(), "IMPORT_RECEIVE"); err != nil {
 				t.Fatal(err)
 			}
 			before := workflowRows(t, db)

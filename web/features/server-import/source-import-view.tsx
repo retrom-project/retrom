@@ -83,7 +83,7 @@ function runtimeReason(item: SourceItem): RuntimeReason | null {
   if (!code) {return null;}
   const failureReason = item.failureDetails ? failureReasonCatalog[item.failureDetails.causeCode] : null;
   if (failureReason) {return { code, ...failureReason };}
-  return { code, ...(runtimeReasonCatalog[code] ?? { title: "处理被阻断", explanation: "服务端返回了稳定诊断码，请结合下面的检查证据处理。", action: "按缺失文件和依赖信息修正来源后重新导入或重试。" }) };
+  return { code, ...(runtimeReasonCatalog[code] ?? { title: "处理被阻断", explanation: "服务端返回了稳定诊断码，请结合下面的检查证据处理。", action: "查看诊断详情和服务器日志以确定失败原因；可重试的任务可在问题解除后重试。" }) };
 }
 
 function FailureDetails({ item }: { item: SourceItem }) {
@@ -237,7 +237,8 @@ function ResultMedia({ item }: { item: SourceItem }) {
   if (item.executionState === "REVIEW_PENDING") {return <StatusBadge tone="good">已移交审核</StatusBadge>;}
   if (item.payloadState === "RELEASED") {return <StatusBadge tone="info">导入临时副本已清理</StatusBadge>;}
   const mediaTone = (state: string) => state === "READY" ? "good" as const : state === "WARNING" ? "warn" as const : "info" as const;
-  return <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>;
+  const labels: Record<SourceItem["media"]["cover"], string> = { PENDING: "待复制", READY: "已就绪", RELEASED: "临时副本已清理", MISSING: "未找到", WARNING: "需要检查" };
+  return <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {labels[item.media.cover]}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {labels[item.media.video]}</StatusBadge></>;
 }
 
 function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {

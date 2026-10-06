@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +12,7 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.T) {
+func TestReviewApprovalHTTPSkipsExistingAndReplaysResult(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	first := createReviewSnapshotItem(t, server)
@@ -34,14 +33,10 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 		t.Fatalf("published=%+v", published)
 	}
 	duplicate := requestReviewApprove(t, server, second, `"v1"`, `{}`)
-	if duplicate.Code != http.StatusConflict {
+	if duplicate.Code != http.StatusCreated {
 		t.Fatalf("duplicate=%d %s", duplicate.Code, duplicate.Body.String())
 	}
 	assertApprovalDuplicateResponse(t, duplicate, published.GameID)
-	confirmed := requestReviewApprove(t, server, second, `"v1"`, fmt.Sprintf(`{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[%q]}`, published.GameID))
-	if confirmed.Code != http.StatusCreated {
-		t.Fatalf("confirmed=%d %s", confirmed.Code, confirmed.Body.String())
-	}
 	repeat := requestReviewApprove(t, server, second, `"v1"`, `{}`)
 	if repeat.Code != http.StatusCreated {
 		t.Fatalf("repeat=%d %s", repeat.Code, repeat.Body.String())
@@ -50,25 +45,18 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM games`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 {
-		t.Fatalf("duplicate confirmation/replay created %d games", count)
+	if count != 1 {
+		t.Fatalf("duplicate skip/replay created %d games", count)
 	}
 }
 
 func assertApprovalDuplicateResponse(t *testing.T, duplicate *httptest.ResponseRecorder, gameID string) {
 	t.Helper()
-	var conflict struct {
-		Error struct {
-			Code    string
-			Details libraryservice.DuplicateConflict
-		}
-	}
-	if err := json.Unmarshal(duplicate.Body.Bytes(), &conflict); err != nil {
+	var result libraryservice.ReviewApproved
+	if err := json.Unmarshal(duplicate.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if conflict.Error.Code != "DUPLICATE_GAME_CONFIRMATION_REQUIRED" ||
-		len(conflict.Error.Details.Games) != 1 || conflict.Error.Details.Games[0].GameID != gameID ||
-		len(conflict.Error.Details.ContentIdentityDigest) != 64 {
+	if result.GameID != gameID || result.Status != "SKIPPED_EXISTING" {
 		t.Fatalf("duplicate response=%s", duplicate.Body.String())
 	}
 }

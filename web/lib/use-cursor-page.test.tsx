@@ -9,6 +9,45 @@ const initial = { items: ["first"], nextCursor: "next", filteredCount: 12, summa
 afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe("cursor page requests", () => {
+  it("retries the failed destination in either paging direction", async () => {
+    fetchPage.mockResolvedValueOnce({ok: false});
+    const {result} = renderHook(() => useCursorPage(initial, "/api/list?limit=6"));
+    act(() => result.current.next());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.index).toBe(0);
+    fetchPage.mockResolvedValueOnce({ok: true, json: async () => ({items: ["second"], nextCursor: "third"})});
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.index).toBe(1));
+    expect(fetchPage.mock.calls[1][0]).toBe("/api/list?limit=6&cursor=next");
+    fetchPage.mockResolvedValueOnce({ok: false});
+    act(() => result.current.previous());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    fetchPage.mockResolvedValueOnce({ok: true, json: async () => initial});
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.index).toBe(0));
+    expect(fetchPage.mock.calls[3][0]).toBe("/api/list?limit=6");
+  });
+
+  it("replaces failed paging intent when filters change and ignores duplicate retries", async () => {
+    fetchPage.mockResolvedValueOnce({ok: false});
+    const {result, rerender} = renderHook(({url}) => useCursorPage(initial, url), {initialProps: {url: "/api/list?limit=6"}});
+    act(() => result.current.next());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    fetchPage.mockResolvedValueOnce({ok: false});
+    rerender({url: "/api/list?limit=6&q=new"});
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    let resolve!: (value: unknown) => void;
+    fetchPage.mockImplementationOnce(() => new Promise(done => {resolve = done;}));
+    act(() => result.current.retry());
+    act(() => result.current.retry());
+    expect(fetchPage).toHaveBeenCalledTimes(3);
+    expect(fetchPage.mock.calls[2][0]).toBe("/api/list?limit=6&q=new");
+    await act(async () => {resolve({ok: true, json: async () => ({items: ["new"], nextCursor: null})});});
+    expect(result.current.page.items).toEqual(["new"]);
+    expect(result.current.index).toBe(0);
+  });
+
   it("does not refetch the server page and keeps full stats across bounded navigation", async () => {
     fetchPage.mockResolvedValue({ ok: true, json: async () => ({ items: ["second"], nextCursor: null }) });
     const { result } = renderHook(() => useCursorPage(initial, "/api/list?limit=6"));

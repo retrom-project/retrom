@@ -11,8 +11,6 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/auditevents"
 	payloadpersistence "retrom/internal/persistence/gamecontent/gamerelease"
-	"retrom/internal/persistence/recordstore"
-	"retrom/internal/persistence/sessionstore"
 	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/gamecontent"
 
@@ -92,7 +90,7 @@ func (writes writes) ScheduleGameDeletion(
 	return jobID, nil
 }
 
-func (writes writes) TransitionDeletedGameRuntime(
+func (writes writes) CancelDeletedGameJobs(
 	ctx context.Context, gameID string, now int64,
 ) error {
 	if _, err := writes.transaction.ExecContext(ctx, `
@@ -112,31 +110,6 @@ version=version+1,updated_at_ms=? WHERE scope_type='GAME' AND scope_id=?
 AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')
 `, now, now, now, gameID); err != nil {
 		return fmt.Errorf("transition game deletion jobs: %w", err)
-	}
-	if _, err := sessionstore.ChangeLaunch(ctx, writes.transaction, recordstore.Update{
-		Set: `
-state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,
-version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `game_id=? AND state IN ('CREATED','ACTIVE')`, Args: []any{gameID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("revoke game deletion launches: %w", err)
-	}
-	if _, err := writes.transaction.ExecContext(ctx, `
-UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE game_id=? AND state='ACTIVE'`, now, now, gameID); err != nil {
-		return fmt.Errorf("abandon game deletion sessions: %w", err)
-	}
-	if _, err := sessionstore.ChangeLaunch(ctx, writes.transaction, recordstore.Update{
-		Set: `save_state_id=NULL`,
-		Scope: recordstore.Scope{
-			Where: `game_id=? AND save_state_id IS NOT NULL`, Args: []any{gameID},
-		},
-	}); err != nil {
-		return fmt.Errorf("clear game deletion saves: %w", err)
 	}
 	return nil
 }

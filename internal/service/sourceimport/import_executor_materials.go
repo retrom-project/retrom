@@ -9,9 +9,12 @@ func (run *importItemRun) copyFiles(ctx context.Context) (bool, error) {
 	for index, file := range run.item.Files {
 		blob, err := run.executor.dependencies.Sources.CopyFile(ctx, run.unit, file)
 		if err != nil {
-			outcome := ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true}
+			outcome := ItemOutcome{
+				State: "READ_FAILED", Code: "READ_FAILED", Retryable: true,
+				Failure: DescribeFailure(run.executor.dependencies.Diagnostics, "STORAGE", "COPY_CONTENT", err, file.Path),
+			}
 			if errors.Is(err, ErrSourceChanged) {
-				outcome = ItemOutcome{State: "SOURCE_CHANGED", Code: "SOURCE_SOURCE_CHANGED"}
+				outcome.State, outcome.Code, outcome.Retryable = "SOURCE_CHANGED", "SOURCE_SOURCE_CHANGED", false
 			}
 			return false, run.finish(ctx, err, outcome)
 		}
@@ -20,7 +23,7 @@ func (run *importItemRun) copyFiles(ctx context.Context) (bool, error) {
 			Path: file.Path, Facts: file.Facts, Size: file.Size,
 		}, blob)
 		if err != nil {
-			return false, run.finish(ctx, err, ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true})
+			return false, run.failure(ctx, "STORAGE", "BIND_CONTENT", err, file.Path)
 		}
 		run.item.Files[index].FileRecord = fileRecord
 	}

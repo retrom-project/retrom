@@ -37,8 +37,6 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 		name     string
 		decision ReviewApprovalDecision
 	}{
-		{"unknown policy", ReviewApprovalDecision{DuplicatePolicy: "OVERWRITE"}},
-		{"ack without policy", ReviewApprovalDecision{AcknowledgedGameIDs: []string{"game"}}},
 		{"unknown origin", ReviewApprovalDecision{SourceKind: "USER"}},
 		{"review origin override", ReviewApprovalDecision{SourceKind: "IMPORT_REVIEW"}},
 		{"lowercase origin", ReviewApprovalDecision{SourceKind: "import_receive"}},
@@ -101,32 +99,6 @@ func TestReviewApprovalExternalAssetBoundaries(t *testing.T) {
 				t.Fatal("invalid media accepted")
 			}
 		})
-	}
-}
-
-func TestReviewApprovalRequiresExactDuplicateAcknowledgment(t *testing.T) {
-	games := []DuplicateGame{{GameID: "b"}, {GameID: "a"}}
-	for _, test := range []struct {
-		ids   []string
-		valid bool
-	}{
-		{[]string{"a", "b"}, true},
-		{[]string{"b", "a"}, true},
-		{[]string{"a"}, false},
-		{[]string{"a", "a"}, false},
-		{[]string{"a", "c"}, false},
-		{[]string{"a", "b", "c"}, false},
-	} {
-		if SameApprovalDuplicateIDs(games, test.ids) != test.valid {
-			t.Fatalf("ack=%v", test.ids)
-		}
-	}
-	if games[0].GameID != "b" {
-		t.Fatal("duplicate projection mutated repository snapshot")
-	}
-	conflict := &DuplicateConflict{Games: games}
-	if !errors.Is(conflict, ErrDuplicateContent) {
-		t.Fatal("duplicate cause missing")
 	}
 }
 

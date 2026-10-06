@@ -53,17 +53,6 @@ func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatasc
 	return snapshot, nil
 }
 
-func (records mediaRecords) Running(ctx context.Context, now int64) (int, error) {
-	var count int
-	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'
- AND state IN ('RUNNING','CANCEL_REQUESTED')
- AND leased_until_ms>? AND execution_deadline_at_ms>?`, now, now).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("query active media executions: %w", err)
-	}
-	return count, nil
-}
-
 func (records mediaRecords) RunExecuting(ctx context.Context, id string, now int64) (bool, error) {
 	var active bool
 	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT EXISTS(SELECT 1 FROM jobs j

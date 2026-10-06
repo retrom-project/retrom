@@ -158,8 +158,13 @@ func (service *ReviewDeduplicator) discardDuplicate(
 	if len(games) == 0 {
 		return false, nil
 	}
+	digest, err := duplicates.Identity(ctx, candidate.ItemID)
+	if err != nil {
+		return false, err
+	}
 	if _, err := service.discarder.DiscardInScope(ctx, scope.Discard, ReviewDiscardRequest{
-		ItemID: candidate.ItemID, ExpectedVersion: candidate.ReviewVersion,
+		Existing: &ReviewExistingContent{Identity: digest, Games: games},
+		ItemID:   candidate.ItemID, ExpectedVersion: candidate.ReviewVersion,
 		Reason: "快速去重：游戏内容已发布", Mode: ReviewDiscardSingle,
 	}); err != nil {
 		return false, fmt.Errorf("discard duplicate review: %w", err)

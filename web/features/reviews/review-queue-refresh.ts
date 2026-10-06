@@ -1,7 +1,7 @@
-import { queueFlashToast, type ToastMessage } from "@/components/flash-toast";
+import { queueFlashToast, type FlashToastMessage } from "@/components/flash-toast";
 import { userStoragePrefix } from "@/features/auth/storage";
 
-export function refreshReviewQueue(userId: string | null | undefined, toast: ToastMessage) {
+export function refreshReviewQueue(userId: string | null | undefined, toast: FlashToastMessage) {
   if (userId) {
     const prefix = `${userStoragePrefix(userId)}reviews:`;
     const keys = Array.from({ length: sessionStorage.length }, (_, index) => sessionStorage.key(index));

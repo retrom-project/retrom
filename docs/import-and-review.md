@@ -108,7 +108,7 @@ ImportJob 按下列优先级聚合，不能让同一计数组合得到两种状�
 
 Parent ROM 补传准备新目录时必须保留每个文件的旧→新记录映射；接受补传的短事务同时复制主 ROM、此前 Parent 的全部归档成员索引并保存新 Parent 扫描结果，再推进有效来源快照。任何失败一起回滚；重试不重复索引。发布继续把完整索引传递到游戏自有文件，旧来源清理不能影响已发布索引。文件存储仅复制字节，元信息模块只读取索引，不反向调用导入模块修复数据。
 
-普通单条审批与快速审批的逐项发布共用 Service/Repository 事务；当前验证、重复内容确认、媒体/标签、Game/Variant、审核事件、来源归属、父聚合与 payload 登记必须一起提交。末端同时校验草稿版本、有效来源/目标及父版本/待审计数；任一步失败都回滚本项发布。父任务复用上述唯一聚合优先级，不能因当前项已发布而忽略其他运行项或失败项。快速审批前一项已提交后，后一项失败只回滚后一项，并保留前一项结果。
+普通单条审批与快速审批的逐项发布共用 Service/Repository 事务；当前验证、重复内容自动跳过、媒体/标签、Game/Variant、审核事件、来源归属、父聚合与 payload 登记必须一起提交。末端同时校验草稿版本、有效来源/目标及父版本/待审计数；任一步失败都回滚本项发布。父任务复用上述唯一聚合优先级，不能因当前项已发布而忽略其他运行项或失败项。快速审批前一项已提交后，后一项失败只回滚后一项，并保留前一项结果。
 
 每阶段幂等，重试不能重复创建 Blob、内容观察、候选、Game 或重复审核决定。lease 固定 60 秒、worker 每 15 秒 heartbeat；超过 lease 的运行任务可重新领取。Hasheous 超时/未命中不是 Item failure，仍进入审核并标记“需手动补全”。用户可重试 `FAILED_RETRYABLE`，attempt 用尽或确定性坏输入进入 `FAILED_FINAL`。
 
@@ -116,7 +116,7 @@ Parent ROM 补传准备新目录时必须保留每个文件的旧→新记录映
 
 重复候选查询先物化同基础平台内当前已发布 Game，之后只计算一次输入的文件多重集，以数量预筛并执行双向精确差集；多盘按 DISC 顺序比较且忽略来源 playlist wrapper。使用已有 Game/来源文件索引，不对其他平台反复展开输入，不增加跨模块摘要投影或缓存。内容替换、Parent 补传、目录变化和删除均直接反映当前事实。
 
-审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 PostgreSQL SERIALIZABLE 写事务，并发冲突必须完整回滚，首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
+审核发布前重新执行相同判断，以覆盖两个任务在任一发布前都完成识别的竞态。同平台相同内容已存在时，自动结束当前条目，记录重复匹配、更新普通导入与来源的已存在计数、释放候选资源，并返回 `SKIPPED_EXISTING` 与已有 Game ID。快速审批也计入重复跳过，前端使用顶部居中 Toast；不提供强制重复发布入口。同一内容身份的 claim 行在 RR 事务中执行写入，重叠快照的写冲突完整回滚重试；持久化 `PUBLISHING` 意图阻止第二个发布者越过尚未完成的发布，完成前等待重试。磁盘发布位于两个可重试数据库阶段之间，恢复沿持久意图继续。同一审核项的目录准备与发布在进程内互斥，等待遵循请求取消；不同审核项不共用文件工作锁。内容身份竞争仍由数据库 claim 和持久发布意图处理，不能用目录互斥代替数据库约束。软删除 Game 不阻止重新导入。
 
 ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
 
@@ -440,7 +440,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 ## 12. Worker
 
-默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、OwnerCleanup 最多 4、后台删除 1；业务释放和 后台删除 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 PostgreSQL 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到独立文件存储。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
+默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、OwnerCleanup 最多 4、后台删除 1；业务释放和 后台删除 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 PostgreSQL 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到独立文件存储。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
 
 ## 13. 多盘目录、缺盘与补传
 
@@ -454,23 +454,29 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 ## 14. 统一服务器文件接收
 
-创建计划先验证只读来源目录并生成所有身份；随机源失败必须保留错误原因且不得创建记录。20 个未开始计划的容量包含尚未收口的扫描取消请求；容量检查与 scan job、不可变 input snapshot、计划、事件和创建审计在同一写事务内完成；Repository 在实际插入时再次约束容量，并在提交前读取完整响应，任何步骤失败都整体回滚。计划有效期固定为创建时刻起 7 天，后台唤醒只发生在提交成功后。
+创建计划先验证只读来源目录并生成所有身份；随机源失败必须保留错误原因且不得创建记录。scan job、不可变 input snapshot、计划、事件和创建审计在同一写事务内完成；Repository 在提交前读取完整响应，任何步骤失败都整体回滚。计划数量不限制提交，工作并发由扫描和接收任务各自的 worker 数量控制。计划有效期固定为创建时刻起 7 天，后台唤醒只发生在提交成功后。
 
 查询通过 `internal/service/sourceimport` 的类型化端口调用 `internal/persistence/sourceimport`。Service 校验分页参数并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化 JSON 解码。缺少 Collection 的条目仍可查询，标签返回空数组；未设置的可选数组规范化为空数组，损坏或类型不符的诊断数据必须返回错误，不得静默伪装成没有 warning 或运行依赖。
 
 `internal/service/sourceimport.Scanner` 负责 metadata 解析、Collection/游戏投影、路径决策、媒体候选顺序及确定性快照。来源适配器只提供目录发现、metadata 读取和媒体检查，三种访问都使用共享 reader 预算并检查取消。先发现文件特征，再按路径顺序逐份读取 metadata，解析结果不跨文件保留；单份超过 8 MiB 时只登记 `INVALID/PEGASUS_METADATA_TOO_LARGE`、大小及 facts，不读取内容、不生成内容摘要，其他合法 metadata 仍可生成候选。启动时对此类记录只重验 no-follow 文件特征；正常 metadata 必须重验内容摘要。随机源失败终止扫描，已取消或被替换的执行不能继续发布投影。
 
-每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。三种格式共用的映射界面只列启用目录，按基础平台类型折叠并提供跨类型目录/平台/核心搜索；跳过和清除选择保持独立，搜索结果不自动映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
+每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。三种格式共用的映射界面只列启用目录，按基础平台类型折叠并提供跨类型目录/平台/核心搜索；跳过和清除选择保持独立，搜索结果不自动映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。映射事务一次批量读取 Collection 归属，并在当前事务内按稳定 ID 顺序读取每个唯一目标一次，不跨事务缓存目标。映射事务使用 REPEATABLE READ，在读取时锁定当前 Source，并共享锁定所选目录、平台、核心、运行绑定、Target 与活动 DAT 行；标签关联变更沿用标签行版本推进。计划版本条件更新、映射结果与幂等回执仍在同一事务提交。同一来源的修改必须串行重验，无关来源的进度更新不能导致整批映射重复回滚。摘要只在失败且已建立接收 Job 的来源上读取该任务的重试条件及失败条目事实。
 
-启动 Service 先在短读事务中取得冻结的 root/source 摘要与有界 metadata evidence，释放数据库连接后再通过 no-follow 文件描述符、共享读取并发预算和可取消的读取重验大小、facts 与 digest。当前 root 配置必须与扫描时一致；创建 execution 前的写事务再次检查版本、到期时间、冻结摘要、活动标签和全实例执行容量，不能让校验期间过期或被修改的计划进入队列。所有 job/execution/audit ID 生成成功后，Job、不可变输入、阻断/跳过投影、计划状态、事件、操作者审计和 payload 释放登记一起提交；失败全部回滚，成功后才唤醒 worker。重复启动已执行计划返回既有状态，不重复创建 execution。
+启动 Service 先在短读事务中取得冻结的 root/source 摘要与有界 metadata evidence，释放数据库连接后再通过 no-follow 文件描述符、共享读取并发预算和可取消的读取重验大小、facts 与 digest。当前 root 配置必须与扫描时一致；创建 execution 前的写事务再次检查版本、到期时间、冻结摘要和活动标签，不能让校验期间过期或被修改的计划进入队列。所有 job/execution/audit ID 生成成功后，Job、不可变输入、阻断/跳过投影、计划状态、事件、操作者审计和 payload 释放登记一起提交；失败全部回滚，成功后才唤醒 worker。重复启动已执行计划返回既有状态，不重复创建 execution。
 
 映射冻结后，Worker 在数据库事务外经 no-follow fd 读取源文件并写独立文件存储，再复用普通导入的 content profile、archive、M3U、DAT/Arcade companion、BIOS、Core内容观察、duplicate 和审核管线。单文件、单 archive/DOS ZIP、以及一个 M3U 加按序 2–8 个 CHD 走既有能力；其他多个可启动文件稳定阻断，不取第一项。同一任务、同一目标游戏目录下其他游戏显式声明的 ZIP 只有在冻结 DAT 的 parent/romof 闭包中被当前 machine 直接或间接依赖时才可成为 Arcade companion；不得把 Collection 中全部 ZIP 作为候选传给单个游戏。
 
 `internal/service/sourceimport.ImportExecutor` 编排未完成任务的工作关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与独立文件存储读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
+Source 警告以 `field=cover/video` 表示媒体归属。扫描统计、执行后的汇总和条目媒体投影都依据该字段分类，不依据错误码前缀猜测；封面或视频的 `SOURCE_SOURCE_CHANGED` 计入媒体警告，游戏文件变化及其他元数据警告不计入。汇总按警告条数计数，条目筛选仍精确匹配警告码。
+
+来源媒体投影以 Source 素材记录为依据：DISCOVERED 为 PENDING，COPIED 为 READY，RELEASED 为 RELEASED，未声明或 MISSING 为 MISSING，其余无效、读取失败、来源变化及对应媒体 warning 为 WARNING。列表重新读取时反映素材状态变化，不把待复制当成缺失。内容复制和绑定失败同样保留 FailureDetails 的 STORAGE 阶段、COPY_CONTENT/BIND_CONTENT 操作、相对路径和已脱敏底层原因；取消、截止时间和执行所有权冲突不落成普通条目失败。
+
+Flycast cartridge 在完整 ZIP 安全扫描后按公开 ROM requirements 匹配成员：存在 CRC 时优先按 CRC 查找并校验声明大小，文件名差异不构成缺失；同 CRC 候选尺寸不一致时拒绝，避免归档顺序决定运行内容。没有 CRC 时按精确名称和大小匹配；可选成员缺失允许，存在但不匹配仍拒绝。ZIP 完整性、平台、机器和媒体类型门禁保持不变，宿主不读取核心私有表或维护游戏名豁免。
+
 已复制素材的重放身份只包含持久文件记录、大小与内容哈希；本机绝对访问路径仅属于文件存储适配器，不进入 `VerifiedBlob` 或重放比较。恢复重复复制游戏和媒体时返回同一绑定，仍须重验冻结来源事实和当前执行所有权。
 
-来源任务的重试准入统一由来源领域的当前事实判断：必须存在可重试的 READ_FAILED/COMMIT_FAILED 条目、接收 Job 已终止、执行身份可递增且无其他活动来源接收。列表/详情投影与提交事务使用同一规则，不信任旧摘要中的 retryable 标记；完成时仅统计确实可重试的失败项。SOURCE_CHANGED 不可用旧扫描快照重试，应修正来源后重新扫描创建计划。命令仍在写事务内核对资源版本、Job 版本和实际待重置条目数量，竞态失败不改变原任务。
+来源任务的重试准入统一由来源领域的当前事实判断：必须存在可重试的 READ_FAILED/COMMIT_FAILED 条目、接收 Job 已终止且执行身份可递增；重试任务入库后等待该类型 worker 领取。列表/详情投影与提交事务使用同一规则，不信任旧摘要中的 retryable 标记；完成时仅统计确实可重试的失败项。SOURCE_CHANGED 不可用旧扫描快照重试，应修正来源后重新扫描创建计划。命令仍在写事务内核对资源版本、Job 版本和实际待重置条目数量，竞态失败不改变原任务。
 
 普通 ImportJob/Item 的创建与 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的记录、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。未完成父任务恢复先按工作关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/独立文件存储来源重新选取结果。
 
@@ -480,7 +486,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 当前运行检查 的精确 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用。library import 自身发生内部失败时收口为可重试 `SOURCE_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目；原计划重检始终从当前冻结输入重新生成精确结论和详细证据。
 
-聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`007` 与 `ACC-MEDIA-001`。
+聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，计划与执行批次无总数准入限制，先入库再由按类型配置的扫描/导入 worker 领取，等待映射不占 worker。统一验收见 `ACC-PEG-001`–`007` 与 `ACC-MEDIA-001`。
 
 取消只由 `jobId` 定位任务，来源详情与任务入口统一调用通用 Job 取消命令，不携带前端版本或 executionNo。组合层按 kind 注入领域取消端口，来源 Service 在事务内读取最新计划与 Job，并由 Repository 原子保存；内部版本、execution、worker/lease 围栏继续保护写入。扫描与导入 Job 未领取时直接取消，运行时进入 CANCEL_REQUESTED 并保留 owner 直至安全停止；重复取消不推进版本、不重复写事件。进度更新、自动重试或 UI 滞后不能阻断取消。手动重试和批次废弃是独立命令，保留各自版本保护；取消并不取消已经交接的审核项或回滚已发布结果。
 

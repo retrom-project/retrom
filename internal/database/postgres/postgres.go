@@ -64,6 +64,7 @@ func Open(dsn string, options Options) (database.DB, error) {
 	config.RuntimeParams["application_name"] = "retrom"
 	config.RuntimeParams["timezone"] = "UTC"
 	config.RuntimeParams["lock_timeout"] = "5s"
+	config.RuntimeParams["default_transaction_isolation"] = "read committed"
 	if options.ReadOnly {
 		config.RuntimeParams["default_transaction_read_only"] = "on"
 	}
@@ -178,10 +179,9 @@ func (db *handle) Stats() database.Stats {
 }
 
 func (db *handle) BeginTx(ctx context.Context, options *database.TxOptions) (database.Tx, error) {
-	sqlOptions := &sql.TxOptions{Isolation: sql.LevelSerializable}
+	sqlOptions := &sql.TxOptions{Isolation: sql.LevelRepeatableRead}
 	if options != nil && options.ReadOnly {
 		sqlOptions.ReadOnly = true
-		sqlOptions.Isolation = sql.LevelRepeatableRead
 	}
 	started := time.Now()
 	connection, err := db.connection(ctx)

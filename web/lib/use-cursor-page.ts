@@ -14,12 +14,14 @@ export function useCursorPage<T extends { nextCursor: string | null }>(initialPa
   const loadedUrl = useRef(url);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
+  const failedRequest = useRef<{url: string; cursor: string | null; index: number} | null>(null);
 
   const requestPage = useCallback(async (requestedUrl: string, cursor: string | null, nextIndex: number) => {
     controller.current?.abort();
     const abort = new AbortController();
     controller.current = abort;
     const version = ++generation.current;
+    failedRequest.current = null;
     setLoading(true);
     setError(null);
     try {
@@ -33,9 +35,10 @@ export function useCursorPage<T extends { nextCursor: string | null }>(initialPa
       cursors.current[nextIndex] = cursor;
     } catch (caught) {
       if (version !== generation.current || abort.signal.aborted) {return;}
+      failedRequest.current = {url: requestedUrl, cursor, index: nextIndex};
       setError(caught instanceof Error ? caught.message : "暂时无法读取列表");
     } finally {
-      if (version === generation.current) {setLoading(false);}
+      if (version === generation.current) {controller.current = null; setLoading(false);}
     }
   }, [authenticatedFetch]);
 
@@ -44,6 +47,7 @@ export function useCursorPage<T extends { nextCursor: string | null }>(initialPa
     observedUrl.current = url;
     controller.current?.abort();
     ++generation.current;
+    failedRequest.current = null;
     cursors.current = [null];
     setLoading(true);
     setError(null);
@@ -55,6 +59,11 @@ export function useCursorPage<T extends { nextCursor: string | null }>(initialPa
 
   function next() { if (!loading && loadedUrl.current === url && page.nextCursor) {void requestPage(url, page.nextCursor, index + 1);} }
   function previous() { if (!loading && loadedUrl.current === url && index > 0) {void requestPage(url, cursors.current[index - 1], index - 1);} }
-  function retry() { void requestPage(url, loadedUrl.current === url ? cursors.current[index] ?? null : null, loadedUrl.current === url ? index : 0); }
+  function retry() {
+    if (loading || controller.current) {return;}
+    const failed = failedRequest.current;
+    if (failed?.url === url) {void requestPage(failed.url, failed.cursor, failed.index); return;}
+    void requestPage(url, loadedUrl.current === url ? cursors.current[index] ?? null : null, loadedUrl.current === url ? index : 0);
+  }
   return { page, index, loading, error, next, previous, retry };
 }

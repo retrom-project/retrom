@@ -446,8 +446,6 @@ func (server *Server) writeAdminAccountError(writer http.ResponseWriter, request
 		accountVersionError(writer, request)
 	case errors.Is(err, accounts.ErrUserSelfChange):
 		writeError(writer, request, http.StatusConflict, "USER_SELF_MANAGEMENT_FORBIDDEN", "不能对当前账号执行此操作", map[string]any{})
-	case errors.Is(err, accounts.ErrLastAdmin):
-		writeError(writer, request, http.StatusConflict, "USER_LAST_ADMIN_REQUIRED", "必须保留至少一名可用管理员", map[string]any{})
 	case errors.Is(err, accounts.ErrUserNoChange):
 		writeError(writer, request, http.StatusConflict, "USER_NO_STATE_CHANGE", "账号状态没有变化", map[string]any{})
 	case errors.Is(err, accounts.ErrUserDeleted):

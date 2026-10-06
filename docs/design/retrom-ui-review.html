@@ -21,6 +21,8 @@
 &lt;link rel=&quot;icon&quot; type=&quot;image/svg+xml&quot; href=&quot;data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzc1NjBkYyIvPjxwYXRoIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yIDApIiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAxMmgxOWM5IDAgMTQgNSAxNCAxMyAwIDYtMyAxMC04IDEybDExIDE1SDM5TDI4IDM4aC0xdjE0SDE2Wk0yNyAyMnY3aDhjMyAwIDQtMSA0LTQgMC0yLTEtMy00LTNaIi8+PC9zdmc+Cg==&quot;&gt;
 &lt;style&gt;@layer app, controls; :root {
   color-scheme: dark;
+  --layer-popover: 240;
+  --layer-toast: 400;
   --radius-cover: 4px;
   --radius-control: 6px;
   --radius-panel: 8px;
@@ -1342,7 +1344,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-favorite-batch strong { margin-right: auto; font-size: var(--text-caption); }
     #retrom-ui-review .rt-favorite-batch .rt-button { color: #eef1f6; border-color: #485365; background: #232c3a; }
     #retrom-ui-review .rt-favorite-batch .rt-button-primary { border-color: var(--purple-dark); background: var(--retrom-purple); }
-    #retrom-ui-review .rt-favorite-toast { position: fixed; z-index: 45; right: 24px; bottom: 24px; min-width: 330px; padding: 11px 13px; display: flex; align-items: center; gap: 12px; color: #fff; border-radius: var(--radius-panel); background: #20283b; box-shadow: 0 14px 34px rgb(0 0 0 / .25); }
+    #retrom-ui-review .rt-favorite-toast { position: fixed; z-index: 400; top: 32px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: 11px 13px; display: flex; align-items: center; gap: 12px; color: #fff; border-radius: var(--radius-panel); background: #20283b; box-shadow: 0 14px 34px rgb(0 0 0 / .25); }
     #retrom-ui-review .rt-favorite-toast span { flex: 1; font-size: var(--text-caption); }
     #retrom-ui-review .rt-favorite-toast button { color: #d5ceff; }
 
@@ -1618,6 +1620,8 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-player-touch-button.is-a { right: 4px; bottom: 25px; }
     #retrom-ui-review .rt-player-touch-button.is-b { right: 70px; bottom: 4px; }
     #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); opacity: 0; pointer-events: none; transform: translateY(-100%); transition: opacity .16s ease, transform .16s ease; backdrop-filter: blur(12px); }
+    #retrom-ui-review .rt-player-handle { position: absolute; z-index: 6; top: 0; left: 50%; width: 48px; height: 44px; transform: translateX(-50%); padding: 0; border: 0; background: transparent; cursor: pointer; }
+    #retrom-ui-review .rt-player-handle span { position: absolute; top: 5px; left: 12px; width: 24px; height: 6px; border-radius: 999px; background: rgb(238 241 247 / 72%); }
     #retrom-ui-review .rt-player-top.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
     #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: var(--radius-control); color: #edf0f5; background: #171d29; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-player-control svg { width: 15px; height: 15px; }
@@ -3251,6 +3255,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         &lt;div class=&quot;rt-player-shell&quot;&gt;
           &lt;div class=&quot;rt-player-orientation-gate&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-orientation-title&quot;&gt;&lt;div class=&quot;rt-player-orientation-card&quot;&gt;&lt;i data-lucide=&quot;rotate-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;h2 id=&quot;rt-orientation-title&quot;&gt;请横屏继续游戏&lt;/h2&gt;&lt;p&gt;配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;重试全屏与横屏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-stage&quot;&gt;&lt;div class=&quot;rt-player-screen&quot; role=&quot;img&quot; aria-label=&quot;EmulatorJS 游戏画面占位&quot;&gt;&lt;span class=&quot;rt-player-logo&quot;&gt;EMULATORJS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-touch-zone rt-player-touch-stick is-left&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-zone is-right&quot;&gt;&lt;span class=&quot;rt-player-touch-button is-b&quot;&gt;B&lt;/span&gt;&lt;span class=&quot;rt-player-touch-button is-a&quot;&gt;A&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;button class=&quot;rt-player-handle&quot; data-player-handle type=&quot;button&quot; aria-label=&quot;显示 Player 控制栏&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;/button&gt;
           &lt;div class=&quot;rt-player-top is-visible&quot;&gt;
             &lt;button type=&quot;button&quot; class=&quot;rt-player-back rt-button ghost icon-only&quot; id=&quot;rt-exit-player&quot; data-player-exit aria-label=&quot;返回并退出游戏&quot;&gt;&lt;i data-lucide=&quot;arrow-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;
             &lt;div class=&quot;rt-player-title&quot;&gt;&lt;strong id=&quot;rt-player-game&quot;&gt;NOeL 3&lt;/strong&gt;&lt;div class=&quot;rt-player-meta&quot; id=&quot;rt-player-core&quot;&gt;Yabause · Saturn&lt;/div&gt;&lt;/div&gt;
@@ -3267,7 +3272,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
             &lt;button class=&quot;rt-settings-desktop-close&quot; type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;
           &lt;/div&gt;
           &lt;div class=&quot;rt-native-settings&quot; hidden&gt;&lt;nav&gt;&lt;button type=&quot;button&quot; data-native-back aria-label=&quot;返回设置&quot; title=&quot;返回设置&quot;&gt;&lt;i data-lucide=&quot;arrow-left&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;strong data-native-title&gt;显示&lt;/strong&gt;&lt;button type=&quot;button&quot; data-native-close aria-label=&quot;关闭模拟器设置&quot;&gt;&lt;i data-lucide=&quot;x&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/nav&gt;&lt;section class=&quot;rt-native-panel&quot;&gt;&lt;h3 data-native-heading&gt;Graphics Settings&lt;/h3&gt;&lt;label&gt;着色器&lt;select&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;option&gt;锐利像素&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/section&gt;&lt;/div&gt;
-          &lt;div class=&quot;rt-player-hint&quot;&gt;移到屏幕顶部显示 Retrom 控制&lt;/div&gt;
+          &lt;div class=&quot;rt-player-hint&quot;&gt;移到顶部中央手柄显示 Retrom 控制&lt;/div&gt;
           &lt;span class=&quot;rt-player-stage-state&quot; id=&quot;rt-player-stage-state&quot;&gt;一次点击后已自动运行&lt;/span&gt;
           &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;
             &lt;header&gt;&lt;h2&gt;游戏修改&lt;/h2&gt;&lt;button type=&quot;button&quot;&gt;返回游戏&lt;/button&gt;&lt;/header&gt;
@@ -3422,7 +3427,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         &lt;div class=&quot;rt-panel rt-server-result-table&quot;&gt;
           &lt;article class=&quot;rt-server-result-row rt-source-result-row&quot;&gt;
             &lt;div&gt;&lt;strong&gt;多盘冒险&lt;/strong&gt;&lt;small&gt;Sega Saturn → Saturn 游戏&lt;/small&gt;&lt;small&gt;metadata.pegasus.txt · MULTI_DISC&lt;/small&gt;&lt;/div&gt;
-            &lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;封面 READY&lt;/span&gt; &lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;视频 READY&lt;/span&gt;&lt;/div&gt;
+            &lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;封面 已就绪&lt;/span&gt; &lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;视频 已就绪&lt;/span&gt;&lt;/div&gt;
             &lt;div class=&quot;rt-source-result-state&quot;&gt;&lt;span class=&quot;rt-badge rt-badge-red&quot;&gt;内容阻断&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-source-diagnostic&gt;查看原因&lt;/button&gt;&lt;/div&gt;
             &lt;span&gt;—&lt;/span&gt;
 
@@ -3481,7 +3486,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;h1 data-review-page-title&gt;待审核&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;&lt;span data-review-position&gt;已加载 5 条&lt;/span&gt; · 可任意选择审核顺序&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-page-head-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-review-return data-page-link=&quot;admin-source-import-detail&quot;&gt;← 返回 Pegasus 任务&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-review-deduplicate title=&quot;自动丢弃当前筛选范围内与已发布游戏内容相同的待审核条目&quot;&gt;快速去重&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-review-bulk&gt;&lt;i data-lucide=&quot;list-checks&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;快速审批全部待审&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-page-link=&quot;admin-import-tasks&quot;&gt;&lt;i data-lucide=&quot;history&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;任务结果&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
         &lt;section class=&quot;rt-panel rt-review-bulk-status&quot; data-review-bulk-status aria-live=&quot;polite&quot; hidden&gt;
           &lt;div class=&quot;rt-review-bulk-status-head&quot;&gt;&lt;div&gt;&lt;h2&gt;正在快速审批&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot; data-review-bulk-scope&gt;全局待审队列 · 创建时约 42 项 · 已扫描 11 项&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
-          &lt;div class=&quot;rt-review-bulk-stats&quot;&gt;&lt;span&gt;&lt;small&gt;已发布&lt;/small&gt;&lt;strong&gt;10&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;继续待审&lt;/small&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;已扫描&lt;/small&gt;&lt;strong&gt;11&lt;/strong&gt;&lt;/span&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-review-bulk-stats&quot;&gt;&lt;span&gt;&lt;small&gt;已发布&lt;/small&gt;&lt;strong&gt;10&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;重复已跳过&lt;/small&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;继续待审&lt;/small&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;已扫描&lt;/small&gt;&lt;strong&gt;11&lt;/strong&gt;&lt;/span&gt;&lt;/div&gt;
         &lt;/section&gt;
         &lt;section class=&quot;rt-rpg-review-design&quot; data-rpg-review-design hidden aria-label=&quot;RPG Maker 运行审核详情&quot;&gt;
           &lt;div class=&quot;rt-rpg-review-top&quot;&gt;
@@ -3490,7 +3495,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
               &lt;div class=&quot;rt-rpg-binding&quot;&gt;&lt;div&gt;&lt;span&gt;所选版本&lt;/span&gt;&lt;strong&gt;RPG Maker 2000&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;内容校验&lt;/span&gt;&lt;strong&gt;一致&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;项目资源&lt;/span&gt;&lt;strong&gt;项目自包含&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;试运行&lt;/span&gt;&lt;strong&gt;按需进行&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
               &lt;label class=&quot;rt-check&quot;&gt;&lt;input type=&quot;checkbox&quot; data-rpg-self-contained&gt;确认项目自包含 RTP&lt;/label&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;仅 2000/2003/XP/VX/VX Ace 提供此确认；忽略外部 RTP 声明并允许发布，不会补充缺失素材。&lt;/p&gt;
             &lt;/article&gt;
-            &lt;aside class=&quot;rt-rpg-card rt-rpg-decision&quot;&gt;&lt;div&gt;&lt;h2&gt;审核决定&lt;/h2&gt;&lt;p data-rpg-review-copy&gt;内容、运行方式与依赖已就绪，可以直接决定；试运行用于人工确认游玩效果。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-decision-status&quot; data-rpg-review-decision&gt;依赖已就绪 · 可以发布&lt;/div&gt;&lt;div class=&quot;rt-rpg-state-switch&quot; role=&quot;tablist&quot; aria-label=&quot;依赖展示状态&quot;&gt;&lt;button type=&quot;button&quot; data-rpg-review-state=&quot;blocked&quot;&gt;缺少依赖&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-rpg-review-state=&quot;ready&quot;&gt;已就绪&lt;/button&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-rpg-review-run&gt;运行游戏&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;丢弃条目&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-rpg-review-approve&gt;通过并发布&lt;/button&gt;&lt;/aside&gt;
+            &lt;aside class=&quot;rt-rpg-card rt-rpg-decision&quot;&gt;&lt;div&gt;&lt;h2&gt;审核决定&lt;/h2&gt;&lt;p data-rpg-review-copy&gt;内容、运行方式与依赖已就绪，可以直接决定；试运行用于人工确认游玩效果。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-decision-status&quot; data-rpg-review-decision&gt;依赖已就绪 · 可以发布&lt;/div&gt;&lt;div class=&quot;rt-rpg-state-switch&quot; role=&quot;tablist&quot; aria-label=&quot;依赖展示状态&quot;&gt;&lt;button type=&quot;button&quot; data-rpg-review-state=&quot;blocked&quot;&gt;缺少依赖&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-rpg-review-state=&quot;ready&quot;&gt;已就绪&lt;/button&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-rpg-review-run&gt;运行游戏&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;丢弃条目&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-rpg-review-approve title=&quot;同平台相同内容已存在时自动跳过，并在顶部居中显示结果提示&quot;&gt;通过并发布&lt;/button&gt;&lt;/aside&gt;
           &lt;/div&gt;
           &lt;div class=&quot;rt-rpg-review-columns&quot;&gt;
             &lt;article class=&quot;rt-rpg-card&quot;&gt;&lt;h3&gt;项目资源&lt;/h3&gt;&lt;p&gt;只使用游戏包中的素材。外部 RTP 声明默认阻断审核；管理员可以明确确认自包含并放行，不会自动补充缺少的资源。&lt;/p&gt;&lt;/article&gt;
@@ -4502,6 +4507,13 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       const favoriteFormDialog = root.querySelector('[data-favorite-form-dialog]');
       const favoriteBatch = root.querySelector('[data-favorite-batch]');
       const favoriteToast = root.querySelector('[data-favorite-toast]');
+      let favoriteToastTimer;
+      function showFavoriteToast() {
+        clearTimeout(favoriteToastTimer);
+        favoriteToast.hidden = false;
+        root.querySelector('[data-launch-toast]').hidden = true;
+        favoriteToastTimer = setTimeout(() =&gt; { favoriteToast.hidden = true; lastUnfavoritedHeart = null; }, 2000);
+      }
       let pendingFavoriteHeart = null;
       let lastUnfavoritedHeart = null;
 
@@ -4610,7 +4622,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         if (button.getAttribute('aria-pressed') === 'false') {
           button.setAttribute('aria-pressed', 'true');
           favoriteToast.querySelector('span').textContent = '已加入我的收藏';
-          favoriteToast.hidden = false;
+          showFavoriteToast();
           return;
         }
         pendingFavoriteHeart = button;
@@ -4631,7 +4643,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         pendingFavoriteHeart = null;
         favoriteUnfavoriteDialog.hidden = true;
         favoriteToast.querySelector('span').textContent = '已取消收藏';
-        favoriteToast.hidden = false;
+        showFavoriteToast();
       });
       root.querySelector('[data-undo-favorite]').addEventListener('click', () =&gt; {
         lastUnfavoritedHeart?.setAttribute('aria-pressed', 'true');
@@ -4738,10 +4750,11 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         if (!playerToolbarPinned() &amp;&amp; !playerTop.matches(':hover')) playerTop.classList.remove('is-visible');
       }
 
-      playerShell.addEventListener('pointermove', (event) =&gt; {
-        const offsetY = event.clientY - playerShell.getBoundingClientRect().top;
-        if (offsetY &gt;= 0 &amp;&amp; offsetY &lt;= 32) playerTop.classList.add('is-visible');
+      const playerHandle = playerShell.querySelector('[data-player-handle]');
+      playerHandle.addEventListener('pointerenter', (event) =&gt; {
+        if (event.pointerType !== 'touch') playerTop.classList.add('is-visible');
       });
+      playerHandle.addEventListener('click', () =&gt; playerTop.classList.toggle('is-visible'));
       playerTop.addEventListener('pointerenter', () =&gt; playerTop.classList.add('is-visible'));
       playerTop.addEventListener('pointerleave', hidePlayerToolbarIfClear);
       playerTop.addEventListener('focusin', () =&gt; playerTop.classList.add('is-visible'));

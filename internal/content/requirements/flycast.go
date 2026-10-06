@@ -150,22 +150,41 @@ func (policy *Policy) evaluateCartridge(facts Facts, name string) *diagnostic.Re
 		return reject("FLYCAST_GDROM_UNSUPPORTED", name)
 	}
 	members := map[string]ArchiveMember{}
+	checksums := map[string][]ArchiveMember{}
 	for _, member := range facts.Archive {
 		members[member.Name] = member
+		checksums[member.CRC32] = append(checksums[member.CRC32], member)
 	}
 	for _, file := range selected.Files {
-		member, exists := members[file.Name]
-		if !exists {
-			if file.Optional {
-				continue
-			}
-			return reject("FLYCAST_ARCHIVE_INCOMPLETE", name+"/"+file.Name)
-		}
-		if member.SizeBytes != file.SizeBytes || file.CRC32 != nil && member.CRC32 != *file.CRC32 {
-			return reject("FLYCAST_ROM_MISMATCH", name+"/"+file.Name)
+		if code := matchCartridgeFile(file, members, checksums); code != "" {
+			return reject(code, name+"/"+file.Name)
 		}
 	}
 	return nil
+}
+
+// Flycast resolves known CRCs before names. Equally checksummed members are safe
+// only when all have the declared size, so archive ordering cannot change admission.
+func matchCartridgeFile(file ROMFile, names map[string]ArchiveMember, checksums map[string][]ArchiveMember) string {
+	if file.CRC32 != nil && len(checksums[*file.CRC32]) > 0 {
+		for _, member := range checksums[*file.CRC32] {
+			if member.SizeBytes != file.SizeBytes {
+				return "FLYCAST_ROM_MISMATCH"
+			}
+		}
+		return ""
+	}
+	member, exists := names[file.Name]
+	if !exists {
+		if file.Optional {
+			return ""
+		}
+		return "FLYCAST_ARCHIVE_INCOMPLETE"
+	}
+	if member.SizeBytes != file.SizeBytes || file.CRC32 != nil && member.CRC32 != *file.CRC32 {
+		return "FLYCAST_ROM_MISMATCH"
+	}
+	return ""
 }
 
 func validCatalogHeader(value FlycastCatalog) bool {

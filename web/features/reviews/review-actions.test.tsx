@@ -698,48 +698,20 @@ describe("ReviewActions decisions", () => {
     expect(fetchMock.mock.calls.find(([url]) => String(url).endsWith("/discard"))?.[1]?.body).toBe("{}");
   });
 
-  it("requires explicit confirmation before publishing an already known duplicate", async () => {
+  it.each([true, false])("automatically skips duplicate content, known before approval: %s", async (known) => {
     const duplicate = { gameId: "game-existing", title: "Existing game", platformInstanceId: "platform-1", platformInstanceName: "GBA 游戏" };
-    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(jsonResponse({ gameId: "game-new" }, 201)));
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(jsonResponse({ gameId: duplicate.gameId, status: "SKIPPED_EXISTING" }, 201)));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<ReviewActions review={{ ...review, duplicateGames: [duplicate], contentIdentityDigest: "a".repeat(64) }} />);
-
-    expect(screen.getByText(/相同游戏文件已经关联到/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Existing game" })).toHaveAttribute("href", "/games/game-existing");
+    render(<ReviewActions review={{ ...review, duplicateGames: known ? [duplicate] : [] }} />);
     await user.click(screen.getByRole("button", { name: "通过并发布" }));
-    expect(fetchMock).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole("alertdialog", { name: "仍然发布为新游戏？" });
-    await user.click(within(dialog).getByRole("button", { name: "仍然发布为新游戏" }));
-
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/admin/reviews"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
-      duplicatePolicy: "ALLOW_NEW",
-      acknowledgedGameIds: ["game-existing"],
-    });
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe("{}");
+    expect(sessionStorage.getItem("retrom:flash-toast")).toContain("已跳过重复导入");
   });
 
-  it("opens the same confirmation when a duplicate appears after the page was loaded", async () => {
-    const duplicate = { gameId: "game-race", title: "Published elsewhere", platformInstanceId: "platform-1", platformInstanceName: "GBA 游戏" };
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ error: { code: "DUPLICATE_GAME_CONFIRMATION_REQUIRED", message: "duplicate", details: { games: [duplicate] } } }, 409))
-      .mockResolvedValueOnce(jsonResponse({ gameId: "game-new" }, 201));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<ReviewActions review={review} />);
-
-    await user.click(screen.getByRole("button", { name: "通过并发布" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "仍然发布为新游戏？" });
-    expect(within(dialog).getByRole("link", { name: "Published elsewhere" })).toHaveAttribute("href", "/games/game-race");
-    await user.click(within(dialog).getByRole("button", { name: "仍然发布为新游戏" }));
-
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/admin/reviews"));
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      duplicatePolicy: "ALLOW_NEW",
-      acknowledgedGameIds: ["game-race"],
-    });
-  });
 });
 
 it.each([null, "/source.webm"])("persists an uploaded video over source %s and preserves it after failed replacement", async (source) => {

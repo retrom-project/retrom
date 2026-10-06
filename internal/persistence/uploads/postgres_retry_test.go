@@ -27,7 +27,7 @@ func TestFinalizationRetriesSerializationWithoutRepeatingFileAssembly(t *testing
 				return nil
 			}
 			// Commit a competing row version after finalization's authority reads.
-			// PostgreSQL must reject publication from that stale serializable snapshot.
+			// PostgreSQL must reject publication from that stale transaction snapshot.
 			_, err := fixture.database.ExecContext(ctx,
 				"UPDATE upload_files SET updated_at_ms=updated_at_ms WHERE id=?", session.Files[0].ID)
 			return err

@@ -43,6 +43,7 @@ func (repository *ReviewApprovals) WithApproval(
 func BindReviewApproval(transaction dbapi.Tx) libraryservice.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return libraryservice.ReviewApprovalScope{
+		Discard:      BindReviewDiscard(transaction),
 		Commands:     idempotencypersistence.BindRecovery(transaction),
 		Publications: records, Payload: payloadpersistence.BindScheduling(transaction),
 		Reader: records, Media: records, Profiles: BindReviewInputs(transaction),

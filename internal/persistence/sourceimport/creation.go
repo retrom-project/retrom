@@ -28,23 +28,6 @@ func (repository *Creation) WithCreate(ctx context.Context, work func(applicatio
 
 type creationRecords struct{ executor dbapi.Executor }
 
-func (records creationRecords) PendingPlans(ctx context.Context) (int, error) {
-	var count int
-	if err := dbapi.QueryRowContext(ctx, records.executor, `
-SELECT count(*) FROM source_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
-OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL)
-`).Scan(
-
-		&count,
-	); err != nil {
-		return 0, fmt.Errorf(
-			"read pending Source plans: %w",
-			err,
-		)
-	}
-	return count, nil
-}
-
 func (records creationRecords) Insert(ctx context.Context, plan application.CreationPlan) (application.Summary, error) {
 	if err := records.insertScanJob(ctx, plan); err != nil {
 		return application.Summary{}, err
@@ -56,9 +39,7 @@ func (records creationRecords) Insert(ctx context.Context, plan application.Crea
 INSERT INTO source_imports(format,extension_filter,id,root_id,root_label_snapshot,source_relative_path,
 root_config_digest,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-SELECT ?,?,?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?
-WHERE (SELECT count(*) FROM source_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
-OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL))<20
+VALUES(?,?,?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?)
 `,
 		plan.Request.Format,
 		plan.Request.ExtensionFilter,
@@ -84,7 +65,7 @@ OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL))<20
 		)
 	}
 	if changed != 1 {
-		return application.Summary{}, application.ErrActive
+		return application.Summary{}, application.ErrVersionConflict
 	}
 	if err := records.insertCreationEvidence(ctx, plan); err != nil {
 		return application.Summary{}, err

@@ -88,7 +88,28 @@ func TestIndependentWritesCanBeginConcurrently(t *testing.T) {
 	requireItemSum(t.Context(), t, first, 6)
 }
 
-func TestSerializableTransactionsRejectWriteSkew(t *testing.T) {
+func TestTransactionsUseRepeatableRead(t *testing.T) {
+	db, _ := transactionDatabases(t)
+	for _, readOnly := range []bool{false, true} {
+		tx, err := db.BeginTx(t.Context(), &dbapi.TxOptions{ReadOnly: readOnly})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var level string
+		if err := dbapi.QueryRowContext(t.Context(), tx, "SHOW transaction_isolation").Scan(&level); err != nil {
+			dbapi.Rollback(tx)
+			t.Fatal(err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+		if level != "repeatable read" {
+			t.Fatalf("readOnly=%v isolation=%q", readOnly, level)
+		}
+	}
+}
+
+func TestRepeatableReadRejectsStaleRowUpdate(t *testing.T) {
 	first, second := transactionDatabases(t)
 	if _, err := first.ExecContext(t.Context(), "INSERT INTO items VALUES(2)"); err != nil {
 		t.Fatal(err)
@@ -108,13 +129,11 @@ func TestSerializableTransactionsRejectWriteSkew(t *testing.T) {
 	if _, err := tx.ExecContext(t.Context(), "DELETE FROM items WHERE value=1"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.ExecContext(t.Context(), "DELETE FROM items WHERE value=2"); err != nil {
-		t.Fatal(err)
-	}
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	requirePostgreSQLCode(t, other.Commit(), "40001")
+	_, err = other.ExecContext(t.Context(), "DELETE FROM items WHERE value=1")
+	requirePostgreSQLCode(t, err, "40001")
 	requireItemSum(t.Context(), t, first, 2)
 }
 

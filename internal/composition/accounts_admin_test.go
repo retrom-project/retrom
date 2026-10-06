@@ -106,18 +106,6 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 	if _, err := fixture.service.Login(context.Background(), "alice", "a replacement passphrase"); err != nil {
 		t.Fatalf("login with reset password = %v", err)
 	}
-	operator := authn.Principal{UserID: uuid.NewString(), Username: "offline-operator"}
-	if _, _, err := fixture.service.UpdateUser(
-		context.Background(), operator, admin.User.UserID, 1,
-		accountservice.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrLastAdmin) {
-		t.Fatalf("last enabled admin update = %v", err)
-	}
-	if _, err := fixture.service.DeleteUser(
-		context.Background(), operator, admin.User.UserID, 1, admin.User.Username, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrLastAdmin) {
-		t.Fatalf("last enabled admin delete = %v", err)
-	}
 
 	var tokenColumns int
 	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `

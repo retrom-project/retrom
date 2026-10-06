@@ -182,9 +182,6 @@ def seed(database_path: Path) -> dict[str, object]:
         latest_play = database.execute(
             "SELECT coalesce(max(started_at_ms),1787600000000) FROM play_sessions"
         ).fetchone()[0]
-        next_emulator_game_id = database.execute(
-            "SELECT coalesce(max(emulator_game_id),0)+1 FROM game_variants"
-        ).fetchone()[0]
         database.execute(
             "INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms) "
             "VALUES(%s,%s,'验收分页','验收分页',1,%s,%s)", (FOLDER_ID, profile_id, latest_play, latest_play),
@@ -203,7 +200,7 @@ def seed(database_path: Path) -> dict[str, object]:
             timestamp = latest_play + index
             game_id, _ = seed_game(
                 database, base, index, title, title_initial, timestamp,
-                next_emulator_game_id + index - 1,
+                database.execute("SELECT nextval('emulator_game_numbers')").fetchone()[0],
             )
             game_ids.append(game_id)
             seed_play(database, profile_id, game_id, base, index, timestamp)

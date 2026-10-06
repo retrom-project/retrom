@@ -213,7 +213,6 @@ function ReviewActionsView({ model }: { model: ReviewViewModel }) {
     <ReviewFeedback model={model} />
     <ReviewColumns model={model} />
     <ComparisonDialog model={model} />
-    <DuplicateDialog model={model} />
   </div>;
 }
 
@@ -265,7 +264,7 @@ function reviewDecisionMessage(model: ReviewViewModel) {
 }
 
 function ReviewFeedback({ model }: { model: ReviewViewModel }) {
-  return <>{model.notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{model.notice}</FeedbackBanner></div> : null}{model.review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {model.review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}</>;
+  return <>{model.notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{model.notice}</FeedbackBanner></div> : null}{model.review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {model.review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。发布时会自动跳过重复导入。</FeedbackBanner></div> : null}</>;
 }
 
 function ReviewColumns({ model }: { model: ReviewViewModel }) {
@@ -321,10 +320,7 @@ function NextComparison({ model, comparison }: { model: ReviewViewModel; compari
   return <section className="metadata-compare-column" aria-label="最新信息"><header><strong>最新信息</strong><span>可编辑</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{compareFields.filter((field) => !field.multiline).map((field) => <label className={`compare-field ${comparison.current[field.key] === comparison.next[field.key] ? "is-same" : "is-changed"}`} key={field.key}><span>{field.label}</span><input aria-label={field.label} type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setNext(field.key, event.target.value)} /></label>)}</div><div className={`metadata-compare-column-cover ${sameCover ? "is-same" : "is-changed"}`}><span>封面</span><label className="review-cover-upload"><AssetPreview asset={model.nextCompareCover} label="最新查询封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{comparison.nextCover.candidateId || comparison.nextCover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: null } } : null)}>不使用新封面</button> : null}</div></div><label className={`metadata-compare-column-description ${comparison.current.description === comparison.next.description ? "is-same" : "is-changed"}`}><span>游戏说明（可编辑）</span><textarea aria-label="简介" value={comparison.next.description} onChange={(event) => setNext("description", event.target.value)} /></label></section>;
 }
 
-function DuplicateDialog({ model }: { model: ReviewViewModel }) {
-  const duplicates = model.commands.duplicateConfirmation;
-  return <ConfirmDialog open={duplicates !== null} title="仍然发布为新游戏？" description="相同游戏文件已经存在。继续发布会创建另一个游戏条目，可能造成重复游戏。" confirmLabel="仍然发布为新游戏" tone="danger" busy={model.busy === "发布"} onCancel={() => model.commands.setDuplicateConfirmation(null)} onConfirm={() => void model.commands.confirmDuplicatePublish()}>{duplicates ? <ul>{duplicates.map((game) => <li key={game.gameId}><Link href={`/games/${game.gameId}`}>{game.title}</Link><span> · {game.platformInstanceName}</span></li>)}</ul> : null}</ConfirmDialog>;
-}
+
 
 function StatusPill({ tone, children }: { tone: "good" | "warn" | "info"; children: ReactNode }) {
   return <span className={`status ${tone}`}><i />{children}</span>;

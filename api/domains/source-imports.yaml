@@ -642,13 +642,17 @@ components:
             cover:
               type: string
               enum:
+                - PENDING
                 - READY
+                - RELEASED
                 - MISSING
                 - WARNING
             video:
               type: string
               enum:
+                - PENDING
                 - READY
+                - RELEASED
                 - MISSING
                 - WARNING
         sourceFlags:

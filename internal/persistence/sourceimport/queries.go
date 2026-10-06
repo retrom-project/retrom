@@ -51,7 +51,7 @@ func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 		&result.ScanOutcome, &diagnostics, &errorCode,
 		&result.CreatedAtMS, &result.UpdatedAtMS, &result.ExpiresAtMS, &result.CompletedAtMS,
 		&availability.JobState, &availability.JobVersion, &availability.Execution,
-		&availability.OtherActive, &availability.RetryableItems,
+		&availability.RetryableItems,
 	); err != nil {
 		return application.Summary{}, fmt.Errorf("sourceimport/scan summary: %w", err)
 	}

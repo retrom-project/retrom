@@ -10,7 +10,6 @@ type mediaMemory struct {
 	publication AssetPublication
 	outcome     MediaOutcome
 	failure     error
-	running     int
 }
 
 func newMediaMemory() (*mediaMemory, error) {
@@ -51,7 +50,6 @@ func (memory *mediaMemory) Snapshot(context.Context, string) (MediaSnapshot, err
 	return memory.snapshot, nil
 }
 func (*mediaMemory) Ordering(context.Context, string) ([]MediaOrder, error) { return nil, nil }
-func (memory *mediaMemory) Running(context.Context, int64) (int, error)     { return memory.running, nil }
 
 func (memory *mediaMemory) Claim(_ context.Context, claim MediaClaim) error {
 	memory.snapshot.Job.WorkerID = claim.WorkerID

@@ -48,7 +48,7 @@ func (service *InitializationService) Start(ctx context.Context) error {
 		}
 		return nil
 	}
-	if state.State != "COMPLETED" || state.EnabledAdmins == 0 || state.OrphanProfiles != 0 {
+	if state.State != "COMPLETED" || state.OrphanProfiles != 0 {
 		return ErrInitializationState
 	}
 	if service.options.Mode == config.ModeRelease && state.TestDefault {

@@ -20,7 +20,7 @@ export function useURLFilters<T>(parse: (search: URLSearchParams) => T, serializ
     const next = typeof change === "function" ? (change as (previous: T) => T)(current) : change;
     const written = serialize(next);
     setState({value: next, observed: search, written, navigation: state.navigation});
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${written ? `?${written}` : ""}${window.location.hash}`);
+    window.history.replaceState(null, "", `${window.location.pathname}${written ? `?${written}` : ""}${window.location.hash}`);
   }, [parse, search, serialize, state, setState]);
   return [value, update, navigation] as const;
 }

@@ -35,7 +35,7 @@ describe("UserAdmin", () => {
     expect(screen.queryByText(/游戏数|游玩时长|存档数|Profile ID|IP/)).not.toBeInTheDocument();
   });
 
-  it("disables self-management and explains the last-admin fence", async () => {
+  it("disables self-management without checking administrator count", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => String(input).includes("role=ADMIN")
       ? json({ ...initialUsers, items: [admin] })
       : json(admin, 200, { ETag: '"v1"' }));
@@ -45,7 +45,7 @@ describe("UserAdmin", () => {
     await user.click(within(adminRow).getByRole("button", { name: "管理" }));
     const drawer = await screen.findByRole("dialog", { name: "管理用户" });
     expect(await screen.findByText("不能修改当前登录账号")).toBeInTheDocument();
-    expect(screen.getByText("服务器必须保留至少一名启用管理员")).toBeInTheDocument();
+    expect(auth.fetch).toHaveBeenCalledTimes(1);
     expect(within(drawer).getByLabelText("角色")).toBeDisabled();
     expect(within(drawer).getByRole("button", { name: "删除账号" })).toBeDisabled();
   });

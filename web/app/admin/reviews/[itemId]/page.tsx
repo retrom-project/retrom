@@ -1,5 +1,5 @@
 import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
-import { FlashToast } from "@/components/flash-toast";
+import { FlashToast } from "@/components/toast-provider";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
 import { adjacentReviewItemId } from "@/features/reviews/review-navigation";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";

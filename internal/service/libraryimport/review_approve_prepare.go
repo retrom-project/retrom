@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -196,10 +197,14 @@ func (run *reviewApprovalRun) allocateIDs() error {
 func (run *reviewApprovalRun) claimDuplicates() error {
 	duplicates := NewContentDuplicates(run.scope.Duplicates)
 	digest, err := duplicates.Identity(run.ctx, run.request.ItemID)
+	if errors.Is(err, ErrMultiDiscIncomplete) {
+		return ErrInvalid
+	}
 	if err != nil {
 		return fmt.Errorf("read approval content identity: %w", err)
 	}
-	if err := run.scope.Decisions.ClaimIdentity(run.ctx, run.head.PlatformID, digest, run.now); err != nil {
+	now := run.service.now().UnixMilli()
+	if err := run.scope.Decisions.ClaimIdentity(run.ctx, run.head.PlatformID, digest, now); err != nil {
 		return fmt.Errorf("claim approval content identity: %w", err)
 	}
 	run.duplicateGames, err = duplicates.Matches(run.ctx, run.request.ItemID, run.head.PlatformID)
@@ -207,14 +212,6 @@ func (run *reviewApprovalRun) claimDuplicates() error {
 		return fmt.Errorf("read approval duplicates: %w", err)
 	}
 	run.identityDigest = digest
-	decision := run.request.Decision
-	if len(run.duplicateGames) > 0 && (decision.DuplicatePolicy != "ALLOW_NEW" ||
-		!SameApprovalDuplicateIDs(run.duplicateGames, decision.AcknowledgedGameIDs)) {
-		return &DuplicateConflict{ContentIdentityDigest: digest, Games: run.duplicateGames}
-	}
-	if len(run.duplicateGames) == 0 && decision.DuplicatePolicy != "" {
-		return ErrInvalid
-	}
 	return nil
 }
 

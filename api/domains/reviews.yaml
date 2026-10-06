@@ -198,9 +198,13 @@ paths:
         $ref: '#/components/requestBodies/Approval'
       responses:
         '201':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Published a new game or skipped identical content already in the library.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewApprovalResult'
         '409':
-          description: REVIEW_VALIDATION_STALE or DUPLICATE_GAME_CONFIRMATION_REQUIRED; duplicate confirmation includes the complete current match set.
+          description: REVIEW_VALIDATION_STALE; review input changed before publication.
           content:
             application/json:
               schema:
@@ -227,6 +231,17 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
 components:
   schemas:
+    ReviewApprovalResult:
+      type: object
+      additionalProperties: false
+      required: [gameId, status]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PUBLISHED, SKIPPED_EXISTING]
     ReviewReadiness:
       type: object
       additionalProperties: false
@@ -257,17 +272,6 @@ components:
           type: string
           nullable: true
           maxLength: 500
-        duplicatePolicy:
-          type: string
-          enum:
-            - ALLOW_NEW
-        acknowledgedGameIds:
-          type: array
-          maxItems: 100
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
     ReviewSourceKind:
       type: string
       enum:

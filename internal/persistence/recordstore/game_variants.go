@@ -3,9 +3,20 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	dbapi "retrom/internal/database"
 )
+
+// NextEmulatorGameID reserves a number independently of transaction rollback.
+// All variant creation paths share the bounded PostgreSQL sequence.
+func NextEmulatorGameID(ctx context.Context, db dbapi.Queryer) (int64, error) {
+	var id int64
+	if err := dbapi.QueryRowContext(ctx, db, `SELECT nextval('emulator_game_numbers')`).Scan(&id); err != nil {
+		return 0, fmt.Errorf("allocate emulator game number: %w", err)
+	}
+	return id, nil
+}
 
 func CreateGameVariants(
 	ctx context.Context, db dbapi.Executor, query string, args ...any,

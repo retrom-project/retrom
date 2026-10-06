@@ -103,9 +103,6 @@
 .favorite-batch button:hover { background: #36415a; }
 .favorite-batch button.is-primary { border-color: var(--purple); background: var(--purple); }
 .favorite-batch button.is-danger { color: #ffd8dd; border-color: #884958; }
-.favorite-toast { position: fixed; z-index: 150; right: 24px; bottom: 24px; min-width: min(330px, calc(100vw - 48px)); max-width: min(430px, calc(100vw - 48px)); padding: 11px 13px; display: flex; align-items: center; gap: 12px; color: white; border-radius: var(--radius-panel); background: #20283b; box-shadow: 0 14px 34px rgb(0 0 0 / 25%); font-size: var(--text-caption); }
-.favorite-toast > span { min-width: 0; overflow-wrap: anywhere; }
-.favorite-toast button { min-height: 34px; padding: 0 8px; color: #d5ceff; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .favorite-dialog { max-height: calc(100dvh - 48px); overflow: auto; }
 .dialog-backdrop > .favorite-dialog { width: min(460px, 100%); padding: 19px; border-radius: var(--radius-dialog); }
 .favorite-popover { position: fixed; z-index: 110; inset: 0; pointer-events: none; }
@@ -140,7 +137,7 @@
   .favorite-platforms button, .favorite-game-body p, .favorite-dialog-head p { font-size: var(--text-caption); }
   .favorite-rail nav button strong, .favorite-rail-label, .favorite-toolbar label,
   .favorite-game-cover > a > span:last-child:not(.favorite-poster), .favorite-poster small,
-  .favorite-poster > span, .favorite-batch strong, .favorite-toast,
+  .favorite-poster > span, .favorite-batch strong,
   .favorite-folder-search, .favorite-folder-name, .favorite-folder-none, .favorite-form-error { font-size: var(--text-caption); }
   .favorite-game-body h3 { font-size: var(--text-lead); }
 }
@@ -159,6 +156,5 @@
   .favorite-game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .favorite-game-body { padding: 10px; }
   .favorite-game-body h3 { font-size: var(--text-caption); }
-  .favorite-toast { right: 14px; bottom: 14px; max-width: calc(100vw - 28px); }
 }
 .favorite-select.is-selected { border-color: var(--purple-line); background: var(--purple); }

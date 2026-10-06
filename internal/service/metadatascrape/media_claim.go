@@ -67,13 +67,6 @@ func (execution *mediaExecution) prepare(ctx context.Context, scope MediaScope, 
 	if !snapshot.First {
 		return nil
 	}
-	running, err := scope.Read.Running(ctx, execution.Claim.Now)
-	if err != nil {
-		return mediaError("read active media capacity", err)
-	}
-	if running >= 2 {
-		return nil
-	}
 	executing, err := scope.Read.RunExecuting(ctx, snapshot.Asset.RunID, execution.Claim.Now)
 	if err != nil {
 		return mediaError("read media run capacity", err)

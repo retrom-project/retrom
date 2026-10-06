@@ -96,9 +96,9 @@ func TestStartAlreadyExecutedIsIdempotentWithoutSourceAccess(t *testing.T) {
 	}
 }
 
-func TestStartRechecksExpiryVersionTagsAndCapacityAfterSourceVerification(t *testing.T) {
+func TestStartRechecksExpiryVersionTagsAfterSourceVerification(t *testing.T) {
 	t.Parallel()
-	for _, change := range []string{"expiry", "version", "tags", "capacity", "digest"} {
+	for _, change := range []string{"expiry", "version", "tags", "digest"} {
 		t.Run(change, func(t *testing.T) {
 			t.Parallel()
 			m, sources := startApplicationFixture()
@@ -114,9 +114,6 @@ func TestStartRechecksExpiryVersionTagsAndCapacityAfterSourceVerification(t *tes
 				case "tags":
 					m.snapshot.TagsValid = false
 					want = ErrMapping
-				case "capacity":
-					m.snapshot.OtherActive = true
-					want = ErrActive
 				case "digest":
 					m.snapshot.SourceSnapshotDigest = "changed"
 					want = ErrSourceChanged

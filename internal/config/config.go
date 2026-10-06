@@ -29,6 +29,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
 	"RETROM_PFB_ID":                    {},
+	"RETROM_SOURCE_SCAN_WORKERS":       {}, "RETROM_SOURCE_IMPORT_WORKERS": {},
 }
 
 var ignoredPrefixes = []string{
@@ -53,6 +54,7 @@ type Config struct {
 	LogLevel                 string
 	MultiDiscImportEnabled   bool
 	PFBID                    string
+	SourceWorkers            map[string]int
 }
 
 type Mode string
@@ -110,6 +112,10 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	workers, err := loadSourceWorkers()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
 		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
@@ -120,7 +126,7 @@ func Load(mode Mode) (Config, error) {
 		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
 		StartupCheckTimeout:      runtimeOptions.startupTimeout,
 		LogLevel:                 runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
-		PFBID: pfbID,
+		PFBID: pfbID, SourceWorkers: workers,
 	}, nil
 }
 

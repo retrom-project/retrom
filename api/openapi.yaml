@@ -449,6 +449,8 @@ components:
       $ref: ./components/common.yaml#/components/schemas/ReasonRequest
     ApprovalReasonRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ApprovalReasonRequest
+    ReviewApprovalResult:
+      $ref: ./domains/reviews.yaml#/components/schemas/ReviewApprovalResult
     ApprovalRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ApprovalRequest
     ReviewSourceKind:

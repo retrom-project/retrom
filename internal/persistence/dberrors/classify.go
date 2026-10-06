@@ -21,3 +21,9 @@ func Classify(err error) string {
 		return ""
 	}
 }
+
+// Unique reports one named database constraint, never every integrity error.
+func Unique(err error, name string) bool {
+	var cause *pgconn.PgError
+	return errors.As(err, &cause) && cause.Code == "23505" && cause.ConstraintName == name
+}

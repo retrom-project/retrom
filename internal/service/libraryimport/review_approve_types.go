@@ -13,15 +13,7 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-var ErrDuplicateContent = errors.New("DUPLICATE_GAME_CONFIRMATION_REQUIRED")
-
-type DuplicateConflict struct {
-	ContentIdentityDigest string          `json:"contentIdentityDigest"`
-	Games                 []DuplicateGame `json:"games"`
-}
-
-func (conflict *DuplicateConflict) Error() string { return ErrDuplicateContent.Error() }
-func (conflict *DuplicateConflict) Unwrap() error { return ErrDuplicateContent }
+var ErrPublicationBusy = errors.New("publication of this content is in progress")
 
 type ReviewApproved struct {
 	GameID string `json:"gameId"`
@@ -29,11 +21,9 @@ type ReviewApproved struct {
 }
 
 type ReviewApprovalDecision struct {
-	Reason              *string
-	DuplicatePolicy     string
-	AcknowledgedGameIDs []string
-	SourceKind          string
-	ExternalAssets      []ApprovalExternalAsset
+	Reason         *string
+	SourceKind     string
+	ExternalAssets []ApprovalExternalAsset
 }
 
 type ReviewApprovalRequest struct {
@@ -78,6 +68,7 @@ type ReviewApprovalRepository interface {
 
 type ReviewApprovalScope struct {
 	Commands     idempotency.RecoveryWriter
+	Discard      ReviewDiscardScope
 	Publications PublicationRecords
 	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader

@@ -141,7 +141,7 @@ web/components/           无业务状态的通用组件
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。PostgreSQL 适配器在 `internal/database/postgres` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，写事务使用 SERIALIZABLE，纯数据库提交边界显式处理可重试冲突；具体只读与写事务规则见 [PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。PostgreSQL 适配器在 `internal/database/postgres` 内持有 `sql.DB`、`sql.Tx`，事务统一使用 `BeginTx`，读写事务最高且默认使用 REPEATABLE READ，所需互斥使用版本条件、行锁或唯一约束，纯数据库提交边界显式处理可重试冲突；具体只读与写事务规则见 [PostgreSQL 基线](./storage-and-database.md#3-postgresql-基线)。Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
 公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，文件路径与摘要随领域记录保存，不设全局文件目录。它们由各模块 Repository 复用；`filestore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 
@@ -419,7 +419,7 @@ RETROM_DATA_DIR/
 
 账户链接 Service 负责 capability 校验、消费/撤销/过期状态优先级、查询边界及撤销策略；Repository 将链接更新、审计和幂等响应放在同一事务。存储故障不能伪装成无效 capability 或筛选错误，也不能因此增加认证失败计数。签发策略由 Service 校验管理员确认、目标状态和版本；Repository 原子完成旧重置链接撤销、新链接签发、审计与幂等响应。幂等记录不保存 capability，只有事务提交成功后才生成返回给调用方的 token。消费链接时，密码哈希在写事务外准备，写入前重新检查链接有效期、撤销状态及目标账户快照；身份/凭据、会话撤销与替换、默认密码标记、链接消费和审计在同一事务提交。禁用账户可以完成密码重置，但不创建会话；事务失败不能返回可用会话。
 
-用户角色、启停和删除规则由 Service 判定，包括自身保护、最后一名启用管理员保护、确认字段、版本及幂等冲突。Repository 在同一事务内更新账户、撤销受影响 Session/链接/Launch、维护安全标记、保存审计和幂等响应；失败不得返回已提交结果或留下部分撤销。
+用户角色、启停和删除规则由 Service 判定，包括自身保护、确认字段、版本及幂等冲突。Repository 在同一事务内更新账户、撤销受影响 Session/链接/Launch、维护安全标记、保存审计和幂等响应；失败不得返回已提交结果或留下部分撤销。
 
 账户目录由 Service 规范化筛选条件、校验游标并投影已删除用户名称，Repository 负责排序分页和有效会话计数。并列排序值始终以用户 ID 稳定分页，未登录用户使用独立的空值排序规则；数据库故障保留服务端错误，不映射为筛选参数错误。
 
@@ -458,7 +458,7 @@ RETROM_DATA_DIR/
 
 服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。共享 reader semaphore 固定为 2，hash worker 固定 2、archive scanner 固定 1；数据库/HTTP 不能按格式再建立一套磁盘并发额度。
 
-EmulationStation 单实例至多一个 active execution、20 个未开始/等待映射计划，等待映射 7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
+所有来源格式的任务先持久化到 jobs，按 kind 领取；`RETROM_SOURCE_SCAN_WORKERS` 默认 2、`RETROM_SOURCE_IMPORT_WORKERS` 默认 1，配置范围各为 1–32。这是每个服务进程的 worker 数量；多个进程通过 `FOR UPDATE SKIP LOCKED` 和租约避免重复领取。没有待处理计划数或跨批次执行准入限制；等待映射不占 worker，7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
 
 BIOS 发现结果的排序、未选中原因和证据编码由 Service 在写事务前完成，Repository 原子保存候选、条目计数与发现阶段；无法编码的证据不能留下部分结果，归档安全标志必须保留评估原值。重置发现结果也在同一执行的事务栅栏内，重置失败不得继续扫描。
 

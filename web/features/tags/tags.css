@@ -13,7 +13,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-picker-selected { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-picker-combobox { position: relative; }
 .tag-picker-combobox input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
-.tag-picker-list { z-index: 180; overflow-y: auto; padding: 6px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 14px 34px rgb(35 27 61 / 18%); }
+.tag-picker-list { z-index: var(--layer-popover); overflow-y: auto; padding: 6px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: 0 14px 34px rgb(35 27 61 / 18%); }
 .tag-picker-list-floating { position: fixed; }
 .tag-picker-list-floating.is-above { transform: translateY(-100%); }
 .tag-picker-list button { width: 100%; min-height: 38px; padding: 8px 10px; display: block; color: var(--ink); border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; cursor: pointer; }

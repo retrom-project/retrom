@@ -58,7 +58,7 @@ FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id
 JOIN import_items item ON item.id<=bulk.max_item_id
 WHERE bulk.id=? AND bulk.state='RUNNING' AND job.state='RUNNING' AND job.worker_id=?
-AND (item.state='REVIEW_PENDING' OR (item.state IN ('PUBLISHING','PUBLISHED') AND
+AND (item.state='REVIEW_PENDING' OR (item.state IN ('PUBLISHING','PUBLISHED','DISCARDED') AND
 item.publication_bulk_id=bulk.id)) AND item.review_version>0
 AND item.created_at_ms<=bulk.created_at_ms
 AND (bulk.cursor_item_id IS NULL OR item.id>bulk.cursor_item_id)

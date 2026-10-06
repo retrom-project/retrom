@@ -9,14 +9,13 @@ function cssRule(source: string, selector: string) {
   return match?.[1] ?? "";
 }
 
-describe("Player top-edge reveal target", () => {
-  it("covers the complete 32px viewport edge instead of only the center handle", () => {
+describe("Player centered reveal target", () => {
+  it("keeps the pointer target at the visible handle, leaving the game edges clickable", () => {
     const source = readFileSync(resolve(process.cwd(), "features/player/player.css"), "utf8");
-    const rule = cssRule(source, ".player-hud-handle[aria-pressed=\"false\"]");
-
-    expect(rule).toContain("left: 0");
-    expect(rule).toContain("right: 0");
-    expect(rule).toContain("height: 32px");
-    expect(rule).toContain("width: auto");
+    const rule = cssRule(source, ".player-hud-handle");
+    expect(rule).toContain("left: 50%");
+    expect(rule).toContain("width: 48px");
+    expect(rule).toContain("height: 44px");
+    expect(source).not.toMatch(/\.player-hud-handle\[aria-pressed="false"\]\s*\{[^}]*width: auto/);
   });
 });

@@ -1179,7 +1179,7 @@ CREATE TABLE "import_item_duplicate_matches" (
   existing_game_id TEXT NOT NULL ,
   content_identity_digest TEXT NOT NULL
     CHECK(length(content_identity_digest) = 64 AND content_identity_digest = lower(content_identity_digest)),
-  detected_stage TEXT NOT NULL CHECK(detected_stage = 'IDENTIFICATION'),
+  detected_stage TEXT NOT NULL CHECK(detected_stage IN ('IDENTIFICATION','REVIEW')),
   created_at_ms BIGINT NOT NULL,
   PRIMARY KEY(import_item_id, existing_game_id)
 );
@@ -2509,9 +2509,6 @@ CREATE INDEX source_collections_mapping ON source_import_collections(import_id,m
 CREATE INDEX source_collections_page ON source_import_collections(import_id,metadata_relative_path,segment_ordinal,id);
 
 CREATE INDEX source_imports_history ON source_imports(created_at_ms DESC,id DESC);
-
-CREATE UNIQUE INDEX source_imports_one_active_execution ON source_imports((1))
-WHERE import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
 CREATE INDEX source_imports_state ON source_imports(state,updated_at_ms DESC,id DESC);
 

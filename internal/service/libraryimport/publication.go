@@ -25,24 +25,23 @@ func (service *ReviewApprovals) preparePublication(ctx context.Context,
 		if !state.Found {
 			return ErrInvalid
 		}
-		if state.State == "PUBLISHED" {
+		if state.State == "PUBLISHED" || state.State == "SKIPPED_EXISTING" {
 			return idempotency.Complete(ctx, idempotency.Result{
-				Value: ReviewApproved{GameID: state.GameID, Status: "PUBLISHED"},
+				Value: ReviewApproved{GameID: state.GameID, Status: state.State},
 			})
 		}
 		if state.Intent != nil {
 			return nil
 		}
 		run := reviewApprovalRun{ctx: ctx, service: service, scope: scope, request: request}
-		for _, step := range []func() error{run.load, run.prepare, run.claimDuplicates} {
-			if err := step(); err != nil {
-				return err
-			}
+		if err := run.prepareDecision(); err != nil {
+			return err
 		}
-		if request.Bulk != nil {
-			if err := scope.Bulk.CheckRequest(ctx, request, run.now); err != nil {
-				return fmt.Errorf("prepare publication: %w", err)
-			}
+		if len(run.duplicateGames) > 0 {
+			return run.skipExisting(&state)
+		}
+		if err := run.prepare(); err != nil {
+			return err
 		}
 		actor, _ := authn.PrincipalFromContext(ctx)
 		intent := Publication{

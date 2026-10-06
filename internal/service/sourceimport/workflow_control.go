@@ -18,7 +18,6 @@ type (
 		Summary               Summary
 		JobState              string
 		JobVersion, Execution int64
-		OtherActive           bool
 		RetryableItems        int64
 	}
 	WorkflowScope struct {
@@ -104,7 +103,7 @@ func canRetry(before WorkflowSnapshot, version int64) bool {
 // Persisted plan retryable flags are historical summaries, never admission facts.
 func RetryAvailable(before WorkflowSnapshot) bool {
 	if !validWorkflowVersion(before, before.Summary.Version) || before.Execution == math.MaxInt64 ||
-		before.Summary.ImportJobID == nil || before.OtherActive || before.RetryableItems <= 0 {
+		before.Summary.ImportJobID == nil || before.RetryableItems <= 0 {
 		return false
 	}
 	return (before.Summary.State == "FAILED" || before.Summary.State == "PARTIAL_FAILURE") &&

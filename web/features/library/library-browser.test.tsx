@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +36,20 @@ function json(data: GamePage) {
 }
 
 describe("LibraryBrowser", () => {
+  it("keeps a short retry control and sends next-page errors to the shared toast", async () => {
+    const user = userEvent.setup();
+    auth.fetch.mockResolvedValueOnce({ok: false}).mockResolvedValueOnce(json(page(games)));
+    render(<LibraryBrowser initialPage={page([games[0]], "cursor-1")} initialFilters={initialFilters} />);
+    await user.click(screen.getByRole("button", {name: "继续加载"}));
+    expect(await screen.findByRole("alert")).toHaveClass("app-toast");
+    const retry = screen.getByRole("button", {name: "重试加载"});
+    expect(retry.closest("footer")).not.toHaveTextContent("暂时无法读取");
+    expect(screen.getByRole("heading", {name: "1943"})).toBeVisible();
+    await user.click(retry);
+    expect(await screen.findByRole("heading", {name: "DOOM"})).toBeVisible();
+    expect(auth.fetch.mock.calls[1][0]).toContain("cursor=cursor-1");
+  });
+
   beforeEach(() => {
     window.history.replaceState({}, "", "/library");
     auth.fetch.mockReset().mockImplementation(async (input: RequestInfo | URL) => {

@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"math"
-	"sort"
 	"strings"
 )
 
@@ -25,12 +24,6 @@ func normalizeReviewApproval(request ReviewApprovalRequest) (ReviewApprovalReque
 }
 
 func validApprovalDecision(decision ReviewApprovalDecision) bool {
-	if decision.DuplicatePolicy != "" && decision.DuplicatePolicy != "ALLOW_NEW" {
-		return false
-	}
-	if decision.DuplicatePolicy == "" && len(decision.AcknowledgedGameIDs) != 0 {
-		return false
-	}
 	if decision.SourceKind != "" {
 		if !ValidApprovalSourceKind(decision.SourceKind) {
 			return false
@@ -73,27 +66,4 @@ func ValidApprovalExternalAsset(asset ApprovalExternalAsset) bool {
 	default:
 		return false
 	}
-}
-
-func ApprovalDuplicateIDs(games []DuplicateGame) []string {
-	ids := make([]string, 0, len(games))
-	for _, game := range games {
-		ids = append(ids, game.GameID)
-	}
-	sort.Strings(ids)
-	return ids
-}
-
-func SameApprovalDuplicateIDs(games []DuplicateGame, acknowledged []string) bool {
-	if len(games) != len(acknowledged) {
-		return false
-	}
-	want, got := ApprovalDuplicateIDs(games), append([]string(nil), acknowledged...)
-	sort.Strings(got)
-	for index := range want {
-		if want[index] != got[index] || (index > 0 && got[index] == got[index-1]) {
-			return false
-		}
-	}
-	return true
 }

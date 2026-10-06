@@ -121,10 +121,6 @@ func (service *ReviewBulk) processNextReviewBulkItem(ctx context.Context, work r
 func (service *ReviewBulk) reviewBulkFailure(ctx context.Context, work reviewBulkWork,
 	failedItemID string, err error,
 ) error {
-	var duplicate *DuplicateConflict
-	if errors.As(err, &duplicate) {
-		return service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "DUPLICATE")
-	}
 	if errors.Is(err, ErrInvalid) {
 		return service.skipFailedReviewBulkApproval(ctx, work, failedItemID, "NOT_READY")
 	}

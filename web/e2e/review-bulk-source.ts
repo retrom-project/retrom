@@ -5,7 +5,7 @@ import { evidencePath } from "./acceptance-support";
 import { prepareNewSourceScan, selectServerSource } from "./server-directory-support";
 
 export function registerSourceBulkApprovalTest() {
-  test("ACC-UI-010 source review refreshes a partially approved queue without reloading", async ({ page }, info) => {
+  test("ACC-UI-010 source review skips duplicate content and refreshes its queue without reloading", async ({ page }, info) => {
     test.setTimeout(90_000);
     const source = process.env.RETROM_E2E_SERVER_SOURCE;
     expect(source, "disposable server source fixture root").toBeTruthy();
@@ -38,16 +38,20 @@ export function registerSourceBulkApprovalTest() {
     const items = await (await page.request.get(`/api/v1/admin/reviews?sourceImportId=${plan.id}&limit=20`)).json() as { items: Array<{ itemId: string }> };
     await page.getByRole("button", { name: "快速审批全部待审" }).click();
     await expect(page.getByRole("heading", { name: "快速审批已完成" })).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator(".review-workflow-row")).toHaveCount(1);
-    await expect(page.getByText("已加载 1 条", { exact: true })).toBeVisible();
+    await expect(page.locator(".review-workflow-row")).toHaveCount(0);
+    const result = page.locator(".review-bulk-status");
+    await expect(result.getByText("已发布", {exact: true}).locator("..")).toHaveText("已发布1");
+    await expect(result.getByText("重复已跳过", {exact: true}).locator("..")).toHaveText("重复已跳过1");
+    await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审0");
     const remaining = await (await page.request.get(`/api/v1/admin/reviews?sourceImportId=${plan.id}&limit=20`)).json() as { items: Array<{ itemId: string }> };
-    expect(remaining.items).toHaveLength(1);
-    const published = items.items.find(item => item.itemId !== remaining.items[0]!.itemId)!;
-    await expect(page.locator(`[data-review-item="${published.itemId}"]`)).toHaveCount(0);
+    expect(remaining.items).toHaveLength(0);
+    for (const item of items.items) {
+      await expect(page.locator(`[data-review-item="${item.itemId}"]`)).toHaveCount(0);
+    }
     expect(new URL(page.url()).searchParams.get("sourceImportId")).toBe(plan.id);
     await page.screenshot({ path: evidencePath(info, "source-bulk-approval-updated.png"), fullPage: true });
     await page.reload();
     await expect(page.getByRole("heading", { name: "快速审批已完成" })).toBeVisible();
-    await expect(page.locator(".review-workflow-row")).toHaveCount(1);
+    await expect(page.locator(".review-workflow-row")).toHaveCount(0);
   });
 }

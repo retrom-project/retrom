@@ -174,3 +174,44 @@ func TestImportExecutorLibraryFailureKeepsInputLimitDiagnostics(t *testing.T) {
 		t.Fatalf("library error lost diagnostics: %+v", outcome)
 	}
 }
+
+func TestImportExecutorRetainsContentMaterialDiagnostics(t *testing.T) {
+	t.Parallel()
+	for _, step := range []struct{ event, state, operation string }{
+		{"copy:game.gba", "READ_FAILED", "COPY_CONTENT"},
+		{"bind:game.gba", "COMMIT_FAILED", "BIND_CONTENT"},
+	} {
+		t.Run(step.event, func(t *testing.T) {
+			fake, executor := newImportExecutorFixture()
+			fake.failures[step.event] = errors.New("controlled material failure")
+			if err := executor.Process(t.Context(), Work{}, fake.items[0]); err != nil {
+				t.Fatal(err)
+			}
+			if len(fake.outcomes) != 1 {
+				t.Fatalf("outcomes: %+v", fake.outcomes)
+			}
+			result := fake.outcomes[0]
+			if result.State != step.state || !result.Retryable || result.Failure == nil {
+				t.Fatalf("lost material failure: %+v", result)
+			}
+			detail := result.Failure
+			if detail.Stage != "STORAGE" || detail.Operation != step.operation || detail.RelativePath == nil ||
+				*detail.RelativePath != "game.gba" || detail.TechnicalDetail != "controlled material failure" {
+				t.Fatalf("incorrect detail: %+v", detail)
+			}
+		})
+	}
+}
+
+func TestImportExecutorContentCopyPreservesCancellationAndOwnership(t *testing.T) {
+	t.Parallel()
+	for _, event := range []string{"copy:game.gba", "bind:game.gba"} {
+		for _, cause := range []error{context.Canceled, context.DeadlineExceeded, ErrVersionConflict} {
+			fake, executor := newImportExecutorFixture()
+			fake.failures[event] = cause
+			if err := executor.Process(t.Context(), Work{}, fake.items[0]); !errors.Is(err, cause) || len(fake.outcomes) != 0 {
+				t.Fatalf("execution loss became material failure: err=%v outcomes=%+v", err, fake.outcomes)
+			}
+		}
+	}
+}

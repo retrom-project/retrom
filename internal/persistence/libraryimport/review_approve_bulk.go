@@ -12,8 +12,13 @@ import (
 
 func (records reviewApprovalRecords) RecordPublished(ctx context.Context, change libraryservice.BulkPublication) error {
 	intent := change.Intent
+	published, skipped := 1, 0
+	if change.Result.Status == "SKIPPED_EXISTING" {
+		published, skipped = 0, 1
+	}
 	result, err := recordstore.UpdateReviewBulkApprovals(ctx, records.transaction, recordstore.Update{
-		Set: `cursor_item_id=?,scanned_count=scanned_count+1,published_count=published_count+1,
+		Set: `cursor_item_id=?,scanned_count=scanned_count+1,published_count=published_count+?,
+skipped_duplicate_count=skipped_duplicate_count+?,
 version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `id=? AND job_id=? AND state='RUNNING' AND max_item_id>=?
@@ -24,7 +29,7 @@ AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?)`,
 				intent.JobID, intent.WorkerID,
 			},
 		},
-		Values: []any{change.ItemID, change.NowMS},
+		Values: []any{change.ItemID, published, skipped, change.NowMS},
 	})
 	if err := approvalMutation(result, err, "record bulk published aggregate", true); err != nil {
 		return err

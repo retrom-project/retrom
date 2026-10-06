@@ -51,7 +51,6 @@ type AccountAudit struct {
 }
 type AdministrationReader interface {
 	Current(context.Context, string, int64) (ManagedUser, bool, error)
-	AnotherEnabledAdmin(context.Context, string) (bool, error)
 	Replay(context.Context, AccountOperation) (AccountReplay, error)
 }
 type AdministrationWriter interface {

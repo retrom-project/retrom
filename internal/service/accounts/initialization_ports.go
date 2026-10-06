@@ -9,9 +9,9 @@ import (
 )
 
 type InitializationState struct {
-	State                                          string
-	TestDefault                                    bool
-	Users, Profiles, EnabledAdmins, OrphanProfiles int
+	State                           string
+	TestDefault                     bool
+	Users, Profiles, OrphanProfiles int
 }
 type StoredCredential struct {
 	Scheme, Hash string

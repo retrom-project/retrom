@@ -554,13 +554,14 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(collapsedReviewLayout.fieldsBottom).toBeLessThanOrEqual(collapsedReviewLayout.panelBottom);
   expect(collapsedReviewLayout.coverBottom).toBeLessThanOrEqual(collapsedReviewLayout.panelBottom);
   await page.screenshot({ path: evidencePath(testInfo, "review-detail-1280.png"), fullPage: true });
+  const duplicateApproval = page.waitForResponse(response => response.request().method() === "POST"
+    && new URL(response.url()).pathname === `/api/v1/admin/reviews/${itemId(3)}/approve`);
   await page.getByRole("button", { name: "通过并发布" }).click();
-  const duplicateDialog = page.getByRole("alertdialog", { name: "仍然发布为新游戏？" });
-  await expect(duplicateDialog).toBeVisible();
-  await expect(duplicateDialog.getByRole("link")).toHaveCount(1);
-  await duplicateDialog.getByRole("button", { name: "仍然发布为新游戏" }).click();
+  expect((await duplicateApproval).status()).toBe(201);
+  expect((await (await duplicateApproval).json()).status).toBe("SKIPPED_EXISTING");
+  await expect(page.getByRole("alertdialog", { name: "仍然发布为新游戏？" })).toHaveCount(0);
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}(?:\\?|$)`));
-  await expect(page.locator(".app-toast")).toContainText("游戏已成功发布");
+  await expect(page.locator(".app-toast")).toContainText("已跳过重复导入");
 
   await expect(page.getByRole("link", { name: "返回待审核列表", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "返回待审核列表", exact: true }).click();
@@ -615,10 +616,11 @@ test("ACC-UI-010 global quick approval preserves filters and restores its comple
   const result = page.locator(".review-bulk-status");
   await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible({timeout: 10_000});
   await expect(result.getByText("已发布", {exact: true}).locator("..")).toHaveText("已发布1");
-  await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审60");
+  await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审0");
+  await expect(result.getByText("重复已跳过", {exact: true}).locator("..")).toHaveText("重复已跳过60");
   await expect(result.getByText("已扫描", {exact: true}).locator("..")).toHaveText("已扫描61");
   await expect(page.getByText("实时保存的标题", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".review-workflow-row")).toHaveCount(20);
+  await expect(page.locator(".review-workflow-row")).toHaveCount(0);
   const published = await page.request.get("/api/v1/games?q=" + encodeURIComponent("实时保存的标题"));
   expect(published.ok()).toBe(true);
   const games = await published.json() as {items: Array<{title: string}>};

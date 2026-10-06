@@ -63,6 +63,7 @@ describe("FavoriteActions", () => {
     expect(emptyHeart).toHaveTextContent("");
     expect(emptyHeart.querySelector("svg")).toHaveAttribute("viewBox", "0 0 24 24");
     await user.click(emptyHeart);
+    expect(screen.getByText("已收藏“Metroid”").closest(".app-toast")).not.toBeNull();
     const filledHeart = await screen.findByRole("button", { name: "取消收藏“Metroid”" });
     await waitFor(() => expect(filledHeart).toHaveAttribute("aria-pressed", "true"));
     expect(filledHeart).toHaveClass("is-favorite");
@@ -109,7 +110,7 @@ describe("FavoriteActions", () => {
 
     await user.click(screen.getByRole("button", { name: "收藏“Metroid”" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("temporary failure（INTERNAL_ERROR）"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("temporary failure（INTERNAL_ERROR）"));
     expect(screen.getByRole("button", { name: "收藏“Metroid”" })).toHaveAttribute("aria-pressed", "false");
     expect(onChange).not.toHaveBeenCalled();
   });

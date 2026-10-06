@@ -1,5 +1,7 @@
 :root {
   color-scheme: dark;
+  --layer-popover: 240;
+  --layer-toast: 400;
   --radius-cover: 4px;
   --radius-control: 6px;
   --radius-panel: 8px;

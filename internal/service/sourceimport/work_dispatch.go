@@ -79,7 +79,7 @@ func (dispatcher *WorkDispatcher) fail(ctx context.Context, unit Work, cause err
 	code := "INTERNAL_ERROR"
 	for _, known := range []error{
 		ErrRootChanged, ErrMetadataAbsent, ErrFilesAbsent, ErrScanLimit, ErrSourceChanged,
-		ErrMapping, ErrNoSelection, ErrExpired, ErrActive, ErrInvalid,
+		ErrMapping, ErrNoSelection, ErrExpired, ErrInvalid,
 	} {
 		if errors.Is(cause, known) {
 			code = known.Error()

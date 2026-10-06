@@ -3086,11 +3086,14 @@ export interface components {
         ApprovalReasonRequest: {
             reason?: string | null;
         };
+        ReviewApprovalResult: {
+            /** Format: uuid */
+            gameId: string;
+            /** @enum {string} */
+            status: "PUBLISHED" | "SKIPPED_EXISTING";
+        };
         ApprovalRequest: {
             reason?: string | null;
-            /** @enum {string} */
-            duplicatePolicy?: "ALLOW_NEW";
-            acknowledgedGameIds?: string[];
         };
         /** @enum {string} */
         ReviewSourceKind: "STANDARD" | "SOURCE";
@@ -3702,9 +3705,9 @@ export interface components {
             tags: components["schemas"]["TagReference"][];
             media: {
                 /** @enum {string} */
-                cover: "READY" | "MISSING" | "WARNING";
+                cover: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
                 /** @enum {string} */
-                video: "READY" | "MISSING" | "WARNING";
+                video: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
             };
             sourceFlags: {
                 hidden: boolean;
@@ -4051,7 +4054,6 @@ export interface components {
                 userId: string | null;
                 label: string | null;
             };
-            acknowledgedGameIds?: unknown;
             after?: unknown;
             alreadyImportedFileCount?: unknown;
             alreadyImportedFiles?: unknown;
@@ -4167,7 +4169,6 @@ export interface components {
             dosEntry?: unknown;
             dosEntries?: unknown;
             duplicateGames?: unknown;
-            duplicatePolicy?: unknown;
             edges?: unknown;
             emulatorGameId?: unknown;
             emulatorjs?: unknown;
@@ -6712,8 +6713,16 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["Approval"];
         responses: {
-            201: components["responses"]["JSONResponse"];
-            /** @description REVIEW_VALIDATION_STALE or DUPLICATE_GAME_CONFIRMATION_REQUIRED; duplicate confirmation includes the complete current match set. */
+            /** @description Published a new game or skipped identical content already in the library. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewApprovalResult"];
+                };
+            };
+            /** @description REVIEW_VALIDATION_STALE; review input changed before publication. */
             409: {
                 headers: {
                     [name: string]: unknown;

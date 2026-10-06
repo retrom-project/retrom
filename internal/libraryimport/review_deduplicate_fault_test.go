@@ -41,10 +41,10 @@ func discardStatementItem(query string, args []driver.NamedValue) string {
 	normalized := strings.Join(strings.Fields(query), " ")
 	if !strings.HasPrefix(normalized, "UPDATE import_items SET ") ||
 		!strings.Contains(normalized, "state='DISCARDED'") || !strings.Contains(normalized, "AND state='REVIEW_PENDING'") ||
-		!strings.Contains(normalized, "d.review_version=?") || len(args) != 4 {
+		!strings.Contains(normalized, "d.review_version=?") || len(args) != 5 {
 		return ""
 	}
-	id, _ := args[2].Value.(string)
+	id, _ := args[3].Value.(string)
 	return id
 }
 

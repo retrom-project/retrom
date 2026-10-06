@@ -30,3 +30,17 @@ it("restores navigation filters without writing old state over the URL", () => {
   expect(window.location.search).toBe("?q=new&sort=ASC");
   expect(screen.getByRole("textbox")).toHaveValue("new");
 });
+
+it("synchronizes client-written filters before a link clears the route query", () => {
+  window.history.replaceState({__NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: "router-owned"}, "", "/library");
+  render(<Page />);
+  fireEvent.change(screen.getByRole("textbox"), {target: {value: "no-match"}});
+  expect(window.location.search).toContain("q=no-match");
+  expect(window.history.state.__NA).toBe(true);
+  act(() => {window.history.replaceState(null, "", "/library");});
+  expect(window.location.search).toBe("");
+  expect(screen.getByRole("textbox")).toHaveValue("");
+  act(() => {window.history.replaceState(null, "", "/library?q=restored&sort=ASC");});
+  expect(screen.getByRole("textbox")).toHaveValue("restored");
+  expect(screen.getByText("ASC")).toBeVisible();
+});

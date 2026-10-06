@@ -7,6 +7,7 @@ import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/ui";
@@ -28,8 +29,6 @@ import { FavoriteNavigation } from "./favorite-navigation";
 import { FavoriteGrid } from "./favorite-grid";
 import { favoriteQueryString, selectFavoriteScope, toggleGameSelection, type FavoriteQuery } from "./favorite-state";
 import { FolderEditDialog, FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
-
-type ToastState = { message: string; undo?: UnfavoriteResult["items"] };
 
 function errorMessage(error: unknown) {
   if (error instanceof DOMException && error.name === "AbortError") {return "";}
@@ -186,31 +185,19 @@ type FavoriteDialogsProps = {
   onEditClose: () => void;
   onEditDelete: () => void;
   onEditSubmit: (name: string) => void;
-  onToastClose: () => void;
-  onUndo: () => void;
   page: FavoritePage | null;
   renaming: boolean;
   selected: Set<string>;
-  toast: ToastState | null;
 };
 
 function FavoriteDialogs(props: FavoriteDialogsProps) {
-  const undoButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!props.toast?.undo?.length || props.busy) {return;}
-    const frame = requestAnimationFrame(() => {
-      if (document.activeElement === document.body) {undoButton.current?.focus();}
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [props.toast, props.busy]);
   return <>
     <FolderNameDialog open={props.creating} title="新建收藏夹" submitLabel="创建收藏夹" busy={props.busy} error={props.folderError} onClose={props.onCreateClose} onSubmit={props.onCreateSubmit} />
     <FolderEditDialog open={props.renaming} initialName={props.currentFolder?.name ?? ""} busy={props.busy} error={props.folderError} onClose={props.onEditClose} onDelete={props.onEditDelete} onSubmit={props.onEditSubmit} />
-    <ConfirmDialog open={props.deleting} title={`删除“${props.currentFolder?.name ?? "收藏夹"}”？`} description="收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。" confirmLabel="删除收藏夹" cancelLabel="取消" tone="danger" busy={props.busy} onCancel={props.onDeleteCancel} onConfirm={props.onDeleteConfirm}><p>此操作不会删除游戏文件、存档或取消游戏收藏。</p>{props.folderError ? <p className="favorite-form-error" role="alert">{props.folderError}</p> : null}</ConfirmDialog>
+    <ConfirmDialog open={props.deleting} title={`删除“${props.currentFolder?.name ?? "收藏夹"}”？`} description="收藏夹将从导航中删除，其中的游戏仍会保留在“全部收藏”中。" confirmLabel="删除收藏夹" cancelLabel="取消" tone="danger" busy={props.busy} onCancel={props.onDeleteCancel} onConfirm={props.onDeleteConfirm}><p>此操作不会删除游戏文件、存档或取消游戏收藏。</p></ConfirmDialog>
     <FolderPickerDialog open={Boolean(props.batchPickerAnchor)} anchor={props.batchPickerAnchor} title={`将 ${props.selected.size} 款游戏加入收藏夹`} folders={props.page?.folders ?? []} selectedFolderIds={props.batchFolderIds} busy={props.busy} onClose={props.onBatchPickerClose} onCreate={props.onBatchCreateFolder} onSave={props.onBatchSave} />
     <FolderNameDialog open={props.batchCreate} title="新建收藏夹" submitLabel="创建收藏夹" busy={props.busy} error={props.folderError} onClose={props.onBatchCreateClose} onSubmit={props.onBatchCreateSubmit} />
     <ConfirmDialog open={props.batchUnfavorite} title={`取消收藏 ${props.selected.size} 款游戏？`} description="这些游戏会同时从所有收藏夹移除；提交后可在两秒内撤销。" confirmLabel="取消收藏" cancelLabel="保留收藏" tone="danger" busy={props.busy} onCancel={props.onBatchUnfavoriteCancel} onConfirm={props.onBatchUnfavoriteConfirm} />
-    {props.toast ? <div className="favorite-toast" role="status" aria-live="polite"><span>{props.toast.message}</span>{props.toast.undo?.length ? <button ref={undoButton} type="button" disabled={props.busy} onClick={props.onUndo}>撤销</button> : null}<button type="button" aria-label="关闭通知" onClick={props.onToastClose}>×</button></div> : null}
   </>;
 }
 
@@ -220,6 +207,7 @@ export function FavoriteBrowser({
   initialPage: FavoritePage | null; initialQuery: FavoriteQuery; initialError?: string;
 }) {
   const { authenticatedFetch } = useAuth();
+  const { notify } = useToast();
   const [page, setPage] = useState(initialPage);
   const [query, setQuery, navigation] = useURLFilters(favoriteURLFilters, favoriteURLQuery);
   const [observedNavigation, setObservedNavigation] = useState(navigation);
@@ -237,7 +225,6 @@ export function FavoriteBrowser({
   const [batchFolderIds, setBatchFolderIds] = useState<string[]>([]);
   const [batchCreate, setBatchCreate] = useState(false);
   const [batchUnfavorite, setBatchUnfavorite] = useState(false);
-  const [toast, setToast] = useState<ToastState | null>(null);
   const initial = useRef(favoriteURLQuery(initialQuery) === favoriteURLQuery(query));
   const requestSequence = useRef(0);
   const batchAddButton = useRef<HTMLButtonElement>(null);
@@ -293,12 +280,6 @@ export function FavoriteBrowser({
     return () => controller.abort();
   }, [authenticatedFetch, query]);
 
-  useEffect(() => {
-    if (!toast || busy) {return;}
-    const timer = window.setTimeout(() => setToast(null), 2_000);
-    return () => window.clearTimeout(timer);
-  }, [toast, busy]);
-
   function chooseScope(scope: FavoriteQuery["scope"], folderId = "") {
     const next = selectFavoriteScope(query, scope, folderId);
     requestSequence.current += 1;
@@ -338,12 +319,12 @@ export function FavoriteBrowser({
         setBatchFolderIds((current) => [...current, data.folderId]);
         setBatchCreate(false);
         setBatchPickerAnchor(batchAddButton.current);
-        setToast({ message: `已创建“${data.name}”并加入 ${gameIds.length} 款游戏` });
+        notify({ tone: "good", message: `已创建“${data.name}”并加入 ${gameIds.length} 款游戏` });
         await refresh();
       } else {
         setCreating(false);
         chooseScope("FOLDER", data.folderId);
-        setToast({ message: `已创建收藏夹“${data.name}”` });
+        notify({ tone: "good", message: `已创建收藏夹“${data.name}”` });
       }
     } catch (createError) { setFolderError(errorMessage(createError)); }
     finally { setBusy(false); }
@@ -354,7 +335,7 @@ export function FavoriteBrowser({
     setBusy(true); setFolderError("");
     try {
       await renameFavoriteFolder(authenticatedFetch, currentFolder.folderId, currentFolder.version, name);
-      setRenaming(false); setToast({ message: "收藏夹名称已更新" }); await refresh();
+      setRenaming(false); notify({ tone: "good", message: "收藏夹名称已更新" }); await refresh();
     } catch (renameError) { setFolderError(errorMessage(renameError)); await refresh(); }
     finally { setBusy(false); }
   }
@@ -364,8 +345,8 @@ export function FavoriteBrowser({
     setBusy(true);
     try {
       await deleteFavoriteFolder(authenticatedFetch, currentFolder.folderId, currentFolder.version);
-      setDeleting(false); chooseScope("ALL"); setToast({ message: `已删除收藏夹“${currentFolder.name}”，收藏仍保留` });
-    } catch (deleteError) { setFolderError(errorMessage(deleteError)); await refresh(); }
+      setDeleting(false); chooseScope("ALL"); notify({ tone: "good", message: `已删除收藏夹“${currentFolder.name}”，收藏仍保留` });
+    } catch (deleteError) { notify({ tone: "bad", message: errorMessage(deleteError) }); await refresh(); }
     finally { setBusy(false); }
   }
 
@@ -376,8 +357,8 @@ export function FavoriteBrowser({
     try {
       await organizeFavorites(authenticatedFetch, gameIds, addFolderIds, removeFolderIds);
       setBatchPickerAnchor(null); setSelecting(false); setSelected(new Set());
-      setToast({ message: `已整理 ${gameIds.length} 款游戏` }); await refresh();
-    } catch (batchError) { setToast({ message: errorMessage(batchError) }); }
+      notify({ tone: "good", message: `已整理 ${gameIds.length} 款游戏` }); await refresh();
+    } catch (batchError) { notify({ tone: "bad", message: errorMessage(batchError) }); }
     finally { setBusy(false); }
   }
 
@@ -387,16 +368,19 @@ export function FavoriteBrowser({
     try {
       const { data } = await unfavoriteGames(authenticatedFetch, gameIds);
       setBatchUnfavorite(false); setSelecting(false); setSelected(new Set());
-      setToast({ message: `已取消收藏 ${data.items.length} 款游戏`, undo: data.items }); await refresh();
-    } catch (removeError) { setToast({ message: errorMessage(removeError) }); }
+      offerUndo(`已取消收藏 ${data.items.length} 款游戏`, data.items); await refresh();
+    } catch (removeError) { notify({ tone: "bad", message: errorMessage(removeError) }); }
     finally { setBusy(false); }
   }
 
-  async function undo() {
-    if (!toast?.undo?.length) {return;}
+  function offerUndo(message: string, items: UnfavoriteResult["items"], tone: "good" | "bad" = "good") {
+    notify({ message, tone, durationMs: 2_000, action: { label: "撤销", onPress: () => undo(items), focusIfOrphaned: true } });
+  }
+
+  async function undo(items: UnfavoriteResult["items"]) {
     setBusy(true);
-    try { await restoreFavorites(authenticatedFetch, toast.undo); setToast({ message: "已恢复收藏" }); await refresh(); }
-    catch (restoreError) { setToast({ message: errorMessage(restoreError), undo: toast.undo }); }
+    try { await restoreFavorites(authenticatedFetch, items); notify({ tone: "good", message: "已恢复收藏" }); await refresh(); }
+    catch (restoreError) { offerUndo(errorMessage(restoreError), items, "bad"); }
     finally { setBusy(false); }
   }
 
@@ -409,7 +393,7 @@ export function FavoriteBrowser({
       onClear={() => { setSearch(""); updateQuery((current) => ({ ...current, q: "", platformId: "" })); }}
       onCreateFolder={() => { setFolderError(""); setCreating(true); }}
       onEditFolder={() => { setFolderError(""); setRenaming(true); }}
-      onFavoriteChange={(gameId, favorite, removed) => { if (removed?.length) {setToast({message: "已取消收藏", undo: removed});} setPage((current) => current ? pageWithFavorite(current, gameId, favorite) : current); void refresh(); }}
+      onFavoriteChange={(gameId, favorite, removed) => { if (removed?.length) {offerUndo("已取消收藏", removed);} setPage((current) => current ? pageWithFavorite(current, gameId, favorite) : current); void refresh(); }}
       onLoadMore={() => void loadMore()} onOrganizeUncategorized={organizeUncategorized} onRefresh={() => void refresh()}
       onRemoveBatch={(folderId) => void batchOrganize([], [folderId])} onSearch={setSearch}
       onToggleSelecting={() => { setSelecting((value) => !value); setSelected(new Set()); }}
@@ -428,7 +412,7 @@ export function FavoriteBrowser({
       onCreateClose={() => setCreating(false)} onCreateSubmit={(name) => void createFolder(name)}
       onDeleteCancel={() => setDeleting(false)} onDeleteConfirm={() => void deleteFolder()}
       onEditClose={() => setRenaming(false)} onEditDelete={() => { setRenaming(false); setDeleting(true); }} onEditSubmit={(name) => void renameFolder(name)}
-      onToastClose={() => setToast(null)} onUndo={() => void undo()} page={page} renaming={renaming} selected={selected} toast={toast}
+      page={page} renaming={renaming} selected={selected}
     />
   </div>;
 }

@@ -14,7 +14,6 @@ var (
 	ErrIdempotencyReused       = errors.New("IDEMPOTENCY_KEY_REUSED")
 	ErrVersionConflict         = errors.New("RESOURCE_VERSION_CONFLICT")
 	ErrBatchTooLarge           = errors.New("FAVORITE_BATCH_TOO_LARGE")
-	ErrFolderLimit             = errors.New("FAVORITE_FOLDER_LIMIT_REACHED")
 	ErrInvalidCursor           = errors.New("INVALID_CURSOR")
 	ErrInvalidFolderName       = errors.New("INVALID_FAVORITE_FOLDER_NAME")
 	ErrInvalidFavoriteListSort = errors.New("INVALID_FAVORITE_SORT")
@@ -30,7 +29,6 @@ const (
 	SortRecentlyPlayed    = "RECENTLY_PLAYED_DESC"
 	SortTitleAsc          = "TITLE_ASC"
 	SortReleaseYearDesc   = "RELEASE_YEAR_DESC"
-	MaxFolders            = 100
 	MaxOrganizeGames      = 50
 	MaxOrganizeFolders    = 20
 	MaxOrganizeEdges      = 1000

@@ -11,6 +11,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
 import { TagChips, type TagReference } from "@/components/tag-picker";
 import { Toast } from "@/components/flash-toast";
+import { useToast } from "@/components/toast-provider";
 
 export type ReviewQueueItem = {
   itemId: string;
@@ -74,6 +75,7 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
 }
 
 function ReviewQueueContents({ initial, values, resetPersisted }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string>; resetPersisted: boolean }) {
+  const {notify, clear} = useToast();
   const timeZone = useBrowserTimeZone();
   const { context } = useAuth();
   const listQuery = useMemo(() => queryString(values), [values]);
@@ -142,12 +144,13 @@ function ReviewQueueContents({ initial, values, resetPersisted }: { initial: Lis
       });
       setNextCursor(page.nextCursor);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "无法加载下一页待审条目");
+      const message = caught instanceof Error ? caught.message : "无法加载下一页待审条目";
+      setError(message); notify({message, tone: "bad"});
     } finally {
       loadMoreRequest.current = false;
       setLoading(false);
     }
-  }, [listQuery, nextCursor]);
+  }, [listQuery, nextCursor, notify]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -176,7 +179,7 @@ function ReviewQueueContents({ initial, values, resetPersisted }: { initial: Lis
     />)}</div>
     {!items.length ? <div className="import-workflow-empty"><h2>当前没有待审核条目</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
-    <div className="queue-footer"><span>已加载 {items.length} 条</span>{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => void loadMore()}>{loading ? "正在加载下一页…" : "继续加载"}</button> : <span className="status good"><i />已加载当前搜索条件的全部条目</span>}{error ? <span role="alert" className="status bad"><i />{error}</span> : null}</div>
+    <div className="queue-footer"><span>已加载 {items.length} 条</span>{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => {if (error) {clear();} void loadMore();}}>{loading ? "正在加载下一页…" : error ? "重试加载" : "继续加载"}</button> : <span className="status good"><i />已加载当前搜索条件的全部条目</span>}</div>
   </section>;
 }
 

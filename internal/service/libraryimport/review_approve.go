@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -42,14 +43,35 @@ func (service *ReviewApprovals) Approve(
 	if service.files == nil {
 		return ReviewApproved{}, ErrInvalid
 	}
-	unlock := service.files.LockPublication()
+	for {
+		result, err := service.approveOnce(ctx, request)
+		if !errors.Is(err, ErrPublicationBusy) {
+			return result, err
+		}
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ReviewApproved{}, fmt.Errorf("wait for content publication: %w", ctx.Err())
+		case <-timer.C:
+		}
+	}
+}
+
+func (service *ReviewApprovals) approveOnce(
+	ctx context.Context, request ReviewApprovalRequest,
+) (ReviewApproved, error) {
+	unlock, err := service.files.LockPublication(ctx, request.ItemID)
+	if err != nil {
+		return ReviewApproved{}, fmt.Errorf("wait for item publication: %w", err)
+	}
 	defer unlock()
 	state, err := service.preparePublication(ctx, request)
 	if err != nil {
 		return ReviewApproved{}, err
 	}
-	if state.State == "PUBLISHED" {
-		return ReviewApproved{GameID: state.GameID, Status: "PUBLISHED"}, nil
+	if state.State == "PUBLISHED" || state.State == "SKIPPED_EXISTING" {
+		return ReviewApproved{GameID: state.GameID, Status: state.State}, nil
 	}
 	if state.Intent == nil {
 		return ReviewApproved{}, ErrInvalid

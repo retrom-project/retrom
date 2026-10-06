@@ -28,7 +28,7 @@ type (
 		Summary                                Summary
 		RootConfigDigest, SourceSnapshotDigest string
 		Metadata                               []MetadataEvidence
-		TagsValid, OtherActive                 bool
+		TagsValid                              bool
 	}
 	StartScope struct {
 		Payload sourcecleanup.ReleaseScope
@@ -111,9 +111,6 @@ func readyToStart(before StartSnapshot, version, now int64) error {
 	}
 	if summary.Counts.MappedCollections == 0 {
 		return ErrNoSelection
-	}
-	if before.OtherActive {
-		return ErrActive
 	}
 	if summary.ImportJobID != nil {
 		return ErrMapping

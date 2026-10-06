@@ -6,6 +6,7 @@ import { libraryURLFilters, libraryURLQuery } from "./library-url";
 import { AppIcon } from "@/components/app-icon";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { PageHeader } from "@/components/ui";
+import { useToast } from "@/components/toast-provider";
 import { useAuth } from "@/features/auth/auth-provider";
 import { LibraryFilterTrigger } from "./library-filter-trigger";
 import { usePhoneScrollActivity } from "@/features/mobile/use-phone-scroll-activity";
@@ -27,6 +28,7 @@ function mergeGames(current: GamePage["items"], incoming: GamePage["items"]) {
 export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: GamePage; initialFilters: LibraryFilters }) {
   const platformScroll = usePhoneScrollActivity();
   const { authenticatedFetch } = useAuth();
+  const { notify, clear } = useToast();
   const [filters, setFilters] = useURLFilters(libraryURLFilters, libraryURLQuery);
   const {query, platformId, platformInstanceId, tagId, sort} = filters;
   const setQuery = (query: string) => setFilters(current => ({...current, query}));
@@ -89,7 +91,8 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
       }).catch((caught: unknown) => {
         if (caught instanceof DOMException && caught.name === "AbortError") {return;}
         if (requestGeneration.current !== generation) {return;}
-        setLoadError(caught instanceof Error ? caught.message : "暂时无法读取游戏库，请稍后重试");
+        const message = caught instanceof Error ? caught.message : "暂时无法读取游戏库，请稍后重试";
+        setLoadError(message); notify({message, tone: "bad"});
       }).finally(() => {
         if (!controller.signal.aborted && requestGeneration.current === generation) {setRefreshing(false);}
       });
@@ -98,7 +101,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [filters, refreshVersion, requestPage]);
+  }, [filters, notify, refreshVersion, requestPage]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -154,14 +157,15 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
       setNowMs(page.generatedAtMs);
     } catch (caught) {
       if (requestGeneration.current !== generation) {return;}
-      setLoadError(caught instanceof Error ? caught.message : "暂时无法读取下一页，请稍后重试");
+      const message = caught instanceof Error ? caught.message : "暂时无法读取下一页，请稍后重试";
+      setLoadError(message); notify({message, tone: "bad"});
     } finally {
       if (requestGeneration.current === generation) {
         loadMoreRequest.current = false;
         setLoadingMore(false);
       }
     }
-  }, [filters, nextCursor, requestPage]);
+  }, [filters, nextCursor, notify, requestPage]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -216,7 +220,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
     <footer className="library-pagination" aria-live="polite">
       <span>{refreshing ? "正在更新游戏列表…" : `已加载 ${games.length} / ${filteredCount} 款游戏`}</span>
-      {loadError ? <button className="button secondary compact" type="button" onClick={() => nextCursor ? void loadMore() : setRefreshVersion((value) => value + 1)}>{loadError}，点击重试</button> : loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button className="button secondary compact" type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载当前条件的全部游戏</span>}
+      {loadError ? <button className="button secondary compact" type="button" onClick={() => {clear(); if (nextCursor) {void loadMore();} else {setRefreshVersion((value) => value + 1);}}}>重试加载</button> : loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button className="button secondary compact" type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载当前条件的全部游戏</span>}
     </footer>
   </div>;
 }

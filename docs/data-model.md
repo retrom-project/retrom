@@ -15,7 +15,7 @@
 
 ### 应用写入与数据库职责
 
-数据库保留 PK、UNIQUE、CHECK、FK、必要的关系级联和查询索引。文件所有权接收、交接和退休与领域写入同事务完成；其他跨表归属、快照冻结、版本推进、终态不可恢复、最后一个管理员、标签数量与批次丢弃围栏使用显式 SQL 校验。新增或修改这类写入必须经过对应的 `recordstore` 方法；只读查询或不涉及这些不变量的写入仍可直接使用参数化 SQL。
+数据库保留 PK、UNIQUE、CHECK、FK、必要的关系级联和查询索引。文件所有权接收、交接和退休与领域写入同事务完成；其他跨表归属、快照冻结、版本推进、终态不可恢复、标签数量与批次丢弃围栏使用显式 SQL 校验。新增或修改这类写入必须经过对应的 `recordstore` 方法；只读查询或不涉及这些不变量的写入仍可直接使用参数化 SQL。
 
 `recordstore.Update` 分离 SET 值和 WHERE 参数，在同一连接读取所选记录的旧值，再更新并校验新旧值；删除先校验所有目标记录，再执行删除。调用方不得把未经校验的客户端文本拼入 SET/WHERE。写入与校验共享保存点，任何错误会撤销该次操作，调用方继续外层事务也不能提交非法记录。乐观条件未命中仍返回零行。冻结字段校验以值是否发生改变为准，对原值赋值不产生新状态；不可变证据整行更新、凭据重复消费/撤销等一次性操作仍按各自契约拒绝。
 
@@ -48,7 +48,7 @@ RuntimeProvider
 
 `games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源类别、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
-`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
+`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。模拟器编号由有界 PostgreSQL `emulator_game_numbers` sequence 原子分配，审核发布和变体处理共用同一分配入口；回滚允许留下间隙，编号不复用、不循环，上限为 JavaScript 安全整数。`002_emulator_game_numbers.sql` 从现有 Variant 最大编号之后初始化 sequence，已有编号不变。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
 
 Game 不保存指向审核 Item、导入 Job 或刮削 Candidate 的来源引用；来源类别保留为描述，具体操作证据进入 AuditEvent。产品启动、存档、媒体与删除只读取 Game、Variant 和各自运行对象，已完成的导入及审核记录可独立删除。
 

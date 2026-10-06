@@ -395,7 +395,6 @@ components:
             label:
               type: string
               nullable: true
-        acknowledgedGameIds: {}
         after: {}
         alreadyImportedFileCount: {}
         alreadyImportedFiles: {}
@@ -520,7 +519,6 @@ components:
         dosEntry: {}
         dosEntries: {}
         duplicateGames: {}
-        duplicatePolicy: {}
         edges: {}
         emulatorGameId: {}
         emulatorjs: {}

@@ -51,7 +51,8 @@ SELECT CASE
 -- launch_external_files_immutable_delete
 WHEN (NOT EXISTS(
   SELECT 1 FROM launch_sessions launch
-  WHERE launch.id=previous.launch_session_id AND launch.state IN ('FINISHED','EXPIRED','REVOKED')
+  WHERE launch.id=previous.launch_session_id AND (launch.state IN ('FINISHED','EXPIRED','REVOKED')
+ OR EXISTS(SELECT 1 FROM games game WHERE game.id=launch.game_id AND game.status='DELETED'))
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

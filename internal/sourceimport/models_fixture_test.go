@@ -9,7 +9,6 @@ var (
 	ErrVersionConflict = application.ErrVersionConflict
 	ErrNoSelection     = application.ErrNoSelection
 	ErrExpired         = application.ErrExpired
-	ErrActive          = application.ErrActive
 	ErrInvalid         = application.ErrInvalid
 	ErrNotCancellable  = application.ErrNotCancellable
 	ErrNotRetryable    = application.ErrNotRetryable

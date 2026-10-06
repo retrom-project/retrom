@@ -9,7 +9,7 @@ import (
 )
 
 type WorkerLeases interface {
-	Claim(context.Context) (Work, bool, error)
+	Claim(context.Context, string) (Work, bool, error)
 	Renew(context.Context, ExecutionIdentity) error
 }
 type (
@@ -22,6 +22,7 @@ type (
 )
 
 type WorkerDependencies struct {
+	Concurrency  map[string]int
 	Now          func() time.Time
 	Leases       WorkerLeases
 	Maintenance  WorkerMaintenance
@@ -60,8 +61,13 @@ func (worker *Worker) Start() {
 	worker.started = true
 	ctx, cancel := context.WithCancel(context.Background())
 	worker.cancel = cancel
-	worker.wait.Add(2)
-	go func() { defer worker.wait.Done(); worker.runQueue(ctx) }()
+	worker.wait.Add(1)
+	for kind, count := range worker.dependencies.Concurrency {
+		for range count {
+			worker.wait.Add(1)
+			go func() { defer worker.wait.Done(); worker.runQueue(ctx, kind) }()
+		}
+	}
 	go func() { defer worker.wait.Done(); worker.runMaintenance(ctx) }()
 }
 
@@ -90,11 +96,11 @@ func (worker *Worker) Signal() {
 	}
 }
 
-func (worker *Worker) runQueue(ctx context.Context) {
+func (worker *Worker) runQueue(ctx context.Context, kind string) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
-		worker.drainQueue(ctx)
+		worker.drainQueue(ctx, kind)
 		select {
 		case <-ctx.Done():
 			return
@@ -104,9 +110,9 @@ func (worker *Worker) runQueue(ctx context.Context) {
 	}
 }
 
-func (worker *Worker) drainQueue(ctx context.Context) {
+func (worker *Worker) drainQueue(ctx context.Context, kind string) {
 	for ctx.Err() == nil {
-		unit, found, err := worker.dependencies.Leases.Claim(ctx)
+		unit, found, err := worker.dependencies.Leases.Claim(ctx, kind)
 		if err != nil {
 			worker.report(ctx, fmt.Errorf("claim Source worker: %w", err))
 			return

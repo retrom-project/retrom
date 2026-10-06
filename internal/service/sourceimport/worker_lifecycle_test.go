@@ -21,7 +21,7 @@ type workerFixture struct {
 	reports                                                         chan error
 }
 
-func (f *workerFixture) Claim(context.Context) (Work, bool, error) {
+func (f *workerFixture) Claim(context.Context, string) (Work, bool, error) {
 	count := f.claimCount.Add(1)
 	return Work{JobID: "job", ImportID: "plan", WorkerID: "owner", ExecutionNo: 1, Attempt: 1}, count == 1, nil
 }
@@ -66,7 +66,7 @@ func newWorkerFixture() (*Worker, *workerFixture) {
 	f := &workerFixture{reports: make(chan error, 20)}
 	f.run = func(ctx context.Context, _ Work) { <-ctx.Done() }
 	worker := NewWorker(WorkerDependencies{
-		Leases: f, Maintenance: f, Executor: f, Cancellation: f,
+		Concurrency: map[string]int{"IMPORT_RECEIVE": 1}, Leases: f, Maintenance: f, Executor: f, Cancellation: f,
 		Report: func(err error) { f.reports <- err },
 	})
 	return worker, f

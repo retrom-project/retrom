@@ -108,10 +108,13 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
   });
   await page.goto("/admin/bios?scope=FULL_CATALOG");
   await expect(page.getByText("已加载 100 / 286 项", { exact: true })).toBeVisible();
+  const footerHeight = await page.locator(".runtime-pagination").evaluate(element => element.getBoundingClientRect().height);
   await page.getByRole("button", { name: "加载更多" }).click();
-  await expect(page.getByRole("button", { name: "重试加载下一页" })).toBeVisible();
+  await expect(page.locator(".app-toast.bad")).toBeVisible();
+  await expect(page.getByRole("button", { name: "重试加载", exact: true })).toBeVisible();
+  expect(await page.locator(".runtime-pagination").evaluate(element => element.getBoundingClientRect().height)).toBe(footerHeight);
   await expect(page.getByText("已加载 100 / 286 项", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "重试加载下一页" }).click();
+  await page.getByRole("button", { name: "重试加载" }).click();
   await expect(page.getByText("已加载 200 / 286 项", { exact: true })).toBeVisible();
   expect(new URL(cursorRequests[0]).searchParams.get("cursor")).toBe(new URL(cursorRequests[1]).searchParams.get("cursor"));
   await page.getByRole("button", { name: "加载更多" }).click();
@@ -241,13 +244,14 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await expect(resultTable).toContainText("Acceptance Game");
   await expect(resultTable).toContainText(batchTagName);
   await expect(resultTable).toContainText("待管理员审核");
+  // Source owns the released temporary copy; the review video remains readable below.
   await expect.poll(async () => {
     const response = await page.request.get(`/api/v1/admin/source-imports/${createdPlan.id}/items?limit=20`);
     expect(response.ok()).toBe(true);
     const result = await response.json() as { items: Array<{ payloadState: string; media: { video: string } }> };
     expect(result.items).toHaveLength(1);
     return result.items[0];
-  }).toMatchObject({ payloadState: "RELEASED", media: { video: "READY" } });
+  }).toMatchObject({ payloadState: "RELEASED", media: { video: "RELEASED" } });
   await expect(resultTable).toContainText("已移交审核");
   await expectSourceHandoffDuringCleanup(page, createdPlan.id);
   const adminGamesResponse = await page.request.get("/api/v1/admin/games?q=Acceptance%20Game&limit=100");

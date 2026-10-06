@@ -9,7 +9,6 @@ import (
 
 type administrationMemory struct {
 	user      ManagedUser
-	another   bool
 	replay    AccountReplay
 	update    AdministrationUpdate
 	deletion  AdministrationDeletion
@@ -28,10 +27,6 @@ func (memory *administrationMemory) WithWrite(_ context.Context, work func(Admin
 
 func (memory *administrationMemory) Current(context.Context, string, int64) (ManagedUser, bool, error) {
 	return memory.user, true, nil
-}
-
-func (memory *administrationMemory) AnotherEnabledAdmin(context.Context, string) (bool, error) {
-	return memory.another, nil
 }
 
 func (memory *administrationMemory) Replay(context.Context, AccountOperation) (AccountReplay, error) {
@@ -64,27 +59,25 @@ func (memory *administrationMemory) Remember(_ context.Context, receipt AccountR
 }
 
 func administrationFixture() (*AdministrationService, *administrationMemory) {
-	memory := &administrationMemory{user: ManagedUser{User: AdminUser{UserID: "target", Username: "test", Role: "ADMIN", Status: "ENABLED", Version: 4}, ProfileID: "profile"}, another: true}
+	memory := &administrationMemory{user: ManagedUser{User: AdminUser{UserID: "target", Username: "test", Role: "ADMIN", Status: "ENABLED", Version: 4}, ProfileID: "profile"}}
 	return NewAdministration(memory, func() time.Time { return time.UnixMilli(100) }), memory
 }
 
-func TestAdministrationProtectsSelfAndLastAdministrator(t *testing.T) {
+func TestAdministrationProtectsSelf(t *testing.T) {
+	service, memory := administrationFixture()
 	disabled := "DISABLED"
-	for _, test := range []struct {
-		name, actor string
-		another     bool
-		want        error
-	}{
-		{"self", "target", true, ErrUserSelfChange}, {"last", "operator", false, ErrLastAdmin},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			service, memory := administrationFixture()
-			memory.another = test.another
-			_, _, err := service.Update(t.Context(), test.actor, "target", 4, UserPatch{Status: &disabled}, "key")
-			if !errors.Is(err, test.want) || memory.writes != 0 {
-				t.Fatalf("protected mutation: %v writes=%d", err, memory.writes)
-			}
-		})
+	_, _, err := service.Update(t.Context(), "target", "target", 4, UserPatch{Status: &disabled}, "key")
+	if !errors.Is(err, ErrUserSelfChange) || memory.writes != 0 {
+		t.Fatalf("self change: %v", err)
+	}
+}
+
+func TestAdministrationAllowsRemovingOnlyAdministrator(t *testing.T) {
+	service, memory := administrationFixture()
+	disabled := "DISABLED"
+	after, _, err := service.Update(t.Context(), "operator", "target", 4, UserPatch{Status: &disabled}, "key")
+	if err != nil || after.Status != "DISABLED" || memory.writes != 1 {
+		t.Fatalf("disable: %+v %v", after, err)
 	}
 }
 

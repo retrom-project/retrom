@@ -110,7 +110,7 @@ release 密码分别做 NFC 但不 trim，最少 6 个字符且不超过 128 个
 
 `GET /api/v1/admin/users` 支持 `q`、`role=ADMIN|USER`、`status=ENABLED|DISABLED|DELETED|ALL`、`sort=CREATED_DESC|USERNAME_ASC|LAST_LOGIN_DESC` 和 `cursor/limit`。User DTO只含 `userId/username/displayName/role/status/version/createdAtMs/lastLoginAtMs/activeSessionCount`；DELETED item 的 `displayName` 固定为“已删除用户”。不得返回 Profile ID、私有游戏/时长/存档、IP、hash、session ID或 Credential。detail 与 PATCH返回最新 ETag。
 
-PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`；DELETE是要求输入完整 username的不可逆软删除。两者都需要当前 ETag、Idempotency-Key、Origin和 CSRF。当前登录管理员不能修改自身 role/status或删除自己；任一动作提交后必须保留一名启用 ADMIN。停用/删除在同一事务撤销 AuthSession、ACTIVE account link和待用/活动 Launch，但保留 Profile与私有数据且不向管理员开放。删除后 username不可复用。
+PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`；DELETE是要求输入完整 username的不可逆软删除。两者都需要当前 ETag、Idempotency-Key、Origin和 CSRF。当前登录管理员不能修改自身 role/status或删除自己。不检查启用 ADMIN 的剩余数量；已初始化实例重启也不要求存在启用管理员。停用/删除在同一事务撤销 AuthSession、ACTIVE account link和待用/活动 Launch，但保留 Profile与私有数据且不向管理员开放。删除后 username不可复用。
 
 邀请列表与目标 User的 reset列表按 `(createdAtMs DESC,id DESC)` cursor分页，state只允许 `ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`，item不含 URL/token或前后缀。按 link ID撤销只接受当前 ACTIVE与最新 ETag；同 principal/operation/key replay仍成功，其他重复撤销统一 `409 ACCOUNT_LINK_NOT_ACTIVE`。
 
@@ -309,7 +309,7 @@ Job 详情与进度查询由 `internal/service/jobs` 提供，`internal/persiste
 
 通用 Job 的 `GET /api/v1/admin/jobs/{jobId}/events` 使用同一套全局 JobEvent cursor 规则，但只过滤 `job_id` 精确等于路径资源的事件。无 `Last-Event-ID` 时，服务端在一个只读事务中取得与 `GET /api/v1/admin/jobs/{jobId}` 相同的 Job 快照和当时全局最大 JobEvent ID，先发送 `event: snapshot`，其 `id` 为该全局水位、`data` 为 Job 快照；随后只发送 ID 更大且属于该 Job 的持久事件。重连时可使用属于其他 scope/job 的合法全局 ID 作为水位，仍只按 `id > cursor AND job_id = :jobId` 过滤；负数、非十进制整数或超过当前全局最大值统一为 `400 INVALID_EVENT_CURSOR`。事件 JSON、无 ID 的 15 秒 comment heartbeat、永久保留和“断开不取消”语义与 Import SSE 完全相同。Launch、游戏移动和其他等待共享 `VARIANT_VALIDATE` 的前端必须使用这条协议，不能轮询一套含不同终态或取消语义的本地状态机。
 
-审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前依赖不可用或来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。持久化读取、写入或已保存审核证据的解码失败返回现有 `500 INTERNAL_ERROR`，保留服务端原始原因并回滚本次发布，不能伪装成可重试的审核版本冲突。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新状态不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认只作用于当前发布事务；不保存审核历史。
+审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前依赖不可用或来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。持久化读取、写入或已保存审核证据的解码失败返回现有 `500 INTERNAL_ERROR`，保留服务端原始原因并回滚本次发布，不能伪装成可重试的审核版本冲突。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新状态不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有同平台、完全相同内容的未删除游戏，则自动结束该审核项并释放其候选资源，返回 `201 {gameId,status:"SKIPPED_EXISTING"}`，其中 gameId 指向已有游戏；正常发布返回 `status:"PUBLISHED"`。同内容尚在发布时等待该发布完成，再按最新事实处理；已结束的请求可幂等重放。
 
 ### 5.1 快速审批
 
@@ -505,7 +505,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReview
 | Review 人工媒体 | `POST /admin/reviews/{itemId}/assets`：`{"uploadFileId":"...","kind":"COVER|VIDEO"}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE、GENERAL；COVER 为 ≤10 MiB、≤40 MP 的 PNG/JPEG/WebP；VIDEO 为 ≤256 MiB、容器头验证通过的 MP4/WebM，尺寸返回 null，不能只信任扩展名或客户端 MIME；创建不可变 `review_uploaded_assets` 和 `REVIEW_ASSET` consumption，不改变草稿版本。响应返回审核资源逻辑 URL；采用仍通过 Review 草稿 PATCH 完成，从而对比弹窗上传不会在“应用”前覆盖当前封面。selectedAssets 必须包含 videoUploadedAssetId；null 使用来源视频（无来源则无视频），非空选择覆盖来源。无效类型/跨 Item 选择返回 422；旧版本返回 409；失败不改变原选择。审核通过只复制所选 VIDEO 到 Game 自有目录，终态关闭审核资源访问并随 Item 释放人工媒体及上传消费。 |
 | Review 运行预览 | `POST /admin/reviews/{itemId}/previews`：`{"clientCapabilities":{...},"restoreFromPreviewId"?:uuid}` + `Idempotency-Key` | ADMIN 为当前有效来源与稳定 Provider Target 创建短时 capability cookie，返回 `previewId/playUrl`。已有 ROM/项目文件与依赖冻结，RPG Maker 必须满足真实依赖检查；非 RPG 最佳努力预览可省略缺失依赖。不创建假 Game，不改变发布资格。可从同一操作者、Item、来源、Target 与依赖一致且未过期的 Preview checkpoint 创建新会话，不要求原会话先结束；恢复 payload 在创建时冻结，原会话后续存档不会改写它。 |
 | Review 显式重刮削 | `POST /admin/reviews/{itemId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS|NONE"}` + `If-Match` + `Idempotency-Key` | Item 必须 REVIEW_PENDING；HASHEOUS bypass cache 创建新 Run/Job 并返回 `202`，NONE 同事务创建 COMPLETED Run/SUCCEEDED Job 并返回 `201`；两者追加 SCRAPE_REQUESTED，不自动改 draft selection。 |
-| Review 通过 / Discard | discard 与无重复的 approve body 可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因。重复内容确认的 approve body 为 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[uuid...]}`；`If-Match` + `Idempotency-Key` | approve 在写事务检查当前 READY 事实或有效的 Item 截图放行条件，且 title trim 后为 1–200 Unicode code points、无控制字符；在同一写事务 claim 内容身份并重查同平台 current published contents。命中且未精确确认时返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 和当前 games；确认后原子创建发布实体、复制 Item 派生产物、当前依赖文件与候选/人工上传封面和所选视频，不得在事务内重扫/打包。discard 进入终态并调度工作流 payload 释放。 |
+| Review 通过 / Discard | body 可为 `{}`，可选 `reason` 为当前契约字段；不提供重复发布确认字段。`If-Match` + `Idempotency-Key` 必填；重复内容自动跳过。 |
 | Review 快速审批 | `POST /admin/review-bulk-approvals` + `{}` + Idempotency-Key；`GET /admin/review-bulk-approvals/active` 与 `GET /admin/review-bulk-approvals/{id}` | 全局待审队列的有界后台扫描；每项重新检查严格 READY 与全部发布条件，复用普通 approve 事务，并原子提交发布、游标和计数。截图 override、重复、hidden/adult 和活动补传仍待人工处理。 |
 | 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 在同一事务更新 Game 当前元信息、`title_initial`、`search_text` 与 version，并写 AuditEvent；不创建业务版本行。 |
 | 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；在同一事务替换对应 GameAsset 当前态并更新 Game version。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。旧 Asset URL 立即失效；被替换的独立文件退休并转入后台删除，不承诺已登记独立文件存储总量立即下降。 |
@@ -621,7 +621,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | --- | --- | --- |
 | `GET /api/v1/favorites` | 第 10.3 节 query | `200 FavoriteListResponse`；同一只读事务返回 scope 结果、精确计数、Folder 与平台摘要。 |
 | `PUT /api/v1/favorites/{gameId}` | `{}` | `200 FavoriteState`；Game 必须当前可见，不存在则创建，已存在原样返回且不刷新 `favoritedAtMs`。 |
-| `PUT /api/v1/favorites/{gameId}/folders` | `folderIds` 必填、唯一、0–100 | `200 FavoriteState`；精确替换完整 Folder 集合并在需要时自动收藏。 |
+| `PUT /api/v1/favorites/{gameId}/folders` | `folderIds` 必填、唯一，可为空；不设收藏夹总数上限 | `200 FavoriteState`；精确替换完整 Folder 集合并在需要时自动收藏。 |
 | `POST /api/v1/favorites/organize` | 1–50 `gameIds`；`addFolderIds/removeFolderIds` 各 0–20，互斥且总边数不超过 1000 | `200 FavoriteBatchResult`；整批原子执行，add 自动收藏，空动作或重复 ID 拒绝。 |
 | `POST /api/v1/favorites/unfavorite` | 1–100 `gameIds` | `200 UnfavoriteResult`；按稳定顺序返回删除前的 `gameId/folderIds` 快照，不返回 Folder 名称；不存在的 Favorite 不泄漏并产生空项结果。 |
 | `POST /api/v1/favorites/restore` | 1–100 个 `{gameId,favoritedAtMs,folderIds}`，总 Folder 引用不超过 1000 | `200 FavoriteRestoreResult`；只恢复仍可见 Game 和仍属于 Principal 的 Folder，返回排序且去重的 restored/skipped IDs。 |
@@ -687,7 +687,6 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 | 409 | `IDEMPOTENCY_KEY_REUSED` | 同 operation/key 已绑定不同语义请求。 |
 | 412 | `RESOURCE_VERSION_CONFLICT` | Folder `If-Match` 已过期。 |
 | 413 | `FAVORITE_BATCH_TOO_LARGE` | 超过 Game、Folder 或总边数任一上限。 |
-| 422 | `FAVORITE_FOLDER_LIMIT_REACHED` | 当前 Profile 已有 100 个 Folder。 |
 | 428 | `PRECONDITION_REQUIRED` | Folder PATCH/DELETE 缺少或携带非法 `If-Match`。 |
 
 精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的领域文件集为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
@@ -737,7 +736,7 @@ Summary 返回创建时冻结的 `format`；Item 返回通用 `sourceFlags{hidde
 
 Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 `reviewPending/published/reviewDiscarded`。任务 `COMPLETED` 只表示审核事项准备结束，不表示全部游戏已发布；后续逐项审核或严格 READY 快速审批的每个成功 Item 都原子推进三个计数和 aggregate version。快速审批使用独立 aggregate route，不在 Source route 内建立第二套发布动作。
 
-稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`SOURCE_MAPPING_INCOMPLETE`、`SOURCE_NO_COLLECTION_SELECTED`、`SOURCE_SOURCE_CHANGED`、`SOURCE_PLAN_EXPIRED`、`SOURCE_IMPORT_ACTIVE`、`SOURCE_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。当前运行检查的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_CONTENT_MISMATCH`、`ARCADE_CONTENT_MISSING_AND_MISMATCHED`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
+稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`SOURCE_MAPPING_INCOMPLETE`、`SOURCE_NO_COLLECTION_SELECTED`、`SOURCE_SOURCE_CHANGED`、`SOURCE_PLAN_EXPIRED`、`SOURCE_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。当前运行检查的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_CONTENT_MISMATCH`、`ARCADE_CONTENT_MISSING_AND_MISMATCHED`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
 
 `GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current Game 当前元信息字段 的 ordinal 0 VIDEO；普通列表/Home/Recent/Favorites/Saves DTO 均无该字段，唯一额外用户投影是第 12.2 节的沉浸游戏平台列表。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 Game 当前元信息字段 移除当前视频。current 切换后旧 Asset 行被删除，旧逻辑 URL 返回 404；同一 Asset ID 在存续期间仍沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range。非法/多 Range、不可见 Game 与未知/已退役 Asset 继续使用统一拒绝语义。
 

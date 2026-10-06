@@ -5,11 +5,25 @@ import { useEffectEvent, useLayoutEffect, useRef, type RefObject } from "react";
 const layers: HTMLElement[] = [];
 const focusableSelector = "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 
+function ownedPanels(panel: HTMLElement) {
+  const controlled = Array.from(panel.querySelectorAll<HTMLElement>('[aria-expanded="true"][aria-controls]'))
+    .flatMap((element) => (element.getAttribute("aria-controls") ?? "").split(/\s+/))
+    .map((id) => document.getElementById(id))
+    .filter((element): element is HTMLElement => element !== null && !panel.contains(element));
+  return [panel, ...controlled];
+}
+
 function focusable(panel: HTMLElement) {
-  return Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)).filter((element) =>
+  return ownedPanels(panel).flatMap((owner) => Array.from(owner.querySelectorAll<HTMLElement>(focusableSelector))).filter((element) =>
     !element.closest("[hidden], [inert], [aria-hidden='true']") &&
     getComputedStyle(element).display !== "none" && getComputedStyle(element).visibility !== "hidden",
   ).sort((left, right) => left === right ? 0 : left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+}
+
+function childOwnsEscape(panel: HTMLElement, target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {return false;}
+  return target.matches('[role="combobox"][aria-expanded="true"][aria-controls]') ||
+    ownedPanels(panel).slice(1).some((owner) => owner.contains(target));
 }
 
 type Options = {
@@ -34,13 +48,14 @@ export function useModalFocus({ open, locked, panel, initial, returnTo, onCancel
     const node = panel.current;
     if (!node || layers.at(-1) !== node) {return;}
     const target = event.target;
-    if (!(target instanceof HTMLElement) || !node.contains(target)) {restoreFocus(); return;}
+    if (!(target instanceof HTMLElement) || !ownedPanels(node).some((owner) => owner.contains(target))) {restoreFocus(); return;}
     if (target !== node && !locked) {lastFocused.current = target;}
   });
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     const node = panel.current;
     if (!node || layers.at(-1) !== node) {return;}
     if (event.key === "Escape") {
+      if (childOwnsEscape(node, event.target)) {return;}
       event.preventDefault();
       event.stopPropagation();
       if (!locked) {onCancel();}

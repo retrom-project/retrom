@@ -186,3 +186,27 @@ VALUES('01980000-0000-7000-8000-000000000999','Orphan',1786000000000)
 		t.Fatalf("orphan profile Start() = %v", err)
 	}
 }
+
+func TestCompletedReleaseInstanceRestartsWithoutEnabledAdministrator(t *testing.T) {
+	t.Parallel()
+	fixture := newAccountFixture(t, config.ModeRelease)
+	_, err := fixture.service.Initialize(t.Context(), accountservice.InitializeRequest{
+		Username: "owner", DisplayName: "Owner", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.SQL.ExecContext(t.Context(), `UPDATE users SET role='USER'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.Start(t.Context()); err != nil {
+		t.Fatalf("restart without administrators: %v", err)
+	}
+	var admins, users int
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT count(*) FILTER (WHERE role='ADMIN'), count(*) FROM users`).Scan(&admins, &users); err != nil {
+		t.Fatal(err)
+	}
+	if admins != 0 || users != 1 {
+		t.Fatalf("startup changed accounts: admins=%d users=%d", admins, users)
+	}
+}

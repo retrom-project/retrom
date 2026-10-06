@@ -1,7 +1,7 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
-import { createPortal } from "react-dom";
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type RefObject } from "react";
+import { useToast } from "@/components/toast-provider";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -18,8 +18,6 @@ import {
   type UnfavoriteResult,
 } from "./favorite-api";
 import { FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
-
-type Notice = { message: string; undo?: UnfavoriteResult["items"]; offerManage?: boolean };
 
 export type FavoriteActionsHandle = {
   openFolderPicker: (anchor: HTMLElement, resolveReturnTarget?: () => HTMLElement | null) => void;
@@ -47,6 +45,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   gameId, title, initialFavorite, variant = "card", showManageButton = true, onChange,
 }, ref) {
   const { authenticatedFetch } = useAuth();
+  const { notify, clear } = useToast();
   const [favorite, setFavorite] = useState(initialFavorite);
   const [folders, setFolders] = useState<FavoriteFolder[]>([]);
   const [busy, setBusy] = useState(false);
@@ -55,16 +54,9 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
-  const [notice, setNotice] = useState<Notice | null>(null);
   const heartButton = useRef<HTMLButtonElement>(null);
   const internalManageButton = useRef<HTMLButtonElement>(null);
   const pickerReturnTarget = useRef<(() => HTMLElement | null) | null>(null);
-  useEffect(() => {
-    if (!notice || busy) {return;}
-    const timer = window.setTimeout(() => setNotice(null), 2_000);
-    return () => window.clearTimeout(timer);
-  }, [notice, busy]);
-
   const acceptFavorite = useCallback((next: FavoriteReference | null, removed?: UnfavoriteResult["items"]) => {
     setFavorite(next);
     if (removed) {onChange?.(next, removed);} else {onChange?.(next);}
@@ -75,8 +67,8 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     try {
       const { data } = await putFavorite(authenticatedFetch, gameId);
       acceptFavorite({ favoritedAtMs: data.favoritedAtMs, folderIds: data.folderIds });
-      setNotice({ message: `已收藏“${title}”`, offerManage: true });
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+      notify({ tone: "good", message: `已收藏“${title}”`, durationMs: 2_000, action: { label: "加入收藏夹", onPress: () => { clear(); return openPicker(); } } });
+    } catch (error) { notify({ tone: "bad", message: messageFor(error) }); }
     finally { setBusy(false); }
   }
 
@@ -86,20 +78,23 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       const { data } = await unfavoriteGames(authenticatedFetch, [gameId]);
       acceptFavorite(null, data.items);
       setConfirming(false);
-      setNotice({ message: `已取消收藏“${title}”`, undo: data.items });
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+      if (variant !== "favorite-card" || !onChange) {offerUndo(`已取消收藏“${title}”`, data.items);}
+    } catch (error) { notify({ tone: "bad", message: messageFor(error) }); }
     finally { setBusy(false); }
   }
 
-  async function undo() {
-    if (!notice?.undo?.length) {return;}
+  function offerUndo(message: string, items: UnfavoriteResult["items"], tone: "good" | "bad" = "good") {
+    notify({ message, tone, durationMs: 2_000, action: { label: "撤销", onPress: () => undo(items), focusIfOrphaned: true } });
+  }
+
+  async function undo(items: UnfavoriteResult["items"]) {
     setBusy(true);
     try {
-      await restoreFavorites(authenticatedFetch, notice.undo);
+      await restoreFavorites(authenticatedFetch, items);
       const { data } = await putFavorite(authenticatedFetch, gameId);
       acceptFavorite({ favoritedAtMs: data.favoritedAtMs, folderIds: data.folderIds });
-      setNotice({ message: "已恢复收藏" });
-    } catch (error) { setNotice({ message: messageFor(error), undo: notice.undo }); }
+      notify({ tone: "good", message: "已恢复收藏" });
+    } catch (error) { offerUndo(messageFor(error), items, "bad"); }
     finally { setBusy(false); }
   }
 
@@ -114,9 +109,9 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       const { data } = await loadFavorites(authenticatedFetch, "limit=1");
       setFolders(data.folders);
       setPicker(true);
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+    } catch (error) { notify({ tone: "bad", message: messageFor(error) }); }
     finally { setBusy(false); }
-  }, [authenticatedFetch]);
+  }, [authenticatedFetch, notify]);
 
   useImperativeHandle(ref, () => ({
     openFolderPicker: (anchor, resolveReturnTarget) => { void openPicker(anchor, resolveReturnTarget); },
@@ -140,8 +135,8 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       const { data } = await replaceFavoriteFolders(authenticatedFetch, gameId, folderIds);
       acceptFavorite({ favoritedAtMs: data.favoritedAtMs, folderIds: data.folderIds });
       closePicker();
-      setNotice({ message: "收藏夹已更新" });
-    } catch (error) { setNotice({ message: messageFor(error) }); }
+      notify({ tone: "good", message: "收藏夹已更新" });
+    } catch (error) { notify({ tone: "bad", message: messageFor(error) }); }
     finally { setBusy(false); }
   }
 
@@ -154,7 +149,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       acceptFavorite({ favoritedAtMs: state.favoritedAtMs, folderIds: state.folderIds });
       setCreating(false);
       setPicker(true);
-      setNotice({ message: `已创建“${data.name}”并加入游戏` });
+      notify({ tone: "good", message: `已创建“${data.name}”并加入游戏` });
     } catch (error) { setCreateError(messageFor(error)); }
     finally { setBusy(false); }
   }
@@ -162,12 +157,11 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   const membershipCount = favorite?.folderIds.length ?? 0;
   return <FavoriteActionsView {...{
     busy, confirming, createError, creating, favorite, folders, heartButton, internalManageButton,
-    membershipCount, notice, picker, pickerAnchor, resolvePickerReturnFocus, showManageButton, title, variant,
+    membershipCount, picker, pickerAnchor, resolvePickerReturnFocus, showManageButton, title, variant,
   }}
     onAdd={() => void addFavorite()}
     onCloseConfirm={() => setConfirming(false)}
     onCloseCreate={() => {setCreating(false); setPicker(true);}}
-    onCloseNotice={() => setNotice(null)}
     onClosePicker={closePicker}
     onConfirmRemove={() => void removeFavorite()}
     onCreateFolder={(name) => void createFolder(name)}
@@ -175,7 +169,6 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     onOpenCreate={() => {setPicker(false); setCreating(true);}}
     onSaveFolders={(folderIds) => void saveFolders(folderIds)}
     onStartRemove={() => setConfirming(true)}
-    onUndo={() => void undo()}
   />;
 });
 
@@ -189,7 +182,6 @@ type FavoriteActionsViewProps = {
   heartButton: RefObject<HTMLButtonElement | null>;
   internalManageButton: RefObject<HTMLButtonElement | null>;
   membershipCount: number;
-  notice: Notice | null;
   picker: boolean;
   pickerAnchor: HTMLElement | null;
   resolvePickerReturnFocus: () => HTMLElement | null;
@@ -199,7 +191,6 @@ type FavoriteActionsViewProps = {
   onAdd: () => void;
   onCloseConfirm: () => void;
   onCloseCreate: () => void;
-  onCloseNotice: () => void;
   onClosePicker: () => void;
   onConfirmRemove: () => void;
   onCreateFolder: (name: string) => void;
@@ -207,14 +198,13 @@ type FavoriteActionsViewProps = {
   onOpenCreate: () => void;
   onSaveFolders: (folderIDs: string[]) => void;
   onStartRemove: () => void;
-  onUndo: () => void;
 };
 
 function FavoriteActionsView(props: FavoriteActionsViewProps) {
   const {
     busy, confirming, createError, creating, favorite, folders, heartButton, internalManageButton,
-    membershipCount, notice, onAdd, onCloseConfirm, onCloseCreate, onCloseNotice, onClosePicker,
-    onConfirmRemove, onCreateFolder, onManage, onOpenCreate, onSaveFolders, onStartRemove, onUndo,
+    membershipCount, onAdd, onCloseConfirm, onCloseCreate, onClosePicker,
+    onConfirmRemove, onCreateFolder, onManage, onOpenCreate, onSaveFolders, onStartRemove,
     picker, pickerAnchor, resolvePickerReturnFocus, showManageButton, title, variant,
   } = props;
   return <>
@@ -264,22 +254,5 @@ function FavoriteActionsView(props: FavoriteActionsViewProps) {
       onSave={onSaveFolders}
     />
     <FolderNameDialog open={creating} title="新建收藏夹" submitLabel="创建收藏夹" busy={busy} error={createError} onClose={onCloseCreate} onSubmit={onCreateFolder} />
-    <FavoriteToast {...{ busy, notice, onCloseNotice, onManage, onUndo }} />
   </>;
-}
-
-function FavoriteToast({ busy, notice, onCloseNotice, onManage, onUndo }: {
-  busy: boolean;
-  notice: Notice | null;
-  onCloseNotice: () => void;
-  onManage: () => void;
-  onUndo: () => void;
-}) {
-  if (!notice) {return null;}
-  return createPortal(<div className="favorite-toast" role="status" aria-live="polite">
-    <span>{notice.message}</span>
-    {notice.offerManage ? <button type="button" disabled={busy} onClick={() => {onCloseNotice(); onManage();}}>加入收藏夹</button> : null}
-    {notice.undo?.length ? <button type="button" disabled={busy} onClick={onUndo}>撤销</button> : null}
-    <button type="button" aria-label="关闭通知" onClick={onCloseNotice}>×</button>
-  </div>, document.body);
 }

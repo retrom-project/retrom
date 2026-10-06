@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	pegasusmeta "retrom/internal/format/pegasus/meta"
 )
@@ -137,10 +136,7 @@ func (result *scanResult) collectItem(item scannedItem) {
 	var warnings []map[string]any
 	_ = json.Unmarshal([]byte(item.WarningsJSON), &warnings)
 	for _, warning := range warnings {
-		if code, _ := warning["code"].(string); strings.HasPrefix(code, "PEGASUS_IMAGE_") ||
-			strings.HasPrefix(code, "PEGASUS_VIDEO_") ||
-			code == "PEGASUS_MEDIA_AMBIGUOUS" ||
-			code == "PEGASUS_MEDIA_MISSING" {
+		if field, _ := warning["field"].(string); field == "cover" || field == "video" {
 			result.MediaWarnings++
 		}
 	}

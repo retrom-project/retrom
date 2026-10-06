@@ -49,11 +49,6 @@ func (service *AdministrationService) Delete(
 		if err := validateUserDeletion(before.User, actorID, confirmation); err != nil {
 			return fmt.Errorf("apply account administration: %w", err)
 		}
-		if removesEnabledAdmin(before.User, before.User.Role, "DELETED") {
-			if err := anotherAdmin(ctx, scope.Read, targetID); err != nil {
-				return fmt.Errorf("apply account administration: %w", err)
-			}
-		}
 		plan := AdministrationDeletion{
 			Before: before,
 			Security: UserSecurity{

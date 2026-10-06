@@ -18,6 +18,9 @@ type Mappings struct{ database dbapi.DB }
 func NewMappings(database dbapi.DB) *Mappings { return &Mappings{database: database} }
 func (repository *Mappings) WithMappings(ctx context.Context, work func(application.MappingScope) error) error {
 	err := dbapi.RetryTransaction(ctx, repository.database, func(tx dbapi.Tx) error {
+		// Mapping is scoped to one locked Source in the default RR transaction.
+		// Targets are share-locked, tag changes touch their versioned rows, and
+		// Advance retains the Source version CAS in this same transaction.
 		records := mappingRecords{executor: tx}
 		if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.Bind(tx)}); err != nil {
 			return err
@@ -33,20 +36,31 @@ func (repository *Mappings) WithMappings(ctx context.Context, work func(applicat
 type mappingRecords struct{ executor dbapi.Executor }
 
 func (records mappingRecords) Import(ctx context.Context, id string) (application.Summary, error) {
-	return (&Queries{database: records.executor}).Get(ctx, id)
+	value, err := scanSummary(dbapi.QueryRowContext(ctx, records.executor,
+		summaryQuery+` WHERE import.id=? FOR UPDATE OF import`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.Summary{}, application.ErrNotFound
+	}
+	return value, err
 }
 
-func (records mappingRecords) CollectionOwner(ctx context.Context, id string) (string, error) {
-	var result string
-	err := dbapi.QueryRowContext(
-		ctx, records.executor, `SELECT import_id FROM source_import_collections WHERE id=?`, id).Scan(
-		&result,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", application.ErrInvalid
-	}
+func (records mappingRecords) CollectionOwners(ctx context.Context, ids []string) (map[string]string, error) {
+	rows, err := records.executor.QueryContext(ctx,
+		`SELECT id,import_id FROM source_import_collections WHERE id=ANY(?::text[])`, ids)
 	if err != nil {
-		return "", fmt.Errorf("read Source collection owner: %w", err)
+		return nil, fmt.Errorf("read Source collection owners: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	result := make(map[string]string, len(ids))
+	for rows.Next() {
+		var id, owner string
+		if err := rows.Scan(&id, &owner); err != nil {
+			return nil, fmt.Errorf("scan Source collection owner: %w", err)
+		}
+		result[id] = owner
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate Source collection owners: %w", err)
 	}
 	return result, nil
 }
@@ -55,7 +69,8 @@ func (records mappingRecords) EligibleTarget(ctx context.Context, id string) (ap
 	var result application.MappingTarget
 	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT instance.id,instance.version,instance.platform_id,instance.default_core_id,target.provider_id,target.target_id,
-(SELECT id FROM dat_versions WHERE provider_id=target.provider_id AND target_id=target.target_id AND is_active=1)
+(SELECT id FROM dat_versions WHERE provider_id=target.provider_id AND target_id=target.target_id AND is_active=1
+ FOR SHARE)
 FROM platform_instances instance
 JOIN platforms platform ON platform.id=instance.platform_id AND platform.enabled=1
 JOIN cores core ON core.id=instance.default_core_id AND core.enabled=1
@@ -63,7 +78,8 @@ JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=instance.platform_id
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
-WHERE instance.id=? AND instance.enabled=1 AND instance.deleted_at_ms IS NULL`, id).
+WHERE instance.id=? AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
+FOR SHARE OF instance,platform,core,binding,binding_platform,target`, id).
 		Scan(
 			&result.InstanceID,
 			&result.InstanceVersion,

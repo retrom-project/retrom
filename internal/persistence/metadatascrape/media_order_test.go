@@ -104,18 +104,18 @@ func TestManualMediaRetryWaitsForCurrentlyRunningLaterPosition(t *testing.T) {
 	}
 }
 
-func TestMediaCapacityIncludesCancellingReadUntilLeaseEnds(t *testing.T) {
+func TestMediaRunRemainsOccupiedByCancellingReadUntilLeaseEnds(t *testing.T) {
 	fixture := newMediaFixture(t)
 	now := fixture.now.UnixMilli()
 	recoveryExec(t, fixture.database, `UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,
  worker_id='stopping',attempt_count=1,leased_until_ms=?,execution_deadline_at_ms=? WHERE id=?`, now, now+60000, now+1800000, fixture.jobID)
 	err := NewMedia(fixture.database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
-		count, err := scope.Read.Running(t.Context(), now)
+		active, err := scope.Read.RunExecuting(t.Context(), fixture.snapshot(t).Asset.RunID, now)
 		if err != nil {
 			return err
 		}
-		if count != 1 {
-			t.Fatalf("canceling source disappeared from media capacity: %d", count)
+		if !active {
+			t.Fatal("canceling source released its media run before its lease ended")
 		}
 		return nil
 	})

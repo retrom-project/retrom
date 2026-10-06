@@ -319,13 +319,19 @@ mv -f -- "$pid_file_tmp" "$pid_file"
 flock -u 9
 exec 9>&-
 
-while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$web_pid" 2>/dev/null; do
-  status=0
-  wait -n "$backend_pid" "$web_pid" ${postgres_watch_pid:+"$postgres_watch_pid"} || status=$?
-  if [[ -n "$postgres_watch_pid" ]] && ! kill -0 "$postgres_watch_pid" 2>/dev/null; then
-    exit 1
-  fi
-  if ! kill -0 "$backend_pid" 2>/dev/null || ! kill -0 "$web_pid" 2>/dev/null; then
-    exit "$status"
-  fi
+# Bash wait -n may omit a child that exited between the liveness check and
+# wait registration, then block forever on its healthy siblings. Poll each
+# tracked PID and wait for that exact child once it has exited.
+while true; do
+  for child_pid in "$backend_pid" "$web_pid" ${postgres_watch_pid:+"$postgres_watch_pid"}; do
+    if ! kill -0 "$child_pid" 2>/dev/null; then
+      status=0
+      wait "$child_pid" || status=$?
+      if [[ "$child_pid" == "$postgres_watch_pid" ]]; then
+        exit 1
+      fi
+      exit "$status"
+    fi
+  done
+  sleep 0.1
 done
