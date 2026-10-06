@@ -1,4 +1,5 @@
-import { cleanup, render, screen, within, waitFor } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
+import { cleanup, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminGameBrowser } from "./admin-game-browser";
@@ -40,6 +41,21 @@ function initialPage(items: AdminGameSummary[], nextCursor: string | null = null
 }
 
 describe("AdminGameBrowser", () => {
+  it("retains the table and retries the failed page from the existing footer", async () => {
+    const user = userEvent.setup();
+    fetchPage.mockResolvedValueOnce({ok: false}).mockResolvedValueOnce({ok: true, json: async () => initialPage([game(2)])});
+    const view = render(<AdminGameBrowser initialPage={initialPage([game(1)], "next", 7)} initialFilters={filters} />);
+    await user.click(screen.getByRole("button", {name: "下一页"}));
+    expect(await screen.findByRole("alert")).toHaveClass("app-toast");
+    expect(view.container.querySelector("[role=alert]")).toBeNull();
+    expect(screen.getByRole("link", {name: "Game 1"})).toBeVisible();
+    const retry = screen.getByRole("button", {name: "重试"});
+    expect(retry.closest("footer")).not.toBeNull();
+    await user.click(retry);
+    expect(await screen.findByRole("link", {name: "Game 2"})).toBeVisible();
+    expect(fetchPage.mock.calls[1][0]).toContain("cursor=next");
+  });
+
   beforeEach(() => { window.history.replaceState({ marker: "keep" }, "", "/admin/games"); fetchPage.mockReset(); });
   afterEach(cleanup);
 

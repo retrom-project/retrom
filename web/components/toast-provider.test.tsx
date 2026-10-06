@@ -68,3 +68,33 @@ it("replaces a still-visible error when the destination consumes a success messa
   await act(() => vi.advanceTimersByTimeAsync(1));
   expect(screen.queryByRole("status")).toBeNull();
 });
+
+it("keeps an async action alive without duplicate submissions or dismissing its replacement", async () => {
+  vi.useFakeTimers();
+  let complete!: () => void;
+  const work = vi.fn(() => new Promise<void>((resolve) => { complete = resolve; }));
+  function Action() {
+    const { notify } = useToast();
+    return <>
+      <button onClick={() => notify({ message: "已取消", tone: "good", durationMs: 2_000, action: { label: "撤销", onPress: work } })}>取消</button>
+      <button onClick={() => notify({ message: "新操作完成", tone: "good" })}>新操作</button>
+    </>;
+  }
+  render(<ToastProvider><Action /></ToastProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await act(() => vi.advanceTimersByTimeAsync(1_999));
+  const undo = screen.getByRole("button", { name: "撤销" });
+  fireEvent.click(undo); fireEvent.click(undo);
+  expect(work).toHaveBeenCalledOnce(); expect(undo).toBeDisabled();
+  await act(() => vi.advanceTimersByTimeAsync(3_000));
+  expect(undo).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "新操作" }));
+  await act(() => { complete(); });
+  await act(() => vi.advanceTimersByTimeAsync(2_999));
+  expect(screen.getByRole("status")).toHaveTextContent("新操作完成");
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(screen.queryByRole("status")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await act(() => vi.advanceTimersByTimeAsync(2_000));
+  expect(screen.queryByRole("button", { name: "撤销" })).toBeNull();
+});

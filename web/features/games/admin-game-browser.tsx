@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
+import { useToast } from "@/components/toast-provider";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useCursorPage } from "@/lib/use-cursor-page";
 import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
@@ -65,6 +66,7 @@ export function AdminGameBrowser({ initialPage, initialFilters }: { initialPage:
   const searchRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState(initialFilters);
   const { authenticatedFetch } = useAuth();
+  const { notify, clear } = useToast();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const pagination = useCursorPage(initialPage, adminGameURL(filters));
@@ -74,6 +76,9 @@ export function AdminGameBrowser({ initialPage, initialFilters }: { initialPage:
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const visibleGames = page.items;
   const nowMs = page.generatedAtMs;
+  useEffect(() => {
+    if (pagination.error) {notify({message: pagination.error, tone: "bad"});}
+  }, [notify, pagination.error]);
 
   async function exportCurrent() {
     setExporting(true);
@@ -124,7 +129,6 @@ export function AdminGameBrowser({ initialPage, initialFilters }: { initialPage:
   return <div className="admin-game-browser" aria-busy={loading}>
     <button className="button secondary admin-game-export" type="button" disabled={exporting || loading} onClick={() => { void exportCurrent(); }}><AppIcon name="download" />{exporting ? "正在导出…" : "导出当前列表"}</button>
     {exportError ? <p role="alert">{exportError}</p> : null}
-    {pagination.error ? <p role="alert">{pagination.error} <button className="button secondary" type="button" onClick={pagination.retry}>重试</button></p> : null}
     <section className="admin-game-summary" aria-label="游戏管理摘要">
       {summaryItems.map((item) => <article className={item.tone} key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
     </section>
@@ -154,6 +158,6 @@ export function AdminGameBrowser({ initialPage, initialFilters }: { initialPage:
         })}</tbody>
       </table>
     </div>}
-    <footer className="list-pagination"><span aria-live="polite">{loading ? "正在加载… " : ""}当前展示 {visibleGames.length} / {total} 款游戏</span><div><button type="button" disabled={loading || currentPage === 0} onClick={pagination.previous}>上一页</button><span>第 {currentPage + 1} 页 · 共 {pageCount} 页</span><button type="button" disabled={loading || !page.nextCursor} onClick={pagination.next}>下一页</button></div></footer>
+    <footer className="list-pagination"><span aria-live="polite">{loading ? "正在加载… " : ""}当前展示 {visibleGames.length} / {total} 款游戏</span><div><button type="button" disabled={loading || currentPage === 0} onClick={pagination.previous}>上一页</button><span>第 {currentPage + 1} 页 · 共 {pageCount} 页</span><button className="admin-game-page-next" type="button" disabled={loading || (!pagination.error && !page.nextCursor)} onClick={() => {if (pagination.error) {clear(); pagination.retry();} else {pagination.next();}}}><span aria-hidden={Boolean(pagination.error)}>下一页</span><span aria-hidden={!pagination.error}>重试</span></button></div></footer>
   </div>;
 }

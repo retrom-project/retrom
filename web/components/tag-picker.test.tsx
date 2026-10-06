@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import { ResponsiveSheet } from "./responsive-sheet";
 import { TagChips, TagPicker, type TagReference } from "./tag-picker";
 
 afterEach(() => {
@@ -129,4 +130,35 @@ describe("TagChips", () => {
     expect(screen.getByLabelText("另有 1 个标签")).toHaveTextContent("+1");
     expect(screen.queryByText("已通关")).not.toBeInTheDocument();
   });
+});
+
+it("keeps its popup above responsive drawers", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { resolve } = await import("node:path");
+  const styles = readFileSync(resolve(process.cwd(), "features/tags/tags.css"), "utf8");
+  const tokens = readFileSync(resolve(process.cwd(), "styles/tokens.css"), "utf8");
+  const picker = styles.match(/\.tag-picker-list\s*\{[^}]*z-index:\s*([^;]+);/);
+  const layer = picker?.[1].trim();
+  const token = layer?.match(/^var\((--[^)]+)\)$/)?.[1];
+  const resolved = Number(token ? tokens.match(new RegExp(`${token}:\\s*(\\d+)`))?.[1] : layer);
+  // The narrow drawer is at 206 and the responsive sheet at 220.
+  expect(resolved).toBeGreaterThan(220);
+  expect(resolved).toBeLessThan(400);
+});
+
+it("closes the nested picker before its sheet and allows focus on the empty-taxonomy link", async () => {
+  const close = vi.fn();
+  const user = userEvent.setup();
+  render(<ResponsiveSheet open title="编辑标签" onClose={close}><TagPicker options={[]} selected={[]} onChange={() => undefined} /></ResponsiveSheet>);
+  const input = screen.getByRole("combobox");
+  await user.click(input);
+  const link = screen.getByRole("link", { name: "前往标签管理" });
+  act(() => link.focus());
+  expect(link).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(input).toHaveFocus();
+  expect(close).not.toHaveBeenCalled();
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
 });

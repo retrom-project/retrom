@@ -60,8 +60,8 @@ describe("SourceImportDrawer", () => {
     const row = screen.getByText(item.title).closest("article")!;
     expect(within(row).getByText("已移交审核")).toBeVisible();
     expect(within(row).queryByText("导入临时副本已清理")).not.toBeInTheDocument();
-    expect(within(row).queryByText("封面 MISSING")).not.toBeInTheDocument();
-    expect(within(row).queryByText("视频 MISSING")).not.toBeInTheDocument();
+    expect(within(row).queryByText("封面 未找到")).not.toBeInTheDocument();
+    expect(within(row).queryByText("视频 未找到")).not.toBeInTheDocument();
   });
 
   it.each(["BASIC", "PEGASUS", "GAMELIST"] as const)("keeps completed %s results refreshing until asynchronous cleanup finishes", async (format) => {
@@ -78,11 +78,11 @@ describe("SourceImportDrawer", () => {
     render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [released, releasing], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
     expect(screen.getAllByText("导入临时副本已清理")).toHaveLength(1);
-    expect(screen.getByText("封面 MISSING")).toBeVisible();
+    expect(screen.getByText("封面 未找到")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
     expect(screen.getAllByText("导入临时副本已清理")).toHaveLength(2);
-    expect(screen.queryByText("封面 MISSING")).not.toBeInTheDocument();
-    expect(screen.queryByText("视频 MISSING")).not.toBeInTheDocument();
+    expect(screen.queryByText("封面 未找到")).not.toBeInTheDocument();
+    expect(screen.queryByText("视频 未找到")).not.toBeInTheDocument();
     expect(events).not.toHaveBeenCalled();
     const calls = fetchMock.mock.calls.length;
     await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
@@ -106,7 +106,7 @@ describe("SourceImportDrawer", () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
     expect(screen.getByText("审核事项已生成")).toBeVisible();
-    expect(screen.getByText("封面 MISSING")).toBeVisible();
+    expect(screen.getByText("封面 未找到")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(4_000); });
     expect(screen.getByText("导入临时副本已清理")).toBeVisible();
     expect(itemReads).toBe(2);
@@ -441,4 +441,14 @@ it("keeps an unstarted plan and its dialog when deletion fails", async () => {
   await user.click(within(dialog).getByRole("button", { name: "取消" }));
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+it("labels pending media without claiming missing files and keeps unknown failure advice neutral", async () => {
+  const item: SourceItem = { ...cleanupItem("RETAINED"), executionState: "COMMIT_FAILED", errorCode: "INTERNAL_ERROR", media: { cover: "PENDING", video: "MISSING" } };
+  render(<SourceImportDetailManager initialSummary={summary("PARTIAL_FAILURE", 5)} initialItems={{ items: [item], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+  expect(screen.getByText("封面 待复制")).toBeVisible();
+  expect(screen.getByText("视频 未找到")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "查看具体原因与处理建议" }));
+  expect(screen.getByText(/查看诊断详情和服务器日志/)).toBeVisible();
+  expect(screen.queryByText(/按缺失文件和依赖信息修正/)).toBeNull();
 });

@@ -1,4 +1,6 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { ToastProvider } from "@/components/toast-provider";
+import { render } from "@/components/toast-test-utils";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +27,18 @@ afterEach(() => {
 });
 
 describe("ReviewQueue", () => {
+  it("reports pagination errors outside the footer and preserves a persistent retry", async () => {
+    const request = vi.fn().mockResolvedValueOnce({ok: false}).mockResolvedValueOnce({ok: true, json: async () => ({items: [{...item, itemId: "second", draftTitle: "Second"}], nextCursor: null})});
+    vi.stubGlobal("fetch", request);
+    render(<ReviewQueue initial={{items: [item], nextCursor: "next"}} values={{}} />);
+    fireEvent.click(screen.getByRole("button", {name: "继续加载"}));
+    expect(await screen.findByRole("alert")).toHaveClass("app-toast");
+    expect(document.querySelector(".queue-footer [role=alert]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: "重试加载"}));
+    expect(await screen.findByText("Second")).toBeVisible();
+    expect(request.mock.calls[1][0]).toContain("cursor=next");
+  });
+
   it.each<Record<string, string>>([{}, { sourceImportId: "source-1" }])("replaces stale pages after a server refresh with filters %j", async (values) => {
     const remaining = { ...item, itemId: "remaining", draftTitle: "Still pending" };
     const { rerender } = render(<ReviewQueue initial={{ items: [item, remaining], nextCursor: "old-cursor" }} values={values} />);
@@ -45,13 +59,13 @@ describe("ReviewQueue", () => {
     try {
       process.env.TZ = "UTC";
       const container = document.createElement("div");
-      container.innerHTML = renderToString(<ReviewQueue initial={initial} values={{}} />);
+      container.innerHTML = renderToString(<ToastProvider><ReviewQueue initial={initial} values={{}} /></ToastProvider>);
       document.body.append(container);
       expect(container).toHaveTextContent("2026年9月2日 12:43");
 
       process.env.TZ = "Asia/Shanghai";
       await act(async () => {
-        root = hydrateRoot(container, <ReviewQueue initial={initial} values={{}} />, {
+        root = hydrateRoot(container, <ToastProvider><ReviewQueue initial={initial} values={{}} /></ToastProvider>, {
           onRecoverableError: (error) => recoverableErrors.push(error),
         });
       });

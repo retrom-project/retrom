@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { BIOSFileButton } from "./bios-file-button";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Toast } from "@/components/flash-toast";
+import { useToast } from "@/components/toast-provider";
 import { StatusBadge } from "@/components/ui";
 import { api, writeHeaders } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
@@ -194,15 +194,15 @@ function BIOSSection({ busy, currentLibrary, description, inputs, items, label, 
 }
 
 function BIOSPagination({ announcement, loadMore, nextError, nextLoading, response, sentinel }: Pick<BIOSResultsProps, "announcement" | "loadMore" | "nextError" | "nextLoading" | "response" | "sentinel">) {
+  const {clear} = useToast();
   const progress = response.nextCursor
     ? `已加载 ${response.items.length} / ${response.filteredCount} 项`
     : `已加载全部 ${response.filteredCount} 项`;
-  const buttonLabel = nextLoading ? "正在加载下一批…" : nextError ? "重试加载下一页" : "加载更多";
+  const buttonLabel = nextLoading ? "正在加载下一批…" : nextError ? "重试加载" : "加载更多";
   return <>
     <div className="runtime-pagination" ref={sentinel}>
       <p>{progress}</p>
-      {nextError ? <p className="runtime-pagination-error">{nextError}</p> : null}
-      {response.nextCursor ? <button type="button" className="button secondary compact" disabled={nextLoading} onClick={() => void loadMore()}>{buttonLabel}</button> : null}
+      {response.nextCursor ? <button type="button" className="button secondary compact" disabled={nextLoading} onClick={() => {if (nextError) {clear();} void loadMore();}}>{buttonLabel}</button> : null}
     </div>
     <p className="sr-only" aria-live="polite">{announcement}</p>
   </>;
@@ -250,6 +250,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
   initialFilters?: Partial<BIOSFilters>;
 }) {
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const {notify, clear} = useToast();
   const sentinel = useRef<HTMLDivElement | null>(null);
   const sequence = useRef(0);
   const nextRequest = useRef(false);
@@ -263,8 +264,6 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
   const [nextError, setNextError] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
   const [archiveDialog, setArchiveDialog] = useState<{ item: BIOSRequirement; loading: boolean; error: string; inspection: ArchiveInspection | null } | null>(null);
 
   const attention = response.items.filter(isBIOSAttention);
@@ -344,11 +343,14 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
         return { ...page, items: [...previous.items, ...appended] };
       });
     } catch (caught) {
-      if (current === sequence.current) {setNextError(caught instanceof Error ? caught.message : "下一页读取失败");}
+      if (current === sequence.current) {
+        const message = caught instanceof Error ? caught.message : "下一页读取失败";
+        setNextError(message); notify({message, tone: "bad"});
+      }
     } finally {
       nextRequest.current = false; setNextLoading(false);
     }
-  }, [requestPage, response.nextCursor]);
+  }, [notify, requestPage, response.nextCursor]);
 
   useEffect(() => {
     if (!response.nextCursor || typeof IntersectionObserver === "undefined") {return;}
@@ -362,10 +364,10 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
   }
 
   async function install(requirement: BIOSRequirement, file: File) {
-    setBusy(requirement.id); setError(""); setNotice("");
+    setBusy(requirement.id); clear();
     try {
-      const upload = await uploadOne(file, (message) => setNotice(message));
-      setNotice("正在验证 BIOS 内容并保存安装记录…");
+      const upload = await uploadOne(file, (message) => notify({message, tone: "good"}));
+      notify({message: "正在验证 BIOS 内容并保存安装记录…", tone: "good"});
       const response = await fetch(`/api/v1/admin/bios/${requirement.id}/installations`, {
         method: "POST",
         credentials: "same-origin",
@@ -374,10 +376,10 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
       });
       if (!response.ok) {throw new Error(await responseError(response, "BIOS 安装失败"));}
       const installed = await response.json() as { status: string };
-      setNotice(`BIOS 已安装：${statusLabels[installed.status] ?? "验证完成"}`);
+      notify({message: `BIOS 已安装：${statusLabels[installed.status] ?? "验证完成"}`, tone: "good"});
       await reloadFirst();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "BIOS 安装失败");
+      notify({message: caught instanceof Error ? caught.message : "BIOS 安装失败", tone: "bad"});
     } finally {
       setBusy(null);
       const input = inputs.current[requirement.id];
@@ -441,7 +443,6 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
     />
     <p className="runtime-server-import-link"><Link href="/admin/imports/server?action=bios">从服务器目录批量导入 BIOS</Link></p>
     <ArchiveInspectionDialog archiveDialog={archiveDialog} onClose={() => setArchiveDialog(null)} />
-    <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;
 }
 

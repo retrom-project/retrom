@@ -137,7 +137,6 @@
 .runtime-diff-empty { margin: 0; padding: 18px; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius-panel); text-align: center; font-size: var(--text-caption); }
 .runtime-pagination { min-height: 72px; padding: 16px 0 0; display: grid; place-items: center; gap: 7px; color: var(--muted); font-size: var(--text-caption); }
 .runtime-pagination p { margin: 0; }
-.runtime-pagination-error { color: var(--danger); }
 .runtime-server-import-link { margin: 16px 0 0; text-align: right; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .runtime-server-import-link a { color: var(--purple-dark); }
 

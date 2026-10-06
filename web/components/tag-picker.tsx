@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayTarget } from "./overlay-target";
 
 export type TagReference = { tagId: string; name: string };
 
@@ -54,6 +55,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
   description: string | undefined;
   keepOpenOnSelect: boolean;
 }) {
+  const target = useOverlayTarget();
   const inputId = useId();
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -147,6 +149,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
 
   const list = <TagPickerList
     {...{ activeIndex, atLimit, disabled, filtered, listId, listPosition, open, options }}
+    onClose={() => { inputRef.current?.focus(); closeList(); }}
     onChoose={choose}
     onFocus={cancelBlur}
     onBlur={deferClose}
@@ -176,7 +179,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
         onClick={openList}
         onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); openList(); }}
         onKeyDown={(event) => {
-          if (event.key === "Escape") { event.stopPropagation(); closeList(); return; }
+          if (event.key === "Escape" && open) { event.stopPropagation(); closeList(); return; }
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault(); openList();
             const offset = event.key === "ArrowDown" ? 1 : -1;
@@ -186,13 +189,13 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
         }}
       />
     </div>
-    {typeof document !== "undefined" ? createPortal(list, document.body) : null}
+    {target ? createPortal(list, target) : null}
     <span className="tag-picker-limit" aria-live="polite">已选择 {selected.length}/20 个标签{atLimit ? "，已达到上限" : ""}</span>
   </div>;
 }
 
 function TagPickerList({
-  activeIndex, atLimit, disabled, filtered, listId, listPosition, onChoose, onFocus, onBlur, onSetActive, open, options,
+  activeIndex, atLimit, disabled, filtered, listId, listPosition, onChoose, onClose, onFocus, onBlur, onSetActive, open, options,
 }: {
   activeIndex: number;
   atLimit: boolean;
@@ -201,6 +204,7 @@ function TagPickerList({
   listId: string;
   listPosition: ListPosition | null;
   onChoose: (tag: TagReference) => void;
+  onClose: () => void;
   onFocus: () => void;
   onBlur: () => void;
   onSetActive: (index: number) => void;
@@ -211,6 +215,7 @@ function TagPickerList({
   return <div
     className={`tag-picker-list tag-picker-list-floating${listPosition.above ? " is-above" : ""}`}
     id={listId}
+    onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}
     onFocusCapture={onFocus}
     onBlurCapture={onBlur}
     role="listbox"

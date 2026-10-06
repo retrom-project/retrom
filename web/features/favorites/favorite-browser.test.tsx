@@ -140,8 +140,10 @@ describe("FavoriteBrowser", () => {
     const confirm = screen.getByRole("alertdialog");
     await user.click(within(confirm).getByRole("button", {name:"取消收藏"}));
     await waitFor(() => expect(screen.queryByRole("heading", {name:"Game 1"})).not.toBeInTheDocument());
+    expect(screen.getByRole("button", {name:"撤销"}).closest(".app-toast")).not.toBeNull();
     await user.click(screen.getByRole("button", {name:"撤销"}));
     expect(await screen.findByText(/恢复暂时失败/)).toBeVisible();
+    expect(screen.getByRole("button", {name:"撤销"}).closest(".app-toast")).not.toBeNull();
     await user.click(screen.getByRole("button", {name:"撤销"}));
     expect(await screen.findByRole("heading", {name:"Game 1"})).toBeVisible();
     const restore = auth.fetch.mock.calls.find(([url]) => String(url).endsWith("/restore"));
@@ -162,7 +164,9 @@ describe("FavoriteBrowser", () => {
     const confirmation = screen.getByRole("alertdialog", { name: "删除“想玩”？" });
     await user.click(within(confirmation).getByRole("button", { name: "删除收藏夹" }));
 
-    expect(await within(confirmation).findByRole("alert")).toHaveTextContent("已刷新真实版本");
+    expect(await screen.findByRole("alert")).toHaveTextContent("已刷新真实版本");
+    expect(within(confirmation).queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveClass("app-toast");
     expect(confirmation).toBeInTheDocument();
   });
 

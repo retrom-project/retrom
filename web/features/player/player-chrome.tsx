@@ -290,7 +290,7 @@ export function PlayerChrome({
     <EmulatorSettingsLayer open={emulatorToolbarOpen} mobile={mobile} capabilities={capabilities} volume={emulatorVolume} muted={emulatorMuted} renderingMode={videoRenderingMode} onHold={onHoldControls} onOpenPanel={onOpenEmulatorPanel} onVolume={onChangeEmulatorVolume} onRenderingMode={onChangeVideoRenderingMode} onMute={onToggleEmulatorMute} onClose={onCloseEmulatorSettings} />
 
     <div className={`player-toast${visibleToast ? " is-visible" : ""}`} role="status" aria-live="polite">{visibleToast}</div>
-    <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到屏幕顶部显示 Retrom 控制</div>
+    <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到顶部中央手柄显示 Retrom 控制</div>
 
     <ExitGameDialog checkpointSemantics={checkpointSemantics} open={exitOpen} description={exitDescription} running={running} saveAvailable={saveAvailable} programSelectionRequired={programSelectionRequired} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
   </>;

@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BIOSManager, type BIOSListResponse, type BIOSRequirement } from "./bios-manager";
@@ -158,9 +159,11 @@ describe("BIOSManager", () => {
     render(<BIOSManager initialScope="FULL_CATALOG" initialResponse={page(initial, { scope: "FULL_CATALOG", total: 101, next: "same-cursor" })} />);
 
     await user.click(screen.getByRole("button", { name: "加载更多" }));
-    expect(await screen.findByRole("button", { name: "重试加载下一页" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "重试加载" })).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveClass("app-toast");
+    expect(document.querySelector(".runtime-pagination [role=alert]")).toBeNull();
     expect(screen.getByText("bios-0.bin")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "重试加载下一页" }));
+    await user.click(screen.getByRole("button", { name: "重试加载" }));
     expect(await screen.findByText("bios-100.bin")).toBeVisible();
     expect(requestedURL(fetchMock.mock.calls[0])).toContain("cursor=same-cursor");
     expect(requestedURL(fetchMock.mock.calls[1])).toContain("cursor=same-cursor");
