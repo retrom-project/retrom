@@ -69,10 +69,7 @@ media_warning_count=(
   SELECT count(*)
   FROM source_import_items item,jsonb_array_elements_text((item.warnings_json)::jsonb) warning
   WHERE item.import_id=?
-  AND ((warning.value)::jsonb #>> '{code}') IN (
-    'PEGASUS_IMAGE_INVALID','PEGASUS_VIDEO_UNSUPPORTED','PEGASUS_VIDEO_TOO_LARGE',
-    'PEGASUS_MEDIA_AMBIGUOUS','PEGASUS_MEDIA_MISSING','PEGASUS_MEDIA_READ_FAILED'
-  )
+  AND ((warning.value)::jsonb #>> '{field}') IN ('cover','video')
 ),
 version=version+1,updated_at_ms=?
 `,

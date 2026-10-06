@@ -468,6 +468,8 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 `internal/service/sourceimport.ImportExecutor` 编排未完成任务的工作关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与独立文件存储读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
+Source 警告以 `field=cover/video` 表示媒体归属。扫描统计、执行后的汇总和条目媒体投影都依据该字段分类，不依据错误码前缀猜测；封面或视频的 `SOURCE_SOURCE_CHANGED` 计入媒体警告，游戏文件变化及其他元数据警告不计入。汇总按警告条数计数，条目筛选仍精确匹配警告码。
+
 来源媒体投影以 Source 素材记录为依据：DISCOVERED 为 PENDING，COPIED 为 READY，RELEASED 为 RELEASED，未声明或 MISSING 为 MISSING，其余无效、读取失败、来源变化及对应媒体 warning 为 WARNING。列表重新读取时反映素材状态变化，不把待复制当成缺失。内容复制和绑定失败同样保留 FailureDetails 的 STORAGE 阶段、COPY_CONTENT/BIND_CONTENT 操作、相对路径和已脱敏底层原因；取消、截止时间和执行所有权冲突不落成普通条目失败。
 
 Flycast cartridge 在完整 ZIP 安全扫描后按公开 ROM requirements 匹配成员：存在 CRC 时优先按 CRC 查找并校验声明大小，文件名差异不构成缺失；同 CRC 候选尺寸不一致时拒绝，避免归档顺序决定运行内容。没有 CRC 时按精确名称和大小匹配；可选成员缺失允许，存在但不匹配仍拒绝。ZIP 完整性、平台、机器和媒体类型门禁保持不变，宿主不读取核心私有表或维护游戏名豁免。
