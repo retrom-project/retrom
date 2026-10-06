@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
-import { createVideoReview, deleteVideoFixture } from "./review-video-support";
+import { deleteVideoFixture } from "./review-video-support";
+import { createReviewFixture } from "./review-fixture-support";
 
 async function selectedVideo(page: Page, itemId: string) {
   const response = await page.request.get(`/api/v1/admin/reviews/${itemId}`);
@@ -28,7 +29,7 @@ test("ACC-MEDIA-001 review uploads, replaces, retains and publishes the selected
   const { csrfToken } = await login.json() as { csrfToken: string };
   const title = `Review video ${testInfo.project.name}`;
   await deleteVideoFixture(page, title, csrfToken);
-  const itemId = await createVideoReview(page, testInfo.project.name, csrfToken);
+  const itemId = await createReviewFixture(page, testInfo.project.name, csrfToken);
   await page.goto(`/admin/reviews/${itemId}`);
   await page.getByRole("textbox", { name: "标题", exact: true }).fill(title);
   await expect(page.locator(".autosave-state")).toHaveText("已实时保存");

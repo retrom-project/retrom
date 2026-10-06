@@ -47,7 +47,8 @@ function ReviewBulkStatus({ summary, error }: { summary: ReviewBulkSummary; erro
     </div>
     <div className="review-bulk-stats">
       <span><small>已发布</small><strong>{summary.publishedCount}</strong></span>
-      <span><small>继续待审</small><strong>{summary.skippedChangedCount + summary.skippedDuplicateCount + summary.skippedNotReadyCount}</strong></span>
+      <span><small>重复已跳过</small><strong>{summary.skippedDuplicateCount}</strong></span>
+      <span><small>继续待审</small><strong>{summary.skippedChangedCount + summary.skippedNotReadyCount}</strong></span>
       <span><small>已扫描</small><strong>{summary.scannedCount}</strong></span>
     </div>
     {summary.state === "FAILED" ? <p className="review-bulk-error" role="alert">任务中断，尚未扫描的项目仍在待审队列。</p> : null}
