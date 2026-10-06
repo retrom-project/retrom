@@ -123,9 +123,9 @@ test("ACC-UI-009 authentication entry routing and user management layout remain 
   await ownRow.getByRole("button", { name: "管理" }).click();
   const drawer = page.getByRole("dialog", { name: "管理用户" });
   await expect(drawer).toContainText("不能修改当前登录账号");
-  await expect(drawer).toContainText("服务器必须保留至少一名启用管理员");
   await expect(drawer.getByLabel("角色")).toBeDisabled();
   await expect(drawer.getByLabel("状态")).toBeDisabled();
+  await expect(drawer.getByRole("button", { name: "删除账号", exact: true })).toBeDisabled();
   await expectNoSeriousAccessibilityViolations(page);
   await page.screenshot({ path: evidencePath(testInfo, "account-and-user-management.png"), fullPage: true });
 });

@@ -200,7 +200,9 @@ test("ACC-FAV-003 library undo stays fixed while hovering its transformed card a
   const heart = card.locator(".favorite-heart");
   if (await heart.getAttribute("aria-pressed") === "false") {
     await heart.click();
-    await page.getByRole("button", { name: "关闭通知" }).click();
+    await expect(page.locator(".app-toast")).toContainText("已收藏");
+    await page.clock.runFor(2_001);
+    await expect(page.locator(".app-toast")).toHaveCount(0);
   }
   await heart.click();
   await page.getByRole("alertdialog").getByRole("button", { name: "取消收藏", exact: true }).click();
