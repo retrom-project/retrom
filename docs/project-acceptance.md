@@ -175,6 +175,14 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 三视口导航验收的24个自建游戏、目录及四个最终会话均已正常清理。首轮错误地要求手机纵排header也56px、对pending使用DELETE而非discard的脚本诊断保留；生产未因此改动，首轮素材随后通过正常API清理。该轮唯一丢失cookie的自有cleanup会话由协调者按准确id/userId/createdAt定点DB撤销一行，证明为 `root/scan-navigation-r14/ui-cleanup-orphan-revocation.json`，不声称它执行了HTTP logout。
 
+## R15 正式发布准备与验收复核
+
+README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
+
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：已核对 NES、MV、MZ、TyranoScript、J2ME 的限定场景证据；VecX 完成新浏览器恢复及继续输入，但暂停矢量显示仍有限制；OpenBOR 实际战斗未产生原生进度存档。其余当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+
+ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag，作为后续 runtime 构建依赖。核心发布不代表 Retrom 整体通过。ONS 正式 JS／Wasm 与本地候选摘要不同，必须重新进行实际产品验收；VecX 正式归档解包后的五项内容与已测候选相同，仍需核对正式配套指纹。发布和构建原始记录保存在 `root/release-r15/`，不提交私有素材、路径或会话。
+
 ## 当前限制与未完成项
 
 - 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。历史 R11 全部110个Target指纹改变；R12仅J2ME再次改变，其余109个保持。旧存档按实际冻结core身份判断，旧语义证明保留原指纹和范围，不直接升级为当前PASS。新的NES、魔塔和隔离快捷键证明只覆盖各自实际列出的场景。
