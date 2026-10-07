@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker XP／VX／VX Ace 共十九项限定场景已核对；93 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker XP／VX／VX Ace、mGBA／GBA 共二十项限定场景已核对；92 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -194,6 +194,8 @@ RGSS 复测发现工作线程注册手柄监听晚于初始连接通知，已在
 runtime 草稿 PR 的干净 CI 暴露测试依赖尚未生成的 `dist`；`npm test` 现先构建宿主工具输入。清空生成物后 290 文件／1,572 项测试通过，未跳过断言。发布仍等待剩余验收与配套产物验证。
 
 发布、构建、浏览器与定点清理记录保存在 `root/release-r15/`；新通过证据分别位于 `ons-published`、`vecx-published`、`openbor-exit-fixed`、`counter-native-current`。上述已完成场景的临时游戏、存档、目录与登录会话均已清理；私有素材、路径和会话不提交。
+
+mGBA／GBA 使用实际《SD 高达 力量》完成审核试玩、发布游玩和标准手柄方向／确认／攻击。公开保存 29,043 字节，只有登录 cookie 的新 Chromium 七秒后仍恢复 10,000 分、HP3 和角色／敌人／场景位置；继续游玩后场景前进、分数达 33,000。原生 PAUSE 闪烁文字不作为像素恒等断言。原始 payload、截图、清理及模拟手柄范围见 `root/release-r15/mgba-sd-current/`。
 
 ## 当前限制与未完成项
 
