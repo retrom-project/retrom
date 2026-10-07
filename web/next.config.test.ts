@@ -4,7 +4,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import nextConfig, { backendProxyLimits } from "./next.config";
 
-afterEach(() => {vi.unstubAllEnvs(); vi.resetModules();});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
 
 test("keeps the development indicator out of acceptance interactions", async () => {
   vi.stubEnv("NEXT_WEB_E2E", "true");
@@ -15,13 +18,19 @@ test("keeps the development indicator out of acceptance interactions", async () 
 test("retains the development indicator during ordinary development", async () => {
   vi.stubEnv("NEXT_WEB_E2E", "");
   vi.resetModules();
-  expect((await import("./next.config")).default.devIndicators).toEqual({position: "bottom-right"});
+  expect((await import("./next.config")).default.devIndicators).toEqual({
+    position: "bottom-right",
+  });
 });
 
 describe("backend rewrite proxy limits", () => {
   test("does not statically bundle the runtime implementation package", () => {
-    expect(nextConfig.transpilePackages ?? []).not.toContain("@xxxsen/retrom-runtime");
-    const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+    expect(nextConfig.transpilePackages ?? []).not.toContain(
+      "@xxxsen/retrom-runtime",
+    );
+    const manifest = JSON.parse(
+      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+    ) as {
       dependencies?: Record<string, string>;
     };
     expect(manifest.dependencies?.["@xxxsen/retrom-runtime"]).toBeUndefined();
@@ -30,26 +39,23 @@ describe("backend rewrite proxy limits", () => {
   test("forwards the largest supported save-state body without the Next.js defaults truncating or timing it out", () => {
     expect(backendProxyLimits).toEqual({
       bodyBytes: 283_115_520,
-      timeoutMs: 300_000
+      timeoutMs: 300_000,
     });
-    expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(backendProxyLimits.bodyBytes);
-    expect(nextConfig.experimental?.proxyTimeout).toBe(backendProxyLimits.timeoutMs);
-  });
-
-  test("matches the formal save-state transport contract", () => {
-    const contract = readFileSync(resolve(process.cwd(), "../docs/http-api-contract.md"), "utf8");
-
-    expect(contract).toContain("`283115520` bytes（270 MiB）");
-    expect(contract).toContain("本机 PFB 网关、部署 NG 与 Next.js 全局 rewrite 代理层");
-    expect(contract).toContain("300 秒 read/send/backend timeout");
-    expect(contract).toContain("不对 `/api/v1/admin/imports` 或 save-state 增加独立 NG location");
+    expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(
+      backendProxyLimits.bodyBytes,
+    );
+    expect(nextConfig.experimental?.proxyTimeout).toBe(
+      backendProxyLimits.timeoutMs,
+    );
   });
 
   test("applies the limits to the runtime backend rewrite", async () => {
     const rewrites = await nextConfig.rewrites?.();
 
-    expect(rewrites).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: "/runtime/:path*" })
-    ]));
+    expect(rewrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "/runtime/:path*" }),
+      ]),
+    );
   });
 });

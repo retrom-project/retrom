@@ -128,7 +128,6 @@
         "standardGamepad",
         "frameCounter",
         "volume",
-        "discSwitch",
         "nativeSettings",
         "inputFilter",
         "videoModes",
@@ -152,9 +151,6 @@
           "type": "boolean"
         },
         "volume": {
-          "type": "boolean"
-        },
-        "discSwitch": {
           "type": "boolean"
         },
         "nativeSettings": {
@@ -250,7 +246,8 @@
       "required": [
         "writeFormat",
         "readFormats",
-        "maxBytes"
+        "maxBytes",
+        "semantics"
       ],
       "properties": {
         "semantics": {
@@ -258,7 +255,7 @@
             "INSTANT",
             "GAME_SAVE"
           ],
-          "description": "Omission means INSTANT. GAME_SAVE preserves native game save data and may require in-game save/load menus."
+          "description": "Declares immediate runtime checkpoints or native game save data requiring in-game save/load menus."
         },
         "writeFormat": {
           "$ref": "#/$defs/token"

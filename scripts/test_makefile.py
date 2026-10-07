@@ -33,13 +33,6 @@ class MakefileDependencyTests(unittest.TestCase):
             ).stdout
         self.assertIn("go run ./scripts/openapi-bundle", output)
 
-    def test_ui_acceptance_scopes_short_tmpdir_to_chrome_launch(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts/acceptance/ui-case.sh").read_text(encoding="utf-8")
-        browser = script.split("(cd web &&", 1)[1].split('"${playwright_args[@]}")', 1)[0]
-        self.assertIn("TMPDIR=/tmp \\\n", browser)
-        self.assertIn('${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX', script)
-        self.assertNotIn("export TMPDIR=", script)
-
     def test_data_check_covers_preserving_pfb_identity_when_adding_a_core(self) -> None:
         self.assertIn("python3 -m unittest scripts.test_pfb_init", self.dry_run("data-check"))
         self.assertIn("python3 -m unittest scripts.test_pfb_data_reset", self.dry_run("data-check"))
@@ -52,12 +45,6 @@ class MakefileDependencyTests(unittest.TestCase):
         ).stdout
         self.assertIn('--source-root "/tmp/verified-provider-base"', output)
         self.assertNotIn("--source-root", self.dry_run("pfb-data-reset"))
-
-    def test_quality_sentinels_hash_source_without_requiring_a_provider_release(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts/acceptance/quality-sentinels.sh").read_text(encoding="utf-8")
-        self.assertNotIn("make --no-print-directory -C", script)
-        self.assertIn("module.source_entries()", script)
-        self.assertIn("module.sha256(module.canonical", script)
 
     def dry_run(self, target: str) -> str:
         return subprocess.run(
@@ -134,119 +121,11 @@ class MakefileDependencyTests(unittest.TestCase):
         )
         self.assertIn("rpgmaker-smoke/build.py --check", output)
 
-    def test_web_e2e_startup_budget_covers_dependency_validation(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("server_start_timeout_seconds=300", script)
-        self.assertIn("SECONDS + server_start_timeout_seconds", script)
-        self.assertNotIn("deadline=$((SECONDS + 90))", script)
-
-    def test_web_e2e_uses_an_isolated_test_runtime_origin(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(
-            'runtime_origin_template="http://{launchId}.rpg.localhost:${backend_port}"',
-            script,
-        )
-        self.assertIn('RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="true"', script)
-        self.assertIn(
-            'RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$runtime_origin_template"',
-            script,
-        )
-
-    def test_web_e2e_supports_a_focused_playwright_regression_without_changing_the_default(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("playwright_command=(npm run test:e2e)", script)
-        self.assertIn('e2e_grep="${RETROM_E2E_GREP:-}"', script)
-        self.assertIn("unset RETROM_E2E_GREP", script)
-        self.assertIn('playwright_command+=(-- --grep "$e2e_grep")', script)
-        self.assertIn('"${playwright_command[@]}"', script)
-
     def test_web_e2e_collects_only_playwright_spec_files(self) -> None:
         configuration = (
             REPOSITORY_ROOT / "web" / "playwright.config.ts"
         ).read_text(encoding="utf-8")
         self.assertIn("testMatch: /.*\\.spec\\.ts/", configuration)
-
-    def test_runtime_e2e_uses_the_stable_player_frame_and_case_budgets(self) -> None:
-        runtime_cases = (
-            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-runtime-cases.ts"
-        ).read_text(encoding="utf-8")
-        expansion_cases = (
-            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-core-expansion-cases.ts"
-        ).read_text(encoding="utf-8")
-        support = (
-            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-support.ts"
-        ).read_text(encoding="utf-8")
-        ui_cases = (
-            REPOSITORY_ROOT / "web" / "e2e" / "acceptance.spec.ts"
-        ).read_text(encoding="utf-8")
-        stale_selector = 'iframe[title="Retrom EmulatorJS Player"]'
-        self.assertNotIn(stale_selector, runtime_cases)
-        self.assertNotIn(stale_selector, expansion_cases)
-        self.assertNotIn(stale_selector, support)
-        for relative_path in (
-            "emulationstation-import.spec.ts",
-            "immersive.spec.ts",
-            "immersive-library.spec.ts",
-            "mobile.spec.ts",
-            "navigation.spec.ts",
-            "server-import.spec.ts",
-        ):
-            immersive_cases = (REPOSITORY_ROOT / "web" / "e2e" / relative_path).read_text(encoding="utf-8")
-            self.assertNotIn(stale_selector, immersive_cases)
-        self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
-        self.assertIn('test.setTimeout(180_000);\n  const routes = [', ui_cases)
-
-    def test_arcade_acceptance_selects_the_current_launchable_target(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn('/api/v1/admin/runtime-targets', script)
-        self.assertIn('.launchPolicy != "DISABLED"', script)
-        self.assertNotIn("selectedForNewBindings", script)
-
-    def test_arcade_acceptance_uses_the_current_variant_projection(self) -> None:
-        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(".variants[]", script)
-        self.assertIn("| .dependencySnapshot", script)
-        self.assertNotIn("currentRevisionId", script)
-        self.assertNotIn(".revisions[]", script)
-
-    def test_arcade_current_seeder_preserves_provider_identity(self) -> None:
-        script = (
-            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-current-launch.py"
-        ).read_text(encoding="utf-8")
-        self.assertIn("variant.provider_id", script)
-        self.assertIn("#>> '{kind}')='ARCADE'", script)
-        self.assertIn("#>> '{schemaVersion}'))::bigint=1", script)
-        self.assertIn("provider_id,target_id", script)
-        self.assertNotIn("target_contract_sha256", script)
-        self.assertIn("SET LOCAL lock_timeout='30s'", script)
-
-    def test_immersive_seeder_preserves_launch_content_and_provider_identity(self) -> None:
-        script = (
-            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-immersive-library.py"
-        ).read_text(encoding="utf-8")
-        self.assertIn("variant.provider_id", script)
-        self.assertIn("game_files", script)
-        self.assertIn("provider_id,target_id,bundle_sha256", script)
-        self.assertNotIn("game_content_revision_id", script)
-
-    def test_review_queue_seeder_preserves_provider_validation_identity(self) -> None:
-        script = (
-            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-review-queue.py"
-        ).read_text(encoding="utf-8")
-        self.assertIn("provider_id,target_id", script)
-        self.assertNotIn("target_contract_sha256", script)
-        self.assertNotIn("game_compatibility_line", script)
-        self.assertNotIn("core_" + "artifact_id", script)
 
     def test_public_fixture_targets_cover_rpgmaker_outputs(self) -> None:
         self.assertIn("rpgmaker-smoke/build.py", self.dry_run("public-fixtures-generate"))
@@ -258,7 +137,7 @@ class MakefileDependencyTests(unittest.TestCase):
             "scripts/prepare-go.sh",
             "go install mvdan.cc/gofumpt",
             "go install github.com/golangci/golangci-lint",
-            "scripts/dependencies.py prepare",
+            "scripts/dependencies.py prepare-auth",
             "npm ci",
             "scripts/prepare-e2e-browser.sh",
             "gba-smoke/build.py --check",
@@ -329,53 +208,13 @@ class MakefileDependencyTests(unittest.TestCase):
         makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertNotIn("reproduce-rpg-runtime", makefile)
 
-    def test_dev_can_install_an_explicit_candidate_provider_after_web_dependencies(self) -> None:
-        candidate = REPOSITORY_ROOT / ".pfb/candidates/runtime"
-        output = subprocess.run(
-            [
-                "make", "--no-print-directory", "--dry-run", "dev",
-                f"RETROM_PROVIDER_CANDIDATE_ROOT={candidate}",
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-        install_position = output.find("npm ci")
-        activation_position = output.find("runtime_providers.py prepare-candidate")
-        prepare_position = output.find("scripts/dependencies.py prepare")
-        dev_position = output.find("scripts/dev.sh")
-        self.assertTrue(
-            0 <= install_position < activation_position < prepare_position < dev_position,
-            output,
-        )
-        self.assertIn(f'--candidate-root "{candidate}"', output)
-        self.assertIn('--source "candidate"', output)
-        self.assertIn("-u RETROM_PROVIDER_CANDIDATE_ROOT", output)
-        self.assertNotIn("retrom_runtime_dev.py", output)
-        self.assertNotIn("RETROM_RUNTIME_DEV_ROOT", output)
-
-    def test_dev_auto_selects_a_built_local_candidate(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            candidate = Path(directory)
-            marker = candidate / "providers" / "provider-build.json"
-            marker.parent.mkdir(parents=True)
-            marker.write_text("{}\n", encoding="utf-8")
-            environment = os.environ.copy()
-            environment.pop("RETROM_PROVIDER_CANDIDATE_ROOT", None)
-            output = subprocess.run(
-                [
-                    "make", "--no-print-directory", "--dry-run", "dev",
-                    f"RETROM_PROVIDER_CANDIDATE_AUTO_ROOT={candidate}",
-                ],
-                cwd=REPOSITORY_ROOT,
-                check=True,
-                capture_output=True,
-                env=environment,
-                text=True,
-            ).stdout
-        self.assertIn(f'--candidate-root "{candidate}"', output)
-        self.assertIn('--source "candidate"', output)
+    def test_dev_requires_verified_paired_runtime_inputs(self) -> None:
+        output = self.dry_run("dev")
+        self.assertIn("image_input_digest.py --check", output)
+        self.assertIn("prepare_image_inputs.py", output)
+        self.assertIn("--run scripts/dev.sh", output)
+        self.assertNotIn("RETROM_MULTI_DISC", output)
+        self.assertNotIn("runtime_providers.py prepare", output)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")

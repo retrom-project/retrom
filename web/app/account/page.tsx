@@ -1,2 +1,4 @@
-import { AccountSettings } from "@/features/auth/auth-ui";
-export default function AccountPage() { return <AccountSettings />; }
+import { AccountPage } from "@/features/accounts/account-page";
+export default function Page() {
+  return <AccountPage />;
+}

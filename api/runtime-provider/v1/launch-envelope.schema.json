@@ -155,7 +155,10 @@
         "checkpoint",
         "moduleUrl",
         "moduleSha256",
-        "runtimeBaseUrl"
+        "runtimeBaseUrl",
+        "coreId",
+        "coreFingerprint",
+        "romHash"
       ],
       "properties": {
         "providerId": {
@@ -194,32 +197,73 @@
         },
         "runtimeBaseUrl": {
           "$ref": "common.schema.json#/$defs/relativeUrl"
+        },
+        "coreId": {
+          "$ref": "common.schema.json#/$defs/coreIdentity"
+        },
+        "coreFingerprint": {
+          "$ref": "common.schema.json#/$defs/digest"
+        },
+        "romHash": {
+          "$ref": "common.schema.json#/$defs/digest"
         }
       }
     },
     "restore": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "url",
-        "format",
-        "sha256",
-        "sizeBytes"
-      ],
-      "properties": {
-        "url": {
-          "$ref": "common.schema.json#/$defs/relativeUrl"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "format",
+            "sha256",
+            "sizeBytes",
+            "kind"
+          ],
+          "properties": {
+            "url": {
+              "$ref": "common.schema.json#/$defs/relativeUrl"
+            },
+            "format": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "sha256": {
+              "$ref": "common.schema.json#/$defs/digest"
+            },
+            "sizeBytes": {
+              "$ref": "common.schema.json#/$defs/positiveSafeInteger"
+            },
+            "kind": {
+              "const": "HTTP"
+            }
+          }
         },
-        "format": {
-          "$ref": "common.schema.json#/$defs/token"
-        },
-        "sha256": {
-          "$ref": "common.schema.json#/$defs/digest"
-        },
-        "sizeBytes": {
-          "$ref": "common.schema.json#/$defs/positiveSafeInteger"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "sha256",
+            "sizeBytes",
+            "kind"
+          ],
+          "properties": {
+            "format": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "sha256": {
+              "$ref": "common.schema.json#/$defs/digest"
+            },
+            "sizeBytes": {
+              "$ref": "common.schema.json#/$defs/positiveSafeInteger"
+            },
+            "kind": {
+              "const": "LOCAL"
+            }
+          }
         }
-      }
+      ]
     }
   }
 }

@@ -3,7 +3,6 @@ package emulationstationmeta
 import (
 	"encoding/xml"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -155,14 +154,8 @@ func (builder *gameBuilder) consumePlayers(value string) {
 	if value == "" {
 		return
 	}
-	if players, ok := parsePlayerCount(value); ok {
-		builder.game.Metadata.Players = &players
-		return
-	}
-	minimum, maximum, ok := parsePlayerRange(value)
-	if ok && minimum <= maximum {
-		builder.game.Metadata.Players = &maximum
-		builder.warnings.add(Warning{Code: WarningPlayerRange, Field: "players"})
+	if utf8.RuneCountInString(value) <= 80 && !strings.ContainsRune(value, 0) {
+		builder.game.Metadata.Players = &value
 		return
 	}
 	builder.warnings.add(Warning{Code: WarningFieldInvalid, Field: "players"})
@@ -312,29 +305,6 @@ func truncateRunes(value string, maximum int) string {
 		return value
 	}
 	return string(runes[:maximum])
-}
-
-func parsePlayerCount(value string) (int, bool) {
-	if len(value) == 0 || len(value) > 2 {
-		return 0, false
-	}
-	for index := range value {
-		if value[index] < '0' || value[index] > '9' {
-			return 0, false
-		}
-	}
-	parsed, err := strconv.Atoi(value)
-	return parsed, err == nil && parsed >= 1 && parsed <= 64
-}
-
-func parsePlayerRange(value string) (int, int, bool) {
-	if strings.Count(value, "-") != 1 {
-		return 0, 0, false
-	}
-	parts := strings.SplitN(value, "-", 2)
-	minimum, validMinimum := parsePlayerCount(parts[0])
-	maximum, validMaximum := parsePlayerCount(parts[1])
-	return minimum, maximum, validMinimum && validMaximum
 }
 
 func releaseYear(value string) (int, bool) {

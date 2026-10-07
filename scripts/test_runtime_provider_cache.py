@@ -12,8 +12,8 @@ from unittest.mock import Mock
 
 from runtime_provider_cache import default_cache_root
 from runtime_provider_cache_import import import_provider_cache
-from runtime_providers import prepare_production_providers
-from test_runtime_provider_release import release_fixture
+from runtime_inputs import prepare, verify_prepared
+from test_runtime_inputs import paired_fixture
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -36,13 +36,9 @@ def create_checkout(root):
 
 
 def prepared_cache(root):
-    metadata, downloads = release_fixture(root)
-    (root / "release.json").write_text('{"tag":"v1.0.0"}', encoding="utf-8")
-    prepare_production_providers(
-        root / "release.json", root / "source", root / "installed", root / "active.json",
-        lambda url, maximum: downloads[url],
-    )
-    return metadata
+    pin, _, manifest, downloads = paired_fixture(root)
+    prepared = prepare(pin, root / "source", root / "cache", fetch=lambda url, maximum: downloads[url])
+    return prepared, manifest
 
 
 class ProviderCacheLocationTests(unittest.TestCase):
@@ -51,7 +47,7 @@ class ProviderCacheLocationTests(unittest.TestCase):
             ["make", "--no-print-directory", "--dry-run", "runtime-provider-prepare", *arguments],
             cwd=checkout, capture_output=True, text=True, check=True,
         ).stdout
-        command = next(line for line in output.splitlines() if "runtime_providers.py prepare" in line)
+        command = next(line for line in output.splitlines() if "prepare_image_inputs.py" in line)
         tokens = shlex.split(command)
         self.assertEqual(tokens[tokens.index("--cache-root") + 1], str(expected))
 
@@ -84,69 +80,47 @@ class ProviderCacheLocationTests(unittest.TestCase):
 
 
 class ProviderCacheImportTests(unittest.TestCase):
-    def test_docker_provider_stage_can_prepare_from_its_copied_scripts(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            prepared_cache(root)
-            stage = root / "stage"
-            provider_stage = (REPOSITORY_ROOT / "Dockerfile").read_text().split("AS providers\n", 1)[1]
-            for line in provider_stage.split("\nFROM ", 1)[0].splitlines():
-                if not line.startswith("COPY scripts/"):
-                    continue
-                tokens = shlex.split(line)
-                if len(tokens) == 3 and tokens[0] == "COPY" and tokens[1].startswith("scripts/"):
-                    destination = stage / tokens[2]
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(REPOSITORY_ROOT / tokens[1], destination)
-            subprocess.run([
-                sys.executable, str(stage / "scripts/runtime_providers.py"), "prepare",
-                "--release-path", str(root / "release.json"), "--cache-root", str(root / "source"),
-                "--installed-root", str(stage / "installed"), "--active-path", str(stage / "active.json"),
-            ], cwd=stage, check=True, capture_output=True)
-            self.assertTrue((stage / "active.json").is_file())
+    def test_docker_consumes_explicit_verified_provider_context(self):
+        dockerfile = (REPOSITORY_ROOT / "Dockerfile").read_text()
+        self.assertIn("COPY --from=providers /active.json", dockerfile)
+        self.assertIn("COPY --from=providers /installed", dockerfile)
+        self.assertIn("COPY --from=runtime-tool / /opt/retrom/runtime-tool/", dockerfile)
+        self.assertNotIn("prepare_image_inputs.py", dockerfile)
+        self.assertNotIn("COPY data/runtime-providers/release.json", dockerfile)
 
     def test_import_is_idempotent_and_supports_an_offline_consumer(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            metadata = prepared_cache(root)
-            original = {path.relative_to(root / "source"): path.read_bytes()
-                        for path in (root / "source").rglob("*") if path.is_file()}
+            source, manifest = prepared_cache(root)
+            original = {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()}
             for _ in range(2):
-                result = import_provider_cache(root / "source", root / "shared")
-                self.assertEqual((result["releases"], result["archives"]), (1, 2))
+                result = import_provider_cache(source, root / "shared")
+                self.assertEqual((result["inputSets"], result["archives"]), (1, 3))
             offline = Mock(side_effect=AssertionError("must use imported downloads"))
-            active = prepare_production_providers(
-                root / "release.json", root / "shared", root / "second/installed",
-                root / "second/active.json", offline,
-            )
-            self.assertEqual(active["release"], metadata["release"])
+            prepared = prepare(root / "runtime-inputs.json", root / "second", root / "shared", fetch=offline)
+            verify_prepared(prepared, manifest)
             offline.assert_not_called()
             for relative, contents in original.items():
-                self.assertEqual((root / "source" / relative).read_bytes(), contents)
+                self.assertEqual((source / relative).read_bytes(), contents)
 
     def test_invalid_source_archive_is_not_published(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            prepared_cache(root)
-            for archive in (root / "source").glob("*/*.tar.gz"):
-                archive.write_bytes(b"corrupt")
-            with self.assertRaisesRegex(ValueError, "PROVIDER_BUNDLE_DIGEST_INVALID"):
-                import_provider_cache(root / "source", root / "shared")
-            self.assertEqual(list((root / "shared").glob("*/*.tar.gz")), [])
+            source, _ = prepared_cache(root)
+            next((source / "archives").glob("*.tar.gz")).write_bytes(b"corrupt")
+            with self.assertRaisesRegex(ValueError, "ARTIFACT_DIGEST_INVALID"):
+                import_provider_cache(source, root / "shared")
+            self.assertEqual(list((root / "shared").rglob("*.tar.gz")), [])
 
-    def test_conflicting_release_metadata_is_not_replaced(self):
+    def test_cross_source_descriptor_is_not_published(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            metadata = prepared_cache(root)
-            import_provider_cache(root / "source", root / "shared")
-            descriptor = root / "shared/releases/v1.0.0/provider-release.json"
-            original = descriptor.read_bytes()
-            modified = copy.deepcopy(metadata)
-            modified["release"]["commit"] = "b" * 40
-            (root / "source/releases/v1.0.0/provider-release.json").write_text(json.dumps(modified))
-            with self.assertRaisesRegex(ValueError, "PROVIDER_CACHE_METADATA_CONFLICT"):
-                import_provider_cache(root / "source", root / "shared")
-            self.assertEqual(descriptor.read_bytes(), original)
+            source, manifest = prepared_cache(root)
+            manifest["sourceTreeSha256"] = "b" * 64
+            (source / "runtime-inputs.json").write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "SOURCE_MISMATCH"):
+                import_provider_cache(source, root / "shared")
+            self.assertFalse((root / "shared").exists())
 
 
 if __name__ == "__main__":

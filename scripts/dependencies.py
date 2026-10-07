@@ -26,9 +26,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = Path(os.environ.get("RETROM_DEPENDENCY_ROOT", REPOSITORY_ROOT / "data")).resolve()
 AUTH_ROOT = DATA_ROOT / "auth/password-blocklists/v1"
 AUTH_MANIFEST_PATH = AUTH_ROOT / "manifest.json"
-TARGET_CATALOG_ROOT = DATA_ROOT / "runtime-target-bindings/v1"
-TARGET_CATALOG_PATH = TARGET_CATALOG_ROOT / "catalog.json"
-TARGET_CATALOG_SCHEMA_PATH = TARGET_CATALOG_ROOT / "schema.json"
 MAME_DAT_ROOT = DATA_ROOT / "dat/mame-current/v0.59.1"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -188,9 +185,6 @@ def load_mame_manifest() -> dict[str, Any]:
             provider["tag"] != "v0.59.1" or provider["commit"] != "745d9ecabc7bdd0e934e1c69737399ebe6deef9b" or \
             provider["provider_id"] != "retrom-runtime" or provider["target_id"] != "mame-arcade":
         raise CheckError("MAME_DAT_PROVIDER_INVALID")
-    release = load_json(DATA_ROOT / "runtime-providers/release.json")
-    if release != {"tag": provider["tag"]}:
-        raise CheckError("MAME_DAT_PROVIDER_PIN_MISMATCH")
     if not isinstance(source, dict) or set(source) != {"repository", "tag", "commit", "archive"} or \
             source["repository"] != "https://github.com/retrom-project/mame" or \
             source["tag"] != "retrom-core-gf65d5ba9bc42-r2" or source["commit"] != "919816e409260a759a82f65b10792f6938001894":
@@ -469,10 +463,6 @@ def image_export_entries(
     for key in ("passwords", "license"):
         relative = safe_relative_path(auth_manifest[key]["output_relative_path"], "AUTH_BLOCKLIST_PATH_INVALID")
         add(AUTH_ROOT / relative, f"auth/password-blocklists/v1/{relative}")
-    add(TARGET_CATALOG_PATH, "runtime-target-bindings/v1/catalog.json")
-    add(TARGET_CATALOG_SCHEMA_PATH, "runtime-target-bindings/v1/schema.json")
-    if mame_manifest is not None:
-        add(DATA_ROOT / "runtime-providers/release.json", "runtime-providers/release.json")
     return result
 
 
@@ -510,13 +500,19 @@ def export_image_dependencies(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("data-check", "prepare", "deps-check", "image-export"))
+    parser.add_argument("action", choices=("data-check", "prepare", "prepare-auth", "deps-check", "image-export"))
     parser.add_argument("--versions", required=True)
     parser.add_argument("--output")
     args = parser.parse_args()
     try:
         if (args.action == "image-export") != (args.output is not None):
             raise CheckError("DEPENDENCY_IMAGE_EXPORT_OUTPUT_INVALID")
+        if args.action == "prepare-auth":
+            auth_manifest = load_auth_manifest()
+            prepare_auth(auth_manifest)
+            check_auth_payload(auth_manifest)
+            print("prepare-auth: ok")
+            return 0
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
         auth_manifest = load_auth_manifest()

@@ -9,18 +9,51 @@ describe("ConfirmDialog", () => {
   it("retains modal focus through busy, failure, escaped focus and cancellation", async () => {
     const user = userEvent.setup();
     const cancel = vi.fn();
-    const view = render(<><button>背景操作</button><ConfirmDialog open title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    const view = render(
+      <>
+        <button>背景操作</button>
+        <ConfirmDialog
+          open
+          title="删除标签"
+          onCancel={cancel}
+          onConfirm={() => undefined}
+        />
+      </>,
+    );
     const confirm = screen.getByRole("button", { name: "确认" });
     confirm.focus();
-    view.rerender(<><button>背景操作</button><ConfirmDialog open busy title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    view.rerender(
+      <>
+        <button>背景操作</button>
+        <ConfirmDialog
+          open
+          busy
+          title="删除标签"
+          onCancel={cancel}
+          onConfirm={() => undefined}
+        />
+      </>,
+    );
     expect(screen.getByRole("alertdialog")).toHaveFocus();
     await user.keyboard("{Escape}{Tab}");
     expect(cancel).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toHaveFocus();
-    view.rerender(<><button>背景操作</button><ConfirmDialog open title="删除标签" onCancel={cancel} onConfirm={() => undefined} /></>);
+    view.rerender(
+      <>
+        <button>背景操作</button>
+        <ConfirmDialog
+          open
+          title="删除标签"
+          onCancel={cancel}
+          onConfirm={() => undefined}
+        />
+      </>,
+    );
     expect(confirm).toHaveFocus();
     screen.getByRole("button", { name: "背景操作" }).focus();
-    expect(screen.getByRole("alertdialog")).toContainElement(document.activeElement as HTMLElement);
+    expect(screen.getByRole("alertdialog")).toContainElement(
+      document.activeElement as HTMLElement,
+    );
     await user.keyboard("{Escape}");
     expect(cancel).toHaveBeenCalledOnce();
   });
@@ -28,7 +61,18 @@ describe("ConfirmDialog", () => {
   it("focuses the safe action, traps keyboard focus, and cancels with Escape", async () => {
     const user = userEvent.setup();
     const cancel = vi.fn();
-    render(<ConfirmDialog open title="确认更改？" secondaryLabel="稍后处理" onCancel={cancel} onSecondary={() => undefined} onConfirm={() => undefined}>影响摘要</ConfirmDialog>);
+    render(
+      <ConfirmDialog
+        open
+        title="确认更改？"
+        secondaryLabel="稍后处理"
+        onCancel={cancel}
+        onSecondary={() => undefined}
+        onConfirm={() => undefined}
+      >
+        影响摘要
+      </ConfirmDialog>,
+    );
 
     expect(screen.getByRole("button", { name: "取消" })).toHaveFocus();
     await user.tab({ shift: true });
@@ -55,23 +99,51 @@ describe("ConfirmDialog", () => {
     );
 
     const buttons = screen.getAllByRole("button");
-    expect(buttons.map((button) => button.textContent)).toEqual(["正在创建…", "取消", "确认"]);
-    expect(buttons.every((button) => button.hasAttribute("disabled"))).toBe(true);
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "正在创建…",
+      "取消",
+      "确认",
+    ]);
+    expect(buttons.every((button) => button.hasAttribute("disabled"))).toBe(
+      true,
+    );
     await user.keyboard("{Escape}");
     expect(cancel).not.toHaveBeenCalled();
     expect(leading).not.toHaveBeenCalled();
   });
 
   it("keeps focus inside a dialog whose decisions are neutral-gate locked", () => {
-    render(<ConfirmDialog open interactionDisabled title="等待中立输入" onCancel={() => undefined} onConfirm={() => undefined} />);
-    expect(screen.getByRole("alertdialog", { name: "等待中立输入" })).toHaveFocus();
-    expect(screen.getAllByRole("button").every((button) => button.hasAttribute("disabled"))).toBe(true);
+    render(
+      <ConfirmDialog
+        open
+        interactionDisabled
+        title="等待中立输入"
+        onCancel={() => undefined}
+        onConfirm={() => undefined}
+      />,
+    );
+    expect(
+      screen.getByRole("alertdialog", { name: "等待中立输入" }),
+    ).toHaveFocus();
+    expect(
+      screen
+        .getAllByRole("button")
+        .every((button) => button.hasAttribute("disabled")),
+    ).toBe(true);
   });
 
   it("can portal the viewport layer out of a transformed card", () => {
-    render(<article data-testid="card" style={{ transform: "translateY(-3px)" }}>
-      <ConfirmDialog open portalToBody title="取消收藏？" onCancel={() => undefined} onConfirm={() => undefined} />
-    </article>);
+    render(
+      <article data-testid="card" style={{ transform: "translateY(-3px)" }}>
+        <ConfirmDialog
+          open
+          portalToBody
+          title="取消收藏？"
+          onCancel={() => undefined}
+          onConfirm={() => undefined}
+        />
+      </article>,
+    );
 
     const card = screen.getByTestId("card");
     const dialog = screen.getByRole("alertdialog", { name: "取消收藏？" });

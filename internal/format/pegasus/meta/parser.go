@@ -41,14 +41,14 @@ type AssetReferences struct {
 }
 
 type Metadata struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Developer     string `json:"developer"`
-	Publisher     string `json:"publisher"`
-	Genre         string `json:"genre"`
-	Players       *int   `json:"players"`
-	ReleaseYear   *int   `json:"releaseYear"`
+	SchemaVersion int     `json:"schemaVersion"`
+	Title         string  `json:"title"`
+	Description   string  `json:"description"`
+	Developer     string  `json:"developer"`
+	Publisher     string  `json:"publisher"`
+	Genre         string  `json:"genre"`
+	Players       *string `json:"players"`
+	ReleaseYear   *int    `json:"releaseYear"`
 }
 
 type Game struct {
@@ -329,9 +329,8 @@ func projectPlayers(fields []field, result *Game) {
 	if players == "" {
 		return
 	}
-	parsed, err := strconv.Atoi(players)
-	if err == nil && parsed >= 1 && parsed <= 64 && strconv.Itoa(parsed) == players {
-		result.Metadata.Players = &parsed
+	if validBoundedText(players, 80, false) {
+		result.Metadata.Players = &players
 		return
 	}
 	result.Warnings = append(result.Warnings, Warning{Code: "FIELD_VALUE_INVALID", Field: "players"})

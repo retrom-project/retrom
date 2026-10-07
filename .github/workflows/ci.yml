@@ -229,19 +229,23 @@ jobs:
         run: |
           scripts/prepare-e2e-fonts.sh
           echo "FONTCONFIG_FILE=$PWD/.cache/tools/e2e-fonts/fonts.conf" >> "$GITHUB_ENV"
+      - name: Materialize repository-pinned runtime inputs
+        env:
+          RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}
+        run: python3 scripts/prepare_image_inputs.py
       - name: Prepare the development application before acceptance timing
-        run: make build web-install runtime-provider-prepare-auto
+        run: make build web-install
       - name: Verify UI consistency in the product browser
         run: |
           make prepare-e2e-browser
           make acceptance-prepare
-          make acceptance-case CASE=ACC-UI-011
+          make acceptance-case CASE=ACC-RF-BROWSER
       - name: Upload UI review evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ui-consistency-evidence
-          path: .artifacts/acceptance/*/cases/acc-ui-011/
+          path: .artifacts/acceptance/*/cases/acc-rf-browser/
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14

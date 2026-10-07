@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from runtime_providers import prepare_production_providers
-from test_runtime_provider_release import release_fixture
+from runtime_inputs import prepare
+from test_runtime_inputs import paired_fixture
 
 
 class RuntimeProviderPermissionsTest(unittest.TestCase):
@@ -16,21 +16,15 @@ class RuntimeProviderPermissionsTest(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
-                _, downloads = release_fixture(root)
-                config = root / "release.json"
-                config.write_text('{"tag":"v1.0.0"}')
-                installed, active = root / "installed", root / "active.json"
+                pin, _, _, downloads = paired_fixture(root)
                 fetch = Mock(side_effect=lambda url, maximum: downloads[url])
-                prepare_production_providers(config, root / "cache", installed, active, fetch)
-                self.assert_public_readable(active, installed)
-                original = active.read_bytes()
-                active.chmod(0o600)
-                for bundle in installed.glob("*/*"):
-                    bundle.chmod(0o700)
+                first = prepare(pin, root / "first", root / "cache", fetch=fetch)
+                self.assertEqual(first.stat().st_mode & 0o777, 0o755)
+                self.assert_public_readable(first / "providers/active.json", first / "providers/installed")
                 offline = Mock(side_effect=AssertionError("must reuse verified cache"))
-                prepare_production_providers(config, root / "cache", installed, active, offline)
-                self.assertEqual(active.read_bytes(), original)
-                self.assert_public_readable(active, installed)
+                second = prepare(pin, root / "second", root / "cache", fetch=offline)
+                self.assertEqual((second / "providers/active.json").read_bytes(), (first / "providers/active.json").read_bytes())
+                self.assert_public_readable(second / "providers/active.json", second / "providers/installed")
                 offline.assert_not_called()
         finally:
             os.umask(previous_umask)

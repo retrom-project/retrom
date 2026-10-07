@@ -1,183 +1,166 @@
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { initialPlayerOrientationState } from "./orientation";
-import {PlayProgressClock} from "./play-progress-clock";
-import type {LaunchEnvelopeV1} from "./runtime/contract";
-import {
-  createSaveForm,
-  usePlayerSession,
-  waitForSaveUploadPresentationTurn,
-  type PlayerSessionParams,
-} from "./player-session";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { StrictMode } from "react";
+import { act, render, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import type {
+  PlayerRuntimeV1,
+  RuntimeEventV1,
+  RuntimeStateV1,
+} from "./runtime/contract";
+import { loadProviderRuntime } from "./runtime/provider-dispatcher";
+import { runFixture, runtimeFixture } from "./player-test-fixture";
+import { usePlayerSession } from "./use-player-session";
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
+vi.mock("./runtime/provider-dispatcher", () => ({
+  loadProviderRuntime: vi.fn(),
+}));
+vi.mock("@/lib/api/client", () => ({
+  api: { POST: vi.fn(async () => ({ data: {} })) },
+}));
+beforeEach(() => vi.clearAllMocks());
 
-describe("Player page exit protection", () => {
-  it("does not start queued saves after the session is revoked", async () => {
-    const params = sessionParams();
-    const uploads = new AbortController();
-    params.sessionSignal = uploads.signal;
-    let release!: () => void;
-    params.saveUploadQueue.current = new Promise(resolve => {release = resolve;});
-    const request = vi.spyOn(globalThis, "fetch");
-    const {result} = renderHook(() => usePlayerSession(params));
-    const pending = result.current.uploadManualState({
-      checkpoint: {format: "test", bytes: Uint8Array.of(1), metadata: {}}, screenshot: new Blob(),
-    });
-    uploads.abort();
-    release();
-    await expect(pending).resolves.toBe(false);
-    expect(request).not.toHaveBeenCalled();
-    expect(params.showToast).not.toHaveBeenCalled();
+function runningRuntime() {
+  let state: RuntimeStateV1 = "CREATED";
+  const instance = runtimeFixture();
+  instance.getState = () => state;
+  instance.mount = vi.fn(async () => {
+    state = "RUNNING";
   });
-  it("closes a review preview without an event body after queued saves", async () => {
-    const order: string[] = [];
-    let saved!: () => void;
-    vi.stubGlobal("opener", {});
-    vi.spyOn(window, "close").mockImplementation(() => {order.push("close"); vi.stubGlobal("closed", true);});
-    const finish = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {order.push("finish"); return new Response(null, {status: 204});});
-    const params = sessionParams();
-    params.envelope.current = {session: {purpose: "REVIEW_PREVIEW"}} as LaunchEnvelopeV1;
-    params.started.current = true;
-    params.saveUploadQueue.current = new Promise<void>((resolve) => {saved = resolve;});
-    const {result} = renderHook(() => usePlayerSession(params));
-    const exiting = result.current.exit();
-    await Promise.resolve();
-    expect(order).toEqual([]);
-    saved();
-    await act(() => exiting);
-    expect(order).toEqual(["finish", "close"]);
-    expect(finish).toHaveBeenCalledWith("/runtime/launches/launch-1/finish", {method: "POST", credentials: "same-origin", keepalive: true});
-    expect(params.finishing.current).toBe(true);
+  instance.exit = vi.fn(async () => {
+    state = "EXITED";
   });
-  it("blocks accidental unload only while a started session remains active", () => {
-    const params = sessionParams();
-    const { unmount } = renderHook(() => usePlayerSession(params));
-
-    expect(dispatchBeforeUnload()).toBe(true);
-    params.started.current = true;
-    expect(dispatchBeforeUnload()).toBe(false);
-    params.finishing.current = true;
-    expect(dispatchBeforeUnload()).toBe(true);
-
-    params.finishing.current = false;
-    unmount();
-    expect(dispatchBeforeUnload()).toBe(true);
-  });
-
-  it("does not report progress before the game starts", async () => {
-    const fetchEvent = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
-    const params = sessionParams();
-    const { result } = renderHook(() => usePlayerSession(params));
-
-    await act(() => result.current.reportProgress());
-
-    expect(fetchEvent).not.toHaveBeenCalled();
-  });
-
-  it("sends cumulative progress independently of a failed prior request", async () => {
-    const response = new Response("{}", {status: 200});
-    const fetchEvent = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("service restart"))
-      .mockResolvedValueOnce(response);
-    const params = sessionParams();
-    params.started.current = true;
-    params.envelope.current = {session: {purpose: "PRODUCT"}} as LaunchEnvelopeV1;
-    params.progressClock.current.start(0, true);
-    const { result } = renderHook(() => usePlayerSession(params));
-
-    await act(() => result.current.reportProgress());
-    await act(() => result.current.reportProgress());
-    expect(fetchEvent).toHaveBeenCalledTimes(2);
-    expect(fetchEvent.mock.calls[0]?.[0]).toBe("/runtime/launches/launch-1/progress");
-    expect(JSON.parse(String(fetchEvent.mock.calls[1]?.[1]?.body))).toHaveProperty("activeDurationMs");
-    expect(response.bodyUsed).toBe(true);
-  });
-
-  it("clears the progress timer when exit begins", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
-    const clearProgressTimer = vi.spyOn(window, "clearInterval");
-    const params = sessionParams();
-    params.started.current = true;
-    params.progressTimer.current = 42;
-    const { result } = renderHook(() => usePlayerSession(params));
-
-    await act(() => result.current.exitStrict());
-
-    expect(clearProgressTimer).toHaveBeenCalledWith(42);
-    expect(params.progressTimer.current).toBeNull();
-  });
-
-  it("returns through the immersive route after a core exit even when finish reporting fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
-    const params = sessionParams();
-    params.started.current = true;
-    const { result } = renderHook(() => usePlayerSession(params));
-
-    await act(() => result.current.exitImmersiveAfterRuntimeExit());
-
-    expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
-  });
-
-  it("navigates on manual immersive exit when progress reporting fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
-    const params = sessionParams();
-    params.started.current = true;
-    const { result } = renderHook(() => usePlayerSession(params));
-
-    await act(() => result.current.exitStrict());
-
-    expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
-  });
-});
-
-describe("manual save multipart", () => {
-  it("does not wait for a throttled animation frame before starting an upload", async () => {
-    vi.useFakeTimers();
-    const animationFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
-    const waiting = waitForSaveUploadPresentationTurn();
-
-    await vi.runAllTimersAsync();
-
-    await expect(waiting).resolves.toBeUndefined();
-    expect(animationFrame).not.toHaveBeenCalled();
-  });
-
-  it("keeps a valid checkpoint when its best-effort screenshot exceeds the server limit", () => {
-    const form = createSaveForm({
-      screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: "image/png" }),
-      checkpoint: {format: "fixture-v1", bytes: Uint8Array.of(1, 2, 3), metadata: null},
-    }, {screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {type: "image/png"}), format: "png"}, undefined);
-
-    expect(form.get("payload")).toBeInstanceOf(Blob);
-    expect(form.get("screenshot")).toBeNull();
-  });
-});
-
-function dispatchBeforeUnload() {
-  return window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+  return instance;
 }
 
-function sessionParams(): PlayerSessionParams {
-  return {
-    launchId: "launch-1", sessionSignal: new AbortController().signal,
-    runtime: {current: null},
-    envelope: {current: null},
-    progressClock: {current: new PlayProgressClock()},
-    started: { current: false },
-    finishing: { current: false },
-    progressTimer: { current: null },
-    saveUploadQueue: { current: Promise.resolve() },
-    orientationStateRef: { current: initialPlayerOrientationState },
-    returnTo: { current: "/library" },
-    replaceImmersiveRoute: vi.fn(),
-    setOrientationState: vi.fn(),
-    setSaveUploadProgress: vi.fn(),
-    setSyncText: vi.fn(),
-    setSyncTone: vi.fn(),
-    showToast: vi.fn(),
+function sessionRun() {
+  const run = runFixture();
+  run.envelope = JSON.parse(
+    readFileSync(
+      resolve(
+        process.cwd(),
+        "../api/runtime-provider/v1/fixtures/valid/checkpoint-restore.json",
+      ),
+      "utf8",
+    ),
+  ) as typeof run.envelope;
+  return run;
+}
+
+type SessionProps = {
+  run: ReturnType<typeof runFixture>;
+  userId: string;
+  onSnapshot: Parameters<typeof usePlayerSession>[4];
+  onNativeChange?: Parameters<typeof usePlayerSession>[1];
+};
+function Session({
+  run,
+  userId,
+  onSnapshot,
+  onNativeChange = () => undefined,
+}: SessionProps) {
+  const { mount, state } = usePlayerSession(
+    run,
+    onNativeChange,
+    () => undefined,
+    null,
+    onSnapshot,
+    userId,
+    "ON_DEMAND",
+  );
+  return <div ref={mount}>{state}</div>;
+}
+
+it("keeps the mounted runtime when callbacks and runtime events rerender the player", async () => {
+  const instance = runningRuntime();
+  let receive: (event: RuntimeEventV1) => void = () => undefined;
+  instance.subscribe = (listener) => {
+    receive = listener;
+    return () => undefined;
   };
-}
+  vi.mocked(loadProviderRuntime).mockResolvedValue(instance);
+  const run = sessionRun();
+  const onSnapshot = vi.fn(async () => undefined);
+  const view = render(
+    <Session run={run} userId="owner-a" onSnapshot={onSnapshot} />,
+  );
+  await waitFor(() => expect(instance.mount).toHaveBeenCalledOnce());
+  const newerCallback = vi.fn();
+  view.rerender(
+    <Session
+      run={run}
+      userId="owner-a"
+      onSnapshot={onSnapshot}
+      onNativeChange={newerCallback}
+    />,
+  );
+  act(() =>
+    receive({
+      type: "CHECKPOINT_AVAILABILITY_CHANGED",
+      availability: {
+        available: true,
+        reason: null,
+        revision: "newer",
+      },
+    }),
+  );
+  expect(newerCallback).toHaveBeenCalledWith(instance);
+  expect(loadProviderRuntime).toHaveBeenCalledOnce();
+  expect(instance.exit).not.toHaveBeenCalled();
+  view.unmount();
+  await waitFor(() => expect(instance.exit).toHaveBeenCalledOnce());
+});
+
+it("disposes a late StrictMode provider without mounting over the active instance", async () => {
+  const late = runningRuntime();
+  const active = runningRuntime();
+  let finish: (runtime: PlayerRuntimeV1) => void = () => undefined;
+  vi.mocked(loadProviderRuntime)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolveRuntime) => {
+          finish = resolveRuntime;
+        }),
+    )
+    .mockResolvedValueOnce(active);
+  const view = render(
+    <StrictMode>
+      <Session
+        run={sessionRun()}
+        userId="owner-a"
+        onSnapshot={async () => undefined}
+      />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(active.mount).toHaveBeenCalledOnce());
+  await act(async () => {
+    finish(late);
+  });
+  expect(late.mount).not.toHaveBeenCalled();
+  expect(late.exit).toHaveBeenCalledOnce();
+  expect(active.getState()).toBe("RUNNING");
+  view.unmount();
+  await waitFor(() => expect(active.exit).toHaveBeenCalledOnce());
+});
+
+it("exports teardown through the original owner's callback before a new owner mounts", async () => {
+  const first = runningRuntime();
+  const next = runningRuntime();
+  vi.mocked(loadProviderRuntime)
+    .mockResolvedValueOnce(first)
+    .mockResolvedValueOnce(next);
+  const run = sessionRun();
+  const originalOwner = vi.fn(async () => undefined);
+  const otherOwner = vi.fn(async () => undefined);
+  const view = render(
+    <Session run={run} userId="owner-a" onSnapshot={originalOwner} />,
+  );
+  await waitFor(() => expect(first.mount).toHaveBeenCalledOnce());
+  view.rerender(<Session run={run} userId="owner-b" onSnapshot={otherOwner} />);
+  await waitFor(() => expect(next.mount).toHaveBeenCalledOnce());
+  expect(originalOwner).toHaveBeenCalledOnce();
+  expect(otherOwner).not.toHaveBeenCalled();
+  expect(first.exit).toHaveBeenCalledOnce();
+  view.unmount();
+  await waitFor(() => expect(next.exit).toHaveBeenCalledOnce());
+});

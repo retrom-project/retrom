@@ -1,172 +1,135 @@
 import type {
   LaunchEnvelopeV1,
-  RestoreDescriptorV1,
-  RuntimeFrameV1,
   RuntimeHostV1,
-  RuntimeResourceV1,
+  RuntimeWebResourceV1,
 } from "./contract";
-import {playerRuntimeError} from "./errors";
-
-export type RuntimeHostOptions = {
-  contentLoading?: RuntimeHostV1["contentLoading"];
-  fetcher?: typeof fetch;
-  report?: (input: {code: string; message: string}) => void;
-  sha256?: (bytes: Uint8Array) => Promise<string>;
-};
-
-const sandboxTokens = ["allow-downloads", "allow-pointer-lock", "allow-same-origin", "allow-scripts"];
-const frameViewportLimit = {width: 1920, height: 1080};
-
+import { prepareIsolatedFrame } from "./isolated-frame";
+import { prepareBlankFrame } from "./blank-frame";
+import type { ContentLoading } from "../content-loading";
 export function createRuntimeHost(
   envelope: LaunchEnvelopeV1,
   signal: AbortSignal,
-  options: RuntimeHostOptions = {},
+  localRestore: Uint8Array | null = null,
+  contentLoading: ContentLoading = "ON_DEMAND",
 ): RuntimeHostV1 {
-  const fetcher = options.fetcher ?? fetch;
   const frames = new Set<HTMLIFrameElement>();
-  const frameObservers = new Set<ResizeObserver>();
-  const cleanups = new Set<string>();
-  let cleanupPromise: Promise<void> | null = null;
-  const cleanup = () => {
-    if (cleanupPromise) {return cleanupPromise;}
-    for (const observer of frameObservers) {observer.disconnect();}
-    frameObservers.clear();
-    for (const frame of frames) {frame.remove();}
-    frames.clear();
-    const cleanupUrls = [...cleanups];
-    cleanups.clear();
-    cleanupPromise = Promise.all([
-      ...cleanupUrls.map((url) => fetcher(url, {
-        credentials: "include", keepalive: true, method: "POST",
-      }).then(() => undefined).catch(() => undefined)),
-    ]).then(() => undefined);
-    return cleanupPromise;
-  };
-  signal.addEventListener("abort", () => {void cleanup();}, {once: true});
-
+  signal.addEventListener(
+    "abort",
+    () => {
+      for (const frame of frames) {
+        frame.remove();
+      }
+      frames.clear();
+    },
+    { once: true },
+  );
   return {
     signal,
-    contentLoading: options.contentLoading ?? "ON_DEMAND",
+    contentLoading:
+      envelope.runtime.capabilities.contentLoading === "PRELOAD_ONLY"
+        ? "PRELOAD"
+        : contentLoading,
     async mountFrame(target, input) {
-      if (signal.aborted || !target.isConnected && target.ownerDocument !== document) {frameError();}
-      const source = frameSource(envelope, input.resourceRole);
+      if (signal.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
       const frame = document.createElement("iframe");
       frame.className = "player-frame";
-      frame.referrerPolicy = "no-referrer";
       frame.allow = "autoplay; fullscreen; gamepad";
-      frame.setAttribute("sandbox", sandboxTokens.join(" "));
-      const refreshViewport = () => fitFrameViewport(frame, target);
-      refreshViewport();
-      const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(refreshViewport);
-      observer?.observe(target);
-      frame.src = source.url;
-      target.append(frame);
-      const contentWindow = frame.contentWindow;
-      if (!contentWindow) {observer?.disconnect(); frame.remove(); frameError();}
+      frame.referrerPolicy = "no-referrer";
+      frame.setAttribute(
+        "sandbox",
+        "allow-scripts allow-same-origin allow-pointer-lock",
+      );
       frames.add(frame);
-      if (observer) {frameObservers.add(observer);}
-      if (source.cleanupUrl) {cleanups.add(source.cleanupUrl);}
-      return {contentWindow, element: frame, origin: source.origin} satisfies RuntimeFrameV1;
+      if (
+        input.resourceRole === null &&
+        envelope.runtime.capabilities.frameMode === "SAME_ORIGIN_BLANK"
+      ) {
+        await prepareBlankFrame(frame, target, signal);
+      } else {
+        target.append(frame);
+        const resource = envelope.resources.find(
+          (item) => item.role === input.resourceRole && item.ordinal === 0,
+        );
+        if (
+          !resource ||
+          !isWebResource(resource) ||
+          resource.origin === location.origin
+        ) {
+          throw new Error("PLAYER_RUNTIME_FRAME_INVALID");
+        }
+        await prepareIsolatedFrame(frame, envelope, resource, signal);
+      }
+      if (!frame.contentWindow) {
+        throw new Error("PLAYER_RUNTIME_FRAME_INVALID");
+      }
+      return {
+        element: frame,
+        contentWindow: frame.contentWindow,
+        origin:
+          input.resourceRole === null
+            ? location.origin
+            : new URL(frame.src).origin,
+      };
     },
     async loadRestore(descriptor) {
-      if (descriptor === null) {return null;}
-      validateRestore(envelope, descriptor);
-      let response: Response;
-      try {
-        response = await fetcher(descriptor.url, {
-          cache: "no-store", credentials: "same-origin", signal,
-        });
-      } catch {restoreError();}
-      if (!response.ok) {restoreError();}
-      const contentLength = response.headers.get("content-length");
-      if (contentLength !== null && Number(contentLength) !== descriptor.sizeBytes) {restoreError();}
+      if (!descriptor) {
+        return null;
+      }
+      if (descriptor.kind === "LOCAL") {
+        if (
+          !localRestore ||
+          localRestore.length !== descriptor.sizeBytes ||
+          (await digest(localRestore)) !== descriptor.sha256
+        ) {
+          throw new Error("PLAYER_RUNTIME_RESTORE_INVALID");
+        }
+        return Uint8Array.from(localRestore);
+      }
+      if (
+        !descriptor.url.startsWith("/api/v1/saves/") ||
+        !envelope.runtime.checkpoint?.readFormats.includes(descriptor.format) ||
+        descriptor.sizeBytes > envelope.runtime.checkpoint.maxBytes
+      ) {
+        throw new Error("PLAYER_RUNTIME_RESTORE_INVALID");
+      }
+      const response = await fetch(descriptor.url, {
+        credentials: "same-origin",
+        signal,
+        cache: "no-store",
+        redirect: "error",
+      });
+      if (!response.ok) {
+        throw new Error("PLAYER_RUNTIME_RESTORE_UNAVAILABLE");
+      }
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.byteLength !== descriptor.sizeBytes) {restoreError();}
-      const actual = await (options.sha256 ?? digestSha256)(bytes);
-      if (actual !== descriptor.sha256) {restoreError();}
+      if (
+        bytes.length !== descriptor.sizeBytes ||
+        (await digest(bytes)) !== descriptor.sha256
+      ) {
+        throw new Error("PLAYER_RUNTIME_RESTORE_INVALID");
+      }
       return bytes;
     },
     reportDiagnostic(input) {
-      if (!diagnostic(input)) {throw playerRuntimeError("PLAYER_RUNTIME_DIAGNOSTIC_INVALID");}
-      if (options.report) {options.report(input); return;}
-      window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", {detail: input}));
+      window.dispatchEvent(
+        new CustomEvent("retrom:runtime-diagnostic", { detail: input }),
+      );
     },
   };
 }
-
-function fitFrameViewport(frame: HTMLIFrameElement, target: HTMLElement) {
-  const {clientWidth: width, clientHeight: height} = target;
-  if (width < 1 || height < 1) {return;}
-  const reduction = Math.max(1, width / frameViewportLimit.width, height / frameViewportLimit.height);
-  const properties = ["--runtime-frame-width", "--runtime-frame-height", "--runtime-frame-transform"] as const;
-  if (reduction === 1) {
-    for (const property of properties) {frame.style.removeProperty(property);}
-    return;
-  }
-  const outputWidth = Math.max(1, Math.floor(width / reduction));
-  const outputHeight = Math.max(1, Math.floor(height / reduction));
-  const scale = Math.min(width / outputWidth, height / outputHeight);
-  frame.style.setProperty(properties[0], `${outputWidth}px`);
-  frame.style.setProperty(properties[1], `${outputHeight}px`);
-  frame.style.setProperty(properties[2], `scale(${scale})`);
+function isWebResource(
+  value: LaunchEnvelopeV1["resources"][number],
+): value is RuntimeWebResourceV1 {
+  return value.kind === "NATIVE_WEB" || value.kind === "ISOLATED_WEB";
 }
-
-function frameSource(envelope: LaunchEnvelopeV1, resourceRole: string | null) {
-  const mode = envelope.runtime.capabilities.frameMode;
-  if (mode === "SAME_ORIGIN_BLANK" && resourceRole === null) {
-    return {cleanupUrl: null, origin: location.origin, url: "about:blank"};
-  }
-  if (mode === "NONE" || mode === "SAME_ORIGIN_BLANK" || resourceRole === null) {frameError();}
-  const resource = envelope.resources.find((entry) => entry.role === resourceRole && entry.ordinal === 0);
-  if (!resource || !validWebResource(resource) || !resourceKindMatchesFrameMode(mode, resource.kind)) {frameError();}
-  if (mode === "SAME_ORIGIN_RESOURCE" && resource.origin !== location.origin) {frameError();}
-  if (mode === "ISOLATED_ORIGIN_RESOURCE" && resource.origin === location.origin) {frameError();}
-  return {cleanupUrl: resource.cleanupUrl, origin: resource.origin, url: resource.entryUrl};
+async function digest(bytes: Uint8Array) {
+  const value = await crypto.subtle.digest(
+    "SHA-256",
+    Uint8Array.from(bytes).buffer,
+  );
+  return [...new Uint8Array(value)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
-
-function resourceKindMatchesFrameMode(
-  mode: "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE",
-  kind: "NATIVE_WEB" | "ISOLATED_WEB",
-) {
-  return kind === "NATIVE_WEB" || mode === "ISOLATED_ORIGIN_RESOURCE";
-}
-
-function validWebResource(resource: RuntimeResourceV1): resource is Extract<RuntimeResourceV1, {
-  kind: "NATIVE_WEB" | "ISOLATED_WEB";
-}> {
-  if (resource.kind !== "NATIVE_WEB" && resource.kind !== "ISOLATED_WEB") {return false;}
-  try {
-    const entry = new URL(resource.entryUrl, location.href);
-    const origin = new URL(resource.origin);
-    const cleanup = resource.cleanupUrl === null ? null : new URL(resource.cleanupUrl, location.href);
-    return origin.href === `${origin.origin}/` && entry.origin === origin.origin &&
-      (cleanup === null || cleanup.origin === origin.origin);
-  } catch {return false;}
-}
-
-function validateRestore(envelope: LaunchEnvelopeV1, descriptor: RestoreDescriptorV1) {
-  const checkpoint = envelope.runtime.checkpoint;
-  if (!checkpoint || descriptor.format.length < 1 || descriptor.sizeBytes < 1 ||
-    !checkpoint.readFormats.includes(descriptor.format) || descriptor.sizeBytes > checkpoint.maxBytes ||
-    !/^[0-9a-f]{64}$/u.test(descriptor.sha256) ||
-    !sameOriginRelativeUrl(descriptor.url)) {restoreError();}
-}
-
-function sameOriginRelativeUrl(value: string) {
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\") || value.includes("#")) {
-    return false;
-  }
-  try {return new URL(value, location.href).origin === location.origin;} catch {return false;}
-}
-
-async function digestSha256(bytes: Uint8Array) {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
-  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
-}
-
-function diagnostic(value: {code: string; message: string}) {
-  return /^[A-Z][A-Z0-9_]{1,127}$/u.test(value.code) && value.message.length >= 1 && value.message.length <= 4096;
-}
-
-function frameError(): never {throw playerRuntimeError("PLAYER_RUNTIME_FRAME_INVALID");}
-function restoreError(): never {throw playerRuntimeError("PLAYER_RUNTIME_RESTORE_INVALID");}

@@ -39,7 +39,7 @@ class DATManifestTests(unittest.TestCase):
         self.assertEqual(10049, manifest["cores"][0]["parse_stats"]["machine_count"])
         entries = dependencies.image_export_entries([], [], dependencies.load_auth_manifest(), manifest)
         self.assertIn("dat/mame-current/v0.59.1/mame-arcade.xml", entries)
-        self.assertIn("runtime-providers/release.json", entries)
+        self.assertNotIn("runtime-providers/release.json", entries)
 
     def test_repository_manifests_are_provider_neutral(self) -> None:
         for version in ("4.2.3", "4.3.0-pre"):
@@ -127,7 +127,7 @@ class MaterializationTests(unittest.TestCase):
             versions, manifests, dependencies.load_auth_manifest()
         )
         self.assertFalse(any(path.startswith("runtime/") for path in entries))
-        self.assertIn("runtime-target-bindings/v1/catalog.json", entries)
+        self.assertFalse(any(path.startswith("runtime-target-bindings/") for path in entries))
 
 
 if __name__ == "__main__":

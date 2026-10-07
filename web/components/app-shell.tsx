@@ -1,395 +1,239 @@
 "use client";
-
-import { MobileAppFrame } from "@/features/mobile/mobile-app-frame";
-import { usePhoneLayout } from "@/features/mobile/phone-layout";
-import {LocalGameSaveNotice} from "@/features/player/local-game-save-notice";
-import Link, { useLinkStatus } from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { ResponsiveSheet } from "@/components/responsive-sheet";
+import Link from "next/link";
+import { PhoneShell } from "./phone-shell";
+import { usePhoneLayout } from "@/lib/use-phone-layout";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { AppIcon } from "./app-icon";
+import type { AppIconName } from "./app-icon";
+import { ResponsiveSheet } from "./responsive-sheet";
 import { useAuth } from "@/features/auth/auth-provider";
-import type { AuthUser } from "@/features/auth/types";
-
-type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean; child?: boolean };
-type CompactPanel = "navigation" | "more" | "health" | "account" | null;
-
-const userNavigation: NavItem[] = [
-  { href: "/", label: "首页", icon: "home", exact: true },
-  { href: "/library", label: "游戏库", icon: "library" },
-  { href: "/saves", label: "我的存档", icon: "save" },
-  { href: "/favorites", label: "我的收藏", icon: "heart" },
-  { href: "/recent", label: "最近游玩", icon: "history" },
+import { authenticationReturnPath } from "@/features/auth/return-path";
+const userNav: Array<[string, string, AppIconName]> = [
+  ["/", "首页", "home"],
+  ["/library", "游戏库", "library"],
+  ["/saves", "我的存档", "save"],
+  ["/favorites", "我的收藏", "heart"],
+  ["/recent", "最近游玩", "history"],
 ];
-
-const adminNavigation: NavItem[] = [
-  { href: "/admin/imports", label: "游戏入库", icon: "download", exact: true },
-  { href: "/admin/imports/new", label: "导入游戏", icon: "plus", child: true },
-  { href: "/admin/imports/server", label: "本地扫描", icon: "database", child: true },
-  { href: "/admin/imports/tasks", label: "任务进度", icon: "clock", child: true },
-  { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
-  { href: "/admin/games", label: "游戏管理", icon: "library" },
-  { href: "/admin/tags", label: "标签管理", icon: "list" },
-  { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
-  { href: "/admin/users", label: "用户管理", icon: "settings" },
-  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
+const adminNav: Array<[string, string, AppIconName]> = [
+  ["/admin/imports", "游戏入库", "download"],
+  ["/admin/imports/server", "来源扫描", "database"],
+  ["/admin/reviews", "待审核", "check"],
+  ["/admin/games", "游戏管理", "library"],
+  ["/admin/tags", "标签管理", "list"],
+  ["/admin/platform-instances", "游戏目录", "folder"],
+  ["/admin/bios", "BIOS 管理", "chip"],
+  ["/admin/users", "用户管理", "user"],
 ];
-
-function navState(item: NavItem, pathname: string): "active" | "context" | "" {
-  if (item.href === "/admin/imports" && pathname !== item.href &&
-    (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) {return "context";}
-  if (item.exact) {return pathname === item.href ? "active" : "";}
-  return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
+const publicRoutes = ["/login", "/setup", "/register", "/reset-password"];
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const phone = usePhoneLayout();
+  const router = useRouter();
+  const { context, error, refresh } = useAuth();
+  const publicRoute = publicRoutes.includes(pathname);
+  useEffect(() => {
+    if (!context) {
+      return;
+    }
+    if (!context.initialized && pathname !== "/setup") {
+      router.replace("/setup");
+    } else if (context.initialized && !context.user && !publicRoute) {
+      router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+    } else if (context.user && publicRoute) {
+      router.replace(authenticationReturnPath(window.location.search));
+    }
+  }, [context, pathname, publicRoute, router]);
+  if (error) {
+    return (
+      <main className="auth-route-message" role="alert">
+        <h1>服务暂不可用</h1>
+        <p>{error}</p>
+        <button className="button" onClick={() => void refresh()}>
+          重新连接
+        </button>
+      </main>
+    );
+  }
+  if (!context) {
+    return (
+      <main className="auth-route-loading" role="status">
+        正在确认账号状态…
+      </main>
+    );
+  }
+  if (publicRoute) {
+    return <>{children}</>;
+  }
+  if (!context.user || !context.initialized) {
+    return (
+      <main className="auth-route-loading" role="status">
+        正在打开账号入口…
+      </main>
+    );
+  }
+  if (pathname.startsWith("/admin") && context.user.role !== "admin") {
+    return (
+      <main className="auth-route-message">
+        <h1>没有管理权限</h1>
+        <Link className="button" href="/">
+          返回首页
+        </Link>
+      </main>
+    );
+  }
+  if (pathname.startsWith("/play/") || pathname.startsWith("/immersive")) {
+    return <>{children}</>;
+  }
+  return phone && !pathname.startsWith("/admin") ? (
+    <PhoneShell pathname={pathname}>{children}</PhoneShell>
+  ) : (
+    <StandardShell pathname={pathname}>{children}</StandardShell>
+  );
 }
-
-function NavigationPending() {
-  const { pending } = useLinkStatus();
-  return pending ? <span className="button-spinner nav-pending" role="status" aria-label="正在加载" /> : null;
-}
-
-function Navigation({ items, pathname, label = "主要导航", onNavigate }: { items: NavItem[]; pathname: string; label?: string; onNavigate?: () => void }) {
+function Navigation({
+  pathname,
+  close,
+}: {
+  pathname: string;
+  close?: () => void;
+}) {
+  const items = pathname.startsWith("/admin") ? adminNav : userNav;
   return (
-    <nav aria-label={label} className="side-nav">
-      {items.map((item) => {
-        const state = navState(item, pathname);
-        return <Link
-          aria-current={state === "active" ? "page" : undefined}
-          className={`nav-link ${item.child ? "nav-child" : ""} ${state === "active" ? "is-active" : ""} ${state === "context" ? "is-context" : ""}`}
-          href={item.href}
-          key={`${item.href}:${item.label}`}
-          onClick={onNavigate}
+    <nav className="side-nav" aria-label="主要导航">
+      {items.map(([href, title, icon]) => (
+        <Link
+          key={href}
+          href={href}
+          onClick={close}
+          className={`nav-link${pathname === href ? " is-active" : ""}`}
+          aria-current={pathname === href ? "page" : undefined}
         >
-          <AppIcon className="nav-icon" name={item.icon} />
-          <span>{item.label}</span>
-          <NavigationPending />
-        </Link>;
-      })}
+          <AppIcon className="nav-icon" name={icon} />
+          <span>{title}</span>
+        </Link>
+      ))}
     </nav>
   );
 }
-
-type ServiceHealthState = { state: "checking" | "ready" | "unavailable"; detail: string };
-
-function useServiceHealth(): ServiceHealthState {
-  const [state, setState] = useState<"checking" | "ready" | "unavailable">("checking");
-  const [detail, setDetail] = useState("正在检查服务状态");
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/health/ready", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        setState(response.ok ? "ready" : "unavailable");
-        if (response.ok) { setDetail("服务正常"); return; }
-        const payload = await response.json().catch(() => null) as { error?: { message?: string }; checks?: Record<string, string> } | null;
-        const checks = Object.entries(payload?.checks ?? {}).map(([name, value]) => `${name}：${value}`).join("；");
-        setDetail(payload?.error?.message ?? (checks || `服务异常（HTTP ${response.status}）`));
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") {return;}
-        setState("unavailable"); setDetail(error instanceof Error ? `服务连接失败：${error.message}` : "服务连接失败");
-      });
-    return () => controller.abort();
-  }, []);
-  return { state, detail };
-}
-
-function ServiceHealth({ health, onClick, buttonRef }: { health: ServiceHealthState; onClick?: () => void; buttonRef?: RefObject<HTMLButtonElement | null> }) {
-  const { state, detail } = health;
-  const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务存在异常";
-  if (onClick) {return <button ref={buttonRef} className={`connection compact-health ${state}`} type="button" aria-label={label} onClick={onClick}><i aria-hidden="true" /></button>;}
-  return <span className={`connection ${state}`} aria-live="polite" tabIndex={0}><i aria-hidden="true" /><span className="connection-tooltip" role="tooltip"><strong>{label}</strong><small>{detail}</small></span></span>;
-}
-
-const exactPageTitles = new Map<string, string>([
-  ["/", "首页"],
-  ["/library", "游戏库"],
-  ["/saves", "我的存档"],
-  ["/favorites", "我的收藏"],
-  ["/recent", "最近游玩"],
-  ["/account", "账户设置"],
-  ["/me", "我的"],
-  ["/admin/imports/server", "本地扫描"],
-  ["/admin/imports/new", "导入游戏"],
-  ["/admin/imports/tasks", "任务进度"],
-  ["/admin/imports", "游戏入库"],
-  ["/admin/reviews", "待审核"],
-  ["/admin/games", "游戏管理"],
-  ["/admin/tags", "标签管理"],
-  ["/admin/platform-instances", "游戏目录"],
-  ["/admin/users", "用户管理"],
-  ["/admin/bios", "运行依赖"],
-]);
-
-const prefixPageTitles: Array<[string, string]> = [
-  ["/admin/imports/server/source/", "游戏导入详情"],
-  ["/admin/imports/server/", "服务器导入详情"],
-  ["/admin/reviews/", "审核详情"],
-  ["/admin/games/", "游戏管理详情"],
-  ["/games/", "游戏详情"],
-];
-
-function pageTitle(pathname: string) {
-  const exact = exactPageTitles.get(pathname);
-  if (exact) {return exact;}
-  return prefixPageTitles.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "Retrom";
-}
-
-function mobileSection(pathname: string): "home" | "library" | "saves" | "favorites" | "more" {
-  if (pathname === "/") {return "home";}
-  if (pathname === "/library" || pathname.startsWith("/games/")) {return "library";}
-  if (pathname === "/saves") {return "saves";}
-  if (pathname === "/favorites") {return "favorites";}
-  return "more";
-}
-
-function usesStandaloneShell(pathname: string) {
-  return pathname.startsWith("/play/") || pathname === "/immersive" || pathname.startsWith("/immersive/");
-}
-
-export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  if (usesStandaloneShell(pathname)) {return <><LocalGameSaveNotice pathname={pathname} />{children}</>;}
-  return <><LocalGameSaveNotice pathname={pathname} /><StandardAppShell pathname={pathname}>{children}</StandardAppShell></>;
-}
-
-function StandardAppShell({ children, pathname }: { children: ReactNode; pathname: string }) {
-  const { context, logout, recovery } = useAuth();
-  const health = useServiceHealth();
-  const accountMenuRef = useRef<HTMLDetailsElement>(null);
-  const navigationButtonRef = useRef<HTMLButtonElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const healthButtonRef = useRef<HTMLButtonElement>(null);
-  const accountButtonRef = useRef<HTMLButtonElement>(null);
-  const [compactPanelState, setCompactPanelState] = useState<{ pathname: string; panel: CompactPanel }>(() => ({ pathname, panel: null }));
-  const compactPanel = compactPanelState.pathname === pathname ? compactPanelState.panel : null;
-  const setCompactPanel = (panel: CompactPanel) => setCompactPanelState({ pathname, panel });
-  useEffect(() => {
-    const closeAccountMenu = (event: PointerEvent) => {
-      const menu = accountMenuRef.current;
-      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
-        menu.open = false;
-      }
-    };
-    document.addEventListener("pointerdown", closeAccountMenu);
-    return () => document.removeEventListener("pointerdown", closeAccountMenu);
-  }, []);
-  const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
-  if (recovery === "failed") {return <FullScreenLoading />;}
-  if (context.instanceState === "INITIALIZATION_REQUIRED") {
-    return pathname === "/setup" ? <>{children}</> : <FullScreenLoading />;
-  }
-  if (context.authenticationState !== "AUTHENTICATED") {
-    return publicRoute ? <>{children}</> : <FullScreenLoading />;
-  }
-  if (publicRoute) {return <FullScreenLoading />;}
-  if (pathname.startsWith("/admin/review-previews/") && context.user?.role === "ADMIN") {return <>{children}</>;}
-  if (pathname.startsWith("/admin") && context.user?.role !== "ADMIN") {
-    return <Forbidden />;
-  }
-  const administrator = pathname.startsWith("/admin");
-  const user = context.user;
-  const section = mobileSection(pathname);
-  const navigationItems = administrator ? adminNavigation : userNavigation;
-  return <AppFrame {...{
-    accountButtonRef, accountMenuRef, administrator, children, compactPanel, health, healthButtonRef,
-    logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
-  }} />;
-}
-
-type AppFrameProps = {
-  accountButtonRef: RefObject<HTMLButtonElement | null>;
-  accountMenuRef: RefObject<HTMLDetailsElement | null>;
-  administrator: boolean;
-  children: ReactNode;
-  compactPanel: CompactPanel;
-  health: ServiceHealthState;
-  healthButtonRef: RefObject<HTMLButtonElement | null>;
-  logout: () => Promise<void>;
-  moreButtonRef: RefObject<HTMLButtonElement | null>;
-  navigationButtonRef: RefObject<HTMLButtonElement | null>;
-  navigationItems: NavItem[];
+function StandardShell({
+  pathname,
+  children,
+}: {
   pathname: string;
-  section: ReturnType<typeof mobileSection>;
-  setCompactPanel: (panel: CompactPanel) => void;
-  user: AuthUser | null;
-};
-
-function AppFrame({
-  accountButtonRef, accountMenuRef, administrator, children, compactPanel, health, healthButtonRef,
-  logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
-}: AppFrameProps) {
-  const phone = usePhoneLayout();
-  if (phone) {return <MobileAppFrame pathname={pathname}>{children}</MobileAppFrame>;}
+  children: ReactNode;
+}) {
+  const { context, logout } = useAuth();
+  const [menu, setMenu] = useState(false);
+  const admin = pathname.startsWith("/admin");
+  const title =
+    [...userNav, ...adminNav].find(([href]) => href === pathname)?.[1] ??
+    "Retrom";
   return (
-    <div className="app-frame">
-      <DesktopSidebar {...{ accountMenuRef, administrator, health, logout, navigationItems, pathname, user }} />
-      <CompactHeader {...{
-        accountButtonRef, administrator, compactPanel, health, healthButtonRef, navigationButtonRef, pathname,
-        setCompactPanel, user,
-      }} />
+    <div className={`app-frame${admin ? " admin-app-frame" : ""}`}>
+      <aside className="sidebar">
+        <Link className="brand" href="/">
+          <span className="brand-mark">R</span>
+          <span>
+            <strong>Retrom</strong>
+            <small>复古游戏管理平台</small>
+          </span>
+        </Link>
+        <Navigation pathname={pathname} />
+        <div className="sidebar-foot">
+          <details className="account-menu">
+            <summary>
+              <span className="account-initial">
+                {context?.user?.displayName.slice(0, 1)}
+              </span>
+              <span className="account-copy">
+                <strong>{context?.user?.displayName}</strong>
+              </span>
+            </summary>
+            <div className="account-menu-popover">
+              <Link href="/account">账户设置</Link>
+              <button onClick={() => void logout()}>退出登录</button>
+            </div>
+          </details>
+          {context?.user?.role === "admin" ? (
+            <Link
+              className="context-switch"
+              href={admin ? "/" : "/admin/imports"}
+            >
+              <AppIcon className="nav-icon" name="settings" />
+              {admin ? "返回用户侧" : "管理后台"}
+            </Link>
+          ) : null}
+        </div>
+      </aside>
+      <CompactHeader admin={admin} title={title} onMenu={() => setMenu(true)} />
       <div className="app-body">
         <main className="content">{children}</main>
       </div>
-      <MobileBottomNavigation {...{ administrator, compactPanel, moreButtonRef, section, setCompactPanel }} />
-      <CompactSheets {...{
-        accountButtonRef, administrator, compactPanel, health, healthButtonRef, logout, moreButtonRef,
-        navigationButtonRef, navigationItems, pathname, setCompactPanel, user,
-      }} />
+      <nav className="phone-navigation" aria-label="手机主导航">
+        {[
+          ["/", "首页", "home"],
+          ["/library", "游戏库", "library"],
+          ["/me", "我的", "user"],
+        ].map(([href, label, icon]) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={pathname === href ? "page" : undefined}
+          >
+            <AppIcon name={icon as AppIconName} />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
+      <ResponsiveSheet
+        open={menu}
+        title="Retrom 导航"
+        placement="left"
+        onClose={() => setMenu(false)}
+      >
+        <Navigation pathname={pathname} close={() => setMenu(false)} />
+        <Link
+          className="button secondary"
+          href={admin ? "/" : "/admin/imports"}
+          onClick={() => setMenu(false)}
+        >
+          {admin ? "返回用户侧" : "管理后台"}
+        </Link>
+      </ResponsiveSheet>
     </div>
   );
 }
 
-function DesktopSidebar({ accountMenuRef, administrator, health, logout, navigationItems, pathname, user }: {
-  accountMenuRef: RefObject<HTMLDetailsElement | null>;
-  administrator: boolean;
-  health: ServiceHealthState;
-  logout: () => Promise<void>;
-  navigationItems: NavItem[];
-  pathname: string;
-  user: AuthUser | null;
-}) {
-  const canSwitchContext = administrator || user?.role === "ADMIN";
-  return <aside className="sidebar">
-    <Link className="brand" href="/" aria-label="Retrom 首页">
-      <span className="brand-mark" aria-hidden="true">R</span>
-      <span><strong>Retrom</strong><small>复古游戏管理平台</small></span>
-    </Link>
-    <Navigation items={navigationItems} pathname={pathname} />
-    <div className="sidebar-foot">
-      <div className="sidebar-account-row">
-        <details className="account-menu" ref={accountMenuRef}>
-          <summary>
-            <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
-            <span className="account-copy"><strong>{user?.displayName}</strong></span>
-          </summary>
-          <div className="account-menu-popover">
-            <Link href="/account"><AppIcon name="settings" />账户设置</Link>
-            <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
-          </div>
-        </details>
-        <ServiceHealth health={health} />
-      </div>
-      {canSwitchContext ? <Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
-        <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
-        {administrator ? "返回用户侧" : "管理后台"}
-      </Link> : null}
-    </div>
-  </aside>;
-}
-
 function CompactHeader({
-  accountButtonRef, administrator, compactPanel, health, healthButtonRef, navigationButtonRef, pathname,
-  setCompactPanel, user,
-}: Pick<AppFrameProps, "accountButtonRef" | "administrator" | "compactPanel" | "health" | "healthButtonRef" |
-  "navigationButtonRef" | "pathname" | "setCompactPanel" | "user">) {
-  return <header className={`compact-app-bar${administrator ? " is-admin" : " is-user"}`}>
-    <button ref={navigationButtonRef} className="compact-nav-trigger" type="button" aria-label="打开主要导航" aria-expanded={compactPanel === "navigation"} aria-controls="compact-navigation-sheet" onClick={() => setCompactPanel("navigation")}><AppIcon name="menu" /></button>
-    <Link className="compact-user-brand" href="/" aria-label="Retrom 首页"><span className="brand-mark" aria-hidden="true">R</span></Link>
-    <strong className="compact-page-title">{pageTitle(pathname)}</strong>
-    <div className="compact-app-actions">
-      <ServiceHealth health={health} buttonRef={healthButtonRef} onClick={() => setCompactPanel("health")} />
-      <button ref={accountButtonRef} className="compact-account-trigger" type="button" aria-label="打开账户菜单" aria-expanded={compactPanel === "account"} onClick={() => setCompactPanel("account")}><span aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span></button>
-    </div>
-  </header>;
-}
-
-function MobileBottomNavigation({ administrator, compactPanel, moreButtonRef, section, setCompactPanel }: Pick<
-  AppFrameProps, "administrator" | "compactPanel" | "moreButtonRef" | "section" | "setCompactPanel"
->) {
-  if (administrator) {return null;}
-  const links: Array<[Exclude<AppFrameProps["section"], "more">, string, AppIconName, string]> = [
-    ["home", "/", "home", "首页"],
-    ["library", "/library", "library", "游戏库"],
-    ["saves", "/saves", "save", "存档"],
-    ["favorites", "/favorites", "heart", "收藏"],
-  ];
-  return <nav className="mobile-bottom-nav" aria-label="手机主导航">
-    {links.map(([key, href, icon, label]) => <Link
-      className={section === key ? "is-active" : ""}
-      aria-current={section === key ? "page" : undefined}
-      href={href}
-      key={key}
-    ><AppIcon name={icon} /><span>{label}</span></Link>)}
-    <button ref={moreButtonRef} className={section === "more" ? "is-active" : ""} type="button" aria-label="更多导航" aria-pressed={section === "more"} aria-expanded={compactPanel === "more"} aria-controls="compact-more-sheet" onClick={() => setCompactPanel("more")}><AppIcon name="more" /><span>更多</span></button>
-  </nav>;
-}
-
-function CompactSheets(props: Omit<AppFrameProps,
-  "accountMenuRef" | "children" | "section"
->) {
-  return <>
-    <CompactNavigationSheet {...props} />
-    <CompactMoreSheet {...props} />
-    <CompactHealthSheet {...props} />
-    <CompactAccountSheet {...props} />
-  </>;
-}
-
-function CompactNavigationSheet({
-  administrator, compactPanel, navigationButtonRef, navigationItems, pathname, setCompactPanel, user,
-}: Pick<AppFrameProps, "administrator" | "compactPanel" | "navigationButtonRef" | "navigationItems" |
-  "pathname" | "setCompactPanel" | "user">) {
-  const canSwitchContext = administrator || user?.role === "ADMIN";
-  return <ResponsiveSheet open={compactPanel === "navigation"} title={administrator ? "管理后台" : "Retrom 导航"} description={administrator ? "选择管理能力，或返回用户侧。" : "浏览资料库和账户能力。"} placement="left" onClose={() => setCompactPanel(null)} returnFocusRef={navigationButtonRef} className="compact-navigation-sheet">
-    <div id="compact-navigation-sheet" className="compact-navigation-content">
-      <Navigation items={navigationItems} pathname={pathname} label="紧凑主要导航" onNavigate={() => setCompactPanel(null)} />
-      <div className="compact-navigation-foot">
-        <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" />账户设置</Link>
-        {canSwitchContext ? <Link href={administrator ? "/" : "/admin/imports"} onClick={() => setCompactPanel(null)}><AppIcon name={administrator ? "arrow-left" : "settings"} />{administrator ? "返回用户侧" : "管理后台"}</Link> : null}
-      </div>
-    </div>
-  </ResponsiveSheet>;
-}
-
-function healthLabel(state: ServiceHealthState["state"], checkingLabel = "正在检查") {
-  if (state === "ready") {return "服务正常";}
-  if (state === "checking") {return checkingLabel;}
-  return "服务存在异常";
-}
-
-function CompactMoreSheet({
-  compactPanel, health, logout, moreButtonRef, setCompactPanel, user,
-}: Pick<AppFrameProps, "compactPanel" | "health" | "logout" | "moreButtonRef" |
-  "setCompactPanel" | "user">) {
-  return <ResponsiveSheet open={compactPanel === "more"} title="更多" description="最近游玩和账户设置。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={moreButtonRef} className="compact-more-sheet">
-    <div id="compact-more-sheet" className="compact-action-list">
-      <Link href="/recent" onClick={() => setCompactPanel(null)}><AppIcon name="history" /><span><strong>最近游玩</strong><small>查看游玩历史与累计时长</small></span></Link>
-      <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>{user?.displayName} · @{user?.username}</small></span></Link>
-      {user?.role === "ADMIN" ? <Link href="/admin/imports" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>管理后台</strong><small>入库、审核和运行依赖</small></span></Link> : null}
-      <button type="button" onClick={() => setCompactPanel("health")}><AppIcon name="chip" /><span><strong>服务状态</strong><small>{healthLabel(health.state)}</small></span></button>
-      <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
-    </div>
-  </ResponsiveSheet>;
-}
-
-function CompactHealthSheet({ compactPanel, health, healthButtonRef, setCompactPanel }: Pick<
-  AppFrameProps, "compactPanel" | "health" | "healthButtonRef" | "setCompactPanel"
->) {
-  return <ResponsiveSheet open={compactPanel === "health"} title="服务状态" description="当前 Retrom 后端就绪检查。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={healthButtonRef} className="compact-info-sheet">
-    <div className={`compact-health-detail is-${health.state}`} role="status"><i aria-hidden="true" /><div><strong>{healthLabel(health.state, "正在检查服务")}</strong><p>{health.detail}</p></div></div>
-  </ResponsiveSheet>;
-}
-
-function CompactAccountSheet({ accountButtonRef, compactPanel, logout, setCompactPanel, user }: Pick<
-  AppFrameProps, "accountButtonRef" | "compactPanel" | "logout" | "setCompactPanel" | "user"
->) {
-  return <ResponsiveSheet open={compactPanel === "account"} title="账户" description={`${user?.displayName} · @${user?.username}`} placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={accountButtonRef} className="compact-account-sheet">
-    <div className="compact-action-list">
-      <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>修改密码和查看身份</small></span></Link>
-      <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
-    </div>
-  </ResponsiveSheet>;
-}
-
-function FullScreenLoading() {
-  const { recovery, recover } = useAuth();
-  return <div className="auth-route-loading" role="status">
-    {recovery === "pending" ? <><span className="button-spinner" />正在确认账号状态…</> : <>
-      <span>{recovery === "failed" ? "无法确认账号状态，请重试。" : "账号状态需要重新确认。"}</span>
-      <button className="button" type="button" onClick={() => void recover()}>重新确认账号状态</button>
-    </>}
-  </div>;
-}
-
-function Forbidden() {
-  return <main className="auth-route-message"><span aria-hidden="true">403</span><h1 tabIndex={-1}>没有管理权限</h1><p>用户管理仅包含账号与安全状态；游玩记录和存档保持私有。</p><Link className="button" href="/">返回首页</Link></main>;
+  admin,
+  title,
+  onMenu,
+}: {
+  admin: boolean;
+  title: string;
+  onMenu: () => void;
+}) {
+  const { context } = useAuth();
+  return (
+    <header className={`compact-app-bar is-${admin ? "admin" : "user"}`}>
+      <button
+        className="compact-nav-trigger"
+        aria-label="打开主要导航"
+        onClick={onMenu}
+      >
+        <AppIcon name="menu" />
+      </button>
+      <strong className="compact-page-title">{title}</strong>
+      <Link
+        href="/account"
+        className="compact-account-trigger"
+        aria-label="账户设置"
+      >
+        <span>{context?.user?.displayName.slice(0, 1)}</span>
+      </Link>
+    </header>
+  );
 }

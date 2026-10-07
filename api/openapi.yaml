@@ -1,1016 +1,442 @@
-openapi: 3.0.3
-info:
-  title: Retrom HTTP API
-  description: Includes launch-bound GAME_SAVE synchronization and native save synchronization timestamps.
-  version: 1.0.0
-servers:
-  - url: /
-security:
-  - sessionCookie: []
-paths:
-  /api/v1/web-config:
-    $ref: ./domains/operations.yaml#/paths/~1api~1v1~1web-config
-  /api/v1/admin/import-batches/{kind}/{importId}/discard:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1import-batches~1{kind}~1{importId}~1discard
-  /health/live:
-    $ref: ./domains/identity.yaml#/paths/~1health~1live
-  /health/ready:
-    $ref: ./domains/identity.yaml#/paths/~1health~1ready
-  /api/v1/auth/context:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1context
-  /api/v1/auth/initialize:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1initialize
-  /api/v1/auth/login:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1login
-  /api/v1/auth/logout:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1logout
-  /api/v1/auth/change-password:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1change-password
-  /api/v1/auth/account-links/inspect:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1account-links~1inspect
-  /api/v1/auth/invitations/accept:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1invitations~1accept
-  /api/v1/auth/password-resets/complete:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1auth~1password-resets~1complete
-  /api/v1/admin/invitations:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1admin~1invitations
-  /api/v1/admin/users:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1admin~1users
-  /api/v1/admin/users/{userId}:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1admin~1users~1{userId}
-  /api/v1/admin/users/{userId}/password-reset-links:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1admin~1users~1{userId}~1password-reset-links
-  /api/v1/admin/account-links/{accountLinkId}:
-    $ref: ./domains/identity.yaml#/paths/~1api~1v1~1admin~1account-links~1{accountLinkId}
-  /api/v1/home:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1home
-  /api/v1/recent-games:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1recent-games
-  /api/v1/games:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1games
-  /api/v1/games/{gameId}:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1games~1{gameId}
-  /api/v1/immersive/platforms:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1immersive~1platforms
-  /api/v1/immersive/platforms/{platformId}/games:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1immersive~1platforms~1{platformId}~1games
-  /api/v1/immersive/destinations:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1immersive~1destinations
-  /api/v1/immersive/libraries/{libraryKind}/games:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1immersive~1libraries~1{libraryKind}~1games
-  /api/v1/favorites:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites
-  /api/v1/favorites/{gameId}:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites~1{gameId}
-  /api/v1/favorites/{gameId}/folders:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites~1{gameId}~1folders
-  /api/v1/favorites/organize:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites~1organize
-  /api/v1/favorites/unfavorite:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites~1unfavorite
-  /api/v1/favorites/restore:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorites~1restore
-  /api/v1/favorite-folders:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorite-folders
-  /api/v1/favorite-folders/{folderId}:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1favorite-folders~1{folderId}
-  /api/v1/saves:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1saves
-  /api/v1/saves/{saveStateId}:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1saves~1{saveStateId}
-  /api/v1/launches/{launchId}/local-save:
-    $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1launches~1{launchId}~1local-save
-  /api/v1/launches:
-    $ref: ./domains/library.yaml#/paths/~1api~1v1~1launches
-  /api/v1/admin/uploads:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1uploads
-  /api/v1/admin/uploads/{uploadId}:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1uploads~1{uploadId}
-  /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1uploads~1{uploadId}~1files~1{fileId}~1parts~1{partNo}
-  /api/v1/admin/uploads/{uploadId}/complete:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1uploads~1{uploadId}~1complete
-  /api/v1/admin/imports/summary:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports~1summary
-  /api/v1/admin/imports:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports
-  /api/v1/admin/imports/{importJobId}:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports~1{importJobId}
-  /api/v1/admin/imports/{importJobId}/events:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports~1{importJobId}~1events
-  /api/v1/admin/imports/{importJobId}/cancel:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports~1{importJobId}~1cancel
-  /api/v1/admin/imports/{importJobId}/reconfigure:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1imports~1{importJobId}~1reconfigure
-  /api/v1/admin/import-items/{importItemId}/retry:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1import-items~1{importItemId}~1retry
-  /api/v1/admin/jobs/{jobId}:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}
-  /api/v1/admin/jobs/{jobId}/events:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}~1events
-  /api/v1/admin/jobs/{jobId}/cancel:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}~1cancel
-  /api/v1/admin/jobs/{jobId}/retry:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}~1retry
-  /api/v1/admin/reviews:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews
-  /api/v1/admin/reviews/deduplicate:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1deduplicate
-  /api/v1/admin/review-bulk-approvals:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals
-  /api/v1/admin/review-bulk-approvals/active:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1active
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}
-  /api/v1/admin/reviews/{importItemId}:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}
-  /api/v1/admin/reviews/{importItemId}/scrape-candidates:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1scrape-candidates
-  /api/v1/admin/reviews/{importItemId}/assets:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1assets
-  /api/v1/admin/reviews/{importItemId}/previews:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1previews
-  /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1arcade-parent-attachments
-  /api/v1/admin/reviews/{importItemId}/multi-disc-attachments:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1multi-disc-attachments
-  /api/v1/admin/reviews/{importItemId}/approve:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1approve
-  /api/v1/admin/reviews/{importItemId}/discard:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1discard
-  /api/v1/admin/tags:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1tags
-  /api/v1/admin/tags/defaults:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1tags~1defaults
-  /api/v1/admin/tags/{tagId}:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1tags~1{tagId}
-  /api/v1/admin/games:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games
-  /api/v1/admin/games/{gameId}:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}
-  /api/v1/admin/games/{gameId}/tags:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1tags
-  /api/v1/admin/games/{gameId}/assets:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets
-  /api/v1/admin/games/{gameId}/assets/{assetKind}:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets~1{assetKind}
-  /api/v1/admin/games/{gameId}/content-replacement:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement
-  /api/v1/admin/games/{gameId}/scrape-candidates:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1scrape-candidates
-  /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1scrape-candidates~1{candidateId}~1apply
-  /api/v1/admin/games/{gameId}/move-preview:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1move-preview
-  /api/v1/admin/games/{gameId}/move:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1move
-  /api/v1/admin/platforms:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platforms
-  /api/v1/admin/runtime-targets:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1runtime-targets
-  /api/v1/admin/platform-instances:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances
-  /api/v1/admin/platform-instances/recommendations:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1recommendations
-  /api/v1/admin/platform-instances/recommendations/apply:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1recommendations~1apply
-  /api/v1/admin/platform-instances/{platformInstanceId}:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1{platformInstanceId}
-  /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1{platformInstanceId}~1default-core-preview
-  /api/v1/admin/platform-instances/{platformInstanceId}/default-core:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1{platformInstanceId}~1default-core
-  /api/v1/admin/bios:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1bios
-  /api/v1/admin/server-import-roots:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-import-roots
-  /api/v1/admin/server-import-roots/{rootId}/directories:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-import-roots~1{rootId}~1directories
-  /api/v1/admin/server-imports:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports
-  /api/v1/admin/server-imports/{serverImportId}:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}
-  /api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}~1bios-items~1{requirementId}~1candidates
-  /api/v1/admin/server-imports/{serverImportId}/cancel:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}~1cancel
-  /api/v1/admin/server-imports/{serverImportId}/retry:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}~1retry
-  /api/v1/admin/source-imports:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports
-  /api/v1/admin/source-imports/{sourceImportId}:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}
-  /api/v1/admin/source-imports/{sourceImportId}/collections:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1collections
-  /api/v1/admin/source-imports/{sourceImportId}/collection-mappings:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1collection-mappings
-  /api/v1/admin/source-imports/{sourceImportId}/start:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1start
-  /api/v1/admin/source-imports/{sourceImportId}/items:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1items
-  /api/v1/admin/source-imports/{sourceImportId}/retry:
-    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1retry
-  /api/v1/admin/bios/{requirementId}/installations:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1bios~1{requirementId}~1installations
-  /api/v1/admin/bios/{requirementId}/entries:
-    $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1bios~1{requirementId}~1entries
-  /api/v1/admin/diagnostics:
-    $ref: ./domains/operations.yaml#/paths/~1api~1v1~1admin~1diagnostics
-  /content/assets/{assetId}:
-    $ref: ./domains/runtime.yaml#/paths/~1content~1assets~1{assetId}
-  /content/save-states/{saveStateId}/screenshot:
-    $ref: ./domains/runtime.yaml#/paths/~1content~1save-states~1{saveStateId}~1screenshot
-  /api/v1/admin/review-assets/{assetId}:
-    $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1admin~1review-assets~1{assetId}
-  /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1providers~1{providerId}~1{bundleSha256}~1{runtimePath}
-  /runtime/content/project/{contentIdentity}/{projectPath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
-  /runtime/content/web/{contentIdentity}/{projectPath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1web~1{contentIdentity}~1{projectPath}
-  /runtime/launches/{launchId}/renew:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1renew
-  /runtime/launches/{launchId}/config:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1config
-  /runtime/launches/{launchId}/progress:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1progress
-  /runtime/launches/{launchId}/finish:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1finish
-  /runtime/launches/{launchId}/player-events:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1player-events
-  /runtime/launches/{launchId}/save-states:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1save-states
-  /runtime/launches/{launchId}/checkpoint-status:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1checkpoint-status
-  /runtime/content/game/{contentIdentity}/{logicalName}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1game~1{contentIdentity}~1{logicalName}
-  /runtime/content/external/{contentIdentity}/{logicalName}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1external~1{contentIdentity}~1{logicalName}
-  /runtime/content/bios/{contentIdentity}/bundle.zip:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1bios~1{contentIdentity}~1bundle.zip
-  /runtime/content/parent/{contentIdentity}/bundle.zip:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1parent~1{contentIdentity}~1bundle.zip
-  /runtime/launches/{launchId}/state:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1state
-  /runtime/launches/{launchId}/review-screenshot:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1review-screenshot
-components:
-  securitySchemes:
-    sessionCookie:
-      $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
-  schemas:
-    WebConfig:
-      $ref: ./domains/operations.yaml#/components/schemas/WebConfig
-    GameScrapeCandidates:
-      $ref: ./domains/catalog.yaml#/components/schemas/GameScrapeCandidates
-    ImportTaskList:
-      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskList
-    ImportTaskListItem:
-      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskListItem
-    ImportTaskDetail:
-      $ref: ./domains/imports.yaml#/components/schemas/ImportTaskDetail
-    ImportBatchDiscard:
-      $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
-    DiagnosticsSnapshot:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsSnapshot
-    DiagnosticsRuntimeProvider:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsRuntimeProvider
-    DiagnosticsCounts:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsCounts
-    DiagnosticsLifecycleCounts:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsLifecycleCounts
-    DiagnosticsGameCounts:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsGameCounts
-    DiagnosticsJobCounts:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsJobCounts
-    DiagnosticsDATCounts:
-      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsDATCounts
-    ImportOverviewSummary:
-      $ref: ./domains/imports.yaml#/components/schemas/ImportOverviewSummary
-    AuthInitializeRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/AuthInitializeRequest
-    AuthLoginRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/AuthLoginRequest
-    AuthChangePasswordRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/AuthChangePasswordRequest
-    AccountLinkInspectRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/AccountLinkInspectRequest
-    InvitationAcceptRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/InvitationAcceptRequest
-    PasswordResetCompleteRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/PasswordResetCompleteRequest
-    CreateInvitationRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/CreateInvitationRequest
-    PatchUserRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/PatchUserRequest
-    DeleteUserRequest:
-      $ref: ./domains/identity.yaml#/components/schemas/DeleteUserRequest
-    EmptyRequest:
-      $ref: ./components/common.yaml#/components/schemas/EmptyRequest
-    ReplaceFavoriteFoldersRequest:
-      $ref: ./domains/library.yaml#/components/schemas/ReplaceFavoriteFoldersRequest
-    OrganizeFavoritesRequest:
-      $ref: ./domains/library.yaml#/components/schemas/OrganizeFavoritesRequest
-    UnfavoriteRequest:
-      $ref: ./domains/library.yaml#/components/schemas/UnfavoriteRequest
-    FavoriteRestoreItemRequest:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteRestoreItemRequest
-    RestoreFavoritesRequest:
-      $ref: ./domains/library.yaml#/components/schemas/RestoreFavoritesRequest
-    CreateFavoriteFolderRequest:
-      $ref: ./domains/library.yaml#/components/schemas/CreateFavoriteFolderRequest
-    PatchFavoriteFolderRequest:
-      $ref: ./domains/library.yaml#/components/schemas/PatchFavoriteFolderRequest
-    TagReference:
-      $ref: ./components/common.yaml#/components/schemas/TagReference
-    TagUsage:
-      $ref: ./domains/catalog.yaml#/components/schemas/TagUsage
-    TagAdminItem:
-      $ref: ./domains/catalog.yaml#/components/schemas/TagAdminItem
-    TagSummary:
-      $ref: ./domains/catalog.yaml#/components/schemas/TagSummary
-    TagList:
-      $ref: ./domains/catalog.yaml#/components/schemas/TagList
-    CommonTagsApplyResult:
-      $ref: ./domains/catalog.yaml#/components/schemas/CommonTagsApplyResult
-    CreateTagRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/CreateTagRequest
-    RenameTagRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/RenameTagRequest
-    DeleteTagRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/DeleteTagRequest
-    ReplaceGameTagsRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/ReplaceGameTagsRequest
-    GameTagsResult:
-      $ref: ./domains/catalog.yaml#/components/schemas/GameTagsResult
-    GameMutationResult:
-      $ref: ./domains/catalog.yaml#/components/schemas/GameMutationResult
-    AdminGameFile:
-      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameFile
-    AdminGameAsset:
-      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameAsset
-    AdminGameVariant:
-      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameVariant
-    AdminGameDeleteImpact:
-      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDeleteImpact
-    AdminGameDetail:
-      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDetail
-    FavoriteReference:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteReference
-    FavoriteState:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteState
-    FavoriteFolder:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteFolder
-    FavoriteSummary:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteSummary
-    FavoritePlatformSummary:
-      $ref: ./domains/library.yaml#/components/schemas/FavoritePlatformSummary
-    FavoriteNamedResource:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteNamedResource
-    FavoriteGameItem:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteGameItem
-    FavoriteListResponse:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteListResponse
-    FavoriteBatchResult:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteBatchResult
-    UnfavoriteItem:
-      $ref: ./domains/library.yaml#/components/schemas/UnfavoriteItem
-    UnfavoriteResult:
-      $ref: ./domains/library.yaml#/components/schemas/UnfavoriteResult
-    FavoriteRestoreResult:
-      $ref: ./domains/library.yaml#/components/schemas/FavoriteRestoreResult
-    ImmersivePlatformSummary:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersivePlatformSummary
-    ImmersivePlatformFeaturedGame:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersivePlatformFeaturedGame
-    ImmersiveNamedResource:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveNamedResource
-    ImmersiveGameItem:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveGameItem
-    ImmersiveSaveState:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveSaveState
-    ImmersiveDestinationSummary:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveDestinationSummary
-    ImmersiveDestinationList:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveDestinationList
-    ImmersiveFavoriteFolder:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveFavoriteFolder
-    ImmersiveLibraryGameList:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveLibraryGameList
-    ImmersivePlatformList:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersivePlatformList
-    ImmersiveGameList:
-      $ref: ./domains/library.yaml#/components/schemas/ImmersiveGameList
-    RenameSaveRequest:
-      $ref: ./domains/library.yaml#/components/schemas/RenameSaveRequest
-    ClientCapabilities:
-      $ref: ./components/common.yaml#/components/schemas/ClientCapabilities
-    LaunchRequest:
-      $ref: ./domains/library.yaml#/components/schemas/LaunchRequest
-    StartupAction:
-      $ref: ./domains/runtime.yaml#/components/schemas/StartupAction
-    DiscEntry:
-      $ref: ./domains/runtime.yaml#/components/schemas/DiscEntry
-    DiscSet:
-      $ref: ./domains/runtime.yaml#/components/schemas/DiscSet
-    LaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/LaunchConfig
-    RpgGeneration:
-      $ref: ./components/common.yaml#/components/schemas/RpgGeneration
-    RpgCoreID:
-      $ref: ./components/common.yaml#/components/schemas/RpgCoreID
-    CheckpointFormat:
-      $ref: ./components/common.yaml#/components/schemas/CheckpointFormat
-    CheckpointUnavailableReason:
-      $ref: ./domains/runtime.yaml#/components/schemas/CheckpointUnavailableReason
-    CheckpointAvailability:
-      $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
-    RuntimeTargetAdminItem:
-      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetAdminItem
-    RuntimeTargetList:
-      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetList
-    RuntimeCheckpointMetadata:
-      $ref: ./components/common.yaml#/components/schemas/RuntimeCheckpointMetadata
-    ProductSaveStateCreated:
-      $ref: ./domains/runtime.yaml#/components/schemas/ProductSaveStateCreated
-    ReviewPreviewCheckpointCreated:
-      $ref: ./domains/runtime.yaml#/components/schemas/ReviewPreviewCheckpointCreated
-    RuntimeCheckpointCreated:
-      $ref: ./domains/runtime.yaml#/components/schemas/RuntimeCheckpointCreated
-    CheckpointStatus:
-      $ref: ./domains/runtime.yaml#/components/schemas/CheckpointStatus
-    CreateUploadRequest:
-      $ref: ./domains/imports.yaml#/components/schemas/CreateUploadRequest
-    CreateImportRequest:
-      $ref: ./domains/imports.yaml#/components/schemas/CreateImportRequest
-    ReconfigureImportRequest:
-      $ref: ./domains/imports.yaml#/components/schemas/ReconfigureImportRequest
-    ReasonRequest:
-      $ref: ./components/common.yaml#/components/schemas/ReasonRequest
-    ApprovalReasonRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ApprovalReasonRequest
-    ReviewApprovalResult:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewApprovalResult
-    ApprovalRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ApprovalRequest
-    ReviewSourceKind:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewSourceKind
-    ReviewQueueItem:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewQueueItem
-    ReviewQueueList:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewQueueList
-    ReviewBulkApprovalScope:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalScope
-    ReviewBulkApprovalSummary:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalSummary
-    ReviewDeduplicateRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateRequest
-    ReviewDeduplicateResult:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateResult
-    MetadataFields:
-      $ref: ./components/common.yaml#/components/schemas/MetadataFields
-    SelectedAssetsRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/SelectedAssetsRequest
-    ReviewSelectedAssetsRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewSelectedAssetsRequest
-    ReviewReadiness:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewReadiness
-    ReviewDraftRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewDraftRequest
-    MetadataProviderRequest:
-      $ref: ./components/common.yaml#/components/schemas/MetadataProviderRequest
-    DeleteGameRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/DeleteGameRequest
-    GameAssetRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/GameAssetRequest
-    ReviewAssetRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewAssetRequest
-    ReviewArcadeParentAttachmentRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewArcadeParentAttachmentRequest
-    ReviewMultiDiscAttachmentRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewMultiDiscAttachmentRequest
-    ReviewPreviewRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewPreviewRequest
-    UploadReferenceRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/UploadReferenceRequest
-    ApplyCandidateRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/ApplyCandidateRequest
-    MovePreviewRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/MovePreviewRequest
-    MoveGameRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/MoveGameRequest
-    CreatePlatformInstanceRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/CreatePlatformInstanceRequest
-    PlatformDirectoryReference:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformDirectoryReference
-    PlatformInstanceRecommendation:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendation
-    PlatformInstanceRecommendationSummary:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendationSummary
-    PlatformInstanceRecommendations:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendations
-    RecommendedPlatformInstance:
-      $ref: ./domains/catalog.yaml#/components/schemas/RecommendedPlatformInstance
-    PlatformInstanceRecommendationsApplySummary:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendationsApplySummary
-    PlatformInstanceRecommendationsApplyResult:
-      $ref: ./domains/catalog.yaml#/components/schemas/PlatformInstanceRecommendationsApplyResult
-    PatchPlatformInstanceRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/PatchPlatformInstanceRequest
-    DefaultCorePreviewRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/DefaultCorePreviewRequest
-    DefaultCoreRequest:
-      $ref: ./domains/catalog.yaml#/components/schemas/DefaultCoreRequest
-    InstallBIOSRequest:
-      $ref: ./domains/server-imports.yaml#/components/schemas/InstallBIOSRequest
-    CreateServerImportRequest:
-      $ref: ./domains/server-imports.yaml#/components/schemas/CreateServerImportRequest
-    CreateSourceImportRequest:
-      $ref: ./domains/source-imports.yaml#/components/schemas/CreateSourceImportRequest
-    SourceCollectionMapping:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionMapping
-    SourceCollectionMappingsRequest:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionMappingsRequest
-    SourceImportStartRequest:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportStartRequest
-    ServerImportRoot:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportRoot
-    ServerImportRootList:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportRootList
-    ServerImportDirectory:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportDirectory
-    ServerImportDirectoryList:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportDirectoryList
-    ServerImportCounts:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportCounts
-    ServerImportSummary:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportSummary
-    ServerImportList:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportList
-    ServerBIOSImportItem:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerBIOSImportItem
-    ServerImportDetail:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportDetail
-    ServerBIOSImportCandidate:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerBIOSImportCandidate
-    ServerImportCandidateList:
-      $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportCandidateList
-    SourceImportCounts:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportCounts
-    SourceScanDiagnostic:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceScanDiagnostic
-    SourceImportSummary:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportSummary
-    SourceImportList:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportList
-    SourceSourceCollection:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceSourceCollection
-    SourceCollectionList:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionList
-    SourceItem:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceItem
-    SourceWarningValue:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceWarningValue
-    ContentRejection:
-      $ref: ./components/common.yaml#/components/schemas/ContentRejection
-    SourceItemFailureDetails:
-      $ref: ./components/common.yaml#/components/schemas/SourceItemFailureDetails
-    SourceRuntimeDependency:
-      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeDependency
-    SourceRuntimeBIOS:
-      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeBIOS
-    SourceRuntimeMissingDisc:
-      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeMissingDisc
-    SourceRuntimeCheck:
-      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeCheck
-    SourceItemList:
-      $ref: ./domains/source-imports.yaml#/components/schemas/SourceItemList
-    BIOSInstallationSummary:
-      $ref: ./domains/catalog.yaml#/components/schemas/BIOSInstallationSummary
-    BIOSRequirementSummary:
-      $ref: ./domains/catalog.yaml#/components/schemas/BIOSRequirementSummary
-    BIOSListResponseBody:
-      $ref: ./domains/catalog.yaml#/components/schemas/BIOSListResponseBody
-    PlayProgressRequest:
-      $ref: ./domains/runtime.yaml#/components/schemas/PlayProgressRequest
-    MultiDiscPlayerEventRequest:
-      $ref: ./domains/runtime.yaml#/components/schemas/MultiDiscPlayerEventRequest
-    HealthLive:
-      $ref: ./domains/identity.yaml#/components/schemas/HealthLive
-    HealthReady:
-      $ref: ./domains/identity.yaml#/components/schemas/HealthReady
-    HealthNotReady:
-      $ref: ./domains/identity.yaml#/components/schemas/HealthNotReady
-    AuthUser:
-      $ref: ./domains/identity.yaml#/components/schemas/AuthUser
-    AuthContext:
-      $ref: ./domains/identity.yaml#/components/schemas/AuthContext
-    AccountLinkInspection:
-      $ref: ./domains/identity.yaml#/components/schemas/AccountLinkInspection
-    AdminUser:
-      $ref: ./domains/identity.yaml#/components/schemas/AdminUser
-    AdminUserList:
-      $ref: ./domains/identity.yaml#/components/schemas/AdminUserList
-    AccountLinkCreator:
-      $ref: ./domains/identity.yaml#/components/schemas/AccountLinkCreator
-    AccountLink:
-      $ref: ./domains/identity.yaml#/components/schemas/AccountLink
-    AccountLinkList:
-      $ref: ./domains/identity.yaml#/components/schemas/AccountLinkList
-    InvitationCreated:
-      $ref: ./domains/identity.yaml#/components/schemas/InvitationCreated
-    PasswordResetCreated:
-      $ref: ./domains/identity.yaml#/components/schemas/PasswordResetCreated
-    PasswordChangedDisabled:
-      $ref: ./domains/identity.yaml#/components/schemas/PasswordChangedDisabled
-    Session:
-      $ref: ./components/common.yaml#/components/schemas/Session
-    JSONObject:
-      $ref: ./components/common.yaml#/components/schemas/JSONObject
-    RpgErrorCode:
-      $ref: ./components/common.yaml#/components/schemas/RpgErrorCode
-    RpgError:
-      $ref: ./components/common.yaml#/components/schemas/RpgError
-    RpgErrorEnvelope:
-      $ref: ./components/common.yaml#/components/schemas/RpgErrorEnvelope
-    ErrorEnvelope:
-      $ref: ./components/common.yaml#/components/schemas/ErrorEnvelope
-  requestBodies:
-    AuthInitialize:
-      $ref: ./domains/identity.yaml#/components/requestBodies/AuthInitialize
-    AuthLogin:
-      $ref: ./domains/identity.yaml#/components/requestBodies/AuthLogin
-    AuthChangePassword:
-      $ref: ./domains/identity.yaml#/components/requestBodies/AuthChangePassword
-    AccountLinkInspect:
-      $ref: ./domains/identity.yaml#/components/requestBodies/AccountLinkInspect
-    InvitationAccept:
-      $ref: ./domains/identity.yaml#/components/requestBodies/InvitationAccept
-    PasswordResetComplete:
-      $ref: ./domains/identity.yaml#/components/requestBodies/PasswordResetComplete
-    CreateInvitation:
-      $ref: ./domains/identity.yaml#/components/requestBodies/CreateInvitation
-    PatchUser:
-      $ref: ./domains/identity.yaml#/components/requestBodies/PatchUser
-    DeleteUser:
-      $ref: ./domains/identity.yaml#/components/requestBodies/DeleteUser
-    RenameSave:
-      $ref: ./domains/library.yaml#/components/requestBodies/RenameSave
-    FromRenameSave:
-      $ref: ./domains/library.yaml#/components/requestBodies/FromRenameSave
-    Launch:
-      $ref: ./domains/library.yaml#/components/requestBodies/Launch
-    CreateUpload:
-      $ref: ./domains/imports.yaml#/components/requestBodies/CreateUpload
-    CreateImport:
-      $ref: ./domains/imports.yaml#/components/requestBodies/CreateImport
-    ReconfigureImport:
-      $ref: ./domains/imports.yaml#/components/requestBodies/ReconfigureImport
-    Reason:
-      $ref: ./components/common.yaml#/components/requestBodies/Reason
-    ApprovalReason:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ApprovalReason
-    Approval:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/Approval
-    Empty:
-      $ref: ./components/common.yaml#/components/requestBodies/Empty
-    ReplaceFavoriteFolders:
-      $ref: ./domains/library.yaml#/components/requestBodies/ReplaceFavoriteFolders
-    OrganizeFavorites:
-      $ref: ./domains/library.yaml#/components/requestBodies/OrganizeFavorites
-    Unfavorite:
-      $ref: ./domains/library.yaml#/components/requestBodies/Unfavorite
-    RestoreFavorites:
-      $ref: ./domains/library.yaml#/components/requestBodies/RestoreFavorites
-    CreateFavoriteFolder:
-      $ref: ./domains/library.yaml#/components/requestBodies/CreateFavoriteFolder
-    PatchFavoriteFolder:
-      $ref: ./domains/library.yaml#/components/requestBodies/PatchFavoriteFolder
-    CreateTag:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/CreateTag
-    RenameTag:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/RenameTag
-    DeleteTag:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/DeleteTag
-    ReplaceGameTags:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/ReplaceGameTags
-    ReviewDraft:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewDraft
-    MetadataProvider:
-      $ref: ./components/common.yaml#/components/requestBodies/MetadataProvider
-    MetadataFields:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/MetadataFields
-    DeleteGame:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/DeleteGame
-    GameAsset:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/GameAsset
-    ReviewAsset:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewAsset
-    ReviewArcadeParentAttachment:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewArcadeParentAttachment
-    ReviewMultiDiscAttachment:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewMultiDiscAttachment
-    ReviewPreview:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewPreview
-    UploadReference:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/UploadReference
-    ApplyCandidate:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/ApplyCandidate
-    MovePreview:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/MovePreview
-    MoveGame:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/MoveGame
-    CreatePlatformInstance:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/CreatePlatformInstance
-    PatchPlatformInstance:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/PatchPlatformInstance
-    DefaultCorePreview:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/DefaultCorePreview
-    DefaultCore:
-      $ref: ./domains/catalog.yaml#/components/requestBodies/DefaultCore
-    InstallBIOS:
-      $ref: ./domains/server-imports.yaml#/components/requestBodies/InstallBIOS
-    CreateServerImport:
-      $ref: ./domains/server-imports.yaml#/components/requestBodies/CreateServerImport
-    CreateSourceImport:
-      $ref: ./domains/source-imports.yaml#/components/requestBodies/CreateSourceImport
-    SourceCollectionMappings:
-      $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceCollectionMappings
-    SourceImportStart:
-      $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceImportStart
-    PlayProgress:
-      $ref: ./domains/runtime.yaml#/components/requestBodies/PlayProgress
-    MultiDiscPlayerEvent:
-      $ref: ./domains/runtime.yaml#/components/requestBodies/MultiDiscPlayerEvent
-  responses:
-    BadRequestResponse:
-      $ref: ./domains/imports.yaml#/components/responses/BadRequestResponse
-    PreconditionRequiredResponse:
-      $ref: ./domains/imports.yaml#/components/responses/PreconditionRequiredResponse
-    RuntimeTargetListResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/RuntimeTargetListResponse
-    RuntimeCheckpointCreateResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/RuntimeCheckpointCreateResponse
-    CheckpointStatusResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/CheckpointStatusResponse
-    RpgBadRequestResponse:
-      $ref: ./components/common.yaml#/components/responses/RpgBadRequestResponse
-    RpgGoneResponse:
-      $ref: ./components/common.yaml#/components/responses/RpgGoneResponse
-    RpgNotFoundResponse:
-      $ref: ./components/common.yaml#/components/responses/RpgNotFoundResponse
-    RpgConflictResponse:
-      $ref: ./components/common.yaml#/components/responses/RpgConflictResponse
-    RpgPayloadTooLargeResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RpgPayloadTooLargeResponse
-    RequestTooLargeResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/RequestTooLargeResponse
-    RpgUnprocessableResponse:
-      $ref: ./components/common.yaml#/components/responses/RpgUnprocessableResponse
-    DiagnosticsResponse:
-      $ref: ./domains/operations.yaml#/components/responses/DiagnosticsResponse
-    PlatformInstanceRecommendationsResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/PlatformInstanceRecommendationsResponse
-    PlatformInstanceRecommendationsApplyResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/PlatformInstanceRecommendationsApplyResponse
-    ImportOverviewSummaryResponse:
-      $ref: ./domains/imports.yaml#/components/responses/ImportOverviewSummaryResponse
-    ReviewQueueListResponse:
-      $ref: ./domains/reviews.yaml#/components/responses/ReviewQueueListResponse
-    TagAdminItemResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/TagAdminItemResponse
-    TagListResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/TagListResponse
-    CommonTagsApplyResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/CommonTagsApplyResponse
-    GameTagsResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/GameTagsResponse
-    GameMutationResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/GameMutationResponse
-    AdminGameDetailResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/AdminGameDetailResponse
-    BIOSListResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/BIOSListResponse
-    ServerImportRootListResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportRootListResponse
-    ServerImportDirectoryListResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportDirectoryListResponse
-    ServerImportResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportResponse
-    ServerImportListResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportListResponse
-    ServerImportDetailResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportDetailResponse
-    ServerImportCandidateListResponse:
-      $ref: ./domains/server-imports.yaml#/components/responses/ServerImportCandidateListResponse
-    SourceImportResponse:
-      $ref: ./domains/source-imports.yaml#/components/responses/SourceImportResponse
-    SourceImportListResponse:
-      $ref: ./domains/source-imports.yaml#/components/responses/SourceImportListResponse
-    SourceCollectionListResponse:
-      $ref: ./domains/source-imports.yaml#/components/responses/SourceCollectionListResponse
-    SourceItemListResponse:
-      $ref: ./domains/source-imports.yaml#/components/responses/SourceItemListResponse
-    HealthLiveResponse:
-      $ref: ./domains/identity.yaml#/components/responses/HealthLiveResponse
-    HealthReadyResponse:
-      $ref: ./domains/identity.yaml#/components/responses/HealthReadyResponse
-    HealthNotReadyResponse:
-      $ref: ./domains/identity.yaml#/components/responses/HealthNotReadyResponse
-    AuthContextResponse:
-      $ref: ./domains/identity.yaml#/components/responses/AuthContextResponse
-    AccountLinkInspectionResponse:
-      $ref: ./domains/identity.yaml#/components/responses/AccountLinkInspectionResponse
-    AdminUserListResponse:
-      $ref: ./domains/identity.yaml#/components/responses/AdminUserListResponse
-    AdminUserResponse:
-      $ref: ./domains/identity.yaml#/components/responses/AdminUserResponse
-    AccountLinkListResponse:
-      $ref: ./domains/identity.yaml#/components/responses/AccountLinkListResponse
-    InvitationCreatedResponse:
-      $ref: ./domains/identity.yaml#/components/responses/InvitationCreatedResponse
-    PasswordResetCreatedResponse:
-      $ref: ./domains/identity.yaml#/components/responses/PasswordResetCreatedResponse
-    JSONResponse:
-      $ref: ./components/common.yaml#/components/responses/JSONResponse
-    FavoriteListJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/FavoriteListJSONResponse
-    FavoriteStateJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/FavoriteStateJSONResponse
-    FavoriteBatchJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/FavoriteBatchJSONResponse
-    UnfavoriteJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/UnfavoriteJSONResponse
-    FavoriteRestoreJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/FavoriteRestoreJSONResponse
-    FavoriteFolderJSONResponse:
-      $ref: ./domains/library.yaml#/components/responses/FavoriteFolderJSONResponse
-    ImmersivePlatformListResponse:
-      $ref: ./domains/library.yaml#/components/responses/ImmersivePlatformListResponse
-    ImmersiveGameListResponse:
-      $ref: ./domains/library.yaml#/components/responses/ImmersiveGameListResponse
-    ImmersiveDestinationListResponse:
-      $ref: ./domains/library.yaml#/components/responses/ImmersiveDestinationListResponse
-    ImmersiveLibraryGameListResponse:
-      $ref: ./domains/library.yaml#/components/responses/ImmersiveLibraryGameListResponse
-    LaunchConfigResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/LaunchConfigResponse
-    SSEResponse:
-      $ref: ./components/common.yaml#/components/responses/SSEResponse
-    BinaryResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/BinaryResponse
-  parameters:
-    Q:
-      $ref: ./components/common.yaml#/components/parameters/Q
-    Q80:
-      $ref: ./components/common.yaml#/components/parameters/Q80
-    Role:
-      $ref: ./domains/identity.yaml#/components/parameters/Role
-    PlatformIDQuery:
-      $ref: ./components/common.yaml#/components/parameters/PlatformIDQuery
-    GameIDQuery:
-      $ref: ./domains/library.yaml#/components/parameters/GameIDQuery
-    TagIDQuery:
-      $ref: ./components/common.yaml#/components/parameters/TagIDQuery
-    TagStatus:
-      $ref: ./domains/catalog.yaml#/components/parameters/TagStatus
-    TagSort:
-      $ref: ./domains/catalog.yaml#/components/parameters/TagSort
-    PlatformInstanceIDQuery:
-      $ref: ./components/common.yaml#/components/parameters/PlatformInstanceIDQuery
-    CoreIDQuery:
-      $ref: ./components/common.yaml#/components/parameters/CoreIDQuery
-    ProviderIDQuery:
-      $ref: ./domains/catalog.yaml#/components/parameters/ProviderIDQuery
-    TargetIDQuery:
-      $ref: ./domains/catalog.yaml#/components/parameters/TargetIDQuery
-    ImportJobIDQuery:
-      $ref: ./domains/reviews.yaml#/components/parameters/ImportJobIDQuery
-    SourceImportIDQuery:
-      $ref: ./domains/reviews.yaml#/components/parameters/SourceImportIDQuery
-    Availability:
-      $ref: ./domains/library.yaml#/components/parameters/Availability
-    State:
-      $ref: ./components/common.yaml#/components/parameters/State
-    Status:
-      $ref: ./components/common.yaml#/components/parameters/Status
-    BlockerCode:
-      $ref: ./domains/reviews.yaml#/components/parameters/BlockerCode
-    Decision:
-      $ref: ./domains/reviews.yaml#/components/parameters/Decision
-    Enabled:
-      $ref: ./domains/catalog.yaml#/components/parameters/Enabled
-    Scope:
-      $ref: ./domains/catalog.yaml#/components/parameters/Scope
-    BIOSQuick:
-      $ref: ./domains/catalog.yaml#/components/parameters/BIOSQuick
-    Outcome:
-      $ref: ./components/common.yaml#/components/parameters/Outcome
-    MatchMethod:
-      $ref: ./domains/server-imports.yaml#/components/parameters/MatchMethod
-    SourceWarning:
-      $ref: ./domains/source-imports.yaml#/components/parameters/SourceWarning
-    ReviewSourceMediaKind:
-      $ref: ./domains/runtime.yaml#/components/parameters/ReviewSourceMediaKind
-    SourceCollectionIDQuery:
-      $ref: ./domains/source-imports.yaml#/components/parameters/SourceCollectionIDQuery
-    ServerImportKind:
-      $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportKind
-    ServerRelativePath:
-      $ref: ./domains/server-imports.yaml#/components/parameters/ServerRelativePath
-    FavoriteScope:
-      $ref: ./domains/library.yaml#/components/parameters/FavoriteScope
-    FavoriteFolderIDQuery:
-      $ref: ./domains/library.yaml#/components/parameters/FavoriteFolderIDQuery
-    FavoriteSort:
-      $ref: ./domains/library.yaml#/components/parameters/FavoriteSort
-    GameListSort:
-      $ref: ./domains/library.yaml#/components/parameters/GameListSort
-    Source:
-      $ref: ./components/common.yaml#/components/parameters/Source
-    ParseStatus:
-      $ref: ./components/common.yaml#/components/parameters/ParseStatus
-    Section:
-      $ref: ./components/common.yaml#/components/parameters/Section
-    Change:
-      $ref: ./components/common.yaml#/components/parameters/Change
-    Sort:
-      $ref: ./components/common.yaml#/components/parameters/Sort
-    FromAtMs:
-      $ref: ./domains/reviews.yaml#/components/parameters/FromAtMs
-    ToAtMs:
-      $ref: ./domains/reviews.yaml#/components/parameters/ToAtMs
-    Cursor:
-      $ref: ./components/common.yaml#/components/parameters/Cursor
-    Limit:
-      $ref: ./components/common.yaml#/components/parameters/Limit
-    Limit50:
-      $ref: ./components/common.yaml#/components/parameters/Limit50
-    Limit20:
-      $ref: ./components/common.yaml#/components/parameters/Limit20
-    Limit100:
-      $ref: ./components/common.yaml#/components/parameters/Limit100
-    IfMatch:
-      $ref: ./components/common.yaml#/components/parameters/IfMatch
-    IdempotencyKey:
-      $ref: ./components/common.yaml#/components/parameters/IdempotencyKey
-    CSRFToken:
-      $ref: ./components/common.yaml#/components/parameters/CSRFToken
-    ContentRange:
-      $ref: ./domains/imports.yaml#/components/parameters/ContentRange
-    ContentDigest:
-      $ref: ./domains/imports.yaml#/components/parameters/ContentDigest
-    LastEventID:
-      $ref: ./components/common.yaml#/components/parameters/LastEventID
-    GameID:
-      $ref: ./components/common.yaml#/components/parameters/GameID
-    PlatformID:
-      $ref: ./domains/library.yaml#/components/parameters/PlatformID
-    ImmersiveLibraryKind:
-      $ref: ./domains/library.yaml#/components/parameters/ImmersiveLibraryKind
-    TagID:
-      $ref: ./domains/catalog.yaml#/components/parameters/TagID
-    FavoriteFolderID:
-      $ref: ./domains/library.yaml#/components/parameters/FavoriteFolderID
-    SaveStateID:
-      $ref: ./components/common.yaml#/components/parameters/SaveStateID
-    UploadID:
-      $ref: ./domains/imports.yaml#/components/parameters/UploadID
-    FileID:
-      $ref: ./domains/imports.yaml#/components/parameters/FileID
-    PartNo:
-      $ref: ./domains/imports.yaml#/components/parameters/PartNo
-    ImportJobID:
-      $ref: ./domains/imports.yaml#/components/parameters/ImportJobID
-    ImportItemID:
-      $ref: ./components/common.yaml#/components/parameters/ImportItemID
-    BulkApprovalID:
-      $ref: ./domains/reviews.yaml#/components/parameters/BulkApprovalID
-    JobID:
-      $ref: ./domains/imports.yaml#/components/parameters/JobID
-    CandidateID:
-      $ref: ./domains/catalog.yaml#/components/parameters/CandidateID
-    PlatformInstanceID:
-      $ref: ./domains/catalog.yaml#/components/parameters/PlatformInstanceID
-    RequirementID:
-      $ref: ./domains/server-imports.yaml#/components/parameters/RequirementID
-    ServerImportRootID:
-      $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportRootID
-    ServerImportID:
-      $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportID
-    SourceImportID:
-      $ref: ./domains/source-imports.yaml#/components/parameters/SourceImportID
-    GameAssetKind:
-      $ref: ./domains/catalog.yaml#/components/parameters/GameAssetKind
-    AssetID:
-      $ref: ./domains/runtime.yaml#/components/parameters/AssetID
-    LaunchID:
-      $ref: ./domains/runtime.yaml#/components/parameters/LaunchID
-    ContentIdentity:
-      $ref: ./domains/runtime.yaml#/components/parameters/ContentIdentity
-    UserID:
-      $ref: ./domains/identity.yaml#/components/parameters/UserID
-    AccountLinkID:
-      $ref: ./domains/identity.yaml#/components/parameters/AccountLinkID
-    LogicalName:
-      $ref: ./domains/runtime.yaml#/components/parameters/LogicalName
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Retrom HTTP API",
+    "version": "1.0.0",
+    "description": "Current-state library, first review, private saves and login-authorized runtime."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/health/live": {
+      "$ref": "./domains/identity.yaml#/paths/~1health~1live"
+    },
+    "/health/ready": {
+      "$ref": "./domains/identity.yaml#/paths/~1health~1ready"
+    },
+    "/api/v1/auth/context": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1context"
+    },
+    "/api/v1/auth/initialize": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1initialize"
+    },
+    "/api/v1/auth/login": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1login"
+    },
+    "/api/v1/auth/logout": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1logout"
+    },
+    "/api/v1/auth/change-password": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1change-password"
+    },
+    "/api/v1/auth/account-links/inspect": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1account-links~1inspect"
+    },
+    "/api/v1/auth/invitations/accept": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1invitations~1accept"
+    },
+    "/api/v1/auth/password-resets/complete": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1auth~1password-resets~1complete"
+    },
+    "/api/v1/admin/invitations": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1invitations"
+    },
+    "/api/v1/admin/users": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1users"
+    },
+    "/api/v1/admin/users/{userId}": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1users~1{userId}"
+    },
+    "/api/v1/admin/users/{userId}/password-reset-links": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1users~1{userId}~1password-reset-links"
+    },
+    "/api/v1/admin/account-links/{accountLinkId}": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1account-links~1{accountLinkId}"
+    },
+    "/api/v1/runtime/catalog": {
+      "$ref": "./domains/catalog.yaml#/paths/~1api~1v1~1runtime~1catalog"
+    },
+    "/api/v1/platform-instances": {
+      "$ref": "./domains/catalog.yaml#/paths/~1api~1v1~1platform-instances"
+    },
+    "/api/v1/admin/platform-instances": {
+      "$ref": "./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances"
+    },
+    "/api/v1/admin/platform-instances/{directoryId}": {
+      "$ref": "./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances~1{directoryId}"
+    },
+    "/api/v1/home": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1home"
+    },
+    "/api/v1/games": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games"
+    },
+    "/api/v1/games/{gameId}": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games~1{gameId}"
+    },
+    "/api/v1/games/{gameId}/media/{mediaId}": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games~1{gameId}~1media~1{mediaId}"
+    },
+    "/api/v1/admin/games": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games"
+    },
+    "/api/v1/admin/games/{gameId}": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}"
+    },
+    "/api/v1/admin/games/{gameId}/content-replacement": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement"
+    },
+    "/api/v1/admin/games/{gameId}/media": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1media"
+    },
+    "/api/v1/admin/games/{gameId}/media/{mediaId}": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1media~1{mediaId}"
+    },
+    "/api/v1/tags": {
+      "$ref": "./domains/tags.yaml#/paths/~1api~1v1~1tags"
+    },
+    "/api/v1/admin/tags": {
+      "$ref": "./domains/tags.yaml#/paths/~1api~1v1~1admin~1tags"
+    },
+    "/api/v1/admin/tags/{tagId}": {
+      "$ref": "./domains/tags.yaml#/paths/~1api~1v1~1admin~1tags~1{tagId}"
+    },
+    "/api/v1/favorites": {
+      "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorites"
+    },
+    "/api/v1/favorites/{gameId}": {
+      "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorites~1{gameId}"
+    },
+    "/api/v1/favorite-folders": {
+      "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorite-folders"
+    },
+    "/api/v1/favorite-folders/{folderId}": {
+      "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorite-folders~1{folderId}"
+    },
+    "/api/v1/saves": {
+      "$ref": "./domains/saves.yaml#/paths/~1api~1v1~1saves"
+    },
+    "/api/v1/saves/{saveId}": {
+      "$ref": "./domains/saves.yaml#/paths/~1api~1v1~1saves~1{saveId}"
+    },
+    "/api/v1/saves/{saveId}/payload": {
+      "$ref": "./domains/saves.yaml#/paths/~1api~1v1~1saves~1{saveId}~1payload"
+    },
+    "/api/v1/saves/{saveId}/screenshot": {
+      "$ref": "./domains/saves.yaml#/paths/~1api~1v1~1saves~1{saveId}~1screenshot"
+    },
+    "/api/v1/recent-games": {
+      "$ref": "./domains/recent.yaml#/paths/~1api~1v1~1recent-games"
+    },
+    "/api/v1/admin/reviews": {
+      "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews"
+    },
+    "/api/v1/admin/reviews/{gameId}": {
+      "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1{gameId}"
+    },
+    "/api/v1/admin/reviews/{gameId}/approve": {
+      "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1{gameId}~1approve"
+    },
+    "/api/v1/admin/reviews/{gameId}/discard": {
+      "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1{gameId}~1discard"
+    },
+    "/api/v1/admin/source-roots": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1source-roots"
+    },
+    "/api/v1/admin/source-roots/{rootId}/directories": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1source-roots~1{rootId}~1directories"
+    },
+    "/api/v1/admin/game-scans/inspect": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1game-scans~1inspect"
+    },
+    "/api/v1/admin/game-scans": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1game-scans"
+    },
+    "/api/v1/admin/scans": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1scans"
+    },
+    "/api/v1/admin/scans/{scanId}/cancel": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1scans~1{scanId}~1cancel"
+    },
+    "/api/v1/admin/bios": {
+      "$ref": "./domains/bios.yaml#/paths/~1api~1v1~1admin~1bios"
+    },
+    "/api/v1/admin/bios/{requirementKey}": {
+      "$ref": "./domains/bios.yaml#/paths/~1api~1v1~1admin~1bios~1{requirementKey}"
+    },
+    "/api/v1/admin/bios-scans": {
+      "$ref": "./domains/bios.yaml#/paths/~1api~1v1~1admin~1bios-scans"
+    },
+    "/api/v1/runs": {
+      "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs"
+    },
+    "/api/v1/runs/{runId}": {
+      "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs~1{runId}"
+    },
+    "/api/v1/runs/{runId}/events": {
+      "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs~1{runId}~1events"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/scummvm": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1scummvm"
+    },
+    "/api/v1/admin/account-links": {
+      "$ref": "./domains/identity.yaml#/paths/~1api~1v1~1admin~1account-links"
+    },
+    "/api/v1/runs/{runId}/resources/{resourceId}/{filename}": {
+      "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs~1{runId}~1resources~1{resourceId}~1{filename}"
+    },
+    "/api/v1/runs/{runId}/resources/index/{indexId}": {
+      "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs~1{runId}~1resources~1index~1{indexId}"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "retrom_session"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "$ref": "./components/common.yaml#/components/schemas/Error"
+      },
+      "User": {
+        "$ref": "./components/common.yaml#/components/schemas/User"
+      },
+      "AuthContext": {
+        "$ref": "./components/common.yaml#/components/schemas/AuthContext"
+      },
+      "LoginRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/LoginRequest"
+      },
+      "InitializeRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/InitializeRequest"
+      },
+      "PasswordRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/PasswordRequest"
+      },
+      "LinkInspectRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/LinkInspectRequest"
+      },
+      "LinkAcceptRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/LinkAcceptRequest"
+      },
+      "PasswordResetRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/PasswordResetRequest"
+      },
+      "AccountLink": {
+        "$ref": "./components/common.yaml#/components/schemas/AccountLink"
+      },
+      "AccountLinkInspect": {
+        "$ref": "./components/common.yaml#/components/schemas/AccountLinkInspect"
+      },
+      "CreateInvitationRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/CreateInvitationRequest"
+      },
+      "UserUpdateRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/UserUpdateRequest"
+      },
+      "VersionRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/VersionRequest"
+      },
+      "Platform": {
+        "$ref": "./components/common.yaml#/components/schemas/Platform"
+      },
+      "Core": {
+        "$ref": "./components/common.yaml#/components/schemas/Core"
+      },
+      "RuntimeCatalog": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeCatalog"
+      },
+      "Directory": {
+        "$ref": "./components/common.yaml#/components/schemas/Directory"
+      },
+      "DirectoryWriteRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/DirectoryWriteRequest"
+      },
+      "DirectoryUpdateRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/DirectoryUpdateRequest"
+      },
+      "Tag": {
+        "$ref": "./components/common.yaml#/components/schemas/Tag"
+      },
+      "TagWriteRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/TagWriteRequest"
+      },
+      "TagUpdateRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/TagUpdateRequest"
+      },
+      "RuntimeConfig": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeConfig"
+      },
+      "GameMedia": {
+        "$ref": "./components/common.yaml#/components/schemas/GameMedia"
+      },
+      "GameFile": {
+        "$ref": "./components/common.yaml#/components/schemas/GameFile"
+      },
+      "Game": {
+        "$ref": "./components/common.yaml#/components/schemas/Game"
+      },
+      "GameDetail": {
+        "$ref": "./components/common.yaml#/components/schemas/GameDetail"
+      },
+      "GameWriteRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/GameWriteRequest"
+      },
+      "ContentReplaceRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentReplaceRequest"
+      },
+      "FavoriteFolder": {
+        "$ref": "./components/common.yaml#/components/schemas/FavoriteFolder"
+      },
+      "FolderWriteRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/FolderWriteRequest"
+      },
+      "FolderUpdateRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/FolderUpdateRequest"
+      },
+      "FavoriteWriteRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/FavoriteWriteRequest"
+      },
+      "SaveExtinfo": {
+        "$ref": "./components/common.yaml#/components/schemas/SaveExtinfo"
+      },
+      "Save": {
+        "$ref": "./components/common.yaml#/components/schemas/Save"
+      },
+      "SaveRenameRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/SaveRenameRequest"
+      },
+      "RecentGame": {
+        "$ref": "./components/common.yaml#/components/schemas/RecentGame"
+      },
+      "Home": {
+        "$ref": "./components/common.yaml#/components/schemas/Home"
+      },
+      "SourceRoot": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceRoot"
+      },
+      "SourceDirectory": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceDirectory"
+      },
+      "SourceEntry": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceEntry"
+      },
+      "SourceInspectRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceInspectRequest"
+      },
+      "SourceMapping": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceMapping"
+      },
+      "GameScanRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/GameScanRequest"
+      },
+      "BiosScanRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/BiosScanRequest"
+      },
+      "ScanProgress": {
+        "$ref": "./components/common.yaml#/components/schemas/ScanProgress"
+      },
+      "BiosRequirement": {
+        "$ref": "./components/common.yaml#/components/schemas/BiosRequirement"
+      },
+      "RunRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/RunRequest"
+      },
+      "Run": {
+        "$ref": "./components/common.yaml#/components/schemas/Run"
+      },
+      "RunEventRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/RunEventRequest"
+      },
+      "SaveCommitMetadata": {
+        "$ref": "./components/common.yaml#/components/schemas/SaveCommitMetadata"
+      },
+      "UserPage": {
+        "$ref": "./components/common.yaml#/components/schemas/UserPage"
+      },
+      "GamePage": {
+        "$ref": "./components/common.yaml#/components/schemas/GamePage"
+      },
+      "SavePage": {
+        "$ref": "./components/common.yaml#/components/schemas/SavePage"
+      },
+      "RecentPage": {
+        "$ref": "./components/common.yaml#/components/schemas/RecentPage"
+      },
+      "TagPage": {
+        "$ref": "./components/common.yaml#/components/schemas/TagPage"
+      },
+      "DirectoryList": {
+        "$ref": "./components/common.yaml#/components/schemas/DirectoryList"
+      },
+      "TagList": {
+        "$ref": "./components/common.yaml#/components/schemas/TagList"
+      },
+      "FolderList": {
+        "$ref": "./components/common.yaml#/components/schemas/FolderList"
+      },
+      "ScanList": {
+        "$ref": "./components/common.yaml#/components/schemas/ScanList"
+      },
+      "RootList": {
+        "$ref": "./components/common.yaml#/components/schemas/RootList"
+      },
+      "SourceDirectoryList": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceDirectoryList"
+      },
+      "SourceEntryList": {
+        "$ref": "./components/common.yaml#/components/schemas/SourceEntryList"
+      },
+      "BiosList": {
+        "$ref": "./components/common.yaml#/components/schemas/BiosList"
+      },
+      "RuntimeContent": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeContent"
+      },
+      "RuntimeCoreOptions": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeCoreOptions"
+      },
+      "RuntimeOptionValue": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeOptionValue"
+      },
+      "RuntimeTarget": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeTarget"
+      },
+      "RuntimeProvider": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeProvider"
+      },
+      "RuntimeBinding": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeBinding"
+      },
+      "ScummvmCandidate": {
+        "$ref": "./components/common.yaml#/components/schemas/ScummvmCandidate"
+      },
+      "ScummvmCandidates": {
+        "$ref": "./components/common.yaml#/components/schemas/ScummvmCandidates"
+      },
+      "RuntimeIndexFile": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeIndexFile"
+      },
+      "RuntimeIndex": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeIndex"
+      },
+      "AccountLinkSummary": {
+        "$ref": "./components/common.yaml#/components/schemas/AccountLinkSummary"
+      },
+      "AccountLinkList": {
+        "$ref": "./components/common.yaml#/components/schemas/AccountLinkList"
+      }
+    }
+  }
+}

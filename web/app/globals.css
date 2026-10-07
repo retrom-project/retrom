@@ -1,36 +1,26 @@
 @import "tailwindcss";
-
 @layer app, controls;
 @import "../styles/tokens.css";
-@import "../features/favorites/favorites.css" layer(app);
 @import "../styles/foundation.css" layer(app);
-@import "../features/auth/auth.css" layer(app);
-@import "../features/users/users.css" layer(app);
 @import "../styles/primitives.css" layer(app);
+@import "../styles/data-views.css" layer(app);
+@import "../styles/forms.css" layer(app);
+@import "../features/auth/auth.css" layer(app);
 @import "../features/home/home.css" layer(app);
 @import "../features/home/home-favorites.css" layer(app);
-@import "../styles/data-views.css" layer(app);
 @import "../features/library/library.css" layer(app);
+@import "../features/favorites/favorites.css" layer(app);
 @import "../features/recent/recent.css" layer(app);
-@import "../styles/forms.css" layer(app);
-@import "../features/platforms/platforms.css" layer(app);
-@import "../features/reviews/review-editor.css" layer(app);
-@import "../features/imports/import-review-workflow.css" layer(app);
-@import "../features/games/admin-games.css" layer(app);
-@import "../features/bios/runtime-dependencies.css" layer(app);
-@import "../features/server-import/server-import.css" layer(app);
-@import "../features/games/admin-games-responsive.css" layer(app);
+@import "../features/saves/saves.css" layer(app);
+@import "../features/games/game-detail.css" layer(app);
 @import "../features/player/player.css" layer(app);
-@import "../features/player/game-editor.css" layer(app);
+@import "../features/users/users.css" layer(app);
+@import "../features/platforms/platforms.css" layer(app);
 @import "../features/tags/tags.css" layer(app);
+@import "../features/bios/runtime-dependencies.css" layer(app);
 @import "../styles/responsive.css" layer(app);
 @import "../features/home/home-wide.css" layer(app);
 @import "../styles/mobile.css" layer(app);
 @import "../features/mobile/mobile-play.css" layer(app);
-@import "../features/games/game-detail.css" layer(app);
+@import "../styles/workspace.css" layer(app);
 @import "../styles/controls.css" layer(controls);
-
-@layer app {
-  .local-game-save-notice { position: fixed; z-index: 120; bottom: 16px; right: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 16px; border: 1px solid #566179; border-radius: var(--radius-panel); background: #18202e; color: #eef2fa; box-shadow: 0 6px 24px #0006; }
-  .local-game-save-notice p { margin: 0 0 12px; font-size: var(--text-body); line-height: 1.6; }
-}

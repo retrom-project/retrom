@@ -1,121 +1,16 @@
 # Retrom
 
-**把自己的游戏库搬进浏览器。**
+Retrom 是个人和可信朋友共享的自托管浏览器游戏库。管理员从受控服务器 Pegasus / EmulationStation 来源扫描和审核游戏，维护目录、媒体、标签与BIOS；每个账号拥有自己的存档、最近游玩、收藏和收藏夹。
 
-Retrom 是一个面向个人和可信朋友的自托管游戏平台。集中管理游戏、封面和元信息，打开浏览器就能找游戏、开始游玩，或从上次保存的进度继续。游戏库由你维护，每个账号拥有独立的存档、收藏和游玩记录。
+当前工程使用Go、PostgreSQL、Redis、Next.js和配套retrom-runtime。19张业务表保存当前事实，Redis只保存有有效期的运行上下文与临时限流。运行解释、核心适配、资源桥和存档兼容由同版runtime提供；完整支持范围以真实产品矩阵为准。
 
-[快速开始](#快速开始) · [部署指南](docs/backend-api-and-operations.md) · [文档](docs/README.md) · [反馈问题](https://github.com/retrom-project/retrom/issues) · [参与贡献](#参与贡献)
+开发与联调使用命名PFB，保持Retrom/runtime同树。显式准备依赖、不可变runtime工具与已验证Provider后执行pfb-up；日常restart不构建核心或Provider归档。新空生产实例通过/setup初始化管理员，测试模式只用于隔离开发。
 
-> 项目正在持续开发，当前正式支持 Chrome。平台、核心与游戏的兼容范围见[运行时验证基线](docs/core-runtime-validation.md)。
+- [完整文档](docs/README.md)
+- [PFB开发](docs/pfb-development.md)
+- [配置与部署](docs/backend-api-and-operations.md)
+- [工程门禁](docs/engineering-quality-and-testing.md)
+- [配套依赖输入](docs/dependency-management.md)
+- [当前验收标准与完成边界](docs/project-acceptance.md)
 
-## 功能
-
-- **找游戏与继续游玩**：按标题搜索，按平台、目录和标签筛选；查看最近游玩，从首页或存档页继续进度。
-- **浏览器内运行**：通过 EmulatorJS 和 retrom-runtime 接入多种主机、街机及 RPG Maker、ONScripter、KiriKiri 等游戏项目，提供全屏、输入控制和受支持的存档能力。
-- **适合不同设备的界面**：PC 提供完整的浏览与管理界面；手机围绕“首页、游戏库、我的”简化触屏操作；独立沉浸模式面向电视和标准手柄。
-- **整理已有收藏**：支持文件、目录、压缩包和受支持的多盘内容，也可从 Pegasus、EmulationStation 游戏库导入；通过内容哈希去重，审核后发布。
-- **与朋友共享**：通过邀请加入同一游戏库，账号间的收藏、存档和游玩记录彼此独立。
-
-## 快速开始
-
-以下步骤在本机启动开发测试实例，适合体验和参与开发。正式服务请使用[自托管部署](#自托管部署)中的配置。
-
-### 环境要求
-
-- Linux x86-64（含 WSL2）。
-- Git、Make、Python 3、`curl`、`tar`、`xz`。
-- 支持 C++20 的 `g++`、`bison`、`flex`、zlib 开发包，以及 `7z` 或 `7zz`。
-- 首次准备依赖时可访问互联网。
-
-项目命令会下载并校验固定版本的 Go、Node.js、Chrome for Testing 和运行时依赖，并从校验过的 PostgreSQL 18.3 源码构建本地数据库工具，后续复用本地缓存。请使用普通用户运行开发命令。
-
-### 启动
-
-```bash
-git clone https://github.com/retrom-project/retrom.git
-cd retrom
-make install-deps
-make dev
-```
-
-打开 [http://localhost:4000](http://localhost:4000)，使用开发测试账号 `test` / `test` 登录。
-
-`make dev` 自动启动宿主机 PostgreSQL，等待数据库就绪后启动前后端，不需要 Docker 或系统数据库服务。文件数据默认保存在 `.dev-data/data/`，数据库保存在 `.dev-data/dev-state/postgres/`；按 `Ctrl+C` 或在 Retrom 仓库执行 `make dev-stop` 会依次停止应用和数据库，数据仍会保留。重复执行 `make dev` 会安全接管同一开发实例。显式提供 `RETROM_DATABASE_URL` 时只连接外部 PostgreSQL，不负责其启停。该模式只用于本机测试，不应作为公网服务。
-
-### 添加第一款游戏
-
-1. 在电脑上进入管理后台，在“游戏目录”页补齐推荐模板或创建自己的目录。
-2. 通过浏览器上传游戏文件、目录或压缩包；已有 Pegasus / EmulationStation 游戏库时，也可使用“本地扫描”导入服务器上的内容。
-3. 在审核页确认元信息、运行方式及所需依赖，发布后即可在游戏库找到并启动。
-
-Retrom 不附带商业游戏或 BIOS，请导入你有权使用的内容。平台所需的文件格式、BIOS 和街机依赖见[导入与审核](docs/import-and-review.md)及 [BIOS 与 Arcade 说明](docs/bios-and-arcade.md)。
-
-只想游玩时，使用 Chrome 打开管理员提供的站点地址，接受邀请并登录即可；手机进入游戏时需要横屏。导入、审核和其他管理操作在电脑上完成。
-
-## 自托管部署
-
-Retrom 由 Go 后端与 Next.js 前端组成，可构建为两个 OCI / Docker 镜像：
-
-```bash
-make build-images
-```
-
-| 镜像 | 职责 | 内部端口 |
-| --- | --- | --- |
-| `retrom:latest` | API、后台任务、数据存储与游戏运行资源 | `8080` |
-| `retrom-web:latest` | Web 界面与 Player | `3000` |
-
-该命令只构建镜像。仓库提供 [`docker/docker-compose.yml.example`](docker/docker-compose.yml.example) 与 [`docker/nginx.conf.example`](docker/nginx.conf.example)，展示两个应用容器和一个 Nginx 容器的最小路由配置。示例 Nginx 只监听 HTTP；正式公开前需自行配置 HTTPS、证书与端口，并替换示例域名、镜像 tag、持久数据目录及运行时子域名的 wildcard DNS。
-
-参与项目发布时，PR 的 `branch-image` CI 会在 GitHub 上构建仅供测试的分支镜像，无需在开发机重复执行上述命令。生产镜像只由 Retrom tag 的 `docker-image` 工作流构建和发布。
-
-全新生产实例通过网页 `/setup` 填写管理员用户名、显示名称和确认后的密码，直接创建首位管理员并登录。完整配置、路由及初始化步骤见[后端与部署说明](docs/backend-api-and-operations.md)，数据根与文件所有权见[存储与数据库](docs/storage-and-database.md)。
-
-## 开发
-
-后端使用 Go 与 PostgreSQL，前端使用 Next.js、React 和 TypeScript。游戏运行能力由独立的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 和 EmulatorJS Provider 提供。
-
-```text
-cmd/retrom/    服务与管理命令入口
-internal/     后端业务、HTTP 与存储实现
-migrations/   数据库迁移
-web/          Web 界面、Player 与前端测试
-api/          OpenAPI 契约
-docs/         产品、开发、部署与验收文档
-```
-
-| 命令 | 用途 |
-| --- | --- |
-| `make dev` | 启动本机开发服务 |
-| `make web-check` | 前端 lint、类型检查、单元测试与构建 |
-| `make backend-check` | 后端格式、构建、测试与 lint |
-| `make acceptance-case CASE=<Case ID>` | 运行指定的产品验收用例 |
-| `make ci` | 运行仓库完整质量门禁 |
-| `make deps-check` | 离线校验已准备的运行时依赖 |
-
-需要同时开发多个分支或联调 runtime / core 时，使用 [PFB 开发流程](docs/pfb-development.md)。每个功能分支拥有独立 worktree、持久数据和稳定的本地访问地址。
-
-开发仓库清单由当前 Retrom 分支的 [`workspace/manifest.yaml`](workspace/manifest.yaml) 管理。`retrom-project` 先下载 Retrom，再按该清单准备 runtime、core 与支持仓库；PFB 各自使用自己的清单，新增依赖与集成代码一起提交。清单变更运行 `make workspace-check`，它也属于 CI 门禁。
-
-## 文档
-
-| 主题 | 入口 |
-| --- | --- |
-| 产品范围与架构 | [产品与架构总览](docs/retrom-product-architecture.md) |
-| 导入、整理与发布 | [导入与审核](docs/import-and-review.md) |
-| 游戏运行与存档 | [运行与游玩数据](docs/runtime-and-play-data.md) |
-| 平台兼容与依赖 | [核心运行时验证](docs/core-runtime-validation.md) · [依赖管理](docs/dependency-management.md) |
-| 测试与验收 | [工程质量与测试](docs/engineering-quality-and-testing.md) · [产品验收](docs/project-acceptance.md) |
-| 完整文档地图 | [文档索引](docs/README.md) |
-
-## 参与贡献
-
-欢迎通过 [Issue](https://github.com/retrom-project/retrom/issues) 反馈问题、讨论功能，或提交 [Pull Request](https://github.com/retrom-project/retrom/pulls) 改进代码与文档。
-
-报告问题时，请提供复现步骤、预期与实际结果、Retrom 和 Chrome 版本，以及相关平台、核心或错误码。示例尽量使用仓库中的公开测试程序，提交前移除凭据和私人游戏数据。
-
-修改前请阅读 [AGENTS.md](AGENTS.md) 与相关领域文档；较大的调整先通过 Issue 说明方案。提交 PR 时描述改动的目的与验证结果，并按[测试规范](docs/engineering-quality-and-testing.md)运行受影响的检查；行为变化应同步对应文档。
-
-## 致谢
-
-Retrom 的浏览器运行能力建立在 EmulatorJS、libretro 生态与各引擎上游项目的工作之上。依赖来源、固定版本和许可材料由项目清单管理，详见[依赖管理](docs/dependency-management.md)。
+后端与Web镜像分开构建，由版本控制的 `data/runtime-inputs.json` 固定配套runtime-tool及两个Provider。当前描述是未发布候选，准备时提供其中三个归档的本地运输目录或HTTPS根；完整集合经过认证后才进入镜像，缺少运输输入会明确失败。生产部署还需要PostgreSQL、Redis、可信反向代理、TLS及独立隔离origin。Retrom不附带商业游戏或BIOS；仅导入有权使用的内容，源目录只读，私有素材和路径不提交。

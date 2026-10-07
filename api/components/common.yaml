@@ -1,1115 +1,2395 @@
-components:
-  securitySchemes:
-    sessionCookie:
-      type: apiKey
-      in: cookie
-      name: retrom_session
-  schemas:
-    EmptyRequest:
-      type: object
-      additionalProperties: false
-    TagReference:
-      type: object
-      additionalProperties: false
-      required:
-        - tagId
-        - name
-      properties:
-        tagId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-    ClientCapabilities:
-      type: object
-      additionalProperties: false
-      required:
-        - secureContext
-        - crossOriginIsolated
-        - sharedArrayBuffer
-      properties:
-        secureContext:
-          type: boolean
-        crossOriginIsolated:
-          type: boolean
-        sharedArrayBuffer:
-          type: boolean
-    RpgGeneration:
-      type: string
-      enum:
-        - RPG2000
-        - RPG2003
-        - RPGXP
-        - RPGVX
-        - RPGVXACE
-        - RPGMV
-        - RPGMZ
-    RpgCoreID:
-      type: string
-      enum:
-        - rpgmaker_2000
-        - rpgmaker_2003
-        - rpgmaker_xp
-        - rpgmaker_vx
-        - rpgmaker_vx_ace
-        - rpgmaker_mv
-        - rpgmaker_mz
-    CheckpointFormat:
-      type: string
-      pattern: ^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$
-    RuntimeCheckpointMetadata:
-      type: object
-      additionalProperties: false
-      required:
-        - checkpointFormat
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 120
-        discIndex:
-          type: integer
-          minimum: 0
-          maximum: 7
-          nullable: true
-        checkpointFormat:
-          $ref: '#/components/schemas/CheckpointFormat'
-      description: PRODUCT requires name after trim to contain 1..120 Unicode code points; runtime validation omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. The format must be declared readable by the Launch Target.
-    ReasonRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - reason
-      properties:
-        reason:
-          type: string
-          minLength: 1
-          maxLength: 500
-    MetadataFields:
-      type: object
-      additionalProperties: false
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 200
-        description:
-          type: string
-          maxLength: 10000
-        developer:
-          type: string
-          maxLength: 200
-        publisher:
-          type: string
-          maxLength: 200
-        genre:
-          type: string
-          maxLength: 200
-        players:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 64
-          nullable: true
-        releaseYear:
-          type: integer
-          format: int64
-          minimum: 1950
-          nullable: true
-    MetadataProviderRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - metadataProvider
-      properties:
-        metadataProvider:
-          type: string
-          enum:
-            - HASHEOUS
-            - NONE
-    ContentRejection:
-      type: object
-      additionalProperties: false
-      required: [code, relativePath, limit]
-      properties:
-        code:
-          type: string
-        relativePath:
-          type: string
-        limit:
-          type: object
-          nullable: true
-          additionalProperties: false
-          required: [metric, actual, maximum]
-          properties:
-            metric:
-              type: string
-              enum: [TOTAL_BYTES, DISC_COUNT, PLAYLIST_BYTES, REFERENCE_BYTES]
-            actual:
-              type: integer
-              format: int64
-              minimum: 0
-            maximum:
-              type: integer
-              format: int64
-              minimum: 1
-    SourceItemFailureDetails:
-      type: object
-      additionalProperties: false
-      required:
-        - schemaVersion
-        - stage
-        - operation
-        - causeCode
-        - technicalDetail
-        - contentRejection
-        - relativePath
-        - observedFileCount
-        - allowedFileCount
-        - libraryImportJobId
-        - libraryImportItemId
-      properties:
-        contentRejection:
-          allOf:
-            - $ref: '#/components/schemas/ContentRejection'
-          nullable: true
-        schemaVersion:
-          type: integer
-          format: int64
-          enum:
-            - 1
-        stage:
-          type: string
-          enum:
-            - SOURCE_COPY
-            - SOURCE_ASSEMBLY
-            - LIBRARY_IMPORT
-            - RESULT_ATTACHMENT
-            - METADATA
-            - PUBLICATION
-            - STORAGE
-        operation:
-          type: string
-          maxLength: 80
-        causeCode:
-          type: string
-          maxLength: 120
-        technicalDetail:
-          type: string
-          maxLength: 2048
-        relativePath:
-          type: string
-          maxLength: 4096
-          nullable: true
-        observedFileCount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        allowedFileCount:
-          type: integer
-          format: int64
-          minimum: 1
-          nullable: true
-        libraryImportJobId:
-          type: string
-          format: uuid
-          nullable: true
-        libraryImportItemId:
-          type: string
-          format: uuid
-          nullable: true
-    SourceRuntimeDependency:
-      type: object
-      additionalProperties: false
-      required:
-        - kind
-        - machine
-        - requiredBy
-        - expectedLogicalName
-        - state
-        - requiredEntries
-      properties:
-        kind:
-          type: string
-          enum:
-            - PARENT
-            - BIOS_OR_BASE
-        machine:
-          type: string
-        requiredBy:
-          type: string
-          nullable: true
-        expectedLogicalName:
-          type: string
-        state:
-          type: string
-          enum:
-            - SATISFIED_BY_CONTENT
-            - SATISFIED_EXTERNAL
-            - HASH_WARNING
-            - MISSING
-            - MISMATCH
-            - UNSUPPORTED
-        requiredEntries:
-          type: array
-          items:
-            type: string
-    SourceRuntimeBIOS:
-      type: object
-      additionalProperties: false
-      required:
-        - logicalName
-        - requirementMode
-        - conditionCode
-        - installationStatus
-      properties:
-        logicalName:
-          type: string
-        requirementMode:
-          type: string
-          enum:
-            - REQUIRED
-            - OPTIONAL
-            - CONDITIONAL
-        conditionCode:
-          type: string
-          nullable: true
-        installationStatus:
-          type: string
-          nullable: true
-          enum:
-            - MATCHED
-            - UNVERIFIED
-            - HASH_WARNING
-            - MISSING_ENTRY
-            - INVALID
-    SourceRuntimeMissingDisc:
-      type: object
-      additionalProperties: false
-      required:
-        - ordinal
-        - sourceReference
-      properties:
-        ordinal:
-          type: integer
-          format: int64
-          minimum: 0
-        sourceReference:
-          type: string
-    SourceRuntimeCheck:
-      type: object
-      additionalProperties: false
-      required:
-        - status
-        - code
-        - coreId
-        - coreName
-        - machine
-        - missingEntries
-        - mismatchedEntries
-        - dependencies
-        - bios
-        - missingDiscs
-      properties:
-        status:
-          type: string
-          enum:
-            - READY
-            - BLOCKED
-            - INCOMPATIBLE
-        code:
-          type: string
-        coreId:
-          type: string
-        coreName:
-          type: string
-        machine:
-          type: string
-          nullable: true
-        missingEntries:
-          type: array
-          items:
-            type: string
-        mismatchedEntries:
-          type: array
-          items:
-            type: string
-        dependencies:
-          type: array
-          items:
-            $ref: '#/components/schemas/SourceRuntimeDependency'
-        bios:
-          type: array
-          items:
-            $ref: '#/components/schemas/SourceRuntimeBIOS'
-        missingDiscs:
-          type: array
-          items:
-            $ref: '#/components/schemas/SourceRuntimeMissingDisc'
-    Session:
-      type: object
-      additionalProperties: false
-      required:
-        - csrfToken
-        - expiresAtMs
-      properties:
-        csrfToken:
-          type: string
-          minLength: 43
-          maxLength: 43
-        expiresAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    JSONObject:
-      type: object
-      additionalProperties: false
-      properties:
-        action: {}
-        activatedAtMs: {}
-        active: {}
-        activeAttachment: {}
-        activeDurationMs: {}
-        activeInstallation: {}
-        activeLaunchCount: {}
-        actor:
-          type: object
-          additionalProperties: false
-          required:
-            - kind
-            - userId
-            - label
-          properties:
-            kind:
-              type: string
-              enum:
-                - USER
-                - SYSTEM
-            userId:
-              type: string
-              format: uuid
-              nullable: true
-            label:
-              type: string
-              nullable: true
-        after: {}
-        alreadyImportedFileCount: {}
-        alreadyImportedFiles: {}
-        alreadyImportedItemCount: {}
-        alreadyImportedItems: {}
-        alreadyImportedMatches: {}
-        archive:
-          type: boolean
-        archiveEntries: {}
-        archiveFormat:
-          type: string
-          enum:
-            - ZIP
-            - SEVEN_Z
-            - NWJS_EXECUTABLE
-            - ELECTRON_ASAR
-          nullable: true
-        arcadeDependencies: {}
-        attachment: {}
-        attachmentId: {}
-        assetId: {}
-        assetIds: {}
-        assets: {}
-        attemptCount: {}
-        association: {}
-        attributeRelationType: {}
-        attributeType: {}
-        attributes: {}
-        availability: {}
-        backgroundCandidateAssetId: {}
-        base: {}
-        binary: {}
-        bios: {}
-        biosSetCount: {}
-        biosUrl: {}
-        blocked: {}
-        blockedCount: {}
-        blockerCode: {}
-        blockerCodes: {}
-        blockers: {}
-        bootstrapExpiresAtMs: {}
-        bundleVersion: {}
-        cancelReason: {}
-        cancelled: {}
-        candidateCount: {}
-        candidateId: {}
-        candidates: {}
-        change: {}
-        chunkSizeBytes: {}
-        class: {}
-        canApprove:
-          description: True when current readiness passes or a current runtime screenshot authorizes administrator approval, for every content kind. Screenshot approval does not change readiness diagnostics.
-        canAttachMissingDiscs: {}
-        canRetry: {}
-        clientCapabilities: {}
-        clientFileId: {}
-        cloneof: {}
-        code: {}
-        column: {}
-        commit: {}
-        canonicalName: {}
-        compatibilityCode: {}
-        compatibilityStatus: {}
-        completed: {}
-        conditionCode: {}
-        configEvidence: {}
-        configSnapshot: {}
-        configSnapshotDigest: {}
-        configuredDependencyVersionCount: {}
-        configuredVersion: {}
-        contentKind: {}
-        contentIdentityDigest: {}
-        core: {}
-        coreId: {}
-        coreName:
-          type: string
-        coreOptions: {}
-        cores: {}
-        counts: {}
-        coverCandidateAssetId: {}
-        coverUrl: {}
-        createdAtMs: {}
-        crossOriginIsolated: {}
-        csrfToken:
-          type: string
-        current: {}
-        dat: {}
-        datEvidence: {}
-        datVersionId: {}
-        databaseSchemaVersion: {}
-        databaseSha256: {}
-        decision: {}
-        default: {}
-        defaultCoreId: {}
-        defaultCoreName: {}
-        defaultCoreOptions: {}
-        externalFiles: {}
-        effectiveSourceSnapshotId: {}
-        expectedLogicalName: {}
-        defaultDosEntry: {}
-        deleteImpact: {}
-        deleted: {}
-        deletedAtMs: {}
-        dependencies: {}
-        dependencyManifests: {}
-        dependencyVersionCount: {}
-        dependencyVersions: {}
-        description: {}
-        details: {}
-        developer: {}
-        diff: {}
-        directLaunchSafe: {}
-        discCount: {}
-        discIndex: {}
-        discarded: {}
-        disk: {}
-        diskEntryCount: {}
-        diffErrorCode: {}
-        diffJobId: {}
-        diffStatus: {}
-        diffVersion: {}
-        dosEntry: {}
-        dosEntries: {}
-        duplicateGames: {}
-        edges: {}
-        emulatorGameId: {}
-        emulatorjs: {}
-        enabled: {}
-        entries: {}
-        error: {}
-        errorCode: {}
-        eventType: {}
-        evidence: {}
-        executionId: {}
-        executionNo: {}
-        existingGame: {}
-        expectedMd5: {}
-        expiresAtMs:
-          type: integer
-          format: int64
-        explicit: {}
-        failed: {}
-        failedItemCount: {}
-        fileCount: {}
-        fileOutcomes: {}
-        fileId: {}
-        files: {}
-        filterDigest: {}
-        finalizationNo: {}
-        finalizeJobId: {}
-        flavor: {}
-        game: {}
-        gameCount: {}
-        gameId: {}
-        gameIds: {}
-        gameName: {}
-        gameTitle:
-          type: string
-        gameUrl: {}
-        gameVersion: {}
-        games: {}
-        generatedAtMs:
-          type: integer
-          format: int64
-        genre: {}
-        hardExpiresAtMs: {}
-        heightPx: {}
-        hitCount: {}
-        id: {}
-        ignoredFiles: {}
-        impact: {}
-        impactDigest: {}
-        importItemId: {}
-        importJobId: {}
-        importCapabilities: {}
-        imports: {}
-        index: {}
-        inputs: {}
-        installationId: {}
-        isDefault: {}
-        itemCount: {}
-        itemId: {}
-        itemSummaries: {}
-        items: {}
-        jobId: {}
-        jobState: {}
-        jobVersion: {}
-        jobs: {}
-        kind: {}
-        label: {}
-        level: {}
-        library: {}
-        latestGames: {}
-        latestAttachment: {}
-        license: {}
-        loader: {}
-        loaderUrl: {}
-        logicalName: {}
-        machine: {}
-        machineCount: {}
-        manifestPath: {}
-        manifestSha256: {}
-        maxAttempts: {}
-        maxDiscs:
-          type: integer
-        maxTotalBytes:
-          type: integer
-          format: int64
-        md5: {}
-        mediaType: {}
-        message: {}
-        metadata: {}
-        metadataProvider: {}
-        missingDiscCount: {}
-        missingReferences: {}
-        mode: {}
-        contentModes: {}
-        multiDisc: {}
-        name: {}
-        needsValidation: {}
-        nextCursor: {}
-        non: {}
-        operationId: {}
-        originalPath: {}
-        ordinal: {}
-        output: {}
-        parentUrl: {}
-        parse: {}
-        parseStatus: {}
-        partNo: {}
-        path: {}
-        paused: {}
-        playlist: {}
-        platform: {}
-        platformId: {}
-        platformInstance: {}
-        platformInstanceId: {}
-        platformInstanceName: {}
-        platformInstanceVersion: {}
-        platformName:
-          type: string
-        playSessionId: {}
-        playUrl: {}
-        player: {}
-        players: {}
-        presentDiscCount: {}
-        protected: {}
-        provider: {}
-        providerAssetId: {}
-        providerEvidence: {}
-        providerGameId: {}
-        published: {}
-        publisher: {}
-        q: {}
-        queued: {}
-        rank: {}
-        ready: {}
-        reason: {}
-        reasonCode: {}
-        reasons: {}
-        receivedParts: {}
-        receivedSizeBytes: {}
-        recentGames: {}
-        recentSaves: {}
-        rejectedFiles: {}
-        rejectedFileCount:
-          type: integer
-          format: int64
-        reconfiguredFromImportJobId: {}
-        replacementImportJobId: {}
-        releaseYear: {}
-        resolution: {}
-        resolvedAtMs:
-          type: integer
-          format: int64
-        repository: {}
-        requestId: {}
-        requestedArtifactBasename: {}
-        requirementId: {}
-        requirementMode: {}
-        requires: {}
-        contentLoading:
-          type: string
-          nullable: true
-          enum: [ON_DEMAND_AND_PRELOAD, PRELOAD_ONLY, null]
-          description: Public loading capability of the resolved game Target; null when unavailable.
-        requiresThreads: {}
-        retained: {}
-        retryAfterMs: {}
-        retryable: {}
-        returnTo: {}
-        reviewPending: {}
-        reviewPendingCount: {}
-        reviewPendingItemCount: {}
-        reviewVersion: {}
-        role: {}
-        rom: {}
-        romEntryCount: {}
-        romof: {}
-        running: {}
-        runtime: {}
-        runtimeBaseUrl: {}
-        runtimePath: {}
-        runtimePathOverrides: {}
-        sample: {}
-        saveStateCount: {}
-        saveStateId: {}
-        saveStates: {}
-        scheduled: {}
-        schema: {}
-        schemaVersion:
-          type: integer
-        scope: {}
-        scopeId: {}
-        scopeType: {}
-        score: {}
-        scrapeRunId: {}
-        scrapeRuns:
-          type: array
-          maxItems: 1
-          items:
-            type: object
-        outcomes: {}
-        evidenceCount: {}
-        completedAtMs: {}
-        screenshot: {}
-        screenshotCandidateAssetIds: {}
-        section: {}
-        secureContext: {}
-        selected: {}
-        selectedAssets: {}
-        selectedCandidateId: {}
-        sequence: {}
-        sha1: {}
-        sha256: {}
-        sha256sumsPath: {}
-        sha256sumsSha256: {}
-        sharedArrayBuffer: {}
-        signature: {}
-        size: {}
-        sizeBytes: {}
-        slug: {}
-        sort: {}
-        sortCode: {}
-        sortOrder: {}
-        sortValues: {}
-        source: {}
-        supportedExtensions:
-          type: array
-          items:
-            type: string
-            pattern: ^\.[a-z0-9]+$
-        sourceDisplayName: {}
-        sourceFiles: {}
-        sourceManifest: {}
-        sourceReference: {}
-        sourceTotalSizeBytes: {}
-        sourcePlatformInstanceId: {}
-        sourceType: {}
-        state: {}
-        stateUrl: {}
-        status: {}
-        summary: {}
-        table: {}
-        target: {}
-        targetCoreId: {}
-        targetDatVersionId: {}
-        targetPlatformInstance: {}
-        targetPlatformInstanceId: {}
-        tested: {}
-        third: {}
-        title: {}
-        toAtMs: {}
-        total: {}
-        totalBytes: {}
-        totalPresentBytes: {}
-        totalItemCount: {}
-        trailing: {}
-        unresolved: {}
-        updatedAtMs: {}
-        unresolvedRejectedFileCount:
-          type: integer
-          format: int64
-        unresolvedRejectedFiles:
-          type: integer
-          format: int64
-        uploadFileId: {}
-        uploadId: {}
-        uploadPartCount: {}
-        uploadSessionId: {}
-        validatedRequirementVersion: {}
-        readiness:
-          $ref: ../domains/reviews.yaml#/components/schemas/ReviewReadiness
-        validation: {}
-        validationDetails: {}
-        validationJobId: {}
-        validationStatus: {}
-        value: {}
-        variantStatus: {}
-        version: {}
-        visible: {}
-        warnings: {}
-        widthPx: {}
-        year: {}
-    RpgErrorCode:
-      type: string
-      enum:
-        - RPG_CORE_UNSUPPORTED
-        - RPG_PROJECT_NOT_FOUND
-        - RPG_PROJECT_ROOT_AMBIGUOUS
-        - RPG_GENERATION_AMBIGUOUS
-        - RPG_GENERATION_UNSUPPORTED
-        - RPG_SELECTED_CORE_MISMATCH
-        - RPG_SERVER_IMPORT_UNSUPPORTED
-        - RPG_LCF_INVALID
-        - RPG_LCF_GENERATION_UNKNOWN
-        - RPG_LMT_INVALID
-        - RPG_INI_INVALID
-        - RPG_INI_ENCODING_UNSUPPORTED
-        - RPG_RGSS_GENERATION_CONFLICT
-        - RPG_WEB_FORMAT_INVALID
-        - RPG_RGSS_CONTENT_TOO_LARGE
-        - RPG_PATH_COLLISION
-        - RPG_NATIVE_DEPENDENCY_UNSUPPORTED
-        - RPG_EXTERNAL_RTP_REQUIRED
-        - RPG_RUNTIME_ROUTE_UNAVAILABLE
-        - RPG_RUNTIME_THREADS_UNAVAILABLE
-        - RPG_RUNTIME_OPFS_UNAVAILABLE
-        - RPG_NATIVE_BRIDGE_UNSUPPORTED
-
-
-
-
-
-        - RPG_RUNTIME_INVALID_STATE
-        - RPG_RUNTIME_PROTOCOL_VIOLATION
-        - RPG_RUNTIME_TIMEOUT
-        - RPG_RUNTIME_CONTENT_MISMATCH
-        - SAVE_SYNC_CONFLICT
-        - RPG_CHECKPOINT_UNAVAILABLE
-        - RPG_CHECKPOINT_INVALID
-        - RPG_CHECKPOINT_INCOMPATIBLE
-        - RPG_CHECKPOINT_RESTORE_FAILED
-        - RPG_RUNTIME_BOOTSTRAP_EXPIRED
-        - RPG_RUNTIME_SCREENSHOT_INVALID
-    RpgError:
-      type: object
-      additionalProperties: false
-      required:
-        - code
-        - message
-        - details
-        - requestId
-      properties:
-        code:
-          $ref: '#/components/schemas/RpgErrorCode'
-        message:
-          type: string
-        details:
-          type: object
-          additionalProperties: true
-        requestId:
-          type: string
-          format: uuid
-    RpgErrorEnvelope:
-      type: object
-      additionalProperties: false
-      required:
-        - error
-      properties:
-        error:
-          $ref: '#/components/schemas/RpgError'
-    ErrorEnvelope:
-      type: object
-      additionalProperties: false
-      required:
-        - error
-      properties:
-        error:
-          type: object
-          additionalProperties: false
-          required:
-            - code
-            - message
-            - details
-            - requestId
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-            details:
-              type: object
-              additionalProperties: true
-            requestId:
-              type: string
-              format: uuid
-  requestBodies:
-    Reason:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ReasonRequest'
-    Empty:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/EmptyRequest'
-    MetadataProvider:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MetadataProviderRequest'
-  responses:
-    RpgBadRequestResponse:
-      description: RPG_PROJECT_NOT_FOUND, INVALID_REQUEST, or INVALID_IDEMPOTENCY_KEY (400)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgErrorEnvelope'
-    RpgGoneResponse:
-      description: RPG_RUNTIME_BOOTSTRAP_EXPIRED (410)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgErrorEnvelope'
-    RpgNotFoundResponse:
-      description: RPG runtime validation was not found (404)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgErrorEnvelope'
-    RpgConflictResponse:
-      description: RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgErrorEnvelope'
-    RpgUnprocessableResponse:
-      description: Unsupported core/generation, selected-core mismatch, invalid LCF/LMT/INI/Web project, unsafe dependency/path, unsupported native bridge, invalid checkpoint, or failed engine restore (422)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgErrorEnvelope'
-    JSONResponse:
-      description: JSON response
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/JSONObject'
-    SSEResponse:
-      description: Server-sent events
-      content:
-        text/event-stream:
-          schema:
-            type: string
-  parameters:
-    Q:
-      name: q
-      in: query
-      schema:
-        type: string
-        maxLength: 200
-    Q80:
-      name: q
-      in: query
-      schema:
-        type: string
-        maxLength: 80
-    PlatformIDQuery:
-      name: platformId
-      in: query
-      schema:
-        type: string
-    TagIDQuery:
-      name: tagId
-      in: query
-      schema:
-        type: string
-        format: uuid
-    PlatformInstanceIDQuery:
-      name: platformInstanceId
-      in: query
-      schema:
-        type: string
-        format: uuid
-    CoreIDQuery:
-      name: coreId
-      in: query
-      schema:
-        type: string
-    State:
-      name: state
-      in: query
-      schema:
-        type: string
-    Status:
-      name: status
-      in: query
-      schema:
-        type: string
-    Outcome:
-      name: outcome
-      in: query
-      schema:
-        type: string
-    Source:
-      name: source
-      in: query
-      schema:
-        type: string
-    ParseStatus:
-      name: parseStatus
-      in: query
-      schema:
-        type: string
-    Section:
-      name: section
-      in: query
-      schema:
-        type: string
-    Change:
-      name: change
-      in: query
-      schema:
-        type: string
-    Sort:
-      name: sort
-      in: query
-      schema:
-        type: string
-    Cursor:
-      name: cursor
-      in: query
-      schema:
-        type: string
-        maxLength: 8192
-    Limit:
-      name: limit
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 50
-    Limit50:
-      name: limit
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 50
-        default: 50
-    Limit20:
-      name: limit
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 20
-        default: 20
-    Limit100:
-      name: limit
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 100
-    IfMatch:
-      name: If-Match
-      in: header
-      required: true
-      schema:
-        type: string
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema:
-        type: string
-        format: uuid
-    CSRFToken:
-      name: X-Retrom-Csrf
-      in: header
-      required: true
-      schema:
-        type: string
-    LastEventID:
-      name: Last-Event-ID
-      in: header
-      schema:
-        type: string
-        pattern: ^[0-9]+$
-    GameID:
-      name: gameId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    SaveStateID:
-      name: saveStateId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    ImportItemID:
-      name: importItemId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+{
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "status",
+          "version",
+          "createdAtMs",
+          "lastLoginAtMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled",
+              "deleted"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "lastLoginAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true
+          }
+        }
+      },
+      "AuthContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "initialized",
+          "user",
+          "csrfToken"
+        ],
+        "properties": {
+          "initialized": {
+            "type": "boolean"
+          },
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ],
+            "nullable": true
+          },
+          "csrfToken": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "InitializeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "username",
+          "displayName",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "PasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "LinkInspectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "LinkAcceptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "username",
+          "displayName",
+          "password"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "newPassword"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "AccountLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "role",
+          "url",
+          "expiresAtMs",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invitation",
+              "password_reset"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "AccountLinkInspect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "role",
+          "expiresAtMs",
+          "username"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invitation",
+              "password_reset"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateInvitationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "expiresInHours"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "expiresInHours": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 168
+          }
+        }
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "displayName",
+          "role",
+          "status"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled",
+              "deleted"
+            ]
+          }
+        }
+      },
+      "VersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "Platform": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Core": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "platformIds",
+          "fingerprint"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fingerprint": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RuntimeCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "platforms",
+          "cores",
+          "providers",
+          "bindings"
+        ],
+        "properties": {
+          "platforms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Platform"
+            }
+          },
+          "cores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Core"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeProvider"
+            }
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeBinding"
+            }
+          }
+        }
+      },
+      "Directory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "platformId",
+          "name",
+          "slug",
+          "description",
+          "defaultCoreId",
+          "coreIds",
+          "enabled",
+          "version",
+          "gameCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platformId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaultCoreId": {
+            "type": "string"
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "gameCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "DirectoryWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "platformId",
+          "name",
+          "slug",
+          "description",
+          "defaultCoreId",
+          "coreIds",
+          "enabled"
+        ],
+        "properties": {
+          "platformId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaultCoreId": {
+            "type": "string"
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DirectoryUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "platformId",
+          "name",
+          "slug",
+          "description",
+          "defaultCoreId",
+          "coreIds",
+          "enabled"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "platformId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaultCoreId": {
+            "type": "string"
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "version",
+          "gameCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "gameCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TagWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TagUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "RuntimeConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/RuntimeContent"
+          },
+          "cores": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeCoreOptions"
+            }
+          }
+        }
+      },
+      "GameMedia": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "url",
+          "mediaType",
+          "ordinal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "video",
+              "screenshot"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "GameFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "logicalKey",
+          "role",
+          "sizeBytes",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "logicalKey": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "content",
+              "parent"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "Game": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "platformInstanceId",
+          "platformId",
+          "directoryName",
+          "title",
+          "description",
+          "developer",
+          "publisher",
+          "genre",
+          "players",
+          "releaseYear",
+          "status",
+          "source",
+          "version",
+          "contentHash",
+          "tags",
+          "media",
+          "favorite",
+          "createdAtMs",
+          "updatedAtMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platformInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platformId": {
+            "type": "string"
+          },
+          "directoryName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "developer": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "genre": {
+            "type": "string"
+          },
+          "players": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "releaseYear": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_review",
+              "published"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "server_import"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "contentHash": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameMedia"
+            }
+          },
+          "favorite": {
+            "type": "boolean"
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "updatedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "GameDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "game",
+          "files",
+          "coreIds",
+          "defaultCoreId",
+          "runtimeConfig",
+          "saves",
+          "favoriteFolderIds"
+        ],
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameFile"
+            }
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultCoreId": {
+            "type": "string"
+          },
+          "runtimeConfig": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "saves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Save"
+            }
+          },
+          "favoriteFolderIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "GameWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "platformInstanceId",
+          "title",
+          "description",
+          "developer",
+          "publisher",
+          "genre",
+          "players",
+          "releaseYear",
+          "tagIds",
+          "runtimeConfig"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "platformInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "developer": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "genre": {
+            "type": "string"
+          },
+          "players": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "releaseYear": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "runtimeConfig": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          }
+        }
+      },
+      "ContentReplaceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "rootId",
+          "relativePath"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "rootId": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          }
+        }
+      },
+      "FavoriteFolder": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "gameCount",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gameCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "FolderWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "FolderUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "FavoriteWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "folderIds"
+        ],
+        "properties": {
+          "folderIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "SaveExtinfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coreId",
+          "providerId",
+          "targetId",
+          "coreFingerprint",
+          "romHash",
+          "checkpointFormat",
+          "runtimeOptions",
+          "content"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "coreFingerprint": {
+            "type": "string"
+          },
+          "romHash": {
+            "type": "string"
+          },
+          "checkpointFormat": {
+            "type": "string"
+          },
+          "runtimeOptions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          },
+          "content": {
+            "$ref": "#/components/schemas/RuntimeContent"
+          }
+        }
+      },
+      "Save": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "game",
+          "kind",
+          "name",
+          "slot",
+          "version",
+          "sizeBytes",
+          "createdAtMs",
+          "updatedAtMs",
+          "screenshotUrl",
+          "restorable",
+          "restoreReason",
+          "extinfo"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "checkpoint",
+              "game_save"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "updatedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "screenshotUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "restorable": {
+            "type": "boolean"
+          },
+          "restoreReason": {
+            "type": "string",
+            "enum": [
+              "",
+              "core_unavailable",
+              "core_changed",
+              "content_changed",
+              "format_unreadable",
+              "game_unavailable",
+              "save_unavailable"
+            ]
+          },
+          "extinfo": {
+            "$ref": "#/components/schemas/SaveExtinfo"
+          }
+        }
+      },
+      "SaveRenameRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "name"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RecentGame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "game",
+          "lastPlayedAtMs"
+        ],
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "lastPlayedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "Home": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recent",
+          "saves",
+          "favorites",
+          "directories",
+          "summary"
+        ],
+        "properties": {
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecentGame"
+            }
+          },
+          "saves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Save"
+            }
+          },
+          "favorites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "directories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Directory"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "gameCount",
+              "saveCount"
+            ],
+            "properties": {
+              "gameCount": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "saveCount": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "SourceRoot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceDirectory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "relativePath",
+          "name"
+        ],
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "name",
+          "relativePath",
+          "gameCount"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "gameCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "SourceInspectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rootId",
+          "relativePath",
+          "format"
+        ],
+        "properties": {
+          "rootId": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "pegasus",
+              "emulationstation"
+            ]
+          }
+        }
+      },
+      "SourceMapping": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceKey",
+          "platformInstanceId",
+          "tagIds"
+        ],
+        "properties": {
+          "sourceKey": {
+            "type": "string"
+          },
+          "platformInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "GameScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rootId",
+          "relativePath",
+          "format",
+          "mappings"
+        ],
+        "properties": {
+          "rootId": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "pegasus",
+              "emulationstation"
+            ]
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceMapping"
+            }
+          }
+        }
+      },
+      "BiosScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rootId",
+          "relativePath",
+          "platformIds",
+          "coreIds"
+        ],
+        "properties": {
+          "rootId": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ScanProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "scanType",
+          "status",
+          "totalCount",
+          "totalKnown",
+          "processedCount",
+          "importedCount",
+          "skippedCount",
+          "failedCount",
+          "createdAtMs",
+          "updatedAtMs",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scanType": {
+            "type": "string",
+            "enum": [
+              "game",
+              "bios"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalKnown": {
+            "type": "boolean"
+          },
+          "processedCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "importedCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "skippedCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "failedCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "updatedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "BiosRequirement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "name",
+          "platformIds",
+          "coreIds",
+          "required",
+          "installed",
+          "filename",
+          "sizeBytes",
+          "sha256"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coreIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "RunRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gameId",
+          "purpose"
+        ],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "play",
+              "review"
+            ]
+          },
+          "coreId": {
+            "type": "string"
+          },
+          "saveId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Run": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "gameId",
+          "purpose",
+          "coreId",
+          "providerId",
+          "targetId",
+          "coreFingerprint",
+          "romHash",
+          "providerModuleUrl",
+          "envelope",
+          "expiresAtMs",
+          "extinfo",
+          "save"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "play",
+              "review"
+            ]
+          },
+          "coreId": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "coreFingerprint": {
+            "type": "string"
+          },
+          "romHash": {
+            "type": "string"
+          },
+          "providerModuleUrl": {
+            "type": "string"
+          },
+          "envelope": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "extinfo": {
+            "$ref": "#/components/schemas/SaveExtinfo"
+          },
+          "save": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Save"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "RunEventRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "running"
+            ]
+          }
+        }
+      },
+      "SaveCommitMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runId",
+          "name",
+          "kind",
+          "slot",
+          "extinfo",
+          "commitId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "checkpoint",
+              "game_save"
+            ]
+          },
+          "slot": {
+            "type": "string",
+            "nullable": true
+          },
+          "extinfo": {
+            "$ref": "#/components/schemas/SaveExtinfo"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "commitId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "GamePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "SavePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit",
+          "gameCount"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Save"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "gameCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "RecentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecentGame"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "TagPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "DirectoryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Directory"
+            }
+          }
+        }
+      },
+      "TagList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          }
+        }
+      },
+      "FolderList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FavoriteFolder"
+            }
+          }
+        }
+      },
+      "ScanList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScanProgress"
+            }
+          }
+        }
+      },
+      "RootList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRoot"
+            }
+          }
+        }
+      },
+      "SourceDirectoryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceDirectory"
+            }
+          }
+        }
+      },
+      "SourceEntryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceEntry"
+            }
+          }
+        }
+      },
+      "BiosList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BiosRequirement"
+            }
+          }
+        }
+      },
+      "RuntimeContent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SINGLE_FILE",
+              "DOS_BUNDLE",
+              "ARCADE",
+              "RPG_MAKER_PROJECT",
+              "SCUMMVM_PROJECT",
+              "ONS_PROJECT",
+              "KIRIKIRI_PROJECT",
+              "BUTTERSCOTCH_PROJECT",
+              "TYRANOSCRIPT_PROJECT",
+              "NXENGINE_PROJECT",
+              "DAPHNE_PROJECT"
+            ]
+          },
+          "entryFile": {
+            "type": "string"
+          },
+          "entryPath": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string",
+            "enum": [
+              "RPG2000",
+              "RPG2003",
+              "RPGXP",
+              "RPGVX",
+              "RPGVXACE",
+              "RPGMV",
+              "RPGMZ"
+            ]
+          }
+        }
+      },
+      "RuntimeCoreOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "parentFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          }
+        }
+      },
+      "RuntimeOptionValue": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          }
+        ],
+        "nullable": true
+      },
+      "RuntimeTarget": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "targetOptionsSchema"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "targetOptionsSchema": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          }
+        }
+      },
+      "RuntimeProvider": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "providerId",
+          "providerVersion",
+          "targets"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string"
+          },
+          "providerVersion": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeTarget"
+            }
+          }
+        }
+      },
+      "RuntimeBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coreId",
+          "providerId",
+          "targetId",
+          "platformIds",
+          "contentKinds"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentKinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "engine": {
+            "type": "string"
+          }
+        }
+      },
+      "ScummvmCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description",
+          "options",
+          "blocker"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeOptionValue"
+            }
+          },
+          "blocker": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "UNKNOWN_VARIANT",
+              "UNSUPPORTED_GAME",
+              "ENGINE_UNAVAILABLE"
+            ]
+          }
+        }
+      },
+      "ScummvmCandidates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidates",
+          "automaticSelection"
+        ],
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScummvmCandidate"
+            }
+          },
+          "automaticSelection": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RuntimeIndexFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "url",
+          "sizeBytes",
+          "mediaType"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeIndex": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "files"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeIndexFile"
+            }
+          }
+        }
+      },
+      "AccountLinkSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "role",
+          "expiresAtMs",
+          "createdAtMs",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invitation",
+              "password_reset"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "revoked",
+              "expired"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "AccountLinkList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountLinkSummary"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

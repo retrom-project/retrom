@@ -1,226 +1,169 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useURLFilters } from "@/lib/navigation/use-url-filters";
-import { libraryURLFilters, libraryURLQuery } from "./library-url";
+import { useCallback, useState } from "react";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
+import { ResourceState } from "@/components/resource-state";
+import { useResource } from "@/lib/use-resource";
+import { loadCatalog, loadDirectories, loadGames, loadTags } from "./api";
+import { GameCard } from "./game-card";
+import { LibraryPlatformFilter } from "./library-platform-filter";
+import { LibraryFilterFields } from "./library-filter-fields";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
-import { PageHeader } from "@/components/ui";
-import { useToast } from "@/components/toast-provider";
-import { useAuth } from "@/features/auth/auth-provider";
-import { LibraryFilterTrigger } from "./library-filter-trigger";
-import { usePhoneScrollActivity } from "@/features/mobile/use-phone-scroll-activity";
-import { GameGrid } from "./game-grid";
-import {
-  gamePageQuery,
-  type GamePage,
-  type LibraryFacets,
-  type LibraryFilters,
-} from "./game-library";
-
-const emptyFacets: LibraryFacets = { totalCount: 0, platforms: [], platformInstances: [], tags: [] };
-
-function mergeGames(current: GamePage["items"], incoming: GamePage["items"]) {
-  const seen = new Set(current.map((game) => game.gameId));
-  return [...current, ...incoming.filter((game) => !seen.has(game.gameId))];
-}
-
-export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: GamePage; initialFilters: LibraryFilters }) {
-  const platformScroll = usePhoneScrollActivity();
-  const { authenticatedFetch } = useAuth();
-  const { notify, clear } = useToast();
-  const [filters, setFilters] = useURLFilters(libraryURLFilters, libraryURLQuery);
-  const {query, platformId, platformInstanceId, tagId, sort} = filters;
-  const setQuery = (query: string) => setFilters(current => ({...current, query}));
-  const setPlatformId = (platformId: string) => setFilters(current => ({...current, platformId}));
-  const setPlatformInstanceId = (platformInstanceId: string) => setFilters(current => ({...current, platformInstanceId}));
-  const setTagId = (tagId: LibraryFilters["tagId"]) => setFilters(current => ({...current, tagId}));
-  const setSort = (sort: LibraryFilters["sort"]) => setFilters(current => ({...current, sort}));
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [draftPlatformInstanceId, setDraftPlatformInstanceId] = useState(initialFilters.platformInstanceId);
-  const [draftTagId, setDraftTagId] = useState(initialFilters.tagId);
-  const [draftSort, setDraftSort] = useState<LibraryFilters["sort"]>(initialFilters.sort);
-  const [games, setGames] = useState(initialPage.items);
-  const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
-  const [filteredCount, setFilteredCount] = useState(initialPage.filteredCount ?? initialPage.items.length);
-  const [facets, setFacets] = useState(initialPage.facets ?? emptyFacets);
-  const [nowMs, setNowMs] = useState(initialPage.generatedAtMs);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const observedRequest = useRef({ filterKey: gamePageQuery(initialFilters), refreshVersion: 0 });
-  const loadMoreRequest = useRef(false);
-  const autoLoadArmed = useRef(true);
-  const requestGeneration = useRef(0);
-  const platformInstances = useMemo(() => facets.platformInstances.filter((item) => !platformId || item.platformId === platformId), [facets.platformInstances, platformId]);
-  const hasFilters = [query.trim(), platformId, platformInstanceId, tagId].some(Boolean);
-
-  const requestPage = useCallback(async (requestedFilters: LibraryFilters, cursor: string | null, signal?: AbortSignal) => {
-    const response = await authenticatedFetch(`/api/v1/games?${gamePageQuery(requestedFilters, cursor)}`, { cache: "no-store", signal });
-    if (!response.ok) {throw new Error("暂时无法读取游戏库，请稍后重试");}
-    return response.json() as Promise<GamePage>;
-  }, [authenticatedFetch]);
-
-  useEffect(() => {
-    const filterKey = gamePageQuery(filters);
-    if (observedRequest.current.filterKey === filterKey && observedRequest.current.refreshVersion === refreshVersion) {
-      return;
-    }
-    observedRequest.current = { filterKey, refreshVersion };
-    const generation = requestGeneration.current + 1;
-    requestGeneration.current = generation;
-    loadMoreRequest.current = false;
-    setGames([]);
-    setFilteredCount(0);
-    setRefreshing(true);
-    setLoadError(null);
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      void requestPage(filters, null, controller.signal).then((page) => {
-        if (requestGeneration.current !== generation) {return;}
-        setGames(page.items);
-        setNextCursor(page.nextCursor);
-        setFilteredCount(page.filteredCount ?? page.items.length);
-        if (page.facets) {setFacets(page.facets);}
-        setNowMs(page.generatedAtMs);
-        autoLoadArmed.current = true;
-      }).catch((caught: unknown) => {
-        if (caught instanceof DOMException && caught.name === "AbortError") {return;}
-        if (requestGeneration.current !== generation) {return;}
-        const message = caught instanceof Error ? caught.message : "暂时无法读取游戏库，请稍后重试";
-        setLoadError(message); notify({message, tone: "bad"});
-      }).finally(() => {
-        if (!controller.signal.aborted && requestGeneration.current === generation) {setRefreshing(false);}
-      });
-    }, 180);
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [filters, notify, refreshVersion, requestPage]);
-
-  useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      const target = event.target;
-      const editing = target instanceof HTMLElement && (target.matches("input, select, textarea") || target.isContentEditable);
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || editing) {return;}
-      event.preventDefault();
-      searchRef.current?.focus();
-    };
-    document.addEventListener("keydown", focusSearch);
-    return () => document.removeEventListener("keydown", focusSearch);
-  }, []);
-
-  function selectPlatform(nextPlatformId: string) {
-    setNextCursor(null);
-    setPlatformId(nextPlatformId);
-    if (!platformInstanceId) {return;}
-    const selectedCollection = facets.platformInstances.find((instance) => instance.id === platformInstanceId);
-    if (nextPlatformId && selectedCollection?.platformId !== nextPlatformId) {
-      setPlatformInstanceId("");
-      setDraftPlatformInstanceId("");
-    }
-  }
-
-  function openFilters() {
-    setDraftPlatformInstanceId(platformInstanceId);
-    setDraftTagId(tagId);
-    setDraftSort(sort);
-    setFilterOpen(true);
-  }
-
-  function applyFilters() {
-    setNextCursor(null);
-    setPlatformInstanceId(draftPlatformInstanceId);
-    setTagId(draftTagId);
-    setSort(draftSort);
-    setFilterOpen(false);
-  }
-
-  const mobileFilterCount = Number(Boolean(platformInstanceId)) + Number(Boolean(tagId)) + Number(sort !== "RECENT_DESC");
-
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadMoreRequest.current) {return;}
-    loadMoreRequest.current = true;
-    setLoadingMore(true);
-    setLoadError(null);
-    const generation = requestGeneration.current;
-    try {
-      const page = await requestPage(filters, nextCursor);
-      if (requestGeneration.current !== generation) {return;}
-      setGames((current) => mergeGames(current, page.items));
-      setNextCursor(page.nextCursor);
-      setNowMs(page.generatedAtMs);
-    } catch (caught) {
-      if (requestGeneration.current !== generation) {return;}
-      const message = caught instanceof Error ? caught.message : "暂时无法读取下一页，请稍后重试";
-      setLoadError(message); notify({message, tone: "bad"});
-    } finally {
-      if (requestGeneration.current === generation) {
-        loadMoreRequest.current = false;
-        setLoadingMore(false);
-      }
-    }
-  }, [filters, nextCursor, notify, requestPage]);
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") {return;}
-    const observer = new IntersectionObserver((entries) => {
-      const intersects = entries.some((entry) => entry.isIntersecting);
-      if (!intersects) {
-        autoLoadArmed.current = true;
-        return;
-      }
-      if (!autoLoadArmed.current) {return;}
-      autoLoadArmed.current = false;
-      void loadMore();
-    }, { rootMargin: "600px 0px" });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [loadMore, nextCursor]);
-
-  return <div className="page-layout page-layout-library">
-    <PageHeader title="游戏库" description="找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。" />
-
-    <section className="library-toolbar" aria-label="游戏筛选">
-      <div className="library-tool-row">
-        <label className="library-search" htmlFor="library-search"><span className="sr-only">搜索游戏</span><AppIcon name="search" /><input ref={searchRef} id="library-search" type="search" value={query} onChange={(event) => { setNextCursor(null); setQuery(event.target.value); }} placeholder="搜索游戏、平台或标签" /></label>
-        <label className="library-desktop-filter"><span className="sr-only">游戏集合</span><select aria-label="游戏集合" value={platformInstanceId} onChange={(event) => { setNextCursor(null); setPlatformInstanceId(event.target.value); }}><option value="">所有游戏集合</option>{platformInstances.map((instance) => <option value={instance.id} key={instance.id}>{instance.name}</option>)}</select></label>
-        <label className="library-desktop-filter"><span className="sr-only">标签</span><select aria-label="标签" value={tagId} onChange={(event) => { setNextCursor(null); setTagId(event.target.value); }}><option value="">所有标签</option>{facets.tags.map((tag) => <option value={tag.id} key={tag.id}>{tag.name} · {tag.count}</option>)}</select></label>
-        <label className="library-desktop-filter"><span className="sr-only">排列顺序</span><select aria-label="排列顺序" value={sort} onChange={(event) => { setNextCursor(null); setSort(event.target.value as LibraryFilters["sort"]); }}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称 A–Z</option></select></label>
-        <LibraryFilterTrigger buttonRef={filterButtonRef} count={mobileFilterCount} expanded={filterOpen} onOpen={openFilters} />
+import { useLibraryQuery } from "./use-library-query";
+import type { ListFilters } from "./use-library-query";
+export type { ListFilters } from "./use-library-query";
+import { FolderManager } from "@/features/favorites/folder-manager";
+export type LibraryKind = "library" | "favorites" | "admin" | "review";
+export function LibraryBrowser({
+  kind = "library",
+  initial = {},
+}: {
+  kind?: LibraryKind;
+  initial?: ListFilters;
+}) {
+  const { values, query, update } = useLibraryQuery(initial);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { q, directory, platform, tag, folder, sort, offset } = values;
+  const loader = useCallback(() => loadGames(kind, query), [kind, query]);
+  const games = useResource(loader);
+  const directories = useResource(loadDirectories);
+  const catalog = useResource(loadCatalog);
+  const tags = useResource(loadTags);
+  const filterError = [directories.error, tags.error, catalog.error].find(
+    Boolean,
+  );
+  const filters = (
+    <LibraryFilterFields
+      directory={directory}
+      tag={tag}
+      sort={sort}
+      directories={directories.data?.items ?? []}
+      tags={tags.data?.items ?? []}
+      onDirectory={(value) => update({ directory: value })}
+      onTag={(value) => update({ tag: value })}
+      onSort={(value) => update({ sort: value })}
+    />
+  );
+  const title = {
+    library: "游戏库",
+    favorites: "我的收藏",
+    admin: "游戏管理",
+    review: "待审核",
+  }[kind];
+  return (
+    <div className="page-layout-library">
+      <PageHeader
+        title={title}
+        description={
+          kind === "review"
+            ? "所有来源的待审游戏在这里完成首次发布。"
+            : "浏览你的复古游戏资料库。"
+        }
+      />
+      {kind === "favorites" ? (
+        <FolderManager
+          selected={folder}
+          onSelect={(value) => {
+            update({ folder: value });
+          }}
+          onChange={games.reload}
+        />
+      ) : null}
+      <div className="library-toolbar">
+        <div className="library-tool-row">
+          <label className="library-search">
+            <AppIcon name="search" />
+            <input
+              value={q}
+              aria-label="搜索游戏"
+              placeholder="搜索游戏名称…"
+              onChange={(event) => {
+                update({ q: event.target.value });
+              }}
+            />
+          </label>
+          <div className="library-desktop-filter">{filters}</div>
+          <button
+            className="button secondary library-mobile-filter-trigger"
+            aria-label="筛选游戏"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+          >
+            <AppIcon name="filter" />
+          </button>
+        </div>
+        <LibraryPlatformFilter
+          platforms={catalog.data?.platforms ?? []}
+          directories={directories.data?.items ?? []}
+          selected={platform}
+          onSelect={(value) => {
+            update({ platform: value });
+          }}
+        />
+        {filterError ? <p role="alert">{filterError}</p> : null}
       </div>
-      <div className="library-platform-row" onScroll={(event) => platformScroll.onScroll(event.currentTarget)}>
-        <span className="library-platform-label">游戏平台</span>
-        <button className={!platformId ? "is-active" : ""} type="button" aria-pressed={!platformId} onClick={() => selectPlatform("")}>全部 <strong>{facets.totalCount}</strong></button>
-        {facets.platforms.map((platform) => <button className={platform.id === platformId ? "is-active" : ""} type="button" aria-pressed={platform.id === platformId} onClick={() => selectPlatform(platform.id)} key={platform.id}>{platform.name} <strong>{platform.count}</strong></button>)}
-        <span className="library-result-count" aria-live="polite">已加载 <strong>{games.length}</strong> / {filteredCount} 款游戏</span>
-      </div>
-      <div className="phone-platform-scrollbar" aria-hidden="true" data-visible={platformScroll.scrolling}>
-        <span style={{ width: `${platformScroll.thumb.width}%`, left: `${platformScroll.thumb.left}%` }} />
-      </div>
-    </section>
-
-    <ResponsiveSheet open={filterOpen} title="筛选与排序" description={`当前匹配 ${filteredCount} 款游戏`} placement="bottom" onClose={() => setFilterOpen(false)} returnFocusRef={filterButtonRef} footer={<><button className="button secondary" type="button" onClick={() => setFilterOpen(false)}>取消</button><button className="button" type="button" onClick={applyFilters}>应用</button></>}>
-      <div className="mobile-filter-fields">
-        <label><span>游戏集合</span><select aria-label="游戏集合" value={draftPlatformInstanceId} onChange={(event) => setDraftPlatformInstanceId(event.target.value)}><option value="">所有游戏集合</option>{platformInstances.map((instance) => <option value={instance.id} key={instance.id}>{instance.name}</option>)}</select></label>
-        <label><span>标签</span><select aria-label="标签" value={draftTagId} onChange={(event) => setDraftTagId(event.target.value)}><option value="">所有标签</option>{facets.tags.map((tag) => <option value={tag.id} key={tag.id}>{tag.name} · {tag.count}</option>)}</select></label>
-        <label><span>排列顺序</span><select aria-label="排列顺序" value={draftSort} onChange={(event) => setDraftSort(event.target.value as LibraryFilters["sort"])}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称 A–Z</option></select></label>
-        {mobileFilterCount ? <button className="button secondary" type="button" onClick={() => { setDraftPlatformInstanceId(""); setDraftTagId(""); setDraftSort("RECENT_DESC"); }}>清除全部</button> : null}
-      </div>
-    </ResponsiveSheet>
-
-    <div className="library-section-head"><div><h2>所有游戏</h2><p>封面是识别入口；没有封面的游戏也保留清晰的标题与平台信息。</p></div><span>卡片视图 · <kbd>/</kbd> 搜索</span></div>
-    {refreshing ? <div className="library-loading" role="status">正在更新游戏列表…</div> : loadError && !nextCursor ? null : <GameGrid games={games} nowMs={nowMs} filtered={hasFilters} />}
-    <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
-    <footer className="library-pagination" aria-live="polite">
-      <span>{refreshing ? "正在更新游戏列表…" : `已加载 ${games.length} / ${filteredCount} 款游戏`}</span>
-      {loadError ? <button className="button secondary compact" type="button" onClick={() => {clear(); if (nextCursor) {void loadMore();} else {setRefreshVersion((value) => value + 1);}}}>重试加载</button> : loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button className="button secondary compact" type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载当前条件的全部游戏</span>}
-    </footer>
-  </div>;
+      <ResponsiveSheet
+        open={filtersOpen}
+        title="筛选游戏"
+        onClose={() => setFiltersOpen(false)}
+      >
+        <div className="library-filter-sheet">{filters}</div>
+        <button className="button" onClick={() => setFiltersOpen(false)}>
+          完成筛选
+        </button>
+      </ResponsiveSheet>
+      <ResourceState resource={games}>
+        {(data) =>
+          data.items.length ? (
+            <>
+              <div className="library-game-grid">
+                {data.items.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    href={
+                      kind === "review"
+                        ? `/admin/reviews/${game.id}`
+                        : kind === "admin"
+                          ? `/admin/games/${game.id}`
+                          : undefined
+                    }
+                    onChange={games.reload}
+                  />
+                ))}
+              </div>
+              <div className="workspace-paging">
+                <span>共 {data.total} 款</span>
+                <button
+                  className="button secondary"
+                  disabled={offset === 0}
+                  onClick={() =>
+                    update({ offset: Math.max(0, offset - 24) }, false)
+                  }
+                >
+                  上一页
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={offset + 24 >= data.total}
+                  onClick={() => update({ offset: offset + 24 }, false)}
+                >
+                  下一页
+                </button>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              title={kind === "review" ? "没有待审游戏" : "没有找到游戏"}
+              description={
+                kind === "review"
+                  ? "从服务端来源扫描接收的游戏会显示在这里。"
+                  : "调整搜索与筛选条件后再试。"
+              }
+            />
+          )
+        }
+      </ResourceState>
+    </div>
+  );
 }

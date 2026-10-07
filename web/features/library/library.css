@@ -3,6 +3,14 @@
 :where(.page-layout-library) .library-tool-row { grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(140px, 180px)); }
 .library-tool-row > label { min-width: 0; }
 .library-tool-row select { width: 100%; }
+.library-desktop-filter { display: contents; }
+.library-filter-field { min-width: 0; }
+.library-desktop-filter .library-filter-field { display: contents; }
+.library-desktop-filter .library-filter-field > span { display: none; }
+.library-mobile-filter-trigger { display: none; }
+.library-filter-sheet { margin-bottom: var(--space-4); display: grid; gap: var(--space-3); }
+.library-filter-sheet .library-filter-field { display: grid; gap: var(--space-2); }
+.library-filter-sheet select { width: 100%; min-width: 0; }
 .library-search { height: 44px; padding: 0 13px; display: flex; align-items: center; gap: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-subtle); }
 .library-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .library-search svg { width: 17px; height: 17px; flex: 0 0 auto; }

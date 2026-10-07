@@ -1,388 +1,314 @@
 "use client";
-
-import type {RuntimeFailureV1} from "./runtime/contract";
-
-import {playerReturnIntent, type PlayerReturnIntent} from "@/lib/navigation/player-return";
-import {usePlayerDebugState} from "./player-layout";
-
-import {useRouter} from "next/navigation";
-import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject, type ReactNode} from "react";
-import {useAuth} from "@/features/auth/auth-provider";
-import {markImmersivePlayerReturn} from "@/features/immersive/active-gamepad";
-import {reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent} from "./multi-disc-telemetry";
-import {PlayerChrome, type PlayerChromeProps, type PlayerDebugRuntime, type PlayerDiscSet} from "./player-chrome";
-import {shouldRevealPlayerControls, shouldRevealPlayerControlsForKey} from "./player-controls-visibility";
-import type {PlayerDebugMetrics} from "./player-debug";
-import {applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, type VideoRenderingMode} from "./video-rendering";
-import {initialPlayerOrientationState, type PlayerOrientationState} from "./orientation";
-import {useStartupTasks} from "./use-startup-tasks";
-import type {RuntimeStartupTaskV1} from "./runtime/contract";
-import {usePlayerBootstrap} from "./player-bootstrap";
-import {usePlayerSession} from "./player-session";
-import {useRuntimeSessionAuthority} from "./use-runtime-session-authority";
-import {PlayProgressClock} from "./play-progress-clock";
-import {NativeSaveToast} from "./checkpoint-help";
-import {useNativeExitDecision} from "./native-exit-dialog";
-import {useGameSaveSync} from "./use-game-save-sync";
-import {useNativeSavePresentation} from "./use-native-save-presentation";
-import {usePlayerRuntimeExit} from "./use-player-runtime-exit";
-import {usePlayerRuntimeActions} from "./player-runtime-actions";
-import {usePlayerOrientationRuntime} from "./player-orientation-runtime";
-import {usePlayerRuntimeEffects} from "./player-runtime-effects";
-import {useRuntimeExitHandler} from "./player-runtime-exit";
-import {ImmersivePlayerMenu} from "./immersive-player-menu";
-import {GameEditorPanel} from "./game-editor-panel";
-import {useImmersivePlayer} from "./use-immersive-player";
-import {useGamepadCursor} from "./use-gamepad-cursor";
-import {usePlayerKeyboardPause, usePauseForToolbar} from "./use-player-keyboard-pause";
-import type {ContentLoadingCapability} from "./content-loading";
-import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
-import type {RuntimeController} from "./runtime/runtime-controller";
-import {captureRuntimeSave} from "./runtime/runtime-actions";
-import {canResumeFromGameSurface} from "./player-shell-model";
-export {canResumeFromGameSurface, readBoundedResponse} from "./player-shell-model";
-
-type ShellState = "loading" | "running" | "error";
-
-const initialDebugRuntime: PlayerDebugRuntime = {
-  providerId: "", providerVersion: "", targetId: "",
-  crossOriginIsolated: false, sharedArrayBuffer: false,
-};
-
-function useImmersiveRouteReplacement() {
-  const router = useRouter();
-  return useCallback((url: string) => {
-    markImmersivePlayerReturn();
-    router.replace(url);
-  }, [router]);
-}
-
-export function PlayerShell({launchId, experience = "standard"}: {launchId: string; experience?: "standard" | "immersive"}) {
-  const replaceImmersiveRoute = useImmersiveRouteReplacement();
-  const {context} = useAuth();
-  const userId = context.user?.userId;
-  const stage = useRef<HTMLDivElement>(null);
-  const orientationButtonRef = useRef<HTMLButtonElement>(null);
-  const runtime = useRef<PlayerRuntimeV1 | null>(null);
-  const runtimeController = useRef<RuntimeController | null>(null);
-  const envelope = useRef<LaunchEnvelopeV1 | null>(null);
-  const [state, setState] = useState<ShellState>("loading");
-  const [playerReturnTo, setPlayerReturnTo] = useState(experience === "immersive" ? "/immersive" : "/library");
-  const [failure, setFailure] = useState<RuntimeFailureV1 | null>(null);
-  const [message, setMessage] = useState("正在验证 Provider 启动信息…");
-  const {startupTasks, reportStartupTask} = useStartupTasks(setMessage);
-  const [loadProgress, setLoadProgress] = useState<PlayerLoadProgress | null>(null);
-  const [contentLoadingCapability, setContentLoadingCapability] = useState<ContentLoadingCapability>();
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [toast, setToast] = useState("");
-  const [syncText, setSyncText] = useState("正在连接…");
-  const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
-  const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
-  const [reviewScreenshotAvailable, setReviewScreenshotAvailable] = useState(false);
-  const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
-  const [programSelectionRequired, setProgramSelectionRequired] = useState(false);
-  const [gameTitle, setGameTitle] = useState("正在运行的游戏");
-  const [checkpointSemantics, setCheckpointSemantics] = useState<"INSTANT" | "GAME_SAVE" | "NO_SAVE">("INSTANT");
-  const [coreName, setCoreName] = useState("");
-  const [platformName, setPlatformName] = useState("");
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [emulatorToolbarOpen, setEmulatorToolbarOpen] = useState(false);
-  const [emulatorVolume, setEmulatorVolume] = useState(0.5);
-  const [emulatorMuted, setEmulatorMuted] = useState(false);
-  const videoRenderingMode = useSyncExternalStore<VideoRenderingMode>(
-    subscribeVideoRenderingMode,
-    () => readVideoRenderingMode(userId),
-    () => "pixel",
-  );
-  const [discState, setDiscState] = useState<RuntimeDiscStateV1 | null>(null);
-  const [debugOpen, setDebugOpen] = usePlayerDebugState();
-  const [orientationState, setOrientationState] = useState<PlayerOrientationState>(initialPlayerOrientationState);
-  const [orientationHelp, setOrientationHelp] = useState("若浏览器不能自动锁定方向，请手动旋转设备。");
-  const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
-  const [debugRuntime, setDebugRuntime] = useState<PlayerDebugRuntime>(initialDebugRuntime);
-  const returnTo = useRef("/library");
-  const progressClock = useRef(new PlayProgressClock());
-  const started = useRef(false);
-  const finishing = useRef(false);
-  const cancelBootstrap = useRef<(() => Promise<void>) | null>(null);
-  const progressTimer = useRef<number | null>(null);
-  const saveUploadQueue = useRef(Promise.resolve());
-  const manualSaveAvailableRef = useRef(true);
-  const programSelectionRequiredRef = useRef(false);
-  const controlsTimer = useRef<number | null>(null);
-  const toastTimer = useRef<number | null>(null);
-  const running = useRef(false);
-  const pausedRef = useRef(false);
-  const pausePending = useRef(false);
-  const chromePinned = useRef(false);
-  const lastAudibleVolume = useRef(0.5);
-  const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
-  const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
-  const keyboardPauseAction = useRef<() => void>(() => undefined);
-  const sessionAuthority = useMemo(() => ({launchId, uploads: new AbortController()}), [launchId]);
-
-  const discSet = useMemo<PlayerDiscSet | null>(() => discState ? {
-    count: discState.count,
-    entries: discState.labels.map((label, index) => ({index, label})),
-  } : null, [discState]);
-
-  const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
-    void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
-  }, [launchId]);
-
-  const clearControlsTimer = useCallback(() => {
-    if (controlsTimer.current !== null) {window.clearTimeout(controlsTimer.current);}
-    controlsTimer.current = null;
-  }, []);
-
-  const showControls = useCallback(() => {
-    setControlsVisible(true);
-    clearControlsTimer();
-    if (running.current && !pausedRef.current && !chromePinned.current) {
-      controlsTimer.current = window.setTimeout(() => {
-        if (!pausedRef.current && !chromePinned.current) {setControlsVisible(false);}
-      }, 2_000);
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, result } from "@/lib/api/client";
+import { useResource } from "@/lib/use-resource";
+import { ResourceState } from "@/components/resource-state";
+import { useAuth } from "@/features/auth/auth-provider";
+import type { Schema } from "@/lib/api/types";
+import type {
+  PlayerRuntimeV1,
+  RuntimeFinalSnapshotV1,
+} from "./runtime/contract";
+import { validateLaunchEnvelopeBoundary } from "./runtime/envelope";
+import { usePlayerSession } from "./use-player-session";
+import { usePlayerControls } from "./use-player-controls";
+import { useSaveSession } from "./use-save-session";
+import { PlayerToolbar } from "./player-toolbar";
+import { PlayerSaveChoice } from "./player-save-choice";
+import { focusPlayerMenu } from "./player-menu-navigation";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PlayerFeedback } from "./player-feedback";
+import { useReviewCover } from "./use-review-cover";
+import type { ContentLoading } from "./content-loading";
+import { screenshotFileName } from "./screenshot-file";
+import { usePlayerHud } from "./use-player-hud";
+export function PlayerShell({
+  runId,
+  returnTo,
+  contentLoading,
+}: {
+  runId: string;
+  returnTo: string;
+  contentLoading: ContentLoading;
+}) {
+  const { context } = useAuth();
+  const ownerId = context?.user?.id ?? "";
+  const loader = useCallback(async () => {
+    if (!ownerId) {
+      throw new Error("请登录后运行游戏。");
     }
-  }, [clearControlsTimer]);
-
-  const revealControlsAtTopEdge = useCallback((clientY: number) => {
-    if (shouldRevealPlayerControls(clientY)) {showControls();}
-  }, [showControls]);
-
-  const showToast = useCallback((value: string, timeout = 2_400) => {
-    if (toastTimer.current !== null) {window.clearTimeout(toastTimer.current);}
-    setToast(value);
-    toastTimer.current = window.setTimeout(() => {setToast(""); toastTimer.current = null;}, timeout);
-  }, []);
-
-  const holdControls = useCallback(() => {
-    chromePinned.current = true;
-    setControlsVisible(true);
-    clearControlsTimer();
-  }, [clearControlsTimer]);
-
-  const releaseControls = useCallback(() => {
-    chromePinned.current = false;
-    clearControlsTimer();
-    setControlsVisible(!running.current || pausedRef.current);
-  }, [clearControlsTimer]);
-
-  const toggleControls = useCallback(() => {
-    if (controlsVisible) {
-      chromePinned.current = false;
-      clearControlsTimer();
-      setControlsVisible(false);
-    } else {showControls();}
-  }, [clearControlsTimer, controlsVisible, showControls]);
-
-  const pauseForToolbarInteraction = usePauseForToolbar({runtime, running, pausePending, pausedRef,
-    setPaused, setControlsVisible, clearControlsTimer, showToast});
-
-  const resumeFromSurface = useCallback((source: "runtime" | "pause-overlay") => {
-    if (!canResumeFromGameSurface({running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current, source})) {return;}
-    const active = runtime.current;
-    if (!active?.getCapabilities().pause) {return;}
-    void active.resume().then(() => {
-      pausedRef.current = false;
-      setPaused(false);
-      showToast("游戏已继续");
-      showControls();
-    }).catch(() => showToast("无法继续游戏", 3_000));
-  }, [showControls, showToast]);
-  const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
-  const sessionParams = useMemo(() => ({
-    sessionSignal: sessionAuthority.uploads.signal,
-    launchId, runtime, envelope, progressClock, started, finishing, progressTimer, saveUploadQueue,
-    orientationStateRef, returnTo, setOrientationState, setSaveUploadProgress,
-    setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
-  }), [launchId, replaceImmersiveRoute, showToast, sessionAuthority]);
-  const {reportProgress, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
-
-  const {nativeSave, nativeRetryAvailable, presentGameSave} = useNativeSavePresentation(
-    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone);
-  const gameSaveSync = useGameSaveSync(checkpointSemantics === "GAME_SAVE" && state === "running",
-    runtime, uploadManualState, presentGameSave, userId, envelope);
-  const onUnavailable = useCallback(() => {
-    setMessage("RUNTIME_SESSION_UNAVAILABLE"); setState("error");
-    setPlayerReturnTo(experience === "immersive" ? "/immersive" : "/library");
-  }, [experience]);
-  useRuntimeSessionAuthority({...sessionAuthority, started, finishing, running, runtime,
-    controller: runtimeController, nativeSave: gameSaveSync, progressClock, progressTimer, onUnavailable});
-  const selectedNativeRestore = useCallback(() => Boolean(envelope.current?.restore), []);
-  const nativeExit = useNativeExitDecision(selectedNativeRestore);
-  const {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit} = usePlayerRuntimeExit(
-    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast, nativeExit.decide, cancelBootstrap);
-  const handleRuntimeExitRequested = useRuntimeExitHandler(
-    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone,
-    experience, exitAfterProviderExit, exitImmersiveAfterProviderExit,
+    const data = result(
+      await api.GET("/api/v1/runs/{runId}", { params: { path: { runId } } }),
+    );
+    validateLaunchEnvelopeBoundary(data.envelope);
+    return data;
+  }, [runId, ownerId]);
+  const run = useResource(loader);
+  return (
+    <ResourceState resource={run}>
+      {(data) => (
+        <PlayerContent
+          run={data}
+          ownerId={ownerId}
+          returnTo={returnTo}
+          contentLoading={contentLoading}
+        />
+      )}
+    </ResourceState>
   );
-  const handleImmersiveFatal = useCallback((error: string) => {setMessage(error); setState("error");}, []);
-  const saveImmersiveGame = useCallback(async () => {
-    if (gameSaveSync.current) {return nativeRetryAvailable ? gameSaveSync.current.retry() : gameSaveSync.current.capture();}
-    const active = runtime.current;
-    if (!active || !manualSaveAvailableRef.current) {return false;}
-    return uploadManualState(await captureRuntimeSave(active));
-  }, [gameSaveSync, nativeRetryAvailable, uploadManualState]);
-  const {control: gamepadCursor, initialize: initializeCursor} = useGamepadCursor(userId, launchId, showToast);
-  const immersive = useImmersivePlayer({
-    gamepadCursor,
-    enabled: experience === "immersive", runtime, pausedRef, running: state === "running", setPaused,
-    exitStrict: exitImmersiveRuntimeStrict, saveAvailable: manualSaveAvailable || nativeRetryAvailable,
-    nativeSync: checkpointSemantics === "GAME_SAVE" && (nativeRetryAvailable || nativeSave?.capture !== "RUNTIME"),
-    saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
-  });
-  const bootstrapParams = useMemo(() => ({
-    userId,
-    launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
-    returnTo, manualSaveAvailableRef, programSelectionRequiredRef, orientationStateRef, videoRenderingModeRef,
-    pausedRef, started, finishing, progressTimer, progressClock, toastTimer,
-    reportStartupTask, setFailure, setMessage, setLoadProgress, setContentLoadingCapability, setState, setManualSaveAvailable, setProgramSelectionRequired,
-    setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
-    setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,
-    setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
-    onGamepadCursorReady: initializeCursor,
-    onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
-    onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
-    onExitRequested: handleRuntimeExitRequested, reportProgress,
-  }), [reportStartupTask, userId, experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
-    immersive.requestMenu, initializeCursor, launchId, reportPlayerEvent, reportProgress, revealControlsAtTopEdge, showControls]);
-  const retryStartup = usePlayerBootstrap(bootstrapParams, cancelBootstrap);
-  const runtimeEffectParams = useMemo(() => ({
-    state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
-    orientationButtonRef, running, pausedRef, chromePinned, controlsTimer,
-    clearControlsTimer, setControlsVisible, setFullscreen, setDebugOpen, setDebugMetrics,
-  }), [clearControlsTimer, debugOpen, orientationState.phase, setDebugOpen, state]);
-  const {toggleDebug} = usePlayerRuntimeEffects(runtimeEffectParams);
-
-  const runtimeActionParams = useMemo(() => ({
-    userId, state, runtime, envelope, manualSaveAvailableRef, programSelectionRequiredRef, uploadManualState, gameSaveSync,
-    discState, setDiscState, reportPlayerEvent, showToast, setSyncText, setSyncTone,
-    setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
-    emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef,
-
-  }), [discState, emulatorMuted, emulatorVolume, gameSaveSync, holdControls, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
-  const actions = usePlayerRuntimeActions(runtimeActionParams);
-
-  usePlayerKeyboardPause({
-    runtime, keyboardPauseActionRef: keyboardPauseAction, running, chromePinned, pausePending,
-    pausedRef, setPaused, setControlsVisible, clearControlsTimer, showControls,
-    showToast,
-  });
-
-  const orientationParams = useMemo(() => ({
-    runtime, pausedRef, orientationStateRef,
-    setOrientationState, setPaused, setOrientationHelp,
-    showControls, showToast,
-  }), [showControls, showToast]);
-  const {retryLandscape} = usePlayerOrientationRuntime(orientationParams);
-
-  usePlayerVideoMode(runtime, videoRenderingModeRef, videoRenderingMode);
-
-  const chromeProps: PlayerChromeProps = {
-    gamepadCursor,
-    checkpointSemantics, nativeSave, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.retry();},
-    controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
-    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, programSelectionRequired, toast, warnings,
-    emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
-    inputRuntime: runtime, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
-    onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
-    onScreenshot: reviewScreenshotAvailable ? () => void captureReviewScreenshot() : undefined,
-    onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,
-    onToggleFullscreen: () => void actions.toggleFullscreen(), onOpenEmulatorSettings: actions.openEmulatorSettings,
-    onCloseEmulatorSettings: actions.closeEmulatorSettings, onOpenEmulatorPanel: actions.openEmulatorPanel,
-    onChangeEmulatorVolume: actions.changeEmulatorVolume, onToggleEmulatorMute: actions.toggleEmulatorMute,
-    onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
-    onToggleDebug: toggleDebug,
-    onGameSurface: () => resumeFromSurface("pause-overlay"), onExit: () => void exitRuntime(),
-  };
-  return <PlayerShellView failure={failure} onRetryStartup={retryStartup} startupTasks={startupTasks} canLoadOnDemand={contentLoadingCapability === "ON_DEMAND_AND_PRELOAD"} nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
-    chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}
-    returnIntent={playerReturnIntent(playerReturnTo)} gameTitle={gameTitle}
-    orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef}
-    onShowControls={showControls}
-    onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction}
-    onRetryLandscape={() => void retryLandscape()} />;
 }
-
-type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
-
-function PlayerShellView({failure, onRetryStartup, startupTasks, canLoadOnDemand, nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnIntent, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
-  failure?: RuntimeFailureV1 | null;
-  onRetryStartup: () => void;
-  startupTasks: RuntimeStartupTaskV1[];
-  canLoadOnDemand: boolean;
-  nativeExitDialog: ReactNode; experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
-  orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>;
-  state: ShellState; message: string; loadProgress: PlayerLoadProgress | null; returnIntent: PlayerReturnIntent; gameTitle: string;
-  orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>;
-  onShowControls: () => void;
-  onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void;
+function PlayerContent({
+  run,
+  ownerId,
+  returnTo,
+  contentLoading,
+}: {
+  run: Schema<"Run">;
+  ownerId: string;
+  returnTo: string;
+  contentLoading: ContentLoading;
 }) {
-  const blocked = state !== "error" && orientationState.phase === "orientation-blocked";
-  const interactive = state !== "error" && !blocked;
-  const isImmersive = experience === "immersive";
-  return <main className={`player-shell${isImmersive ? " is-immersive" : ""}${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`}
-    onKeyDown={(event) => {if (!isImmersive && shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}}
-    onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
-    {interactive ? nativeExitDialog : null}
-    {interactive && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
-    <PlayerStage failure={failure} onRetryStartup={onRetryStartup} startupTasks={startupTasks} canLoadOnDemand={canLoadOnDemand} blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
-      returnIntent={returnIntent} onSurface={isImmersive ? () => undefined : onSurface} />
-    <NativeSaveToast visible={interactive && isImmersive} semantics={chromeProps.checkpointSemantics}
-      toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
-    {interactive && isImmersive ? <ImmersivePlayerMenu returnTarget={stage} gamepadCursor={chromeProps.gamepadCursor} nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
-      onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
-    <ImmersiveGameEditorLayer blocked={!interactive} immersive={isImmersive} overlay={immersive.overlay} runtime={chromeProps.inputRuntime} onClose={immersive.menuCancel} />
-    {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
-      buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
-  </main>;
-}
-
-function ImmersiveGameEditorLayer({blocked, immersive, overlay, runtime, onClose}: {
-  blocked: boolean; immersive: boolean; overlay: ImmersiveController["overlay"];
-  runtime: PlayerChromeProps["inputRuntime"]; onClose: () => void;
-}) {
-  if (blocked || !immersive || overlay.kind !== "editor") {return null;}
-  const editor = runtime?.current?.getGameEditor?.();
-  return editor ? <GameEditorPanel editor={editor} immersive onClose={onClose} /> : null;
-}
-
-export function PlayerStage({failure, onRetryStartup, startupTasks = [], canLoadOnDemand = false, blocked, stage, state, message, loadProgress, returnIntent, onSurface}: {
-  failure?: RuntimeFailureV1 | null;
-  onRetryStartup: () => void;
-  startupTasks?: RuntimeStartupTaskV1[];
-  canLoadOnDemand?: boolean;
-  blocked: boolean; stage: RefObject<HTMLDivElement | null>; state: ShellState; message: string;
-  loadProgress: PlayerLoadProgress | null; returnIntent: PlayerReturnIntent; onSurface: () => void;
-}) {
-  return <div className="player-stage" inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
-    <div className="player-runtime-mount" ref={stage} tabIndex={-1} />
-    {state !== "running" ? <PlayerLoading failure={failure} onRetry={onRetryStartup} tasks={startupTasks} canLoadOnDemand={canLoadOnDemand} state={state} message={message} progress={loadProgress} returnIntent={returnIntent} /> : null}
-  </div>;
-}
-
-function OrientationGate({state, gameTitle, help, buttonRef, onRetry}: {
-  state: PlayerOrientationState; gameTitle: string; help: string;
-  buttonRef: RefObject<HTMLButtonElement | null>; onRetry: () => void;
-}) {
-  const status = state.started ? "游戏已暂停" : "移动 Player 需要横屏";
-  return <section className="player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="player-orientation-title"
-    onKeyDown={(event) => {if (event.key === "Tab") {event.preventDefault(); buttonRef.current?.focus();}}}>
-    <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div><p>{status}</p>
-    <h1 id="player-orientation-title">请横向握持设备开始游戏</h1><strong>{gameTitle}</strong>
-    <small>{help}</small>
-    <button ref={buttonRef} className="button" type="button" onClick={onRetry}>尝试进入全屏并横屏</button>
-  </section>;
-}
-
-function usePlayerVideoMode(
-  runtimeRef: RefObject<PlayerRuntimeV1 | null>, currentModeRef: RefObject<VideoRenderingMode>, mode: VideoRenderingMode,
-) {
+  const router = useRouter();
+  const envelope = validateLaunchEnvelopeBoundary(run.envelope);
+  const native = envelope.runtime.checkpoint?.semantics === "GAME_SAVE";
+  const saves = useSaveSession(run, ownerId, native);
+  const reviewCover = useReviewCover(run);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exitError, setExitError] = useState("");
+  const [confirmExit, setConfirmExit] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [saveChoice, setSaveChoice] = useState(false);
+  const [restore, setRestore] = useState<RuntimeFinalSnapshotV1 | null>(null);
+  const { commit } = saves;
+  const requestExit = useCallback(
+    (snapshot?: RuntimeFinalSnapshotV1) => {
+      if (snapshot) {
+        void commit(snapshot, null)
+          .catch((failure) =>
+            setExitError(
+              failure instanceof Error ? failure.message : "无法保留退出存档。",
+            ),
+          )
+          .finally(() => setConfirmExit(true));
+      } else {
+        setConfirmExit(true);
+      }
+    },
+    [commit],
+  );
+  const unmountSnapshot = useCallback(
+    (snapshot: RuntimeFinalSnapshotV1) => commit(snapshot, null),
+    [commit],
+  );
+  const { mount, runtime, state, error, availability, step } = usePlayerSession(
+    run,
+    saves.nativeChanged,
+    requestExit,
+    restore,
+    unmountSnapshot,
+    ownerId,
+    contentLoading,
+  );
+  const hud = usePlayerHud(
+    state,
+    confirmExit || menu || saveChoice || settingsOpen,
+  );
+  async function pause() {
+    const instance = readyRuntime(runtime.current);
+    if (!instance) {
+      return;
+    }
+    if (instance.getState() === "PAUSED") {
+      await instance.resume();
+    } else {
+      await instance.pause();
+    }
+  }
+  function command(action: Promise<void> | undefined) {
+    void action?.catch((failure: unknown) =>
+      setExitError(
+        failure instanceof Error ? failure.message : "运行操作失败。",
+      ),
+    );
+  }
+  async function prepareExit() {
+    const instance = runtime.current;
+    if (native && instance?.getCheckpointAvailability().available) {
+      await saves.capture(instance, "EXPORT");
+    }
+    setConfirmExit(true);
+  }
+  async function leave() {
+    await runtime.current?.exit();
+    if (!saves.draft) {
+      await api.DELETE("/api/v1/runs/{runId}", {
+        params: { path: { runId: run.id } },
+      });
+    }
+    router.push(
+      returnTo.startsWith("/") && !returnTo.startsWith("//")
+        ? returnTo
+        : "/library",
+    );
+  }
+  usePlayerControls(
+    runtime,
+    () => {
+      hud.show();
+      setMenu((value) => !value);
+    },
+    () => command(pause()),
+    confirmExit || menu || saveChoice,
+    setExitError,
+    menu,
+  );
   useEffect(() => {
-    currentModeRef.current = mode;
-    applyVideoRenderingMode(runtimeRef.current, mode);
-  }, [currentModeRef, mode, runtimeRef]);
+    if (menu) {
+      focusPlayerMenu();
+    }
+  }, [menu]);
+  async function screenshot() {
+    const blob = await readyRuntime(runtime.current)?.screenshot();
+    if (!blob) {
+      return;
+    }
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = screenshotFileName(envelope.session.title, blob);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function settings() {
+    const instance = readyRuntime(runtime.current);
+    if (!instance) {
+      return;
+    }
+    try {
+      if (settingsOpen) {
+        await instance.closeNativeSettings();
+      } else {
+        await instance.openNativeSettings("core");
+      }
+      setSettingsOpen(!settingsOpen);
+    } catch (failure) {
+      setExitError(
+        failure instanceof Error ? failure.message : "无法打开运行设置。",
+      );
+    }
+  }
+  useEffect(() => {
+    function guard(event: BeforeUnloadEvent) {
+      if (saves.draft || saves.busy) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [saves.draft, saves.busy]);
+  return (
+    <div className="player-shell">
+      <div className="player-stage">
+        <div className="player-runtime-mount" ref={mount} />
+      </div>
+      <PlayerToolbar
+        envelope={envelope}
+        state={state}
+        availability={availability}
+        busy={saves.busy || reviewCover.busy}
+        status={reviewCover.status || saves.status}
+        visible={hud.visible}
+        menu={menu}
+        onMenu={() => setMenu(!menu)}
+        onControlError={setExitError}
+        onReveal={hud.show}
+        onHover={hud.onHover}
+        onFocus={hud.onFocus}
+        onPause={() => command(pause())}
+        onSave={() => {
+          const instance = readyRuntime(runtime.current);
+          if (!instance) {
+            return;
+          }
+          if (!native && run.purpose === "play" && saves.currentSave) {
+            setSaveChoice(true);
+          } else {
+            void saves.capture(instance);
+          }
+        }}
+        onExit={() => void prepareExit()}
+        onScreenshot={() => command(screenshot())}
+        onSettings={() => void settings()}
+        settingsOpen={settingsOpen}
+        onUseCover={
+          run.purpose === "review"
+            ? () => void reviewCover.save(readyRuntime(runtime.current))
+            : undefined
+        }
+        onVolume={(value) => command(readyRuntime(runtime.current)?.setVolume(value))}
+        onVideo={(value) => command(readyRuntime(runtime.current)?.setVideoMode(value))}
+      />
+      <PlayerSaveChoice
+        open={saveChoice}
+        save={saves.currentSave}
+        onClose={() => setSaveChoice(false)}
+        onSelect={(save) => {
+          setSaveChoice(false);
+          const instance = readyRuntime(runtime.current);
+          if (instance) {
+            void saves.capture(instance, "CAPTURE", save);
+          }
+        }}
+      />
+      {state === "PAUSED" ? (
+        <button
+          className="player-pause-overlay is-visible"
+          onClick={() => void pause()}
+        >
+          <span className="player-pause-pill">
+            <strong>游戏已暂停</strong>
+            <small>点击继续游戏</small>
+          </span>
+        </button>
+      ) : null}
+      <PlayerFeedback
+        error={error}
+        state={state}
+        step={step}
+        draft={saves.draft}
+        busy={saves.busy}
+        preview={saves.preview}
+        review={run.purpose === "review"}
+        onRetry={() => void saves.retry(runtime.current)}
+        onRestore={() => setRestore(saves.preview)}
+        onReturn={() => setConfirmExit(true)}
+      />
+      {exitError ? (
+        <p className="player-toast is-visible" role="alert">
+          {exitError}
+        </p>
+      ) : null}
+      <ConfirmDialog
+        open={confirmExit}
+        title="退出游戏"
+        description={
+          saves.draft
+            ? "尚有未同步存档。退出后草稿会保留在这个浏览器，可在我的存档中重新同步或导出。"
+            : "确认退出当前游戏？"
+        }
+        confirmLabel="退出游戏"
+        onCancel={() => setConfirmExit(false)}
+        onConfirm={() => void leave()}
+        busy={saves.busy}
+      />
+    </div>
+  );
+}
+
+function readyRuntime(instance: PlayerRuntimeV1 | null) {
+  return instance && ["RUNNING", "PAUSED"].includes(instance.getState())
+    ? instance
+    : null;
 }

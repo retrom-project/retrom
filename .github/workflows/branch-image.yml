@@ -40,10 +40,16 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BUILD_SHA: ${{ github.sha }}
         run: echo "IMAGE_TAG=pr-${PR_NUMBER}-${BUILD_SHA:0:12}" >> "$GITHUB_ENV"
+      - name: Prepare pinned password blocklist
+        run: python3 scripts/dependencies.py prepare-auth --versions 4.2.3,4.3.0-pre
+      - name: Materialize repository-pinned runtime inputs
+        env:
+          RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}
+        run: python3 scripts/prepare_image_inputs.py
       - name: Build and verify both branch images
         run: make build-images BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" IMAGE_TAG="$IMAGE_TAG"
-      - name: Verify backend startup as the deployment UID
-        run: bash scripts/verify-backend-image.sh "$BACKEND_IMAGE:$IMAGE_TAG"
+      - name: Verify both images and their deployment connection
+        run: bash scripts/verify-backend-image.sh "$BACKEND_IMAGE:$IMAGE_TAG" "$WEB_IMAGE:$IMAGE_TAG"
       - name: Publish branch images to GHCR
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:

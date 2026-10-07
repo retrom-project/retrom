@@ -42,6 +42,7 @@ GENERATED_MARKERS = (
     re.compile(rb"auto-generated", re.I),
     re.compile(rb"This file should not be edited", re.I),
 )
+SERVICE_RAW_SQL = re.compile(r"\.\s*Repository\s*\.\s*(?:Count|Execute)\s*\(")
 GO_SUPPRESSION = re.compile(r"//\s*nolint(?::([^\s/]+))?")
 FE_SUPPRESSION = re.compile(
     r"eslint-disable(?:-next-line|-line)?|@ts-ignore|@ts-expect-error"
@@ -331,6 +332,12 @@ def validate_repository(root: Path, *, today: date | None = None) -> list[Violat
             )
         text = contents.decode("utf-8", errors="replace")
         if relative_path.endswith(".go"):
+            if relative_path.startswith("internal/service/") and not relative_path.endswith("_test.go"):
+                for match in SERVICE_RAW_SQL.finditer(text):
+                    violations.append(Violation(
+                        relative_path, text.count("\n", 0, match.start()) + 1,
+                        "service-raw-sql", "domain services must call named persistence operations",
+                    ))
             violations.extend(
                 _go_suppression_violations(
                     relative_path, text, allowlist, used, current_date

@@ -82,13 +82,6 @@
   .import-priority-grid,
   .review-workflow-columns,
   .review-workflow-top { grid-template-columns: minmax(0, 1fr); }
-  .import-pipeline,
-  .import-recent-list article { min-width: 0; }
-  .import-pipeline { grid-template-columns: repeat(5, minmax(110px, 1fr)); }
-  .import-pipeline-panel,
-  .import-recent-panel { max-width: 100%; overflow-x: auto; }
-  .import-pipeline-panel .import-pipeline { min-width: 680px; }
-  .import-recent-panel .import-recent-list { min-width: 720px; }
   .library-game-grid,
   .favorite-game-grid,
   .admin-game-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -97,12 +90,10 @@
   .admin-game-card { width: auto; min-width: 0; }
   .drawer-backdrop,
   .runtime-drawer-backdrop,
-  .platform-drawer-backdrop,
-  .review-multidisc-drawer-backdrop { z-index: 205; }
+  .platform-drawer-backdrop { z-index: 205; }
   .app-drawer,
   .runtime-drawer,
-  .platform-drawer,
-  .review-multidisc-drawer { z-index: 206; width: min(520px, 90vw); max-width: 100%; }
+  .platform-drawer { z-index: 206; width: min(520px, 90vw); max-width: 100%; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -191,8 +182,7 @@
 
   .app-drawer,
   .runtime-drawer,
-  .platform-drawer,
-  .review-multidisc-drawer { inset: 0; width: 100%; height: 100dvh; border: 0; }
+  .platform-drawer { inset: 0; width: 100%; height: 100dvh; border: 0; }
   .app-drawer > header,
   .runtime-drawer > header,
   .platform-drawer header { padding: calc(16px + env(safe-area-inset-top)) 16px 14px; }
@@ -232,43 +222,21 @@
   .server-root-options,
   .source-scan-summary,
   .source-collection-list article,
-  .server-import-result-filters,
-  .server-import-result-filters.source-result-filters,
   .source-runtime-diagnostic-body > dl,
   .source-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
 
   .import-priority-grid article,
   .import-selected-summary,
-  .server-import-detail-head,
   .source-review-callout { align-items: flex-start; flex-direction: column; }
-  .import-priority-grid article > div:last-child,
-  .server-import-detail-head > div:last-child { width: 100%; justify-items: start; justify-content: flex-start; }
-  .import-pipeline-panel,
-  .import-recent-panel { overflow-x: auto; }
-  .import-pipeline-panel .import-pipeline { min-width: 620px; }
-  .import-recent-panel .import-recent-list { min-width: 0; }
-  .import-recent-list article { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .import-priority-grid article > div:last-child { width: 100%; justify-items: start; justify-content: flex-start; }
   .import-wizard-steps { overflow-x: auto; }
   .import-dropzone { min-height: 220px; }
   .import-dropzone > div { padding: 22px 16px; }
   .import-stage-actions { align-items: stretch; flex-direction: column; }
   .import-stage-actions > span { margin-right: 0; }
   .import-stage-actions > * { width: 100%; }
-  .import-task-list,
   .review-workflow-list,
-  .import-task-entry,
-  .review-workflow-row,
-  .import-task-card { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .import-task-card > .status { justify-self: start; }
-  .import-task-main h3,
-  .import-task-multidisc strong { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
-  .import-task-actions,
-  .import-task-problem { align-items: stretch; flex-direction: column; }
-  .import-task-actions .button,
-  .import-task-problem .button { width: 100%; min-width: 0; flex-basis: auto; }
-  .import-task-stages { overflow-x: auto; grid-template-columns: repeat(6, minmax(108px, 1fr)); }
-  .import-task-multidisc > article { grid-template-columns: minmax(0, 1fr); }
-  .import-task-no-ignored { justify-self: start; }
+  .review-workflow-row { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 
   .review-workflow-row { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .review-workflow-detail { display: flex; flex-direction: column; }
@@ -372,11 +340,8 @@
   .runtime-diff-table td::before { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
   .bios-entry-comparison { grid-template-columns: minmax(0, 1fr); }
 
-  .server-import-result-table,
   .source-result-table { overflow: visible; border: 0; background: transparent; }
-  .server-import-result-table > article,
   .source-result-table > article { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
-  .server-import-result-table strong,
   .source-result-table h3 { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
   .source-collection-list { max-height: none; }
   .source-review-table > div { align-items: flex-start; flex-direction: column; }

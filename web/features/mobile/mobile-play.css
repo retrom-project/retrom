@@ -115,7 +115,7 @@
 
 @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
   /* The server cannot know the viewport. Hide the desktop frame until hydration chooses the phone shell. */
-  .app-frame { visibility: hidden; }
+  .app-frame:not(.admin-app-frame) { visibility: hidden; }
 }
 
 .phone-launch-fields { display: grid; gap: 16px; }

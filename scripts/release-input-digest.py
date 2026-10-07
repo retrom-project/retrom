@@ -13,7 +13,7 @@ import sys
 from pathlib import Path, PurePosixPath
 
 from dependencies import CheckError, parse_versions
-from runtime_provider_release import REPOSITORY, load_release_config
+from runtime_input_manifest import load_manifest
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,8 +63,7 @@ def source_entries() -> list[dict[str, object]]:
     return entries
 
 
-def provider_release_input() -> dict[str, str]:
-    root = ROOT / "data/runtime-providers"
+def runtime_input() -> dict:
     if any((ROOT / relative).exists() for relative in (
         "data/runtime-providers/active.json",
         "data/runtime-providers/candidate-active.json",
@@ -73,10 +72,7 @@ def provider_release_input() -> dict[str, str]:
         "data/runtime-providers/archive",
     )):
         raise ValueError("RELEASE_INPUT_CANDIDATE_OR_MUTABLE_PROVIDER_FORBIDDEN")
-    path = root / "release.json"
-    if not path.is_file() or path.is_symlink():
-        raise ValueError("RELEASE_INPUT_PROVIDER_RELEASE_MISSING")
-    return {"repository": REPOSITORY, **load_release_config(path)}
+    return load_manifest(ROOT / "data/runtime-inputs.json")
 
 
 def release_input_value(versions: list[str], active: str) -> dict[str, object]:
@@ -103,10 +99,7 @@ def release_input_value(versions: list[str], active: str) -> dict[str, object]:
         "passwordBlocklistManifestSha256": sha256(
             (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
         ),
-        "runtimeTargetCatalogSha256": sha256(
-            (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_bytes()
-        ),
-        "providerRelease": provider_release_input(),
+        "runtimeInputs": runtime_input(),
     }
 
 

@@ -58,103 +58,71 @@ linters:
         inner-layers:
           files:
             - "${base-path}/internal/**.go"
-            - "!${base-path}/internal/application/**.go"
-            - "!${base-path}/internal/composition/**.go"
             - "!${base-path}/internal/httpapi/**.go"
             - "!${base-path}/internal/testsupport/**.go"
             - "!$test"
           deny:
-            - pkg: retrom/internal/application
-              desc: inner layers must not depend on process lifecycle
-            - pkg: retrom/internal/composition
-              desc: inner layers must not assemble dependencies
             - pkg: retrom/internal/httpapi
-              desc: inner layers must not depend on HTTP
+              desc: domain and infrastructure packages must not depend on HTTP
         http-transport:
           files:
             - "${base-path}/internal/httpapi/**.go"
             - "!$test"
           deny:
-            - pkg: retrom/internal/application
-              desc: HTTP receives feature dependencies from the process root
-            - pkg: retrom/internal/composition
-              desc: HTTP must not assemble business services
-            - pkg: retrom/internal/database
-              desc: HTTP must not access raw database connections
             - pkg: retrom/internal/persistence
-              desc: HTTP must use business services instead of persistence adapters
-            - pkg: retrom/internal/store
-              desc: HTTP must not own database resources
-        storage-layer:
+              desc: HTTP must use domain services rather than persistence
+            - pkg: github.com/jackc/pgx
+              desc: HTTP must not execute SQL or own database resources
+            - pkg: database/sql
+              desc: HTTP must not execute SQL
+            - pkg: os/exec
+              desc: HTTP must not invoke processes
+        infrastructure:
           files:
-            - "${base-path}/internal/store/**.go"
-            - "${base-path}/internal/filestore/**.go"
+            - "${base-path}/internal/persistence/**.go"
+            - "${base-path}/internal/storage/**.go"
+            - "${base-path}/internal/temporary/**.go"
+            - "${base-path}/internal/runtimeclient/**.go"
             - "!$test"
           deny:
             - pkg: retrom/internal/service
-              desc: storage must not depend on application modules
-            - pkg: retrom/internal/libraryimport
-              desc: storage must not depend on import workflows
-            - pkg: retrom/internal/launch
-              desc: storage must not depend on launch workflows
-        arcade-parser-layer:
+              desc: infrastructure must not depend on domain services
+        pure-inputs:
           files:
-            - "${base-path}/internal/format/arcadedat/**.go"
+            - "${base-path}/internal/model/**.go"
+            - "${base-path}/internal/format/**.go"
             - "!$test"
           deny:
             - pkg: retrom/internal/service
-              desc: DAT parsing must remain below business services
-            - pkg: retrom/internal/firmware
-              desc: DAT parsing must not depend on BIOS workflows
-            - pkg: retrom/internal/libraryimport
-              desc: DAT parsing must not depend on import workflows
-        service-no-jobs:
+              desc: facts and parsers must not depend on workflows
+            - pkg: retrom/internal/persistence
+              desc: facts and parsers must not execute persistence
+            - pkg: retrom/internal/httpapi
+              desc: facts and parsers must not depend on transport
+            - pkg: github.com/jackc/pgx
+              desc: facts and parsers must not execute SQL
+            - pkg: os/exec
+              desc: facts and parsers must not invoke processes
+        services:
           files:
             - "${base-path}/internal/service/**.go"
-            - "${base-path}/internal/firmware/**.go"
-            - "${base-path}/internal/launch/**.go"
-            - "${base-path}/internal/libraryimport/**.go"
-            - "!${base-path}/internal/service/jobs/**.go"
             - "!$test"
           deny:
-            - pkg: retrom/internal/service/jobs
-              desc: domains must not depend on job management use cases
-        runtime-no-import-workflow:
+            - pkg: github.com/jackc/pgx
+              desc: services use the persistence adapter for short transactions
+            - pkg: database/sql
+              desc: services must not execute SQL directly
+            - pkg: os/exec
+              desc: runtime process invocation belongs to runtimeclient
+        runtime-no-scans:
           files:
-            - "${base-path}/internal/launch/**.go"
-            - "${base-path}/internal/service/launch/**.go"
-            - "${base-path}/internal/service/gamevariant/**.go"
-            - "${base-path}/internal/persistence/launch/**.go"
-            - "${base-path}/internal/persistence/gamevariant/**.go"
-            - "${base-path}/internal/composition/launch/**.go"
-            - "${base-path}/internal/composition/gamevariant/**.go"
+            - "${base-path}/internal/service/runs/**.go"
+            - "${base-path}/internal/service/saves/**.go"
+            - "${base-path}/internal/runtimeclient/**.go"
             - "!$test"
           deny:
-            - pkg: retrom/internal/libraryimport
-              desc: runtime must not depend on import workflows
-            - pkg: retrom/internal/service/libraryimport
-              desc: runtime consumes content facts instead of review services
-            - pkg: retrom/internal/persistence/libraryimport
-              desc: review owns source authority and supplies prepared preview resources
-            - pkg: retrom/internal/composition/libraryimport
-              desc: review assembly belongs to the process root
-            - pkg: retrom/internal/composition/importworkflow
-              desc: runtime must not assemble import workflows
-        arcade-domain:
-          files:
-            - "${base-path}/internal/content/arcade/**.go"
-            - "!$test"
-          deny:
-            - pkg: retrom/internal/service
-              desc: Arcade domain rules must remain independent of workflows
-            - pkg: retrom/internal/persistence
-              desc: Arcade domain rules consume narrow catalog ports
-            - pkg: retrom/internal/database
-              desc: Arcade domain rules must not execute SQL
-            - pkg: retrom/internal/libraryimport
-              desc: Arcade domain rules must not depend on import workflows
-            - pkg: retrom/internal/launch
-              desc: Arcade domain rules must not depend on launch workflows
+            - pkg: retrom/internal/service/scans
+              desc: runtime consumes managed facts without import authority
     dogsled:
       max-blank-identifiers: 3
     dupl:

@@ -1,2 +1,4 @@
-import { LoginForm } from "@/features/auth/auth-ui";
-export default function LoginPage() { return <LoginForm />; }
+import { AuthForm } from "@/features/auth/auth-form";
+export default function Page() {
+  return <AuthForm mode="login" />;
+}

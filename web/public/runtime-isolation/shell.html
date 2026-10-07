@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Retrom Runtime</title></head><body><script>
+(() => {
+  "use strict";
+  let configured = false;
+  let configuration = null;
+  let started = false;
+  const readyTimer = setInterval(() => parent.postMessage({type: "RETROM_ISOLATION_READY"}, "*"), 100);
+  const waitingTimer = setInterval(() => {
+    if (configuration && !started) { parent.postMessage({type: "RETROM_WEB_CONTENT_WAITING", v: 1}, configuration.parentOrigin); }
+  }, 100);
+  function reply(port, type) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { port.close(); reject(new Error("CONTENT_IO_TIMEOUT")); }, 10000);
+      port.onmessage = ({data}) => { if (data?.type === type) { clearTimeout(timer); port.onmessage = null; resolve(data); } };
+      port.start();
+    });
+  }
+  function connect(port) { parent.postMessage({type: "RETROM_WEB_CONTENT_CONNECT", v: 1}, configuration.parentOrigin, [port]); }
+  async function start() {
+    if (!navigator.serviceWorker || !isSecureContext) { throw new Error("CONTENT_IO_STORAGE_UNAVAILABLE"); }
+    const pair = new MessageChannel();
+    const contentReady = reply(pair.port1, "READY"); connect(pair.port2); await contentReady;
+    const registration = await navigator.serviceWorker.register("./service-worker.js", {scope: `/run/${configuration.runId}/`, updateViaCache: "none"});
+    const worker = registration.installing || registration.waiting || registration.active;
+    if (!worker) { throw new Error("CONTENT_IO_WORKER_UNAVAILABLE"); }
+    if (worker.state !== "activated") { await new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error("CONTENT_IO_WORKER_TIMEOUT")), 10000); worker.addEventListener("statechange", () => { if (worker.state === "activated") { clearTimeout(timeout); resolve(); } }); }); }
+    const response = new MessageChannel(); const connected = reply(response.port1, "CONNECTED");
+    worker.postMessage({type: "CONNECT", configuration}, [pair.port1, response.port2]); await connected; response.port1.close();
+    location.replace(`/run/${configuration.runId}/${configuration.entryFile.split("/").map(encodeURIComponent).join("/")}`);
+  }
+  addEventListener("message", event => {
+    if (event.source !== parent) { return; }
+    if (event.data?.type === "RETROM_ISOLATION_CONFIGURE" && !configured) {
+      const value = event.data.configuration;
+      if (!value || event.origin !== value.parentOrigin || !/^[0-9a-f-]{36}$/.test(value.runId) || typeof value.entryFile !== "string" || value.entryFile.startsWith("/") || value.entryFile.split("/").some(part => ["", ".", ".."].includes(part)) || typeof value.bridge !== "string") { return; }
+      configured = true; configuration = value; clearInterval(readyTimer); return;
+    }
+    if (!configuration || started || event.origin !== configuration.parentOrigin || event.data?.type !== "RETROM_WEB_CONTENT_START" || event.data.v !== 1) { return; }
+    started = true; clearInterval(waitingTimer);
+    void start().catch(error => { document.body.textContent = error.message; parent.postMessage({type: "RETROM_WEB_CONTENT_FAILED", v: 1, code: error.message}, configuration.parentOrigin); });
+  });
+  navigator.serviceWorker?.addEventListener("message", event => {
+    if (configuration && event.source === navigator.serviceWorker.controller && event.data?.type === "RETROM_WEB_CONTENT_RECONNECT" && event.ports.length === 1) { connect(event.ports[0]); }
+  });
+})();
+</script></body></html>

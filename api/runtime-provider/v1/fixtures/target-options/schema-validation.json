@@ -3,17 +3,69 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "dosEntryPath": {"type": ["string", "null"], "format": "safe-path", "maxLength": 240},
-      "initialDiscIndex": {"type": ["integer", "null"], "minimum": 0}
+      "dosEntryPath": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "safe-path",
+        "maxLength": 240
+      },
+      "initialDiscIndex": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      }
     },
-    "required": ["dosEntryPath", "initialDiscIndex"]
+    "required": [
+      "dosEntryPath",
+      "initialDiscIndex"
+    ]
   },
   "cases": [
-    {"valid": true, "value": {"dosEntryPath": null, "initialDiscIndex": null}},
-    {"valid": true, "value": {"dosEntryPath": "GAME/START.EXE", "initialDiscIndex": 0}},
-    {"valid": false, "value": {"dosEntryPath": null}},
-    {"valid": false, "value": {"dosEntryPath": null, "initialDiscIndex": null, "kind": "EMULATORJS"}},
-    {"valid": false, "value": {"dosEntryPath": "../escape.exe", "initialDiscIndex": null}},
-    {"valid": false, "value": {"dosEntryPath": null, "initialDiscIndex": -1}}
+    {
+      "valid": true,
+      "value": {
+        "dosEntryPath": null,
+        "initialDiscIndex": null
+      }
+    },
+    {
+      "valid": true,
+      "value": {
+        "dosEntryPath": "GAME/START.EXE",
+        "initialDiscIndex": 0
+      }
+    },
+    {
+      "valid": false,
+      "value": {
+        "dosEntryPath": null
+      }
+    },
+    {
+      "valid": false,
+      "value": {
+        "dosEntryPath": null,
+        "initialDiscIndex": null,
+        "kind": "EMULATORJS"
+      }
+    },
+    {
+      "valid": false,
+      "value": {
+        "dosEntryPath": "../escape.exe",
+        "initialDiscIndex": null
+      }
+    },
+    {
+      "valid": false,
+      "value": {
+        "dosEntryPath": null,
+        "initialDiscIndex": -1
+      }
+    }
   ]
 }

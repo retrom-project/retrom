@@ -1,4 +1,10 @@
 .recent-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.recent-query-controls > input, .recent-query-controls > select, .recent-query-controls > label { min-width: 0; max-width: 100%; }
+@media (max-width: 767px) {
+  .recent-query-controls > input, .recent-query-controls > select, .recent-query-controls > label { width: 100%; }
+  .recent-query-controls > label { display: grid; gap: var(--space-2); }
+  .recent-query-controls > label > input { width: 100%; min-width: 0; }
+}
 .recent-game-card { overflow: hidden; display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); border: 1px solid var(--line); border-radius: var(--radius-cover); background: var(--surface); }
 .recent-game-card > img, .recent-game-cover { width: 100%; height: 100%; min-height: 170px; object-fit: cover; background: radial-gradient(circle at 72% 24%, rgb(78 212 221 / 55%), transparent 24%), linear-gradient(145deg, #303958, #171d30 65%); }
 .recent-game-card > div:last-child { min-width: 0; padding: 16px; }

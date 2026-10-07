@@ -1,2 +1,4 @@
-import { SetupForm } from "@/features/auth/auth-ui";
-export default function SetupPage() { return <SetupForm />; }
+import { AuthForm } from "@/features/auth/auth-form";
+export default function Page() {
+  return <AuthForm mode="setup" />;
+}

@@ -145,6 +145,14 @@ class RepositoryGateTests(unittest.TestCase):
         large = [item for item in violations if item.path == "internal/sample/large.go"]
         self.assertEqual([(item.rule, item.actual, item.limit) for item in large], [("max-lines", 1001, 1000)])
 
+    def test_rejects_service_raw_sql_but_accepts_named_persistence_operations(self) -> None:
+        self.write("internal/service/home/service.go", 'package home\nfunc bad() { s.Repository.Count(ctx, "SELECT count(*)") }')
+        self.write("internal/service/library/service.go", "package library\nfunc good() { s.Repository.Games(ctx, user) }")
+        self.write("internal/service/library/service_test.go", 'package library\nfunc test() { f.Repository.Count(ctx, "SELECT count(*)") }')
+        self.write("internal/persistence/games.go", 'package persistence\nfunc good() { r.Count(ctx, "SELECT count(*)") }')
+        violations = self.validate()
+        self.assertEqual([(v.path, v.rule) for v in violations], [("internal/service/home/service.go", "service-raw-sql")])
+
     def test_rejects_forged_generated_marker_and_missing_marker(self) -> None:
         self.write(
             "internal/sample/forged.go",

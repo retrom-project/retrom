@@ -27,7 +27,6 @@ export type RuntimeCapabilitiesV1 = {
   standardGamepad: boolean;
   frameCounter: boolean;
   volume: boolean;
-  discSwitch: boolean;
   nativeSettings: boolean;
   inputFilter: boolean;
   videoModes: RuntimeVideoModeV1[];
@@ -65,7 +64,6 @@ export type RuntimeInputCapabilitiesV1 = {
   /** Host may intercept only these declared shortcuts while the game owns focus. */
   hostShortcuts: ("PAUSE" | "MENU")[];
 };
-export type RuntimeDiscStateV1 = { count: number; currentIndex: number; labels: string[] };
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
 
 /** Available after mount only on adapters that support absolute mouse input. */
@@ -186,7 +184,6 @@ export type RuntimeEventV1 =
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
   | { type: "CHECKPOINT_AVAILABILITY_CHANGED"; availability: RuntimeCheckpointAvailabilityV1 }
-  | { type: "DISC_CHANGED"; state: RuntimeDiscStateV1 }
   /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
   | { type: "EXIT_REQUESTED"; finalSnapshot?: RuntimeFinalSnapshotV1 }
   | { type: "FATAL_ERROR"; failure: RuntimeFailureV1 }
@@ -206,14 +203,9 @@ export interface PlayerRuntimeV1 {
   setVideoMode(mode: RuntimeVideoModeV1): Promise<void>;
   openNativeSettings(panel: "controls" | "display" | "core"): Promise<void>;
   closeNativeSettings(): Promise<void>;
-  getDiscState(): Promise<RuntimeDiscStateV1>;
-  switchDisc(index: number): Promise<RuntimeDiscStateV1>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
-  /** Session capabilities. Envelope capabilities remain the exact Target declaration.
-   * discSwitch may narrow to false when this session has no MULTI_DISC resource.
-   * All other fields must match the Target; sessions cannot grant undeclared capabilities.
-   */
+  /** Session capabilities match the selected Target declaration. */
   getCapabilities(): RuntimeCapabilitiesV1;
   /** Declares which Host shortcuts may intercept the focused game's keyboard input. */
   getInputCapabilities(): RuntimeInputCapabilitiesV1;
@@ -244,7 +236,9 @@ export interface RuntimeHostV1 {
   reportDiagnostic(input: { code: string; message: string }): void;
 }
 
-export type RestoreDescriptorV1 = { url: string; format: string; sha256: string; sizeBytes: number };
+export type RestoreDescriptorV1 =
+  | { kind: "HTTP"; url: string; format: string; sha256: string; sizeBytes: number }
+  | { kind: "LOCAL"; format: string; sha256: string; sizeBytes: number };
 export type RuntimeResourceIdentityV1 = { role: string; ordinal: number };
 export type RuntimeBlobResourceV1 = RuntimeResourceIdentityV1 & {
   kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "PARENT_ARCHIVE" | "WASM4_CART";
@@ -260,11 +254,11 @@ export type RuntimeFileTreeResourceV1 = RuntimeResourceIdentityV1 & {
 };
 export type RuntimeWebResourceV1 = RuntimeResourceIdentityV1 & {
   kind: "NATIVE_WEB" | "ISOLATED_WEB";
+  bridgeUrl: string;
   indexUrl: string;
   origin: string;
   entryUrl: string;
-  bootstrapTicket: string;
-  cleanupUrl: string | null;
+  entryFile: string;
   contentDigest: string;
 };
 export type RuntimeFileEntryV1 = {
@@ -278,13 +272,9 @@ export type RuntimeFileSetResourceV1 = RuntimeResourceIdentityV1 & {
   kind: "BIOS_BUNDLE" | "EXTERNAL_FILE_SET";
   files: RuntimeFileEntryV1[];
 };
-export type RuntimeMultiDiscResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "MULTI_DISC";
-  initialDiscIndex: number;
-  entries: Array<{ index: number; label: string; url: string; sha256: string; sizeBytes: number }>;
-};
+
 export type RuntimeResourceV1 = RuntimeBlobResourceV1 | RuntimeFileTreeResourceV1 |
-  RuntimeWebResourceV1 | RuntimeFileSetResourceV1 | RuntimeMultiDiscResourceV1;
+  RuntimeWebResourceV1 | RuntimeFileSetResourceV1;
 
 export type RuntimeJSONValueV1 = null | boolean | string | number |
   RuntimeJSONValueV1[] | { [key: string]: RuntimeJSONValueV1 };
@@ -303,14 +293,17 @@ export type LaunchEnvelopeV1 = {
     warnings: string[];
   };
   runtime: {
+    coreId: string;
+    coreFingerprint: string;
+    romHash: string;
     providerId: string;
     providerVersion: string;
     providerApiVersion: 1;
     bundleSha256: string;
     targetId: string;
     capabilities: RuntimeCapabilitiesV1;
-    // Omitted semantics means INSTANT; GAME_SAVE may require the game's save/load menu.
-    checkpoint: { writeFormat: string; readFormats: string[]; maxBytes: number; semantics?: "INSTANT" | "GAME_SAVE" } | null;
+    // GAME_SAVE may require the game's save/load menu.
+    checkpoint: { writeFormat: string; readFormats: string[]; maxBytes: number; semantics: "INSTANT" | "GAME_SAVE" } | null;
     moduleUrl: string;
     moduleSha256: string;
     runtimeBaseUrl: string;

@@ -3,7 +3,7 @@
 .game-detail-poster img { object-fit: cover; }
 .game-detail-media-cover { opacity: 1; transition: opacity .2s ease; }
 .game-detail-media-video { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; opacity: 0; object-fit: contain; background: #070a10; pointer-events: none; transition: opacity .2s ease; }
-.game-detail-media-video.is-playing { opacity: 1; }
+.game-detail-media-video.is-playing { opacity: 1; pointer-events: auto; }
 .game-detail-media-video.is-playing + .game-detail-media-controls { opacity: 1; }
 .game-detail-media-placeholder { position: absolute; inset: 0; padding: 24px; display: grid; place-items: center; color: #e9e6ff; background: radial-gradient(circle at 72% 18%, rgb(78 212 221 / 38%), transparent 25%), linear-gradient(150deg, #5e4dce, #171d30 72%); text-align: center; }
 .game-detail-media-placeholder span { font-size: var(--text-title); font-weight: var(--weight-semibold); letter-spacing: .04em; }
@@ -54,7 +54,7 @@
 .game-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-body); }
 .game-detail-playtime strong { font-weight: var(--weight-regular); }
 .game-detail-playtime span { color: var(--ink); }
-.launch-panel { min-width: 0; margin-top: var(--space-3); display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
+.launch-panel { min-width: 0; margin-top: var(--space-3); display: grid; grid-template-columns: minmax(220px, max-content) minmax(0, 1fr); }
 .launch-panel > * { grid-column: 1 / -1; }
 /* Share the buttons' intrinsic column from the first server-rendered frame.
    Labels and hints span the panel without widening the controls. */

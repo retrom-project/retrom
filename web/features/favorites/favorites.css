@@ -9,7 +9,7 @@
 .favorite-layout { min-width: 0; }
 .favorite-navigation-anchor { position: relative; height: 0; }
 .favorite-rail { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
-.favorite-floating-navigation { position: fixed; z-index: 45; width: min(250px, calc(100vw - 16px)); max-height: min(480px, calc(100dvh - 16px)); visibility: hidden; display: flex; flex-direction: column; box-shadow: 0 12px 36px rgb(24 32 51 / 16%); }
+.favorite-floating-navigation { position: fixed; z-index: 45; width: min(250px, calc(100vw - 16px)); max-height: min(480px, calc(100dvh - 16px)); visibility: visible; right: var(--space-5); top: 282px; display: flex; flex-direction: column; box-shadow: 0 12px 36px rgb(24 32 51 / 16%); }
 .favorite-rail header { display: flex; align-items: center; flex-shrink: 0; padding: 6px; gap: 4px; border-bottom: 1px solid var(--line); }
 .favorite-navigation-drag, .favorite-navigation-collapse { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink); border: 0; border-radius: var(--radius-control); background: transparent; }
 .favorite-navigation-drag { min-width: 0; flex: 1; justify-content: flex-start; padding: 0 6px; font-size: var(--text-small); font-weight: var(--weight-semibold); cursor: grab; touch-action: none; user-select: none; }

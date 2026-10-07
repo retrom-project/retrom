@@ -13,38 +13,30 @@ ROOT = Path(__file__).resolve().parents[1]
 class ArchitectureRulesTests(unittest.TestCase):
     def test_actual_package_paths_reject_reverse_dependencies(self):
         forbidden = {
-            "internal/service/gamecontent": "retrom/internal/service/jobs",
-            "internal/service/launch": "retrom/internal/service/libraryimport",
-            "internal/service/gamevariant": "retrom/internal/libraryimport",
-            "internal/service/gamevariant/nested": "retrom/internal/service/libraryimport/port",
-            "internal/launch": "retrom/internal/persistence/libraryimport",
-            "internal/persistence/launch": "retrom/internal/service/libraryimport/port",
-            "internal/persistence/gamevariant/nested": "retrom/internal/persistence/libraryimport",
-            "internal/composition/launch": "retrom/internal/composition/libraryimport",
-            "internal/composition/gamevariant": "retrom/internal/composition/importworkflow",
-            "internal/content/arcade": "retrom/internal/service/libraryimport/port",
-            "internal/content/arcade/nested": "retrom/internal/persistence/arcade",
-            "internal/service/metadatascrape": "retrom/internal/service/jobs",
-            "internal/service/saves": "retrom/internal/service/jobs",
-            "internal/service/uploads/nested": "retrom/internal/service/jobs",
-            "internal/service/libraryimport": "retrom/internal/application",
-            "internal/service/firmware": "retrom/internal/composition/fixture",
-            "internal/service/catalog": "retrom/internal/httpapi",
-            "internal/filestore": "retrom/internal/service/gameassets",
-            "internal/store": "retrom/internal/application",
-            "internal/format/arcadedat": "retrom/internal/service/metadatascrape",
-            "internal/runtime/fixture": "retrom/internal/composition/fixture",
-            "internal/httpapi": "retrom/internal/application",
-            "internal/httpapi/assembly": "retrom/internal/composition/fixture",
-            "internal/httpapi/database": "retrom/internal/database",
-            "internal/httpapi/repository": "retrom/internal/persistence/libraryimport",
-            "internal/httpapi/storage": "retrom/internal/store",
+            "internal/httpapi": "retrom/internal/persistence/port",
+            "internal/httpapi/nested": "database/sql",
+            "internal/service/library": "retrom/internal/httpapi/port",
+            "internal/service/saves": "retrom/internal/service/scans/port",
+            "internal/service/runs": "retrom/internal/service/scans/port",
+            "internal/service/scans": "database/sql",
+            "internal/service/bios": "os/exec",
+            "internal/persistence": "retrom/internal/service/library/port",
+            "internal/persistence/nested": "retrom/internal/service/scans/port",
+            "internal/storage": "retrom/internal/service/files",
+            "internal/temporary": "retrom/internal/httpapi/port",
+            "internal/runtimeclient": "retrom/internal/service/scans/port",
+            "internal/model": "retrom/internal/persistence/port",
+            "internal/format/pegasus": "retrom/internal/service/scans/port",
+            "internal/format/emulationstation": "os/exec",
+            "internal/model/nested": "retrom/internal/httpapi/port",
         }
         allowed = {
-            "internal/persistence/libraryimport": "retrom/internal/service/libraryimport/port",
-            "internal/service/gameassets": "retrom/internal/filestore/port",
-            "internal/composition/fixture": "retrom/internal/service/libraryimport/port",
-            "internal/httpapi/legal": "retrom/internal/service/libraryimport/port",
+            "cmd/retrom": "retrom/internal/service/library/port",
+            "internal/httpapi/legal": "retrom/internal/service/directory/port",
+            "internal/service/directory": "retrom/internal/persistence/directory",
+            "internal/persistence/legal": "retrom/internal/model/legal",
+            "internal/runtimeclient/legal": "os/exec",
+            "internal/storage/legal": "retrom/internal/model/legal",
         }
         with tempfile.TemporaryDirectory(prefix="retrom-architecture-") as directory:
             root = Path(directory)
@@ -54,7 +46,7 @@ class ArchitectureRulesTests(unittest.TestCase):
                 target = root / path
                 target.mkdir(parents=True, exist_ok=True)
                 (target / "boundary.go").write_text(f'package fixture\nimport _ "{dependency}"\n')
-            for dependency in {*forbidden.values(), *allowed.values()}:
+            for dependency in {value for value in {*forbidden.values(), *allowed.values()} if value.startswith("retrom/")}:
                 target = root / dependency.removeprefix("retrom/")
                 target.mkdir(parents=True, exist_ok=True)
                 (target / "stub.go").write_text("package fixture\n")

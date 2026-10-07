@@ -1,0 +1,76 @@
+{
+  "resources": [
+    {
+      "kind": "ISOLATED_WEB",
+      "role": "game",
+      "ordinal": 0,
+      "bridgeUrl": "/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/assets/native/bridge.js",
+      "indexUrl": "/api/v1/runs/018f0f31-26fe-7a31-9d61-4ec92f16d4c3/resources/index/018f0f31-26fe-7a31-9d61-4ec92f16d4c5",
+      "origin": "https://isolated.retrom.invalid",
+      "entryUrl": "https://isolated.retrom.invalid/run/018f0f31-26fe-7a31-9d61-4ec92f16d4c3/%E9%A1%B9%E7%9B%AE/index.html",
+      "entryFile": "项目/index.html",
+      "contentDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "restore": null,
+  "runtime": {
+    "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "capabilities": {
+      "checkpoint": true,
+      "frameCounter": true,
+      "frameMode": "ISOLATED_ORIGIN_RESOURCE",
+      "inputFilter": true,
+      "nativeSettings": true,
+      "pause": true,
+      "requiresThreads": false,
+      "screenshot": true,
+      "standardGamepad": true,
+      "videoModes": [
+        "original",
+        "pixel"
+      ],
+      "volume": true
+    },
+    "checkpoint": {
+      "maxBytes": 9007199254740991,
+      "readFormats": [
+        "fixture-state-v1",
+        "legacy-state-v1"
+      ],
+      "semantics": "GAME_SAVE",
+      "writeFormat": "fixture-state-v1"
+    },
+    "moduleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "moduleUrl": "/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs",
+    "providerApiVersion": 1,
+    "providerId": "fixture",
+    "providerVersion": "1.0.0",
+    "runtimeBaseUrl": "/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/",
+    "targetId": "fixture",
+    "coreId": "mgba",
+    "coreFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "romHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "schemaVersion": 1,
+  "session": {
+    "coreName": "Fixture Core",
+    "id": "018f0f31-26fe-7a31-9d61-4ec92f16d4c3",
+    "mode": "SINGLE",
+    "platformName": "Fixture",
+    "purpose": "REVIEW_PREVIEW",
+    "returnTo": "/review/fixture",
+    "title": "Checkpoint fixture",
+    "warnings": [
+      "fixture warning"
+    ]
+  },
+  "targetOptions": {
+    "array": [
+      null,
+      true,
+      9007199254740991
+    ],
+    "bmp": "运行时",
+    "pair": "🚀"
+  }
+}

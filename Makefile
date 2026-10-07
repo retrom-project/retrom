@@ -13,13 +13,11 @@ IMAGE_TAG ?= latest
 RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
 -include $(RETROM_DEV_CONFIG)
 
-RETROM_PROVIDER_CANDIDATE_AUTO_ROOT ?= $(abspath .pfb/candidates/runtime)
-RETROM_PROVIDER_CANDIDATE_ROOT ?= $(if $(wildcard $(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT)/providers/provider-build.json),$(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT),)
-RETROM_PROVIDER_RELEASE_PATH ?= $(abspath data/runtime-providers/release.json)
+RETROM_PROVIDER_CANDIDATE_ROOT ?=
+RETROM_RUNTIME_INPUT_OUTPUT_ROOT ?= $(abspath .cache/runtime-inputs)
 RETROM_PROVIDER_CACHE_ROOT ?= $(shell python3 scripts/runtime_provider_cache.py --repository-root "$(CURDIR)")
 RETROM_PROVIDER_INSTALLED_ROOT ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/installed)
 RETROM_PROVIDER_ACTIVE_PATH ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/active.json)
-RETROM_PROVIDER_SOURCE ?= $(if $(strip $(RETROM_PROVIDER_CANDIDATE_ROOT)),candidate,production)
 RETROM_DEPENDENCY_VERSIONS ?= 4.2.3,4.3.0-pre
 RETROM_ACTIVE_EMULATORJS_VERSION ?= 4.2.3
 RETROM_DEPENDENCY_ROOT ?= $(abspath data)
@@ -29,8 +27,7 @@ RETROM_MODE ?= test
 RETROM_HTTP_ADDR ?= 127.0.0.1:8080
 RETROM_PUBLIC_ORIGIN ?= http://localhost:4000
 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN ?= true
-RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE ?= http://{launchId}.rpg.localhost:8080
-RETROM_MULTI_DISC_IMPORT_ENABLED ?= true
+RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE ?= http://{runId}.rpg.localhost:4000
 NEXT_DEV_HOST ?= 127.0.0.1
 NEXT_DEV_PORT ?= 4000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
@@ -61,7 +58,6 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci ci-contracts dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
 	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade runtime-provider-cache-import \
-	runtime-provider-prepare-auto \
 	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify \
 	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down
 
@@ -113,12 +109,11 @@ build: prepare-go api-generate-go
 	@go build ./cmd/retrom
 
 test: prepare-go api-generate-go
-	@python3 scripts/test_firmware_catalog.py
 	@go test -p 4 -parallel 4 $(GO_PACKAGES)
 
 lint-go: api-generate-go install-golangci-lint
 	@python3 scripts/test_architecture_rules.py
-	@bin/golangci-lint run --allow-serial-runners $(GO_PACKAGES)
+	@bin/golangci-lint run --allow-serial-runners --build-tags integration $(GO_PACKAGES)
 
 backend-check: database-isolation-check quality-structure-check fmt-check build test lint-go
 
@@ -194,7 +189,7 @@ public-fixtures-check:
 	@python3 testdata/public-roms/arcade-smoke/build.py --check
 	@python3 testdata/public-roms/rpgmaker-smoke/build.py --check
 
-web-e2e: prepare-go prepare-e2e-browser public-fixtures-check
+web-e2e: prepare-postgres-tools prepare-go api-generate-go prepare-e2e-browser public-fixtures-check
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
@@ -208,23 +203,25 @@ data-check:
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
 	@python3 scripts/test_verify_backend_image.py
-	@python3 scripts/acceptance/tests/test_dist_cleanup.py
+	@python3 scripts/test_acceptance_browser.py
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 scripts/test_runtime_provider_contract.py
 	@python3 scripts/test_runtime_providers.py
+	@python3 scripts/test_runtime_inputs.py
+	@python3 scripts/test_image_inputs.py
+	@python3 scripts/test_image_input_digest.py
 	@python3 scripts/test_runtime_provider_release.py
 	@python3 scripts/test_runtime_provider_cache.py
 	@python3 scripts/test_runtime_provider_shared_cache.py
 	@python3 scripts/test_runtime_provider_permissions.py
 	@python3 scripts/test_release_input_digest.py
-	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
-runtime-provider-prepare:
-	@python3 scripts/runtime_providers.py prepare --release-path "$(RETROM_PROVIDER_RELEASE_PATH)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+runtime-provider-prepare: prepare-node
+	@PATH="$(NODE_HOME)/bin:$$PATH" python3 scripts/prepare_image_inputs.py --output-root "$(RETROM_RUNTIME_INPUT_OUTPUT_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-cache-import:
 	@test -n "$(SOURCE_ROOT)" || { echo 'SOURCE_ROOT is required' >&2; exit 2; }
@@ -234,27 +231,18 @@ runtime-provider-prepare-candidate:
 	@test -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" || { echo 'RETROM_PROVIDER_CANDIDATE_ROOT is required' >&2; exit 2; }
 	@python3 scripts/runtime_providers.py prepare-candidate --candidate-root "$(RETROM_PROVIDER_CANDIDATE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
 
-runtime-provider-prepare-auto:
-	@if [[ -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" ]]; then \
-		$(MAKE) runtime-provider-prepare-candidate; \
-	else \
-		$(MAKE) runtime-provider-prepare; \
-	fi
-	@$(MAKE) runtime-provider-check
+runtime-provider-check: runtime-provider-prepare
 
-runtime-provider-check:
-	@python3 scripts/runtime_providers.py check --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --source "$(RETROM_PROVIDER_SOURCE)"
-
-runtime-provider-pin-release:
+runtime-provider-pin-release: prepare-node
 	@test -n "$(TAG)" || { echo 'TAG is required (for example v0.47.0)' >&2; exit 2; }
-	@python3 scripts/runtime_providers.py pin-release --tag "$(TAG)" --release-path "$(RETROM_PROVIDER_RELEASE_PATH)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
+	@PATH="$(NODE_HOME)/bin:$$PATH" python3 scripts/runtime_provider_release.py --tag "$(TAG)" --manifest "$(abspath data/runtime-inputs.json)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-verify-upgrade:
 	@test -n "$(RETROM_PROVIDER_CURRENT)" -a -n "$(RETROM_PROVIDER_CANDIDATE)" -a -n "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)" || { echo 'RETROM_PROVIDER_CURRENT, RETROM_PROVIDER_CANDIDATE and RETROM_PROVIDER_CHECKPOINT_REFERENCES are required' >&2; exit 2; }
 	@python3 scripts/runtime_providers.py verify-upgrade --current "$(RETROM_PROVIDER_CURRENT)" --candidate "$(RETROM_PROVIDER_CANDIDATE)" --checkpoint-references "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)"
 
 prepare-deps:
-	@python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+	@python3 scripts/dependencies.py prepare-auth --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 deps-check:
 	@python3 scripts/dependencies.py deps-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
@@ -285,24 +273,22 @@ dev-stop: require-local-user
 test-local-postgres: require-local-user
 	@scripts/prepare-postgres.sh
 	@python3 -m unittest discover -s scripts -p 'test_dev_postgres*.py'
-	@python3 scripts/acceptance/tests/test_local_postgres.py
 
-dev: require-local-user prepare-local-postgres prepare-go api-generate-go web-install runtime-provider-prepare-auto
+dev: require-local-user prepare-local-postgres prepare-go api-generate-go web-install
+	@PATH="$(NODE_HOME)/bin:$$PATH" python3 scripts/image_input_digest.py --check >/dev/null
 	@$(MAKE) prepare-deps
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
 	 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="$(RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN)" \
 	 RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$(RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)" \
-	 RETROM_MULTI_DISC_IMPORT_ENABLED="$(RETROM_MULTI_DISC_IMPORT_ENABLED)" \
 	 RETROM_MODE="$(RETROM_MODE)" \
 	 RETROM_DATA_DIR="$(RETROM_DATA_DIR)" \
 	 RETROM_DATABASE_URL="$(RETROM_DATABASE_URL)" \
 	 RETROM_DEPENDENCY_ROOT="$(RETROM_DEPENDENCY_ROOT)" \
 	 RETROM_DEPENDENCY_VERSIONS="$(RETROM_DEPENDENCY_VERSIONS)" \
 	 RETROM_ACTIVE_EMULATORJS_VERSION="$(RETROM_ACTIVE_EMULATORJS_VERSION)" \
-	 RETROM_PROVIDER_ACTIVE_PATH="$(RETROM_PROVIDER_ACTIVE_PATH)" \
-	 RETROM_PROVIDER_INSTALLED_ROOT="$(RETROM_PROVIDER_INSTALLED_ROOT)" \
+	 RETROM_NODE="$(NODE_HOME)/bin/node" \
 	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" \
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
@@ -310,10 +296,8 @@ dev: require-local-user prepare-local-postgres prepare-go api-generate-go web-in
 	 PATH="$(NODE_HOME)/bin:$$PATH" env \
 	 -u RETROM_DEV_CONFIG \
 	 -u RETROM_PROVIDER_CANDIDATE_ROOT \
-	 -u RETROM_PROVIDER_RELEASE_PATH \
 	 -u RETROM_PROVIDER_CACHE_ROOT \
-	 -u RETROM_PROVIDER_SOURCE \
-	 scripts/dev.sh
+	 python3 scripts/prepare_image_inputs.py --run scripts/dev.sh
 
 pfb-init: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
@@ -358,41 +342,35 @@ pfb-migrate-storage pfb-remove pfb-destroy: require-local-user
 pfb-gateway-up pfb-gateway-down: require-local-user
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)"
 
-build-backend-image: data-check
-	@scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
+build-backend-image: data-check prepare-node
+	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
 
-build-web-image: data-check
-	@scripts/build-image.sh web "$(WEB_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
+build-web-image: data-check prepare-node
+	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/build-image.sh web "$(WEB_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
 
 build-images: build-backend-image build-web-image
 	@set -euo pipefail; \
-	 expected="$$(python3 scripts/release-input-digest.py --versions "$(RETROM_DEPENDENCY_VERSIONS)" --active "$(RETROM_ACTIVE_EMULATORJS_VERSION)")"; \
-	 backend="$$( $(DOCKER) image inspect --format '{{ index .Config.Labels "io.retrom.release-input-sha256" }}' "$(BACKEND_IMAGE):$(IMAGE_TAG)" )"; \
-	 web="$$( $(DOCKER) image inspect --format '{{ index .Config.Labels "io.retrom.release-input-sha256" }}' "$(WEB_IMAGE):$(IMAGE_TAG)" )"; \
+	 expected="$$(python3 scripts/image_input_digest.py)"; \
+	 backend="$$( $(DOCKER) image inspect --format '{{ index .Config.Labels "io.retrom.image-input-sha256" }}' "$(BACKEND_IMAGE):$(IMAGE_TAG)" )"; \
+	 web="$$( $(DOCKER) image inspect --format '{{ index .Config.Labels "io.retrom.image-input-sha256" }}' "$(WEB_IMAGE):$(IMAGE_TAG)" )"; \
 	 [[ "$$backend" == "$$expected" && "$$web" == "$$expected" ]]
 
-acceptance-prepare: prepare-postgres-tools
+acceptance-prepare: prepare-postgres-tools prepare-go api-generate-go prepare-node
 	@scripts/acceptance/run.sh prepare
 
-acceptance-case: prepare-postgres-tools prepare-go prepare-node
+acceptance-case: prepare-postgres-tools prepare-go api-generate-go prepare-node
 	@test -n "$(CASE)" || { echo 'CASE is required' >&2; exit 2; }
 	@NODE_HOME="$(NODE_HOME)" scripts/acceptance/run.sh case "$(CASE)"
 
 acceptance-report:
 	@scripts/acceptance/run.sh report
 
-.PHONY: content-io-host-check content-io-evidence-check content-io-product-check
-content-io-host-check:
-	@test -n "$(IO_ENV)" && test -n "$(IO_OUTPUT)" || { echo 'IO_ENV and IO_OUTPUT are required' >&2; exit 2; }
-	@python3 -m scripts.acceptance.content_io_host_check --env "$(IO_ENV)" --output "$(IO_OUTPUT)"
+# Current Host byte transport checks and full product browser own Content I/O evidence.
+.PHONY: content-io-host-check content-io-product-check
+content-io-host-check: prepare-go api-generate-go
+	@go test -race ./internal/storage ./internal/httpapi ./internal/runtimeclient
 
-content-io-evidence-check:
-	@test -n "$(IO_ENV)" || { echo 'IO_ENV is required' >&2; exit 2; }
-	@python3 -m scripts.acceptance.content_io_evidence_check --env "$(IO_ENV)"
-
-content-io-product-check:
-	@test -n "$(IO_ENV)" || { echo 'IO_ENV is required' >&2; exit 2; }
-	@python3 -m scripts.acceptance.content_io_product_check --env "$(IO_ENV)"
+content-io-product-check: web-e2e
 
 .PHONY: web-ui-check
 

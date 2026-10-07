@@ -8,8 +8,12 @@ function subscribe(listener: () => void) {
 }
 
 export function useOverlayTarget() {
-  return useSyncExternalStore(subscribe,
-    () => document.fullscreenElement instanceof HTMLElement ? document.fullscreenElement : document.body,
+  return useSyncExternalStore(
+    subscribe,
+    () =>
+      document.fullscreenElement instanceof HTMLElement
+        ? document.fullscreenElement
+        : document.body,
     () => null,
   );
 }

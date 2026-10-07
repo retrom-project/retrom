@@ -14,8 +14,13 @@ export interface GamepadFrameSource {
 
 function snapshot(gamepad: Gamepad): GamepadSnapshot {
   return {
-    axes: Array.from(gamepad.axes, (value) => Number.isFinite(value) ? value : Number.NaN),
-    buttons: Array.from(gamepad.buttons, (button) => ({ pressed: button.pressed, value: button.value })),
+    axes: Array.from(gamepad.axes, (value) =>
+      Number.isFinite(value) ? value : Number.NaN,
+    ),
+    buttons: Array.from(gamepad.buttons, (button) => ({
+      pressed: button.pressed,
+      value: button.value,
+    })),
     connected: gamepad.connected,
     index: gamepad.index,
     mapping: gamepad.mapping,
@@ -37,21 +42,27 @@ export class BrowserGamepadSource implements GamepadFrameSource {
     }
     return () => {
       this.listeners.delete(listener);
-      if (this.listeners.size === 0) {this.stop();}
+      if (this.listeners.size === 0) {
+        this.stop();
+      }
     };
   }
 
   private readonly tick = (nowMs: number) => {
     this.animationFrame = null;
     if (document.visibilityState === "visible" && document.hasFocus()) {
-      const gamepads = Array.from(navigator.getGamepads?.() ?? []).filter((value): value is Gamepad => value !== null).map(snapshot);
+      const gamepads = Array.from(navigator.getGamepads?.() ?? [])
+        .filter((value): value is Gamepad => value !== null)
+        .map(snapshot);
       this.emit({ gamepads, nowMs, suspended: false });
     }
     this.schedule();
   };
 
   private readonly visibilityChanged = () => {
-    if (document.visibilityState !== "visible") {this.emitSuspended();}
+    if (document.visibilityState !== "visible") {
+      this.emitSuspended();
+    }
   };
 
   private readonly windowBlurred = () => this.emitSuspended();
@@ -62,7 +73,9 @@ export class BrowserGamepadSource implements GamepadFrameSource {
   }
 
   private emit(frame: GamepadFrame) {
-    for (const listener of this.listeners) {listener(frame);}
+    for (const listener of this.listeners) {
+      listener(frame);
+    }
   }
 
   private schedule() {
@@ -72,7 +85,9 @@ export class BrowserGamepadSource implements GamepadFrameSource {
   }
 
   private stop() {
-    if (this.animationFrame !== null) {window.cancelAnimationFrame(this.animationFrame);}
+    if (this.animationFrame !== null) {
+      window.cancelAnimationFrame(this.animationFrame);
+    }
     this.animationFrame = null;
     document.removeEventListener("visibilitychange", this.visibilityChanged);
     window.removeEventListener("blur", this.windowBlurred);
