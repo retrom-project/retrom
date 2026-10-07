@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom 共二十八项限定场景已核对；84 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy 共三十三项限定场景已核对；79 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -218,3 +218,11 @@ PrBoom／Doom 在原生菜单明确选择新游戏、章节和难度后游玩，
 - GBC床scene/caption重绘、Tyrano旧video快照、V Rally3、SD高达暂停caption及Flash退出flush日志保留各自范围；其它稳定场景通过不代表这些问题已修复。单曲解码不代表所有音轨听感。
 - 标准Next dev首次动态路由编译曾触发全局Refresh。当前预热窗口稳定不保证任意未编译路由；受影响轮次保留partial。固定production证据和日常开发证据不得混用。
 - Go当前全量与风险门禁已通过，配套交付与暂存提交门禁的实际结果见相邻ignored记录。整体验收仍受上述逐核心语义缺口限制；历史失败、红绿和各轮切换留在原机器proof，不作为另一套完成标准。
+
+Gearboy／SGB 与 mGBA／GBC 使用 Tobu Tobu Girl 完成实际审核方向／确认、发布游玩、公开即时快照及仅登录态新 Chromium 恢复。Gearboy 的 27,035 字节存档恢复右侧空中角色与蝙蝠场景，公开暂停七秒后左右／加速仍有效；mGBA 的 4,070 字节最终存档恢复游戏内 RESUME／DASH COUNT ON 菜单，运行未暂停等待七秒后，A 回到原关卡并继续双向移动。初始死亡／转场快照不计通过。这是 GB 卡带通过相应产品入口的范围验收，不宣称 SGB 增强边框或 GBC 专属彩色能力已覆盖。两个 `root/release-r15/{gearboy-sgb-current,mgba-gbc-current}/semantic-proof.json` SHA 分别为 `2b5e1448b62d007450414ed362c81890bc2ea23e910e8646afaf49786260de58`、`38b790c60af664591a8db947088c6b93dfe170d7b3761e9f8784c49385d7449e`。
+
+MAME2003 使用 1941 完成审核、发布和恢复，9,315 字节公开存档保存海岸交战场景、1000 分及三格生命。冷启动恢复后公开暂停七秒，继续左右／射击和七秒游玩均正常；不据此宣称另行复现的 Renegade 问题已修复。证据 `root/release-r15/mame2003-1941-current/semantic-proof.json` SHA `953808724ca5efbd52b05926c27dd93262b971af36f2168529078007ad97bc61`。上述三个测试均正常API删除自建存档／游戏／目录并退出账号，未触及用户待审样例。
+
+MAME2003 Plus 的独立指纹也完成 1941 全链路：9,250 字节快照在新浏览器恢复海岸场景与两格生命，短暂覆盖画面的核心启动提示经普通方向输入关闭后，双向移动／射击和七秒继续游玩正常。首轮脚本按钮名称错误不计产品失败，Renegade 的历史异常仍单列保留。证据 `root/release-r15/mame2003plus-1941-current/semantic-proof.json` SHA `ec1b8e557b911ab5d092d1febfc3467c146eef563caac99ff168d854b2915276`；自建数据与会话均正常清理。
+
+Ardens／Arduboy 使用作者 MicroCity1.3 完成实际审核和发布建造；公开 22,317 字节即时快照在仅登录态的新 Chromium 恢复两段道路、9980 资金，未暂停七秒后仍保持。继续 Right/B 建造第三段道路，后续公开存档与原生截图确认资金9970，日历与光标动画正常推进。证据 `root/release-r15/ardens-microcity-current/semantic-proof.json` SHA `855768ff1cfea0c3c23c8fb652fda8ea7ed7f8a2ad19ae12585ae0ce3159a16d`，自建数据及会话正常清理。
