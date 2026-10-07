@@ -2528,6 +2528,60 @@
           }
         },
         "description": "Runtime validation requirements for a core. Null denotes a value not declared by runtime; installed file facts remain separate."
+      },
+      "ArcadeParentOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coreId",
+          "parentFiles",
+          "missingParents"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "parentFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          },
+          "missingParents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          }
+        }
+      },
+      "UploadGameParentMultipartBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "coreId",
+          "file"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "coreId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
       }
     }
   }

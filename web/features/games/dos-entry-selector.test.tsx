@@ -63,9 +63,9 @@ it("refreshes candidates when files change and ignores the previous archive's la
   });
   const config: Schema<"RuntimeConfig"> = { content: { kind: "DOS_BUNDLE", entryFile: "game.zip", entryPath: "old/BEFORE.EXE" } };
   const file: Schema<"GameFile"> = { id: "old", logicalKey: "game.zip", role: "content", sha256: "old-hash", sizeBytes: 100 };
-  const view = render(<RuntimeConfigEditor gameId="game" value={config} coreIds={[]} files={[file]} onChange={vi.fn()} />);
+  const view = render(<RuntimeConfigEditor coreId="" onCoreChange={vi.fn()} version={1} onUploaded={vi.fn()} gameId="game" value={config} coreIds={[]} files={[file]} onChange={vi.fn()} />);
   await waitFor(() => expect(reads).toBe(1));
-  view.rerender(<RuntimeConfigEditor gameId="game" value={config} coreIds={[]} files={[{ ...file, id: "new", sha256: "new-hash" }]} onChange={vi.fn()} />);
+  view.rerender(<RuntimeConfigEditor coreId="" onCoreChange={vi.fn()} version={1} onUploaded={vi.fn()} gameId="game" value={config} coreIds={[]} files={[{ ...file, id: "new", sha256: "new-hash" }]} onChange={vi.fn()} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("old/BEFORE.EXE");
   await act(async () => finishOld({ data: { entries: ["old/BEFORE.EXE"] }, response: new Response() }));
   fireEvent.focus(screen.getByRole("combobox", { name: "启动程序" }));

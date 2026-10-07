@@ -21,7 +21,7 @@ it("removes an optional DOS program while retaining its archive and per-core opt
     next = value;
   };
   const view = render(
-    <RuntimeConfigEditor
+    <RuntimeConfigEditor coreId="dosbox_pure" onCoreChange={vi.fn()} version={1} onUploaded={vi.fn()}
       value={original}
       gameId="game"
       coreIds={["dosbox_pure"]}
@@ -36,7 +36,7 @@ it("removes an optional DOS program while retaining its archive and per-core opt
   expect(next.cores).toEqual(original.cores);
   expect(original.content.entryPath).toBe("GAME.EXE");
   view.rerender(
-    <RuntimeConfigEditor
+    <RuntimeConfigEditor coreId="dosbox_pure" onCoreChange={vi.fn()} version={1} onUploaded={vi.fn()}
       value={next}
       gameId="game"
       coreIds={["dosbox_pure"]}

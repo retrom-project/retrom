@@ -169,9 +169,10 @@ func exchange(input io.Writer, reader *bufio.Reader, encoded []byte, output any)
 		return err
 	}
 	var response struct {
-		ID     string          `json:"id"`
-		Result json.RawMessage `json:"result"`
-		Error  string          `json:"error"`
+		ID           string            `json:"id"`
+		Result       json.RawMessage   `json:"result"`
+		Error        string            `json:"error"`
+		ErrorDetails map[string]string `json:"errorDetails"`
 	}
 	if err = json.Unmarshal(raw, &response); err != nil {
 		return fmt.Errorf("decode runtime response: %w", err)
@@ -180,7 +181,7 @@ func exchange(input io.Writer, reader *bufio.Reader, encoded []byte, output any)
 		return fmt.Errorf("runtime response correlation: %w", model.ErrUnavailable)
 	}
 	if response.Error != "" {
-		return runtimeFailure(response.Error)
+		return runtimeFailure(response.Error, response.ErrorDetails)
 	}
 	if err = json.Unmarshal(response.Result, output); err != nil {
 		return fmt.Errorf("runtime result: %w", err)
@@ -188,7 +189,19 @@ func exchange(input io.Writer, reader *bufio.Reader, encoded []byte, output any)
 	return nil
 }
 
-func runtimeFailure(code string) error {
+func runtimeFailure(code string, details map[string]string) error {
+	switch code {
+	case "RUNTIME_PARENT_MISSING":
+		name := details["parents"]
+		if name == "" {
+			name = details["logicalKey"]
+		}
+		return &model.ArcadeParentError{Code: code, Message: "Required Parent ROM is missing: " + name}
+	case "RUNTIME_PARENT_INVALID":
+		return &model.ArcadeParentError{
+			Code: code, Message: "Select a Parent archive for this core; the entry archive cannot be replaced here",
+		}
+	}
 	category := model.ErrInvalid
 	switch code {
 	case "CORE_UNAVAILABLE", "CORE_CHANGED", "CONTENT_CHANGED", "FORMAT_UNREADABLE":

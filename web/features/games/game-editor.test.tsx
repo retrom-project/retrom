@@ -65,7 +65,7 @@ it("keeps the original directory when asynchronous options arrive and preserves 
     response: new Response(),
   } as Awaited<ReturnType<typeof api.PATCH>>);
   const onSaved = vi.fn();
-  render(<GameEditor detail={detail} mode="review" onSaved={onSaved} />);
+  render(<GameEditor coreId="fceumm" onCoreChange={vi.fn()} detail={detail} mode="review" onSaved={onSaved} />);
   expect(screen.getByLabelText("游戏目录")).toHaveValue("original-directory");
   await act(async () =>
     resolveDirectories({

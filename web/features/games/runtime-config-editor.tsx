@@ -1,7 +1,7 @@
 "use client";
+import { ArcadeParentFiles } from "./arcade-parent-files";
 import { ScummvmSelection } from "./scummvm-selection";
 import { DOSEntrySelector } from "./dos-entry-selector";
-import { useState } from "react";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
@@ -15,18 +15,25 @@ async function loadCatalog() {
 export function RuntimeConfigEditor({
   value,
   gameId,
+  version,
+  onUploaded,
   coreIds,
+  coreId,
+  onCoreChange,
   files,
   onChange,
 }: {
   value: Schema<"RuntimeConfig">;
   gameId: string;
+  version: number;
+  onUploaded: () => void;
   coreIds: string[];
+  coreId: string;
+  onCoreChange: (coreId: string) => void;
   files: Schema<"GameFile">[];
   onChange: (value: Schema<"RuntimeConfig">) => void;
 }) {
   const catalog = useResource(loadCatalog);
-  const [coreId, setCoreId] = useState(coreIds[0] ?? "");
   const binding = catalog.data?.bindings.find(
     (item) =>
       item.coreId === coreId &&
@@ -64,7 +71,7 @@ export function RuntimeConfigEditor({
           运行核心
           <select
             value={coreId}
-            onChange={(event) => setCoreId(event.target.value)}
+            onChange={(event) => onCoreChange(event.target.value)}
           >
             {coreIds.map((id) => (
               <option key={id} value={id}>
@@ -86,30 +93,14 @@ export function RuntimeConfigEditor({
         options={core.options ?? {}}
         onChange={(options) => updateCore({ ...core, options })}
       />
-      {binding?.contentKinds.includes("ARCADE") ? (
-        <label className="field">
-          Parent 文件
-          <select
-            multiple
-            value={core.parentFiles ?? []}
-            onChange={(event) =>
-              updateCore({
-                ...core,
-                parentFiles: Array.from(
-                  event.target.selectedOptions,
-                  (item) => item.value,
-                ),
-              })
-            }
-          >
-            {files.map((file) => (
-              <option key={file.logicalKey} value={file.logicalKey}>
-                {file.logicalKey}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+      {binding?.contentKinds.includes("ARCADE") ? <ArcadeParentFiles
+        key={`${gameId}:${coreId}:${version}`}
+        gameId={gameId} version={version} coreId={coreId}
+        entryFile={value.content.entryFile} files={files}
+        selected={core.parentFiles ?? []}
+        onChange={(parentFiles) => updateCore({ ...core, parentFiles })}
+        onUploaded={onUploaded}
+      /> : null}
     </fieldset>
   );
 }

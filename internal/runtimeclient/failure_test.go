@@ -28,3 +28,14 @@ func TestRestoreIdentityFailuresPreserveConflictBoundary(t *testing.T) {
 		})
 	}
 }
+
+func TestParentFailureRetainsSpecificMissingNamesAcrossRuntimeIPC(t *testing.T) {
+	t.Parallel()
+	response := `{"id":"request","error":"RUNTIME_PARENT_MISSING","errorDetails":{"parents":"1941"}}` + "\n"
+	var output any
+	err := exchange(&bytes.Buffer{}, bufio.NewReader(strings.NewReader(response)), []byte(`{}`), &output)
+	var parent *model.ArcadeParentError
+	if !errors.As(err, &parent) || parent.Code != "RUNTIME_PARENT_MISSING" || !strings.Contains(parent.Message, "1941") {
+		t.Fatalf("missing name lost across IPC: %v", err)
+	}
+}

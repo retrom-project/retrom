@@ -11,6 +11,7 @@ export type ListFilters = {
   folderId?: string;
   offset?: string;
   sort?: string;
+  scanId?: string;
 };
 type FilterValues = {
   q: string;
@@ -47,6 +48,9 @@ export function useLibraryQuery(initial: ListFilters) {
       if (value) {
         params.set(key, value);
       }
+    }
+    if (pathname === "/admin/reviews" && initial.scanId) {
+      params.set("scanId", initial.scanId);
     }
     router.replace(`${pathname}?${params}`, { scroll: false });
   }

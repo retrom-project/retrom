@@ -179,7 +179,10 @@ func respond(w http.ResponseWriter, value any) error {
 
 func writeError(w http.ResponseWriter, err error) {
 	status, code, message := http.StatusInternalServerError, "INTERNAL_ERROR", "Request could not be completed"
+	var parentError *model.ArcadeParentError
 	switch {
+	case errors.As(err, &parentError):
+		status, code, message = 400, parentError.Code, parentError.Message
 	case errors.Is(err, model.ErrInvalid):
 		status, code, message = 400, "INVALID_INPUT", "Input is invalid"
 	case errors.Is(err, model.ErrUnauthorized):

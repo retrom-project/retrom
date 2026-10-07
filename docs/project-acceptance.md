@@ -163,6 +163,18 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 扫描另测20,000合法Pegasus候选inspect61.6ms；552,740,897字节真实MV ZIP正常1/1导入待审，30.509秒，生成1925文件/849,240,379字节。100ms采样Go及4个Node，RSS基线345,300,992、峰值583,745,536字节，CPU9.97秒，见 `root/scale/scan-memory-product.json`。候选数不冒充20,000成功入库。
 
+## R14 扫描导航、连续审核与父包补齐
+
+当前 `data/runtime-inputs.json` SHA256为 `c7c46412258df6da23d7fcd503424803e76870c0cdfc32a7e595337792e49719`，runtime本地提交 `8797ffb6fc95b9b1c7f45ab54166c85c4bbe6b2d`、source tree `8ec839c052e63b4b9f433157239aee7a45d1e943099b78adbb0dc7dd85816690`；prepared pair为 `8c680b66dc6213ff6d075531b5cc775f917322fa0013c45d4a1a94bca9b6899a`。新增父包投影与合入属于host-tool；110项执行指纹保持，Provider归一化执行代码一致，仅配套资产索引元数据变化（`frontend/arcade-parent-r15/fingerprint-proof-final.json`）。实际PFB试玩仍绑定报告中的7cb7d1…模块，不冒称换成正式配套7a0a…模块。
+
+`frontend/game-scan-navigation-r14/final-proof.json` 记录三视口实际导航：扫描POST成功进入带scanId的审核页，24份项目MIT NES素材完成后列表自动刷新；筛选与刷新保留进度但不筛选Game。连续发布只操作自建游戏，同版本下一条的实际标题输入、运行入口、BIOS请求ID切换，未保存旧资料不残留；失败/空队列/下一条查询失败由回归测试覆盖。桌面与4K管理及待审左右标题栏均按左侧原高度56px对齐基线和分隔线；手机保留原纵排媒体标题/按钮90.59375px。真实首图只抓到读取进度、随后完成24/24，运行中与未知总数等状态由确定性UI测试覆盖，不冒充实拍。
+
+父包实际证据在 `frontend/arcade-parent-demo-r14/{upload-actual-report,play-actual-report,cleanup-report}.json`：临时双核心游戏先给第二核心上传，版本刷新后仍选第二核心并显示对应父包；随后另一核心同名替换，配置、active文件和旧文件退休事实符合契约。补齐后FBNeo真实投币、开始、画面推进并正常退出204，且document timeOrigin稳定；只证明所测1941j场景，不证明街机全库或新的存档恢复。供用户查看的原样例保持v1、pending、单child文件与缺失1941.zip；临时game/目录正常清理，最终会话logout204后受保护读取401。
+
+最终全Web检查通过69个测试文件/281项测试、严格lint/type、七项UI规则和生产构建，见 `root/scan-navigation-r14/web-check-selected-core-final.log`；API、backend-check及真实独立PG全量/三项风险用例通过，见同目录 `api-check.log` 与 `frontend/arcade-parent-r15/backend-quality-proof.json`。runtime全量290文件/1568测试、lint/type/build/package通过。未过滤正式 `ACC-RF-BROWSER` 为 `2cf40dcf0b024cf9`，24/24通过，405.791秒，inputDigest `fb31003512632f16dda07e3002d08f869c60d7bd281809d9e8561e4cf6cc9dc0`；原结果在 `.artifacts/acceptance/2cf40dcf0b024cf9/cases/acc-rf-browser/`。标准PFB最终verify为 `.pfb/evidence/20261007T174357Z/`，原始d15ab6e6基准协议记录在 `root/scan-navigation-r14/retrom-protocol-final.json`。这些通过不升级下方尚未闭合的全项目Case。
+
+三视口导航验收的24个自建游戏、目录及四个最终会话均已正常清理。首轮错误地要求手机纵排header也56px、对pending使用DELETE而非discard的脚本诊断保留；生产未因此改动，首轮素材随后通过正常API清理。该轮唯一丢失cookie的自有cleanup会话由协调者按准确id/userId/createdAt定点DB撤销一行，证明为 `root/scan-navigation-r14/ui-cleanup-orphan-revocation.json`，不声称它执行了HTTP logout。
+
 ## 当前限制与未完成项
 
 - 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。历史 R11 全部110个Target指纹改变；R12仅J2ME再次改变，其余109个保持。旧存档按实际冻结core身份判断，旧语义证明保留原指纹和范围，不直接升级为当前PASS。新的NES、魔塔和隔离快捷键证明只覆盖各自实际列出的场景。

@@ -90,6 +90,7 @@
 .admin-game-editor > .admin-game-wide-panel { grid-column: 1 / -1; }
 .admin-game-detail .panel { min-width: 0; overflow: hidden; }
 .admin-game-detail .panel-head { min-height: 56px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-game-detail .admin-game-media > .panel-head { padding-block: 4px; flex-shrink: 0; }
 .admin-game-detail .panel-head h2 { margin: 0; font-size: var(--text-lead); }
 .admin-game-detail .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: var(--text-caption); }
 .admin-game-detail .panel-body { padding: 16px; }
@@ -195,3 +196,9 @@
 .admin-game-tag-list button:is(.is-active, :focus-visible) { outline: 1px solid var(--purple-line); outline-offset: -1px; }
 .admin-game-tag-list svg { width: 16px; height: 16px; }
 .admin-game-tag-list p { padding: 8px; color: var(--muted); font-size: var(--text-small); }
+
+.arcade-parent-files { min-width: 0; display: grid; gap: 12px; }
+.arcade-parent-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.arcade-parent-header h3 { margin: 0; font-size: var(--text-body); }
+.arcade-parent-files p { margin: 0; }
+.arcade-parent-files li { overflow-wrap: anywhere; }

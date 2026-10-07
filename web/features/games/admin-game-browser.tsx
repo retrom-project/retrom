@@ -13,6 +13,7 @@ import { loadDirectories, loadGames, loadTags } from "@/features/library/api";
 import { useLibraryQuery } from "@/features/library/use-library-query";
 import type { ListFilters } from "@/features/library/use-library-query";
 import { useReviewApproval } from "./use-review-approval";
+import { ReviewScanProgress } from "@/features/scans/review-scan-progress";
 import { ReviewApprovalStatus } from "./review-approval-status";
 
 type AdminKind = "admin" | "review";
@@ -27,7 +28,7 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
   const approval = useReviewApproval(query, () => { update({ offset: 0 }, false); games.reload(); });
   return (
     <div className={review ? "review-library" : "admin-game-library"}>
-      <AdminGameHeading review={review} busy={approval.busy} available={!games.loading && !!games.data?.total} onApprove={() => void approval.start()} />
+      <AdminGameHeading scanId={initial.scanId} onProgress={games.reload} review={review} busy={approval.busy} available={!games.loading && !!games.data?.total} onApprove={() => void approval.start()} />
       {!review ? <AdminGameSummary data={games.data} directoryCount={directories.data?.items.length} /> : null}
       <AdminGameFilters
         values={values}
@@ -40,16 +41,7 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
       {directories.error || tags.error ? <p role="alert">{directories.error || tags.error}</p> : null}
       <ResourceState resource={games}>
         {(data) => <>
-          {data.items.length ? review ? (
-            <div className="review-queue-list">
-              {data.items.map((game) => <ReviewRow key={game.id} game={game} />)}
-            </div>
-          ) : <AdminGameTable games={data.items} directories={directories.data?.items ?? []} /> : (
-            <EmptyState
-              title={review ? "没有待审核的游戏" : "没有可管理的游戏"}
-              description="当前搜索和筛选条件没有匹配项，请调整后重试。"
-            />
-          )}
+          <AdminGameResults review={review} data={data} directories={directories.data?.items ?? []} />
           <footer className="list-pagination">
             <span>当前展示 {data.items.length} / {data.total} 款游戏</span>
             <div>
@@ -64,13 +56,24 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
   );
 }
 
-function AdminGameHeading({ review, busy, available, onApprove }: { review: boolean; busy: boolean; available: boolean; onApprove: () => void }) {
+function AdminGameResults({ review, data, directories }: { review: boolean; data: Schema<"GamePage">; directories: Directory[] }) {
+  if (!data.items.length) {
+    return <EmptyState title={review ? "没有待审核的游戏" : "没有可管理的游戏"} description="当前搜索和筛选条件没有匹配项，请调整后重试。" />;
+  }
+  return review ? <div className="review-queue-list">{data.items.map((game) => <ReviewRow key={game.id} game={game} />)}</div>
+    : <AdminGameTable games={data.items} directories={directories} />;
+}
+
+function AdminGameHeading({ review, busy, available, onApprove, scanId, onProgress }: { review: boolean; busy: boolean; available: boolean; onApprove: () => void; scanId?: string; onProgress: () => void }) {
   return <>
     <PageHeader title={review ? "待审核" : "游戏管理"}
       description={review ? "核对游戏资料与运行配置，试玩后批准入库或丢弃。" : "维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。"}
       actions={review ? <button className="button" disabled={busy || !available} onClick={onApprove}>{busy ? "正在快速审批…" : "快速审批"}</button> : undefined}
     />
-    {review ? <p className="review-approval-scope">快速审批会处理当前筛选结果中的全部待审游戏，自动跳过缺少必需 BIOS 的条目。</p> : null}
+    {review ? <>
+      <p className="review-approval-scope">快速审批会处理当前筛选结果中的全部待审游戏，自动跳过缺少必需 BIOS 的条目。</p>
+      {scanId ? <ReviewScanProgress key={scanId} scanId={scanId} onChange={onProgress} /> : null}
+    </> : null}
   </>;
 }
 

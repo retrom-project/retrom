@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import styles from "./scan.module.css";
 import { api, result, ApiError } from "@/lib/api/client";
@@ -12,6 +13,7 @@ import { BiosScan } from "./bios-scan";
 import { ScanProgressList } from "./scan-progress";
 import { useToast } from "@/components/toast-provider";
 export function GameScan() {
+  const router = useRouter();
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
   const [scanningBios, setScanningBios] = useState(false);
@@ -78,7 +80,7 @@ export function GameScan() {
     setBusy(true);
     setError("");
     try {
-      result(
+      const scan = result(
         await api.POST("/api/v1/admin/game-scans", {
           body: { path, format, mappings },
         }),
@@ -87,6 +89,7 @@ export function GameScan() {
         tone: "good",
         message: "扫描已开始。接收完成的游戏将进入统一待审核列表。",
       });
+      router.push(`/admin/reviews?scanId=${encodeURIComponent(scan.id)}`);
     } catch (failure) {
       reportFailure(failure, "扫描启动失败。");
     } finally {

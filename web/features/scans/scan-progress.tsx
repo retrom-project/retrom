@@ -7,8 +7,8 @@ import { ResourceState } from "@/components/resource-state";
 import { BrowserTime } from "@/components/browser-time";
 import styles from "./scan.module.css";
 import { useToast } from "@/components/toast-provider";
-export function scanDestination(type: "game" | "bios") {
-  return type === "game" ? "/admin/reviews" : "/admin/bios";
+export function scanDestination(type: "game" | "bios", scanId: string) {
+  return type === "game" ? `/admin/reviews?scanId=${encodeURIComponent(scanId)}` : "/admin/bios";
 }
 async function load() {
   return result(await api.GET("/api/v1/admin/scans"));
@@ -57,7 +57,7 @@ export function ScanProgressList() {
           <div className="stack">
             {data.items.map((scan) => (
               <article className={styles.progressRow} key={scan.id}>
-                <Link href={scanDestination(scan.scanType)}>
+                <Link href={scanDestination(scan.scanType, scan.id)}>
                   <div>
                     <h3>
                       <strong>

@@ -17,6 +17,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/scans/{scanId}/cancel", s.cancelScan, true},
 		{"POST /api/v1/admin/games/{gameId}/runtime-options/scummvm", s.scummvmCandidates, true},
 		{"GET /api/v1/admin/games/{gameId}/runtime-options/dos", s.dosEntryCandidates, true},
+		{"GET /api/v1/admin/games/{gameId}/runtime-options/arcade", s.arcadeParentOptions, true},
+		{"POST /api/v1/admin/games/{gameId}/parents", s.uploadParent, true},
 		{"POST /api/v1/admin/games/{gameId}/media", s.uploadMedia, true},
 		{"DELETE /api/v1/admin/games/{gameId}/media/{mediaId}", s.deleteMedia, true},
 		{"POST /api/v1/admin/games/{gameId}/content-replacement", s.replaceContent, true},

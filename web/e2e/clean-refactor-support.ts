@@ -104,6 +104,8 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
   );
   await page.getByRole("button", { name: "开始扫描", exact: true }).click();
   const scan = (await (await scanResponse).json()) as Schema<"ScanProgress">;
+  await expect(page).toHaveURL(new RegExp(`/admin/reviews\\?scanId=${scan.id}$`, "u"));
+  await expect(page.getByRole("region", { name: "当前游戏扫描", exact: true })).toBeVisible();
   await expect
     .poll(async () => {
       const scans = await request<Schema<"ScanList">>(
@@ -118,6 +120,7 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
       return progress.status;
     })
     .toBe("completed");
+  await expect(page.getByRole("region", { name: "当前游戏扫描", exact: true }).getByRole("status")).toContainText("扫描已完成");
   const games = await request<Schema<"GamePage">>(
     page,
     `/api/v1/admin/games?platformInstanceId=${directory.id}&q=${encodeURIComponent(acceptanceTitle)}`,
@@ -136,7 +139,8 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
   if (game.status === "pending_review") {
     await page.goto(`/admin/reviews/${game.id}`);
     await page.getByRole("button", { name: "通过并发布", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
+    await expect(page).toHaveURL(/\/admin\/reviews$/u);
+    await expect(page.getByRole("heading", { name: "没有待审核的游戏", exact: true })).toBeVisible();
   }
   return game;
 }

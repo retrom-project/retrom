@@ -20,6 +20,18 @@ export function GameDetail({
   const detail = useResource(loader);
   const [busy, setBusy] = useState(false);
   const { notify } = useToast();
+  async function nextReview() {
+    let nextId: string | undefined;
+    try {
+      const pending = result(await api.GET("/api/v1/admin/reviews", {
+        params: { query: { offset: 0, limit: 1 } },
+      }));
+      nextId = pending.items[0]?.id;
+    } catch {
+      notify({ tone: "warn", message: "游戏已发布，但无法读取下一条待审核游戏，已返回待审核列表。" });
+    }
+    router.replace(nextId ? `/admin/reviews/${nextId}` : "/admin/reviews");
+  }
   async function review(action: "approve" | "discard") {
     if (!detail.data || busy) {
       return;
@@ -36,7 +48,7 @@ export function GameDetail({
           }),
         );
         notify({ tone: "good", message: "游戏已通过审核并发布" });
-        router.push(`/games/${gameId}`);
+        await nextReview();
       } else {
         const response = await api.POST(
           "/api/v1/admin/reviews/{gameId}/discard",
@@ -82,6 +94,7 @@ export function GameDetail({
             onChange={detail.reload}
             busy={busy}
           /> : <AdminGameDetail
+            key={data.game.id}
             detail={data}
             mode={mode}
             onReview={(action) => void review(action)}

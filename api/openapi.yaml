@@ -198,6 +198,12 @@
     },
     "/api/v1/admin/games/{gameId}/runtime-options/dos": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1dos"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/arcade": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1arcade"
+    },
+    "/api/v1/admin/games/{gameId}/parents": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1parents"
     }
   },
   "components": {
@@ -451,6 +457,12 @@
       },
       "BiosValidationRequirement": {
         "$ref": "./components/common.yaml#/components/schemas/BiosValidationRequirement"
+      },
+      "ArcadeParentOptions": {
+        "$ref": "./components/common.yaml#/components/schemas/ArcadeParentOptions"
+      },
+      "UploadGameParentMultipartBody": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadGameParentMultipartBody"
       }
     }
   }

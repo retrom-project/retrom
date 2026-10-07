@@ -23,3 +23,7 @@ GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不�
 管理员来源目录统一使用服务进程可见的绝对path。GET /api/v1/admin/source-directories从path指定目录列出{name,path}，默认界面从/开始；游戏集合检查、游戏扫描、BIOS扫描与内容替换均使用path，不再使用source-roots、rootId或relativePath。仅管理来源浏览返回绝对路径；Run资源仍使用受限资源ID，复制接收后的受管文件所有权不变。
 
 Game.lastPlayedAtMs为必需但可为null的当前用户投影，由既有recent_game_tab在当前分页游戏范围内读取；没有新增Game持久字段、次数或时长。未成功游玩的当前用户值为null，管理身份不读取其他用户的最近记录。
+
+管理员读取 GET /api/v1/admin/scans 可使用既有 limit/offset 分页，响应 ScanList.items；待审核页的scanId仅为UI定位某项进度，不传给Game列表筛选，也不持久化为游戏批次关系。
+
+街机父包维护与待审、已发布Game共用管理员边界。GET /api/v1/admin/games/{gameId}/runtime-options/arcade?coreId=… 返回runtime按已保存配置、DAT与实际成员投影的{coreId,parentFiles,missingParents}；缺失名称为runtime给出的完整ZIP名，Go/Web不猜测。POST /api/v1/admin/games/{gameId}/parents 接受multipart的version、coreId、file并返回GameDetail，按Game版本CAS补充或替换同logicalKey父包，不能覆盖游戏入口。成功由runtime将所选核心中同DAT父名引用换为上传文件的logicalKey，保留其他核心/选项/其他文件及出版状态，Game.version递增一次并重算全部active文件的contentHash。上传验证普通ZIP和引用结构，不以完整成员或Prepare作为保存门禁；不齐时投影仍报告缺失，实际启动返回400 RUNTIME_PARENT_MISSING并说明名称。

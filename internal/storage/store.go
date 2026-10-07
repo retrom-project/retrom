@@ -88,6 +88,16 @@ func (s *Store) Write(ctx context.Context, kind, id string, reader io.Reader, ma
 	token := uuid.NewString()
 	temporary := "temporary/" + token
 	key := owner + "/" + token
+	prepared, err := s.prepareWrite(ctx, temporary, key, owner, reader, maximum)
+	if err != nil {
+		return File{}, errors.Join(err, s.Remove(temporary), s.Remove(key))
+	}
+	return prepared, nil
+}
+
+func (s *Store) prepareWrite(ctx context.Context, temporary, key, owner string,
+	reader io.Reader, maximum int64,
+) (File, error) {
 	prepared, err := s.copyTemporary(ctx, temporary, reader, maximum)
 	if err != nil {
 		return File{}, err

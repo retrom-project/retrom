@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import type { Schema } from "@/lib/api/types";
 import { BrowserTime } from "@/components/browser-time";
 import { PageHeader } from "@/components/ui";
@@ -16,6 +17,8 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
   onChange: () => void;
 }) {
   const { game } = detail;
+  const [selectedCore, setSelectedCore] = useState(detail.defaultCoreId);
+  const coreId = detail.coreIds.includes(selectedCore) ? selectedCore : detail.defaultCoreId;
   const review = mode === "review";
   return <div className="admin-detail-page">
     <PageHeader
@@ -37,7 +40,7 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
           <div><span>我的存档</span><strong>{detail.saves.length} 份</strong></div>
         </section>
       </>}
-      <GameEditor key={game.version} detail={detail} mode={mode} onSaved={onChange} />
+      <GameEditor key={game.version} detail={detail} coreId={coreId} onCoreChange={setSelectedCore} mode={mode} onSaved={onChange} />
       {!review ? <GameManagement detail={detail} onChange={onChange} /> : null}
     </div>
   </div>;
