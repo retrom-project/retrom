@@ -142,6 +142,15 @@ jobs:
           key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
       - name: Prepare pinned runtime dependencies
         run: make prepare-deps
+      - name: Set up Node.js for runtime integration tests
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Materialize repository-pinned runtime inputs
+        env:
+          RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}
+        run: python3 scripts/prepare_image_inputs.py
       - name: Run Go integration tests
         run: make integration-test
 

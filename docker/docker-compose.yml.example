@@ -42,7 +42,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    image: retrom:latest
+    image: xxxsen/retrom:${RETROM_VERSION:?Set the same published release tag for both images}
     user: "1000:1000"
     restart: unless-stopped
     environment:
@@ -61,7 +61,7 @@ services:
       - retrom-network
 
   retrom-web:
-    image: retrom-web:latest
+    image: xxxsen/retrom-web:${RETROM_VERSION:?Set the same published release tag for both images}
     user: "1000:1000"
     restart: unless-stopped
     environment:

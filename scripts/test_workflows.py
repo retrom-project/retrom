@@ -99,6 +99,16 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
                     0,
                 )
 
+    def test_integration_has_the_pinned_runtime_required_by_parent_uploads(self) -> None:
+        job = ci_job("integration")
+        self.assertIn("actions/setup-node@v6", job)
+        self.assertIn("node-version-file: .node-version", job)
+        self.assertTrue(
+            0 <= job.find("run: python3 scripts/prepare_image_inputs.py")
+            < job.find("run: make integration-test"),
+            job,
+        )
+
     def test_tag_release_builds_without_repeating_quality_job(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/docker-image.yml").read_text(
             encoding="utf-8"
