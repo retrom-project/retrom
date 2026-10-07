@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash 共二十六项限定场景已核对；86 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom 共二十八项限定场景已核对；84 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -206,6 +206,10 @@ FBNeo 使用授权的 1941 ZIP 完成真实审核试玩与发布游玩。最终�
 Flash 的 A 对应样例原生 Space 确认／SharedObject.flush；仅方向移动尚不写档，确认后正常公共同步保存原生位置80。全新 Chromium 只携带登录cookie，游戏读取导入的 SOL 并在七秒未暂停后保持同一可见位置；继续 Left/A 后原生位置60由公共接口保存为版本2。证据 `root/release-r15/ruffle-followup/semantic-proof.json` SHA `738a628ff01471d27ea421452af7befd2c48595a7bf09704a3863be70b254dce`。早先脚本误等已被自动同步完成的POST而退出，该中间链路不计通过；其丢失cookie的自有会话经精确ID及时间核对后定点撤销一行，不冒称HTTP退出。上述两项各自的存档、游戏、目录均正常API清理，最终测试会话logout204；用户原有待审样例未触及。
 
 FBA2012 CPS1 独立 Target 使用同一授权1941文件完成审核、发布及恢复。最终6703字节公开快照保存2300分、三格生命和正在交战的海面位置；仅登录态的新 Chromium 在不同Run恢复，暂停七秒后继续方向／射击及七秒游玩。首次任务简报中的方向尝试不作为输入证明，另建同内容待审条目实测飞机右移约100px、左移返回及A射击；额外待审条目、目录与全部自建存档均正常API清理。证据 `root/release-r15/cps1-1941-current/semantic-proof.json` SHA `316a82eaacd90825f0baf141e20bb0f0dcf0308197280fc23f0eef7cd5120194`。
+
+Gambatte／GBC 使用 Infinity 预览版完成实际审核输入及发布游玩，最终 10,817 字节快照保存已结束开场对话、站在桌旁的角色。仅登录态的新 Chromium 恢复同一房间位置并保持七秒，随后左右移动和原生角色菜单确认正常。早先白屏转场快照不计通过，也不据此宣称历史床上对白重绘问题均已修复。证据 `root/release-r15/gambatte-gb-current/semantic-proof.json` SHA `f8a30484c895384b190ce70e197d447a02d4a8ec109d389ae7fe4b3ea67149bd`。
+
+PrBoom／Doom 在原生菜单明确选择新游戏、章节和难度后游玩，最终公开 7,091 字节快照保存移动后的蓝色地毯视角、100%生命及48发弹药。新浏览器冷恢复七秒后保持，继续方向输入可移动／转向，X射击使弹药降至46。早先焦点／演示模式存在歧义及过早暂停的截图均排除。证据 `root/release-r15/prboom-current/semantic-proof.json` SHA `4d26ca8a13356ddc366e5cfd27f4d4d6ba8a93c0b9fa97534c22a53700e66e8a`。两项均已正常清理自建存档、游戏、目录并退出测试会话；手柄证据使用标准 Gamepad API 模拟，不冒充实体手柄测试。
 
 ## 当前限制与未完成项
 
