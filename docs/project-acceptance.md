@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy 共三十三项限定场景已核对；79 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear 共三十八项限定场景已核对；74 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -226,3 +226,9 @@ MAME2003 使用 1941 完成审核、发布和恢复，9,315 字节公开存档�
 MAME2003 Plus 的独立指纹也完成 1941 全链路：9,250 字节快照在新浏览器恢复海岸场景与两格生命，短暂覆盖画面的核心启动提示经普通方向输入关闭后，双向移动／射击和七秒继续游玩正常。首轮脚本按钮名称错误不计产品失败，Renegade 的历史异常仍单列保留。证据 `root/release-r15/mame2003plus-1941-current/semantic-proof.json` SHA `ec1b8e557b911ab5d092d1febfc3467c146eef563caac99ff168d854b2915276`；自建数据与会话均正常清理。
 
 Ardens／Arduboy 使用作者 MicroCity1.3 完成实际审核和发布建造；公开 22,317 字节即时快照在仅登录态的新 Chromium 恢复两段道路、9980 资金，未暂停七秒后仍保持。继续 Right/B 建造第三段道路，后续公开存档与原生截图确认资金9970，日历与光标动画正常推进。证据 `root/release-r15/ardens-microcity-current/semantic-proof.json` SHA `855768ff1cfea0c3c23c8fb652fda8ea7ed7f8a2ad19ae12585ae0ce3159a16d`，自建数据及会话正常清理。
+
+Genesis Plus GX 与 GX Wide 均用 Metal Sonic Hyperdrive 完成审核方向／确认／跳跃及发布游玩，公开 37,269／35,998 字节即时快照在新 Chromium 恢复灌木左侧地面位置、金环布局和三条生命，未暂停七秒后仍保持；继续左右移动和跳跃正常，计时与待机动画自然推进。初始菜单快照及抢先读取未出现canvas的脚本错误不计通过。`root/release-r15/{genesis-megadrive-current,genesis-wide-current}/semantic-proof.json` SHA 为 `96eda39e4a74a31c0aaf7caef46557ecdc4953f5becff0f2e3b1dccca81500b3`、`0fe0f0133362b0c0c61ab5ae3d66d8bafebf436b02475d418759a3b79be4b611`，自建数据及会话均正常清理。
+
+PicoDrive／Mega Drive 同样完成 Metal Sonic Hyperdrive 实际审核与发布移动／跳跃；公开 34,684 字节即时快照在新 Chromium 保留角色、关卡布局和三条生命，未暂停七秒后继续左右移动和跳跃正常。`root/release-r15/picodrive-megadrive-current/semantic-proof.json` SHA `0a591ea5ea33f1c22fbba8f43e9456430eed11a434bb28a1c765e3d05f57bffb`。
+
+Genesis Plus GX 的 SG-1000／Game Gear 绑定分别完成 Bomb Jack 和 Columns 实际游玩。Bomb Jack 恢复350分、角色位置及已收集炸弹布局，继续方向输入后达到370／390分；Columns 恢复两侧已堆积宝石，继续方向、旋转、落块后增加第三组。两者均经公开即时存档（8,600／9,209字节）、仅登录态的新 Chromium、公开暂停七秒观察后继续操作；不宣称 Bomb Jack 特定跳跃映射或动画整帧相同。`root/release-r15/{sg1000-congo-current,gamegear-columns-current}/semantic-proof.json` SHA 分别为 `5941b4fb40a622684ab4b95d78e2519d1de4a26a1a91c643f381c56eb5ae0da8`、`18e36162d77950b4add0dc697a0bbb468cb4736819d2ef14d5ffa434db33a4a8`。三项自建数据及会话均正常清理。
