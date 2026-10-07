@@ -1,0 +1,10 @@
+.drawer { width: min(520px, calc(100vw - 24px)); background: var(--surface); }
+.drawer :global(.responsive-sheet-head) { min-height: 100px; padding: 22px; background: var(--surface); }
+.drawer :global(.responsive-sheet-head h2) { font-size: var(--text-section); }
+.drawer :global(.responsive-sheet-body) { padding: 20px 22px; }
+.drawer :global(.responsive-sheet-footer) { padding: 16px 22px; background: var(--surface); }
+.cores { margin-top: 14px; color: var(--muted); font-size: var(--text-caption); }
+.cores > div { display: grid; gap: 8px; margin-top: 10px; }
+.drawer .cores label, .drawer .enabled { display: flex; align-items: center; gap: 8px; }
+.drawer .cores input, .drawer .enabled input { width: auto; height: auto; }
+@media (max-width: 560px) { .drawer { width: 100%; } }

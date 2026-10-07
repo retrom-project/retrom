@@ -1,4 +1,5 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { useState } from "react";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
@@ -11,12 +12,11 @@ export function ScummvmSelection({
 }) {
   const [candidates, setCandidates] =
     useState<Schema<"ScummvmCandidates"> | null>(null);
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState("");
   async function identify() {
     setBusy(true);
-    setError("");
     try {
       const resultData = result(
         await api.POST("/api/v1/admin/games/{gameId}/runtime-options/scummvm", {
@@ -27,8 +27,14 @@ export function ScummvmSelection({
       if (resultData.automaticSelection) {
         choose(resultData.automaticSelection, resultData);
       }
+      notify({
+        tone: resultData.candidates.length ? "good" : "warn",
+        message: resultData.automaticSelection
+          ? "已识别游戏并填入运行配置，请保存更改。"
+          : `识别完成，找到 ${resultData.candidates.length} 个候选。`,
+      });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "游戏识别失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "游戏识别失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -51,7 +57,6 @@ export function ScummvmSelection({
       >
         {busy ? "正在识别游戏…" : "识别 ScummVM 游戏"}
       </button>
-      {error ? <p role="alert">{error}</p> : null}
       {candidates ? (
         <fieldset>
           <legend>识别结果</legend>

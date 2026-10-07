@@ -71,3 +71,6 @@
 .library-game-body > p span + span::before { content: "·"; margin-right: 7px; color: var(--muted); }
 .library-game-played { margin-top: auto; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); border-top: 1px solid var(--line); font-size: var(--text-caption); }
 .library-game-played strong { overflow: hidden; color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
+
+.library-game-title-row > button { display: grid; place-items: center; }
+.library-game-title-row > button svg { width: 18px; height: 18px; }

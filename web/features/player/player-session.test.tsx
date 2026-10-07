@@ -67,6 +67,7 @@ function Session({
     onSnapshot,
     userId,
     "ON_DEMAND",
+    async () => {},
   );
   return <div ref={mount}>{state}</div>;
 }

@@ -200,6 +200,7 @@ function validatePlayerRuntime(
     "openNativeSettings",
     "closeNativeSettings",
     "setInputFilter",
+    "setHostShortcutPolicy",
     "subscribe",
   ]) {
     if (typeof value[method] !== "function") {

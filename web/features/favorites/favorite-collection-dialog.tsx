@@ -1,4 +1,5 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { useCallback, useState } from "react";
 import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
@@ -55,7 +56,7 @@ function CollectionForm({
     ids.length === 1 ? details[0].favoriteFolderIds : [],
   );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   async function save() {
     setBusy(true);
     try {
@@ -70,9 +71,10 @@ function CollectionForm({
           ),
         ),
       );
+      notify({ tone: "good", message: "收藏分类已保存" });
       onSaved();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "整理失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "整理失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -116,7 +118,6 @@ function CollectionForm({
           还没有收藏夹，请先从收藏导航新建。
         </p>
       ) : null}
-      {error ? <p role="alert">{error}</p> : null}
     </ConfirmDialog>
   );
 }

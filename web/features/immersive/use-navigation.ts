@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { browserGamepadSource } from "./gamepad-source";
-import { GamepadClaimModel, NavigationInputModel } from "./input-model";
+import { GamepadClaimModel, NavigationInputModel, isStandardGamepad } from "./input-model";
 import type { NavigationAction } from "./input-model";
 import {
   getActiveImmersiveGamepadIndex,
+  isImmersivePlayerReturnPending,
+  consumeImmersivePlayerReturn,
   setActiveImmersiveGamepadIndex,
 } from "./active-gamepad";
 export function useImmersiveNavigation(
@@ -18,7 +20,9 @@ export function useImmersiveNavigation(
     getActiveImmersiveGamepadIndex(),
   );
   const [message, setMessage] = useState("");
+  const [keyboardReady, setKeyboardReady] = useState(isImmersivePlayerReturnPending);
   useEffect(() => {
+    consumeImmersivePlayerReturn();
     const claim = new GamepadClaimModel();
     const navigation = new NavigationInputModel();
     let index = getActiveImmersiveGamepadIndex();
@@ -30,10 +34,11 @@ export function useImmersiveNavigation(
       }
       if (
         index !== null &&
-        !frame.gamepads.some((pad) => pad.index === index)
+        !frame.gamepads.some((pad) => pad.index === index && isStandardGamepad(pad))
       ) {
         index = null;
         setController(null);
+        setKeyboardReady(false);
         setActiveImmersiveGamepadIndex(null);
         setMessage("手柄已断开。连接后按任意按钮继续。");
       }
@@ -61,6 +66,8 @@ export function useImmersiveNavigation(
     });
     function keyboard(event: KeyboardEvent) {
       if (
+        event.defaultPrevented ||
+        (event.target instanceof HTMLElement && event.target.closest('[role="dialog"], [role="alertdialog"]') && ["Tab", "Enter"].includes(event.key)) ||
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLSelectElement ||
         event.target instanceof HTMLTextAreaElement
@@ -70,6 +77,7 @@ export function useImmersiveNavigation(
       const input = keys[event.key];
       if (input) {
         event.preventDefault();
+        setKeyboardReady(true);
         action.current(input);
       }
     }
@@ -79,7 +87,7 @@ export function useImmersiveNavigation(
       window.removeEventListener("keydown", keyboard);
     };
   }, []);
-  return { controller, message };
+  return { controller, message, ready: controller !== null || keyboardReady };
 }
 const keys: Record<string, NavigationAction> = {
   ArrowLeft: "left",
@@ -88,7 +96,8 @@ const keys: Record<string, NavigationAction> = {
   ArrowDown: "down",
   Enter: "confirm",
   Escape: "cancel",
-  Tab: "menu",
-  f: "favorite",
-  F: "favorite",
+  s: "menu",
+  S: "menu",
+  y: "favorite",
+  Y: "favorite",
 };

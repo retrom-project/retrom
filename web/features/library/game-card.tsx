@@ -1,9 +1,11 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Game } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
+import { FavoriteCollectionDialog } from "@/features/favorites/favorite-collection-dialog";
 import { toggleFavorite } from "./api";
 export function GameCard({
   game,
@@ -14,7 +16,9 @@ export function GameCard({
   href?: string;
   onChange?: () => void;
 }) {
-  const [error, setError] = useState("");
+  const [organizing, setOrganizing] = useState(false);
+  const ids = useMemo(() => [game.id], [game.id]);
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   const target = href ?? `/games/${game.id}`;
   const cover = game.media.find((media) => media.kind === "cover");
@@ -22,9 +26,10 @@ export function GameCard({
     setBusy(true);
     try {
       await toggleFavorite(game.id, !game.favorite);
+      notify({ tone: "good", message: game.favorite ? "已取消收藏" : "已收藏游戏" });
       onChange?.();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "操作失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "操作失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -43,9 +48,9 @@ export function GameCard({
             />
           ) : (
             <div className="library-poster">
-              <small>{game.platformId}</small>
+              <small>RETROM CLASSICS</small>
               <strong>{game.title}</strong>
-              <span>RETROM</span>
+              <span>{game.platformId}</span>
             </div>
           )}
           <span className="library-platform-tag">{game.platformId}</span>
@@ -72,6 +77,7 @@ export function GameCard({
           <Link href={target}>
             <h2 title={game.title}>{game.title}</h2>
           </Link>
+          <button aria-label={`整理${game.title}的收藏夹`} onClick={() => setOrganizing(true)}><AppIcon name="more" /></button>
         </div>
         <p>
           <span>{game.directoryName}</span>
@@ -84,8 +90,9 @@ export function GameCard({
             </span>
           ))}
         </div>
-        {error ? <p role="alert">{error}</p> : null}
+        <div className="library-game-played"><span>最近游玩</span><strong>—</strong></div>
       </div>
+      {organizing ? <FavoriteCollectionDialog ids={ids} onClose={() => setOrganizing(false)} onSaved={() => { setOrganizing(false); onChange?.(); }} /> : null}
     </article>
   );
 }

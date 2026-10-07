@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
 import { AppIcon } from "./app-icon";
 import type { AppIconName } from "./app-icon";
 import { ResponsiveSheet } from "./responsive-sheet";
+import { ServiceHealth } from "./service-health";
+import { SidebarAccount } from "./sidebar-account";
 import { useAuth } from "@/features/auth/auth-provider";
 import { authenticationReturnPath } from "@/features/auth/return-path";
 const userNav: Array<[string, string, AppIconName]> = [
@@ -103,18 +105,23 @@ function Navigation({
   const items = pathname.startsWith("/admin") ? adminNav : userNav;
   return (
     <nav className="side-nav" aria-label="主要导航">
-      {items.map(([href, title, icon]) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={close}
-          className={`nav-link${pathname === href ? " is-active" : ""}`}
-          aria-current={pathname === href ? "page" : undefined}
-        >
-          <AppIcon className="nav-icon" name={icon} />
-          <span>{title}</span>
-        </Link>
-      ))}
+      {items.map(([href, title, icon]) => {
+        const child = href === "/admin/imports/server" || href === "/admin/reviews";
+        const active = pathname === href || (href !== "/" && href !== "/admin/imports" && pathname.startsWith(`${href}/`));
+        const context = href === "/admin/imports" && !active && (pathname.startsWith("/admin/imports/") || pathname.startsWith("/admin/reviews"));
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={close}
+            className={`nav-link${child ? " nav-child" : ""}${active ? " is-active" : ""}${context ? " is-context" : ""}`}
+            aria-current={active ? "page" : undefined}
+          >
+            <AppIcon className="nav-icon" name={icon} />
+            <span>{title}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -125,7 +132,7 @@ function StandardShell({
   pathname: string;
   children: ReactNode;
 }) {
-  const { context, logout } = useAuth();
+  const { context } = useAuth();
   const [menu, setMenu] = useState(false);
   const admin = pathname.startsWith("/admin");
   const title =
@@ -143,26 +150,13 @@ function StandardShell({
         </Link>
         <Navigation pathname={pathname} />
         <div className="sidebar-foot">
-          <details className="account-menu">
-            <summary>
-              <span className="account-initial">
-                {context?.user?.displayName.slice(0, 1)}
-              </span>
-              <span className="account-copy">
-                <strong>{context?.user?.displayName}</strong>
-              </span>
-            </summary>
-            <div className="account-menu-popover">
-              <Link href="/account">账户设置</Link>
-              <button onClick={() => void logout()}>退出登录</button>
-            </div>
-          </details>
+          <SidebarAccount />
           {context?.user?.role === "admin" ? (
             <Link
               className="context-switch"
               href={admin ? "/" : "/admin/imports"}
             >
-              <AppIcon className="nav-icon" name="settings" />
+              <AppIcon className="nav-icon" name={admin ? "arrow-left" : "settings"} />
               {admin ? "返回用户侧" : "管理后台"}
             </Link>
           ) : null}
@@ -227,13 +221,16 @@ function CompactHeader({
         <AppIcon name="menu" />
       </button>
       <strong className="compact-page-title">{title}</strong>
-      <Link
-        href="/account"
-        className="compact-account-trigger"
-        aria-label="账户设置"
-      >
-        <span>{context?.user?.displayName.slice(0, 1)}</span>
-      </Link>
+      <div className="compact-app-actions">
+        <ServiceHealth compact />
+        <Link
+          href="/account"
+          className="compact-account-trigger"
+          aria-label="账户设置"
+        >
+          <span>{context?.user?.displayName.slice(0, 1)}</span>
+        </Link>
+      </div>
     </header>
   );
 }

@@ -1,86 +1,18 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import type { Schema } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
 import styles from "./immersive.module.css";
-import platform from "./platform.module.css";
-import library from "./library.module.css";
-export type ImmersiveEntry = {
-  game: Schema<"Game">;
-  save?: Schema<"Save">;
-  lastPlayedAtMs?: number;
-};
-export function PlatformCarousel({
-  directories,
-  selected,
-  onSelect,
-  onOpen,
-}: {
-  directories: Schema<"Directory">[];
-  selected: number;
-  onSelect: (index: number) => void;
-  onOpen: () => void;
-}) {
-  if (!directories.length) {
-    return (
-      <div className={styles.centerState}>
-        <h1>还没有游戏目录</h1>
-        <p>游戏发布后会显示在这里。</p>
-      </div>
-    );
-  }
-  return (
-    <div className={platform.platformView}>
-      <header className={styles.viewHeading}>
-        <p>选择平台</p>
-        <h1>下一场冒险</h1>
-      </header>
-      <div className={platform.platformStage}>
-        <div className={platform.platformCarousel}>
-          {[-1, 0, 1].map((shift) => {
-            const index =
-              (selected + shift + directories.length) % directories.length;
-            const directory = directories[index];
-            return (
-              <button
-                key={shift}
-                className={`${platform.platformCard} ${shift === 0 ? platform.currentPlatform : ""} ${platform[`platformTone${index % 5}`]}`}
-                onClick={() => {
-                  if (shift === 0) {
-                    onOpen();
-                  } else {
-                    onSelect(index);
-                  }
-                }}
-              >
-                <div className={platform.platformCopy}>
-                  <p className={platform.platformCode}>
-                    {directory.platformId.toUpperCase()}
-                  </p>
-                  <p>游戏目录</p>
-                  <h2>{directory.name}</h2>
-                  <strong>{directory.gameCount} 款游戏</strong>
-                  <span>按 A 或回车浏览游戏</span>
-                </div>
-                {shift === 0 ? (
-                  <Image
-                    src={`/images/platforms/${directory.platformId}.svg`}
-                    width={300}
-                    height={300}
-                    alt=""
-                    unoptimized
-                  />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+
+import type { ImmersiveEntry } from "./immersive-data";
 export function ImmersiveGames({
+  returnTo,
   entries,
+  total,
+  offset,
+  filter,
+  saveView,
   selected,
   onSelect,
   title,
@@ -89,7 +21,12 @@ export function ImmersiveGames({
   onNext,
   onLaunch,
 }: {
+  returnTo: string;
   entries: ImmersiveEntry[];
+  total: number;
+  offset: number;
+  filter?: ReactNode;
+  saveView: boolean;
   selected: number;
   onSelect: (index: number) => void;
   title: string;
@@ -105,7 +42,8 @@ export function ImmersiveGames({
         <div>
           <p>游戏资料库</p>
           <h1>{title}</h1>
-          <span>{entries.length} 款游戏</span>
+          <span>{total} {saveView ? "份存档" : "款游戏"}</span>
+          {filter}
         </div>
         <div className={styles.titleList}>
           {entries.map((item, index) => (
@@ -116,45 +54,65 @@ export function ImmersiveGames({
               onClick={() => onSelect(index)}
               onDoubleClick={onLaunch}
             >
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <span>{String(offset + index + 1).padStart(2, "0")}</span>
               <strong>{item.game.title}</strong>
-              <small>
-                {item.save ? item.save.name : item.game.favorite ? "♥" : ""}
-              </small>
+              {item.save ? <small>{item.save.name}</small> : item.game.favorite ? <small className={styles.favoriteIndicator}>♥</small> : null}
             </button>
           ))}
-          <div>
-            <button onClick={onPrevious}>上一页</button>
-            <button disabled={!more} onClick={onNext}>
-              下一页
-            </button>
-          </div>
+        </div>
+        <div className={styles.listPaging}>
+          <button className="button secondary" disabled={offset === 0} onClick={onPrevious}>上一页</button>
+          <button className="button secondary" disabled={!more} onClick={onNext}>下一页</button>
         </div>
       </section>
       {entry ? (
-        <GamePresentation entry={entry} />
+        <GamePresentation entry={entry} returnTo={returnTo} />
       ) : (
         <div className={styles.centerState}>
-          <h2>这里还没有游戏</h2>
+          <h2>{saveView ? "这里还没有存档" : "这里还没有游戏"}</h2>
           <p>选择其他目录或分类继续浏览。</p>
         </div>
       )}
     </div>
   );
 }
-function GamePresentation({ entry }: { entry: ImmersiveEntry }) {
+function GamePresentation({ entry, returnTo }: { entry: ImmersiveEntry; returnTo: string }) {
   const { game, save } = entry;
-  const cover = game.media.find((item) => item.kind === "cover");
-  const video = game.media.find((item) => item.kind === "video");
   return (
     <section className={styles.gameDetails}>
+      <GameMedia entry={entry} />
+      <div className={styles.descriptionPanel}>
+        <p>{game.directoryName} {game.releaseYear ?? ""}</p>
+        <h2>{game.title}</h2>
+        <div className={styles.description}><GameSynopsis entry={entry} /></div>
+        <LaunchButton
+          gameId={game.id}
+          coreId={save?.extinfo.coreId}
+          saveId={save?.id}
+          disabled={!!save && !save.restorable}
+          returnTo={returnTo}
+        >
+          {save ? "从存档继续" : "开始游戏"}
+        </LaunchButton>
+        {save?.kind === "game_save" ? (
+          <p>进入游戏后，请在游戏内读取存档。</p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+function GameMedia({ entry: { game, save } }: { entry: ImmersiveEntry }) {
+  const cover = game.media.find((item) => item.kind === "cover");
+  const video = save ? undefined : game.media.find((item) => item.kind === "video");
+  const artwork = save?.screenshotUrl ?? cover?.url;
+  return (
       <div
         className={`${styles.mediaStage} ${video ? styles.withVideo : styles.coverOnly}`}
       >
-        <div className={styles.poster}>
-          {cover ? (
+        <div className={save?.screenshotUrl ? styles.savePreview : styles.poster}>
+          {artwork ? (
             <Image
-              src={cover.url}
+              src={artwork}
               fill
               sizes="40vw"
               alt={game.title}
@@ -172,26 +130,6 @@ function GamePresentation({ entry }: { entry: ImmersiveEntry }) {
           </div>
         ) : null}
       </div>
-      <div className={save ? library.saveDetails : styles.descriptionPanel}>
-        <h2>{game.title}</h2>
-        <p>
-          {game.directoryName} {game.releaseYear ?? ""}
-        </p>
-        <GameSynopsis entry={entry} />{" "}
-        <LaunchButton
-          gameId={game.id}
-          coreId={save?.extinfo.coreId}
-          saveId={save?.id}
-          disabled={!!save && !save.restorable}
-          returnTo="/immersive"
-        >
-          {save ? "从存档继续" : "开始游戏"}
-        </LaunchButton>
-        {save?.kind === "game_save" ? (
-          <p>进入游戏后，请在游戏内读取存档。</p>
-        ) : null}
-      </div>
-    </section>
   );
 }
 const restoreMessages: Record<Schema<"Save">["restoreReason"], string> = {
@@ -214,23 +152,15 @@ function GameSynopsis({ entry }: { entry: ImmersiveEntry }) {
           <p>
             {save.name} · <BrowserTime value={save.updatedAtMs} />
           </p>
-          {save.screenshotUrl ? (
-            <div className={library.saveScreenshot}>
-              <Image
-                src={save.screenshotUrl}
-                fill
-                unoptimized
-                alt="存档截图"
-                sizes="50vw"
-              />
-            </div>
-          ) : null}
           {!save.restorable ? (
             <p role="status">{restoreMessages[save.restoreReason]}</p>
           ) : null}
         </>
       ) : (
-        <p>{game.description || "暂无游戏简介。"}</p>
+        <>
+          {entry.lastPlayedAtMs ? <p>上次游玩：<BrowserTime value={entry.lastPlayedAtMs} /></p> : null}
+          <p>{game.description || "暂无游戏简介。"}</p>
+        </>
       )}
     </>
   );

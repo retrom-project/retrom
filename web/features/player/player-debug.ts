@@ -1,0 +1,62 @@
+import type {PlayerRuntimeV1} from "./runtime/contract";
+
+export type PlayerDebugSample = {
+  frameCount: number | null;
+  sampledAtMs: number;
+};
+
+export type PlayerDebugMetrics = {
+  fps: number | null;
+  frameCount: number | null;
+  canvasWidth: number | null;
+  canvasHeight: number | null;
+  viewportWidth: number;
+  viewportHeight: number;
+  devicePixelRatio: number;
+};
+
+function boundedRuntimeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function readFrameCount(runtime: PlayerRuntimeV1 | null) {
+  try {
+    return boundedRuntimeNumber(runtime?.getFrameCount());
+  } catch {
+    return null;
+  }
+}
+
+function sampledFPS(previous: PlayerDebugSample | null, frameCount: number | null, sampledAtMs: number) {
+  if (!previous || previous.frameCount === null || frameCount === null) {return null;}
+  const elapsedMs = sampledAtMs - previous.sampledAtMs;
+  const frameDelta = frameCount - previous.frameCount;
+  if (elapsedMs <= 0 || frameDelta < 0) {return null;}
+  const value = frameDelta * 1_000 / elapsedMs;
+  return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
+}
+
+export function samplePlayerDebugMetrics(
+  runtime: PlayerRuntimeV1 | null,
+  canvas: HTMLCanvasElement | null,
+  previous: PlayerDebugSample | null,
+  sampledAtMs: number,
+  viewport: { width: number; height: number; devicePixelRatio: number },
+): { metrics: PlayerDebugMetrics; sample: PlayerDebugSample } {
+  const frameCount = readFrameCount(runtime);
+  const fps = sampledFPS(previous, frameCount, sampledAtMs);
+  const width = boundedRuntimeNumber(canvas?.width);
+  const height = boundedRuntimeNumber(canvas?.height);
+  return {
+    metrics: {
+      fps,
+      frameCount,
+      canvasWidth: width && width > 0 ? width : null,
+      canvasHeight: height && height > 0 ? height : null,
+      viewportWidth: Math.max(0, Math.round(viewport.width)),
+      viewportHeight: Math.max(0, Math.round(viewport.height)),
+      devicePixelRatio: Math.max(0, viewport.devicePixelRatio),
+    },
+    sample: { frameCount, sampledAtMs },
+  };
+}

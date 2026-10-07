@@ -1,11 +1,11 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, result } from "@/lib/api/client";
+import { api, result, ApiError } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { GameMediaEditor } from "./game-media-editor";
 import { GameFileList } from "./game-file-list";
 async function roots() {
   return result(await api.GET("/api/v1/admin/source-roots"));
@@ -19,7 +19,7 @@ export function GameManagement({
 }) {
   const router = useRouter();
   const source = useResource(roots);
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   const [remove, setRemove] = useState(false);
   const [replace, setReplace] = useState(false);
   const [rootId, setRootId] = useState("");
@@ -34,40 +34,50 @@ export function GameManagement({
           body: { version: detail.game.version, rootId, relativePath: path },
         }),
       );
+      notify({ tone: "good", message: "游戏内容已替换" });
       setReplace(false);
       onChange();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "替换失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "替换失败，请重试。" });
     } finally {
       setBusy(false);
     }
   }
   async function removeGame() {
-    const response = await api.DELETE("/api/v1/admin/games/{gameId}", {
-      params: { path: { gameId: detail.game.id } },
-      body: { version: detail.game.version },
-    });
-    if (response.error) {
-      setError(response.error.message);
-      return;
+    setBusy(true);
+    try {
+      const response = await api.DELETE("/api/v1/admin/games/{gameId}", {
+        params: { path: { gameId: detail.game.id } },
+        body: { version: detail.game.version },
+      });
+      if (response.error) { throw new ApiError(response.error.code, response.error.message, response.response.status); }
+      notify({ tone: "good", message: "游戏已删除" });
+      router.push("/admin/games");
+    } catch (failure) {
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "删除游戏失败，请重试。" });
+    } finally {
+      setBusy(false);
     }
-    router.push("/admin/games");
   }
 
   return (
-    <section className="workspace-card stack">
-      <h2>文件与媒体</h2>
-      <div className="workspace-actions">
+    <section className="panel">
+      <div className="panel-head"><h2>文件与管理操作</h2></div>
+      <div className="panel-body stack">
+      <div className="admin-game-action-grid">
+        <article><h3>替换游戏内容</h3><p>从服务器来源选择新的内容文件，现有存档按实际内容身份判断能否恢复。</p>
         <button className="button secondary" onClick={() => setReplace(true)}>
           替换游戏内容
         </button>
+        </article>
+        <article><h3>删除游戏</h3><p>从游戏库移除当前游戏，关联内容按清理规则处理。</p>
         <button className="button danger" onClick={() => setRemove(true)}>
           删除游戏
         </button>
+        </article>
       </div>
-      {error ? <p role="alert">{error}</p> : null}
-      <GameMediaEditor game={detail.game} onChange={onChange} />
       <GameFileList files={detail.files} />
+      </div>
 
       <ConfirmDialog
         open={replace}
@@ -79,6 +89,7 @@ export function GameManagement({
         confirmDisabled={!rootId || !path}
       >
         <div className="stack">
+          {source.error ? <p role="alert">{source.error} <button className="button secondary" onClick={source.reload}>重试读取来源</button></p> : null}
           <label className="field">
             服务器来源
             <select
@@ -107,6 +118,7 @@ export function GameManagement({
         title="删除游戏"
         description="游戏将从游戏库隐藏，关联文件与存档随后清理。"
         tone="danger"
+        busy={busy}
         onCancel={() => setRemove(false)}
         onConfirm={() => void removeGame()}
       />

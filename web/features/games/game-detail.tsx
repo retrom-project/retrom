@@ -2,12 +2,12 @@
 import { useRouter } from "next/navigation";
 import { GameDetailContent } from "./game-detail-content";
 import { useCallback, useState } from "react";
-import { api, result } from "@/lib/api/client";
+import { api, result, ApiError } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
 import { loadDetail, toggleFavorite } from "@/features/library/api";
 import { ResourceState } from "@/components/resource-state";
-import { GameEditor } from "./game-editor";
-import { GameManagement } from "./game-management";
+import { AdminGameDetail } from "./admin-game-detail";
+import { useToast } from "@/components/toast-provider";
 export function GameDetail({
   gameId,
   mode = "user",
@@ -18,11 +18,13 @@ export function GameDetail({
   const router = useRouter();
   const loader = useCallback(() => loadDetail(gameId, mode), [gameId, mode]);
   const detail = useResource(loader);
-  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { notify } = useToast();
   async function review(action: "approve" | "discard") {
-    if (!detail.data) {
+    if (!detail.data || busy) {
       return;
     }
+    setBusy(true);
     const params = { path: { gameId } };
     const body = { version: detail.data.game.version };
     try {
@@ -33,6 +35,7 @@ export function GameDetail({
             body,
           }),
         );
+        notify({ tone: "good", message: "游戏已通过审核并发布" });
         router.push(`/games/${gameId}`);
       } else {
         const response = await api.POST(
@@ -40,51 +43,51 @@ export function GameDetail({
           { params, body },
         );
         if (response.error) {
-          throw new Error(response.error.message);
+          throw new ApiError(response.error.code, response.error.message, response.response.status);
         }
+        notify({ tone: "good", message: "审核条目已丢弃" });
         router.push("/admin/reviews");
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "操作失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "审核操作失败，请重试。" });
       detail.reload();
+    } finally {
+      setBusy(false);
     }
   }
   async function favorite() {
-    if (!detail.data) {
+    if (!detail.data || busy) {
       return;
     }
+    setBusy(true);
     try {
       await toggleFavorite(gameId, !detail.data.game.favorite);
+      notify({ tone: "good", message: detail.data.game.favorite ? "已取消收藏" : "已收藏游戏" });
       detail.reload();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "操作失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "收藏操作失败，请重试。" });
+    } finally {
+      setBusy(false);
     }
   }
   return (
     <div className="page-layout page-layout-detail game-detail-page">
       <ResourceState resource={detail}>
         {(data) => (
-          <>
-            <GameDetailContent
-              detail={data}
-              mode={mode}
-              onFavorite={() => void favorite()}
-              onReview={(action) => void review(action)}
-              onChange={detail.reload}
-              error={error}
-            />
-            {mode !== "user" ? (
-              <div className="workspace-section stack">
-                <GameEditor
-                  key={data.game.version}
-                  detail={data}
-                  mode={mode}
-                  onSaved={detail.reload}
-                />
-                <GameManagement detail={data} onChange={detail.reload} />
-              </div>
-            ) : null}
-          </>
+          mode === "user" ? <GameDetailContent
+            detail={data}
+            mode={mode}
+            onFavorite={() => void favorite()}
+            onReview={(action) => void review(action)}
+            onChange={detail.reload}
+            busy={busy}
+          /> : <AdminGameDetail
+            detail={data}
+            mode={mode}
+            onReview={(action) => void review(action)}
+            onChange={detail.reload}
+            busy={busy}
+          />
         )}
       </ResourceState>
     </div>

@@ -91,3 +91,6 @@
 @media (min-width: 1600px) {
   .save-library-group.has-five-saves .save-library-group-foot { display: none; }
 }
+
+.save-library-menu-button { display: grid; place-items: center; }
+.save-library-menu-button > svg { width: 18px; height: 18px; }

@@ -1,10 +1,10 @@
 import {
   act,
   fireEvent,
-  render,
   screen,
   waitFor,
 } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import { expect, it, vi } from "vitest";
 import type { Schema } from "@/lib/api/types";
 import { api } from "@/lib/api/client";
@@ -64,7 +64,8 @@ it("keeps the original directory when asynchronous options arrive and preserves 
     data: detail,
     response: new Response(),
   } as Awaited<ReturnType<typeof api.PATCH>>);
-  render(<GameEditor detail={detail} mode="review" onSaved={vi.fn()} />);
+  const onSaved = vi.fn();
+  render(<GameEditor detail={detail} mode="review" onSaved={onSaved} />);
   expect(screen.getByLabelText("游戏目录")).toHaveValue("original-directory");
   await act(async () =>
     resolveDirectories({
@@ -100,7 +101,7 @@ it("keeps the original directory when asynchronous options arrive and preserves 
   fireEvent.change(screen.getByLabelText("玩家人数"), {
     target: { value: "1-2" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存发布信息" }));
   await waitFor(() =>
     expect(api.PATCH).toHaveBeenCalledWith(
       "/api/v1/admin/reviews/{gameId}",
@@ -113,4 +114,12 @@ it("keeps the original directory when asynchronous options arrive and preserves 
       }),
     ),
   );
+  expect(await screen.findByRole("status")).toHaveTextContent("游戏资料与运行配置已保存");
+  expect(onSaved).toHaveBeenCalledOnce();
+  vi.mocked(api.PATCH).mockRejectedValueOnce(new Error("保存失败，请稍后重试。"));
+  fireEvent.click(screen.getByRole("button", { name: "保存发布信息" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("保存失败，请稍后重试。");
+  expect(screen.getAllByText("保存失败，请稍后重试。")).toHaveLength(1);
+  expect(screen.getByLabelText("玩家人数")).toHaveValue("1-2");
+  expect(onSaved).toHaveBeenCalledOnce();
 });

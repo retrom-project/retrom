@@ -1,9 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
 import { ResourceState } from "@/components/resource-state";
+import { BrowserTime } from "@/components/browser-time";
+import styles from "./scan.module.css";
+import { useToast } from "@/components/toast-provider";
 export function scanDestination(type: "game" | "bios") {
   return type === "game" ? "/admin/reviews" : "/admin/bios";
 }
@@ -18,8 +21,8 @@ const labels = {
   failed: "已中断",
 };
 export function ScanProgressList() {
+  const { notify } = useToast();
   const scans = useResource(load);
-  const [error, setError] = useState("");
   useEffect(() => {
     const timer = setInterval(scans.reload, 3000);
     return () => clearInterval(timer);
@@ -32,41 +35,77 @@ export function ScanProgressList() {
         }),
       );
       scans.reload();
+      notify({ tone: "good", message: "扫描已取消。" });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "取消失败。");
+      notify({
+        tone: "bad",
+        message: failure instanceof Error ? failure.message : "取消失败。",
+      });
     }
   }
   return (
-    <section className="workspace-section">
-      <h2>当前扫描进度</h2>
-      {error ? <p role="alert">{error}</p> : null}
+    <section className={styles.progress}>
+      <header>
+        <h2>当前扫描进度</h2>
+        <p>
+          扫描离开页面后仍会继续。游戏扫描进入统一待审核，BIOS
+          扫描查看当前安装。
+        </p>
+      </header>
       <ResourceState resource={scans}>
         {(data) => (
           <div className="stack">
             {data.items.map((scan) => (
-              <article className="workspace-row" key={scan.id}>
+              <article className={styles.progressRow} key={scan.id}>
                 <Link href={scanDestination(scan.scanType)}>
-                  <h3>
-                    {scan.scanType === "game" ? "游戏扫描" : "BIOS 扫描补齐"} ·{" "}
-                    {labels[scan.status]}
-                  </h3>
-                  <div className="scan-counts">
-                    <span>
-                      {scan.scanType === "game" ? "总游戏数" : "总要求数"}{" "}
-                      {scan.totalKnown ? scan.totalCount : "发现中"}
-                    </span>
-                    <span>
-                      {scan.scanType === "game" ? "已扫描" : "已处理"}{" "}
-                      {scan.processedCount}
-                    </span>
-                    <span>
-                      {scan.scanType === "game" ? "已导入" : "已补齐"}{" "}
-                      {scan.importedCount}
-                    </span>
-                    <span>已跳过 {scan.skippedCount}</span>
-                    <span>失败 {scan.failedCount}</span>
+                  <div>
+                    <h3>
+                      <strong>
+                        {scan.scanType === "game"
+                          ? "游戏扫描"
+                          : "BIOS 扫描补齐"}
+                      </strong>
+                      <span
+                        className={`status ${scan.status === "completed" ? "good" : scan.status === "failed" ? "bad" : "neutral"}`}
+                      >
+                        {labels[scan.status]}
+                      </span>
+                    </h3>
+                    <p>
+                      更新时间 · <BrowserTime value={scan.updatedAtMs} />
+                    </p>
+                    {scan.error ? <p role="alert">{scan.error}</p> : null}
                   </div>
-                  {scan.error ? <p role="alert">{scan.error}</p> : null}
+                  <div className={styles.counts}>
+                    <div>
+                      <small>
+                        {scan.scanType === "game" ? "总游戏数" : "总要求数"}
+                      </small>
+                      <strong>
+                        {scan.totalKnown ? scan.totalCount : "发现中"}
+                      </strong>
+                    </div>
+                    <div>
+                      <small>
+                        {scan.scanType === "game" ? "已扫描" : "已处理"}
+                      </small>
+                      <strong>{scan.processedCount}</strong>
+                    </div>
+                    <div>
+                      <small>
+                        {scan.scanType === "game" ? "已导入" : "已补齐"}
+                      </small>
+                      <strong>{scan.importedCount}</strong>
+                    </div>
+                    <div>
+                      <small>已跳过</small>
+                      <strong>{scan.skippedCount}</strong>
+                    </div>
+                    <div>
+                      <small>失败</small>
+                      <strong>{scan.failedCount}</strong>
+                    </div>
+                  </div>
                 </Link>
                 {scan.status === "pending" || scan.status === "running" ? (
                   <button
@@ -79,7 +118,7 @@ export function ScanProgressList() {
               </article>
             ))}
             {!data.items.length ? (
-              <p className="workspace-note">暂无扫描任务。</p>
+              <p className="panel compact-empty">暂无扫描任务。</p>
             ) : null}
           </div>
         )}

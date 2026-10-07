@@ -208,7 +208,7 @@
 
 .gameListView {
   display: grid;
-  grid-template-columns: minmax(300px, 36%) minmax(0, 64%);
+  grid-template-columns: minmax(300px, 36fr) minmax(0, 64fr);
   gap: clamp(22px, 3vw, 58px);
   height: 100%;
   min-height: 0;
@@ -216,7 +216,7 @@
 
 .gameTitles {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   padding: 8px 0;
 }
@@ -377,6 +377,8 @@
 }
 
 .mediaPlaceholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -450,7 +452,7 @@
 
 .descriptionPanel {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0;
   padding: clamp(18px, 2vw, 36px);
   overflow: hidden;
@@ -493,7 +495,7 @@
   min-height: 0;
   padding-right: 12px;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
   color: var(--immersive-muted);
   font-size: var(--text-immersive-body);
   line-height: 1.55;
@@ -624,10 +626,8 @@
 }
 
 .fullscreenRestore {
-  position: fixed;
+  position: relative;
   z-index: 12;
-  top: 18px;
-  right: 28px;
   display: inline-flex;
   gap: 9px;
   align-items: center;
@@ -673,7 +673,7 @@
   }
 
   .gameListView {
-    grid-template-columns: minmax(270px, 35%) minmax(0, 65%);
+    grid-template-columns: minmax(270px, 35fr) minmax(0, 65fr);
     gap: 22px;
   }
 }
@@ -684,3 +684,24 @@
   .fullscreenRestore {transition: none;}
   .titleList button {scroll-behavior: auto;}
 }
+
+.listPaging { display: flex; gap: var(--space-3); padding-top: var(--space-3); }
+.description > p { margin: var(--space-3) 0; }
+.viewportOverlay { display: none; }
+.viewportOverlay svg { width: 32px; height: 32px; }
+.viewportOverlay a { display: inline-flex; align-items: center; justify-content: center; }
+@media (width < 960px), (height < 540px), (orientation: portrait) {
+  .viewportOverlay { display: grid; }
+  .viewportOverlay > div { width: calc(100vw - 32px); padding: var(--space-5); }
+  .shellHeader, .shellContent, .helpBar { visibility: hidden; }
+}
+
+.gameTitles :global(.field) { margin-top: var(--space-3); }
+
+.controllerGlyph svg { width: 32px; height: 32px; }
+.fullscreenRestore svg { width: 18px; height: 18px; }
+.menuTrigger { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.notice { position: absolute; z-index: 5; right: 0; bottom: 0; max-width: 440px; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
+
+.savePreview { position: relative; width: 100%; height: 100%; min-height: 0; }
+.savePreview img { object-fit: contain; }

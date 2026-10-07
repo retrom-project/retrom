@@ -79,7 +79,7 @@ export function FloatingFolderPanel({ children }: { children: ReactNode }) {
           onKeyDown={keyboard}
           aria-label="移动收藏导航（方向键或拖动）"
         >
-          <AppIcon name="menu" />
+          <AppIcon name="grip" />
           收藏导航
         </button>
         <button
@@ -88,10 +88,12 @@ export function FloatingFolderPanel({ children }: { children: ReactNode }) {
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
         >
-          <AppIcon name={collapsed ? "expand" : "minimize"} />
+          <AppIcon name={collapsed ? "plus" : "minimize"} />
         </button>
       </header>
-      <div hidden={collapsed}>{children}</div>
+      <div className="favorite-navigation-content" hidden={collapsed}>
+        {children}
+      </div>
     </aside>
   );
 }

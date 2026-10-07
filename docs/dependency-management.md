@@ -8,7 +8,7 @@
 
 准备先校验三个原始归档的大小和SHA256，再解包无链接的自足npm工具和已验证Provider。工具实际路径、内容、大小和可执行位逐项匹配认证归档；Provider本地integrity必须逐字节匹配认证归档中的integrity，再校验所有文件、manifest、闭包、module、来源和Target指纹。完整集合原子发布到`.cache/runtime-inputs/<描述摘要>/`，重复准备仍重新校验。共享下载按单文件锁复用，环境安装与active不共享。损坏或来源错配不会发布集合。
 
-本次描述来自runtime本地提交 `638bb648b56deddad2144361d896ace750d82cc4` 的干净源码，实际源码树摘要 `d3457eeedc55f3e5ee01c7d3611a8066d770bba617cab70f13ffe29150176104`。ONS输入在该仓库的Provider来源描述中独立固定；Retrom不隐式下载旧ONS或自行选择核心构建。候选版本字段仍为0.59.1，`release:null` 与归档摘要明确区分它和历史正式v0.59.1。
+本次描述来自runtime本地提交 `96e04b24c113de248ffea379856d6ede90502855` 的干净源码，实际源码树摘要 `8a1277572acb8b44340246c4c4f0e44cca1f1ec359cb54ee6ec3c8929a763e0a`。本次重建纳入统一Host快捷键策略与隔离游戏事件桥，复用并逐项校验原核心资源字节。ONS输入在该仓库的Provider来源描述中独立固定；Retrom不隐式下载旧ONS或自行选择核心构建。候选版本字段仍为0.59.1，`release:null` 与归档摘要明确区分它和历史正式v0.59.1。
 
 拿到描述对应的三份归档后，可以在全新checkout执行：
 

@@ -16,14 +16,17 @@ async function readableControl(control: Locator, page: Page) {
   );
 }
 
-async function search(page: Page, control: Locator, endpoint: string) {
+async function search(page: Page, control: Locator, endpoint: string, apply?: Locator) {
   const query = "mobile-layout-acceptance";
   const [response] = await Promise.all([
     page.waitForResponse((response) => {
       const url = new URL(response.url());
       return url.pathname === endpoint && url.searchParams.get("q") === query;
     }),
-    control.fill(query),
+    (async () => {
+      await control.fill(query);
+      if (apply) { await apply.click(); }
+    })(),
   ]);
   expect(response.status()).toBe(200);
   await expect(control).toHaveValue(query);
@@ -51,11 +54,15 @@ for (const entry of [
     ).toBeVisible();
     const input = page.getByRole("textbox", { name: "搜索游戏", exact: true });
     await readableControl(input, page);
-    await search(page, input, entry.endpoint);
-    await page.getByRole("button", { name: "筛选游戏", exact: true }).click();
+    const admin = entry.route.startsWith("/admin/");
+    const apply = admin ? page.getByRole("button", { name: "应用筛选", exact: true }) : undefined;
+    await search(page, input, entry.endpoint, apply);
+    if (!admin) { await page.getByRole("button", { name: "筛选游戏", exact: true }).click(); }
     const sheet = page.getByRole("dialog", { name: "筛选游戏", exact: true });
-    for (const label of ["游戏目录", "标签", "排序"]) {
-      await readableControl(sheet.getByRole("combobox", { name: label }), page);
+    const filters = admin ? page : sheet;
+    const sortLabel = admin ? "排列顺序" : "排序";
+    for (const label of ["游戏目录", "标签", sortLabel]) {
+      await readableControl(filters.getByRole("combobox", { name: label, exact: true }), page);
     }
     const [response] = await Promise.all([
       page.waitForResponse((response) => {
@@ -65,13 +72,16 @@ for (const entry of [
           url.searchParams.get("sort") === "recent"
         );
       }),
-      sheet
-        .getByRole("combobox", { name: "排序", exact: true })
-        .selectOption("recent"),
+      (async () => {
+        await filters.getByRole("combobox", { name: sortLabel, exact: true }).selectOption("recent");
+        if (apply) { await apply.click(); }
+      })(),
     ]);
     expect(response.status()).toBe(200);
-    await sheet.getByRole("button", { name: "完成筛选", exact: true }).click();
-    await expect(sheet).not.toBeVisible();
+    if (!admin) {
+      await sheet.getByRole("button", { name: "完成筛选", exact: true }).click();
+      await expect(sheet).not.toBeVisible();
+    }
   });
 }
 

@@ -36,18 +36,17 @@ function toolbarProps(): ComponentProps<typeof PlayerToolbar> {
     status: "",
     visible: true,
     menu: true,
-    settingsOpen: false,
+    debugOpen: false,
+    onDebug: vi.fn(),
     onReveal: vi.fn(),
     onHover: vi.fn(),
     onFocus: vi.fn(),
     onPause: vi.fn(),
     onSave: vi.fn(),
     onExit: vi.fn(),
-    onScreenshot: vi.fn(),
     onSettings: vi.fn(),
     onUseCover: vi.fn(),
-    onVolume: vi.fn(),
-    onVideo: vi.fn(),
+
     onMenu: vi.fn(),
     onControlError: vi.fn(),
   };
@@ -60,24 +59,21 @@ it.each(["CREATED", "MOUNTING"] as const)(
     const view = render(<PlayerToolbar {...props} state={state} />);
     const actionNames = [
       "暂停",
-      "保存",
-      "保存截图",
-      "选用当前截图为封面",
-      "运行设置",
+      "创建存档",
+
     ];
     for (const name of actionNames) {
       const button = screen.getByRole("button", { name });
       expect(button).toBeDisabled();
       fireEvent.click(button);
     }
-    expect(screen.getByRole("slider", { name: "音量" })).toBeDisabled();
-    expect(screen.getByRole("combobox", { name: "画面" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "选用当前截图为封面" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "模拟器设置" })).toBeDisabled();
     expect(props.onPause).not.toHaveBeenCalled();
     expect(props.onSave).not.toHaveBeenCalled();
-    expect(props.onScreenshot).not.toHaveBeenCalled();
     expect(props.onUseCover).not.toHaveBeenCalled();
     expect(props.onSettings).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "退出游戏" })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "退出游戏" })).toBeEnabled();
     view.rerender(<PlayerToolbar {...props} state="RUNNING" />);
     for (const name of actionNames) {
       expect(screen.getByRole("button", { name })).toBeEnabled();
@@ -104,8 +100,8 @@ it("removes the reveal handle when controls are visible", () => {
 });
 
 it.each([
-  ["RUNNING", "暂停"],
-  ["MOUNTING", "运行菜单"],
+  ["RUNNING", "返回并退出游戏"],
+  ["MOUNTING", "返回并退出游戏"],
 ] as const)(
   "moves keyboard reveal focus to the first enabled control in %s",
   async (state, firstControl) => {
@@ -130,3 +126,12 @@ it.each([
     expect(props.onFocus).toHaveBeenCalledWith(true);
   },
 );
+
+it("describes GAME_SAVE as written game data, never an instant capture", () => {
+  const props = toolbarProps();
+  props.envelope.runtime.checkpoint = { semantics: "GAME_SAVE", writeFormat: "j2me-rms-bundle-v1-storage-v1", readFormats: ["j2me-rms-bundle-v1-storage-v1"], maxBytes: 1_048_576 };
+  render(<PlayerToolbar {...props} state="RUNNING" />);
+  expect(screen.getByRole("button", { name: "同步存档" })).toBeEnabled();
+  expect(screen.queryByText("可创建存档")).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("有待同步的游戏数据");
+});

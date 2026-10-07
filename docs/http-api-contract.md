@@ -4,6 +4,8 @@
 
 错误统一{code,message}。分页items,total,offset,limit有界（limit≤100、offset≤100000），总数不由当前页面推算。存档q匹配游戏或存档名，kind筛类型，sort选择recent/title；gameCount为同一过滤条件COUNT DISTINCT game_id。收藏folderId与unclassified互斥。
 
+创建或改名标签与现有活动标签的规范化名称重复时返回409 TAG_NAME_CONFLICT；编辑版本不符仍返回409 VERSION_CONFLICT，二者不得混用。标签软删除后允许重新使用同名，新标签不恢复原有游戏关联。
+
 库、收藏与管理列表的platformId和platformInstanceId按AND过滤；sort=recent使用当前用户最后游玩时间降序，未游玩排后，名称/ID提供稳定次序。最近页只含当前用户已游玩游戏，sort=recent按最后时间、title按名称；q、active标签和afterMs/beforeMs闭区间与总数使用相同过滤条件。
 
 业务读写使用当前登录会话。管理员只扩展共享管理权限；存档、收藏、最近仍限定本人。写入要求一个精确匹配的Origin，已登录写入还要求当前CSRF。代理链只在RemoteAddr属于配置的可信CIDR时解析，直接伪造X-Forwarded-For不会改变限流主体。无凭据的隔离origin仅提供静态桥壳，不提供业务API。

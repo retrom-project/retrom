@@ -42,7 +42,7 @@ export function HomePage() {
               className="button secondary home-immersive-entry"
               href="/immersive"
             >
-              <AppIcon name="gamepad" />
+              <AppIcon name="expand" />
               沉浸模式
             </Link>
           </>

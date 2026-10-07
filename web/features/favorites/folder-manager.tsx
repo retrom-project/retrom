@@ -1,6 +1,7 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { useEffect, useState } from "react";
-import { api, result } from "@/lib/api/client";
+import { api, result, ApiError } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
@@ -47,14 +48,13 @@ export function FolderManager({
     null,
   );
   const [name, setName] = useState("");
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   const current = resource.data?.folders.find(
     (folder) => folder.id === selected,
   );
   function edit(folder: Schema<"FavoriteFolder"> | "new") {
     setName(folder === "new" ? "" : folder.name);
-    setError("");
     setEditing(folder);
   }
   async function save() {
@@ -77,11 +77,12 @@ export function FolderManager({
           }),
         );
       }
+      notify({ tone: "good", message: editing === "new" ? "收藏夹已创建" : "收藏夹名称已更新" });
       setEditing(null);
       resource.reload();
       onChange();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "保存失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "保存失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -91,18 +92,21 @@ export function FolderManager({
       return;
     }
     setBusy(true);
-    const response = await api.DELETE("/api/v1/favorite-folders/{folderId}", {
-      params: { path: { folderId: deleting.id } },
-    });
-    setBusy(false);
-    if (response.error) {
-      setError(response.error.message);
-      return;
+    try {
+      const response = await api.DELETE("/api/v1/favorite-folders/{folderId}", {
+        params: { path: { folderId: deleting.id } },
+      });
+      if (response.error) { throw new ApiError(response.error.code, response.error.message, response.response.status); }
+      notify({ tone: "good", message: "收藏夹已删除，游戏收藏已保留" });
+      setDeleting(null);
+      onSelect("");
+      resource.reload();
+      onChange();
+    } catch (failure) {
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "删除收藏夹失败，请重试。" });
+    } finally {
+      setBusy(false);
     }
-    setDeleting(null);
-    onSelect("");
-    resource.reload();
-    onChange();
   }
   function select(id: string) {
     onSelect(id);
@@ -117,8 +121,7 @@ export function FolderManager({
       onSelect={select}
       onEdit={edit}
       onDelete={(folder) => {
-        setError("");
-        setDeleting(folder);
+            setDeleting(folder);
       }}
     />
   );
@@ -159,7 +162,6 @@ export function FolderManager({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        {error ? <p role="alert">{error}</p> : null}
       </ConfirmDialog>
       <ConfirmDialog
         open={!!deleting}
@@ -170,7 +172,6 @@ export function FolderManager({
         onCancel={() => setDeleting(null)}
         onConfirm={() => void remove()}
       >
-        {error ? <p role="alert">{error}</p> : null}
       </ConfirmDialog>
     </>
   );
@@ -219,7 +220,7 @@ function FolderNavigation({
             className={selected === folder.id ? "is-active" : ""}
             onClick={() => onSelect(folder.id)}
           >
-            <span>▱</span>
+            <span aria-hidden="true">▣</span>
             <span>{folder.name}</span>
             <strong>{folder.gameCount}</strong>
           </button>
@@ -243,10 +244,10 @@ function FolderNavigation({
           </button>
         </div>
       ) : null}
+      {error ? <p role="alert">{error}</p> : null}
       <button className="favorite-new-folder" onClick={() => onEdit("new")}>
         ＋ 新建收藏夹
       </button>
-      {error ? <p role="alert">{error}</p> : null}
     </div>
   );
 }

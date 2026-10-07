@@ -44,7 +44,7 @@ export function FavoriteFilters({
               onSort(event.target.value === "title" ? "title" : "recent")
             }
           >
-            <option value="recent">最近收藏</option>
+            <option value="recent">最近游玩</option>
             <option value="title">游戏名称</option>
           </select>
         </label>
@@ -54,6 +54,7 @@ export function FavoriteFilters({
       </div>
       <div className="favorite-platforms">
         <span>游戏目录</span>
+        <div className="favorite-platform-options" role="group" aria-label="筛选游戏目录">
         <button
           className={!directory ? "is-active" : ""}
           onClick={() => onDirectory("")}
@@ -71,6 +72,7 @@ export function FavoriteFilters({
               {item.name}
             </button>
           ))}
+        </div>
       </div>
     </>
   );

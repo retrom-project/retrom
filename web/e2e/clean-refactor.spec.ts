@@ -37,14 +37,23 @@ test("shared review, real NES save and new-instance restore", async ({
   await start.click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?/u);
   await expect(
-    page.getByRole("button", { name: "保存", exact: true }),
+    page.getByRole("button", { name: /^(创建存档|保存)$/u }),
   ).toBeEnabled({ timeout: 60_000 });
   await revealPlayerControls(page);
-  await page.getByRole("button", { name: "全屏", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "退出全屏", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "退出全屏", exact: true }).click();
+  const toolbarFullscreen = page.getByRole("button", { name: "全屏", exact: true });
+  if (await toolbarFullscreen.isVisible()) {
+    await toolbarFullscreen.click();
+    await expect(page.getByRole("button", { name: "退出全屏", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "退出全屏", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: "更多操作", exact: true }).click();
+    await page.getByRole("menuitem", { name: "在更多操作中进入全屏", exact: true }).click();
+    await expect(page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true })).toBeVisible();
+    await page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true }).click();
+    const menu = page.getByRole("menu", { name: "Player 更多操作", exact: true });
+    await menu.getByRole("button", { name: "关闭更多操作", exact: true }).click();
+    await expect(menu).toHaveCount(0);
+  }
   const firstFrame = await nesFrame(page);
   await revealPlayerControls(page);
   const pause = page.getByRole("button", { name: "暂停", exact: true });
@@ -79,7 +88,7 @@ test("shared review, real NES save and new-instance restore", async ({
       response.url().endsWith("/api/v1/saves") &&
       response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: /^(创建存档|保存)$/u }).click();
   const firstResponse = await persisted;
   expect(firstResponse.status()).toBe(200);
   const firstSave = (await firstResponse.json()) as Schema<"Save">;
@@ -105,7 +114,7 @@ test("shared review, real NES save and new-instance restore", async ({
     .getByRole("button", { name: "从这里继续", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "保存", exact: true }),
+    page.getByRole("button", { name: /^(创建存档|保存)$/u }),
   ).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByText("游戏无法运行", { exact: true })).toHaveCount(0);
   const restoredFrame = await nesFrame(page);
@@ -248,4 +257,79 @@ test("save search, kinds and game choice use server filters", async ({
       (save) => save.kind === "checkpoint" && save.game.id === game.id,
     ),
   ).toBe(true);
+});
+
+test("immersive audio and keyboard controls retain their behavior", async ({ page }) => {
+  await login(page);
+  await page.goto("/immersive");
+  const viewport = page.viewportSize();
+  if (viewport && (viewport.width < 960 || viewport.height < 540 || viewport.height >= viewport.width)) {
+    await expect(page.getByRole("heading", { name: "沉浸模式需要横屏大屏", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "返回普通首页", exact: true })).toBeVisible();
+    return;
+  }
+  await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("heading", { name: "今天想玩哪个平台？", exact: true })).toBeVisible();
+  const audio = page.locator("audio[data-immersive-bgm]");
+  const audioNode = await audio.elementHandle();
+  expect(audioNode).not.toBeNull();
+  const enable = page.getByRole("button", { name: "启用背景音乐", exact: true });
+  await expect.poll(async () => await enable.isVisible() || await audio.evaluate((element) => !(element as HTMLAudioElement).paused)).toBe(true);
+  if (await enable.isVisible()) { await enable.click(); }
+  const initialTime = await audio.evaluate((element) => (element as HTMLAudioElement).currentTime);
+  await expect.poll(() => audio.evaluate((element) => (element as HTMLAudioElement).currentTime)).toBeGreaterThan(initialTime);
+  await page.keyboard.press("s");
+  const menu = page.getByRole("dialog", { name: "系统菜单", exact: true });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("button", { name: "背景音乐音量提高", exact: true }).click();
+  await expect.poll(() => audio.evaluate((element) => (element as HTMLAudioElement).volume)).toBe(0.5);
+  await menu.getByRole("button", { name: "背景音乐静音", exact: true }).click();
+  await expect.poll(() => audio.evaluate((element) => (element as HTMLAudioElement).muted && (element as HTMLAudioElement).paused)).toBe(true);
+  await menu.getByRole("button", { name: "背景音乐静音", exact: true }).click();
+  await expect.poll(() => audio.evaluate((element) => !(element as HTMLAudioElement).muted && !(element as HTMLAudioElement).paused)).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect.poll(() => menu.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await page.keyboard.press("s");
+  await menu.getByRole("button", { name: "退出沉浸模式", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/u);
+  await expect(audio).toHaveCount(0);
+  expect(await audioNode!.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
+});
+
+
+test("immersive player owns its iframe shortcut and returns to the selected game", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page);
+  const game = await fixtureGame(page);
+  const returnQuery = new URLSearchParams({ view: "games", destination: "all", entry: game.id, offset: "0", folder: "" });
+  await page.goto(`/immersive?${returnQuery}`);
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width < 960) {
+    await expect(page.getByRole("heading", { name: "沉浸模式需要横屏大屏", exact: true })).toBeVisible();
+    return;
+  }
+  await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await page.getByRole("button", { name: "开始游戏", exact: true }).click();
+  await expect(page).toHaveURL(/\/play\//u);
+  const frame = await nesFrame(page);
+  await expect(page.locator(".player-toolbar")).toHaveCount(0);
+  await frame.locator("canvas").click({ position: { x: 10, y: 10 } });
+  await page.keyboard.press("m");
+  const menu = page.getByRole("dialog", { name: "游戏菜单", exact: true });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("button", { name: "取消", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("IFRAME");
+  await page.keyboard.press("m");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("button", { name: "退出游戏", exact: true }).click();
+  await expect(page).toHaveURL(/\/immersive\?/u);
+  expect(new URL(page.url()).searchParams.get("entry")).toBe(game.id);
+  await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { pressed: true }).filter({ hasText: game.title })).toBeVisible();
 });

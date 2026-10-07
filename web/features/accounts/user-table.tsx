@@ -1,13 +1,50 @@
 import type { Schema } from "@/lib/api/types";
 import { BrowserTime } from "@/components/browser-time";
+export function UserResults({
+  data,
+  offset,
+  onPage,
+  onEdit,
+}: {
+  data: Schema<"UserPage">;
+  offset: number;
+  onPage: (offset: number) => void;
+  onEdit: (user: Schema<"User">) => void;
+}) {
+  return (
+    <>
+      <UserTable users={data.items} onEdit={onEdit} />
+      {!data.items.length ? (
+        <p className="panel compact-empty">当前筛选下没有用户。</p>
+      ) : null}
+      {data.total > 24 ? (
+        <div className="library-pagination">
+          <button
+            className="button secondary"
+            disabled={offset === 0}
+            onClick={() => onPage(offset - 24)}
+          >
+            上一页
+          </button>
+          <span>{data.total} 位用户</span>
+          <button
+            className="button secondary"
+            disabled={offset + data.items.length >= data.total}
+            onClick={() => onPage(offset + 24)}
+          >
+            下一页
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
 export function UserTable({
   users,
   onEdit,
-  onReset,
 }: {
   users: Schema<"User">[];
   onEdit: (user: Schema<"User">) => void;
-  onReset: (userId: string) => void;
 }) {
   return (
     <section className="panel user-table-panel">
@@ -26,41 +63,35 @@ export function UserTable({
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td>
+                <td data-label="用户">
                   <strong>{user.displayName}</strong>
                   <small>@{user.username}</small>
                 </td>
-                <td>{user.role === "admin" ? "管理员" : "普通用户"}</td>
-                <td>
+                <td data-label="角色">{user.role === "admin" ? "管理员" : "普通用户"}</td>
+                <td data-label="状态">
                   <span
                     className={`status ${user.status === "active" ? "good" : "neutral"}`}
                   >
                     {statusLabels[user.status]}
                   </span>
                 </td>
-                <td>
+                <td data-label="最近登录">
                   {user.lastLoginAtMs ? (
                     <BrowserTime value={user.lastLoginAtMs} />
                   ) : (
                     "从未登录"
                   )}
                 </td>
-                <td>
+                <td data-label="创建时间">
                   <BrowserTime value={user.createdAtMs} />
                 </td>
-                <td>
+                <td data-label="操作">
                   <div className="workspace-actions">
                     <button
                       className="button secondary"
                       onClick={() => onEdit(user)}
                     >
                       管理
-                    </button>
-                    <button
-                      className="button secondary"
-                      onClick={() => onReset(user.id)}
-                    >
-                      密码重置链接
                     </button>
                   </div>
                 </td>

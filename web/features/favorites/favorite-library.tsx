@@ -1,4 +1,5 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader, EmptyState } from "@/components/ui";
@@ -25,7 +26,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [organizing, setOrganizing] = useState<string[] | null>(null);
   const [removing, setRemoving] = useState<string[] | null>(null);
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const router = useRouter();
@@ -75,9 +76,10 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
     setBusy(true);
     try {
       await Promise.all(ids.map((id) => toggleFavorite(id, false)));
+      notify({ tone: "good", message: `已取消 ${ids.length} 款游戏的收藏` });
       changed();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "取消收藏失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "取消收藏失败，请重试。" });
       games.reload();
     } finally {
       setBusy(false);
@@ -85,12 +87,12 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
   }
   async function clearFolders() {
     setBusy(true);
-    setError("");
     try {
       await Promise.all(selected.map((id) => toggleFavorite(id, true, [])));
+      notify({ tone: "good", message: `已将 ${selected.length} 款游戏移至未分类` });
       changed();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "整理失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "整理失败，请重试。" });
       games.reload();
     } finally {
       setBusy(false);
@@ -146,8 +148,8 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
           setSelected([]);
         }}
       />
-      {error || directories.error ? (
-        <p role="alert">{error || directories.error}</p>
+      {directories.error ? (
+        <p role="alert">{directories.error}</p>
       ) : null}
       <ResourceState resource={games}>
         {(data) =>
@@ -212,8 +214,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
                     disabled={!selected.length || busy}
                     className="is-danger"
                     onClick={() => {
-                      setError("");
-                      setRemoving(selected);
+                                        setRemoving(selected);
                     }}
                   >
                     取消收藏
@@ -246,7 +247,6 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
         onCancel={() => setRemoving(null)}
         onConfirm={() => void remove()}
       >
-        {error ? <p role="alert">{error}</p> : null}
       </ConfirmDialog>
     </div>
   );

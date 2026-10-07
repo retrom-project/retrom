@@ -92,6 +92,7 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
   const relativePath =
     process.env.RETROM_BROWSER_SOURCE_RELATIVE_PATH ?? "browser";
   await page.goto("/admin/imports/server");
+  await page.getByRole("button", { name: "选择 Pegasus 目录", exact: true }).click();
   await page.getByLabel("服务器来源", { exact: true }).selectOption(rootId);
   await page.getByLabel("来源内目录", { exact: true }).fill(relativePath);
   await page.getByRole("button", { name: "读取来源集合", exact: true }).click();
@@ -136,7 +137,7 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
   }
   if (game.status === "pending_review") {
     await page.goto(`/admin/reviews/${game.id}`);
-    await page.getByRole("button", { name: "批准入库", exact: true }).click();
+    await page.getByRole("button", { name: "通过并发布", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
   }
   return game;
@@ -160,8 +161,8 @@ export async function fixtureGame(page: Page): Promise<Schema<"Game">> {
 
 export async function leavePlayer(page: Page) {
   await revealPlayerControls(page);
-  await page.getByRole("button", { name: "运行菜单", exact: true }).click();
-  await page.getByRole("button", { name: "退出游戏", exact: true }).click();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "退出游戏", exact: true }).click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "退出游戏", exact: true })
@@ -173,16 +174,16 @@ export async function revealPlayerControls(page: Page) {
   for (const frame of page.frames()) {
     await frame.evaluate(() => document.exitPointerLock?.());
   }
-  if (
-    !(await page
-      .locator(".player-toolbar")
-      .evaluate((element) => element.classList.contains("is-visible")))
-  ) {
-    await page
-      .getByRole("button", { name: "显示游戏工具栏", exact: true })
-      .click();
-  }
-  await expect(page.locator(".player-toolbar")).toHaveClass(/is-visible/u);
+  const toolbar = page.locator(".player-toolbar");
+  const handle = page.getByRole("button", { name: "显示游戏工具栏", exact: true });
+  await expect(async () => {
+    if (await handle.isVisible()) { await handle.click(); }
+    // A just-closed save sheet can release its pinned HUD between two frames.
+    // Real pointer hover keeps the visible toolbar available for the next action.
+    await toolbar.getByRole("button", { name: "返回并退出游戏", exact: true }).hover({ timeout: 1500 });
+    await expect(toolbar).toHaveClass(/is-visible/u);
+    await expect(toolbar).toBeInViewport();
+  }).toPass({ timeout: 10_000, intervals: [100] });
 }
 
 export async function verifyLibraryFilters(page: Page) {

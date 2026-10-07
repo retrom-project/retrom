@@ -77,6 +77,9 @@
   min-height: clamp(250px, 39dvh, 560px);
   padding: clamp(26px, 3vw, 58px);
   overflow: hidden;
+  color: var(--immersive-text);
+  text-align: left;
+  cursor: pointer;
   background:
     linear-gradient(145deg, rgb(var(--platform-rgb) / 0.18), transparent 48%),
     var(--immersive-panel);
@@ -118,7 +121,7 @@
 .platformTone3 {--platform-rgb: 101 180 255;}
 .platformTone4 {--platform-rgb: 225 106 151;}
 
-.platformCode {
+.platformCard .platformCode {
   margin: 0 0 auto;
   color: rgb(247 245 240 / 0.18);
   font-size: var(--text-immersive-mark);
@@ -299,4 +302,12 @@
   .coverStackItem,
   .platformPositionTrack i {transition: none;}
   .platformCarousel[data-direction] > * {animation: none;}
+}
+
+.platformIllustration {
+  align-self: center;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
 }

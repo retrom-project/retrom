@@ -6,22 +6,20 @@ import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { DetailLaunch } from "./detail-launch";
 import { SaveCard } from "@/features/saves/save-card";
-import { FavoriteOrganizer } from "@/features/favorites/favorite-organizer";
 type DetailProps = {
   detail: Schema<"GameDetail">;
   mode: "user" | "admin" | "review";
   onFavorite: () => void;
   onReview: (action: "approve" | "discard") => void;
   onChange: () => void;
-  error: string;
+  busy: boolean;
 };
 export function GameDetailContent(props: DetailProps) {
   const { detail, mode, onChange } = props;
   const { game } = detail;
-  const latest = detail.saves.find((save) => save.restorable);
+  const latest = detail.saves[0];
   const video = game.media.find((media) => media.kind === "video");
   const cover = game.media.find((media) => media.kind === "cover");
-  const hasPreview = !!(latest?.screenshotUrl || video);
   return (
     <div className="game-detail-content">
       <nav className="game-detail-breadcrumb" aria-label="返回导航">
@@ -30,9 +28,7 @@ export function GameDetailContent(props: DetailProps) {
           {mode === "review" ? "返回待审核" : "返回游戏库"}
         </Link>
       </nav>
-      <section
-        className={`game-detail-hero${hasPreview ? " has-preview" : ""}`}
-      >
+      <section className="game-detail-hero">
         <div className="game-detail-poster-shell">
           <div className="game-detail-media">
             <div className="game-detail-poster">
@@ -53,7 +49,7 @@ export function GameDetailContent(props: DetailProps) {
           </div>
         </div>
         <DetailControls {...props} />
-        {hasPreview ? <DetailPreview save={latest} video={video} /> : null}
+        <DetailPreview save={latest} video={video} />
       </section>
       <DetailOverview game={game} />
       <DetailSaves detail={detail} onChange={onChange} />
@@ -65,8 +61,7 @@ function DetailControls({
   mode,
   onFavorite,
   onReview,
-  onChange,
-  error,
+  busy,
 }: DetailProps) {
   const { game } = detail;
   return (
@@ -80,6 +75,7 @@ function DetailControls({
               className={`favorite-heart${game.favorite ? " is-favorite" : ""}`}
               aria-label={game.favorite ? "取消收藏" : "收藏游戏"}
               aria-pressed={game.favorite}
+              disabled={busy}
               onClick={onFavorite}
             >
               <AppIcon name="heart" />
@@ -87,7 +83,7 @@ function DetailControls({
           </div>
         ) : null}
       </div>
-      <div className="workspace-tags">
+      <div className="workspace-tags game-detail-tags">
         {game.tags.map((tag) => (
           <Link
             className="status neutral"
@@ -98,7 +94,7 @@ function DetailControls({
           </Link>
         ))}
       </div>
-      <DetailLaunch detail={detail} review={mode === "review"} error={error} />{" "}
+      <DetailLaunch detail={detail} review={mode === "review"} />{" "}
       {mode === "review" ? (
         <div className="workspace-actions workspace-section">
           <button className="button danger" onClick={() => onReview("discard")}>
@@ -108,9 +104,7 @@ function DetailControls({
             批准入库
           </button>
         </div>
-      ) : (
-        <FavoriteOrganizer detail={detail} onChange={onChange} />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -124,14 +118,15 @@ function DetailPreview({
   const [preview, setPreview] = useState<"save" | "video">("save");
   const showVideo = (preview === "video" || !save?.screenshotUrl) && video;
   return (
-    <section className="game-detail-feature-preview">
+    <section className="game-detail-feature-preview" aria-label="游戏预览">
       <div className="game-detail-preview-frame">
-        <div className="game-detail-preview-heading is-overlay">
-          <div className="game-detail-preview-tabs">
+        {save?.screenshotUrl || video ? <div className="game-detail-preview-heading is-overlay">
+          <div className="game-detail-preview-tabs" role="tablist" aria-label="游戏预览内容">
             {save?.screenshotUrl ? (
               <button
-                className="button secondary"
-                aria-pressed={preview === "save"}
+                className="button secondary option-tab"
+                role="tab"
+                aria-selected={!showVideo}
                 onClick={() => setPreview("save")}
               >
                 最近存档
@@ -139,15 +134,16 @@ function DetailPreview({
             ) : null}
             {video ? (
               <button
-                className="button secondary"
-                aria-pressed={preview === "video"}
+                className="button secondary option-tab"
+                role="tab"
+                aria-selected={!!showVideo}
                 onClick={() => setPreview("video")}
               >
                 视频预览
               </button>
             ) : null}
           </div>
-        </div>
+        </div> : null}
         <div className="game-detail-feature-shot">
           {showVideo ? (
             <video
@@ -165,7 +161,12 @@ function DetailPreview({
               unoptimized
               sizes="640px"
             />
-          ) : null}
+          ) : (
+            <div className="game-detail-preview-placeholder">
+              <AppIcon name="gamepad" />
+              <span>暂无游戏预览</span>
+            </div>
+          )}
         </div>
       </div>
     </section>

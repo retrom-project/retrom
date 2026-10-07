@@ -1,4 +1,5 @@
 "use client";
+import type { Schema } from "@/lib/api/types";
 import { useCallback, useState } from "react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
@@ -12,13 +13,19 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { useLibraryQuery } from "./use-library-query";
 import type { ListFilters } from "./use-library-query";
 export type { ListFilters } from "./use-library-query";
+import { AdminGameBrowser } from "@/features/games/admin-game-browser";
 import { FolderManager } from "@/features/favorites/folder-manager";
 export type LibraryKind = "library" | "favorites" | "admin" | "review";
-export function LibraryBrowser({
+export function LibraryBrowser({ kind = "library", initial = {} }: { kind?: LibraryKind; initial?: ListFilters }) {
+  return kind === "admin" || kind === "review"
+    ? <AdminGameBrowser kind={kind} initial={initial} />
+    : <PublicLibraryBrowser kind={kind} initial={initial} />;
+}
+function PublicLibraryBrowser({
   kind = "library",
   initial = {},
 }: {
-  kind?: LibraryKind;
+  kind?: "library" | "favorites";
   initial?: ListFilters;
 }) {
   const { values, query, update } = useLibraryQuery(initial);
@@ -54,11 +61,7 @@ export function LibraryBrowser({
     <div className="page-layout-library">
       <PageHeader
         title={title}
-        description={
-          kind === "review"
-            ? "所有来源的待审游戏在这里完成首次发布。"
-            : "浏览你的复古游戏资料库。"
-        }
+        description="浏览你的复古游戏资料库。"
       />
       {kind === "favorites" ? (
         <FolderManager
@@ -112,6 +115,7 @@ export function LibraryBrowser({
           完成筛选
         </button>
       </ResponsiveSheet>
+      <LibrarySectionHeader data={games.data} />
       <ResourceState resource={games}>
         {(data) =>
           data.items.length ? (
@@ -121,13 +125,6 @@ export function LibraryBrowser({
                   <GameCard
                     key={game.id}
                     game={game}
-                    href={
-                      kind === "review"
-                        ? `/admin/reviews/${game.id}`
-                        : kind === "admin"
-                          ? `/admin/games/${game.id}`
-                          : undefined
-                    }
                     onChange={games.reload}
                   />
                 ))}
@@ -154,16 +151,19 @@ export function LibraryBrowser({
             </>
           ) : (
             <EmptyState
-              title={kind === "review" ? "没有待审游戏" : "没有找到游戏"}
-              description={
-                kind === "review"
-                  ? "从服务端来源扫描接收的游戏会显示在这里。"
-                  : "调整搜索与筛选条件后再试。"
-              }
+              title="没有找到游戏"
+              description="调整搜索与筛选条件后再试。"
             />
           )
         }
       </ResourceState>
     </div>
   );
+}
+
+function LibrarySectionHeader({ data }: { data: Schema<"GamePage"> | null }) {
+  return <div className="library-section-head">
+    <div><h2>所有游戏</h2><p>按平台、目录和标签找到想玩的游戏。</p></div>
+    <span>已加载 {data?.items.length ?? 0} / {data?.total ?? 0} 款游戏</span>
+  </div>;
 }

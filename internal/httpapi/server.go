@@ -188,6 +188,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status, code, message = 403, "FORBIDDEN", "Operation is not permitted"
 	case errors.Is(err, model.ErrNotFound):
 		status, code, message = 404, "NOT_FOUND", "Item is unavailable"
+	case errors.Is(err, model.ErrTagNameConflict):
+		status, code, message = 409, "TAG_NAME_CONFLICT", "A tag with this name already exists"
 	case errors.Is(err, model.ErrConflict):
 		status, code, message = 409, "VERSION_CONFLICT", "Item changed; refresh and try again"
 	case errors.Is(err, model.ErrUnavailable):

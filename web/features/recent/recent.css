@@ -62,5 +62,8 @@
 .recent-history-launch .status { width: 100%; margin-top: 8px; white-space: normal; }
 .recent-history-detail { min-height: 35px; padding: 0 8px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); border-radius: var(--radius-panel); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .recent-history-detail:hover { color: var(--purple-dark); background: var(--purple-soft); }
-.recent-history-detail span { font-size: var(--text-section); line-height: 1; }
+.recent-history-detail svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .recent-filter-search, .recent-filter-select { min-width: 0; display: grid; gap: 6px; color: var(--muted); font-size: var(--text-body); font-weight: var(--weight-semibold); }
+
+.recent-history-cover { padding: var(--space-3); }
+.recent-history-cover > span { min-width: 0; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; text-align: center; font-size: var(--text-title); font-family: var(--font-sans); letter-spacing: 0; line-height: var(--leading-heading); }

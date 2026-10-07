@@ -19,7 +19,10 @@
 .favorite-navigation-collapse:hover { background: var(--purple-soft); color: var(--purple-dark); }
 .favorite-floating-navigation.is-dragging .favorite-navigation-drag { cursor: grabbing; }
 .favorite-floating-navigation.is-collapsed header { border-bottom: 0; }
-.favorite-navigation-body { min-height: 0; display: flex; flex-direction: column; }
+.favorite-navigation-content, .favorite-navigation-body { min-height: 0; display: flex; flex-direction: column; }
+.favorite-navigation-content { flex: 1; }
+.favorite-rail:not(.favorite-floating-navigation) { display: flex; flex-direction: column; max-height: min(480px, 60dvh); }
+.favorite-navigation-content[hidden] { display: none; }
 .favorite-navigation-body[hidden] { display: none; }
 .favorite-edit-folder { margin: 0 8px; min-height: 38px; flex-shrink: 0; border: 0; background: transparent; color: var(--purple-dark); cursor: pointer; font-size: var(--text-caption); }
 .favorite-rail nav { flex: 1 1 auto; min-height: 0; padding: 8px; overflow: auto; display: grid; align-content: start; gap: 3px; }
@@ -40,7 +43,16 @@
 .favorite-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .favorite-search svg { width: 15px; height: 15px; }
 .favorite-search input { min-width: 0; width: 100%; height: 100%; padding: 0; color: var(--ink); border: 0; outline: 0; background: transparent; font-size: var(--text-caption); }
-.favorite-platforms { min-height: 32px; margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.favorite-platforms { min-width: 0; min-height: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.favorite-platform-options { min-width: 0; display: flex; align-items: center; gap: 7px; overflow-x: auto; padding-block: 2px; scrollbar-color: transparent transparent; scrollbar-width: thin; }
+.favorite-platform-options:hover, .favorite-platform-options:focus-within { scrollbar-color: var(--muted) transparent; }
+.favorite-platform-options::-webkit-scrollbar { height: 6px; }
+.favorite-platform-options::-webkit-scrollbar-track { background: transparent; }
+.favorite-platform-options::-webkit-scrollbar-thumb { background: transparent; border-radius: var(--radius-control); }
+.favorite-platform-options:hover::-webkit-scrollbar-thumb, .favorite-platform-options:focus-within::-webkit-scrollbar-thumb { background: var(--muted); }
+@supports selector(::-webkit-scrollbar) {
+  .favorite-platform-options, .favorite-platform-options:hover, .favorite-platform-options:focus-within { scrollbar-width: auto; scrollbar-color: auto; }
+}
 .favorite-platforms > span { margin-right: 2px; flex: 0 0 auto; color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .favorite-platforms button { min-height: 32px; padding: 0 10px; flex: 0 0 auto; color: var(--muted); border: 1px solid transparent; border-radius: 999px; background: var(--surface-subtle); cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .favorite-platforms button:hover, .favorite-platforms button.is-active { color: var(--purple-dark); border-color: var(--purple-line); background: var(--purple-soft); }
@@ -158,3 +170,5 @@
   .favorite-game-body h3 { font-size: var(--text-caption); }
 }
 .favorite-select.is-selected { border-color: var(--purple-line); background: var(--purple); }
+
+.favorite-manage svg { width: 18px; height: 18px; flex: 0 0 18px; }

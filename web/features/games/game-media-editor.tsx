@@ -1,6 +1,8 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
+import Image from "next/image";
 import { useState } from "react";
-import { api, upload } from "@/lib/api/client";
+import { api, upload, ApiError } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 export function GameMediaEditor({
@@ -10,12 +12,13 @@ export function GameMediaEditor({
   game: Schema<"Game">;
   onChange: () => void;
 }) {
-  const [error, setError] = useState("");
+  const [kind, setKind] = useState<Schema<"GameMedia">["kind"]>("cover");
+  const selected = game.media.find((media) => media.kind === kind);
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<Schema<"GameMedia"> | null>(null);
   async function send(file: File, kind: "cover" | "video") {
     setBusy(true);
-    setError("");
     const body = new FormData();
     body.set("file", file);
     body.set("kind", kind);
@@ -25,9 +28,10 @@ export function GameMediaEditor({
         `/api/v1/admin/games/${game.id}/media`,
         body,
       );
+      notify({ tone: "good", message: kind === "cover" ? "游戏封面已更新" : "游戏视频已更新" });
       onChange();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "上传失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "上传失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -46,66 +50,42 @@ export function GameMediaEditor({
         },
       );
       if (response.error) {
-        throw new Error(response.error.message);
+        throw new ApiError(response.error.code, response.error.message, response.response.status);
       }
+      notify({ tone: "good", message: "游戏媒体已移除" });
       setRemoving(null);
       onChange();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "删除失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "删除失败，请重试。" });
     } finally {
       setBusy(false);
     }
   }
   return (
-    <div className="stack">
-      <div className="workspace-actions">
-        {(["cover", "video"] as const).map((kind) => (
-          <label className="button secondary" key={kind}>
-            {kind === "cover" ? "上传封面" : "上传视频"}
-            <input
-              type="file"
-              accept={kind === "cover" ? "image/*" : "video/*"}
-              disabled={busy}
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void send(file, kind);
-                }
-              }}
-            />
-          </label>
-        ))}
+    <section className="panel admin-game-media">
+      <div className="panel-head"><h2>媒体</h2><div className="admin-game-media-tabs" role="tablist" aria-label="游戏媒体">
+        <button type="button" className="button secondary option-tab" role="tab" aria-selected={kind === "cover"} onClick={() => setKind("cover")}>封面</button>
+        <button type="button" className="button secondary option-tab" role="tab" aria-selected={kind === "video"} onClick={() => setKind("video")}>视频</button>
+        {game.media.some((media) => media.kind === "screenshot") ? <button type="button" className="button secondary option-tab" role="tab" aria-selected={kind === "screenshot"} onClick={() => setKind("screenshot")}>截图</button> : null}
+      </div></div>
+      <div className="panel-body">
+        <div className="admin-game-media-stage">
+          {selected ? selected.kind === "video"
+            ? <video src={selected.url} controls preload="metadata" playsInline />
+            : <Image src={selected.url} alt={`${game.title} ${kind === "cover" ? "封面" : "截图"}`} fill sizes="(max-width: 767px) 90vw, 520px" unoptimized />
+            : <div className="admin-game-media-empty">暂无{kind === "video" ? "视频" : "封面"}</div>}
+        </div>
+        <div className="admin-game-media-footer"><span>{kind === "video" ? "游戏预览视频" : "游戏封面与画面"}</span><div>
+          {kind !== "screenshot" ? <label className="button secondary">
+            {selected ? "替换" : "上传"}{kind === "video" ? "视频" : "封面"}
+            <input type="file" accept={kind === "cover" ? "image/*" : "video/*"} disabled={busy} hidden onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) { void send(file, kind); }
+            }} />
+          </label> : null}
+          {selected ? <button type="button" className="button secondary" disabled={busy} onClick={() => { setRemoving(selected); }}>移除</button> : null}
+        </div></div>
       </div>
-      <div className="workspace-actions">
-        {game.media.map((media) => (
-          <div className="workspace-actions" key={media.id}>
-            <a href={media.url} target="_blank" rel="noreferrer">
-              {media.kind === "cover"
-                ? "当前封面"
-                : media.kind === "video"
-                  ? "当前视频"
-                  : "截图"}
-            </a>
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => {
-                setError("");
-                setRemoving(media);
-              }}
-            >
-              删除
-              {media.kind === "cover"
-                ? "封面"
-                : media.kind === "video"
-                  ? "视频"
-                  : "截图"}
-            </button>
-          </div>
-        ))}
-      </div>
-      {error ? <p role="alert">{error}</p> : null}
       <ConfirmDialog
         open={!!removing}
         title="删除游戏媒体"
@@ -115,6 +95,6 @@ export function GameMediaEditor({
         onCancel={() => setRemoving(null)}
         onConfirm={() => void remove()}
       />
-    </div>
+    </section>
   );
 }

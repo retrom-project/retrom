@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import { useToast } from "@/components/toast-provider";
 import { api, result, upload } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import type { PlayerRuntimeV1 } from "./runtime/contract";
 import { screenshotFileName } from "./screenshot-file";
 export function useReviewCover(run: Schema<"Run">) {
-  const [status, setStatus] = useState("");
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   async function save(runtime: PlayerRuntimeV1 | null) {
     if (!runtime || run.purpose !== "review") {
@@ -31,12 +32,12 @@ export function useReviewCover(run: Schema<"Run">) {
         `/api/v1/admin/games/${run.gameId}/media`,
         body,
       );
-      setStatus("当前画面已选为游戏封面。");
+      notify({ tone: "good", message: "当前画面已选为游戏封面。" });
     } catch (failure) {
-      setStatus(failure instanceof Error ? failure.message : "无法选用截图。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "无法选用截图。" });
     } finally {
       setBusy(false);
     }
   }
-  return { save, status, busy };
+  return { save, busy };
 }

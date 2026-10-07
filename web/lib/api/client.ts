@@ -27,7 +27,12 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
   ) {
-    super(message);
+    super(
+      code === "VERSION_CONFLICT" &&
+        ["", "VERSION_CONFLICT", "version conflict", "Item changed; refresh and try again"].includes(message)
+        ? "数据已变化或与现有记录冲突，请刷新后重试。"
+        : message,
+    );
   }
 }
 export function result<T>(response: {

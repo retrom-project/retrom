@@ -40,7 +40,7 @@ export function RecentCard({ item }: { item: Schema<"RecentGame"> }) {
           <LaunchButton gameId={item.game.id} />
         </div>
         <Link className="recent-history-detail" href={href}>
-          游戏详情<span>›</span>
+          游戏详情<AppIcon name="arrow-right" />
         </Link>
       </div>
     </article>

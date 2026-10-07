@@ -50,6 +50,7 @@ export function runtimeFixture(
     openNativeSettings: async () => undefined,
     closeNativeSettings: async () => undefined,
     setInputFilter: async () => undefined,
+    setHostShortcutPolicy: async () => undefined,
     getState: () => state,
     getCapabilities: () => ({
       checkpoint: true,

@@ -1,7 +1,8 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import Image from "next/image";
 import { useState } from "react";
-import { api } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import type { Save } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -28,11 +29,10 @@ export function SaveCard({
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const [menu, setMenu] = useState(false);
   const [name, setName] = useState(save.name);
-  const [error, setError] = useState("");
+  const { notify } = useToast();
   const [busy, setBusy] = useState(false);
   async function mutate() {
     setBusy(true);
-    setError("");
     const params = { path: { saveId: save.id } };
     try {
       const response =
@@ -46,12 +46,13 @@ export function SaveCard({
               body: { version: save.version, name },
             });
       if (response.error) {
-        throw new Error(response.error.message);
+        throw new ApiError(response.error.code, response.error.message, response.response.status);
       }
+      notify({ tone: "good", message: dialog === "delete" ? "存档已删除" : "存档名称已更新" });
       setDialog(null);
       onChange?.();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "操作失败。");
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "操作失败，请重试。" });
     } finally {
       setBusy(false);
     }
@@ -73,7 +74,7 @@ export function SaveCard({
                 aria-expanded={menu}
                 onClick={() => setMenu(!menu)}
               >
-                •••
+                <AppIcon name="more" />
               </button>
               {menu ? (
                 <div className="save-library-menu" role="menu">
@@ -146,7 +147,6 @@ export function SaveCard({
             />
           </label>
         ) : null}
-        {error ? <p role="alert">{error}</p> : null}
       </ConfirmDialog>
     </article>
   );

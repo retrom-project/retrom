@@ -33,9 +33,9 @@ export function FavoriteCard({
             />
           ) : (
             <div className="favorite-poster">
-              <small>{game.platformId}</small>
+              <small>RETROM CLASSICS</small>
               <strong>{game.title}</strong>
-              <span>RETROM</span>
+              <span>{game.platformId}</span>
             </div>
           )}
           <span>查看游戏</span>
@@ -63,7 +63,7 @@ export function FavoriteCard({
               aria-label={`整理${game.title}的收藏夹`}
               onClick={onOrganize}
             >
-              •••
+              <AppIcon name="more" />
             </button>
           </div>
         )}

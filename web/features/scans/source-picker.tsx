@@ -2,6 +2,8 @@
 import { useCallback } from "react";
 import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
+import { AppIcon } from "@/components/app-icon";
+import styles from "./scan.module.css";
 async function roots() {
   return result(await api.GET("/api/v1/admin/source-roots"));
 }
@@ -28,9 +30,9 @@ export function SourcePicker({
   );
   const directories = useResource(loader);
   return (
-    <div className="stack">
+    <div className={styles.picker}>
       <label className="field">
-        服务器来源
+        <span className="field-label">服务器来源</span>
         <select
           aria-label="服务器来源"
           value={rootId}
@@ -45,7 +47,7 @@ export function SourcePicker({
         </select>
       </label>
       <label className="field">
-        来源内目录
+        <span className="field-label">来源内目录</span>
         <input
           aria-label="来源内目录"
           value={relativePath}
@@ -53,27 +55,49 @@ export function SourcePicker({
           placeholder="相对路径，空值表示来源根目录"
         />
       </label>
-      <div className="workspace-actions">
-        {relativePath ? (
-          <button
-            className="button secondary"
-            onClick={() =>
-              onChange(rootId, relativePath.split("/").slice(0, -1).join("/"))
-            }
-          >
-            上级目录
-          </button>
-        ) : null}
-        {directories.data?.items.map((directory) => (
-          <button
-            className="button secondary"
-            key={directory.relativePath}
-            onClick={() => onChange(rootId, directory.relativePath)}
-          >
-            {directory.name}
-          </button>
-        ))}
-      </div>
+      {rootId ? (
+        <section
+          className={styles.directoryBrowser}
+          aria-label="服务器目录浏览器"
+        >
+          <header>{relativePath || "根目录"}</header>
+          <div className={styles.directoryRows}>
+            {relativePath ? (
+              <button
+                className="button ghost"
+                onClick={() =>
+                  onChange(
+                    rootId,
+                    relativePath.split("/").slice(0, -1).join("/"),
+                  )
+                }
+              >
+                <AppIcon name="arrow-left" />
+                <span>上级目录</span>
+              </button>
+            ) : null}
+            {directories.loading ? (
+              <p role="status">正在读取目录…</p>
+            ) : (
+              directories.data?.items.map((directory) => (
+                <button
+                  className="button ghost"
+                  key={directory.relativePath}
+                  onClick={() => onChange(rootId, directory.relativePath)}
+                >
+                  <AppIcon name="folder" />
+                  <span>{directory.name}</span>
+                </button>
+              ))
+            )}
+            {!directories.loading &&
+            !directories.error &&
+            !directories.data?.items.length ? (
+              <p>这个目录中没有子目录。</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       {sourceRoots.error || directories.error ? (
         <p role="alert">{sourceRoots.error || directories.error}</p>
       ) : null}

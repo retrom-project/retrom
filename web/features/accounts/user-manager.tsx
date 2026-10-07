@@ -1,14 +1,19 @@
 "use client";
 import { AccountLinkList } from "./account-link-list";
-import { UserTable } from "./user-table";
+import { UserResults } from "./user-table";
+import { UserEditor, InvitationForm, UserSearch } from "./user-forms";
 import { useCallback, useState } from "react";
-import { api, result } from "@/lib/api/client";
+import { api, result, ApiError } from "@/lib/api/client";
+import { useToast } from "@/components/toast-provider";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, FeedbackBanner } from "@/components/ui";
 import { ResourceState } from "@/components/resource-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { AccountLinkDialog } from "./user-link-dialog";
 export function UserManager() {
+  const { notify } = useToast();
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
   const loader = useCallback(
@@ -21,24 +26,41 @@ export function UserManager() {
     [offset, q],
   );
   const users = useResource(loader);
-  const [deleting,setDeleting]=useState<Schema<"User">|null>(null);
+  const [deleting, setDeleting] = useState<Schema<"User"> | null>(null);
   const [link, setLink] = useState<Schema<"AccountLink"> | null>(null);
   const [editing, setEditing] = useState<Schema<"User"> | null>(null);
+  const [inviting, setInviting] = useState(false);
   const [error, setError] = useState("");
-  async function invitation(role: "admin" | "user") {
+  const [busy, setBusy] = useState(false);
+  const [linkRevision, setLinkRevision] = useState(0);
+  const reportFailure = useAccountError(setError);
+  function openEdit(user: Schema<"User">) {
+    setError("");
+    setEditing(user);
+  }
+  async function invitation(role: "admin" | "user", expiresInHours: number) {
+    setBusy(true);
+    setError("");
     try {
       setLink(
         result(
           await api.POST("/api/v1/admin/invitations", {
-            body: { role, expiresInHours: 72 },
+            body: { role, expiresInHours },
           }),
         ),
       );
+      setInviting(false);
+      notify({ tone: "good", message: "邀请链接已创建。" });
+      setLinkRevision((value) => value + 1);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "邀请创建失败。");
+      reportFailure(failure, "邀请创建失败。");
+    } finally {
+      setBusy(false);
     }
   }
   async function reset(userId: string) {
+    setBusy(true);
+    setError("");
     try {
       setLink(
         result(
@@ -48,16 +70,21 @@ export function UserManager() {
           }),
         ),
       );
+      setEditing(null);
+      notify({ tone: "good", message: "密码重置链接已创建。" });
+      setLinkRevision((value) => value + 1);
     } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : "重置链接创建失败。",
-      );
+      reportFailure(failure, "重置链接创建失败。");
+    } finally {
+      setBusy(false);
     }
   }
   async function save() {
     if (!editing) {
       return;
     }
+    setBusy(true);
+    setError("");
     try {
       result(
         await api.PATCH("/api/v1/admin/users/{userId}", {
@@ -72,175 +99,178 @@ export function UserManager() {
       );
       setEditing(null);
       users.reload();
+      notify({ tone: "good", message: "账号已更新。" });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "账号更新失败。");
+      reportFailure(failure, "账号更新失败。");
+    } finally {
+      setBusy(false);
     }
   }
   async function removeUser() {
-    if(!deleting){return;}
-    const response=await api.PATCH("/api/v1/admin/users/{userId}",{params:{path:{userId:deleting.id}},body:{version:deleting.version,displayName:deleting.displayName,role:deleting.role,status:"deleted"}});
-    if(response.error){setError(response.error.message);return;}
-    setDeleting(null);setEditing(null);users.reload();
+    if (!deleting) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      result(
+        await api.PATCH("/api/v1/admin/users/{userId}", {
+          params: { path: { userId: deleting.id } },
+          body: {
+            version: deleting.version,
+            displayName: deleting.displayName,
+            role: deleting.role,
+            status: "deleted",
+          },
+        }),
+      );
+      setDeleting(null);
+      setEditing(null);
+      users.reload();
+      notify({ tone: "good", message: "账号已删除。" });
+    } catch (failure) {
+      reportFailure(failure, "删除账号失败。");
+    } finally {
+      setBusy(false);
+    }
   }
   async function revoke() {
     if (!link) {
       return;
     }
-    const response = await api.DELETE(
-      "/api/v1/admin/account-links/{accountLinkId}",
-      {
-        params: { path: { accountLinkId: link.id } },
-        body: { version: link.version },
-      },
-    );
-    if (response.error) {
-      setError(response.error.message);
-      return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api.DELETE(
+        "/api/v1/admin/account-links/{accountLinkId}",
+        {
+          params: { path: { accountLinkId: link.id } },
+          body: { version: link.version },
+        },
+      );
+      if (response.error) {
+        throw new ApiError(response.error.code, response.error.message, response.response.status);
+      }
+      setLink(null);
+      notify({ tone: "good", message: "链接已撤销。" });
+      setLinkRevision((value) => value + 1);
+    } catch (failure) {
+      reportFailure(failure, "撤销失败。");
+    } finally {
+      setBusy(false);
     }
-    setLink(null);
   }
   return (
-    <>
+    <div className="user-admin-page">
       <PageHeader
         title="用户管理"
-        description="管理账号与安全状态。收藏、存档和最近游玩保持用户私有。"
+        description="创建邀请并管理谁可以登录；收藏、存档和最近游玩始终保持私有。"
         actions={
-          <div className="workspace-actions">
-            <button className="button" onClick={() => void invitation("user")}>
-              邀请用户
-            </button>
-            <button
-              className="button secondary"
-              onClick={() => void invitation("admin")}
-            >
-              邀请管理员
-            </button>
-          </div>
+          <button
+            className="button"
+            onClick={() => {
+              setError("");
+              setInviting(true);
+            }}
+          >
+            创建邀请
+          </button>
         }
       />
-      {error ? <p role="alert">{error}</p> : null}
-      <div className="panel workspace-section">
-        <label className="field">
-          搜索用户
-          <input
-            value={q}
-            placeholder="用户名或显示名称"
-            onChange={(event) => {
-              setQ(event.target.value);
-              setOffset(0);
-            }}
-          />
-        </label>
-      </div>
+      {error && !editing && !inviting && !link && !deleting ? (
+        <FeedbackBanner tone="bad">{error}</FeedbackBanner>
+      ) : null}
+      <UserSearch
+        onSearch={(value) => {
+          setQ(value);
+          setOffset(0);
+        }}
+      />
       <ResourceState resource={users}>
         {(data) => (
-          <>
-            <UserTable
-              users={data.items}
-              onEdit={setEditing}
-              onReset={(id) => void reset(id)}
-            />
-            <div className="library-pagination">
-              <button
-                className="button secondary"
-                disabled={offset === 0}
-                onClick={() => setOffset(offset - 24)}
-              >
-                上一页
-              </button>
-              <span>{data.total} 位用户</span>
-              <button
-                className="button secondary"
-                disabled={offset + data.items.length >= data.total}
-                onClick={() => setOffset(offset + 24)}
-              >
-                下一页
-              </button>
-            </div>
-          </>
+          <UserResults
+            data={data}
+            offset={offset}
+            onPage={setOffset}
+            onEdit={openEdit}
+          />
         )}
       </ResourceState>
-      <AccountLinkList key={link?.id} />
-      <ConfirmDialog
-        open={editing !== null}
-        title="编辑账号"
-        onCancel={() => setEditing(null)}
-        onConfirm={() => void save()}
+      <AccountLinkList key={linkRevision} />
+      <ResponsiveSheet
+        open={inviting}
+        busy={busy}
+        title="创建邀请"
+        description="完整链接只会在创建成功后显示一次。"
+        placement="right"
+        className="user-management-sheet"
+        onClose={() => setInviting(false)}
+      >
+        <InvitationForm
+          busy={busy}
+          error={error}
+          onCancel={() => setInviting(false)}
+          onSubmit={(role, hours) => void invitation(role, hours)}
+        />
+      </ResponsiveSheet>
+      <ResponsiveSheet
+        open={editing !== null && !deleting}
+        busy={busy}
+        title="管理用户"
+        description="只管理账号与安全状态，不提供他人的私有游戏数据。"
+        placement="right"
+        className="user-management-sheet"
+        onClose={() => setEditing(null)}
       >
         {editing ? (
-          <div className="stack">
-            <label className="field">
-              显示名称
-              <input
-                value={editing.displayName}
-                onChange={(event) =>
-                  setEditing({ ...editing, displayName: event.target.value })
-                }
-              />
-            </label>
-            <label className="field">
-              角色
-              <select
-                value={editing.role}
-                onChange={(event) => {
-                  if (
-                    event.target.value === "admin" ||
-                    event.target.value === "user"
-                  ) {
-                    setEditing({ ...editing, role: event.target.value });
-                  }
-                }}
-              >
-                <option value="user">普通用户</option>
-                <option value="admin">管理员</option>
-              </select>
-            </label>
-            <label className="field">
-              账号状态
-              <select
-                value={editing.status}
-                onChange={(event) => {
-                  if (
-                    event.target.value === "active" ||
-                    event.target.value === "disabled"
-                  ) {
-                    setEditing({ ...editing, status: event.target.value });
-                  }
-                }}
-              >
-                <option value="active">正常</option>
-                <option value="disabled">停用</option>
-              </select>
-            </label>
-            <button className="button danger" onClick={()=>setDeleting(editing)}>删除账号</button>
-            {error ? <p role="alert">{error}</p> : null}
-          </div>
+          <UserEditor
+            user={editing}
+            busy={busy}
+            error={error}
+            onChange={setEditing}
+            onSave={() => void save()}
+            onReset={() => void reset(editing.id)}
+            onDelete={() => {
+              setError("");
+              setDeleting(editing);
+            }}
+          />
         ) : null}
-      </ConfirmDialog>
-      <ConfirmDialog open={!!deleting} title="删除账号" description="这个账号将无法登录，其私有游戏数据随后清理。" tone="danger" onCancel={()=>setDeleting(null)} onConfirm={()=>void removeUser()}>{error?<p role="alert">{error}</p>:null}</ConfirmDialog>
+      </ResponsiveSheet>
       <ConfirmDialog
-        open={link !== null}
-        title={link?.kind === "invitation" ? "账号邀请链接" : "密码重置链接"}
-        confirmLabel="关闭"
-        secondaryLabel="撤销链接"
-        onCancel={() => setLink(null)}
-        onConfirm={() => setLink(null)}
-        onSecondary={() => void revoke()}
+        open={!!deleting}
+        title="删除账号"
+        description="这个账号将无法登录，其私有游戏数据随后清理。"
+        tone="danger"
+        busy={busy}
+        confirmLabel="删除账号"
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => void removeUser()}
       >
-        {link ? (
-          <div className="stack">
-            <label className="field">
-              链接
-              <input
-                value={link.url}
-                readOnly
-                onFocus={(event) => event.target.select()}
-              />
-            </label>
-            <p>有效期至 {new Date(link.expiresAtMs).toLocaleString("zh-CN")}</p>
-          </div>
-        ) : null}
+        {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
       </ConfirmDialog>
-    </>
+      {link ? (
+        <AccountLinkDialog
+          key={link.id}
+          link={link}
+          busy={busy}
+          error={error}
+          onClose={() => setLink(null)}
+          onRevoke={() => void revoke()}
+        />
+      ) : null}
+    </div>
   );
+}
+
+function useAccountError(onValidation: (message: string) => void) {
+  const { notify } = useToast();
+  return (failure: unknown, fallback: string) => {
+    const message = failure instanceof Error ? failure.message : fallback;
+    if (failure instanceof ApiError && failure.status === 400) {
+      onValidation(message);
+    } else {
+      notify({ tone: "bad", message });
+    }
+  };
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SaveFailureNotice } from "@/features/player/save-failure-notice";
 import { AppShell } from "@/components/app-shell";
 import { AuthProvider } from "@/features/auth/auth-provider";
+import { ToastProvider } from "@/components/toast-provider";
 import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Retrom", template: "%s · Retrom" },
@@ -13,10 +14,12 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
-        <AuthProvider>
-          <AppShell>{children}</AppShell>
-          <SaveFailureNotice />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+            <SaveFailureNotice />
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

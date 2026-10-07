@@ -9,9 +9,11 @@ import type {
   RuntimeEventV1,
   RuntimeFinalSnapshotV1,
   RuntimeStateV1,
+  RuntimeStartupTaskV1,
 } from "./runtime/contract";
 import { disposeRuntime } from "./runtime/dispose-runtime";
 import { startupLabel } from "./startup-label";
+import { StartupTimeline } from "./startup-task-model";
 import { createRuntimeHost } from "./runtime/runtime-host";
 import { loadProviderRuntime } from "./runtime/provider-dispatcher";
 import { validateLaunchEnvelopeBoundary } from "./runtime/envelope";
@@ -24,13 +26,14 @@ export function usePlayerSession(
   onUnmountSnapshot: (snapshot: RuntimeFinalSnapshotV1) => Promise<void>,
   userId: string,
   contentLoading: ContentLoading,
+  onBeforeUnmount: () => Promise<void>,
 ) {
   const mount = useRef<HTMLDivElement>(null);
   const runtime = useRef<PlayerRuntimeV1 | null>(null);
-  const callbacks = useRef({ onNativeChange, onExit, onUnmountSnapshot });
+  const callbacks = useRef({ onNativeChange, onExit, onUnmountSnapshot, onBeforeUnmount });
   useEffect(() => {
-    callbacks.current = { onNativeChange, onExit, onUnmountSnapshot };
-  }, [onNativeChange, onExit, onUnmountSnapshot]);
+    callbacks.current = { onNativeChange, onExit, onUnmountSnapshot, onBeforeUnmount };
+  }, [onNativeChange, onExit, onUnmountSnapshot, onBeforeUnmount]);
   const [state, setState] = useState<RuntimeStateV1>("CREATED");
   const [error, setError] = useState("");
   const [availability, setAvailability] =
@@ -39,8 +42,10 @@ export function usePlayerSession(
       reason: null,
     });
   const [step, setStep] = useState("正在准备运行环境…");
+  const [tasks, setTasks] = useState<RuntimeStartupTaskV1[]>([]);
   useEffect(() => {
     const controller = new AbortController();
+    const timeline = new StartupTimeline();
     let unsubscribe: (() => void) | undefined;
     let instance: PlayerRuntimeV1 | null = null;
     function receive(event: RuntimeEventV1) {
@@ -52,6 +57,7 @@ export function usePlayerSession(
       }
       if (event.type === "LOAD_TASK") {
         setStep(startupLabel(event.task.kind));
+        setTasks(timeline.receive(event.task));
       }
       if (event.type === "FATAL_ERROR") {
         setError(
@@ -75,6 +81,10 @@ export function usePlayerSession(
     }
     async function start() {
       try {
+        setState("MOUNTING");
+        setError("");
+        const providerTask: RuntimeStartupTaskV1 = { id: "host:provider-module", kind: "PROVIDER_MODULE", state: "RUNNING", progress: null };
+        setTasks(timeline.receive(providerTask));
         const original = validateLaunchEnvelopeBoundary(run.envelope);
         const envelope: LaunchEnvelopeV1 = restore
           ? {
@@ -101,6 +111,7 @@ export function usePlayerSession(
           return;
         }
         runtime.current = instance;
+        setTasks(timeline.receive({ ...providerTask, state: "COMPLETED" }));
         unsubscribe = instance.subscribe(receive);
         if (!mount.current) {
           throw new Error("无法建立游戏画面。");
@@ -138,7 +149,7 @@ export function usePlayerSession(
       if (!mounted) {
         controller.abort();
       }
-      void disposeRuntime(instance, callbacks.current.onUnmountSnapshot)
+      void disposeRuntime(instance, callbacks.current.onUnmountSnapshot, callbacks.current.onBeforeUnmount)
         .catch((failure) =>
           window.dispatchEvent(
             new CustomEvent("retrom:save-failure", {
@@ -155,7 +166,7 @@ export function usePlayerSession(
         .finally(() => controller.abort());
     };
   }, [run, restore, userId, contentLoading]);
-  return { mount, runtime, state, error, availability, step };
+  return { mount, runtime, state, error, availability, step, tasks };
 }
 async function hash(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest(

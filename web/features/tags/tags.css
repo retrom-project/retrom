@@ -38,9 +38,9 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-table { width: 100%; min-width: 980px; border-collapse: collapse; }
 .tag-table th, .tag-table td { height: 58px; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); text-align: left; }
 .tag-table thead th { height: 44px; color: var(--muted); background: var(--surface-subtle); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: .04em; }
-.tag-table tbody th { max-width: 240px; position: sticky; left: 0; z-index: 1; color: var(--ink); background: var(--surface); }
+.tag-table tbody th { max-width: 240px; position: sticky; left: 0; z-index: 1; color: var(--ink); background: var(--surface); text-transform: none; letter-spacing: normal; }
 .tag-table tbody th strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tag-table td:last-child, .tag-table thead th:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -8px 0 14px rgb(255 255 255 / 92%); }
+.tag-table td:last-child, .tag-table thead th:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -8px 0 14px rgb(0 0 0 / 12%); }
 .tag-table thead th:last-child { background: var(--surface-subtle); }
 .tag-table a { color: var(--purple-dark); font-weight: var(--weight-semibold); }
 .tag-row-actions { display: flex; gap: 8px; }

@@ -9,8 +9,10 @@ function subscribe(listener: () => void) {
 
 export function PlayerFullscreenControl({
   onError,
+  menu = false,
 }: {
   onError: (message: string) => void;
+  menu?: boolean;
 }) {
   const active = useSyncExternalStore(
     subscribe,
@@ -35,12 +37,14 @@ export function PlayerFullscreenControl({
   }
   return (
     <button
-      className="player-control is-icon"
-      aria-label={active ? "退出全屏" : "全屏"}
+      className={menu ? undefined : "player-control is-icon"}
+      role={menu ? "menuitem" : undefined}
+      aria-label={menu ? active ? "在更多操作中退出全屏" : "在更多操作中进入全屏" : active ? "退出全屏" : "全屏"}
       disabled={!enabled}
       onClick={() => void toggle()}
     >
       <AppIcon name={active ? "minimize" : "maximize"} />
+      {menu ? <span>{active ? "退出全屏" : "进入全屏"}</span> : null}
     </button>
   );
 }

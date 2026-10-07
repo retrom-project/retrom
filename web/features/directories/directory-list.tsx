@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Directory, Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { directoryCategories, categoryForPlatform } from "./platform-category";
+import { DirectoryMenu } from "./directory-menu";
 export function DirectoryList({
   directories,
   catalog,
@@ -112,7 +113,7 @@ export function DirectoryList({
                   )
                 }
               >
-                <AppIcon name="arrow-left" />
+                <AppIcon name="chevron-down" />
                 {group.label}
                 <small>{group.items.length} 个目录</small>
               </button>
@@ -199,22 +200,11 @@ function DirectoryTable({
             >
               {directory.enabled ? "启用" : "停用"}
             </span>
-            <div className="workspace-actions">
-              <button
-                className="platform-directory-more"
-                aria-label={`编辑${directory.name}`}
-                onClick={() => onEdit(directory)}
-              >
-                ⋯
-              </button>
-              <button
-                className="platform-directory-more"
-                aria-label={`删除${directory.name}`}
-                onClick={() => onDelete(directory)}
-              >
-                ×
-              </button>
-            </div>
+            <DirectoryMenu
+              directory={directory}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </article>
         ))}
       </div>

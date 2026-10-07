@@ -8,10 +8,9 @@ type EmulatorWindow = Window & {
 };
 
 export async function nesFrame(page: Page) {
-  await expect(page.getByRole("heading", { name: "正在启动游戏" })).toHaveCount(
-    0,
-  );
-  const frame = page.frames().find((item) => item !== page.mainFrame());
+  const surface = page.locator(".player-runtime-mount iframe");
+  await expect(surface).toBeVisible({ timeout: 60_000 });
+  const frame = await (await surface.elementHandle())?.contentFrame();
   if (!frame) {
     throw new Error("The NES runtime frame is missing.");
   }

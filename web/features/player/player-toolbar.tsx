@@ -1,36 +1,13 @@
 "use client";
 import { useRef } from "react";
-import type {
-  LaunchEnvelopeV1,
-  RuntimeCheckpointAvailabilityV1,
-  RuntimeStateV1,
-} from "./runtime/contract";
+import type { LaunchEnvelopeV1, RuntimeCheckpointAvailabilityV1, RuntimeStateV1 } from "./runtime/contract";
 import { AppIcon } from "@/components/app-icon";
 import { PlayerFullscreenControl } from "./player-fullscreen-control";
 import { PlayerHudHandle } from "./player-hud-handle";
-export function PlayerToolbar({
-  envelope,
-  state,
-  availability,
-  busy,
-  status,
-  visible,
-  onReveal,
-  onHover,
-  onFocus,
-  onPause,
-  onSave,
-  onExit,
-  onScreenshot,
-  onSettings,
-  onUseCover,
-  settingsOpen,
-  onVolume,
-  onVideo,
-  menu,
-  onMenu,
-  onControlError,
-}: {
+import { useMobilePlayerLayout } from "./player-layout";
+
+type Props = {
+  immersive?: boolean;
   envelope: LaunchEnvelopeV1;
   state: RuntimeStateV1;
   availability: RuntimeCheckpointAvailabilityV1;
@@ -38,6 +15,8 @@ export function PlayerToolbar({
   status: string;
   visible: boolean;
   menu: boolean;
+  debugOpen: boolean;
+  onDebug: () => void;
   onMenu: () => void;
   onControlError: (message: string) => void;
   onReveal: () => void;
@@ -46,205 +25,66 @@ export function PlayerToolbar({
   onPause: () => void;
   onSave: () => void;
   onExit: () => void;
-  onScreenshot: () => void;
   onSettings: () => void;
   onUseCover?: () => void;
-  settingsOpen: boolean;
-  onVolume: (value: number) => void;
-  onVideo: (
-    value: LaunchEnvelopeV1["runtime"]["capabilities"]["videoModes"][number],
-  ) => void;
-}) {
-  const capabilities = envelope.runtime.capabilities;
-  const controls = controlState(capabilities, state, availability, busy);
+};
+export function PlayerToolbar(props: Props) {
+  const { envelope, state, availability, busy, visible, onReveal, onHover, onFocus, onPause, onSave, onExit, onControlError } = props;
+  const controls = controlState(envelope.runtime.capabilities, state, availability, busy);
   const toolbarRef = useRef<HTMLElement>(null);
-  return (
-    <>
-      <PlayerHudHandle
-        visible={visible}
-        toolbarRef={toolbarRef}
-        onReveal={onReveal}
-      />
-      <header
-        ref={toolbarRef}
-        className={`player-toolbar${visible ? " is-visible" : ""}`}
-        onPointerEnter={() => onHover(true)}
-        onPointerLeave={() => onHover(false)}
-        onFocusCapture={() => onFocus(true)}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            onFocus(false);
-          }
-        }}
-      >
-        <div className="player-game-meta">
-          <strong>{envelope.session.title}</strong>
-          <span>{envelope.session.coreName}</span>
+  const mobile = useMobilePlayerLayout();
+  if (props.immersive) { return null; }
+  return <>
+    <PlayerHudHandle visible={visible} toolbarRef={toolbarRef} onReveal={onReveal} />
+    <header ref={toolbarRef} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)} onFocusCapture={() => onFocus(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}>
+      <button className="player-back button ghost icon-only" aria-label="返回并退出游戏" onClick={onExit}><AppIcon name="arrow-left" /></button>
+      <div className="player-game-meta"><strong>{envelope.session.title}</strong><span>{[envelope.session.coreName, envelope.session.platformName].filter(Boolean).join(" · ")}</span></div>
+      <PlayerSyncStatus {...props} />
+      <div className="player-actions">
+        {!mobile ? <button className="player-control player-debug-control" aria-expanded={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button> : null}
+        <button className="player-control player-save-button player-context-action is-primary" disabled={controls.saveDisabled} onClick={onSave}><AppIcon name="save" />{envelope.runtime.checkpoint?.semantics === "GAME_SAVE" ? "同步存档" : mobile ? "保存" : "创建存档"}</button>
+        <button className="player-control is-icon" aria-label={state === "PAUSED" ? "继续" : "暂停"} aria-pressed={state === "PAUSED"} disabled={controls.pauseDisabled} onClick={onPause}><AppIcon name={state === "PAUSED" ? "play" : "pause"} /></button>
+        {!mobile ? <PlayerFullscreenControl onError={onControlError} /> : null}
+        <div className="player-menu-wrap">
+          <button id="player-more-button" className="player-control is-icon" aria-label="更多操作" aria-haspopup="menu" aria-expanded={props.menu} onClick={props.onMenu}><AppIcon name="more" /></button>
+          {props.menu ? <PlayerMenu {...props} controls={controls} /> : null}
         </div>
-        <PlayerSyncStatus busy={busy} status={status} />
-        <div className="player-actions">
-          <button
-            className="player-control is-icon"
-            aria-label={state === "PAUSED" ? "继续" : "暂停"}
-            disabled={controls.pauseDisabled}
-            onClick={onPause}
-          >
-            <AppIcon name={state === "PAUSED" ? "play" : "pause"} />
-          </button>
-          <button
-            className="player-control player-save-button"
-            disabled={controls.saveDisabled}
-            onClick={onSave}
-          >
-            <AppIcon name="save" />
-            保存
-          </button>
-          <PlayerFullscreenControl onError={onControlError} />
-          <div className="player-menu-wrap">
-            <button
-              className="player-control is-icon"
-              aria-label="运行菜单"
-              aria-expanded={menu}
-              onClick={onMenu}
-            >
-              <AppIcon name="menu" />
-            </button>
-            {menu ? (
-              <>
-                <button
-                  className="player-menu-backdrop"
-                  aria-label="关闭运行菜单"
-                  onClick={onMenu}
-                />
-                <div className="player-menu">
-                  <header className="player-menu-head">
-                    <div>
-                      <small>Retrom</small>
-                      <strong>运行菜单</strong>
-                    </div>
-                    <button aria-label="关闭运行菜单" onClick={onMenu}>
-                      <AppIcon name="x" />
-                    </button>
-                  </header>
-                  <div className="player-menu-runtime">
-                    <i />
-                    <span>
-                      <strong>{envelope.session.title}</strong>
-                      <small>{envelope.session.coreName}</small>
-                    </span>
-                  </div>
-                  <button
-                    aria-label="保存截图"
-                    disabled={controls.screenshotDisabled}
-                    onClick={onScreenshot}
-                  >
-                    <AppIcon name="download" />
-                    <span>保存截图</span>
-                  </button>
-                  {onUseCover ? (
-                    <button
-                      aria-label="选用当前截图为封面"
-                      disabled={controls.coverDisabled}
-                      onClick={onUseCover}
-                    >
-                      <AppIcon name="library" />
-                      <span>选用当前截图为封面</span>
-                    </button>
-                  ) : null}
-                  <button
-                    aria-label={settingsOpen ? "关闭运行设置" : "运行设置"}
-                    disabled={controls.settingsDisabled}
-                    onClick={onSettings}
-                  >
-                    <AppIcon name="settings" />
-                    <span>{settingsOpen ? "关闭运行设置" : "运行设置"}</span>
-                  </button>
-                  {capabilities.volume ? (
-                    <label className="field">
-                      音量
-                      <input
-                        type="range"
-                        disabled={!controls.ready}
-                        min="0"
-                        max="100"
-                        defaultValue="100"
-                        onChange={(event) =>
-                          onVolume(Number(event.target.value) / 100)
-                        }
-                      />
-                    </label>
-                  ) : null}
-                  {capabilities.videoModes.length ? (
-                    <label className="field">
-                      画面
-                      <select
-                        disabled={!controls.ready}
-                        defaultValue={capabilities.videoModes[0]}
-                        onChange={(event) =>
-                          onVideo(
-                            event.target
-                              .value as (typeof capabilities.videoModes)[number],
-                          )
-                        }
-                      >
-                        {capabilities.videoModes.map((mode) => (
-                          <option key={mode} value={mode}>
-                            {videoLabels[mode]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                  <hr />
-                  <button
-                    aria-label="退出游戏"
-                    className="is-danger"
-                    onClick={onExit}
-                  >
-                    <AppIcon name="log-out" />
-                    <span>退出游戏</span>
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </header>
-    </>
-  );
+      </div>
+    </header>
+  </>;
 }
-function controlState(
-  capabilities: LaunchEnvelopeV1["runtime"]["capabilities"],
-  state: RuntimeStateV1,
-  availability: RuntimeCheckpointAvailabilityV1,
-  busy: boolean,
-) {
+function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }) {
+  const { controls, onMenu, onSettings, onUseCover, onExit, onControlError } = props;
+  return <>
+    <button className="player-menu-backdrop" tabIndex={-1} aria-label="关闭更多操作" onClick={onMenu} />
+    <div className="player-menu" role="menu" aria-label="Player 更多操作">
+      <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button aria-label="关闭更多操作" onClick={onMenu}><AppIcon name="x" /></button></header>
+      <div className="player-menu-runtime"><i /><span><strong>{props.status || checkpointStatus(props.envelope, props.availability)}</strong><small>{props.state === "PAUSED" ? "当前已暂停" : props.envelope.session.coreName}</small></span></div>
+      {onUseCover ? <button role="menuitem" aria-label="选用当前截图为封面" disabled={controls.coverDisabled} onClick={onUseCover}><AppIcon name="library" /><span>选用当前截图为封面</span></button> : null}
+      {controls.settingsAvailable ? <button role="menuitem" aria-label="模拟器设置" disabled={!controls.ready} onClick={onSettings}><AppIcon name="settings" /><span>模拟器设置</span></button> : null}
+      <PlayerFullscreenControl menu onError={onControlError} />
+      <hr />
+      <button role="menuitem" aria-label="退出游戏" className="is-danger" onClick={onExit}><AppIcon name="log-out" /><span>退出游戏</span></button>
+    </div>
+  </>;
+}
+function controlState(capabilities: LaunchEnvelopeV1["runtime"]["capabilities"], state: RuntimeStateV1, availability: RuntimeCheckpointAvailabilityV1, busy: boolean) {
   const ready = state === "RUNNING" || state === "PAUSED";
   return {
     ready,
     pauseDisabled: !ready || !capabilities.pause,
     saveDisabled: !ready || !availability.available || busy,
-    screenshotDisabled: !ready || !capabilities.screenshot,
     coverDisabled: !ready || !capabilities.screenshot || busy,
-    settingsDisabled: !ready || !capabilities.nativeSettings,
+    settingsAvailable: capabilities.nativeSettings || capabilities.volume || capabilities.videoModes.length > 0,
   };
 }
-function PlayerSyncStatus({ busy, status }: { busy: boolean; status: string }) {
-  return (
-    <div
-      className={`player-sync-status${busy ? " is-busy" : ""}`}
-      role="status"
-      aria-label={busy ? "正在同步…" : status || "运行中"}
-    >
-      <i />
-      <span>{busy ? "正在同步…" : status}</span>
-    </div>
-  );
+function PlayerSyncStatus({ busy, status, state, availability, envelope }: Pick<Props, "busy" | "status" | "state" | "availability" | "envelope">) {
+  const starting = state === "CREATED" || state === "MOUNTING";
+  const label = busy ? "正在同步…" : status || (starting ? "正在连接…" : checkpointStatus(envelope, availability));
+  return <div className={`player-sync-status${busy || starting ? " is-busy" : ""}`} role="status" aria-label={label}><i /><span>{label}</span></div>;
 }
-const videoLabels = {
-  original: "原始画面",
-  pixel: "像素清晰",
-  smooth: "平滑",
-  "sharp-bilinear": "清晰双线性",
-  "adaptive-sharpen": "自适应锐化",
-};
+
+function checkpointStatus(envelope: LaunchEnvelopeV1, availability: RuntimeCheckpointAvailabilityV1) {
+  if (!availability.available) { return "游戏运行中"; }
+  return envelope.runtime.checkpoint?.semantics === "GAME_SAVE" ? "有待同步的游戏数据" : "可创建存档";
+}

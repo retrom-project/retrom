@@ -4,6 +4,8 @@
 
 .responsive-sheet-layer { position: fixed; z-index: 220; inset: 0; }
 .responsive-sheet-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: rgb(12 17 28 / 58%); cursor: default; backdrop-filter: blur(3px); }
+.responsive-sheet-layer[data-placement="left"] .responsive-sheet-backdrop,
+.responsive-sheet-layer[data-placement="right"] .responsive-sheet-backdrop { background: rgb(17 23 39 / 40%); backdrop-filter: none; }
 .responsive-sheet { position: absolute; min-width: 0; overflow: hidden; display: flex; flex-direction: column; color: var(--ink); border: 1px solid var(--line); background: var(--surface-raised); box-shadow: 0 24px 70px rgb(12 17 28 / 28%); }
 .responsive-sheet-bottom { right: 0; bottom: 0; left: 0; max-height: 88dvh; border-width: 1px 0 0; border-radius: var(--radius-dialog) var(--radius-dialog) 0 0; padding-bottom: env(safe-area-inset-bottom); }
 .responsive-sheet-left { top: 0; bottom: 0; left: 0; width: min(320px, 88vw); height: 100dvh; border-width: 0 1px 0 0; }
@@ -362,15 +364,8 @@
   .invitation-list td { height: auto; min-width: 0; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; text-align: right; overflow-wrap: anywhere; }
   .user-table td:first-child,
   .invitation-list td:first-child { padding-bottom: 8px; display: grid; justify-content: start; text-align: left; border-bottom: 1px solid var(--line); }
-  .user-table td:nth-child(2)::before { content: "角色"; }
-  .user-table td:nth-child(3)::before { content: "状态"; }
-  .user-table td:nth-child(4)::before { content: "最近登录"; }
-  .user-table td:nth-child(5)::before { content: "创建时间"; }
-  .user-table td:nth-child(6)::before { content: "活跃会话"; }
-  .invitation-list td:nth-child(2)::before { content: "创建者"; }
-  .invitation-list td:nth-child(3)::before { content: "创建时间"; }
-  .invitation-list td:nth-child(4)::before { content: "到期时间"; }
-  .invitation-list td:nth-child(5)::before { content: "状态"; }
+  .user-table td:not(:first-child)::before,
+  .invitation-list td:not(:first-child)::before { content: attr(data-label); }
   .user-table td::before,
   .invitation-list td::before { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
   .user-table td:last-child,

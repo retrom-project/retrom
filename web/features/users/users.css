@@ -1,5 +1,12 @@
 .user-admin-page > .feedback-banner { margin-bottom: 14px; }
-.user-filters input.select { width: 100%; }
+.user-filters { margin-bottom: 18px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.user-filters .field { min-width: 0; gap: 6px; }
+.user-management-sheet.responsive-sheet { width: min(520px, calc(100% - 32px)); background: var(--surface); }
+.user-management-sheet .responsive-sheet-head { min-height: 94px; padding: 19px 22px; background: var(--surface); }
+.user-management-sheet .responsive-sheet-head h2 { font-size: var(--text-section); }
+.user-management-sheet .responsive-sheet-body { padding: 22px; }
+.user-management-sheet .form-field > input { width: 100%; }
+@media (max-width: 560px) { .user-management-sheet.responsive-sheet { width: 100%; } }
 .user-table-panel { overflow: hidden; }
 .user-table-wrap { max-width: 100%; overflow: auto; }
 .user-table { min-width: 1060px; width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -14,6 +21,9 @@
 .table-action { min-height: 33px; padding: 0 12px; font-size: var(--text-caption); }
 .load-more-row { padding: 14px; display: flex; justify-content: center; }
 .invitation-list { margin-top: 20px; overflow: hidden; }
+.invitation-heading { min-height: 62px; padding: 0 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.invitation-heading h2 { margin: 0; font-size: var(--text-body); font-weight: var(--weight-semibold); }
+.invitation-heading p { margin: 0; color: var(--muted); font-size: var(--text-caption); }
 .invitation-list > summary { min-height: 62px; padding: 0 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: var(--weight-semibold); }
 .invitation-list > summary small { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-medium); }
 .invitation-toolbar { padding: 12px 18px; display: flex; justify-content: flex-end; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-subtle); }

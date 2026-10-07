@@ -132,7 +132,10 @@ export function BiosList({
             ))}
           </div>
           {!group.items.length ? (
-            <p className="workspace-note">暂无匹配项目。</p>
+            <div className="runtime-inline-empty compact">
+              <h2>暂无匹配项目</h2>
+              <p>可调整搜索条件查看其他 BIOS 要求。</p>
+            </div>
           ) : null}
         </section>
       ))}
@@ -153,11 +156,14 @@ function BiosRow({
   return (
     <article className="runtime-bios-row">
       <div className="runtime-bios-file">
-        <span className="runtime-file-mark">BIOS</span>
+        <span className="runtime-file-mark">
+          {item.name.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}
+        </span>
         <div>
           <h3>{item.name}</h3>
           <p>
-            {item.required ? "必需" : "可选"} · {item.filename}
+            {item.required ? "必需" : "可选"}
+            {item.filename ? ` · ${item.filename}` : ""}
           </p>
           {item.sha256 ? (
             <dl className="runtime-technical">

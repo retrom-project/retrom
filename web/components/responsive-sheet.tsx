@@ -63,9 +63,9 @@ export function ResponsiveSheet({
     const body = document.body;
     const previousOverflow = body.style.overflow;
     const previousPaddingRight = body.style.paddingRight;
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
+    const previousBodyWidth = body.getBoundingClientRect().width;
     body.style.overflow = "hidden";
+    const scrollbarWidth = body.getBoundingClientRect().width - previousBodyWidth;
     if (scrollbarWidth > 0) {
       body.style.paddingRight = `${scrollbarWidth}px`;
     }
@@ -80,7 +80,7 @@ export function ResponsiveSheet({
   }
 
   return (
-    <div className="responsive-sheet-layer">
+    <div className="responsive-sheet-layer" data-placement={placement}>
       <button
         className="responsive-sheet-backdrop"
         type="button"

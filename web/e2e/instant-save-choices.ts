@@ -16,7 +16,7 @@ export async function newInstantSave(page: Page, existing: Schema<"Save">) {
       new URL(response.url()).pathname === "/api/v1/saves" &&
       response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: /^(创建存档|保存)$/u }).click();
   await page
     .getByRole("dialog", { name: "保存存档", exact: true })
     .getByRole("button", { name: "新建存档", exact: true })
@@ -40,7 +40,7 @@ async function overwrite(page: Page, save: Schema<"Save">) {
       new URL(response.url()).pathname === `/api/v1/saves/${save.id}` &&
       response.request().method() === "PUT",
   );
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: /^(创建存档|保存)$/u }).click();
   await page
     .getByRole("dialog", { name: "保存存档", exact: true })
     .getByRole("button", { name: "覆盖当前存档", exact: true })

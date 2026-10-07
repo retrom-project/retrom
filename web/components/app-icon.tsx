@@ -20,6 +20,8 @@ export type AppIconName =
   | "settings"
   | "filter"
   | "arrow-left"
+  | "arrow-right"
+  | "chevron-down"
   | "search"
   | "pencil"
   | "x"
@@ -134,6 +136,8 @@ const paths: Record<AppIconName, ReactNode> = {
       <path d="m15 18-6-6 6-6" />
     </>
   ),
+  "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "arrow-right": <path d="m9 18 6-6-6-6" />,
   search: (
     <>
       <circle cx="11" cy="11" r="7" />

@@ -2,6 +2,10 @@ package persistence
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"retrom/internal/model"
 )
@@ -33,19 +37,28 @@ func (r *Repository) Tag(ctx context.Context, id string) (model.Tag, error) {
 
 func (r *Repository) WriteTag(ctx context.Context, id, userID, name string, version, now int64) error {
 	if version == 0 {
-		return r.Execute(ctx, `INSERT INTO tag_tab
+		_, err := r.db.Exec(ctx, `INSERT INTO tag_tab
  (id,name,name_key,status,version,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
  VALUES($1,$2,$3,'active',1,$4,$4,$5,$5)`, id, name, model.NameKey(name), userID, now)
+		return tagWriteFailure("create tag", err)
 	}
 	tag, err := r.db.Exec(ctx, `UPDATE tag_tab SET name=$2,name_key=$3,version=version+1,updated_by_user_id=$4,
  updated_at_ms=$5 WHERE id=$1 AND version=$6 AND status='active'`, id, name, model.NameKey(name), userID, now, version)
 	if err != nil {
-		return failure("update tag", err)
+		return tagWriteFailure("update tag", err)
 	}
 	if tag.RowsAffected() != 1 {
 		return model.ErrConflict
 	}
 	return nil
+}
+
+func tagWriteFailure(action string, err error) error {
+	var pgError *pgconn.PgError
+	if errors.As(err, &pgError) && pgError.Code == "23505" && pgError.ConstraintName == "tag_active_name_idx" {
+		return fmt.Errorf("%s: %w", action, model.ErrTagNameConflict)
+	}
+	return failure(action, err)
 }
 
 func (r *Repository) DeleteTag(ctx context.Context, id, userID string, version, now int64) error {

@@ -64,6 +64,12 @@ export type RuntimeInputCapabilitiesV1 = {
   /** Host may intercept only these declared shortcuts while the game owns focus. */
   hostShortcuts: ("PAUSE" | "MENU")[];
 };
+/** Null disables interception. The Host explicitly selects bindings for its current UI. */
+export type RuntimeHostShortcutPolicyV1 = {
+  menu: "Escape" | "KeyM" | null;
+  pause: boolean;
+};
+export type RuntimeHostShortcutV1 = "MENU" | "PAUSE";
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
 
 /** Available after mount only on adapters that support absolute mouse input. */
@@ -180,6 +186,7 @@ export type RuntimeFailureV1 = {
 };
 
 export type RuntimeEventV1 =
+  | { type: "HOST_SHORTCUT"; shortcut: RuntimeHostShortcutV1 }
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
@@ -204,6 +211,10 @@ export interface PlayerRuntimeV1 {
   openNativeSettings(panel: "controls" | "display" | "core"): Promise<void>;
   closeNativeSettings(): Promise<void>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
+  /** May be configured before mount. Captures only declared shortcuts while RUNNING/PAUSED.
+   * Input filtering suppression, editable fields, modifiers and composition disable capture.
+   * Reserved key repeats are consumed without emitting another action. */
+  setHostShortcutPolicy(policy: RuntimeHostShortcutPolicyV1 | null): Promise<void>;
   getState(): RuntimeStateV1;
   /** Session capabilities match the selected Target declaration. */
   getCapabilities(): RuntimeCapabilitiesV1;

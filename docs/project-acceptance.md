@@ -58,13 +58,17 @@
 
 实现采用八个领域模块、19张业务表和一张技术账本 `schema_migrations_tab`。新空库初始化及真实schema introspection核对字段、索引和职责；没有FK、CHECK、用户trigger、view或业务seed。Game运行JSON只有runtime所有权的content/cores；扫描只有短期通用进度。HTTP通过service访问persistence，生产SQL集中在persistence；Redis只保存认证限流和临时Run上下文。
 
-当前日常PFB通过正式 `pfb-init`、Provider import、`pfb-build` 和 `pfb-up` 启动源码Go、Next dev及正常Provider watcher。输入记录为 `backend/ons-thomson-hud-final/development-summary.json`：Go源码f109b1dc，runtime/tool同源a8c47231，工具archive4ccd8d98、安装revision5ee09e59；EJS实际module06d8bb65，native实际loose module8a836d55。固定Web候选manifest c5442a31属于独立production构建输入，不冒称日常运行standalone。
+当前 R11 的唯一配套输入为 `data/runtime-inputs.json`，描述 SHA256 为 `8d6c00323baf93798fe789120dcc9c388713c5c0b3852b33087cdedf219554e9`；来自 runtime 干净提交 `96e04b24c113de248ffea379856d6ede90502855`、源码摘要 `8a1277572acb8b44340246c4c4f0e44cca1f1ec359cb54ee6ec3c8929a763e0a`，明确 `release: null`。同一 V1 新增公共游戏窗口快捷键策略与事件，两 Provider 及全部 110 个 Target 指纹均改变，核心源与核心资产字节保持原样。正式 EJS/native 模块分别为 `d130aa18…` / `326acb2c…`；日常 PFB 通过标准 down/import/up 导入完整配对基座，正常 native watcher 的实际 loose 模块为 `6dc9a953…`。实证分别见 `runtime/ui-menu-bridge-r11/{handoff,paired-input-proof}.json`、`pfb-base-{down,import,up}.log` 和 `.pfb/evidence/20261007T074706Z/`。这些是 PFB 与本地交付输入，没有切换旧参考主站。
 
-交付准备和镜像的唯一配套描述是 `data/runtime-inputs.json`，来自runtime干净本地提交638bb648、实际源码摘要d3457eee，描述SHA005e6bbf。三个认证归档为tool3e16ea95、EJS86da972a、native13e92e7a；两个client、110Target指纹及声明执行资产与上述日常现场精确相同。该描述明确 `release:null`，不是历史正式v0.59.1。运输目录可搬移，默认准备不读取PFB路径、不回退旧发行，未来正式发行使用同一描述形状；见[配套依赖输入](dependency-management.md)。本次没有更换主站运行输入。
+R11 的正式未过滤 `ACC-RF-BROWSER` 为 `7986e6a008824e45`，24/24 通过、耗时 439.670 秒，输入摘要 `a54b044d72a6985aaecad0e1e21853b08c5b512cc6947a713d9844b5b7734ba9`；结果在 `.artifacts/acceptance/7986e6a008824e45/cases/acc-rf-browser/`。下列 R3–R10 历史证明保留原输入和范围，不因核心字节未变就把旧指纹语义验证升级为当前通过。R11 实际界面与游戏证据见后文及 [前端验收](design/clean-refactor-acceptance.md)。
 
-本次110个Target中75个EJS及ONS指纹改变，其余34个native保持。旧存档按实际原core身份判断，不因bundle变化一概失效；已确认旧EJS存档CORE_CHANGED且恢复409，未变PV1000存档仍可恢复。历史语义证明只在对应Target指纹相同、原范围适用时沿用。
+历史 R10 日常PFB通过正式 `pfb-init`、Provider import、`pfb-build` 和 `pfb-up` 启动源码Go、Next dev及正常Provider watcher。输入记录为 `backend/ons-thomson-hud-final/development-summary.json`：Go源码f109b1dc，runtime/tool同源a8c47231，工具archive4ccd8d98、安装revision5ee09e59；EJS实际module06d8bb65，native实际loose module8a836d55。固定Web候选manifest c5442a31属于独立production构建输入，不冒称日常运行standalone。
 
-标准切换保留两个数据库全部业务行及迁移账本、PG/Redis容器与挂载、Redis键名以及18,505个数据文件的路径、大小、mtime和inode；文件元数据不冒充全量字节SHA。原登录会话继续有效。ONS工作树仅登记用于后续显式core build，本次使用已验证基座中的核心字节，没有部署时重新构建核心。48次页面请求全部200；首轮编译的刷新保留，第二轮及30秒静止观察timeOrigin不变、无HMR或主文档导航。console诊断及预期已关闭Run的409保留，不宣称console零错误。完整证明见 `backend/ons-thomson-hud-final/ready-proof.json`。
+历史 R10 交付准备和镜像当时的配套描述来自runtime干净本地提交638bb648、实际源码摘要d3457eee，描述SHA005e6bbf。三个认证归档为tool3e16ea95、EJS86da972a、native13e92e7a；两个client、110Target指纹及声明执行资产与上述日常现场精确相同。该描述明确 `release:null`，不是历史正式v0.59.1。运输目录可搬移，默认准备不读取PFB路径、不回退旧发行，未来正式发行使用同一描述形状；见[配套依赖输入](dependency-management.md)。本次没有更换主站运行输入。
+
+该历史 R10 轮次中75个EJS及ONS指纹改变，其余34个native保持；这不描述 R11 的全部110个指纹变化。旧存档按实际原core身份判断，不因bundle变化一概失效；已确认旧EJS存档CORE_CHANGED且恢复409，未变PV1000存档仍可恢复。历史语义证明只在对应Target指纹相同、原范围适用时沿用。
+
+该 R10 标准切换保留两个数据库全部业务行及迁移账本、PG/Redis容器与挂载、Redis键名以及18,505个数据文件的路径、大小、mtime和inode；文件元数据不冒充全量字节SHA。原登录会话继续有效。ONS工作树仅登记用于后续显式core build，本次使用已验证基座中的核心字节，没有部署时重新构建核心。48次页面请求全部200；首轮编译的刷新保留，第二轮及30秒静止观察timeOrigin不变、无HMR或主文档导航。console诊断及预期已关闭Run的409保留，不宣称console零错误。完整证明见 `backend/ons-thomson-hud-final/ready-proof.json`。
 
 ## 当前证据与范围
 
@@ -87,25 +91,33 @@
 | 清理 | unlink失败保留deleted和路径，恢复权限后purged；active BIOS/封面不误删；终态进度超过24小时仅删除自身记录。`root/cleanup-window.json`、`root/scan-progress-expiry-product.json`。 |
 | UI与隔离项目 | 移动搜索/筛选/Recent裁切红绿、人工390/4K150图像及当前HUD普通点击/键盘焦点；隔离origin无cookie、CSP拒Host auth、未列路径404、Worker策略及视频Range；MZ所测单曲有真实decodedframes/source节点，MV/MZ实际不同Run存档恢复。`frontend/frontend-closure-index-r10.json`、`frontend/isolation-resources-r5/proof.json`、`frontend/native/mz-save-final-mobile-newgame-keyboard-r6/proof.json`。 |
 
+R11 的独立界面验收 `root/ui-fidelity-r11-final/{report,source-manifest}.json` 覆盖17路由×3视口共51张图，全部200、无页面异常或文档横向溢出。927个文件最初与采样一致；本次文档补记前，后续7个代码文件变化仅涉及3个E2E、2个Player测试和2个Player实现，17个非Player路由布局未变。最终Player行为另由本轮24项及真实游戏审计绑定。旧版手机后台只有管理限制入口，新版手机验证卡片化、抽屉、Toast和可操作性，不宣称不存在的旧手机管理页像素一致。
+
+J2ME《魔塔》本轮明确为 GAME_SAVE：真实输入取得红钥匙1、位置4,8，游戏内写入JD/RMS；上传失败保留原commitId草稿，重试持久化成功后才ack。cookies-only全新Chrome和不同Run使用游戏第3项“读取进度”恢复红钥匙1/位置4,8，再移动至4,9并保存。自动上传期间可立即打开退出菜单，三动作锁定，Escape不关闭或触发后台菜单；普通和沉浸菜单、M/双组合键、B松开后恢复、完整query和加载后原选中返回均通过。证据为 `root/ui-fidelity-r11-audit/j2me-semantic-proof.json`、`j2me-immersive/report.json` 及 `j2me-immersive-return/report.json`。所测魔塔的真实原生进度缺口已闭合；历史Counter-Strike素材仍只证实初始349字节设置RMS，未完成任务/五槽进度写入，不因此升级为通过。KiriKiri、OpenBOR、Play-PS2与T18/T37其余缺口保持原范围。
+
+本轮隔离 MV/MZ/Tyrano 的普通与沉浸快捷键通过公共V1桥接；`root/ui-fidelity-r11-audit/isolated-fresh-{mv,mz,tyrano}/report.json` 还分别完成实际INSTANT存档、不同Run恢复与真实继续输入：MV map2/3,4/队伍恢复后移动至3,6；MZ map7/14,20/HP838恢复后移动至14,22；Tyrano所测scenario/index/变量恢复后真实选项令riko_f从10到15。各自清理自己的存档，不改既有用户存档。Tyrano最终单次Escape在焦点稳定后3ms内产生公共MENU；焦点重置期间抑制状态false→true→false，早期2ms首按miss保留为中间证据，不能声称已消除保护窗口或任意瞬时按键等效。旧video checkpoint问题未因此关闭；MZ首路由Fast Refresh中断同样保留原记录。
+
 即时和原生存档语义以逐核心矩阵和独立proof为准：必须由正常输入产生可辨识的非初始世界/位置/目标/变量，真实非空payload在不同Run恢复，观察稳定，再正常输入继续。原生GAME_SAVE还需真实游戏内写入/读取。标题、HTTP200、按钮高亮、静态blocks或声明数量都不能替代。历史证明中的自然死亡/重生、首帧不完整渲染、对白位置及其它场景限制继续保留，不扩大为通用恢复结论。
 
 ## 构建与质量
 
-唯一pin的默认链在867个regular文件的独立新源码副本中实际完成准备、无运输来源的离线重复、catalog/Provider核验和两张Docker镜像构建。镜像构建没有prepared-root覆盖；全新PG/Redis完成release初始化、MIT正常来源scan/approve/run、强If-Match/full/Range、匿名唯一隔离shell/SW、登录桥精确字节及standalone `retrom:8080`同库读取。公共blocklist由正常准备产生，Docker内UID1000读取的权限红绿后通过。临时四个容器和网络已清理，没有旧checkout/runtime源码挂载、业务SQLseed或主站重启。证明见 `backend/runtime-input-chain-generated-final/default-construction-proof.json`；只证明构建启动和列出的接口，不替代浏览器游戏语义或远端CI运行。
+历史 R10 唯一pin的默认链在867个regular文件的独立新源码副本中实际完成准备、无运输来源的离线重复、catalog/Provider核验和两张Docker镜像构建。镜像构建没有prepared-root覆盖；全新PG/Redis完成release初始化、MIT正常来源scan/approve/run、强If-Match/full/Range、匿名唯一隔离shell/SW、登录桥精确字节及standalone `retrom:8080`同库读取。公共blocklist由正常准备产生，Docker内UID1000读取的权限红绿后通过。临时四个容器和网络已清理，没有旧checkout/runtime源码挂载、业务SQLseed或主站重启。证明见 `backend/runtime-input-chain-generated-final/default-construction-proof.json`；只证明构建启动和列出的接口，不替代浏览器游戏语义或远端CI运行。
 
 镜像源码摘要与实际Docker输入一致：仅排除带有锁定生成器标记的三个Go生成文件，Docker也明确排除同三文件并由权威契约重新生成。当前含生成文件和独立新副本不含生成文件的实测摘要一致，证明见 `backend/runtime-input-chain-generated-final/generated-boundary-digest-proof.json`；无标记的手写文件及权威契约改动仍进入检查。
 
 归档同大小篡改、配套source错配，以及保留metadata但替换为仍能运行catalog的工具文件均被拒绝，未发布准备集合；Provider核心资产与本地integrity一起替换同样不能越过认证归档。真实负例、stable/RC跨仓样例、完整data-check及独立入口审阅见 `backend/runtime-input-chain/negative-final-proof.json`、`frontend/runtime-input-entry-audit/entry-audit-final.json`。历史显式输入镜像证明留在原目录，不冒充本次默认链。
 
-Go、前端、runtime均保留原lint、格式、类型及结构门禁强度。当前Go完整backend-check、全包实际PG integration race及原基准d15ab6e6的工作树/未跟踪协议预检通过；savedContext/单Save投影另有竞态红绿和实际工具互通。补上integration-tag测试的lint覆盖后，发现并修正四个测试的复杂度与一处包装错误比较，原规则/阈值/断言保留，正式lint入口包含该tag。四个测试文件改变使已检查Go树摘要为aa79884f，启动来源仍f109b1dc；生产Go/API/Web与已验证Docker字节0delta，主站不为测试修正重启。原始失败、绿日志和输入证明见 `backend/ons-thomson-hud-final/final-quality-proof.json`。
+Go、前端、runtime均保留原lint、格式、类型及结构门禁强度。历史 R10 Go完整backend-check、全包实际PG integration race及原基准d15ab6e6的工作树/未跟踪协议预检通过；savedContext/单Save投影另有竞态红绿和实际工具互通。补上integration-tag测试的lint覆盖后，发现并修正四个测试的复杂度与一处包装错误比较，原规则/阈值/断言保留，正式lint入口包含该tag。四个测试文件改变使已检查Go树摘要为aa79884f，启动来源仍f109b1dc；生产Go/API/Web与已验证Docker字节0delta，主站不为测试修正重启。原始失败、绿日志和输入证明见 `backend/ons-thomson-hud-final/final-quality-proof.json`。
 
-runtime与ONS已各自本地提交；Retrom配套pin、源码及旧实现删除归于本交付提交，暂存前后按原始基准d15ab6e6执行协议与私密信息门禁。实际本仓提交SHA和门禁结果写入相邻的忽略验收记录 `backend/runtime-input-chain/commit-proof.json`，不将提交自身SHA写入其文件形成循环。各仓库独立管理Git，未修改基线工程或其它PFB，未推送或发布。
+R11 完整 `web-ui-check`、`web-check NEXT_DIST_DIR=.next-build`、`api-check` 通过；Web 为43个文件/173个测试，保留严格lint/type/style/结构限制与正式构建。最终E2E入口修正另经lint/type检查，完整24项重新通过，没有放宽POST/PUT、409、真实payload/恢复计数或草稿断言。runtime全量287个文件/1534个测试通过。 R11 Tag名称冲突与版本冲突分离的完整backend-check在 `frontend/ui-fidelity-r11-pages/backend-check.log`；真实PG的两项聚焦race测试在 `root/ui-fidelity-r11-final/tag-integration-final.log`，覆盖规范化重名、改名回滚、CAS、软删名称复用及并发唯一成功者，独立测试数据库自动清理。原工具路径错误的exit127只保留在 `tag-integration-tool-path-intermediate.log`，没有执行产品测试。日志见 `frontend/ui-fidelity-r11-shell/*-r11-final-v4.log`，正式浏览器结果使用前述7986e6a008824e45，不能以单项phone预检冒充完整门禁。
+
+历史 R10 runtime与ONS已各自本地提交；当时Retrom配套pin、源码及旧实现删除归于对应交付提交，暂存前后按原始基准d15ab6e6执行协议与私密信息门禁。该历史轮次的本仓提交SHA和门禁结果写入忽略验收记录 `backend/runtime-input-chain/commit-proof.json`，不将提交自身SHA写入其文件形成循环。各仓库独立管理Git，未修改基线工程或其它PFB，未推送或发布。 本轮 R11 本地提交、协议复核、基线状态及实际证据绑定由 `root/ui-fidelity-r11-final/closure-proof.json` 单独记录；不借用旧提交证明。
 
 ## 有界规模
 
 12逻辑CPU/125GiB RAM主机，同机运行其它PFB。独立数据库、受管目录、第二Go进程测试20,000 Game、约50,000不可变夹具硬链接路径与200用户正常会话。它是loopback/API混合负载，不是200个模拟器，不能推断正式生产容量。
 
-历史固定production R7输入及同身份真实FCE checkpoint完成2600/2600请求，3.018842351秒，Go及4个worker峰值RSS483,430,400字节、CPU4.12秒；200个save PUT全部200、200个Run关闭全部204。p95为PUT489.76ms、run427.5ms、detail481.37ms、library294.25ms。输入和结果封存于 `root/scale/load-r7-proof.json`，不是本次R10新指纹负载结果。
+历史固定production R7输入及同身份真实FCE checkpoint完成2600/2600请求，3.018842351秒，Go及4个worker峰值RSS483,430,400字节、CPU4.12秒；200个save PUT全部200、200个Run关闭全部204。p95为PUT489.76ms、run427.5ms、detail481.37ms、library294.25ms。输入和结果封存于 `root/scale/load-r7-proof.json`，不是 R10 或 R11 新指纹负载结果。
 
 SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引、复用常驻runtime模块。同数据初测39.668秒，优化后3.292秒；EXPLAIN首屏1.176ms、offset10000页4.908ms、目录页3.872ms、active引用0.086ms，见 `root/scale/query-plans-after.txt`。
 
@@ -113,8 +125,8 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 ## 当前限制与未完成项
 
-- 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。当前75个EJS及ONS指纹已改变，旧对应存档和旧语义证明不能直接升级为当前PASS；34个未改变native也只沿用原proof限定范围。
-- ONS当前新wait6核心在正常public存档、全新浏览器不同Run中恢复第三等待点与完整背景，再真实输入到第四点；633字节payload的强ETag/SHA精确，证明见 `runtime/interactive/ons-current-wait-cold-r10/semantic-proof.json`。Thomson已完成TO8D存档在当前TO7配置下的冷恢复及继续游戏。上述通过只限所测场景；ONS字体边差异与辅助脚本错误、历史失败仍保留，DOS冻结entry仅有真实工具互通，不扩大为全部游戏语义通过。
+- 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。R11 全部110个Target指纹改变；旧存档按实际冻结core身份判断，旧语义证明保留历史范围，不直接升级为当前PASS。新的NES、魔塔和隔离快捷键证明只覆盖各自实际列出的场景。
+- 历史 R10 ONS wait6核心在正常public存档、全新浏览器不同Run中恢复第三等待点与完整背景，再真实输入到第四点；633字节payload的强ETag/SHA精确，证明见 `runtime/interactive/ons-current-wait-cold-r10/semantic-proof.json`。Thomson已完成TO8D存档在当前TO7配置下的冷恢复及继续游戏。上述通过只限所测场景；ONS字体边差异与辅助脚本错误、历史失败仍保留，DOS冻结entry仅有真实工具互通，不扩大为全部游戏语义通过。
 - GBC床scene/caption重绘、Tyrano旧video快照、V Rally3、SD高达暂停caption及Flash退出flush日志保留各自范围；其它稳定场景通过不代表这些问题已修复。单曲解码不代表所有音轨听感。
 - 标准Next dev首次动态路由编译曾触发全局Refresh。当前预热窗口稳定不保证任意未编译路由；受影响轮次保留partial。固定production证据和日常开发证据不得混用。
 - Go当前全量与风险门禁已通过，配套交付与暂存提交门禁的实际结果见相邻ignored记录。整体验收仍受上述逐核心语义缺口限制；历史失败、红绿和各轮切换留在原机器proof，不作为另一套完成标准。

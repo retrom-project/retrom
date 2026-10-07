@@ -4,6 +4,7 @@ import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ResourceState } from "@/components/resource-state";
+import { AppIcon } from "@/components/app-icon";
 import { RecentCard } from "./recent-card";
 import { loadDirectories } from "@/features/library/api";
 export function RecentHistory() {
@@ -38,7 +39,11 @@ export function RecentHistory() {
         title="最近游玩"
         description="查看最近打开的游戏与最后游玩时间。"
       />
-      <div className="library-toolbar workspace-actions recent-query-controls">
+      <div className="recent-filter-panel recent-query-controls">
+        <label className="recent-filter-search">
+          搜索游戏
+          <span className="recent-input-shell">
+            <AppIcon name="search" />
         <input
           value={q}
           aria-label="搜索最近游戏"
@@ -48,6 +53,10 @@ export function RecentHistory() {
             setOffset(0);
           }}
         />
+          </span>
+        </label>
+        <label className="recent-filter-select">
+          游戏目录
         <select
           value={directory}
           aria-label="游戏目录"
@@ -63,6 +72,9 @@ export function RecentHistory() {
             </option>
           ))}
         </select>
+        </label>
+        <label className="recent-filter-select">
+          排序方式
         <select
           value={sort}
           aria-label="排序"
@@ -79,8 +91,9 @@ export function RecentHistory() {
           <option value="recent">最近时间</option>
           <option value="title">游戏标题</option>
         </select>
-        <label>
-          最后游玩日期之后{" "}
+        </label>
+        <label className="recent-filter-select">
+          最后游玩日期之后
           <input
             type="date"
             value={after}
@@ -90,7 +103,9 @@ export function RecentHistory() {
             }}
           />
         </label>
+        <p className="recent-result-count">共 <strong>{recent.data?.total ?? "—"}</strong> 款</p>
       </div>
+      {directories.error ? <p role="alert">{directories.error}</p> : null}
       <ResourceState resource={recent}>
         {(data) =>
           data.items.length ? (
