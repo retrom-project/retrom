@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear 共三十八项限定场景已核对；74 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC 共四十三项限定场景已核对；69 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -232,3 +232,11 @@ Genesis Plus GX 与 GX Wide 均用 Metal Sonic Hyperdrive 完成审核方向／�
 PicoDrive／Mega Drive 同样完成 Metal Sonic Hyperdrive 实际审核与发布移动／跳跃；公开 34,684 字节即时快照在新 Chromium 保留角色、关卡布局和三条生命，未暂停七秒后继续左右移动和跳跃正常。`root/release-r15/picodrive-megadrive-current/semantic-proof.json` SHA `0a591ea5ea33f1c22fbba8f43e9456430eed11a434bb28a1c765e3d05f57bffb`。
 
 Genesis Plus GX 的 SG-1000／Game Gear 绑定分别完成 Bomb Jack 和 Columns 实际游玩。Bomb Jack 恢复350分、角色位置及已收集炸弹布局，继续方向输入后达到370／390分；Columns 恢复两侧已堆积宝石，继续方向、旋转、落块后增加第三组。两者均经公开即时存档（8,600／9,209字节）、仅登录态的新 Chromium、公开暂停七秒观察后继续操作；不宣称 Bomb Jack 特定跳跃映射或动画整帧相同。`root/release-r15/{sg1000-congo-current,gamegear-columns-current}/semantic-proof.json` SHA 分别为 `5941b4fb40a622684ab4b95d78e2519d1de4a26a1a91c643f381c56eb5ae0da8`、`18e36162d77950b4add0dc697a0bbb468cb4736819d2ef14d5ffa434db33a4a8`。三项自建数据及会话均正常清理。
+
+Mednafen／PCE 与 Handy／Lynx 分别用 PC Bonk、Basketbrawl 完成实际审核和发布方向／动作，公开 21,180／38,110 字节即时存档在仅登录态的新 Chromium 恢复滚动场景／角色／三颗心，或 Level1-1 球场／角色／计时；公开暂停七秒后继续方向和动作正常。不宣称通关或投篮得分。`root/release-r15/{pce-bonk-current,handy-basketbrawl-current}/semantic-proof.json` SHA 分别为 `c79c585a8f91be5b33726d15dc27d4901d069e690c91930a763cf601551b21bd`、`bba70af60fe8c30554ab3f837f6675f78bd3dfd7d6800496972ec795248976c7`。
+
+ProSystem／Atari7800 的作者游戏 Dungeon Stalker 通过方向选择原生 Start Game、标准手柄 B 确认，实际审核和发布游玩均可离开牢笼。公开 1,586 字节即时快照在新 Chromium 恢复上方通道角色和五条生命，公开暂停七秒后继续左右移动正常；此前演示／未确认菜单不计通过。`root/release-r15/prosystem-dungeon-current/semantic-proof-reviewed.json` SHA `c58245d9e5b9064b1d01a99b6b58422dcf00c49a80cafeb34da0408fa2fc50ac` 显式绑定成功的第二个审核 Run，保留初始证明供追溯。三项自建数据及会话均正常清理。
+
+Mednafen／SuperGrafx《Aldynes》完成真实审核试玩与发布飞行。公开 38,535 字节即时快照在仅登录态的新 Chromium 恢复飞机和场景，公开暂停七秒后继续上下移动有效；不声称击中敌人或得分。证据 `root/release-r15/supergrafx-aldynes-current/semantic-proof.json` SHA `43e121a96a4356e8e4545ad35183a8e389362fe80b0c491d38f7d93aa3cb1a27`。
+
+Mednafen／NGPC《Gears of Fate》通过原生菜单方向／B 确认和第一关实际棋盘旋转。公开 3,985 字节快照在新 Chromium 运行七秒后保留旋转后的红绿位置及蓝色路径，继续 B／A 可再次旋转；装饰齿轮正常动画。不将本次证据描述为历史第二关通关验收。证据 `root/release-r15/ngpc-gears-current/semantic-proof.json` SHA `6cba9ec7da0397d5744e1a28e082f05828e6875ea45d7d49bf0709a3b8f45edd`。两项自建数据和会话均正常清理。
