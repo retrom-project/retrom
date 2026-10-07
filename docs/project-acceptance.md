@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro 共十六项限定场景已核对；96 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker XP／VX／VX Ace 共十九项限定场景已核对；93 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -188,6 +188,8 @@ OpenBOR 用独立自建的两关游戏完成真实原生进度验收：引擎写
 bsnes、Snes9x、Nestopia 使用原创 MIT 测试卡带完成审核预览和发布游玩。标准手柄方向键、A 键改变真实 P1 计数；页面存档后，仅保留登录态的新浏览器运行七秒仍分别保持 20、21、18，继续手柄输入变为 29、30、26，P2 始终为零。观测只读核心原生存档块，实际保存与恢复走公开页面，未写入内存或注入核心状态；此结论限于这些卡带。首轮 RAM 读取接口不支持的脚本失败保留，不算核心故障。
 
 ScummVM 在《Beneath a Steel Sky》中写入原生槽位并同步 13,101 字节 gzip 包，新浏览器通过游戏内 Load 恢复保存位置，七秒后仍保持，随后左摇杆／A 可继续移动。WASM-4、PICO-8 的原创卡带通过 INSTANT 恢复位置／颜色，TIC-80、Lutro 通过真实 GAME_SAVE 恢复原生进度；均覆盖审核、发布、公开保存、新浏览器恢复和继续手柄输入，保留原始 payload、截图与自建数据清理结果。Lutro 首轮脚本按错键，改用已声明的标准 B 映射后通过，没有修改产品映射或降低断言。
+
+RGSS 复测发现工作线程注册手柄监听晚于初始连接通知，已在核心首帧后登记当前手柄。延迟监听回归先红后绿；原 25 项 adapter 测试断言保持，共享测试夹具供新启动测试使用，lint／类型及全量 291 文件／1,573 项测试通过。只改变 XP／VX／VX Ace 指纹。三者均在无需补发测试连接事件的情况下，以已连接的标准手柄完成审核、发布游玩，保存位置 11,8／变量 1；新浏览器七秒后仍保持，继续输入到 12,8。公开存档、截图、模拟手柄范围与自建数据清理结果记录在 `root/release-r15/rgss-connected-fixed/`。
 
 runtime 草稿 PR 的干净 CI 暴露测试依赖尚未生成的 `dist`；`npm test` 现先构建宿主工具输入。清空生成物后 290 文件／1,572 项测试通过，未跳过断言。发布仍等待剩余验收与配套产物验证。
 
