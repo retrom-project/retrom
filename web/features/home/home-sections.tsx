@@ -1,9 +1,11 @@
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import Image from "next/image";
 import Link from "next/link";
 import type { Directory, Game, Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
+import { HomePlatformArt } from "./home-platform-art";
 export function featuredGameId(data: Schema<"Home">) {
   return (
     data.saves.find((save) => save.restorable)?.game.id ??
@@ -89,6 +91,7 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
   );
 }
 export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
+  const recentRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <section className="home-layer">
       <div className="home-section-head">
@@ -96,7 +99,7 @@ export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
         <Link href="/recent">查看全部</Link>
       </div>
       {recent.length ? (
-        <div className="home-horizontal-rail home-recent-rail">
+        <div ref={recentRail} className="home-horizontal-rail home-recent-rail">
           {recent.map((item) => (
             <Link
               className="home-recent-card"
@@ -125,6 +128,7 @@ export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
   );
 }
 export function HomeFavorites({ games }: { games: Game[] }) {
+  const favoritesRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <section className="home-layer home-favorites">
       <div className="home-favorites-head">
@@ -133,7 +137,7 @@ export function HomeFavorites({ games }: { games: Game[] }) {
       </div>
       <div className="home-favorites-body">
         {games.length ? (
-          <div className="home-favorites-list">
+          <div ref={favoritesRail} className="home-favorites-list">
             {games.slice(0, 3).map((game) => (
               <Link
                 className="home-favorite-game"
@@ -141,7 +145,11 @@ export function HomeFavorites({ games }: { games: Game[] }) {
                 href={`/games/${game.id}`}
               >
                 <span className="home-favorite-cover">
-                  <Cover game={game} />
+                  {game.media.some((media) => media.kind === "cover") ? (
+                    <Cover game={game} />
+                  ) : (
+                    <span aria-hidden="true">R</span>
+                  )}
                 </span>
                 <span className="home-favorite-copy">
                   <strong>{game.title}</strong>
@@ -165,24 +173,18 @@ export function HomeFavorites({ games }: { games: Game[] }) {
   );
 }
 export function HomeDirectories({ directories }: { directories: Directory[] }) {
+  const platformRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <section className="home-layer">
       <div className="home-section-head">
         <h2>换个平台逛逛</h2>
         <Link href="/library">浏览全部</Link>
       </div>
-      <div className="home-horizontal-rail home-platform-rail">
+      <div ref={platformRail} className="home-horizontal-rail home-platform-rail">
         {directories.map((directory) => (
           <article className="home-platform-card" key={directory.id}>
             <Link href={`/library?platformInstanceId=${directory.id}`}>
-              <Image
-                className="home-platform-art"
-                src={`/images/platforms/${directory.platformId.toLowerCase()}.svg`}
-                width={64}
-                height={52}
-                unoptimized
-                alt=""
-              />
+              <HomePlatformArt key={directory.platformId} platformId={directory.platformId} />
               <span>
                 <strong>{directory.name}</strong>
                 <small>{directory.gameCount} 款游戏</small>

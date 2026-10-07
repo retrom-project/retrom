@@ -102,10 +102,6 @@ func run(ctx context.Context) error {
 			"http://{runId}.rpg.localhost:4000"),
 	}
 	saveService := &saves.Service{Repository: repository, Runs: runService, Storage: managed, Now: time.Now}
-	sources, err := sourceRoots()
-	if err != nil {
-		return err
-	}
 	proxies, err := trustedProxies()
 	if err != nil {
 		return err
@@ -117,14 +113,14 @@ func run(ctx context.Context) error {
 		Repository: repository,
 		Runtime:    runtime,
 		Storage:    managed,
-		Sources:    storage.Sources{Roots: sources},
+		Sources:    storage.Sources{},
 		Now:        time.Now,
 		Context:    ctx,
 	}
 	transport := &httpapi.Server{
 		Accounts: service, Origin: environment("RETROM_PUBLIC_ORIGIN", "http://localhost:4000"),
 		CookieName: "retrom_session", TrustedProxies: proxies,
-		Runtime: runtime, Storage: managed, Sources: storage.Sources{Roots: sources},
+		Runtime: runtime, Storage: managed, Sources: storage.Sources{},
 		WebRoot:   environment("RETROM_WEB_ROOT", "web"),
 		Directory: &directory.Service{Repository: repository, Catalog: runtime.GetCatalog, Now: time.Now},
 		Library: &library.Service{

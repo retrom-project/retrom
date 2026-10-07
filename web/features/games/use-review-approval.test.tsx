@@ -15,13 +15,13 @@ it("captures the current filters and prevents a second approval while the snapsh
   const query = { q: "本次范围", platformInstanceId: "directory", tagId: "tag", sort: "title" as const, offset: 24, limit: 24 };
   const game: Game = { id: "pending", title: "匹配的游戏", version: 4, platformInstanceId: "directory", platformId: "nes",
     directoryName: "目录", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null,
-    status: "pending_review", source: "server_import", contentHash: "hash", tags: [], media: [], favorite: false, createdAtMs: 1, updatedAtMs: 1 };
+    status: "pending_review", source: "server_import", contentHash: "hash", tags: [], media: [], favorite: false, lastPlayedAtMs: null, createdAtMs: 1, updatedAtMs: 1 };
   const getReviews = api.GET<"/api/v1/admin/reviews", { params: { query: typeof query }; signal: AbortSignal }>;
   let release!: (value: Awaited<ReturnType<typeof getReviews>>) => void;
   vi.mocked(getReviews).mockImplementation(() => new Promise((resolve) => { release = resolve; }));
   vi.mocked(api.POST).mockImplementation(async (path) => ({
     data: path === "/api/v1/admin/reviews/readiness"
-      ? { items: [{ id: game.id, version: game.version, biosSatisfied: true, error: null }] }
+      ? { items: [{ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [] }] }
       : game,
     response: new Response(),
   }) as Awaited<ReturnType<typeof api.POST>>);

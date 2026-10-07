@@ -37,8 +37,8 @@ export function LaunchButton({
           body: { gameId, coreId, saveId, purpose },
         }),
       );
-      router.push(
-        `/play/${run.id}?returnTo=${encodeURIComponent(returnTo ?? location.pathname)}${contentLoading ? `&contentLoading=${contentLoading}` : ""}`,
+      router.replace(
+        `/play/${run.id}?returnTo=${encodeURIComponent(returnTo ?? `${location.pathname}${location.search}${location.hash}`)}${contentLoading ? `&contentLoading=${contentLoading}` : ""}`,
       );
     } catch (failure) {
       notify({ tone: "bad", message: failure instanceof Error ? failure.message : "启动失败。" });

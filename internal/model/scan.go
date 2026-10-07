@@ -15,25 +15,19 @@ type Scan struct {
 	Error          *string `json:"error"`
 }
 type (
-	Root struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		Path string `json:"-"`
-	}
 	SourceDirectory struct {
-		RelativePath string `json:"relativePath"`
-		Name         string `json:"name"`
+		Path string `json:"path"`
+		Name string `json:"name"`
 	}
 	SourceEntry struct {
-		Key          string `json:"key"`
-		Name         string `json:"name"`
-		RelativePath string `json:"relativePath"`
-		GameCount    int64  `json:"gameCount"`
+		Key       string `json:"key"`
+		Name      string `json:"name"`
+		Path      string `json:"path"`
+		GameCount int64  `json:"gameCount"`
 	}
 	SourceInput struct {
-		RootID       string `json:"rootId"`
-		RelativePath string `json:"relativePath"`
-		Format       string `json:"format"`
+		Path   string `json:"path"`
+		Format string `json:"format"`
 	}
 	SourceMapping struct {
 		SourceKey   string   `json:"sourceKey"`
@@ -41,30 +35,35 @@ type (
 		TagIDs      []string `json:"tagIds"`
 	}
 	GameScanInput struct {
-		RootID       string          `json:"rootId"`
-		RelativePath string          `json:"relativePath"`
-		Format       string          `json:"format"`
-		Mappings     []SourceMapping `json:"mappings"`
+		Path     string          `json:"path"`
+		Format   string          `json:"format"`
+		Mappings []SourceMapping `json:"mappings"`
 	}
 )
 
 type (
 	BiosScanInput struct {
-		RootID       string   `json:"rootId"`
-		RelativePath string   `json:"relativePath"`
-		PlatformIDs  []string `json:"platformIds"`
-		CoreIDs      []string `json:"coreIds"`
-	}
-	BiosRequirement struct {
-		Key         string   `json:"key"`
-		Name        string   `json:"name"`
+		Path        string   `json:"path"`
 		PlatformIDs []string `json:"platformIds"`
 		CoreIDs     []string `json:"coreIds"`
-		Required    bool     `json:"required"`
-		Installed   bool     `json:"installed"`
-		Filename    string   `json:"filename"`
-		SizeBytes   int64    `json:"sizeBytes"`
-		SHA256      string   `json:"sha256"`
+	}
+	BiosValidationRequirement struct {
+		CoreID    string  `json:"coreId"`
+		SizeBytes *int64  `json:"sizeBytes"`
+		SHA256    *string `json:"sha256"`
+		MD5       *string `json:"md5"`
+	}
+	BiosRequirement struct {
+		Requirements []BiosValidationRequirement `json:"requirements"`
+		Key          string                      `json:"key"`
+		Name         string                      `json:"name"`
+		PlatformIDs  []string                    `json:"platformIds"`
+		CoreIDs      []string                    `json:"coreIds"`
+		Required     bool                        `json:"required"`
+		Installed    bool                        `json:"installed"`
+		Filename     string                      `json:"filename"`
+		SizeBytes    int64                       `json:"sizeBytes"`
+		SHA256       string                      `json:"sha256"`
 	}
 )
 

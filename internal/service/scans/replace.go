@@ -2,12 +2,13 @@ package scans
 
 import (
 	"context"
+	"path/filepath"
 
 	"retrom/internal/model"
 	"retrom/internal/persistence"
 )
 
-func (s *Service) Replace(ctx context.Context, p model.Principal, id, rootID, relative string,
+func (s *Service) Replace(ctx context.Context, p model.Principal, id, sourcePath string,
 	version int64,
 ) (model.GameDetail, error) {
 	if err := p.Admin(); err != nil {
@@ -24,12 +25,12 @@ func (s *Service) Replace(ctx context.Context, p model.Principal, id, rootID, re
 	if err != nil {
 		return old, wrap(err)
 	}
-	root, err := s.Sources.Open(rootID, ".")
+	root, name, err := s.Sources.OpenContent(sourcePath)
 	if err != nil {
 		return old, wrap(err)
 	}
 	defer closeRoot(root)
-	files, err := s.content(ctx, root, id, []string{relative}, directory)
+	files, err := s.content(ctx, root, id, []string{filepath.ToSlash(name)}, directory)
 	if err != nil {
 		return old, err
 	}

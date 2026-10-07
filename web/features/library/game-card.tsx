@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Game } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
+import { BrowserTime } from "@/components/browser-time";
 import { FavoriteCollectionDialog } from "@/features/favorites/favorite-collection-dialog";
 import { toggleFavorite } from "./api";
 export function GameCard({
@@ -83,14 +84,7 @@ export function GameCard({
           <span>{game.directoryName}</span>
           <span>{game.releaseYear || "年份未知"}</span>
         </p>
-        <div className="workspace-tags">
-          {game.tags.map((tag) => (
-            <span className="status neutral" key={tag.id}>
-              {tag.name}
-            </span>
-          ))}
-        </div>
-        <div className="library-game-played"><span>最近游玩</span><strong>—</strong></div>
+        <div className="library-game-played"><span>最近游玩</span><strong><BrowserTime value={game.lastPlayedAtMs} format="compact" /></strong></div>
       </div>
       {organizing ? <FavoriteCollectionDialog ids={ids} onClose={() => setOrganizing(false)} onSaved={() => { setOrganizing(false); onChange?.(); }} /> : null}
     </article>

@@ -2,7 +2,7 @@
 
 命名工作树按workspace/manifest.yaml的最新远端defaultBranch创建，Retrom和runtime保持同树，branch使用codex/前缀。基线project/只作参考，不通过旧路径参与构建；其他PFB不得停止/清理。
 
-当前PFB每个环境独立拥有.pfb/workspace/data、postgres、providers、缓存及验收来源。server-data.json覆盖仅本PFB只读来源根。up/restart只复用dev image、依赖和不可变runtime工具；显式pfb-build才npm构建并原子发布runtime-tools/<sha>，运行进程固定resolved路径，不因runtime源码clean丢失CLI。
+当前PFB每个环境独立拥有.pfb/workspace/data、postgres、providers、缓存及验收来源。server-data.json配置仅本PFB的只读素材挂载；管理员从 `/` 浏览容器实际可见目录，以绝对路径选择来源。up/restart只复用dev image、依赖和不可变runtime工具；显式pfb-build才npm构建并原子发布runtime-tools/<sha>，运行进程固定resolved路径，不因runtime源码clean丢失CLI。
 
 Provider基座必须显式pfb-provider-import，核验完整bytes/size/integrity/proof；来源只读，不执行另一PFB源码。候选同版本重建的例外仅限显式PFB candidate导入，正式production升级门禁保留。watcher生成scope内loose overrides和实际Target指纹，restart加载事实。日常命令不自动构建Core或Provider archive。
 

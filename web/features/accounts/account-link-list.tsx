@@ -1,4 +1,5 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useCallback, useState } from "react";
 import { api, result, ApiError } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
@@ -8,6 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { Schema } from "@/lib/api/types";
 import { useToast } from "@/components/toast-provider";
 export function AccountLinkList() {
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
   const { notify } = useToast();
   const [status, setStatus] = useState<
     Schema<"AccountLinkSummary">["status"] | ""
@@ -84,7 +86,7 @@ export function AccountLinkList() {
         {(data) => (
           <>
             {data.items.length ? (
-              <div className="user-table-wrap">
+              <div ref={tableRail} className="user-table-wrap">
                 <table>
                   <thead>
                     <tr>

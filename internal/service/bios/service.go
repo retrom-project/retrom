@@ -40,6 +40,9 @@ func (s *Service) List(ctx context.Context) ([]model.BiosRequirement, error) {
 	for _, req := range requirements {
 		value := model.BiosRequirement{
 			Key: req.RequirementKey, Name: req.LogicalName,
+			Requirements: []model.BiosValidationRequirement{{
+				CoreID: req.CoreID, SizeBytes: req.SizeBytes, SHA256: req.SHA256, MD5: req.MD5,
+			}},
 			CoreIDs: []string{req.CoreID}, PlatformIDs: []string{}, Required: req.Required,
 		}
 		for _, binding := range s.Runtime.Bindings {
@@ -54,6 +57,7 @@ func (s *Service) List(ctx context.Context) ([]model.BiosRequirement, error) {
 			value.SHA256 = file.SHA256
 		}
 		if i, exists := positions[value.Key]; exists {
+			result[i].Requirements = append(result[i].Requirements, value.Requirements...)
 			result[i].CoreIDs = appendUnique(result[i].CoreIDs, value.CoreIDs...)
 			result[i].PlatformIDs = appendUnique(result[i].PlatformIDs, value.PlatformIDs...)
 			result[i].Required = result[i].Required || value.Required

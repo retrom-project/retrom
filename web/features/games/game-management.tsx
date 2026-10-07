@@ -4,11 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, result, ApiError } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
-import { useResource } from "@/lib/use-resource";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-async function roots() {
-  return result(await api.GET("/api/v1/admin/source-roots"));
-}
 export function GameManagement({
   detail,
   onChange,
@@ -17,12 +13,10 @@ export function GameManagement({
   onChange: () => void;
 }) {
   const router = useRouter();
-  const source = useResource(roots);
   const { notify } = useToast();
   const [remove, setRemove] = useState(false);
   const [replace, setReplace] = useState(false);
-  const [rootId, setRootId] = useState("");
-  const [path, setPath] = useState("");
+  const [path, setPath] = useState("/");
   const [busy, setBusy] = useState(false);
   async function replaceContent() {
     setBusy(true);
@@ -30,7 +24,7 @@ export function GameManagement({
       result(
         await api.POST("/api/v1/admin/games/{gameId}/content-replacement", {
           params: { path: { gameId: detail.game.id } },
-          body: { version: detail.game.version, rootId, relativePath: path },
+          body: { version: detail.game.version, path },
         }),
       );
       notify({ tone: "good", message: "游戏内容已替换" });
@@ -64,7 +58,7 @@ export function GameManagement({
       <div className="panel-head"><h2>文件与管理操作</h2></div>
       <div className="panel-body stack">
       <div className="admin-game-action-grid">
-        <article><h3>替换游戏内容</h3><p>从服务器来源选择新的内容文件，现有存档按实际内容身份判断能否恢复。</p>
+        <article><h3>替换游戏内容</h3><p>从服务器目录选择新的内容文件，现有存档按实际内容身份判断能否恢复。</p>
         <button className="button secondary" onClick={() => setReplace(true)}>
           替换游戏内容
         </button>
@@ -84,31 +78,19 @@ export function GameManagement({
         busy={busy}
         onCancel={() => setReplace(false)}
         onConfirm={() => void replaceContent()}
-        confirmDisabled={!rootId || !path}
+        confirmDisabled={!path.startsWith("/")}
       >
         <div className="stack">
-          {source.error ? <p role="alert">{source.error} <button className="button secondary" onClick={source.reload}>重试读取来源</button></p> : null}
           <label className="field">
-            服务器来源
-            <select
-              value={rootId}
-              onChange={(event) => setRootId(event.target.value)}
-            >
-              <option value="">选择来源</option>
-              {source.data?.items.map((root) => (
-                <option value={root.id} key={root.id}>
-                  {root.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            来源内相对路径
+            服务器内容路径
             <input
+              aria-label="服务器内容路径"
+              placeholder="/path/to/game.zip"
               value={path}
               onChange={(event) => setPath(event.target.value)}
             />
           </label>
+          <p className="workspace-note">填写服务进程可见的绝对路径。</p>
         </div>
       </ConfirmDialog>
       <ConfirmDialog

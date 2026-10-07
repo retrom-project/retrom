@@ -1,86 +1,6 @@
 {
   "paths": {
-    "/api/v1/admin/source-roots": {
-      "get": {
-        "operationId": "ListSourceRoots",
-        "tags": [
-          "scans"
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RootList"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/source-roots/{rootId}/directories": {
+    "/api/v1/admin/source-directories": {
       "get": {
         "operationId": "ListSourceDirectories",
         "tags": [
@@ -160,19 +80,15 @@
         },
         "parameters": [
           {
-            "name": "rootId",
-            "in": "path",
+            "name": "path",
+            "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "relativePath",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^/"
+            },
+            "description": "Absolute directory path visible to the server process."
           }
         ]
       }

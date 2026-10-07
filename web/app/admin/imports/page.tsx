@@ -6,12 +6,12 @@ export default function Page() {
     <>
       <PageHeader
         title="游戏入库"
-        description="从服务器来源扫描接收游戏，并在统一待审核入口首次发布。"
+        description="扫描服务器目录中的游戏或 BIOS，并在待审核入口发布游戏。"
       />
       <div className="admin-grid">
         <article className="admin-card">
           <h2>来源扫描</h2>
-          <p>Pegasus 与 EmulationStation 清单</p>
+          <p>游戏扫描与 BIOS 扫描</p>
           <Link className="button" href="/admin/imports/server">
             开始扫描
           </Link>

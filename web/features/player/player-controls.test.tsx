@@ -22,47 +22,38 @@ beforeEach(() => {
   });
 });
 
-it("claims a direct-player controller and keeps held menu edges across renders", () => {
+it.each([false, true])("keeps a standalone Select press in game input without opening UI (immersive=%s)", (immersive) => {
   const instance = runtimeFixture();
-  const capabilities = instance.getCapabilities();
-  vi.spyOn(instance, "getCapabilities").mockReturnValue({
-    ...capabilities,
-    inputFilter: true,
-  });
-  vi.spyOn(instance, "getInputCapabilities").mockReturnValue({
-    hostShortcuts: ["MENU"],
-  });
-  const filter = vi.spyOn(instance, "setInputFilter");
-  const menu = vi.fn();
+  vi.spyOn(instance, "getCapabilities").mockReturnValue({ ...instance.getCapabilities(), inputFilter: true });
+  vi.spyOn(instance, "getInputCapabilities").mockReturnValue({ hostShortcuts: ["MENU"] });
+  const filter = vi.spyOn(instance, "setInputFilter"), menu = vi.fn();
   const runtime = { current: instance };
-  const { rerender } = renderHook(
-    ({ open }) =>
-      usePlayerControls(
-        runtime,
-        menu,
-        () => undefined,
-        { suppressInput: open, menuOpen: open, immersive: false, dialogOpen: false, onCancel: vi.fn(), onFailure: vi.fn() },
-      ),
-    { initialProps: { open: false } },
-  );
-  act(() => frameListener(frame(true, 0)));
-  expect(menu).toHaveBeenCalledOnce();
-  expect(filter).toHaveBeenLastCalledWith({
-    activeGamepadIndex: 2,
-    suppressInput: false,
-  });
-  rerender({ open: true });
-  act(() => frameListener(frame(true, 16)));
-  expect(menu).toHaveBeenCalledOnce();
+  const { rerender } = renderHook(() => usePlayerControls(runtime, menu, vi.fn(), {
+    suppressInput: false, menuOpen: false, immersive, dialogOpen: false, onCancel: vi.fn(), onFailure: vi.fn(),
+  }));
+  const pressed = frame(true, 0);
+  act(() => frameListener(pressed));
+  rerender();
+  act(() => frameListener(frame(true, 1000)));
+  act(() => frameListener(frame(false, 1100)));
+  act(() => frameListener(frame(true, 1300)));
+  expect(menu).not.toHaveBeenCalled();
+  expect(filter).toHaveBeenLastCalledWith({ activeGamepadIndex: 2, suppressInput: false });
+  expect(pressed.gamepads[0].buttons[8]).toEqual({ pressed: true, value: 1 });
   expect(browserGamepadSource.subscribe).toHaveBeenCalledOnce();
-  expect(filter).toHaveBeenLastCalledWith({
-    activeGamepadIndex: 2,
-    suppressInput: true,
-  });
-  act(() => frameListener(frame(false, 32)));
-  act(() => frameListener(frame(false, 180)));
-  act(() => frameListener(frame(true, 196)));
-  expect(menu).toHaveBeenCalledTimes(2);
+});
+
+it("keeps the ordinary keyboard menu and pause shortcuts", () => {
+  const instance = runtimeFixture();
+  vi.spyOn(instance, "getInputCapabilities").mockReturnValue({ hostShortcuts: ["MENU", "PAUSE"] });
+  const menu = vi.fn(), pause = vi.fn();
+  renderHook(() => usePlayerControls({ current: instance }, menu, pause, {
+    suppressInput: false, menuOpen: false, immersive: false, dialogOpen: false, onCancel: vi.fn(), onFailure: vi.fn(),
+  }));
+  fireEvent.keyDown(window, { key: "Escape" });
+  fireEvent.keyDown(window, { code: "KeyP", key: "p" });
+  expect(menu).toHaveBeenCalledOnce();
+  expect(pause).toHaveBeenCalledOnce();
 });
 
 function frame(menuPressed: boolean, nowMs: number) {

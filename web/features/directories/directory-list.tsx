@@ -1,4 +1,5 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useState } from "react";
 import type { Directory, Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
@@ -149,9 +150,10 @@ function DirectoryTable({
   onEdit: (directory: Directory) => void;
   onDelete: (directory: Directory) => void;
 }) {
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <div
-      className="platform-directory-table-scroll"
+      ref={tableRail} className="platform-directory-table-scroll"
       tabIndex={0}
       role="region"
       aria-label="游戏目录表"

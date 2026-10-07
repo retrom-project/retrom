@@ -88,13 +88,11 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
         enabled: true,
       },
     ));
-  const rootId = process.env.RETROM_BROWSER_SOURCE_ROOT_ID ?? "acceptance";
-  const relativePath =
-    process.env.RETROM_BROWSER_SOURCE_RELATIVE_PATH ?? "browser";
+  const sourcePath = process.env.RETROM_BROWSER_SOURCE_PATH ?? "/pfb-workspace/acceptance/sources/browser";
   await page.goto("/admin/imports/server");
   await page.getByRole("button", { name: "选择 Pegasus 目录", exact: true }).click();
-  await page.getByLabel("服务器来源", { exact: true }).selectOption(rootId);
-  await page.getByLabel("来源内目录", { exact: true }).fill(relativePath);
+  await page.getByLabel("服务器目录", { exact: true }).fill(sourcePath);
+  await page.getByRole("button", { name: "进入目录", exact: true }).click();
   await page.getByRole("button", { name: "读取来源集合", exact: true }).click();
   await page
     .locator('select[aria-label$="游戏目录"]')

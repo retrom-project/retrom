@@ -19,3 +19,7 @@ GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不�
 管理员邀请URL为/register#token=...，重置为/reset-password#token=...；token只由匿名页面读取并提交inspect/consume。管理员链接列表只返回脱敏摘要，筛选active/consumed/revoked/expired与total采用同条件；撤销需版本，重置链接显式expiresInHours。创建目录/Tag/Folder请求没有version，编辑请求要求version≥1。
 
 独立隔离桥唯一传输路径为/__retrom/runtime-isolation/{runId}/{asset}。壳注册/run/{runId}/范围的SW，宿主通过精确绑定的MessagePort提供受限内容读取；业务cookie不会进入隔离origin。服务返回COEP/CORP、限定frame-ancestors与Service-Worker-Allowed。共享PFB网关允许的/__retrom/只是传输前缀，不恢复旧运行凭据契约。
+
+管理员来源目录统一使用服务进程可见的绝对path。GET /api/v1/admin/source-directories从path指定目录列出{name,path}，默认界面从/开始；游戏集合检查、游戏扫描、BIOS扫描与内容替换均使用path，不再使用source-roots、rootId或relativePath。仅管理来源浏览返回绝对路径；Run资源仍使用受限资源ID，复制接收后的受管文件所有权不变。
+
+Game.lastPlayedAtMs为必需但可为null的当前用户投影，由既有recent_game_tab在当前分页游戏范围内读取；没有新增Game持久字段、次数或时长。未成功游玩的当前用户值为null，管理身份不读取其他用户的最近记录。

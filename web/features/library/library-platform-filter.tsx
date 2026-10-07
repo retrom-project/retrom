@@ -1,3 +1,4 @@
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import type { Directory, Schema } from "@/lib/api/types";
 
 export function LibraryPlatformFilter({
@@ -11,10 +12,11 @@ export function LibraryPlatformFilter({
   selected: string;
   onSelect: (value: string) => void;
 }) {
+  const platformRail = useHorizontalWheel<HTMLDivElement>();
   const present = new Set(directories.map((directory) => directory.platformId));
   const choices = platforms.filter((platform) => present.has(platform.id));
   return (
-    <div className="library-platform-row" aria-label="游戏平台筛选">
+    <div ref={platformRail} className="library-platform-row" aria-label="游戏平台筛选">
       <span className="library-platform-label">平台</span>
       <button
         className={!selected ? "is-active" : ""}

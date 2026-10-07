@@ -37,12 +37,8 @@ func (s *Server) deleteBios(w http.ResponseWriter, r *http.Request, p model.Prin
 	return noContent(w, s.Bios.Delete(r.Context(), p, r.PathValue("requirementKey")))
 }
 
-func (s *Server) sourceRoots(w http.ResponseWriter, _ *http.Request, _ model.Principal) error {
-	return respond(w, model.List[model.Root]{Items: s.Sources.Roots})
-}
-
 func (s *Server) sourceDirectories(w http.ResponseWriter, r *http.Request, _ model.Principal) error {
-	items, err := s.Sources.Directories(r.PathValue("rootId"), r.URL.Query().Get("relativePath"))
+	items, err := s.Sources.Directories(r.URL.Query().Get("path"))
 	if err != nil {
 		return wrap(err)
 	}

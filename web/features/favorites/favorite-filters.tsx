@@ -1,3 +1,4 @@
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { AppIcon } from "@/components/app-icon";
 import type { Directory } from "@/lib/api/types";
 export function FavoriteFilters({
@@ -21,6 +22,8 @@ export function FavoriteFilters({
   onDirectory: (value: string) => void;
   onToggle: () => void;
 }) {
+  const optionsRail = useHorizontalWheel<HTMLDivElement>();
+  const platformRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <>
       <div className="favorite-toolbar">
@@ -52,9 +55,9 @@ export function FavoriteFilters({
           {selecting ? "结束整理" : "批量整理"}
         </button>
       </div>
-      <div className="favorite-platforms">
+      <div ref={platformRail} className="favorite-platforms">
         <span>游戏目录</span>
-        <div className="favorite-platform-options" role="group" aria-label="筛选游戏目录">
+        <div ref={optionsRail} className="favorite-platform-options" role="group" aria-label="筛选游戏目录">
         <button
           className={!directory ? "is-active" : ""}
           onClick={() => onDirectory("")}

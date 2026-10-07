@@ -29,7 +29,6 @@ export function usePlayerControls(runtime: RefObject<PlayerRuntimeV1 | null>, on
   useEffect(() => { config.current = { onMenu, onPause, ...options }; }, [onMenu, onPause, options]);
   useEffect(() => {
     let index = getActiveImmersiveGamepadIndex();
-    let previous = false;
     let filtered = "";
     let filteredInstance: PlayerRuntimeV1 | null = null;
     const claim = new GamepadClaimModel();
@@ -45,7 +44,6 @@ export function usePlayerControls(runtime: RefObject<PlayerRuntimeV1 | null>, on
       }
       if (frame.suspended) {
         navigation.reset();
-        previous = true;
         filtered = "";
         applyFilter(instance, index, true, config.current.onFailure);
         return;
@@ -70,7 +68,7 @@ export function usePlayerControls(runtime: RefObject<PlayerRuntimeV1 | null>, on
       if (current.immersive) {
         dispatchImmersiveGamepad(gamepad, frame.nowMs, navigation, chord, current);
       } else {
-        previous = dispatchGamepadMenu(gamepad, frame.nowMs, navigation, previous, current, instance.getInputCapabilities().hostShortcuts.includes("MENU"));
+        dispatchGamepadMenu(gamepad, frame.nowMs, navigation, current);
       }
     });
     window.addEventListener("keydown", keyboard, true);
@@ -85,11 +83,8 @@ function dispatchGamepadMenu(
   gamepad: GamepadSnapshot | null,
   nowMs: number,
   navigation: NavigationInputModel,
-  previous: boolean,
   config: ControlConfig & { onMenu: () => void },
-  menuSupported: boolean,
 ) {
-  const pressed = buttonPressed(gamepad?.buttons[8]);
   if (config.dialogOpen) {
     dispatchDialog(navigation.update(gamepad, nowMs).actions, config.onCancel);
   } else if (config.menuOpen) {
@@ -102,11 +97,7 @@ function dispatchGamepadMenu(
     }
   } else {
     navigation.reset();
-    if (pressed && !previous && menuSupported && !config.suppressInput) {
-      config.onMenu();
-    }
   }
-  return pressed;
 }
 
 function applyFilter(

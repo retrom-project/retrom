@@ -1,4 +1,5 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useToast } from "@/components/toast-provider";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ import { FolderManager } from "./folder-manager";
 import { FavoriteCard } from "./favorite-card";
 import { FavoriteCollectionDialog } from "./favorite-collection-dialog";
 export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
+  const batchRail = useHorizontalWheel<HTMLDivElement>();
   const [query, setQuery] = useState(initial.q ?? "");
   const [directory, setDirectory] = useState(initial.platformInstanceId ?? "");
   const [folder, setFolder] = useState(initial.folderId ?? "");
@@ -188,7 +190,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
                 </button>
               </div>
               {selecting ? (
-                <div className="favorite-batch">
+                <div ref={batchRail} className="favorite-batch">
                   <strong>已选 {selected.length} 款</strong>
                   <button
                     onClick={() =>

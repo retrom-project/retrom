@@ -726,23 +726,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/source-roots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ListSourceRoots"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-roots/{rootId}/directories": {
+    "/api/v1/admin/source-directories": {
         parameters: {
             query?: never;
             header?: never;
@@ -1216,6 +1200,8 @@ export interface components {
             media: components["schemas"]["GameMedia"][];
             favorite: boolean;
             /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            /** Format: int64 */
             createdAtMs: number;
             /** Format: int64 */
             updatedAtMs: number;
@@ -1248,8 +1234,8 @@ export interface components {
         ContentReplaceRequest: {
             /** Format: int64 */
             version: number;
-            rootId: string;
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
         };
         FavoriteFolder: {
             /** Format: uuid */
@@ -1327,24 +1313,22 @@ export interface components {
                 saveCount: number;
             };
         };
-        SourceRoot: {
-            id: string;
-            name: string;
-        };
         SourceDirectory: {
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
             name: string;
         };
         SourceEntry: {
             key: string;
             name: string;
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
             /** Format: int64 */
             gameCount: number;
         };
         SourceInspectRequest: {
-            rootId: string;
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
             /** @enum {string} */
             format: "pegasus" | "emulationstation";
         };
@@ -1355,15 +1339,15 @@ export interface components {
             tagIds: string[];
         };
         GameScanRequest: {
-            rootId: string;
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
             /** @enum {string} */
             format: "pegasus" | "emulationstation";
             mappings: components["schemas"]["SourceMapping"][];
         };
         BiosScanRequest: {
-            rootId: string;
-            relativePath: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
             platformIds: string[];
             coreIds: string[];
         };
@@ -1402,6 +1386,8 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
+            /** @description Runtime requirements for every applicable core sharing this BIOS key. */
+            requirements: components["schemas"]["BiosValidationRequirement"][];
         };
         RunRequest: {
             /** Format: uuid */
@@ -1482,6 +1468,8 @@ export interface components {
                 code: string;
                 message: string;
             } | null;
+            /** @description Only required BIOS absent from the current installation, as resolved by runtime for this game. Empty on success with no missing requirements or on error; inspect biosSatisfied/error first. */
+            missingBios: components["schemas"]["ReviewMissingBIOS"][];
         };
         ReviewReadinessList: {
             items: components["schemas"]["ReviewReadiness"][];
@@ -1526,9 +1514,6 @@ export interface components {
         };
         ScanList: {
             items: components["schemas"]["ScanProgress"][];
-        };
-        RootList: {
-            items: components["schemas"]["SourceRoot"][];
         };
         SourceDirectoryList: {
             items: components["schemas"]["SourceDirectory"][];
@@ -1632,6 +1617,20 @@ export interface components {
         };
         DOSEntryCandidates: {
             entries: string[];
+        };
+        ReviewMissingBIOS: {
+            key: string;
+            /** @description Runtime logical filename, not a host filesystem path. */
+            name: string;
+            coreId: string;
+        };
+        /** @description Runtime validation requirements for a core. Null denotes a value not declared by runtime; installed file facts remain separate. */
+        BiosValidationRequirement: {
+            coreId: string;
+            /** Format: int64 */
+            sizeBytes: number | null;
+            sha256: string | null;
+            md5: string | null;
         };
     };
     responses: never;
@@ -6239,89 +6238,14 @@ export interface operations {
             };
         };
     };
-    ListSourceRoots: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RootList"];
-                };
-            };
-            /** @description Request failed */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     ListSourceDirectories: {
         parameters: {
-            query?: {
-                relativePath?: string;
+            query: {
+                /** @description Absolute directory path visible to the server process. */
+                path: string;
             };
             header?: never;
-            path: {
-                rootId: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;

@@ -1,7 +1,9 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useState } from "react";
 import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
+import { BiosValidationRequirements } from "./bios-validation-requirements";
 export function BiosList({
   items,
   catalog,
@@ -13,6 +15,8 @@ export function BiosList({
   onInstall: (key: string, file: File) => void;
   onRemove: (key: string) => void;
 }) {
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
+  const summaryRail = useHorizontalWheel<HTMLDivElement>();
   const [query, setQuery] = useState("");
   const [core, setCore] = useState("");
   const [state, setState] = useState("");
@@ -38,7 +42,7 @@ export function BiosList({
   ];
   return (
     <>
-      <div className="runtime-kpis">
+      <div ref={summaryRail} className="runtime-kpis">
         <article>
           <small>依赖要求</small>
           <strong>{items.length}</strong>
@@ -120,7 +124,7 @@ export function BiosList({
             <h2>{group.name}</h2>
             <span>{group.items.length} 项</span>
           </div>
-          <div className="runtime-list">
+          <div ref={tableRail} className="runtime-list">
             {group.items.map((item) => (
               <BiosRow
                 key={item.key}
@@ -165,11 +169,15 @@ function BiosRow({
             {item.required ? "必需" : "可选"}
             {item.filename ? ` · ${item.filename}` : ""}
           </p>
-          {item.sha256 ? (
-            <dl className="runtime-technical">
-              <dt>SHA-256</dt>
-              <dd title={item.sha256}>{item.sha256}</dd>
-            </dl>
+          {item.installed ? (
+            <div className="runtime-installed-file">
+              <p>已安装文件</p>
+              <dl className="runtime-technical">
+                <dt>实际大小</dt>
+                <dd>{item.sizeBytes.toLocaleString("zh-CN")} 字节</dd>
+                {item.sha256 ? <><dt>SHA-256</dt><dd>{item.sha256}</dd></> : null}
+              </dl>
+            </div>
           ) : null}
         </div>
       </div>
@@ -223,6 +231,7 @@ function BiosRow({
           </button>
         ) : null}
       </div>
+      <BiosValidationRequirements items={item.requirements} catalog={catalog} />
     </article>
   );
 }

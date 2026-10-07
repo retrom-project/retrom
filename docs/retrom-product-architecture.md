@@ -13,7 +13,7 @@ Retrom 为个人和可信朋友提供共享游戏库。User 是唯一账号和�
 | 标签 | 共享标签及Game关系 |
 | 用户 | 初始化、账号、密码、会话、邀请、重置及临时限流 |
 
-Home是读取投影；扫描进度、运行和文件维护是内部能力。它们没有通用Job/Input/Event/Lease持久模型。Game只记录来源类型，不保存扫描或批次ID；扫描进度不保存来源映射、结果列表或恢复游标。BIOS与游戏扫描分别执行，不借用彼此的审核逻辑。
+Home是读取投影；扫描进度、运行和文件维护是内部能力。它们没有通用Job/Input/Event/Lease持久模型。Game只记录来源类型，不保存扫描或批次ID；扫描进度不保存来源映射、结果列表或恢复游标。BIOS与游戏扫描分别执行，不借用彼此的审核逻辑。两类入口与进度统一位于来源扫描页，运行依赖页仅管理当前安装。管理员以服务进程可见的绝对路径浏览和选择来源，不使用配置来源根或rootId；来源只读，复制接收后的受管所有权不变。
 
 HTTP只处理认证、请求验证与响应；应用入口在cmd/retrom组装服务。internal/model保存领域字段和纯验证，internal/service拥有用例，internal/persistence拥有SQL及短事务，internal/storage拥有受管文件，internal/temporary拥有窄Redis能力，internal/runtimeclient调用统一runtime工具。业务和基础层不反向依赖HTTP；runtime/存档不依赖扫描服务。
 

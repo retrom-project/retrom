@@ -40,7 +40,7 @@ const detail: Schema<"GameDetail"> = {
     contentHash: "hash",
     tags: [],
     media: [],
-    favorite: false,
+    favorite: false, lastPlayedAtMs: null,
     createdAtMs: 1,
     updatedAtMs: 1,
   },

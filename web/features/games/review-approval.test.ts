@@ -4,7 +4,7 @@ import { approveReviewSnapshot, reviewSnapshot } from "./review-approval";
 import type { ReviewCandidate, ReviewReadiness } from "./review-approval";
 
 const games = (count: number): ReviewCandidate[] => Array.from({ length: count }, (_, index) => ({ id: `game-${index}`, title: `游戏 ${index}`, version: 2 }));
-const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null }));
+const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [] }));
 const signal = () => new AbortController().signal;
 
 describe("quick review approval", () => {
@@ -25,6 +25,7 @@ describe("quick review approval", () => {
     const items = games(5);
     const projections = ready(items);
     projections[1].biosSatisfied = false;
+    projections[1].missingBios = [{ key: "provider/target/firmware", name: "firmware.rom", coreId: "core" }];
     projections[2].biosSatisfied = null;
     projections[2].error = { code: "CHECK_FAILED", message: "检查失败" };
     projections[3].version = 3;
@@ -33,6 +34,7 @@ describe("quick review approval", () => {
     const summary = await approveReviewSnapshot(items, { readiness: async () => projections, approve }, signal(), vi.fn());
     expect(approve).toHaveBeenCalledExactlyOnceWith(items[0]);
     expect(summary).toMatchObject({ approved: 1, missingBios: 1, checked: 5, interrupted: false });
+    expect(summary.missingBiosDetails).toEqual([{ game: items[1], requirements: projections[1].missingBios }]);
     expect(summary.failures.map(({ game }) => game.id)).toEqual(["game-2", "game-3", "game-4"]);
   });
 
@@ -84,15 +86,18 @@ describe("quick review approval", () => {
     expect(summary.failures).toHaveLength(100);
   });
 
-  it("bounds progress notifications and rendered failures for a large failed review queue", async () => {
+  it("bounds progress notifications and rendered missing/failed details for a large review queue", async () => {
     let updates = 0;
     let visibleFailures = 0;
+    let visibleMissing = 0;
     const summary = await approveReviewSnapshot(games(20000), {
-      readiness: async (batch) => ready(batch), approve: async () => { throw new Error("审批失败"); },
-    }, signal(), (value) => { updates++; visibleFailures = Math.max(visibleFailures, value.failures.length); });
+      readiness: async (batch) => ready(batch).map((item, index) => ({ ...item, biosSatisfied: index % 2 === 0 })), approve: async () => { throw new Error("审批失败"); },
+    }, signal(), (value) => { updates++; visibleFailures = Math.max(visibleFailures, value.failures.length); visibleMissing = Math.max(visibleMissing, value.missingBiosDetails.length); });
     expect(updates).toBeLessThanOrEqual(2002);
     expect(visibleFailures).toBeLessThanOrEqual(20);
-    expect(summary.failed).toBe(20000);
-    expect(summary.failures).toHaveLength(20000);
+    expect(visibleMissing).toBeLessThanOrEqual(20);
+    expect(summary.failed).toBe(10000);
+    expect(summary.missingBiosDetails).toHaveLength(10000);
+    expect(summary.failures).toHaveLength(10000);
   });
 });

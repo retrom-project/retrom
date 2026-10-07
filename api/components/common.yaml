@@ -749,6 +749,7 @@
           "tags",
           "media",
           "favorite",
+          "lastPlayedAtMs",
           "createdAtMs",
           "updatedAtMs"
         ],
@@ -828,6 +829,12 @@
           },
           "favorite": {
             "type": "boolean"
+          },
+          "lastPlayedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true
           },
           "createdAtMs": {
             "type": "integer",
@@ -959,8 +966,7 @@
         "additionalProperties": false,
         "required": [
           "version",
-          "rootId",
-          "relativePath"
+          "path"
         ],
         "properties": {
           "version": {
@@ -968,11 +974,11 @@
             "format": "int64",
             "minimum": 1
           },
-          "rootId": {
-            "type": "string"
-          },
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           }
         }
       },
@@ -1271,32 +1277,19 @@
           }
         }
       },
-      "SourceRoot": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
       "SourceDirectory": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "relativePath",
+          "path",
           "name"
         ],
         "properties": {
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           },
           "name": {
             "type": "string"
@@ -1309,7 +1302,7 @@
         "required": [
           "key",
           "name",
-          "relativePath",
+          "path",
           "gameCount"
         ],
         "properties": {
@@ -1319,8 +1312,11 @@
           "name": {
             "type": "string"
           },
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           },
           "gameCount": {
             "type": "integer",
@@ -1333,16 +1329,15 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "rootId",
-          "relativePath",
+          "path",
           "format"
         ],
         "properties": {
-          "rootId": {
-            "type": "string"
-          },
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           },
           "format": {
             "type": "string",
@@ -1382,17 +1377,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "rootId",
-          "relativePath",
+          "path",
           "format",
           "mappings"
         ],
         "properties": {
-          "rootId": {
-            "type": "string"
-          },
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           },
           "format": {
             "type": "string",
@@ -1413,17 +1407,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "rootId",
-          "relativePath",
+          "path",
           "platformIds",
           "coreIds"
         ],
         "properties": {
-          "rootId": {
-            "type": "string"
-          },
-          "relativePath": {
-            "type": "string"
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "Absolute path visible to the server process."
           },
           "platformIds": {
             "type": "array",
@@ -1534,7 +1527,8 @@
           "installed",
           "filename",
           "sizeBytes",
-          "sha256"
+          "sha256",
+          "requirements"
         ],
         "properties": {
           "key": {
@@ -1571,6 +1565,13 @@
           },
           "sha256": {
             "type": "string"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BiosValidationRequirement"
+            },
+            "description": "Runtime requirements for every applicable core sharing this BIOS key."
           }
         }
       },
@@ -1967,21 +1968,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScanProgress"
-            }
-          }
-        }
-      },
-      "RootList": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "items"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SourceRoot"
             }
           }
         }
@@ -2416,7 +2402,8 @@
           "id",
           "version",
           "biosSatisfied",
-          "error"
+          "error",
+          "missingBios"
         ],
         "properties": {
           "id": {
@@ -2448,6 +2435,13 @@
               "message": {
                 "type": "string"
               }
+            }
+          },
+          "missingBios": {
+            "type": "array",
+            "description": "Only required BIOS absent from the current installation, as resolved by runtime for this game. Empty on success with no missing requirements or on error; inspect biosSatisfied/error first.",
+            "items": {
+              "$ref": "#/components/schemas/ReviewMissingBIOS"
             }
           }
         },
@@ -2483,6 +2477,57 @@
             }
           }
         }
+      },
+      "ReviewMissingBIOS": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "name",
+          "coreId"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Runtime logical filename, not a host filesystem path."
+          },
+          "coreId": {
+            "type": "string"
+          }
+        }
+      },
+      "BiosValidationRequirement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coreId",
+          "sizeBytes",
+          "sha256",
+          "md5"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "md5": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "description": "Runtime validation requirements for a core. Null denotes a value not declared by runtime; installed file facts remain separate."
       }
     }
   }

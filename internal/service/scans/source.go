@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,8 +25,9 @@ type (
 		Video string
 	}
 	Collection struct {
-		Entry model.SourceEntry
-		Games []Candidate
+		Entry     model.SourceEntry
+		Directory string
+		Games     []Candidate
 	}
 )
 
@@ -33,7 +35,7 @@ func (s *Service) inspect(ctx context.Context, input model.SourceInput) ([]Colle
 	if !model.OneOf(input.Format, "pegasus", "emulationstation") {
 		return nil, model.ErrInvalid
 	}
-	root, err := s.Sources.Open(input.RootID, input.RelativePath)
+	root, err := s.Sources.Open(input.Path)
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -65,6 +67,9 @@ func (s *Service) inspect(ctx context.Context, input model.SourceInput) ([]Colle
 		if parseErr != nil {
 			return nil, parseErr
 		}
+		for i := range parsed {
+			parsed[i].Entry.Path = filepath.Join(input.Path, directory)
+		}
 		result = append(result, parsed...)
 	}
 	if len(result) == 0 {
@@ -88,10 +93,10 @@ func parsePegasus(directory string, contents []byte) ([]Collection, error) {
 	result := make([]Collection, 0, len(document.Collections))
 	for _, collection := range document.Collections {
 		item := Collection{
+			Directory: directory,
 			Entry: model.SourceEntry{
-				Key:          directory + ":" + strconv.Itoa(collection.SegmentOrdinal),
-				Name:         collection.Name,
-				RelativePath: directory,
+				Key:  directory + ":" + strconv.Itoa(collection.SegmentOrdinal),
+				Name: collection.Name,
 			},
 			Games: make([]Candidate,
 				0,
@@ -131,10 +136,10 @@ func parseGamelist(ctx context.Context, directory string, contents []byte) ([]Co
 		return nil, fmt.Errorf("gamelist metadata: %w", model.ErrInvalid)
 	}
 	item := Collection{
+		Directory: directory,
 		Entry: model.SourceEntry{
-			Key:          directory,
-			Name:         path.Base(directory),
-			RelativePath: directory,
+			Key:  directory,
+			Name: path.Base(directory),
 		},
 		Games: make([]Candidate,
 			0,

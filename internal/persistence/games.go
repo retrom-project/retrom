@@ -25,6 +25,7 @@ g.version,
 
  'contentHash',g.content_hash,'createdAtMs',g.created_at_ms,'updatedAtMs',g.updated_at_ms,
  'favorite',EXISTS(SELECT 1 FROM favorite_tab f WHERE f.user_id=$1 AND f.game_id=g.id),
+ 'lastPlayedAtMs',(SELECT rg.last_played_at_ms FROM recent_game_tab rg WHERE rg.user_id=$1 AND rg.game_id=g.id),
  'tags',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'version',t.version,'gameCount',0)
  ORDER BY t.name_key,t.id) FROM game_tag_tab gt JOIN tag_tab t ON t.id=gt.tag_id
  WHERE gt.game_id=g.id AND t.status='active'),'[]'::jsonb),

@@ -1,4 +1,5 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -107,7 +108,8 @@ function AdminGameFilters({ values, directories, tags, onApply, disabled }: {
   );
 }
 function AdminGameTable({ games, directories }: { games: Game[]; directories: Directory[] }) {
-  return <div className="admin-game-table-scroll" tabIndex={0} aria-label="游戏管理表格，可横向滚动">
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
+  return <div ref={tableRail} className="admin-game-table-scroll" tabIndex={0} aria-label="游戏管理表格，可横向滚动">
     <table className="admin-game-table">
       <thead><tr><th>封面</th><th>游戏</th><th>用户状态</th><th>运行环境 / 目录</th><th>最近更新</th><th>操作</th></tr></thead>
       <tbody>{games.map((game) => <tr key={game.id}>

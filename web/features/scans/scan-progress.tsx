@@ -63,7 +63,7 @@ export function ScanProgressList() {
                       <strong>
                         {scan.scanType === "game"
                           ? "游戏扫描"
-                          : "BIOS 扫描补齐"}
+                          : "BIOS扫描"}
                       </strong>
                       <span
                         className={`status ${scan.status === "completed" ? "good" : scan.status === "failed" ? "bad" : "neutral"}`}

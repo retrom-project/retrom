@@ -72,7 +72,7 @@ func readinessIDs(ids []string) error {
 func (s *Service) readinessInput(ctx context.Context, p model.Principal, id string) (
 	model.ReviewReadiness, map[string]any,
 ) {
-	item := model.ReviewReadiness{ID: id}
+	item := model.ReviewReadiness{ID: id, MissingBIOS: []model.ReviewMissingBIOS{}}
 	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
 	if err != nil {
 		item.Error = readinessFailure(errors.Is(err, model.ErrNotFound))
@@ -110,6 +110,7 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 	}
 	for index, position := range positions {
 		item := &items[position]
+		item.MissingBIOS = []model.ReviewMissingBIOS{}
 		if len(projections) != len(positions) || projections[index].Error != nil || projections[index].Requirements == nil {
 			item.Error = readinessFailure(false)
 			continue
@@ -118,6 +119,9 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 		for _, requirement := range projections[index].Requirements {
 			if requirement.Required && !keys[requirement.RequirementKey] {
 				satisfied = false
+				item.MissingBIOS = append(item.MissingBIOS, model.ReviewMissingBIOS{
+					Key: requirement.RequirementKey, Name: requirement.LogicalName, CoreID: requirement.CoreID,
+				})
 			}
 		}
 		item.BIOSSatisfied = &satisfied

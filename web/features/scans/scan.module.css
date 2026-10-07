@@ -4,13 +4,18 @@
 .entry > span { color: var(--muted); font-size: var(--text-small); }
 .entry h2 { margin: 8px 0 0; font-size: var(--text-section); }
 .entry p { margin: 8px 0 24px; color: var(--muted); font-size: var(--text-small); line-height: var(--leading-body); }
-.entry footer { margin-top: auto; display: flex; justify-content: flex-end; }
+.entry footer { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .sheet { width: min(620px, calc(100vw - 24px)); background: var(--surface); }
 .sheet :global(.responsive-sheet-head) { padding: 22px; background: var(--surface); }
 .sheet :global(.responsive-sheet-head h2) { font-size: var(--text-section); }
 .sheet :global(.responsive-sheet-body) { padding: 20px 22px; }
 .sheet :global(.responsive-sheet-footer) { padding: 16px 22px; background: var(--surface); }
 .picker { display: grid; gap: 16px; min-width: 0; }
+.pathEntry { display: flex; align-items: end; gap: 8px; }
+.pathEntry > label { flex: 1; min-width: 0; }
+.pathEntry input { min-width: 0; width: 100%; }
+.pathEntry > button { flex: none; }
+.picker small { color: var(--muted); font-size: var(--text-caption); }
 .picker :global(.field-label) { font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .directoryBrowser { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .directoryBrowser header { padding: 12px 14px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface); overflow-wrap: anywhere; font-size: var(--text-caption); }
@@ -44,3 +49,10 @@
 .counts strong { display: block; margin-top: 3px; font-size: var(--text-small); }
 @media (max-width: 900px) { .entryGrid, .mapping { grid-template-columns: minmax(0, 1fr); } .progressRow > a { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .sheet { width: 100%; } .entry { min-height: 220px; } .progressRow { flex-wrap: wrap; } .counts { grid-template-columns: repeat(3, minmax(0, 1fr)); } .progressRow > button { margin: 0 18px 16px; } }
+
+.scope { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
+.scope legend { padding-inline: 6px; color: var(--muted); font-size: var(--text-small); }
+.scope > div { max-height: 176px; overflow: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 12px; }
+.scope label { display: flex; align-items: flex-start; gap: 7px; min-width: 0; font-size: var(--text-small); }
+.scope input { margin-top: 4px; flex: 0 0 auto; }
+@media (max-width: 560px) { .scope > div { grid-template-columns: minmax(0, 1fr); } }

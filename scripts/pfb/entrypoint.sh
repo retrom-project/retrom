@@ -30,7 +30,6 @@ export PFB_PROVIDER_ACTIVE_PATH="$RETROM_PROVIDER_ACTIVE_PATH"
 export PFB_PROVIDER_DEV_ROOT="$RETROM_PROVIDER_DEV_ROOT"
 export RETROM_RUNTIME_ROOT="$(readlink -f /pfb-workspace/runtime-tool)"
 mkdir -p /pfb-workspace/acceptance/sources
-export RETROM_SOURCE_ROOTS='[ {"id":"server-data","name":"Server library","path":"/server-data"},{"id":"acceptance","name":"Acceptance library","path":"/pfb-workspace/acceptance/sources"} ]'
 export RETROM_PROVIDER_ROOT=/pfb-workspace/providers
 export RETROM_TRUSTED_PROXY_CIDRS="172.29.240.0/24"
 export NEXT_DEV_HOST=0.0.0.0

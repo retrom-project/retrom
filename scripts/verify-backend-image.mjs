@@ -33,7 +33,7 @@ const directory = await request("/api/v1/admin/platform-instances", "POST", {
   platformId: "nes", name: "Image NES", slug: "image-nes", description: "",
   coreIds: ["fceumm"], defaultCoreId: "fceumm", enabled: true
 });
-const source = { rootId: "image", relativePath: "browser", format: "pegasus" };
+const source = { path: "/image-source/browser", format: "pegasus" };
 const inspected = await request("/api/v1/admin/game-scans/inspect", "POST", source);
 if (inspected.items.length !== 1) throw new Error("IMAGE_SOURCE_INSPECTION_FAILED");
 const scan = await request("/api/v1/admin/game-scans", "POST", {

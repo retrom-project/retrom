@@ -159,7 +159,7 @@ function PlayerContent({
       if (response.error) { throw new ApiError(response.error.code, response.error.message, response.response.status); }
     }
     if (immersive) { markImmersivePlayerReturn(); }
-    router.push(
+    router.replace(
       returnTo.startsWith("/") && !returnTo.startsWith("//")
         ? returnTo
         : "/library",

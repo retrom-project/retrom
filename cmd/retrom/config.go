@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,34 +11,6 @@ import (
 
 	"retrom/internal/model"
 )
-
-func sourceRoots() ([]model.Root, error) {
-	result := make([]model.Root, 0)
-	raw := os.Getenv("RETROM_SOURCE_ROOTS")
-	if raw == "" {
-		return result, nil
-	}
-	if err := json.Unmarshal([]byte(raw), &result); err != nil {
-		return nil, fmt.Errorf("source roots configuration: %w", err)
-	}
-	var definitions []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		Path string `json:"path"`
-	}
-	if err := json.Unmarshal([]byte(raw), &definitions); err != nil {
-		return nil, fmt.Errorf("source root paths: %w", err)
-	}
-	seen := make(map[string]bool, len(definitions))
-	for i, root := range definitions {
-		if root.ID == "" || seen[root.ID] || !filepath.IsAbs(root.Path) {
-			return nil, model.ErrInvalid
-		}
-		seen[root.ID] = true
-		result[i].Path = root.Path
-	}
-	return result, nil
-}
 
 func trustedProxies() ([]*net.IPNet, error) {
 	result := make([]*net.IPNet, 0)

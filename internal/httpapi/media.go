@@ -39,14 +39,13 @@ func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request, p model.Pri
 
 func (s *Server) replaceContent(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	var input struct {
-		RootID       string `json:"rootId"`
-		RelativePath string `json:"relativePath"`
-		Version      int64  `json:"version"`
+		Path    string `json:"path"`
+		Version int64  `json:"version"`
 	}
 	if err := decode(r, &input); err != nil {
 		return err
 	}
-	value, err := s.Scans.Replace(r.Context(), p, r.PathValue("gameId"), input.RootID, input.RelativePath, input.Version)
+	value, err := s.Scans.Replace(r.Context(), p, r.PathValue("gameId"), input.Path, input.Version)
 	if err != nil {
 		return wrap(err)
 	}

@@ -56,9 +56,8 @@ func (s *Service) Create(ctx context.Context, p model.Principal, input model.Gam
 	collections,
 		err := s.inspect(ctx,
 		model.SourceInput{
-			RootID:       input.RootID,
-			RelativePath: input.RelativePath,
-			Format:       input.Format,
+			Path:   input.Path,
+			Format: input.Format,
 		})
 	if err != nil {
 		return model.Scan{}, err
@@ -97,7 +96,7 @@ func (s *Service) run(ctx context.Context,
 	mappings map[string]model.SourceMapping,
 ) {
 	defer s.release(scan.ID)
-	root, err := s.Sources.Open(input.RootID, input.RelativePath)
+	root, err := s.Sources.Open(input.Path)
 	if err != nil {
 		s.failed(ctx, &scan, "SOURCE_UNAVAILABLE")
 		return
@@ -121,7 +120,7 @@ func (s *Service) run(ctx context.Context,
 				return
 			}
 			candidateCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-			importErr := s.importGame(candidateCtx, root, p, collection.Entry.RelativePath, candidate, mapping, &scan)
+			importErr := s.importGame(candidateCtx, root, p, collection.Directory, candidate, mapping, &scan)
 			cancel()
 			if errors.Is(importErr, persistence.ErrCommitUncertain) {
 				s.interruptUncertain(ctx, scan.ID)

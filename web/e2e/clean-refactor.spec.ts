@@ -27,9 +27,11 @@ test("shared review, real NES save and new-instance restore", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   await login(page);
   const game = await prepareLibrary(page);
-  await page.goto(`/games/${game.id}`);
+  await page.goto(`/library?q=${encodeURIComponent(game.title)}`);
+  await page.locator(`a[href="/games/${game.id}"]`).first().click();
+  await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
   await expect(
-    page.getByRole("heading", { name: game.title, exact: true }).first(),
+    page.getByRole("heading", { level: 1, name: game.title, exact: true }),
   ).toBeVisible();
   const start = page.getByRole("button", { name: "重新开始游戏", exact: true });
   if (!(await start.isVisible())) {
@@ -110,6 +112,33 @@ test("shared review, real NES save and new-instance restore", async ({
   const newSave = await newInstantSave(page, firstSave);
   const latestSave = await overwriteInstantSave(page, newSave);
   await leavePlayer(page);
+  await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
+  await page.goBack();
+  await expect(page).toHaveURL(/\/library\?/u);
+  expect(new URL(page.url()).searchParams.get("q")).toBe(game.title);
+  if (page.viewportSize()!.width >= 768) {
+    const played = page.locator(".library-game-card")
+      .filter({ has: page.locator(`a[href="/games/${game.id}"]`) })
+      .locator(".library-game-played");
+    await expect(played.locator("time")).toHaveText(/^\d{2}\/\d{2} \d{2}:\d{2}$/u);
+    await expect(played.locator("time")).toHaveAttribute("title", /\d{4}年/u);
+    expect(await played.evaluate((row) => {
+      const label = row.querySelector("span")!;
+      const time = row.querySelector("time")!;
+      const labelBox = label.getBoundingClientRect();
+      const timeBox = time.getBoundingClientRect();
+      return {
+        labelSingleLine: labelBox.height <= parseFloat(getComputedStyle(label).lineHeight) + 0.5,
+        timeSingleLine: timeBox.height <= parseFloat(getComputedStyle(time).lineHeight) + 0.5,
+        timeNotClipped: time.scrollWidth <= time.parentElement!.clientWidth,
+        withinRow: timeBox.right <= row.getBoundingClientRect().right + 0.5,
+        separated: labelBox.right <= timeBox.left,
+      };
+    })).toEqual({ labelSingleLine: true, timeSingleLine: true, timeNotClipped: true, withinRow: true, separated: true });
+  }
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
+  await expect(page.getByText("CONTEXT_EXPIRED", { exact: false })).toHaveCount(0);
   await page.goto(`/saves?gameId=${game.id}`);
   await expect(
     page.getByRole("heading", { name: acceptanceTitle, exact: true }).first(),
@@ -138,6 +167,11 @@ test("shared review, real NES save and new-instance restore", async ({
   expect(await nesPlayerCounter(restoredFrame)).toBe(resumedCounter);
   await instantConflict(page, latestSave);
   await leavePlayer(page);
+  await expect(page).toHaveURL(new RegExp(`/saves\\?gameId=${game.id}$`, "u"));
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/saves\\?gameId=${game.id}$`, "u"));
   expect(errors).toEqual([]);
 });
 

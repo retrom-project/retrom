@@ -134,10 +134,9 @@ def run_browser() -> int:
             "RETROM_DATA_DIR": str(data / "data"), "RETROM_RUNTIME_ROOT": inputs["tool"],
             "RETROM_PROVIDER_ROOT": inputs["providers"], "RETROM_NODE": inputs["node"],
             "RETROM_DEPENDENCY_ROOT": os.environ.get("RETROM_DEPENDENCY_ROOT", str(ROOT / "data")),
-            "RETROM_SOURCE_ROOTS": json.dumps([{"id":"browser", "name":"Browser acceptance", "path":str(data / "sources")}]),
             "NEXT_BACKEND_ORIGIN": backend_origin, "NEXT_WEB_E2E": "true", "NEXT_DIST_DIR": ".next",
-            "RETROM_WEB_ORIGIN": web_origin, "RETROM_BROWSER_SOURCE_ROOT_ID": "browser",
-            "RETROM_BROWSER_SOURCE_RELATIVE_PATH": "browser", "RETROM_BROWSER_GAME_TITLE": title,
+            "RETROM_WEB_ORIGIN": web_origin, "RETROM_BROWSER_SOURCE_PATH": str(data / "sources" / "browser"),
+            "RETROM_BROWSER_GAME_TITLE": title,
             "RETROM_BROWSER_ADMIN_USER": "browser-admin", "RETROM_BROWSER_ADMIN_PASSWORD": "Browser-" + uuid.uuid4().hex,
             "RETROM_TRUSTED_PROXY_CIDRS": ""}
         for command, name, cwd in [

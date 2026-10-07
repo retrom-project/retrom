@@ -133,7 +133,7 @@ func TestBiosDiscoveryCancellationKeepsProgressAndStopsWithoutSourceFailure(t *t
 			}
 			s := &Service{
 				Repository: f.Repository, Now: time.Now, Context: serviceContext,
-				Sources: storage.Sources{Roots: []model.Root{{ID: "fixture", Path: source}}},
+				Sources: storage.Sources{},
 			}
 			scan := model.Scan{ID: uuid.NewString(), ScanType: "bios", Status: "running", CreatedAtMs: 1000}
 			if err := f.Repository.CreateScan(t.Context(), scan, f.Principal.User.ID); err != nil {
@@ -141,7 +141,7 @@ func TestBiosDiscoveryCancellationKeepsProgressAndStopsWithoutSourceFailure(t *t
 			}
 			worker, cancel := context.WithCancel(t.Context())
 			cancel()
-			s.runBios(worker, scan, model.BiosScanInput{RootID: "fixture", RelativePath: "."},
+			s.runBios(worker, scan, model.BiosScanInput{Path: source},
 				[]runtimeclient.BiosRequirement{{RequirementKey: "firmware/gba_bios.bin", CoreID: "mgba"}})
 			current, err := f.Repository.Scan(t.Context(), scan.ID)
 			expected := "cancelled"

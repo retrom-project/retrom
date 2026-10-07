@@ -2,6 +2,7 @@
 
 import {useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref} from "react";
 import type {RuntimeGameEditCategoryV1, RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
+import {listenHorizontalWheel} from "@/lib/use-horizontal-wheel";
 import {useModalFocus} from "@/components/modal-focus";
 import {GameEditorSelfSwitches} from "./game-editor-self-switches";
 
@@ -220,7 +221,7 @@ function GameEditorCategories({categories, active, onChoose}: {
     observer?.observe(nav);
     nav.addEventListener("scroll", measure, {passive: true});
     window.addEventListener("resize", resize);
-    const stopWheel = scrollHorizontallyOnWheel(scrollArea, nav);
+    const stopWheel = listenHorizontalWheel(scrollArea, nav);
     resize();
     return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", resize); stopWheel();};
   }, [categories, active]);
@@ -259,7 +260,7 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
   const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const tabs = tabsRef.current;
-    return tabs ? scrollHorizontallyOnWheel(tabs, tabs) : undefined;
+    return tabs ? listenHorizontalWheel(tabs, tabs) : undefined;
   }, []);
   return <div ref={tabsRef} className="game-editor-actor-tabs" role="tablist" aria-label="选择人物">{groups.map((group, index) => <button key={group.id} className="button secondary" type="button" role="tab" aria-selected={group.id === activeCategory} aria-controls="game-editor-group-list" tabIndex={group.id === activeCategory ? 0 : -1} onClick={() => onChoose(group.id)} onKeyDown={(event) => {
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -269,21 +270,6 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
     event.preventDefault(); onChoose(groups[next].id);
     tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
   }}>{group.label}</button>)}</div>;
-}
-
-function scrollHorizontallyOnWheel(area: HTMLElement, scroller: HTMLElement) {
-  const onWheel = (event: WheelEvent) => {
-    const max = scroller.scrollWidth - scroller.clientWidth;
-    if (event.ctrlKey || max <= 0) {return;}
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientWidth : 1;
-    const next = Math.max(0, Math.min(max, scroller.scrollLeft + delta * scale));
-    if (next === scroller.scrollLeft) {return;}
-    scroller.scrollLeft = next;
-    event.preventDefault();
-  };
-  area.addEventListener("wheel", onWheel, {passive: false});
-  return () => area.removeEventListener("wheel", onWheel);
 }
 
 function GameEditorToolbar({label, searchOpen, onSearch, onRefresh}: {

@@ -26,7 +26,7 @@ func (s *Service) CreateBios(ctx context.Context, p model.Principal, input model
 	if err := p.Admin(); err != nil {
 		return model.Scan{}, wrap(err)
 	}
-	root, err := s.Sources.Open(input.RootID, input.RelativePath)
+	root, err := s.Sources.Open(input.Path)
 	if err != nil {
 		return model.Scan{}, wrap(err)
 	}
@@ -91,7 +91,7 @@ func (s *Service) runBios(ctx context.Context, scan model.Scan, input model.Bios
 	requirements []runtimeclient.BiosRequirement,
 ) {
 	defer s.release(scan.ID)
-	root, err := s.Sources.Open(input.RootID, input.RelativePath)
+	root, err := s.Sources.Open(input.Path)
 	if err != nil {
 		s.failed(ctx, &scan, "SOURCE_UNAVAILABLE")
 		return

@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import styles from "./scan.module.css";
 import { api, result, ApiError } from "@/lib/api/client";
@@ -9,13 +8,15 @@ import { useResource } from "@/lib/use-resource";
 import { loadDirectories, loadTags } from "@/features/library/api";
 import { PageHeader, FeedbackBanner } from "@/components/ui";
 import { SourcePicker } from "./source-picker";
+import { BiosScan } from "./bios-scan";
 import { ScanProgressList } from "./scan-progress";
 import { useToast } from "@/components/toast-provider";
 export function GameScan() {
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
-  const [rootId, setRootId] = useState("");
-  const [relativePath, setPath] = useState("");
+  const [scanningBios, setScanningBios] = useState(false);
+  const [path, setPath] = useState("/");
+  const [sourcePending, setSourcePending] = useState(false);
   const [format, setFormat] = useState<"pegasus" | "emulationstation">(
     "pegasus",
   );
@@ -33,8 +34,7 @@ export function GameScan() {
       notify({ tone: "bad", message });
     }
   }
-  function changeSource(root: string, path: string) {
-    setRootId(root);
+  function changeSource(path: string) {
     setPath(path);
     setEntries([]);
     setMappings([]);
@@ -45,7 +45,7 @@ export function GameScan() {
     try {
       const data = result(
         await api.POST("/api/v1/admin/game-scans/inspect", {
-          body: { rootId, relativePath, format },
+          body: { path, format },
         }),
       );
       setEntries(data.items);
@@ -80,7 +80,7 @@ export function GameScan() {
     try {
       result(
         await api.POST("/api/v1/admin/game-scans", {
-          body: { rootId, relativePath, format, mappings },
+          body: { path, format, mappings },
         }),
       );
       notify({
@@ -97,15 +97,12 @@ export function GameScan() {
     <>
       <PageHeader
         title="来源扫描"
-        description="从服务器目录读取 Pegasus 或 EmulationStation 游戏清单，复制内容后进入统一待审核。"
-        actions={
-          <Link className="button secondary" href="/admin/bios">
-            BIOS 文件
-          </Link>
-        }
+        description="从服务器目录扫描游戏来源或补齐 BIOS，统一查看扫描进度。"
       />
       <ScanSources
+        onBios={() => setScanningBios(true)}
         onSelect={(value) => {
+          setSourcePending(false);
           setFormat(value);
           setEntries([]);
           setMappings([]);
@@ -136,7 +133,7 @@ export function GameScan() {
             </button>
             <button
               className="button"
-              disabled={!rootId || busy}
+              disabled={sourcePending || !path.startsWith("/") || busy}
               onClick={() => void inspect()}
             >
               {busy ? "正在读取…" : "读取来源集合"}
@@ -145,9 +142,9 @@ export function GameScan() {
         }
       >
         <SourcePicker
-          rootId={rootId}
-          relativePath={relativePath}
+          path={path}
           onChange={changeSource}
+          onPendingChange={setSourcePending}
         />
         {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
       </ResponsiveSheet>
@@ -157,7 +154,7 @@ export function GameScan() {
             <div>
               <h2>核对来源集合与游戏目录</h2>
               <p>
-                {entries.length} 个来源集合 · {relativePath || "来源根目录"}
+                {entries.length} 个来源集合 · {path}
               </p>
             </div>
           </header>
@@ -166,7 +163,7 @@ export function GameScan() {
               <div>
                 <h3>{entry.name}</h3>
                 <p>
-                  {entry.gameCount} 款游戏 · {entry.relativePath}
+                  {entry.gameCount} 款游戏 · {entry.path}
                 </p>
               </div>
               <div className={styles.mappingControls}>
@@ -251,35 +248,28 @@ export function GameScan() {
           {directories.error || tags.error}
         </FeedbackBanner>
       ) : null}
+      {scanningBios ? <BiosScan onClose={() => setScanningBios(false)} /> : null}
       <ScanProgressList />
     </>
   );
 }
 
-function ScanSources({
-  onSelect,
-}: {
+function ScanSources({ onSelect, onBios }: {
   onSelect: (format: "pegasus" | "emulationstation") => void;
+  onBios: () => void;
 }) {
-  return (
-    <div className={styles.entryGrid}>
-      {(["pegasus", "emulationstation"] as const).map((value) => (
-        <article className={styles.entry} key={value}>
-          <span>游戏目录</span>
-          <h2>
-            {value === "pegasus" ? "Pegasus 来源" : "EmulationStation 来源"}
-          </h2>
-          <p>
-            读取 {value === "pegasus" ? "metadata.pegasus.txt" : "gamelist.xml"}{" "}
-            游戏清单，核对集合与目标目录后复制内容。导入的游戏会进入待审核，不会自动发布。
-          </p>
-          <footer>
-            <button className="button" onClick={() => onSelect(value)}>
-              选择 {value === "pegasus" ? "Pegasus" : "EmulationStation"} 目录
-            </button>
-          </footer>
-        </article>
-      ))}
-    </div>
-  );
+  return <div className={styles.entryGrid}>
+    <article className={styles.entry}>
+      <h2>游戏扫描</h2>
+      <p>读取 Pegasus 或 EmulationStation 游戏清单，核对集合与目标目录后复制内容。游戏进入待审核，不会自动发布。</p>
+      <footer>{(["pegasus", "emulationstation"] as const).map((value) => <button className="button" key={value} onClick={() => onSelect(value)}>
+        选择 {value === "pegasus" ? "Pegasus" : "EmulationStation"} 目录
+      </button>)}</footer>
+    </article>
+    <article className={styles.entry}>
+      <h2>BIOS扫描</h2>
+      <p>按平台或核心范围补齐明确匹配的缺失 BIOS，已安装项保持原样。扫描结果可在运行依赖中查看。</p>
+      <footer><button className="button" onClick={onBios}>选择 BIOS 目录</button></footer>
+    </article>
+  </div>;
 }

@@ -44,25 +44,27 @@
 .game-detail-breadcrumb svg { width: 18px; height: 18px; }
 .game-detail-hero { min-width: 0; height: 427px; display: grid; grid-template-columns: 260px minmax(280px, 1fr) minmax(280px, 520px); grid-template-rows: minmax(0, 1fr); align-items: center; gap: var(--space-6); padding: var(--space-5) var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .game-detail-poster-shell { width: 100%; min-width: 0; align-self: start; }
-.game-detail-main { min-width: 0; min-height: 0; max-height: 100%; overflow-y: auto; scrollbar-gutter: stable; }
-.game-detail-tags { min-height: 22px; max-height: 44px; overflow-y: auto; }
-.game-detail-eyebrow { margin: 0 0 var(--space-3); color: var(--muted); font-size: var(--text-small); }
-.game-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
-.game-detail-title-row h1 { min-width: 0; margin: 0; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
+.game-detail-main { min-width: 0; min-height: 0; container-type: inline-size; }
+.game-detail-tags { height: 36px; display: flex; align-items: start; flex-wrap: nowrap; gap: var(--space-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.game-detail-tags > a { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.game-detail-eyebrow { margin: 0 0 var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-small); }
+.game-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
+.game-detail-title-row h1 { flex: 0 1 auto; min-width: 0; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
 .game-detail-title-row .favorite-actions { flex: 0 0 auto; }
 .game-detail-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-small); }
 .game-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-body); }
 .game-detail-playtime strong { font-weight: var(--weight-regular); }
 .game-detail-playtime span { color: var(--ink); }
-.launch-panel { min-width: 0; margin-top: var(--space-3); display: grid; grid-template-columns: minmax(220px, max-content) minmax(0, 1fr); }
+.launch-panel { min-width: 0; margin-top: var(--space-1); display: grid; grid-template-columns: minmax(220px, max-content) minmax(0, 1fr); }
 .launch-panel > * { grid-column: 1 / -1; }
 /* Share the buttons' intrinsic column from the first server-rendered frame.
    Labels and hints span the panel without widening the controls. */
 .launch-options, .launch-option-panel, .launch-option-panel > .field { min-width: 0; display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 0; }
 .launch-option-panel > .field > * { grid-column: 1 / -1; }
+.launch-option-panel > .field { row-gap: var(--space-1); }
 .launch-panel .launch-option-panel select { grid-column: 1; width: 0; min-width: 100%; }
 .content-loading-field.is-placeholder { visibility: hidden; }
-.launch-options:has(.field) { margin-bottom: var(--space-3); }
+.launch-options:has(.field) { margin-bottom: var(--space-1); }
 .launch-option-panel { min-width: 0; }
 .launch-option-panel > .field + .field { margin-top: var(--space-3); }
 .launch-options.is-tabbed { row-gap: var(--space-2); }
@@ -74,8 +76,8 @@
 .launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .launch-actions > .button, .launch-actions > .home-launch-control > .button { min-width: 148px; }
 .launch-actions > .status { flex-basis: 100%; white-space: normal; }
-.launch-hint { margin: var(--space-2) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
-.launch-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-3); padding-top: var(--space-2); }
+.launch-hint { margin: var(--space-1) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
+.launch-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-1); padding-top: var(--space-1); }
 .launch-runtime-choice, .launch-runtime-choice > div { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .launch-runtime-choice { flex-wrap: wrap; }
 .launch-runtime-choice small { color: var(--muted); font-size: var(--text-small); }
@@ -131,6 +133,9 @@
 .game-detail-save-body .status { white-space: normal; }
 .game-detail-saves-empty { margin-top: var(--space-4); padding: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius-panel); color: var(--muted); font-size: var(--text-body); }
 .game-detail-saves-empty strong { font-weight: var(--weight-medium); color: var(--ink); }
+@container (max-width: 480px) {
+  .game-detail-title-row h1 { font-size: var(--text-page); }
+}
 @media (min-width: 1600px) {
   .game-detail-hero { align-items: stretch; }
   .game-detail-poster-shell { position: relative; align-self: stretch; }
@@ -160,11 +165,11 @@
   .game-detail-page { padding-bottom: 100px; }
   .game-detail-breadcrumb { display: none; }
   .game-detail-hero { height: auto; grid-template-columns: 108px minmax(0, 1fr); grid-template-rows: 144px auto; padding: 0; gap: var(--space-4); border: 0; background: transparent; }
-  .game-detail-title-row { margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
+  .game-detail-title-row { margin-bottom: var(--space-1); gap: var(--space-2); }
   .game-detail-title-row h1 { font-size: var(--text-heading); }
   .game-detail-eyebrow { font-size: var(--text-caption); }
   .game-detail-playtime { flex-wrap: wrap; margin-top: var(--space-3); font-size: var(--text-caption); }
-  .game-detail-main > .tag-chips, .game-detail-tags, .game-detail-meta { display: none; }
+  .game-detail-meta { display: none; }
   .game-detail-overview { margin-block: var(--space-5); }
   .game-detail-save-grid { grid-template-columns: minmax(0, 1fr); }
   .game-detail-save-card { grid-template-columns: minmax(0, 35%) minmax(0, 1fr); }

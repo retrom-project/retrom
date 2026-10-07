@@ -11,6 +11,7 @@ export type ReviewApprovalSummary = {
   failed: number;
   interrupted: boolean;
   failures: Array<{ game: ReviewCandidate; message: string }>;
+  missingBiosDetails: Array<{ game: ReviewCandidate; requirements: ReviewReadiness["missingBios"] }>;
 };
 type ReviewPage = { items: ReviewCandidate[]; total: number };
 type ApprovalActions = {
@@ -39,9 +40,9 @@ export async function approveReviewSnapshot(
   progress: (summary: ReviewApprovalSummary) => void,
 ) {
   const summary: ReviewApprovalSummary = {
-    total: games.length, checked: 0, approved: 0, missingBios: 0, failed: 0, interrupted: false, failures: [],
+    total: games.length, checked: 0, approved: 0, missingBios: 0, failed: 0, interrupted: false, failures: [], missingBiosDetails: [],
   };
-  const publish = () => progress({ ...summary, failures: summary.failures.slice(0, 20) });
+  const publish = () => progress({ ...summary, failures: summary.failures.slice(0, 20), missingBiosDetails: summary.missingBiosDetails.slice(0, 20) });
   function failed(game: ReviewCandidate, failure: unknown) {
     summary.failed++;
     summary.failures.push({ game, message: failure instanceof Error ? failure.message : "审批失败，请重试。" });
@@ -62,10 +63,14 @@ export async function approveReviewSnapshot(
       while (next < items.length && !signal.aborted && !summary.interrupted) {
         const game = items[next++];
         try {
-          if (eligible(game, byId.get(game.id))) {
+          const readiness = byId.get(game.id);
+          if (eligible(game, readiness)) {
             await actions.approve(game);
             summary.approved++;
-          } else { summary.missingBios++; }
+          } else {
+            summary.missingBios++;
+            summary.missingBiosDetails.push({ game, requirements: readiness!.missingBios });
+          }
         } catch (failure) { failed(game, failure); }
         summary.checked++;
         if (summary.checked % 10 === 0 || summary.checked === summary.total) { publish(); }

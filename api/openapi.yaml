@@ -151,11 +151,8 @@
     "/api/v1/admin/reviews/{gameId}/discard": {
       "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1{gameId}~1discard"
     },
-    "/api/v1/admin/source-roots": {
-      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1source-roots"
-    },
-    "/api/v1/admin/source-roots/{rootId}/directories": {
-      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1source-roots~1{rootId}~1directories"
+    "/api/v1/admin/source-directories": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1source-directories"
     },
     "/api/v1/admin/game-scans/inspect": {
       "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1game-scans~1inspect"
@@ -329,9 +326,6 @@
       "Home": {
         "$ref": "./components/common.yaml#/components/schemas/Home"
       },
-      "SourceRoot": {
-        "$ref": "./components/common.yaml#/components/schemas/SourceRoot"
-      },
       "SourceDirectory": {
         "$ref": "./components/common.yaml#/components/schemas/SourceDirectory"
       },
@@ -404,9 +398,6 @@
       "ScanList": {
         "$ref": "./components/common.yaml#/components/schemas/ScanList"
       },
-      "RootList": {
-        "$ref": "./components/common.yaml#/components/schemas/RootList"
-      },
       "SourceDirectoryList": {
         "$ref": "./components/common.yaml#/components/schemas/SourceDirectoryList"
       },
@@ -454,6 +445,12 @@
       },
       "DOSEntryCandidates": {
         "$ref": "./components/common.yaml#/components/schemas/DOSEntryCandidates"
+      },
+      "ReviewMissingBIOS": {
+        "$ref": "./components/common.yaml#/components/schemas/ReviewMissingBIOS"
+      },
+      "BiosValidationRequirement": {
+        "$ref": "./components/common.yaml#/components/schemas/BiosValidationRequirement"
       }
     }
   }

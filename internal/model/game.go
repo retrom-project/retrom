@@ -48,6 +48,7 @@ type Game struct {
 	Tags               []Tag   `json:"tags"`
 	Media              []Media `json:"media"`
 	Favorite           bool    `json:"favorite"`
+	LastPlayedAtMs     *int64  `json:"lastPlayedAtMs"`
 	CreatedAtMs        int64   `json:"createdAtMs"`
 	UpdatedAtMs        int64   `json:"updatedAtMs"`
 }

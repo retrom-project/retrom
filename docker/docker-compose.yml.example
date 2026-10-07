@@ -52,7 +52,6 @@ services:
       RETROM_REDIS_ADDR: "redis:6379"
       RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{runId}.games.example.com"
       RETROM_TRUSTED_PROXY_CIDRS: "172.30.50.0/24"
-      RETROM_SOURCE_ROOTS: '[{"id":"server","name":"Server library","path":"/server-data"}]'
     volumes:
       - /srv/retrom/data:/var/lib/retrom
       # 可选：只读挂载已授权的 BIOS/ROM 来源，供服务器目录导入使用。

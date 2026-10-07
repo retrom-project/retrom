@@ -1,6 +1,6 @@
 # 受管文件与数据库
 
-PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本地POSIX文件系统保存payload。来源root只读；批准、启动、恢复只消费受管文件，源文件移走不影响已导入内容。私有ROM/BIOS和路径不提交Git。
+PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本地POSIX文件系统保存payload。管理员选择的来源路径只读；批准、启动、恢复只消费受管文件，源文件移走不影响已导入内容。私有ROM/BIOS和路径不提交Git。
 
 所有权目录为managed/games/<game-id>、saves/<save-id>、bios/<bios-file-id>和temporary/<uuid>。准备先写temporary独占文件，计算SHA/大小、fsync，再原子rename并fsync文件/父目录。通用存储允许0字节项目文件；ROM/save/BIOS领域在适用边界要求非空。DB事务内不进行复制、解包或Node运行准备。
 

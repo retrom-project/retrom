@@ -1,4 +1,5 @@
 "use client";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useToast } from "@/components/toast-provider";
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -64,7 +65,7 @@ export function TagManager() {
       <div className="tag-kpis" aria-label="标签摘要"><article><span>{query ? "匹配标签" : "活动标签"}</span><strong>{tags.data?.total ?? "—"}</strong><small>用于游戏分类与筛选</small></article></div>
       <div className="tag-manager-toolbar">
         <form onSubmit={(event) => { event.preventDefault(); setQuery(draft); setOffset(0); }}>
-          <label><span>名称搜索</span><input value={draft} placeholder="搜索标签名称" onChange={(event) => setDraft(event.target.value)} /></label>
+          <label><span className="sr-only">名称搜索</span><input value={draft} placeholder="搜索标签名称" onChange={(event) => setDraft(event.target.value)} /></label>
           <button className="button" type="submit">应用筛选</button>
           <button className="button secondary" type="button" onClick={() => { setDraft(""); setQuery(""); setOffset(0); }}>重置</button>
         </form>
@@ -82,7 +83,8 @@ export function TagManager() {
   </>;
 }
 function TagTable({ items, onEdit, onDelete }: { items: Tag[]; onEdit: (tag: Tag) => void; onDelete: (tag: Tag) => void }) {
-  return <div className="tag-table-wrap"><table className="tag-table"><thead><tr><th>名称</th><th>状态</th><th>已发布游戏</th><th>操作</th></tr></thead><tbody>
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
+  return <div ref={tableRail} className="tag-table-wrap"><table className="tag-table"><thead><tr><th>名称</th><th>状态</th><th>已发布游戏</th><th>操作</th></tr></thead><tbody>
     {items.map((tag) => <tr key={tag.id}><th scope="row"><strong title={tag.name}>{tag.name}</strong></th><td><span className="status good">活动</span></td><td><Link href={`/admin/games?tagId=${tag.id}`}>{tag.gameCount} 款</Link></td><td><div className="tag-row-actions"><button className="button secondary" onClick={() => onEdit(tag)}>编辑</button><button className="button secondary tag-delete-button" onClick={() => onDelete(tag)}>删除</button></div></td></tr>)}
   </tbody></table></div>;
 }

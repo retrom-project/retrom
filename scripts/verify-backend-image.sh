@@ -67,7 +67,6 @@ docker create --name "$container" --network "$network" --network-alias retrom --
   --mount "type=bind,source=$fixture,target=/image-source,readonly" \
   -e RETROM_PUBLIC_ORIGIN=https://retrom.example.com \
   -e RETROM_REDIS_ADDR=redis:6379 \
-  -e 'RETROM_SOURCE_ROOTS=[{"id":"image","name":"Image verification","path":"/image-source"}]' \
   -e "RETROM_DATABASE_URL=postgres://retrom:$database_password@postgres:5432/retrom?sslmode=disable" \
   -e 'RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE=https://{runId}.sub.retrom.example.com' \
   "$image" >/dev/null

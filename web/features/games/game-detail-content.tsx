@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { DetailLaunch } from "./detail-launch";
@@ -64,11 +65,12 @@ function DetailControls({
   busy,
 }: DetailProps) {
   const { game } = detail;
+  const tagRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <div className="game-detail-main">
-      <p className="game-detail-eyebrow">{game.directoryName}</p>
+      <p className="game-detail-eyebrow" title={game.directoryName}>{game.directoryName}</p>
       <div className="game-detail-title-row">
-        <h1>{game.title}</h1>
+        <h1 title={game.title}>{game.title}</h1>
         {mode !== "review" ? (
           <div className="favorite-actions favorite-actions-detail">
             <button
@@ -83,11 +85,12 @@ function DetailControls({
           </div>
         ) : null}
       </div>
-      <div className="workspace-tags game-detail-tags">
+      <div className="game-detail-tags" ref={tagRail}>
         {game.tags.map((tag) => (
           <Link
             className="status neutral"
             href={`/library?tagId=${tag.id}`}
+            title={tag.name}
             key={tag.id}
           >
             {tag.name}

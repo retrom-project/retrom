@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"retrom/internal/model"
@@ -14,6 +15,42 @@ func TestReadinessRequiresAdminBeforeReading(t *testing.T) {
 	_, err := s.Readiness(context.Background(), model.Principal{User: model.User{Role: "user"}}, []string{"abc"})
 	if !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("non-admin result = %v", err)
+	}
+}
+
+func TestReadinessPreservesOnlyMissingRequiredFileMetadata(t *testing.T) {
+	size := int64(16384)
+	sha, md5 := "runtime-sha256", "runtime-md5"
+	missing := runtimeclient.BiosRequirement{
+		RequirementKey: "provider/target/os.rom", LogicalName: "os.rom", CoreID: "core", Required: true,
+		SizeBytes: &size, SHA256: &sha, MD5: &md5, VirtualPath: &sha,
+	}
+	failure := "RUNTIME_CONTENT_UNAVAILABLE"
+	items := make([]model.ReviewReadiness, 3)
+	applyBIOSProjections(items, []int{0, 1, 2}, []biosProjection{
+		{Requirements: []runtimeclient.BiosRequirement{
+			missing,
+			{RequirementKey: "installed", Required: true},
+			{RequirementKey: "optional", Required: false},
+			{RequirementKey: "unconstrained", LogicalName: "firmware.zip", CoreID: "arcade", Required: true},
+		}},
+		{Requirements: []runtimeclient.BiosRequirement{missing}, Error: &failure},
+		{Requirements: []runtimeclient.BiosRequirement{missing}},
+	}, []model.BiosFile{{RequirementKey: "installed"}})
+	want := []model.ReviewMissingBIOS{
+		{Key: missing.RequirementKey, Name: "os.rom", CoreID: "core"},
+		{Key: "unconstrained", Name: "firmware.zip", CoreID: "arcade"},
+	}
+	if !reflect.DeepEqual(items[0].MissingBIOS, want) {
+		t.Fatalf("missing metadata = %#v", items[0].MissingBIOS)
+	}
+	if items[1].BIOSSatisfied != nil || items[1].Error == nil || len(items[1].MissingBIOS) != 0 {
+		t.Fatalf("inspection error exposed misleading missing files: %#v", items[1])
+	}
+	applyBIOSProjections(items, []int{2}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{missing}}},
+		[]model.BiosFile{{RequirementKey: missing.RequirementKey}})
+	if items[2].BIOSSatisfied == nil || !*items[2].BIOSSatisfied || len(items[2].MissingBIOS) != 0 {
+		t.Fatalf("new installation retained stale missing files: %#v", items[2])
 	}
 }
 

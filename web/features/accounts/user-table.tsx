@@ -1,3 +1,4 @@
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import type { Schema } from "@/lib/api/types";
 import { BrowserTime } from "@/components/browser-time";
 export function UserResults({
@@ -46,9 +47,10 @@ export function UserTable({
   users: Schema<"User">[];
   onEdit: (user: Schema<"User">) => void;
 }) {
+  const tableRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <section className="panel user-table-panel">
-      <div className="user-table-wrap">
+      <div ref={tableRail} className="user-table-wrap">
         <table className="user-table">
           <thead>
             <tr>

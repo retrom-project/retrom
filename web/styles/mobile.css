@@ -316,8 +316,7 @@
   .platform-directory-menu { position: fixed; z-index: 232; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); left: 16px; top: auto; width: auto; }
   .platform-directory-menu button { min-height: 48px; }
 
-  .runtime-kpis { overflow-x: auto; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; scroll-snap-type: x proximity; }
-  .runtime-kpis article { scroll-snap-align: start; }
+  .runtime-kpis { overflow-x: auto; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; }
   .runtime-list { overflow: visible; border: 0; background: transparent; }
   .runtime-bios-row,
   .runtime-dat-row { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
@@ -423,8 +422,8 @@
   .library-desktop-filter { display: none; }
   .library-mobile-filter-trigger { min-width: var(--control-height); min-height: var(--control-height); padding-inline: 12px; display: inline-flex; box-shadow: none; font-size: var(--text-icon-only); }
   .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
-  .library-platform-row { margin-top: 10px; padding-top: 10px; scroll-snap-type: x proximity; }
-  .library-platform-row button { min-height: 44px; scroll-snap-align: start; }
+  .library-platform-row { margin-top: 10px; padding-top: 10px; }
+  .library-platform-row button { min-height: 44px; }
   .library-platform-label { display: none; }
   .library-result-count { padding-left: 8px; }
   .library-section-head { align-items: flex-start; }
@@ -483,8 +482,8 @@
   .favorite-rail nav button { min-height: 44px; }
   .favorite-new-folder { min-height: 44px; }
   .favorite-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; scroll-snap-type: x proximity; }
-  .favorite-platforms button { min-height: 44px; scroll-snap-align: start; }
+  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; }
+  .favorite-platforms button { min-height: 44px; }
   .favorite-platforms .favorite-result-count { margin-left: 0; }
   .favorite-game-cover > a > span:last-child:not(.favorite-poster) { opacity: 1; padding: 9px; justify-content: flex-start; background: linear-gradient(transparent 72%, rgb(7 10 18 / 82%)); }
   .favorite-game-body { min-height: 78px; }

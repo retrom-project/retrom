@@ -1,7 +1,7 @@
 "use client";
 import { useToast } from "@/components/toast-provider";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api/client";
 import type { Save } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
@@ -28,9 +28,37 @@ export function SaveCard({
 }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const [menu, setMenu] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuPanel = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(save.name);
   const { notify } = useToast();
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!menu) { return; }
+    function outside(event: Event) {
+      const target = event.target;
+      if (target instanceof Node &&
+        (menuButton.current?.contains(target) || menuPanel.current?.contains(target))) {
+        return;
+      }
+      setMenu(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) { return; }
+      event.preventDefault();
+      event.stopPropagation();
+      setMenu(false);
+      menuButton.current?.focus();
+    }
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("click", outside, true);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside, true);
+      document.removeEventListener("click", outside, true);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menu]);
   async function mutate() {
     setBusy(true);
     const params = { path: { saveId: save.id } };
@@ -69,15 +97,17 @@ export function SaveCard({
           {!compact ? (
             <>
               <button
+                ref={menuButton}
                 className="save-library-menu-button"
                 aria-label={`${save.name}的更多操作`}
+                aria-haspopup="menu"
                 aria-expanded={menu}
-                onClick={() => setMenu(!menu)}
+                onClick={() => setMenu((open) => !open)}
               >
                 <AppIcon name="more" />
               </button>
               {menu ? (
-                <div className="save-library-menu" role="menu">
+                <div ref={menuPanel} className="save-library-menu" role="menu">
                   <button
                     role="menuitem"
                     onClick={() => {
