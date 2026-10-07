@@ -179,13 +179,17 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR 共八项限定场景已核对；104 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR 共十一项限定场景已核对；101 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
 OpenBOR 用独立自建的两关游戏完成真实原生进度验收：引擎写入 `game.sav`，宿主同步 733 字节 gzip 包；仅保留登录态的新浏览器通过游戏自己的 Load Game 菜单读回关卡，继续方向输入可移动。此处是 GAME_SAVE，不声明即时位置或角色自动还原；未修改引擎状态或注入原生存档。《8MAN》实战尚未到存档点的记录继续保留为部分完成。实际退出暴露的 Asyncify `ExitStatus(0)` 已修复，只处理已确认成功的主动退出，异常退出仍报告；回归先红后绿，runtime 全量 290 文件／1,572 项测试及 lint/typecheck 通过，实际三次退出无浏览器异常。该修复只改变 OpenBOR 指纹。
 
-发布、构建、浏览器与定点清理记录保存在 `root/release-r15/`；新通过证据分别位于 `ons-published`、`vecx-published`、`openbor-exit-fixed`。临时游戏、存档、目录与登录会话均已清理；私有素材、路径和会话不提交。
+bsnes、Snes9x、Nestopia 使用原创 MIT 测试卡带完成审核预览和发布游玩。标准手柄方向键、A 键改变真实 P1 计数；页面存档后，仅保留登录态的新浏览器运行七秒仍分别保持 20、21、18，继续手柄输入变为 29、30、26，P2 始终为零。观测只读核心原生存档块，实际保存与恢复走公开页面，未写入内存或注入核心状态；此结论限于这些卡带。首轮 RAM 读取接口不支持的脚本失败保留，不算核心故障。
+
+runtime 草稿 PR 的干净 CI 暴露测试依赖尚未生成的 `dist`；`npm test` 现先构建宿主工具输入。清空生成物后 290 文件／1,572 项测试通过，未跳过断言。发布仍等待剩余验收与配套产物验证。
+
+发布、构建、浏览器与定点清理记录保存在 `root/release-r15/`；新通过证据分别位于 `ons-published`、`vecx-published`、`openbor-exit-fixed`、`counter-native-current`。上述已完成场景的临时游戏、存档、目录与登录会话均已清理；私有素材、路径和会话不提交。
 
 ## 当前限制与未完成项
 
