@@ -84,28 +84,28 @@ func chipsetPNG(marker string, accent [3]byte) ([]byte, error) {
 	}
 	markerRunes := []rune(marker)
 	palette := [][4]byte{
+		{0, 0, 0, 0},
 		{accent[0] / 2, accent[1] / 2, accent[2] / 2, 255},
 		{accent[0]/2 + 28, accent[1]/2 + 28, accent[2]/2 + 28, 255},
 		{255, 255, 255, 255},
-		{0, 0, 0, 0},
 	}
 	return pngIndexed(480, 256, palette, func(x, y int) byte {
 		if x >= 18*16 && x < 19*16 && y >= 8*16 && y < 9*16 {
-			return 3
+			return 0
 		}
 		if tileID, exists := blockETileAtPixel(x, y); exists && tileID > 0 && tileID <= len(markerRunes) {
 			localX, localY := x%16, y%16
 			if localX >= 3 && localX < 13 && localY >= 1 && localY < 15 {
 				glyphX, glyphY := (localX-3)/2, (localY-1)/2
 				if glyphs[markerRunes[tileID-1]][glyphY][glyphX] == '1' {
-					return 2
+					return 3
 				}
 			}
 		}
 		if (x/16+y/16)%2 == 0 {
-			return 1
+			return 2
 		}
-		return 0
+		return 1
 	}), nil
 }
 

@@ -474,7 +474,7 @@
       "path": "rpg2000/ChipSet/retrom-chipset.png",
       "generation": "RPG2000",
       "sizeBytes": 123249,
-      "sha256": "0c2ad27aeebfbd67cedf23468f73728199d3d354f17471758ce038849b53c5eb"
+      "sha256": "ea52bee2fe177454a3f06debeea02b7da1e1fbf2680afd9e4afa61d157b04de6"
     },
     {
       "path": "rpg2000/EasyRPG.ini",
@@ -534,7 +534,7 @@
       "path": "rpg2003/ChipSet/retrom-chipset.png",
       "generation": "RPG2003",
       "sizeBytes": 123249,
-      "sha256": "480ab9331641d9a1605cc3cb272462077224919b3358526ca8363d21e999051e"
+      "sha256": "55215f029fbca7159cf46ae3ebb602f119702edfeecefc0f4c21de74a45f3c9b"
     },
     {
       "path": "rpg2003/EasyRPG.ini",

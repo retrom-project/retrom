@@ -181,6 +181,7 @@ public-fixtures-generate:
 	@python3 testdata/public-roms/rpgmaker-smoke/build.py
 
 public-fixtures-check:
+	@go test ./testdata/public-roms/rpgmaker-smoke/generator
 	@python3 testdata/public-roms/dos-cache/build.py --check
 	@python3 scripts/test_dos_cache_fixture.py
 	@python3 testdata/public-roms/gba-smoke/build.py --check
