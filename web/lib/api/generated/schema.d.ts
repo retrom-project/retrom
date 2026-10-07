@@ -661,6 +661,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Administrator-only, CSRF-protected read-only batch of at most 100 distinct pending-game IDs. Resolves BIOS requirements via runtime without creating a Run, changing any game, or requiring launch resource readiness. Results retain request order. */
+        post: operations["ReviewReadiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{gameId}": {
         parameters: {
             query?: never;
@@ -958,6 +975,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["GetRunResourceIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/runtime-options/dos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administrator-only read-only inspection for pending or published DOS games. Lists current archive program paths without validating the previously selected entryPath or creating a Run. */
+        get: operations["ListDOSEntryCandidates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1434,6 +1468,24 @@ export interface components {
             /** Format: int64 */
             limit: number;
         };
+        ReviewReadinessRequest: {
+            gameIds: string[];
+        };
+        /** @description Read-only BIOS requirements for the current pending game and default runtime core. A failed check returns null biosSatisfied and a safe per-item error; it does not mean BIOS is missing. */
+        ReviewReadiness: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            version: number | null;
+            biosSatisfied: boolean | null;
+            error: {
+                code: string;
+                message: string;
+            } | null;
+        };
+        ReviewReadinessList: {
+            items: components["schemas"]["ReviewReadiness"][];
+        };
         SavePage: {
             items: components["schemas"]["Save"][];
             /** Format: int64 */
@@ -1577,6 +1629,9 @@ export interface components {
             limit: number;
             /** Format: int64 */
             total: number;
+        };
+        DOSEntryCandidates: {
+            entries: string[];
         };
     };
     responses: never;
@@ -5792,6 +5847,84 @@ export interface operations {
             };
         };
     };
+    ReviewReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewReadinessRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewReadinessList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetReview: {
         parameters: {
             query?: never;
@@ -7470,6 +7603,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeIndex"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListDOSEntryCandidates: {
+        parameters: {
+            query?: {
+                /** @description Optional current archive logical key, including an unsaved editor selection. */
+                entryFile?: string;
+            };
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DOSEntryCandidates"];
                 };
             };
             /** @description Request failed */

@@ -41,6 +41,10 @@ func (s *Service) Replace(ctx context.Context, p model.Principal, id, rootID, re
 	if err != nil {
 		return old, err
 	}
+	config, err = retainDOSProgram(old.RuntimeConfig, config)
+	if err != nil {
+		return old, err
+	}
 	prepared, err := s.Runtime.Identity(ctx, directory, config, files, "")
 	if err != nil {
 		return old, wrap(err)

@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { ImmersiveEntryDialog } from "@/features/immersive/entry-dialog";
+import { ImmersiveHomeEntry } from "./immersive-home-entry";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
 import { PhoneHome } from "./phone-home";
 import { api, result } from "@/lib/api/client";
@@ -22,13 +24,13 @@ export function HomePage() {
   const phone = usePhoneLayout();
   if (phone) {
     return (
-      <ResourceState resource={home}>
+      <><ImmersiveEntryDialog /><ResourceState resource={home}>
         {(data) => <PhoneHome data={data} />}
-      </ResourceState>
+      </ResourceState></>
     );
   }
   return (
-    <div className="home-page">
+    <><ImmersiveEntryDialog /><div className="home-page">
       <PageHeader
         title="今天，玩点什么？"
         description="继续上次的冒险，或挑选你的下一款游戏。"
@@ -38,13 +40,7 @@ export function HomePage() {
               <AppIcon name="search" />
               <input name="q" placeholder="搜索游戏…" aria-label="搜索游戏" />
             </form>
-            <Link
-              className="button secondary home-immersive-entry"
-              href="/immersive"
-            >
-              <AppIcon name="expand" />
-              沉浸模式
-            </Link>
+            <ImmersiveHomeEntry />
           </>
         }
       />
@@ -76,6 +72,6 @@ export function HomePage() {
           </>
         )}
       </ResourceState>
-    </div>
+    </div></>
   );
 }

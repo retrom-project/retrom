@@ -103,7 +103,7 @@ export function BiosManager() {
   return (
     <>
       <PageHeader
-        title="BIOS 管理"
+        title="运行依赖"
         description="管理当前安装文件，或从服务器目录补齐缺失要求。"
         actions={
           <button

@@ -76,6 +76,18 @@ func (s *Server) approve(w http.ResponseWriter, r *http.Request, p model.Princip
 	return respond(w, item)
 }
 
+func (s *Server) reviewReadiness(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	var input model.ReviewReadinessRequest
+	if err := decode(r, &input); err != nil {
+		return err
+	}
+	items, err := s.Library.Readiness(r.Context(), p, input.GameIDs)
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, items)
+}
+
 func (s *Server) media(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	key, err := s.Library.Media(r.Context(), p, r.PathValue("gameId"), r.PathValue("mediaId"))
 	if err != nil {
@@ -106,6 +118,14 @@ func (s *Server) recent(w http.ResponseWriter, r *http.Request, p model.Principa
 
 func (s *Server) scummvmCandidates(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	result, err := s.Library.ScummvmCandidates(r.Context(), p, r.PathValue("gameId"))
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, result)
+}
+
+func (s *Server) dosEntryCandidates(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	result, err := s.Library.DOSEntryCandidates(r.Context(), p, r.PathValue("gameId"), r.URL.Query().Get("entryFile"))
 	if err != nil {
 		return wrap(err)
 	}

@@ -40,7 +40,7 @@ export function BiosList({
     <>
       <div className="runtime-kpis">
         <article>
-          <small>BIOS目录</small>
+          <small>依赖要求</small>
           <strong>{items.length}</strong>
           <p>运行声明中的共享要求</p>
         </article>
@@ -134,7 +134,7 @@ export function BiosList({
           {!group.items.length ? (
             <div className="runtime-inline-empty compact">
               <h2>暂无匹配项目</h2>
-              <p>可调整搜索条件查看其他 BIOS 要求。</p>
+              <p>可调整搜索条件查看其他运行依赖要求。</p>
             </div>
           ) : null}
         </section>
@@ -202,7 +202,7 @@ function BiosRow({
       </div>
       <div className="runtime-row-actions">
         <label className={`button ${item.installed ? "secondary" : ""}`}>
-          {item.installed ? "替换文件" : "选择 BIOS 文件"}
+          {item.installed ? "替换文件" : "选择依赖文件"}
           <input
             type="file"
             hidden

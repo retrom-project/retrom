@@ -6,7 +6,6 @@ import { api, result, ApiError } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { GameFileList } from "./game-file-list";
 async function roots() {
   return result(await api.GET("/api/v1/admin/source-roots"));
 }
@@ -76,7 +75,6 @@ export function GameManagement({
         </button>
         </article>
       </div>
-      <GameFileList files={detail.files} />
       </div>
 
       <ConfirmDialog

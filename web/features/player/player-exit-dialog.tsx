@@ -10,13 +10,14 @@ type Props = {
   available: boolean;
   draft: boolean;
   controller: ReturnType<typeof usePlayerExit>;
+  onGameEditor?: () => void;
 };
 export function PlayerExitDialog(props: Props) {
   const { immersive, native, available, draft, controller } = props;
   const description = exitDescription(props);
   const saveLabel = draft ? "重试同步存档" : saveActionLabel(native, controller.saveState);
   const disabled = !draft && (!available || (!native && controller.saveState === "saved"));
-  return immersive ? <ImmersivePlayerMenu open={controller.open} busy={controller.busy} description={immersiveDescription(props)} saveLabel={saveLabel} saveDisabled={disabled} onCancel={() => void controller.cancel()} onSave={() => void controller.save()} onExit={() => void controller.confirm()} /> : <ConfirmDialog open={controller.open} title="退出游戏？" description={draft ? "当前仍有未同步的存档草稿。" : native ? "退出前将检查游戏内存档的同步状态。" : "直接退出不会创建存档；如需保留当前位置，请先创建存档。"} confirmLabel="退出游戏" tone="danger" leadingLabel={saveLabel} leadingDisabled={disabled} leadingBusy={controller.busy} leadingBusyLabel={native ? "正在同步…" : "正在保存…"} onLeading={() => void controller.save()} onCancel={() => void controller.cancel()} onConfirm={() => void controller.confirm()} interactionDisabled={controller.busy}><span>{description}</span></ConfirmDialog>;
+  return immersive ? <ImmersivePlayerMenu onGameEditor={props.onGameEditor} open={controller.open} busy={controller.busy} description={immersiveDescription(props)} saveLabel={saveLabel} saveDisabled={disabled} onCancel={() => void controller.cancel()} onSave={() => void controller.save()} onExit={() => void controller.confirm()} /> : <ConfirmDialog open={controller.open} title="退出游戏？" description={draft ? "当前仍有未同步的存档草稿。" : native ? "退出前将检查游戏内存档的同步状态。" : "直接退出不会创建存档；如需保留当前位置，请先创建存档。"} confirmLabel="退出游戏" tone="danger" leadingLabel={saveLabel} leadingDisabled={disabled} leadingBusy={controller.busy} leadingBusyLabel={native ? "正在同步…" : "正在保存…"} onLeading={() => void controller.save()} onCancel={() => void controller.cancel()} onConfirm={() => void controller.confirm()} interactionDisabled={controller.busy}><span>{description}</span></ConfirmDialog>;
 }
 function exitDescription({ draft, native, available, controller }: Props) {
   if (draft) { return "存档尚未同步。退出后草稿会保留在这个浏览器，可在我的存档中重新同步或导出。"; }
@@ -25,14 +26,15 @@ function exitDescription({ draft, native, available, controller }: Props) {
   if (!available && controller.saveState !== "saved") { return "当前无法创建存档，退出将结束本次游玩。"; }
   return "只有点击“创建存档”才会保存当前位置；直接退出只结束本次游戏，未保存的进度不会保留。";
 }
-function ImmersivePlayerMenu({ open, busy, description, saveLabel, saveDisabled, onCancel, onSave, onExit }: { open: boolean; busy: boolean; description: string; saveLabel: string; saveDisabled: boolean; onCancel: () => void; onSave: () => void; onExit: () => void }) {
+function ImmersivePlayerMenu({ open, busy, description, saveLabel, saveDisabled, onCancel, onSave, onExit, onGameEditor }: { onGameEditor?: () => void; open: boolean; busy: boolean; description: string; saveLabel: string; saveDisabled: boolean; onCancel: () => void; onSave: () => void; onExit: () => void }) {
   const panel = useRef<HTMLElement>(null);
   const initial = useRef<HTMLButtonElement>(null);
   const [selected, setSelected] = useState(0);
   useModalFocus({ open, locked: busy, panel, initial, onCancel });
   if (!open) { return null; }
   const actions = [{ label: "取消", disabled: false, onClick: onCancel }, { label: saveLabel, disabled: saveDisabled, onClick: onSave }, { label: "退出游戏", disabled: false, onClick: onExit }];
-  return <div className="immersive-player-overlay"><section ref={panel} className="immersive-player-panel" role="dialog" aria-modal="true" aria-labelledby="immersive-player-title" aria-describedby="immersive-player-description" tabIndex={-1} onKeyDown={(event) => {
+  if (onGameEditor) { actions.push({ label: "游戏修改", disabled: false, onClick: onGameEditor }); }
+  return <div className="immersive-player-overlay"><section ref={panel} className={`immersive-player-panel${onGameEditor ? " has-game-editor" : ""}`} role="dialog" aria-modal="true" aria-labelledby="immersive-player-title" aria-describedby="immersive-player-description" tabIndex={-1} onKeyDown={(event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") { return; }
     event.preventDefault();
     const choices = [...(panel.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];

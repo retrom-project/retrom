@@ -12,6 +12,7 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { AppIcon } from "@/components/app-icon";
 import styles from "./directory.module.css";
 import { useToast } from "@/components/toast-provider";
+import { RecommendedDirectoriesButton } from "./recommended-directories-button";
 async function load() {
   return result(await api.GET("/api/v1/admin/platform-instances"));
 }
@@ -59,10 +60,10 @@ export function DirectoryManager() {
         title="游戏目录"
         description="维护游戏集合及其推荐运行方式。"
         actions={
-          <button className="button" onClick={() => setEditing("new")}>
+          <><RecommendedDirectoriesButton catalog={declarations.data} onCreated={directories.reload} /><button className="button" onClick={() => setEditing("new")}>
             <AppIcon name="plus" />
             新建游戏目录
-          </button>
+          </button></>
         }
       />
       <ResourceState resource={directories}>

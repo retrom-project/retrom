@@ -11,6 +11,8 @@ import type { Game, Directory, Tag, Schema } from "@/lib/api/types";
 import { loadDirectories, loadGames, loadTags } from "@/features/library/api";
 import { useLibraryQuery } from "@/features/library/use-library-query";
 import type { ListFilters } from "@/features/library/use-library-query";
+import { useReviewApproval } from "./use-review-approval";
+import { ReviewApprovalStatus } from "./review-approval-status";
 
 type AdminKind = "admin" | "review";
 type QueryValues = ReturnType<typeof useLibraryQuery>["values"];
@@ -21,21 +23,19 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
   const directories = useResource(loadDirectories);
   const tags = useResource(loadTags);
   const review = kind === "review";
+  const approval = useReviewApproval(query, () => { update({ offset: 0 }, false); games.reload(); });
   return (
     <div className={review ? "review-library" : "admin-game-library"}>
-      <PageHeader
-        title={review ? "待审核" : "游戏管理"}
-        description={review
-          ? "核对游戏资料与运行配置，试玩后批准入库或丢弃。"
-          : "维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。"}
-      />
+      <AdminGameHeading review={review} busy={approval.busy} available={!games.loading && !!games.data?.total} onApprove={() => void approval.start()} />
       {!review ? <AdminGameSummary data={games.data} directoryCount={directories.data?.items.length} /> : null}
       <AdminGameFilters
         values={values}
         directories={directories.data?.items ?? []}
         tags={tags.data?.items ?? []}
         onApply={update}
+        disabled={approval.busy}
       />
+      {review ? <ReviewApprovalStatus busy={approval.busy} summary={approval.summary} /> : null}
       {directories.error || tags.error ? <p role="alert">{directories.error || tags.error}</p> : null}
       <ResourceState resource={games}>
         {(data) => <>
@@ -52,9 +52,9 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
           <footer className="list-pagination">
             <span>当前展示 {data.items.length} / {data.total} 款游戏</span>
             <div>
-              <button className="button secondary" disabled={!values.offset} onClick={() => update({ offset: Math.max(0, values.offset - 24) }, false)}>上一页</button>
+              <button className="button secondary" disabled={approval.busy || !values.offset} onClick={() => update({ offset: Math.max(0, values.offset - 24) }, false)}>上一页</button>
               <span>第 {Math.floor(values.offset / 24) + 1} 页</span>
-              <button className="button secondary" disabled={values.offset + 24 >= data.total} onClick={() => update({ offset: values.offset + 24 }, false)}>下一页</button>
+              <button className="button secondary" disabled={approval.busy || values.offset + 24 >= data.total} onClick={() => update({ offset: values.offset + 24 }, false)}>下一页</button>
             </div>
           </footer>
         </>}
@@ -63,32 +63,43 @@ export function AdminGameBrowser({ kind, initial }: { kind: AdminKind; initial: 
   );
 }
 
-function AdminGameFilters({ values, directories, tags, onApply }: {
+function AdminGameHeading({ review, busy, available, onApprove }: { review: boolean; busy: boolean; available: boolean; onApprove: () => void }) {
+  return <>
+    <PageHeader title={review ? "待审核" : "游戏管理"}
+      description={review ? "核对游戏资料与运行配置，试玩后批准入库或丢弃。" : "维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。"}
+      actions={review ? <button className="button" disabled={busy || !available} onClick={onApprove}>{busy ? "正在快速审批…" : "快速审批"}</button> : undefined}
+    />
+    {review ? <p className="review-approval-scope">快速审批会处理当前筛选结果中的全部待审游戏，自动跳过缺少必需 BIOS 的条目。</p> : null}
+  </>;
+}
+
+function AdminGameFilters({ values, directories, tags, onApply, disabled }: {
   values: QueryValues;
   directories: Directory[];
   tags: Tag[];
   onApply: (values: Partial<QueryValues>) => void;
+  disabled: boolean;
 }) {
   const [draft, setDraft] = useState(values);
   return (
     <form className="admin-game-toolbar" onSubmit={(event) => { event.preventDefault(); onApply(draft); }}>
       <label className="admin-game-search">
         <span>搜索游戏</span>
-        <span><AppIcon name="search" /><input aria-label="搜索游戏" placeholder="输入游戏名称或标签" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} /></span>
+        <span><AppIcon name="search" /><input disabled={disabled} aria-label="搜索游戏" placeholder="输入游戏名称或标签" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} /></span>
       </label>
-      <label><span>游戏目录</span><select value={draft.directory} onChange={(event) => setDraft({ ...draft, directory: event.target.value })}>
+      <label><span>游戏目录</span><select disabled={disabled} value={draft.directory} onChange={(event) => setDraft({ ...draft, directory: event.target.value })}>
         <option value="">所有目录</option>
         {directories.map((directory) => <option key={directory.id} value={directory.id}>{directory.name}</option>)}
       </select></label>
-      <label><span>标签</span><select value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })}>
+      <label><span>标签</span><select disabled={disabled} value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })}>
         <option value="">所有标签</option>
         {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
       </select></label>
-      <label><span>排列顺序</span><select value={draft.sort} onChange={(event) => setDraft({ ...draft, sort: event.target.value === "recent" ? "recent" : "title" })}>
+      <label><span>排列顺序</span><select disabled={disabled} value={draft.sort} onChange={(event) => setDraft({ ...draft, sort: event.target.value === "recent" ? "recent" : "title" })}>
         <option value="title">名称排序</option><option value="recent">最近游玩</option>
       </select></label>
-      <button className="button" type="submit">应用筛选</button>
-      <button className="button secondary" type="button" onClick={() => {
+      <button className="button" type="submit" disabled={disabled}>应用筛选</button>
+      <button className="button secondary" type="button" disabled={disabled} onClick={() => {
         const reset = { ...values, q: "", directory: "", tag: "", platform: "", sort: "title" as const, offset: 0 };
         setDraft(reset); onApply(reset);
       }}>重置</button>

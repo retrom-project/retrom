@@ -10,7 +10,7 @@ Go位于cmd/internal/migrations，Web位于web，契约位于api，长期文档�
 
 cmd/retrom只组装资源与生命周期。HTTP处理认证、验证与响应，只调用service，不能越过公开Repository读取SQL。model/format是纯事实与解析；persistence拥有SQL和短事务；storage拥有POSIX文件；temporary拥有窄Redis能力；runtimeclient是唯一Host进程调用边界。基础层不依赖业务，runtime/存档不依赖导入服务。
 
-产品八模块为游戏库（含收藏）、存档、最近、BIOS、目录、审核（含游戏导入）、标签、用户。扫描进度、运行和文件维护不发展成第九个业务中心。只保存19业务表当前事实，禁止FK/CHECK/TRIGGER/VIEW以及通用Job/Event/Input/Lease模型。目录和核心关系不seed。
+产品八模块为游戏库（含收藏）、存档、最近、运行依赖、目录、审核（含游戏导入）、标签、用户。扫描进度、运行和文件维护不发展成第九个业务中心。只保存19业务表当前事实，禁止FK/CHECK/TRIGGER/VIEW以及通用Job/Event/Input/Lease模型。目录和核心关系不seed。
 
 引擎/入口/BIOS/DAT/Parent/指纹/checkpoint规则归runtime；Host不复制规则或猜Target分支。资料与替换只验证领域结构/引用及身份，不把完整Prepare当运行校验门禁。没有旧数据、旧接口兼容分支，不因重构升协议代际。
 

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { browserGamepadSource } from "./gamepad-source";
 import { GamepadClaimModel, NavigationInputModel, isStandardGamepad } from "./input-model";
 import type { NavigationAction } from "./input-model";
@@ -11,6 +11,7 @@ import {
 } from "./active-gamepad";
 export function useImmersiveNavigation(
   onAction: (action: NavigationAction) => void,
+  returnFocus?: RefObject<HTMLElement | null>,
 ) {
   const action = useRef(onAction);
   useEffect(() => {
@@ -22,7 +23,11 @@ export function useImmersiveNavigation(
   const [message, setMessage] = useState("");
   const [keyboardReady, setKeyboardReady] = useState(isImmersivePlayerReturnPending);
   useEffect(() => {
-    consumeImmersivePlayerReturn();
+    if (consumeImmersivePlayerReturn()) {
+      // Removing the focused runtime iframe can leave the Host document unfocused.
+      // Focus its new browsing surface without activating another browser window.
+      returnFocus?.current?.focus({ preventScroll: true });
+    }
     const claim = new GamepadClaimModel();
     const navigation = new NavigationInputModel();
     let index = getActiveImmersiveGamepadIndex();
@@ -86,7 +91,7 @@ export function useImmersiveNavigation(
       unsubscribe();
       window.removeEventListener("keydown", keyboard);
     };
-  }, []);
+  }, [returnFocus]);
   return { controller, message, ready: controller !== null || keyboardReady };
 }
 const keys: Record<string, NavigationAction> = {

@@ -29,9 +29,8 @@ it("removes an optional DOS program while retaining its archive and per-core opt
       onChange={onChange}
     />,
   );
-  fireEvent.change(screen.getByLabelText("启动程序"), {
-    target: { value: "" },
-  });
+  fireEvent.focus(screen.getByRole("combobox", { name: "启动程序" }));
+  fireEvent.click(screen.getByRole("option", { name: "使用核心启动菜单" }));
   expect(next.content).not.toHaveProperty("entryPath");
   expect(next.content.entryFile).toBe("game.zip");
   expect(next.cores).toEqual(original.cores);
@@ -45,9 +44,5 @@ it("removes an optional DOS program while retaining its archive and per-core opt
       onChange={onChange}
     />,
   );
-  expect(screen.getByLabelText("启动程序")).toHaveValue("");
-  expect(screen.getByLabelText("启动程序")).toHaveAttribute(
-    "placeholder",
-    "留空使用核心启动菜单，或填写包内程序路径",
-  );
+  expect(screen.getByRole("combobox", { name: "启动程序" })).toHaveValue("使用核心启动菜单");
 });

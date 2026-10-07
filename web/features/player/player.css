@@ -8,10 +8,6 @@
 .player-control:hover:not(:disabled) { border-color: #4b566b; background: #1c2432; }
 .player-emulator-toolbar select:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
 .player-back:focus-visible, .player-control:focus-visible, .player-menu button:focus-visible, .player-warning-dot:focus-visible, .player-emulator-toolbar button:focus-visible, .player-emulator-toolbar input:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
-.player-game-meta { min-width: 0; max-width: min(34vw, 430px); display: flex; flex-direction: column; gap: 1px; }
-.player-game-meta strong, .player-game-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-game-meta strong { font-size: var(--text-small); line-height: 1.35; }
-.player-game-meta span { color: #7f8999; font-size: var(--text-caption); }
 .player-sync-status { min-width: 0; margin-left: auto; display: flex; align-items: center; gap: 7px; color: #9eb2a8; font-size: var(--text-caption); white-space: nowrap; }
 .player-sync-status > i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--player-green); box-shadow: 0 0 0 4px rgb(97 200 155 / 11%); }
 .player-sync-status.is-busy { color: #b8aed5; }
@@ -133,6 +129,8 @@
 .immersive-player-overlay { position: absolute; z-index: 90; inset: 0; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: grid; place-items: center; min-height: 0; background: rgb(0 0 0 / 68%); }
 .immersive-player-panel { max-block-size: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; width: min(620px, calc(100vw - 48px)); padding: 40px; display: grid; justify-items: center; gap: 14px; border: 1px solid rgb(255 255 255 / 15%); border-radius: var(--radius-dialog); background: rgb(14 18 27 / 96%); box-shadow: 0 28px 90px rgb(0 0 0 / 62%); text-align: center; }
 .immersive-player-panel.has-gamepad-cursor { width: min(760px, calc(100vw - 48px)); }
+.immersive-player-panel.has-game-editor { width: min(760px, calc(100vw - 48px)); }
+.immersive-player-panel.has-game-editor .immersive-player-actions,
 .immersive-player-panel.has-gamepad-cursor .immersive-player-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .immersive-player-panel h1, .immersive-player-panel p { margin: 0; }
 .immersive-player-panel h1 { color: #fff; font-size: var(--text-page); }
@@ -162,8 +160,7 @@
 .player-shell .app-dialog .dialog-impact { color: #e8c8cc; border-color: #5b4147; background: #231f22; }
 @keyframes player-pulse { from { opacity: .55; } to { opacity: 1; } }
 @media (max-width: 960px) {
-  .player-sync-status span, .player-game-meta span { display: none; }
-  .player-game-meta { max-width: 30vw; }
+  .player-sync-status span { display: none; }
   .player-save-button { width: 36px; padding: 0; gap: 0; font-size: var(--text-icon-only); }
   .player-debug-control { width: 36px; padding: 0; gap: 0; font-size: var(--text-icon-only); }
   .player-debug-control svg { width: 17px; height: 17px; }
@@ -184,8 +181,6 @@
   .player-toolbar .player-seat-context,
   .player-toolbar .player-menu { pointer-events: auto; }
   .player-control { min-width: 44px; min-height: 44px; }
-  .player-game-meta { max-width: min(34vw, 280px); }
-  .player-game-meta strong { font-size: var(--text-caption); }
   .player-sync-status { margin-left: auto; min-width: 44px; min-height: 44px; justify-content: center; }
   .player-sync-status span { display: none; }
   .player-warning-dot { width: 10px; height: 10px; }

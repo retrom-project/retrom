@@ -58,9 +58,13 @@
 
 实现采用八个领域模块、19张业务表和一张技术账本 `schema_migrations_tab`。新空库初始化及真实schema introspection核对字段、索引和职责；没有FK、CHECK、用户trigger、view或业务seed。Game运行JSON只有runtime所有权的content/cores；扫描只有短期通用进度。HTTP通过service访问persistence，生产SQL集中在persistence；Redis只保存认证限流和临时Run上下文。
 
-当前 R11 的唯一配套输入为 `data/runtime-inputs.json`，描述 SHA256 为 `8d6c00323baf93798fe789120dcc9c388713c5c0b3852b33087cdedf219554e9`；来自 runtime 干净提交 `96e04b24c113de248ffea379856d6ede90502855`、源码摘要 `8a1277572acb8b44340246c4c4f0e44cca1f1ec359cb54ee6ec3c8929a763e0a`，明确 `release: null`。同一 V1 新增公共游戏窗口快捷键策略与事件，两 Provider 及全部 110 个 Target 指纹均改变，核心源与核心资产字节保持原样。正式 EJS/native 模块分别为 `d130aa18…` / `326acb2c…`；日常 PFB 通过标准 down/import/up 导入完整配对基座，正常 native watcher 的实际 loose 模块为 `6dc9a953…`。实证分别见 `runtime/ui-menu-bridge-r11/{handoff,paired-input-proof}.json`、`pfb-base-{down,import,up}.log` 和 `.pfb/evidence/20261007T074706Z/`。这些是 PFB 与本地交付输入，没有切换旧参考主站。
+当前 R12 的唯一配套输入为 `data/runtime-inputs.json`，描述 SHA256 为 `e5b6cead6e48c3576a15393864d4d3775727517176d35085388268c38e15fb13`；来自 runtime 干净提交 `94f4d8627ae8f267682c145245ce47935e955bff`、源码摘要 `2a8080b11683f2e4e1b708815e71e944319e66252a87af79aad60794b0f71903`，明确 `release: null`。R12 在既有 V1 内补 J2ME 数字手柄映射、BIOS-only 审核投影和 DOS 包内启动候选读取；没有新增游戏窗口契约，也没有重建核心。只有 J2ME Target 指纹变为 `4d597d22…`，其余 109 个 Target、671 个声明执行资产及核心输入保持不变。正式 EJS/native 模块分别为 `7cb7d1c0…` / `e06d16d9…`；PFB 通过标准 down/build/import/up 加载新配套输入，实际 native loose 模块 `cb5ac823…` 由各 Run envelope 单独绑定。输入和比较证据为 `runtime/j2me-input-bios-dos-r12/{handoff,paired-input-proof,tool-smoke}.json`，生命周期记录在 `root/ui-fidelity-r12-final/pfb-{down,build,import,up}.log`。工具烟雾与准备成功不替代真实游戏验收；旧参考主站未切换。
 
-R11 的正式未过滤 `ACC-RF-BROWSER` 为 `7986e6a008824e45`，24/24 通过、耗时 439.670 秒，输入摘要 `a54b044d72a6985aaecad0e1e21853b08c5b512cc6947a713d9844b5b7734ba9`；结果在 `.artifacts/acceptance/7986e6a008824e45/cases/acc-rf-browser/`。下列 R3–R10 历史证明保留原输入和范围，不因核心字节未变就把旧指纹语义验证升级为当前通过。R11 实际界面与游戏证据见后文及 [前端验收](design/clean-refactor-acceptance.md)。
+R12 最终未过滤 `ACC-RF-BROWSER` 为 `f886665edf7041ee`：24/24通过，耗时392.116秒，输入摘要 `3c312e3154250e0821804b30b29eccc354702133b6c5dd0551de878da3271060`。正式 `browser.log` / `result.json` 位于 `.artifacts/acceptance/f886665edf7041ee/cases/acc-rf-browser/`，包括真实NES存档/新实例恢复/409、画面点击关闭菜单、沉浸持键退出及返回后B/方向/A重进；手机沉浸仍验证明确尺寸门禁。PFB最终验证为 `.pfb/evidence/20261007T101856Z/`，正式验收环境与日常PFB分别保留各自输入。下列历史轮次不冒充R12新验收。
+
+历史 R11 的配套输入为 `data/runtime-inputs.json`，描述 SHA256 为 `8d6c00323baf93798fe789120dcc9c388713c5c0b3852b33087cdedf219554e9`；来自 runtime 干净提交 `96e04b24c113de248ffea379856d6ede90502855`、源码摘要 `8a1277572acb8b44340246c4c4f0e44cca1f1ec359cb54ee6ec3c8929a763e0a`，明确 `release: null`。同一 V1 新增公共游戏窗口快捷键策略与事件，两 Provider 及全部 110 个 Target 指纹均改变，核心源与核心资产字节保持原样。正式 EJS/native 模块分别为 `d130aa18…` / `326acb2c…`；日常 PFB 通过标准 down/import/up 导入完整配对基座，正常 native watcher 的实际 loose 模块为 `6dc9a953…`。实证分别见 `runtime/ui-menu-bridge-r11/{handoff,paired-input-proof}.json`、`pfb-base-{down,import,up}.log` 和 `.pfb/evidence/20261007T074706Z/`。这些是 PFB 与本地交付输入，没有切换旧参考主站。
+
+历史 R11 的正式未过滤 `ACC-RF-BROWSER` 为 `7986e6a008824e45`，24/24 通过、耗时 439.670 秒，输入摘要 `a54b044d72a6985aaecad0e1e21853b08c5b512cc6947a713d9844b5b7734ba9`；结果在 `.artifacts/acceptance/7986e6a008824e45/cases/acc-rf-browser/`。下列 R3–R10 历史证明保留原输入和范围，不因核心字节未变就把旧指纹语义验证升级为当前通过。R11 实际界面与游戏证据见后文及 [前端验收](design/clean-refactor-acceptance.md)。
 
 历史 R10 日常PFB通过正式 `pfb-init`、Provider import、`pfb-build` 和 `pfb-up` 启动源码Go、Next dev及正常Provider watcher。输入记录为 `backend/ons-thomson-hud-final/development-summary.json`：Go源码f109b1dc，runtime/tool同源a8c47231，工具archive4ccd8d98、安装revision5ee09e59；EJS实际module06d8bb65，native实际loose module8a836d55。固定Web候选manifest c5442a31属于独立production构建输入，不冒称日常运行standalone。
 
@@ -91,13 +95,27 @@ R11 的正式未过滤 `ACC-RF-BROWSER` 为 `7986e6a008824e45`，24/24 通过、
 | 清理 | unlink失败保留deleted和路径，恢复权限后purged；active BIOS/封面不误删；终态进度超过24小时仅删除自身记录。`root/cleanup-window.json`、`root/scan-progress-expiry-product.json`。 |
 | UI与隔离项目 | 移动搜索/筛选/Recent裁切红绿、人工390/4K150图像及当前HUD普通点击/键盘焦点；隔离origin无cookie、CSP拒Host auth、未列路径404、Worker策略及视频Range；MZ所测单曲有真实decodedframes/source节点，MV/MZ实际不同Run存档恢复。`frontend/frontend-closure-index-r10.json`、`frontend/isolation-resources-r5/proof.json`、`frontend/native/mz-save-final-mobile-newgame-keyboard-r6/proof.json`。 |
 
-R11 的独立界面验收 `root/ui-fidelity-r11-final/{report,source-manifest}.json` 覆盖17路由×3视口共51张图，全部200、无页面异常或文档横向溢出。927个文件最初与采样一致；本次文档补记前，后续7个代码文件变化仅涉及3个E2E、2个Player测试和2个Player实现，17个非Player路由布局未变。最终Player行为另由本轮24项及真实游戏审计绑定。旧版手机后台只有管理限制入口，新版手机验证卡片化、抽屉、Toast和可操作性，不宣称不存在的旧手机管理页像素一致。
+R11 的独立界面验收 `root/ui-fidelity-r11-final/{report,source-manifest}.json` 覆盖17路由×3视口共51张图，全部200、无页面异常或文档横向溢出。927个文件最初与采样一致；本次文档补记前，后续7个代码文件变化仅涉及3个E2E、2个Player测试和2个Player实现，17个非Player路由布局未变。该轮最终Player行为另由 R11 的24项及真实游戏审计绑定。旧版手机后台只有管理限制入口，新版手机验证卡片化、抽屉、Toast和可操作性，不宣称不存在的旧手机管理页像素一致。
 
 J2ME《魔塔》本轮明确为 GAME_SAVE：真实输入取得红钥匙1、位置4,8，游戏内写入JD/RMS；上传失败保留原commitId草稿，重试持久化成功后才ack。cookies-only全新Chrome和不同Run使用游戏第3项“读取进度”恢复红钥匙1/位置4,8，再移动至4,9并保存。自动上传期间可立即打开退出菜单，三动作锁定，Escape不关闭或触发后台菜单；普通和沉浸菜单、M/双组合键、B松开后恢复、完整query和加载后原选中返回均通过。证据为 `root/ui-fidelity-r11-audit/j2me-semantic-proof.json`、`j2me-immersive/report.json` 及 `j2me-immersive-return/report.json`。所测魔塔的真实原生进度缺口已闭合；历史Counter-Strike素材仍只证实初始349字节设置RMS，未完成任务/五槽进度写入，不因此升级为通过。KiriKiri、OpenBOR、Play-PS2与T18/T37其余缺口保持原范围。
 
-本轮隔离 MV/MZ/Tyrano 的普通与沉浸快捷键通过公共V1桥接；`root/ui-fidelity-r11-audit/isolated-fresh-{mv,mz,tyrano}/report.json` 还分别完成实际INSTANT存档、不同Run恢复与真实继续输入：MV map2/3,4/队伍恢复后移动至3,6；MZ map7/14,20/HP838恢复后移动至14,22；Tyrano所测scenario/index/变量恢复后真实选项令riko_f从10到15。各自清理自己的存档，不改既有用户存档。Tyrano最终单次Escape在焦点稳定后3ms内产生公共MENU；焦点重置期间抑制状态false→true→false，早期2ms首按miss保留为中间证据，不能声称已消除保护窗口或任意瞬时按键等效。旧video checkpoint问题未因此关闭；MZ首路由Fast Refresh中断同样保留原记录。
+R11 隔离 MV/MZ/Tyrano 的普通与沉浸快捷键通过公共V1桥接；`root/ui-fidelity-r11-audit/isolated-fresh-{mv,mz,tyrano}/report.json` 还分别完成实际INSTANT存档、不同Run恢复与真实继续输入：MV map2/3,4/队伍恢复后移动至3,6；MZ map7/14,20/HP838恢复后移动至14,22；Tyrano所测scenario/index/变量恢复后真实选项令riko_f从10到15。各自清理自己的存档，不改既有用户存档。Tyrano最终单次Escape在焦点稳定后3ms内产生公共MENU；焦点重置期间抑制状态false→true→false，早期2ms首按miss保留为中间证据，不能声称已消除保护窗口或任意瞬时按键等效。旧video checkpoint问题未因此关闭；MZ首路由Fast Refresh中断同样保留原记录。
 
 即时和原生存档语义以逐核心矩阵和独立proof为准：必须由正常输入产生可辨识的非初始世界/位置/目标/变量，真实非空payload在不同Run恢复，观察稳定，再正常输入继续。原生GAME_SAVE还需真实游戏内写入/读取。标题、HTTP200、按钮高亮、静态blocks或声明数量都不能替代。历史证明中的自然死亡/重生、首帧不完整渲染、对白位置及其它场景限制继续保留，不扩大为通用恢复结论。
+
+## R12 增量界面与交互验收
+
+`frontend/ui-fidelity-r12-player/final-proof.json` 绑定 91 个 Player、首页、沉浸、模块标签与 E2E 文件及实际报告。普通 Player 左上仅保留返回；打开“…”后，实际同源 NES canvas 与隔离 MV/MZ iframe 的画面点击关闭菜单，切换到其它标签页不误关。Host 只观察自己持有的 iframe 元素焦点，不读取跨源 DOM 或绕过公共运行接口。沉浸返回的原问题有真实红绿：游戏 iframe 退出后文档失焦、B 无效；只在消费 Player 返回标记时聚焦新 Host shell 后，B 返回平台、方向换平台、A 进入列表和重新启动均有效。退出 A 保持400ms不穿透，随后仍需120ms中立；控制器身份与完整返回查询保留，不调用 `window.focus()` 抢系统焦点。
+
+首页通过标准 Gamepad API 的真实按键上升沿弹出确认，触发键必须释放并中立120ms；默认取消，B取消后500ms冷却，左右选择/A进入。没有手柄时首页保持原布局，手机进入后明确显示横屏尺寸限制。长中文、无空格英文及短名称实测当前平台卡在1440视口均为480px、2560视口均为680px，名称单行省略并保留完整 title；相邻卡高度同样不随文字变化。“运行依赖”页面标题、导航、手机栏和通用计数/上传说明统一，具体 BIOS/RTP 类型与内部字段保留。`home-platforms.json`、`phone-entry-final.json`、`runtime-dependencies-final.json` 分别记录行为和1440×1000、390×844、2560×1440/DPR1.5实际界面；6个自建长名称目录已通过正常API删除并复查不存在。
+
+MV/MZ 的游戏修改使用既有公共 `getGameEditor()`，恢复12类别、搜索/分页、队伍/人物与地图事件独立开关布局。普通和沉浸各有实际Run：金币0→1、刷新读回、经同一UI恢复0；地图选择的Escape只关子窗口，返回游戏保留暂停/沉浸菜单，最后明确退出。桌面/手机与额外4K/DPR1.5共8个Run全部通过，没有新建持久存档；这不是新的MV/MZ存档冷恢复声明。重复点击当前金币分类曾使列表清空且待响应失效，原实测及确定性红测试保留，窄修后原动作通过。每个最终Run的主文档timeOrigin稳定；页面异常为空，仍保留Next编译日志和MZ素材的Game.exe-only插件提示。早期首路由/iframe未就绪取样及缺诊断的首轮画面重置不被当作最终通过，也不臆断其原因。真正DPR1.5的图片以 `4k-final/game-editor.json` 为准，早期命名含4k150但实际DPR1的记录保留说明。
+
+`frontend/ui-fidelity-r12-admin/final-proof.json` 验证快速审批当前筛选的31条跨两页快照：首次30条发布、1条正常API并发变更造成CAS失败而留待审，重试成功，筛选外条目未改。实际缺必需BIOS与检查错误分别保持 false/null、均未审批；仅缺可选BIOS的通过分支有聚焦/runtime测试，当前PFB该文件已安装，不冒称实站负例。推荐目录补8条、保留当时136条已有配置；推荐标签补10条、保留已有2条；第二次点击均零POST。去重包含同slug、同平台/默认核心或同平台/推荐名称，用户改过核心或禁用配置不覆盖。
+
+DOS 启动下拉实测43个完整 `.exe/.com/.bat` 候选，三尺寸列表高258px且内部滚动；按完整嵌套路径保存并刷新仍在。相同ZIP名称换内容hash后，旧显式路径保持、警示跨刷新存在，运行请求拒绝；改选可用路径后恢复有效。显式核心菜单在换成仅一个程序的包后仍不被自动替换。有效配置对照创建Run返回200；合成包与BIOS夹具仅证明投影、配置和接口，不是实际DOS/PSX/街机游玩通过。管理文件清单移除、操作按钮右对齐也有三尺寸实拍。管理员通过正常API清理自己的38个游戏、10标签、14目录和1Run，原130目录/2标签复查未改。
+
+新 J2ME 指纹的专项实际结果在 `root/ui-fidelity-r12-final/j2me-r12-handoff.json` 及 `j2me-input-{normal,immersive}/verification.json`。标准手柄仅按Y真实跳过游戏“1键跳过”片头；不是用键盘Digit1代替验证。魔塔仍为GAME_SAVE：游戏内红钥匙0→1后写JD/RMS，网络失败保留原commit，重试PUT成功才ACK并清草稿；仅cookies的全新Chrome/新Run通过游戏第三项“读取进度”恢复红钥匙1，再Dpad继续移动。普通退出保留原生保存提示。沉浸18项检查覆盖双组合、持B后中立恢复、实际JD保存/上传中退出互斥、完整entry返回、A保持400ms不重启、Host焦点与顶层gamepad getter保持，以及B回平台/左右切换/A进列表；该专项没有再用A启动第二Run，重进实证由NES链单独承担。首轮主文档reload原因未定，保留在 `j2me-input-immersive-reload-intermediate/`，不擅自归为HMR；末尾审计脚本重复退出的超时也与已完成真实退出区分。只关闭所测魔塔新指纹语义，不升级CS历史样本或其他核心未完成项。
 
 ## 构建与质量
 
@@ -109,15 +127,19 @@ J2ME《魔塔》本轮明确为 GAME_SAVE：真实输入取得红钥匙1、位�
 
 Go、前端、runtime均保留原lint、格式、类型及结构门禁强度。历史 R10 Go完整backend-check、全包实际PG integration race及原基准d15ab6e6的工作树/未跟踪协议预检通过；savedContext/单Save投影另有竞态红绿和实际工具互通。补上integration-tag测试的lint覆盖后，发现并修正四个测试的复杂度与一处包装错误比较，原规则/阈值/断言保留，正式lint入口包含该tag。四个测试文件改变使已检查Go树摘要为aa79884f，启动来源仍f109b1dc；生产Go/API/Web与已验证Docker字节0delta，主站不为测试修正重启。原始失败、绿日志和输入证明见 `backend/ons-thomson-hud-final/final-quality-proof.json`。
 
-R11 完整 `web-ui-check`、`web-check NEXT_DIST_DIR=.next-build`、`api-check` 通过；Web 为43个文件/173个测试，保留严格lint/type/style/结构限制与正式构建。最终E2E入口修正另经lint/type检查，完整24项重新通过，没有放宽POST/PUT、409、真实payload/恢复计数或草稿断言。runtime全量287个文件/1534个测试通过。 R11 Tag名称冲突与版本冲突分离的完整backend-check在 `frontend/ui-fidelity-r11-pages/backend-check.log`；真实PG的两项聚焦race测试在 `root/ui-fidelity-r11-final/tag-integration-final.log`，覆盖规范化重名、改名回滚、CAS、软删名称复用及并发唯一成功者，独立测试数据库自动清理。原工具路径错误的exit127只保留在 `tag-integration-tool-path-intermediate.log`，没有执行产品测试。日志见 `frontend/ui-fidelity-r11-shell/*-r11-final-v4.log`，正式浏览器结果使用前述7986e6a008824e45，不能以单项phone预检冒充完整门禁。
+R12 含 DOS/模块命名的完整 backend-check、真实 PostgreSQL integration-test、Web/API 检查通过；日志为 `root/ui-fidelity-r12-final/{backend-check-final,integration-test-final,web-api-check-final}.log`。随后同类别保护与手机提示选择器窄修的完整 `web-check NEXT_DIST_DIR=.next-build` 再次通过，52个测试文件/220项测试，包含严格lint/type/style与生产构建，见 `web-check-editor-fix.log`。临时构建的 `next-env.d.ts` 导入已恢复日常 `.next` 路径。runtime全量289个文件/1562项测试、构建/配套准备均通过，见 runtime R12 handoff；未放宽门禁。E2E后续只修实际canvas中心点击和菜单打开120ms中立前置，保留原POST/PUT、409、恢复、退出/持键/方向/A/B断言，另经lint/type检查。最终正式浏览器使用前述 f886665edf7041ee，24/24通过；早期失败不升级为通过。失败台账 `frontend/ui-fidelity-r12-player/defect-ledger.json` 引用再测前诊断：`a441f80144e845ca` 因新增canvas的10,10点击被可见HUD拦截而中止；`17751c1a77bc45a1` 完整21通过/3失败，trace证实第一次Right在菜单打开约30ms发出，未满足既定120ms中立，因此两次Right只移动一次。修复仅作用于测试交互前置，未改变产品门禁、按钮顺序或期望。
 
-历史 R10 runtime与ONS已各自本地提交；当时Retrom配套pin、源码及旧实现删除归于对应交付提交，暂存前后按原始基准d15ab6e6执行协议与私密信息门禁。该历史轮次的本仓提交SHA和门禁结果写入忽略验收记录 `backend/runtime-input-chain/commit-proof.json`，不将提交自身SHA写入其文件形成循环。各仓库独立管理Git，未修改基线工程或其它PFB，未推送或发布。 本轮 R11 本地提交、协议复核、基线状态及实际证据绑定由 `root/ui-fidelity-r11-final/closure-proof.json` 单独记录；不借用旧提交证明。
+历史 R11 完整 `web-ui-check`、`web-check NEXT_DIST_DIR=.next-build`、`api-check` 通过；Web 为43个文件/173个测试，保留严格lint/type/style/结构限制与正式构建。最终E2E入口修正另经lint/type检查，完整24项重新通过，没有放宽POST/PUT、409、真实payload/恢复计数或草稿断言。runtime全量287个文件/1534个测试通过。 R11 Tag名称冲突与版本冲突分离的完整backend-check在 `frontend/ui-fidelity-r11-pages/backend-check.log`；真实PG的两项聚焦race测试在 `root/ui-fidelity-r11-final/tag-integration-final.log`，覆盖规范化重名、改名回滚、CAS、软删名称复用及并发唯一成功者，独立测试数据库自动清理。原工具路径错误的exit127只保留在 `tag-integration-tool-path-intermediate.log`，没有执行产品测试。日志见 `frontend/ui-fidelity-r11-shell/*-r11-final-v4.log`，正式浏览器结果使用前述7986e6a008824e45，不能以单项phone预检冒充完整门禁。
+
+历史 R10 runtime与ONS已各自本地提交；当时Retrom配套pin、源码及旧实现删除归于对应交付提交，暂存前后按原始基准d15ab6e6执行协议与私密信息门禁。该历史轮次的本仓提交SHA和门禁结果写入忽略验收记录 `backend/runtime-input-chain/commit-proof.json`，不将提交自身SHA写入其文件形成循环。各仓库独立管理Git，未修改基线工程或其它PFB，未推送或发布。 历史 R11 本地提交、协议复核、基线状态及实际证据绑定由 `root/ui-fidelity-r11-final/closure-proof.json` 单独记录；不借用旧提交证明。
+
+本轮 R12 本地提交、原始基准协议复核、源码/输入/门禁/浏览器证据和基线状态由 `root/ui-fidelity-r12-final/closure-proof.json` 统一绑定。该记录在提交后保存实际提交SHA，正文不写入自身提交身份形成循环。最终共享测试会话已正常撤销，原会话请求管理页返回401，私有状态文件已删除；这只影响本轮测试会话。
 
 ## 有界规模
 
 12逻辑CPU/125GiB RAM主机，同机运行其它PFB。独立数据库、受管目录、第二Go进程测试20,000 Game、约50,000不可变夹具硬链接路径与200用户正常会话。它是loopback/API混合负载，不是200个模拟器，不能推断正式生产容量。
 
-历史固定production R7输入及同身份真实FCE checkpoint完成2600/2600请求，3.018842351秒，Go及4个worker峰值RSS483,430,400字节、CPU4.12秒；200个save PUT全部200、200个Run关闭全部204。p95为PUT489.76ms、run427.5ms、detail481.37ms、library294.25ms。输入和结果封存于 `root/scale/load-r7-proof.json`，不是 R10 或 R11 新指纹负载结果。
+历史固定production R7输入及同身份真实FCE checkpoint完成2600/2600请求，3.018842351秒，Go及4个worker峰值RSS483,430,400字节、CPU4.12秒；200个save PUT全部200、200个Run关闭全部204。p95为PUT489.76ms、run427.5ms、detail481.37ms、library294.25ms。输入和结果封存于 `root/scale/load-r7-proof.json`，不是 R10、R11 或 R12 新指纹负载结果。
 
 SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引、复用常驻runtime模块。同数据初测39.668秒，优化后3.292秒；EXPLAIN首屏1.176ms、offset10000页4.908ms、目录页3.872ms、active引用0.086ms，见 `root/scale/query-plans-after.txt`。
 
@@ -125,7 +147,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 ## 当前限制与未完成项
 
-- 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。R11 全部110个Target指纹改变；旧存档按实际冻结core身份判断，旧语义证明保留历史范围，不直接升级为当前PASS。新的NES、魔塔和隔离快捷键证明只覆盖各自实际列出的场景。
+- 全平台/核心剩余语义和素材/core兼容性按runtime正式矩阵逐项追踪。历史 R11 全部110个Target指纹改变；R12仅J2ME再次改变，其余109个保持。旧存档按实际冻结core身份判断，旧语义证明保留原指纹和范围，不直接升级为当前PASS。新的NES、魔塔和隔离快捷键证明只覆盖各自实际列出的场景。
 - 历史 R10 ONS wait6核心在正常public存档、全新浏览器不同Run中恢复第三等待点与完整背景，再真实输入到第四点；633字节payload的强ETag/SHA精确，证明见 `runtime/interactive/ons-current-wait-cold-r10/semantic-proof.json`。Thomson已完成TO8D存档在当前TO7配置下的冷恢复及继续游戏。上述通过只限所测场景；ONS字体边差异与辅助脚本错误、历史失败仍保留，DOS冻结entry仅有真实工具互通，不扩大为全部游戏语义通过。
 - GBC床scene/caption重绘、Tyrano旧video快照、V Rally3、SD高达暂停caption及Flash退出flush日志保留各自范围；其它稳定场景通过不代表这些问题已修复。单曲解码不代表所有音轨听感。
 - 标准Next dev首次动态路由编译曾触发全局Refresh。当前预热窗口稳定不保证任意未编译路由；受影响轮次保留partial。固定production证据和日常开发证据不得混用。

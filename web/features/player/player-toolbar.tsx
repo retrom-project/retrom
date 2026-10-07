@@ -26,6 +26,7 @@ type Props = {
   onSave: () => void;
   onExit: () => void;
   onSettings: () => void;
+  onGameEditor?: () => void;
   onUseCover?: () => void;
 };
 export function PlayerToolbar(props: Props) {
@@ -38,7 +39,6 @@ export function PlayerToolbar(props: Props) {
     <PlayerHudHandle visible={visible} toolbarRef={toolbarRef} onReveal={onReveal} />
     <header ref={toolbarRef} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)} onFocusCapture={() => onFocus(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}>
       <button className="player-back button ghost icon-only" aria-label="返回并退出游戏" onClick={onExit}><AppIcon name="arrow-left" /></button>
-      <div className="player-game-meta"><strong>{envelope.session.title}</strong><span>{[envelope.session.coreName, envelope.session.platformName].filter(Boolean).join(" · ")}</span></div>
       <PlayerSyncStatus {...props} />
       <div className="player-actions">
         {!mobile ? <button className="player-control player-debug-control" aria-expanded={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button> : null}
@@ -61,6 +61,7 @@ function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }
       <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button aria-label="关闭更多操作" onClick={onMenu}><AppIcon name="x" /></button></header>
       <div className="player-menu-runtime"><i /><span><strong>{props.status || checkpointStatus(props.envelope, props.availability)}</strong><small>{props.state === "PAUSED" ? "当前已暂停" : props.envelope.session.coreName}</small></span></div>
       {onUseCover ? <button role="menuitem" aria-label="选用当前截图为封面" disabled={controls.coverDisabled} onClick={onUseCover}><AppIcon name="library" /><span>选用当前截图为封面</span></button> : null}
+      {props.onGameEditor ? <button role="menuitem" disabled={!controls.ready} onClick={props.onGameEditor}><AppIcon name="settings" /><span>游戏修改</span></button> : null}
       {controls.settingsAvailable ? <button role="menuitem" aria-label="模拟器设置" disabled={!controls.ready} onClick={onSettings}><AppIcon name="settings" /><span>模拟器设置</span></button> : null}
       <PlayerFullscreenControl menu onError={onControlError} />
       <hr />

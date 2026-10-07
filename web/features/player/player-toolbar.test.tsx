@@ -135,3 +135,18 @@ it("describes GAME_SAVE as written game data, never an instant capture", () => {
   expect(screen.queryByText("可创建存档")).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent("有待同步的游戏数据");
 });
+
+it("keeps only the back control at top left and exposes an available game editor through more", () => {
+  const props = toolbarProps();
+  const onGameEditor = vi.fn();
+  const view = render(<PlayerToolbar {...props} state="RUNNING" onGameEditor={onGameEditor} />);
+  expect(view.container.querySelector(".player-game-meta")).toBeNull();
+  expect(screen.getByRole("button", { name: "返回并退出游戏" })).toBeVisible();
+  expect(view.container.querySelector(".player-toolbar")?.firstElementChild).toBe(screen.getByRole("button", { name: "返回并退出游戏" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "游戏修改" }));
+  expect(onGameEditor).toHaveBeenCalledOnce();
+  view.rerender(<PlayerToolbar {...props} state="MOUNTING" onGameEditor={onGameEditor} />);
+  expect(screen.getByRole("menuitem", { name: "游戏修改" })).toBeDisabled();
+  view.rerender(<PlayerToolbar {...props} state="RUNNING" />);
+  expect(screen.queryByRole("menuitem", { name: "游戏修改" })).not.toBeInTheDocument();
+});

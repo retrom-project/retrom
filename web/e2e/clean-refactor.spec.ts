@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import { test } from "./clean-refactor-fixtures";
 import type { Schema } from "../lib/api/types";
 import { nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
+import { holdController, installStandardController, pressController } from "./immersive-gamepad";
 import {
   instantConflict,
   newInstantSave,
@@ -55,6 +56,17 @@ test("shared review, real NES save and new-instance restore", async ({
     await expect(menu).toHaveCount(0);
   }
   const firstFrame = await nesFrame(page);
+  await revealPlayerControls(page);
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  const surfaceMenu = page.getByRole("menu", { name: "Player 更多操作", exact: true });
+  await expect(surfaceMenu).toBeVisible();
+  if (await page.locator(".player-menu-backdrop").isVisible()) {
+    await page.locator(".player-menu-backdrop").click({ position: { x: 10, y: 10 } });
+  } else {
+    await firstFrame.locator("canvas").click();
+  }
+  await expect(surfaceMenu).toHaveCount(0);
+  await expect(page.locator(".player-game-meta")).toHaveCount(0);
   await revealPlayerControls(page);
   const pause = page.getByRole("button", { name: "暂停", exact: true });
   await expect
@@ -302,6 +314,7 @@ test("immersive audio and keyboard controls retain their behavior", async ({ pag
 
 test("immersive player owns its iframe shortcut and returns to the selected game", async ({ page }) => {
   test.setTimeout(120_000);
+  await installStandardController(page);
   await login(page);
   const game = await fixtureGame(page);
   const returnQuery = new URLSearchParams({ view: "games", destination: "all", entry: game.id, offset: "0", folder: "" });
@@ -313,6 +326,7 @@ test("immersive player owns its iframe shortcut and returns to the selected game
   }
   await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toBeVisible();
   await page.keyboard.press("ArrowLeft");
+  await pressController(page, [12]);
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await expect(page).toHaveURL(/\/play\//u);
   const frame = await nesFrame(page);
@@ -327,9 +341,37 @@ test("immersive player owns its iframe shortcut and returns to the selected game
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("IFRAME");
   await page.keyboard.press("m");
   await expect(menu).toBeVisible();
-  await menu.getByRole("button", { name: "退出游戏", exact: true }).click();
+  await expect(menu.getByRole("button", { name: "取消", exact: true })).toBeFocused();
+  await holdController(page, []);
+  // Opening the menu intentionally requires 120ms of neutral controller input.
+  await page.waitForTimeout(200);
+  await pressController(page, [15]);
+  await pressController(page, [15]);
+  await expect(menu.getByRole("button", { name: "退出游戏", exact: true })).toBeFocused();
+  await holdController(page, [0]);
   await expect(page).toHaveURL(/\/immersive\?/u);
+  await page.waitForTimeout(400);
+  await expect(page).toHaveURL(/\/immersive\?/u);
+  await holdController(page, []);
+  await page.waitForTimeout(200);
+  await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
   expect(new URL(page.url()).searchParams.get("entry")).toBe(game.id);
   await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { pressed: true }).filter({ hasText: game.title })).toBeVisible();
+  await pressController(page, [1]);
+  await expect(page.getByRole("region", { name: "游戏平台", exact: true })).toBeVisible();
+  const position = page.locator('[aria-label^="第 "]');
+  const originalPosition = await position.getAttribute("aria-label");
+  await pressController(page, [15]);
+  await expect(position).not.toHaveAttribute("aria-label", originalPosition!);
+  await pressController(page, [14]);
+  await pressController(page, [0]);
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeVisible();
+  await pressController(page, [0]);
+  await expect(page).toHaveURL(/\/play\//u);
+  const nextFrame = await nesFrame(page);
+  await nextFrame.locator("canvas").click({ position: { x: 10, y: 10 } });
+  await page.keyboard.press("m");
+  await menu.getByRole("button", { name: "退出游戏", exact: true }).click();
+  await expect(page).toHaveURL(/\/immersive\?/u);
 });

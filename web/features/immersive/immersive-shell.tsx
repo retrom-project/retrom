@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app-icon";
 import { useToast } from "@/components/toast-provider";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ResourceState } from "@/components/resource-state";
 import { toggleFavorite } from "@/features/library/api";
 import { useImmersiveNavigation } from "./use-navigation";
@@ -25,6 +25,7 @@ export function ImmersiveShell() {
   return <Suspense><ImmersiveAudioProvider><ImmersiveContent /></ImmersiveAudioProvider></Suspense>;
 }
 function ImmersiveContent() {
+  const shell = useRef<HTMLDivElement>(null);
   const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo } = useImmersiveLibrary();
   const { notify } = useToast();
   const [exitOpen, setExitOpen] = useState(false);
@@ -68,7 +69,7 @@ function ImmersiveContent() {
     if (action === "right") { setExitChoice("exit"); }
     if (action === "cancel") { setExitOpen(false); }
     if (action === "confirm") { chooseExit(exitChoice); }
-  });
+  }, shell);
   useEffect(() => { document.querySelector<HTMLElement>(`.${styles.selectedGame}`)?.scrollIntoView({ block: "nearest" }); }, [selected]);
   useEffect(() => {
     function key(event: KeyboardEvent) {
@@ -78,7 +79,7 @@ function ImmersiveContent() {
     return () => window.removeEventListener("keydown", key);
   }, [enterFullscreen]);
   return (
-    <div className={styles.shell} data-immersive-shell="true">
+    <div ref={shell} tabIndex={-1} className={styles.shell} data-immersive-shell="true">
       <ImmersiveChrome view={view} fullscreen={fullscreen} onMenu={() => systemMenu.handleActions(["menu"])} />
       <main className={styles.shellContent}>
         {controller.message ? <p className={styles.notice} role="status">{controller.message}</p> : null}

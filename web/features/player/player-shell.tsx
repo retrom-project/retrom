@@ -26,6 +26,9 @@ import { useReviewCover } from "./use-review-cover";
 import type { ContentLoading } from "./content-loading";
 import { usePlayerVolume } from "./use-player-volume";
 import { usePlayerHud } from "./use-player-hud";
+import { usePlayerMenuDismiss } from "./use-player-menu-dismiss";
+import { usePlayerEditor } from "./use-player-editor";
+import { GameEditorPanel } from "./game-editor-panel";
 import { usePlayerSettings } from "./use-player-settings";
 import { EmulatorSettingsLayer } from "./player-settings";
 import { useMobilePlayerLayout, usePlayerDebugState } from "./player-layout";
@@ -128,6 +131,7 @@ function PlayerContent({
   );
   const volume = usePlayerVolume(runtime, state, returnTo.startsWith("/immersive"), reportError);
   const settings = usePlayerSettings(runtime, state, reportError);
+  const editor = usePlayerEditor(runtime, state, reportError);
 
   async function pause() {
     const instance = readyRuntime(runtime.current);
@@ -163,17 +167,19 @@ function PlayerContent({
   }
   const exit = usePlayerExit({ runtime, immersive, native, hasDraft: !!saves.draft, saving: saves.busy, retry: saves.retry, capture: saves.capture, leave, reportError });
   useEffect(() => { exitRequest.current = () => void exit.request(); }, [exit]);
-  const hud = usePlayerHud(state, exit.open || menu || saveChoice || settings.open || debugOpen);
+  const overlays = playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, editor });
+  const hud = usePlayerHud(state, overlays.pinned);
+  usePlayerMenuDismiss(mount, menu, () => setMenu(false));
   function requestExitMenu() { setMenu(false); void exit.request(); }
   function showMenu() { hud.show(); if (immersive) { requestExitMenu(); } else { setMenu((value) => !value); } }
-  const inputSuppressed = exit.active || menu || saveChoice || settings.open;
+  const inputSuppressed = overlays.suppressInput;
   useRuntimeShortcuts({ runtime, state, immersive, suppressed: inputSuppressed, onMenu: showMenu, onPause: () => command(pause()), onError: reportError });
   usePlayerControls(runtime, showMenu, () => command(pause()), {
     suppressInput: inputSuppressed,
     menuOpen: immersive ? exit.open : menu,
     immersive,
-    dialogOpen: exit.active || saveChoice,
-    onCancel: () => { if (exit.open) { void exit.cancel(); } else { setSaveChoice(false); } },
+    dialogOpen: overlays.dialogOpen,
+    onCancel: () => { if (editor.open) { editor.close(); } else if (exit.open) { void exit.cancel(); } else { setSaveChoice(false); } },
     onFailure: reportError,
   });
   useEffect(() => {
@@ -223,6 +229,7 @@ function PlayerContent({
         }}
         onExit={requestExitMenu}
         onSettings={() => { setMenu(false); void settings.show(); }}
+        onGameEditor={editor.editor ? () => { setMenu(false); void editor.show(); } : undefined}
         debugOpen={debugOpen}
         onDebug={() => setDebugOpen(!debugOpen)}
         onUseCover={
@@ -247,7 +254,7 @@ function PlayerContent({
           }
         }}
       />
-      <PlayerPauseOverlay state={state} immersive={immersive} settingsOpen={settings.open} onResume={() => command(pause())} />
+      <PlayerPauseOverlay state={state} immersive={immersive} settingsOpen={settings.open} onResume={() => { setMenu(false); command(pause()); }} />
       <PlayerFeedback
         error={error}
         state={state}
@@ -263,7 +270,8 @@ function PlayerContent({
         onReturn={requestExitMenu}
       />
 
-      <PlayerExitDialog immersive={immersive} native={native} available={availability.available} draft={!!saves.draft} controller={exit} />
+      {!editor.open ? <PlayerExitDialog immersive={immersive} native={native} available={availability.available} draft={!!saves.draft} controller={exit} onGameEditor={editor.editor ? () => void editor.show() : undefined} /> : null}
+      {editor.open && editor.editor ? <GameEditorPanel editor={editor.editor} immersive={immersive} native={native} onClose={editor.close} /> : null}
     </div>
   );
 }
@@ -277,4 +285,16 @@ function readyRuntime(instance: PlayerRuntimeV1 | null) {
 function PlayerPauseOverlay({ state, immersive, settingsOpen, onResume }: { state: string; immersive: boolean; settingsOpen: boolean; onResume: () => void }) {
   if (state !== "PAUSED" || immersive) { return null; }
   return <button className={`player-pause-overlay is-visible${settingsOpen ? " is-settings-passthrough" : ""}`} onClick={onResume}><span className="player-pause-pill"><AppIcon name="pause" /><strong>已暂停</strong><small>点击游戏画面继续</small></span></button>;
+}
+
+function playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, editor }: {
+  exit: { open: boolean; active: boolean }; menu: boolean; saveChoice: boolean;
+  settings: { open: boolean }; debugOpen: boolean; editor: { open: boolean; pending: boolean };
+}) {
+  const dialogOpen = exit.active || saveChoice || editor.open;
+  return {
+    dialogOpen,
+    suppressInput: dialogOpen || menu || settings.open || editor.pending,
+    pinned: exit.open || menu || saveChoice || settings.open || debugOpen || editor.open,
+  };
 }

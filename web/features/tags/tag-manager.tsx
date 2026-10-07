@@ -10,6 +10,7 @@ import { PageHeader, EmptyState } from "@/components/ui";
 import { ResourceState } from "@/components/resource-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { RecommendedTagsButton } from "./recommended-tags-button";
 export function TagManager() {
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
@@ -67,7 +68,7 @@ export function TagManager() {
           <button className="button" type="submit">应用筛选</button>
           <button className="button secondary" type="button" onClick={() => { setDraft(""); setQuery(""); setOffset(0); }}>重置</button>
         </form>
-        <div className="tag-manager-actions"><button className="button" onClick={() => edit("new")}>新建标签</button></div>
+        <div className="tag-manager-actions"><RecommendedTagsButton onCreated={tags.reload} /><button className="button" onClick={() => edit("new")}>新建标签</button></div>
       </div>
       <ResourceState resource={tags}>{(data) => <>
         {data.items.length ? <TagTable items={data.items} onEdit={edit} onDelete={(tag) => { setConfirmName(""); setDeleting(tag); }} /> : <EmptyState title={query ? "没有匹配的标签" : "还没有标签"} description="标签建立后可以用于游戏分类与筛选。" action={<button className="button" onClick={() => edit("new")}>新建第一个标签</button>} />}

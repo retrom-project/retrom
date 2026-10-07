@@ -1,5 +1,6 @@
 "use client";
 import { ScummvmSelection } from "./scummvm-selection";
+import { DOSEntrySelector } from "./dos-entry-selector";
 import { useState } from "react";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
@@ -58,7 +59,7 @@ export function RuntimeConfigEditor({
       <legend>运行配置</legend>
       <p className="workspace-note">{contentNames[value.content.kind]}</p>
       <div className="form-grid">
-        <ContentFields value={value} files={files} onEdit={content} />{" "}
+        <ContentFields gameId={gameId} value={value} files={files} onEdit={content} />{" "}
         <label className="field">
           运行核心
           <select
@@ -136,10 +137,12 @@ const contentNames: Record<Schema<"RuntimeContent">["kind"], string> = {
 };
 
 function ContentFields({
+  gameId,
   value,
   files,
   onEdit,
 }: {
+  gameId: string;
   value: Schema<"RuntimeConfig">;
   files: Schema<"GameFile">[];
   onEdit: (key: "entryFile" | "entryPath" | "engine", text: string) => void;
@@ -163,16 +166,11 @@ function ContentFields({
           </select>
         </label>
       ) : null}
-      {value.content.kind === "DOS_BUNDLE" ? (
-        <label className="field">
-          启动程序
-          <input
-            value={value.content.entryPath ?? ""}
-            onChange={(event) => onEdit("entryPath", event.target.value)}
-            placeholder="留空使用核心启动菜单，或填写包内程序路径"
-          />
-        </label>
-      ) : null}
+      {value.content.kind === "DOS_BUNDLE" ? <DOSEntrySelector
+        key={`${gameId}:${value.content.entryFile}:${files.map((file) => `${file.id}:${file.sha256}`).join(",")}`}
+        gameId={gameId} entryFile={value.content.entryFile ?? ""} value={value.content.entryPath ?? ""}
+        onSelect={(path) => onEdit("entryPath", path)}
+      /> : null}
       {value.content.kind === "RPG_MAKER_PROJECT" ? (
         <label className="field">
           RPG Maker 版本

@@ -15,6 +15,7 @@
 @import "../features/games/game-detail.css" layer(app);
 @import "../features/games/admin-games.css" layer(app);
 @import "../features/player/player.css" layer(app);
+@import "../features/player/game-editor.css" layer(app);
 @import "../features/users/users.css" layer(app);
 @import "../features/platforms/platforms.css" layer(app);
 @import "../features/tags/tags.css" layer(app);

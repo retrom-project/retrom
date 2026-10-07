@@ -26,7 +26,7 @@ const adminNav: Array<[string, string, AppIconName]> = [
   ["/admin/games", "游戏管理", "library"],
   ["/admin/tags", "标签管理", "list"],
   ["/admin/platform-instances", "游戏目录", "folder"],
-  ["/admin/bios", "BIOS 管理", "chip"],
+  ["/admin/bios", "运行依赖", "chip"],
   ["/admin/users", "用户管理", "user"],
 ];
 const publicRoutes = ["/login", "/setup", "/register", "/reset-password"];

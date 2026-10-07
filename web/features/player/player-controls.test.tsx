@@ -1,4 +1,6 @@
-import { act, cleanup, fireEvent, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
+import { useRef } from "react";
+import { useModalFocus } from "@/components/modal-focus";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { GamepadFrameListener } from "@/features/immersive/gamepad-source";
 import { browserGamepadSource } from "@/features/immersive/gamepad-source";
@@ -102,4 +104,24 @@ it("reserves M and a repeated Select+Start chord for the immersive game menu", (
   function chord(pressed: boolean, now: number) { const value = frame(pressed, now); value.gamepads[0].buttons[9] = { pressed, value: pressed ? 1 : 0 }; act(() => frameListener(value)); }
   chord(true, 0); chord(false, 120); chord(true, 240);
   expect(menu).toHaveBeenCalledTimes(2);
+});
+
+it("sends B to the active nested editor dialog without closing the whole player overlay", () => {
+  const instance = runtimeFixture();
+  const outerCancel = vi.fn(), innerCancel = vi.fn();
+  function NestedEditor() {
+    const panel = useRef<HTMLDivElement>(null);
+    useModalFocus({ open: true, locked: false, panel, onCancel: innerCancel });
+    return <section role="dialog" aria-label="游戏修改"><div ref={panel} role="dialog" aria-label="选择地图"><input aria-label="查找地图" /></div></section>;
+  }
+  render(<NestedEditor />);
+  setActiveImmersiveGamepadIndex(2);
+  renderHook(() => usePlayerControls({ current: instance }, vi.fn(), vi.fn(), { suppressInput: true, menuOpen: false, immersive: true, dialogOpen: true, onCancel: outerCancel, onFailure: vi.fn() }));
+  act(() => frameListener(frame(false, 0)));
+  act(() => frameListener(frame(false, 120)));
+  const cancel = frame(false, 121);
+  cancel.gamepads[0].buttons[1] = { pressed: true, value: 1 };
+  act(() => frameListener(cancel));
+  expect(innerCancel).toHaveBeenCalledOnce();
+  expect(outerCancel).not.toHaveBeenCalled();
 });

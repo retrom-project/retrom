@@ -139,6 +139,9 @@
     "/api/v1/admin/reviews": {
       "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews"
     },
+    "/api/v1/admin/reviews/readiness": {
+      "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1readiness"
+    },
     "/api/v1/admin/reviews/{gameId}": {
       "$ref": "./domains/review.yaml#/paths/~1api~1v1~1admin~1reviews~1{gameId}"
     },
@@ -195,6 +198,9 @@
     },
     "/api/v1/runs/{runId}/resources/index/{indexId}": {
       "$ref": "./domains/runtime.yaml#/paths/~1api~1v1~1runs~1{runId}~1resources~1index~1{indexId}"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/dos": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1dos"
     }
   },
   "components": {
@@ -368,6 +374,15 @@
       "GamePage": {
         "$ref": "./components/common.yaml#/components/schemas/GamePage"
       },
+      "ReviewReadinessRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/ReviewReadinessRequest"
+      },
+      "ReviewReadiness": {
+        "$ref": "./components/common.yaml#/components/schemas/ReviewReadiness"
+      },
+      "ReviewReadinessList": {
+        "$ref": "./components/common.yaml#/components/schemas/ReviewReadinessList"
+      },
       "SavePage": {
         "$ref": "./components/common.yaml#/components/schemas/SavePage"
       },
@@ -436,6 +451,9 @@
       },
       "AccountLinkList": {
         "$ref": "./components/common.yaml#/components/schemas/AccountLinkList"
+      },
+      "DOSEntryCandidates": {
+        "$ref": "./components/common.yaml#/components/schemas/DOSEntryCandidates"
       }
     }
   }

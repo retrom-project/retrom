@@ -172,11 +172,16 @@ function dispatchImmersiveGamepad(gamepad: GamepadSnapshot | null, nowMs: number
   if (!config.suppressInput && chord.update(buttonPressed(gamepad?.buttons[8]), buttonPressed(gamepad?.buttons[9]), nowMs).openMenu) { config.onMenu(); }
 }
 function dispatchDialog(actions: readonly string[], onCancel: () => void) {
-  const panel = document.querySelector<HTMLElement>('.player-shell [role="dialog"], .player-shell [role="alertdialog"]') ?? document.querySelector<HTMLElement>('[role="dialog"], [role="alertdialog"]');
+  const panel = document.activeElement?.closest<HTMLElement>('[role="dialog"], [role="alertdialog"]') ?? document.querySelector<HTMLElement>('.player-shell [role="dialog"], .player-shell [role="alertdialog"]') ?? document.querySelector<HTMLElement>('[role="dialog"], [role="alertdialog"]');
   if (!panel) { return; }
-  const buttons = [...panel.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+  const buttons = [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled)')];
   for (const action of actions) {
-    if (action === "cancel") { onCancel(); continue; }
+    if (action === "cancel") {
+      const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      panel.dispatchEvent(escape);
+      if (!escape.defaultPrevented) { onCancel(); }
+      continue;
+    }
     const active = document.activeElement;
     if (action === "confirm" && active instanceof HTMLButtonElement && buttons.includes(active)) { active.click(); }
     if (["left", "right", "up", "down"].includes(action)) {
