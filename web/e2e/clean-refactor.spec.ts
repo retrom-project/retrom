@@ -1,4 +1,6 @@
+import { writeFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { test } from "./clean-refactor-fixtures";
 import type { Schema } from "../lib/api/types";
 import { nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
@@ -18,6 +20,62 @@ import {
   revealPlayerControls,
   verifyLibraryFilters,
 } from "./clean-refactor-support";
+
+async function expectSaveContentToFit(page: Page) {
+  await expect(page.locator(".save-library-group").first()).toBeVisible();
+  const content = await page.locator("main").evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      left: bounds.left + parseFloat(style.paddingLeft),
+      right: bounds.right - parseFloat(style.paddingRight),
+    };
+  });
+  const selectors = [
+    ".save-library-groups",
+    ".save-library-group",
+    ".save-library-group-head",
+    ".save-library-group-main",
+    ".save-library-group-main h2",
+    ".save-library-group-main p",
+    ".save-library-group-meta",
+    ".save-library-group-meta a",
+    ".save-library-grid",
+    ".save-library-card",
+    ".save-library-shot",
+    ".save-library-menu-button",
+    ".save-library-resume .button",
+  ];
+  const items = await page.locator(selectors.join(", ")).evaluateAll((elements) =>
+    elements.filter((element) => element.getClientRects().length > 0).map((element) => {
+      const bounds = element.getBoundingClientRect();
+      const parent = element.parentElement;
+      if (!parent) { throw new Error("Save content has no layout parent"); }
+      const parentBounds = parent.getBoundingClientRect();
+      const style = getComputedStyle(parent);
+      return {
+        label: `${element.tagName}.${element.className}`,
+        left: bounds.left,
+        right: bounds.right,
+        width: bounds.width,
+        parentLeft: parentBounds.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+        parentRight: parentBounds.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+      };
+    }),
+  );
+  const boundsPath = test.info().outputPath("save-layout-bounds.json");
+  await writeFile(boundsPath, JSON.stringify({ content, items }, null, 2));
+  await test.info().attach("save-layout-bounds", {
+    path: boundsPath,
+    contentType: "application/json",
+  });
+  await page.screenshot({ path: test.info().outputPath("save-groups-containment.png") });
+  for (const item of items) {
+    expect(item.width, item.label).toBeGreaterThan(0);
+    expect(item.left, item.label).toBeGreaterThanOrEqual(Math.max(content.left, item.parentLeft) - 1);
+    expect(item.right, item.label).toBeLessThanOrEqual(Math.min(content.right, item.parentRight) + 1);
+  }
+}
 
 test("shared review, real NES save and new-instance restore", async ({
   page,
@@ -244,6 +302,9 @@ test("populated pages keep their viewport and functional favorite classification
         page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       )
       .toBe(true);
+    if (route === "/saves") {
+      await expectSaveContentToFit(page);
+    }
     await page.screenshot({
       path: test
         .info()

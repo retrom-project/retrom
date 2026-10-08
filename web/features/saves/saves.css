@@ -37,7 +37,7 @@
 .save-library-search input { min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: var(--text-caption); }
 .save-library-toolbar > p { align-self: center; margin: 17px 0 0; color: var(--muted); text-align: right; white-space: nowrap; font-size: var(--text-caption); }
 .save-library-toolbar > p strong { color: var(--ink); }
-.save-library-groups { display: grid; gap: 20px; }
+.save-library-groups { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .save-library-group { overflow: visible; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .save-library-group-head { padding: 15px 18px 13px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); border-radius: var(--radius-panel) var(--radius-panel) 0 0; background: linear-gradient(180deg, var(--surface), var(--surface-subtle)); }
 .save-library-group-main { min-width: 0; display: flex; align-items: center; gap: 13px; }

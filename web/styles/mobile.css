@@ -461,7 +461,7 @@
   .save-latest-actions { padding: 16px; }
   .save-library-toolbar { padding: 12px; grid-template-columns: minmax(0, 1fr); }
   .save-library-toolbar > p { margin-top: 0; text-align: left; }
-  .save-library-group-head { padding: 14px; align-items: flex-start; flex-direction: column; }
+  .save-library-group-head { padding: 14px; align-items: stretch; flex-direction: column; }
   .save-library-group-meta { width: 100%; flex-wrap: wrap; gap: 8px 14px; white-space: normal; }
   .save-library-group-meta a { min-height: 44px; display: inline-flex; align-items: center; }
   .save-library-grid { padding: 12px; grid-template-columns: minmax(0, 1fr); }
