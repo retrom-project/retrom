@@ -6,6 +6,8 @@ import type { FormEvent } from "react";
 import { api, result } from "@/lib/api/client";
 import { useAuth } from "./auth-provider";
 import { FeedbackBanner } from "@/components/ui";
+import { useToast } from "@/components/toast-provider";
+import { LoginForm } from "./login-form";
 export function AuthForm({
   mode,
 }: {
@@ -13,17 +15,22 @@ export function AuthForm({
 }) {
   const token = useAccountLinkToken();
   const { accept } = useAuth();
+  const { notify, clear } = useToast();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [complete, setComplete] = useState(false);
+  const login = mode === "login";
   const title = {
-    login: "欢迎回来",
+    login: "登录",
     setup: "初始化 Retrom",
     register: "接受邀请",
     "reset-password": "重置密码",
   }[mode];
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (login) {
+      clear();
+    }
     setBusy(true);
     setError("");
     const data = new FormData(event.currentTarget);
@@ -66,10 +73,17 @@ export function AuthForm({
         setComplete(true);
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "请求失败。");
+      const message = failure instanceof Error ? failure.message : "请求失败。";
+      setError(message);
+      if (login) {
+        notify({ tone: "bad", message });
+      }
     } finally {
       setBusy(false);
     }
+  }
+  if (login) {
+    return <LoginForm busy={busy} error={error} onSubmit={submit} />;
   }
   return (
     <main className="auth-page">
@@ -86,7 +100,11 @@ export function AuthForm({
             密码已更新。<Link href="/login">前往登录</Link>
           </FeedbackBanner>
         ) : (
-          <form className="stack" onSubmit={(event) => void submit(event)}>
+          <form
+            className="stack"
+            onSubmit={(event) => void submit(event)}
+            aria-busy={busy}
+          >
             {mode !== "reset-password" ? (
               <label className="field">
                 账号
@@ -104,10 +122,8 @@ export function AuthForm({
               <input
                 type="password"
                 name="password"
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                minLength={mode === "login" ? 1 : 12}
+                autoComplete="new-password"
+                minLength={12}
                 required
               />
             </label>

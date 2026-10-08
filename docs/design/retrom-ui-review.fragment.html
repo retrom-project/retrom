@@ -28,6 +28,25 @@
       #retrom-ui-review p { line-height: var(--leading-body); }
       #retrom-ui-review .rt-muted { color: var(--muted); }
       #retrom-ui-review .rt-button { display: inline-flex; align-items: center; justify-content: center; }
+      #retrom-ui-review:has([data-page="login"]:not([hidden])) .rt-app { display: block; }
+      #retrom-ui-review:has([data-page="login"]:not([hidden])) :is(.rt-sidebar, .rt-phone) { display: none; }
+      #retrom-ui-review:has([data-page="login"]:not([hidden])) .rt-main { padding: 0; }
+      #retrom-ui-review .rt-login { min-height: 100dvh; padding: 48px 24px; display: grid; place-items: center; font-size: var(--text-body); line-height: var(--leading-body); }
+      #retrom-ui-review .rt-login[hidden] { display: none; }
+      #retrom-ui-review .rt-login-panel { width: min(480px, 100%); padding: 34px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
+      #retrom-ui-review .rt-login-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 26px; font-size: var(--text-section); }
+      #retrom-ui-review .rt-login-brand .rt-brand-mark { font-weight: var(--weight-semibold); background: linear-gradient(145deg, #7864e9, #4d3ab6); }
+      #retrom-ui-review .rt-login-eyebrow { margin: 0 0 5px; color: var(--purple-dark); font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: .14em; }
+      #retrom-ui-review .rt-login h1 { font-weight: var(--weight-regular); line-height: var(--leading-heading); letter-spacing: -.02em; }
+      #retrom-ui-review .rt-login-form { display: grid; gap: 16px; margin-top: 24px; }
+      #retrom-ui-review .rt-login-form label { display: grid; gap: 6px; color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-semibold); }
+      #retrom-ui-review .rt-login-form input { min-width: 0; width: 100%; }
+      #retrom-ui-review .rt-login-submit { width: 100%; margin-top: 2px; }
+      #retrom-ui-review .rt-login-footnote { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); text-align: center; }
+      @media (max-width: 560px) {
+        #retrom-ui-review .rt-login { padding: 24px 16px; place-items: start center; }
+        #retrom-ui-review .rt-login-panel { padding: 25px 20px; }
+      }
       #retrom-ui-review .rt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
       #retrom-ui-review .rt-panel { padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
       #retrom-ui-review .rt-feature { min-height: 330px; display: flex; align-items: center; background: linear-gradient(100deg, var(--surface) 40%, var(--navy-950)); }
@@ -149,10 +168,23 @@
         <button data-view="bios"><i data-lucide="cpu"></i>运行依赖</button>
         <button data-view="tags"><i data-lucide="tag"></i>标签管理</button>
         <button data-view="accounts"><i data-lucide="user"></i>用户管理</button>
+        <button data-view="login"><i data-lucide="log-in"></i>登录页</button>
       </nav>
       <div class="rt-account"><details><summary>示例用户<i title="服务正常"></i></summary><div class="rt-account-menu"><button><i data-lucide="settings"></i>账户设置</button><button><i data-lucide="log-out"></i>退出登录</button></div></details><button><i data-lucide="arrow-left"></i>返回用户侧</button></div>
     </aside>
     <main class="rt-main">
+      <section class="rt-page rt-login" data-page="login" hidden>
+        <div class="rt-login-panel">
+          <div class="rt-login-brand"><span class="rt-brand-mark" aria-hidden="true">R</span><strong>Retrom</strong></div>
+          <p class="rt-login-eyebrow">欢迎回来</p><h1>登录</h1>
+          <form class="rt-login-form" onsubmit="event.preventDefault()">
+            <label>用户名<input name="username" autocomplete="username" required></label>
+            <label>密码<input type="password" name="password" autocomplete="current-password" required></label>
+            <button class="rt-button rt-button-primary rt-login-submit" type="submit">登录</button>
+          </form>
+          <p class="rt-login-footnote">新账号需要管理员邀请。本阶段不提供自助找回密码。</p>
+        </div>
+      </section>
       <section class="rt-page" data-page="home">
         <header class="rt-head"><div><h1>今天，玩点什么？</h1><p class="rt-muted">继续上次的冒险，发现下一款心头好。</p></div><button class="rt-button" data-open="immersive"><i data-lucide="maximize"></i>沉浸模式</button></header>
         <article class="rt-panel rt-feature"><div><p class="rt-muted">继续上次的冒险</p><h2>重装机兵</h2><p>NES / Famicom · 手动存档</p><div class="rt-actions"><button class="rt-button rt-button-primary" data-open="detail">从存档继续</button><button class="rt-button" data-open="detail">查看游戏详情</button></div><p class="rt-muted">本次将从存档位置启动</p><button class="rt-button" data-open="saves">查看存档</button></div></article>

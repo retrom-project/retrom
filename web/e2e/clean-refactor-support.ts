@@ -25,7 +25,7 @@ export async function login(page: Page) {
       .fill("Browser administrator");
     await page.getByLabel("密码", { exact: true }).fill(password);
   } else {
-    await page.getByLabel("账号", { exact: true }).fill(username);
+    await page.getByLabel("用户名", { exact: true }).fill(username);
     await page.getByLabel("密码", { exact: true }).fill(password);
   }
   await page.locator("form").getByRole("button").click();

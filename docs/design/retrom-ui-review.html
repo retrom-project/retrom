@@ -237,6 +237,25 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       #retrom-ui-review p { line-height: var(--leading-body); }
       #retrom-ui-review .rt-muted { color: var(--muted); }
       #retrom-ui-review .rt-button { display: inline-flex; align-items: center; justify-content: center; }
+      #retrom-ui-review:has([data-page=&quot;login&quot;]:not([hidden])) .rt-app { display: block; }
+      #retrom-ui-review:has([data-page=&quot;login&quot;]:not([hidden])) :is(.rt-sidebar, .rt-phone) { display: none; }
+      #retrom-ui-review:has([data-page=&quot;login&quot;]:not([hidden])) .rt-main { padding: 0; }
+      #retrom-ui-review .rt-login { min-height: 100dvh; padding: 48px 24px; display: grid; place-items: center; font-size: var(--text-body); line-height: var(--leading-body); }
+      #retrom-ui-review .rt-login[hidden] { display: none; }
+      #retrom-ui-review .rt-login-panel { width: min(480px, 100%); padding: 34px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
+      #retrom-ui-review .rt-login-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 26px; font-size: var(--text-section); }
+      #retrom-ui-review .rt-login-brand .rt-brand-mark { font-weight: var(--weight-semibold); background: linear-gradient(145deg, #7864e9, #4d3ab6); }
+      #retrom-ui-review .rt-login-eyebrow { margin: 0 0 5px; color: var(--purple-dark); font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: .14em; }
+      #retrom-ui-review .rt-login h1 { font-weight: var(--weight-regular); line-height: var(--leading-heading); letter-spacing: -.02em; }
+      #retrom-ui-review .rt-login-form { display: grid; gap: 16px; margin-top: 24px; }
+      #retrom-ui-review .rt-login-form label { display: grid; gap: 6px; color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-semibold); }
+      #retrom-ui-review .rt-login-form input { min-width: 0; width: 100%; }
+      #retrom-ui-review .rt-login-submit { width: 100%; margin-top: 2px; }
+      #retrom-ui-review .rt-login-footnote { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); text-align: center; }
+      @media (max-width: 560px) {
+        #retrom-ui-review .rt-login { padding: 24px 16px; place-items: start center; }
+        #retrom-ui-review .rt-login-panel { padding: 25px 20px; }
+      }
       #retrom-ui-review .rt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
       #retrom-ui-review .rt-panel { padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
       #retrom-ui-review .rt-feature { min-height: 330px; display: flex; align-items: center; background: linear-gradient(100deg, var(--surface) 40%, var(--navy-950)); }
@@ -358,10 +377,23 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         &lt;button data-view=&quot;bios&quot;&gt;&lt;i data-lucide=&quot;cpu&quot;&gt;&lt;/i&gt;运行依赖&lt;/button&gt;
         &lt;button data-view=&quot;tags&quot;&gt;&lt;i data-lucide=&quot;tag&quot;&gt;&lt;/i&gt;标签管理&lt;/button&gt;
         &lt;button data-view=&quot;accounts&quot;&gt;&lt;i data-lucide=&quot;user&quot;&gt;&lt;/i&gt;用户管理&lt;/button&gt;
+        &lt;button data-view=&quot;login&quot;&gt;&lt;i data-lucide=&quot;log-in&quot;&gt;&lt;/i&gt;登录页&lt;/button&gt;
       &lt;/nav&gt;
       &lt;div class=&quot;rt-account&quot;&gt;&lt;details&gt;&lt;summary&gt;示例用户&lt;i title=&quot;服务正常&quot;&gt;&lt;/i&gt;&lt;/summary&gt;&lt;div class=&quot;rt-account-menu&quot;&gt;&lt;button&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;账户设置&lt;/button&gt;&lt;button&gt;&lt;i data-lucide=&quot;log-out&quot;&gt;&lt;/i&gt;退出登录&lt;/button&gt;&lt;/div&gt;&lt;/details&gt;&lt;button&gt;&lt;i data-lucide=&quot;arrow-left&quot;&gt;&lt;/i&gt;返回用户侧&lt;/button&gt;&lt;/div&gt;
     &lt;/aside&gt;
     &lt;main class=&quot;rt-main&quot;&gt;
+      &lt;section class=&quot;rt-page rt-login&quot; data-page=&quot;login&quot; hidden&gt;
+        &lt;div class=&quot;rt-login-panel&quot;&gt;
+          &lt;div class=&quot;rt-login-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;R&lt;/span&gt;&lt;strong&gt;Retrom&lt;/strong&gt;&lt;/div&gt;
+          &lt;p class=&quot;rt-login-eyebrow&quot;&gt;欢迎回来&lt;/p&gt;&lt;h1&gt;登录&lt;/h1&gt;
+          &lt;form class=&quot;rt-login-form&quot; onsubmit=&quot;event.preventDefault()&quot;&gt;
+            &lt;label&gt;用户名&lt;input name=&quot;username&quot; autocomplete=&quot;username&quot; required&gt;&lt;/label&gt;
+            &lt;label&gt;密码&lt;input type=&quot;password&quot; name=&quot;password&quot; autocomplete=&quot;current-password&quot; required&gt;&lt;/label&gt;
+            &lt;button class=&quot;rt-button rt-button-primary rt-login-submit&quot; type=&quot;submit&quot;&gt;登录&lt;/button&gt;
+          &lt;/form&gt;
+          &lt;p class=&quot;rt-login-footnote&quot;&gt;新账号需要管理员邀请。本阶段不提供自助找回密码。&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
       &lt;section class=&quot;rt-page&quot; data-page=&quot;home&quot;&gt;
         &lt;header class=&quot;rt-head&quot;&gt;&lt;div&gt;&lt;h1&gt;今天，玩点什么？&lt;/h1&gt;&lt;p class=&quot;rt-muted&quot;&gt;继续上次的冒险，发现下一款心头好。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;rt-button&quot; data-open=&quot;immersive&quot;&gt;&lt;i data-lucide=&quot;maximize&quot;&gt;&lt;/i&gt;沉浸模式&lt;/button&gt;&lt;/header&gt;
         &lt;article class=&quot;rt-panel rt-feature&quot;&gt;&lt;div&gt;&lt;p class=&quot;rt-muted&quot;&gt;继续上次的冒险&lt;/p&gt;&lt;h2&gt;重装机兵&lt;/h2&gt;&lt;p&gt;NES / Famicom · 手动存档&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button rt-button-primary&quot; data-open=&quot;detail&quot;&gt;从存档继续&lt;/button&gt;&lt;button class=&quot;rt-button&quot; data-open=&quot;detail&quot;&gt;查看游戏详情&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;rt-muted&quot;&gt;本次将从存档位置启动&lt;/p&gt;&lt;button class=&quot;rt-button&quot; data-open=&quot;saves&quot;&gt;查看存档&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
