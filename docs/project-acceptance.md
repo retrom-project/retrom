@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck／Virtual Boy 共四十九项限定场景已核对；63 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck／Virtual Boy／Stella2014 Atari2600／Uzem Uzebox／O2EM Odyssey2／FreeIntv Intellivision 共五十三项限定场景已核对；59 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -251,4 +251,14 @@ FreeChaF／Channel F 的作者 QUEST 通过方向移动与 A 战斗确认；1,97
 
 SameDuck／Mega Duck 的 Max Pirate 通过 Start／双向移动，正式游玩进入新的尖刺敌人房间。10,350字节公共存档在仅cookies新浏览器恢复房间、右侧角色及8血，公开暂停七秒后继续左右移动；敌人碰撞导致正常掉血。第一轮不暂停恢复的掉血记录保留，不据此断言血量恢复异常；没有返回上一房间或 A 攻击结论。证明 `root/release-r15/sameduck-maxpirate-current/semantic-proof.json` SHA `567a968418ff163d2e85d128e00ce23d2522ce29f4ca320b7373a74a8a271540`；自有数据与会话已清理。
 
-Virtual Boy 的固定时间模拟 A／Start 会在正常比赛及恢复后擅自打开暂停菜单，现已移除该核心启动按键。新开局／恢复两项回归先红后绿；runtime lint、类型、291文件／1,574测试与包检查通过。VB Racing 经实际审核和发布方向／Start确认／A加速；公开46,154字节即时快照在仅登录态新浏览器恢复原生暂停、00:07:48、剩余158、速度104及路旁布局，运行未暂停观察30秒保持不变，随后手动Start和左右／A继续驾驶。早先标题转场快照不计通过；自建记录和会话均清理。证据 `root/release-r15/virtualboy-racing-fixed/semantic-proof.json` SHA `f9edd62c6ef60d2c2183b132a9c9086460fe54412ce9035f149cd27163c5fa78`；仅Virtual Boy指纹变更，不改核心二进制或协议代际。当前共49项范围通过、63项待完成、10项素材缺口，T18/T37及正式发布仍未完成。
+Virtual Boy 的固定时间模拟 A／Start 会在正常比赛及恢复后擅自打开暂停菜单，现已移除该核心启动按键。新开局／恢复两项回归先红后绿；runtime lint、类型、291文件／1,574测试与包检查通过。VB Racing 经实际审核和发布方向／Start确认／A加速；公开46,154字节即时快照在仅登录态新浏览器恢复原生暂停、00:07:48、剩余158、速度104及路旁布局，运行未暂停观察30秒保持不变，随后手动Start和左右／A继续驾驶。早先标题转场快照不计通过；自建记录和会话均清理。证据 `root/release-r15/virtualboy-racing-fixed/semantic-proof.json` SHA `f9edd62c6ef60d2c2183b132a9c9086460fe54412ce9035f149cd27163c5fa78`；仅Virtual Boy指纹变更，不改核心二进制或协议代际。T18/T37及正式发布仍未完成。
+
+Stella2014／Atari2600 用作者 Sheep It Up 验证B确认及方向跳跃。323字节公开即时存档在仅登录态新Chromium恢复低处云边的空中角色；公开暂停七秒后继续下落，再次手柄操作可跳起。初始地面存档不计通过，不宣称已得分爬升或像素完全一致。证据 `root/release-r15/stella-sheep-current/semantic-proof.json` SHA `5cebe734e6b80523528c8c69fef8bab108330c757bc2b2ca802dbc80bf096296`；自有数据和会话清理完成。
+
+Virtual Boy 修复提交 `c5fe4b4065e68f3fe950fb80b612dabfc1504a7b` 已通过远端 quality `37708642739`。同一干净提交的完整配套构建／Provider检查通过，描述SHA `1df353efa487d47e351427549948556c83070a7777363f2157ff54667a8504ac`，明确 `release:null`。EJS模块 `bdce5ed8…` 与已测试修正字节相同，native模块 `4733851a…` 保持不变；全部110目标／122产品行匹配当前指纹。标准down、导入、build、up、verify保留原PFB数据／ID／URL，native开发覆盖恢复；证据 `.pfb/evidence/20261008T003944Z/` 及 `root/release-r15/virtualboy-{artifact-identity,paired-loaded-identities}.json`。此为本地验收基座，未替换正式production pin或创建稳定tag。
+
+Uzem／Uzebox Arkanoid 已完成审核／发布方向挡板与A发球；35,689字节公开快照在仅登录态新浏览器恢复右下绿砖缺口、非居中挡板、球及掉落道具，公开暂停七秒后继续操控。正常丢球／下一条生命保留旧砖块缺口，继续左右与A可打掉另一块砖。过场快照排除，不宣称通关或球位置像素恒等；证据 `root/release-r15/uzem-arkanoid-current/semantic-proof.json` SHA `b8f82f525e3d7184199f3b1c91473864478812fd3b9fa4a0b84eb48e2961786c`，自有数据／会话清理通过。
+
+O2EM／Odyssey2 作者 Bird Hunt 在正常模拟器设置中交换手柄端口后，审核与发布试玩均可方向移动准星、A开火。311字节公开即时存档在仅登录态新Chromium恢复已移动准星、四发子弹和飞鸟场景，公开暂停七秒后再选择相同手柄端口，继续左右移动与开火使弹药降为三发。不宣称核心原生偏好自动存入extinfo或击中得分；直接键盘输入保留默认启用。早期未交换端口的标题尝试及被拒绝的配置请求不计通过。证据 `root/release-r15/o2em-birdhunt-current/semantic-proof.json` SHA `dfe4aaf3ed4595948f20e9a3b255d19d77551261ab0ce2bf9457488885041961` 绑定成功的第二次审核Run，自建数据及会话已清理。
+
+FreeIntv／Intellivision 4-TRIS 完成审核A启动／旋转与左右移动，发布游戏形成440分的彩色落块堆叠。23,963字节公开即时存档在仅登录态新Chromium恢复棋盘／分数／绿色下落块，公开暂停七秒后继续左右操作并自然落块。核心前端自带PAUSED覆盖层不随机器快照保留，未将它计作恢复要求或通过证据；最终使用公开暂停观察。不宣称消行或最终受碰撞限制的旋转成功。证据 `root/release-r15/freeintv-4tris-current/semantic-proof.json` SHA `4df66a6d6a83f217c29d9eb43a1525080c0688b978362fa3cb52e62eb1961bc6`，自有数据及会话已清理。
