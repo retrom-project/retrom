@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC 共四十三项限定场景已核对；69 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck 共四十八项限定场景已核对；64 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -240,3 +240,13 @@ ProSystem／Atari7800 的作者游戏 Dungeon Stalker 通过方向选择原生 S
 Mednafen／SuperGrafx《Aldynes》完成真实审核试玩与发布飞行。公开 38,535 字节即时快照在仅登录态的新 Chromium 恢复飞机和场景，公开暂停七秒后继续上下移动有效；不声称击中敌人或得分。证据 `root/release-r15/supergrafx-aldynes-current/semantic-proof.json` SHA `43e121a96a4356e8e4545ad35183a8e389362fe80b0c491d38f7d93aa3cb1a27`。
 
 Mednafen／NGPC《Gears of Fate》通过原生菜单方向／B 确认和第一关实际棋盘旋转。公开 3,985 字节快照在新 Chromium 运行七秒后保留旋转后的红绿位置及蓝色路径，继续 B／A 可再次旋转；装饰齿轮正常动画。不将本次证据描述为历史第二关通关验收。证据 `root/release-r15/ngpc-gears-current/semantic-proof.json` SHA `6cba9ec7da0397d5744e1a28e082f05828e6875ea45d7d49bf0709a3b8f45edd`。两项自建数据和会话均正常清理。
+
+WonderSwan 使用作者公开的 WonderCell v0.2 验证了方向／A 拾取与放牌。公开 4,977 字节快照在仅登录态的新 Chromium 运行七秒后恢复红桃3所在的第一空位及随机牌局，随后可将红桃3移至第二空位。原 Swan Driving 素材画面静止但原生帧数增长的现象保留为未确认问题，不据此宣称修复输入缺陷或全部 ROM 兼容。证据 `root/release-r15/wswan-wondercell-current/semantic-proof.json` SHA `bd15ee7e8f9ca2b6b52f3d91413611aa4bf829a02edfca50521a2bccd83297c2`；自建数据及会话均清理。
+
+GAM4980 本轮用五子棋完成方向与 A 确认、真实棋局保存及仅 cookies 的全新浏览器恢复：12,786 字节 INSTANT 存档保留第一手黑白两子和步数0001，运行七秒不重置；继续方向/A 后变成两黑两白、步数0002，电脑正常应手。Eros 另有实际堆叠恢复与继续移动/下落证据。五子棋证明 `root/release-r15/gam4980-gomoku-current/semantic-proof.json` SHA `8367c709b6e316addee4318d459fbe40809734cba8dfe61d48d7840e93ef0053`；两例均正常清理自有数据和会话。
+
+Potator／Supervision 使用作者 XSnake 实际手柄 A 启动、方向转弯，保存吃到苹果后的20分／剩余11苹果／右侧蛇身。880字节公共存档在全新仅cookies浏览器恢复，公开暂停观察七秒后，Up／Left 继续沿顶部移动。初次637字节关卡标题存档不计通过。证明 `root/release-r15/potator-xsnake-current/semantic-proof.json` SHA `24c0c1f703c44d9f3756b9b2e7e91682cdefaeacd9ec0a35f7409d54f8bb3131`；自有数据与会话已清理。
+
+FreeChaF／Channel F 的作者 QUEST 通过方向移动与 A 战斗确认；1,972 字节公共存档在仅cookies新浏览器恢复非初始位置、随机敌人场景和血量，公开暂停七秒后可继续碰撞战斗、攻击并返回地图。初期错误控制器选择及不存在的只读截图诊断方法不计通过；实际发布和恢复实例只用标准手柄输入。证明 `root/release-r15/freechaf-quest-current/semantic-proof.json` SHA `9436f17dcdf2ec555d31b72d2cf779c4299a852b9b07aafc68c33dc9140c68f0`；自有数据和会话均清理。
+
+SameDuck／Mega Duck 的 Max Pirate 通过 Start／双向移动，正式游玩进入新的尖刺敌人房间。10,350字节公共存档在仅cookies新浏览器恢复房间、右侧角色及8血，公开暂停七秒后继续左右移动；敌人碰撞导致正常掉血。第一轮不暂停恢复的掉血记录保留，不据此断言血量恢复异常；没有返回上一房间或 A 攻击结论。证明 `root/release-r15/sameduck-maxpirate-current/semantic-proof.json` SHA `567a968418ff163d2e85d128e00ce23d2522ce29f4ca320b7373a74a8a271540`；自有数据与会话已清理。
