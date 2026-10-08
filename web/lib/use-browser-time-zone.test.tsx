@@ -2,12 +2,16 @@ import { act } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
-import { formatTime } from "./backend";
+import { formatTime } from "./format-time";
 import { useBrowserTimeZone } from "./use-browser-time-zone";
 
 function TimeZoneProbe({ value }: { value: number }) {
   const timeZone = useBrowserTimeZone();
-  return <time dateTime={new Date(value).toISOString()}>{formatTime(value, timeZone)}</time>;
+  return (
+    <time dateTime={new Date(value).toISOString()}>
+      {formatTime(value, timeZone)}
+    </time>
+  );
 }
 
 describe("useBrowserTimeZone", () => {
@@ -37,7 +41,10 @@ describe("useBrowserTimeZone", () => {
         });
       });
 
-      const expected = browserTimeZone === "Asia/Shanghai" ? "2026年9月2日 20:43" : "2026年9月2日 08:43";
+      const expected =
+        browserTimeZone === "Asia/Shanghai"
+          ? "2026年9月2日 20:43"
+          : "2026年9月2日 08:43";
       expect(container).toHaveTextContent(expected);
       expect(recoverableErrors).toEqual([]);
       await act(async () => root?.unmount());

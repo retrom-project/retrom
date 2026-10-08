@@ -1,1224 +1,1575 @@
-paths:
-  /api/v1/home:
-    get:
-      operationId: getHome
-      description: Homepage aggregate from enabled platform directories. It includes library counters, up to ten recently played games excluding the featured game, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/recent-games:
-    get:
-      operationId: getRecentGames
-      description: Cursor-paginated Profile-scoped play history including deleted-game tombstones. Default 50 and maximum 100 games per page, read from transactional per-game activity summaries. Supports server-side search, platform, rolling-window cutoff, and deterministic recent/title/duration/session sorts. First pages include global stats, complete history platform facets and filteredCount; later pages include only items, generatedAtMs and nextCursor. Cursors are bound to the Profile and all filters.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit
-        - name: sort
-          in: query
-          schema:
-            type: string
-            enum: [RECENT_DESC, TITLE_ASC, DURATION_DESC, SESSIONS_DESC]
-            default: RECENT_DESC
-        - name: fromAtMs
-          in: query
-          schema:
-            type: integer
-            format: int64
-            minimum: 0
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/games:
-    get:
-      operationId: getGames
-      description: Cursor-paginated published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL. The first page also includes filteredCount and complete visible-library platform, directory and active-tag facets so clients can render accurate filters without downloading every game; generatedAtMs gives relative-time labels a stable response clock.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
-        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
-        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
-        - $ref: '#/components/parameters/GameListSort'
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/games/{gameId}:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/GameID
-    get:
-      operationId: getGame
-      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current game's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/immersive/platforms:
-    get:
-      operationId: getImmersivePlatforms
-      description: Returns visible base platforms with shared-library counts and up to three cover previews ordered by the authenticated Profile's recent play history, then recent additions.
-      responses:
-        '200':
-          $ref: '#/components/responses/ImmersivePlatformListResponse'
-  /api/v1/immersive/platforms/{platformId}/games:
-    parameters:
-      - $ref: '#/components/parameters/PlatformID'
-    get:
-      operationId: getImmersivePlatformGames
-      description: Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected from each game's current state, and play history is isolated to the authenticated Profile.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit50
-      responses:
-        '200':
-          $ref: '#/components/responses/ImmersiveGameListResponse'
-  /api/v1/immersive/destinations:
-    get:
-      operationId: getImmersiveDestinations
-      description: Returns the four Profile-scoped library destinations first, followed by visible base platforms. Counts, recent-play clocks and cover previews are read from one snapshot.
-      responses:
-        '200':
-          $ref: '#/components/responses/ImmersiveDestinationListResponse'
-  /api/v1/immersive/libraries/{libraryKind}/games:
-    parameters:
-      - $ref: '#/components/parameters/ImmersiveLibraryKind'
-    get:
-      operationId: getImmersiveLibraryGames
-      description: Returns the authenticated Profile's all, recent, favorite or saved games. Only recent is ordered by play time; the other scopes use the persisted title initial, title and game id. Favorite folders are available only for the favorites scope.
-      parameters:
-        - $ref: '#/components/parameters/FavoriteFolderIDQuery'
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit50
-      responses:
-        '200':
-          $ref: '#/components/responses/ImmersiveLibraryGameListResponse'
-  /api/v1/favorites:
-    get:
-      operationId: getFavorites
-      description: Returns the authenticated Profile's visible favorites, derived counts, folders and platform summary from one read transaction.
-      parameters:
-        - $ref: '#/components/parameters/FavoriteScope'
-        - $ref: '#/components/parameters/FavoriteFolderIDQuery'
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
-        - $ref: '#/components/parameters/FavoriteSort'
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteListJSONResponse'
-  /api/v1/favorites/{gameId}:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/GameID
-    put:
-      operationId: putFavorite
-      x-retrom-max-body-bytes: 1024
-      description: Idempotently favorites one currently visible game without changing an existing favoritedAtMs.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: ../components/common.yaml#/components/requestBodies/Empty
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteStateJSONResponse'
-  /api/v1/favorites/{gameId}/folders:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/GameID
-    put:
-      operationId: putFavoriteFolders
-      x-retrom-max-body-bytes: 16384
-      description: Atomically replaces the complete favorite-folder set for one visible game and favorites it when necessary.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/ReplaceFavoriteFolders'
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteStateJSONResponse'
-  /api/v1/favorites/organize:
-    post:
-      operationId: postFavoriteOrganize
-      x-retrom-max-body-bytes: 65536
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/OrganizeFavorites'
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteBatchJSONResponse'
-  /api/v1/favorites/unfavorite:
-    post:
-      operationId: postFavoriteUnfavorite
-      x-retrom-max-body-bytes: 65536
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/Unfavorite'
-      responses:
-        '200':
-          $ref: '#/components/responses/UnfavoriteJSONResponse'
-  /api/v1/favorites/restore:
-    post:
-      operationId: postFavoriteRestore
-      x-retrom-max-body-bytes: 262144
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/RestoreFavorites'
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteRestoreJSONResponse'
-  /api/v1/favorite-folders:
-    post:
-      operationId: postFavoriteFolder
-      x-retrom-max-body-bytes: 65536
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/CreateFavoriteFolder'
-      responses:
-        '201':
-          $ref: '#/components/responses/FavoriteFolderJSONResponse'
-  /api/v1/favorite-folders/{folderId}:
-    parameters:
-      - $ref: '#/components/parameters/FavoriteFolderID'
-    patch:
-      operationId: patchFavoriteFolder
-      x-retrom-max-body-bytes: 4096
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: '#/components/requestBodies/PatchFavoriteFolder'
-      responses:
-        '200':
-          $ref: '#/components/responses/FavoriteFolderJSONResponse'
-    delete:
-      operationId: deleteFavoriteFolder
-      x-retrom-max-body-bytes: 1024
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
-      requestBody:
-        $ref: ../components/common.yaml#/components/requestBodies/Empty
-      responses:
-        '204':
-          description: Favorite folder deleted; favorites are retained
-  /api/v1/saves:
-    get:
-      operationId: getSaves
-      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. Native data slots include nullable lastSyncedAtMs; ordering and cursor times use lastSyncedAtMs when present, otherwise createdAtMs.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: '#/components/parameters/GameIDQuery'
-        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
-        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
-        - $ref: ../components/common.yaml#/components/parameters/CoreIDQuery
-        - $ref: '#/components/parameters/Availability'
-        - $ref: ../components/common.yaml#/components/parameters/Sort
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/saves/{saveStateId}:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/SaveStateID
-    patch:
-      operationId: patchSave
-      x-retrom-max-body-bytes: 2097152
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-      requestBody:
-        $ref: '#/components/requestBodies/RenameSave'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-    delete:
-      operationId: deleteSave
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-      responses:
-        '204':
-          description: Deleted
-  /api/v1/launches:
-    post:
-      operationId: postLaunch
-      x-retrom-max-body-bytes: 65536
-      description: Creates a launch only for a published game in an enabled platform directory.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: '#/components/requestBodies/Launch'
-      responses:
-        '201':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '202':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '400':
-          description: Invalid request, including an unrecognized or unsafe returnTo (INVALID_LAUNCH_RETURN_TO).
-          content:
-            application/json:
-              schema:
-                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
-components:
-  schemas:
-    ReplaceFavoriteFoldersRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - folderIds
-      properties:
-        folderIds:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    OrganizeFavoritesRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - gameIds
-        - addFolderIds
-        - removeFolderIds
-      properties:
-        gameIds:
-          type: array
-          minItems: 1
-          maxItems: 50
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-        addFolderIds:
-          type: array
-          maxItems: 20
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-        removeFolderIds:
-          type: array
-          maxItems: 20
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    UnfavoriteRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - gameIds
-      properties:
-        gameIds:
-          type: array
-          minItems: 1
-          maxItems: 100
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    FavoriteRestoreItemRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - favoritedAtMs
-        - folderIds
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        favoritedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          description: Original timestamp from the unfavorite snapshot.
-        folderIds:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    RestoreFavoritesRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          minItems: 1
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/FavoriteRestoreItemRequest'
-    CreateFavoriteFolderRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-        - initialGameIds
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-        initialGameIds:
-          type: array
-          maxItems: 100
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    PatchFavoriteFolderRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-    FavoriteReference:
-      type: object
-      additionalProperties: false
-      required:
-        - favoritedAtMs
-        - folderIds
-      properties:
-        favoritedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        folderIds:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    FavoriteState:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - favoritedAtMs
-        - folderIds
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        favoritedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        folderIds:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    FavoriteFolder:
-      type: object
-      additionalProperties: false
-      required:
-        - folderId
-        - name
-        - version
-        - visibleGameCount
-        - createdAtMs
-        - updatedAtMs
-      properties:
-        folderId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-        version:
-          type: integer
-          format: int64
-          minimum: 1
-        visibleGameCount:
-          type: integer
-          format: int64
-          minimum: 0
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        updatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    FavoriteSummary:
-      type: object
-      additionalProperties: false
-      required:
-        - favoriteCount
-        - uncategorizedCount
-        - folderCount
-      properties:
-        favoriteCount:
-          type: integer
-          format: int64
-          minimum: 0
-        uncategorizedCount:
-          type: integer
-          format: int64
-          minimum: 0
-        folderCount:
-          type: integer
-          format: int64
-          minimum: 0
-    FavoritePlatformSummary:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - name
-        - count
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        count:
-          type: integer
-          format: int64
-          minimum: 0
-    FavoriteNamedResource:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-    FavoriteGameItem:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - title
-        - status
-        - availability
-        - platform
-        - platformInstance
-        - defaultCore
-        - coverUrl
-        - releaseYear
-        - createdAtMs
-        - lastPlayedAtMs
-        - tags
-        - favorite
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        title:
-          type: string
-        status:
-          type: string
-          enum:
-            - PUBLISHED
-            - DELETED
-        availability:
-          type: string
-          enum:
-            - PUBLISHED
-            - DELETED
-        platform:
-          $ref: '#/components/schemas/FavoriteNamedResource'
-        platformInstance:
-          $ref: '#/components/schemas/FavoriteNamedResource'
-        defaultCore:
-          $ref: '#/components/schemas/FavoriteNamedResource'
-        coverUrl:
-          type: string
-          nullable: true
-        releaseYear:
-          type: integer
-          nullable: true
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        lastPlayedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        tags:
-          type: array
-          maxItems: 20
-          items:
-            $ref: ../components/common.yaml#/components/schemas/TagReference
-        favorite:
-          $ref: '#/components/schemas/FavoriteReference'
-    FavoriteListResponse:
-      type: object
-      additionalProperties: false
-      required:
-        - generatedAtMs
-        - summary
-        - folders
-        - platforms
-        - totalCount
-        - items
-        - nextCursor
-      properties:
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        summary:
-          $ref: '#/components/schemas/FavoriteSummary'
-        folders:
-          type: array
-          items:
-            $ref: '#/components/schemas/FavoriteFolder'
-        platforms:
-          type: array
-          items:
-            $ref: '#/components/schemas/FavoritePlatformSummary'
-        totalCount:
-          type: integer
-          format: int64
-          minimum: 0
-        items:
-          type: array
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/FavoriteGameItem'
-        nextCursor:
-          type: string
-          nullable: true
-    FavoriteBatchResult:
-      type: object
-      additionalProperties: false
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          maxItems: 50
-          items:
-            $ref: '#/components/schemas/FavoriteState'
-    UnfavoriteItem:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - favoritedAtMs
-        - folderIds
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        favoritedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          description: Original favorite timestamp returned by unfavorite and preserved by restore.
-        folderIds:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    UnfavoriteResult:
-      type: object
-      additionalProperties: false
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/UnfavoriteItem'
-    FavoriteRestoreResult:
-      type: object
-      additionalProperties: false
-      required:
-        - restoredGameIds
-        - skippedGameIds
-        - skippedFolderIds
-      properties:
-        restoredGameIds:
-          type: array
-          maxItems: 100
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-        skippedGameIds:
-          type: array
-          maxItems: 100
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-        skippedFolderIds:
-          type: array
-          maxItems: 1000
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
-    ImmersivePlatformSummary:
-      type: object
-      additionalProperties: false
-      required:
-        - platformId
-        - platformName
-        - gameCount
-        - lastPlayedAtMs
-        - featuredGames
-      properties:
-        platformId:
-          type: string
-          pattern: ^[a-z0-9-]{1,64}$
-        platformName:
-          type: string
-          minLength: 1
-        gameCount:
-          type: integer
-          format: int64
-          minimum: 1
-        lastPlayedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        featuredGames:
-          type: array
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/ImmersivePlatformFeaturedGame'
-    ImmersivePlatformFeaturedGame:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - title
-        - coverUrl
-        - lastPlayedAtMs
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 1
-        coverUrl:
-          type: string
-          nullable: true
-          pattern: ^/content/assets/
-        lastPlayedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-    ImmersiveNamedResource:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-          minLength: 1
-    ImmersiveGameItem:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - title
-        - titleInitial
-        - description
-        - releaseYear
-        - developer
-        - genre
-        - platformInstance
-        - defaultCore
-        - coverUrl
-        - videoUrl
-        - lastPlayedAtMs
-        - favorited
-        - saveStates
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 1
-        titleInitial:
-          type: string
-          pattern: ^(#|[0-9A-Z])$
-        description:
-          type: string
-        releaseYear:
-          type: integer
-          nullable: true
-        developer:
-          type: string
-        genre:
-          type: string
-        platformInstance:
-          $ref: '#/components/schemas/ImmersiveNamedResource'
-        defaultCore:
-          $ref: '#/components/schemas/ImmersiveNamedResource'
-        coverUrl:
-          type: string
-          nullable: true
-          pattern: ^/content/assets/
-        videoUrl:
-          type: string
-          nullable: true
-          pattern: ^/content/assets/
-        lastPlayedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        favorited:
-          type: boolean
-        saveStates:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImmersiveSaveState'
-    ImmersiveSaveState:
-      type: object
-      additionalProperties: false
-      required:
-        - saveStateId
-        - name
-        - createdAtMs
-        - sizeBytes
-        - discIndex
-        - screenshotUrl
-      properties:
-        saveStateId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        lastSyncedAtMs:
-          type: integer
-          format: int64
-          nullable: true
-          minimum: 0
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 268435456
-        discIndex:
-          type: integer
-          minimum: 0
-          maximum: 7
-          nullable: true
-        screenshotUrl:
-          type: string
-          nullable: true
-          pattern: ^/content/save-states/
-    ImmersiveDestinationSummary:
-      type: object
-      additionalProperties: false
-      required:
-        - destinationId
-        - kind
-        - name
-        - gameCount
-        - lastPlayedAtMs
-        - featuredGames
-      properties:
-        destinationId:
-          type: string
-          minLength: 1
-          maxLength: 64
-        kind:
-          type: string
-          enum:
-            - all
-            - recent
-            - favorites
-            - saves
-            - platform
-        name:
-          type: string
-          minLength: 1
-        gameCount:
-          type: integer
-          format: int64
-          minimum: 0
-        lastPlayedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        featuredGames:
-          type: array
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/ImmersivePlatformFeaturedGame'
-    ImmersiveDestinationList:
-      type: object
-      additionalProperties: false
-      required:
-        - generatedAtMs
-        - items
-      properties:
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImmersiveDestinationSummary'
-    ImmersiveFavoriteFolder:
-      type: object
-      additionalProperties: false
-      required:
-        - folderId
-        - name
-        - gameCount
-      properties:
-        folderId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-          maxLength: 40
-        gameCount:
-          type: integer
-          format: int64
-          minimum: 0
-    ImmersiveLibraryGameList:
-      type: object
-      additionalProperties: false
-      required:
-        - generatedAtMs
-        - library
-        - folder
-        - folders
-        - items
-        - nextCursor
-      properties:
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        library:
-          $ref: '#/components/schemas/ImmersiveDestinationSummary'
-        folder:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ImmersiveFavoriteFolder'
-        folders:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImmersiveFavoriteFolder'
-        items:
-          type: array
-          maxItems: 50
-          items:
-            $ref: '#/components/schemas/ImmersiveGameItem'
-        nextCursor:
-          type: string
-          nullable: true
-    ImmersivePlatformList:
-      type: object
-      additionalProperties: false
-      required:
-        - generatedAtMs
-        - items
-      properties:
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ImmersivePlatformSummary'
-    ImmersiveGameList:
-      type: object
-      additionalProperties: false
-      required:
-        - generatedAtMs
-        - platform
-        - items
-        - nextCursor
-      properties:
-        generatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        platform:
-          $ref: '#/components/schemas/ImmersivePlatformSummary'
-        items:
-          type: array
-          maxItems: 50
-          items:
-            $ref: '#/components/schemas/ImmersiveGameItem'
-        nextCursor:
-          type: string
-          nullable: true
-    RenameSaveRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 120
-    LaunchRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - gameId
-        - coreId
-        - saveStateId
-        - dosEntry
-        - returnTo
-        - clientCapabilities
-      properties:
-        gameId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          nullable: true
-        saveStateId:
-          type: string
-          format: uuid
-          nullable: true
-        dosEntry:
-          type: string
-          nullable: true
-        returnTo:
-          type: string
-          description: Exact product return page (/, /library, /recent, /saves or /games/{gameId}), or a validated immersive game-list URL. Unsafe or unknown paths return 400 INVALID_LAUNCH_RETURN_TO.
-        clientCapabilities:
-          $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
-  requestBodies:
-    RenameSave:
-      $ref: '#/components/requestBodies/FromRenameSave'
-    FromRenameSave:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RenameSaveRequest'
-    Launch:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/LaunchRequest'
-    ReplaceFavoriteFolders:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ReplaceFavoriteFoldersRequest'
-    OrganizeFavorites:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/OrganizeFavoritesRequest'
-    Unfavorite:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/UnfavoriteRequest'
-    RestoreFavorites:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RestoreFavoritesRequest'
-    CreateFavoriteFolder:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CreateFavoriteFolderRequest'
-    PatchFavoriteFolder:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/PatchFavoriteFolderRequest'
-  responses:
-    FavoriteListJSONResponse:
-      description: Current Profile's favorite list and derived summaries
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/FavoriteListResponse'
-    FavoriteStateJSONResponse:
-      description: Current state of one favorite
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/FavoriteState'
-    FavoriteBatchJSONResponse:
-      description: Current state of each organized favorite
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/FavoriteBatchResult'
-    UnfavoriteJSONResponse:
-      description: Deleted favorite membership snapshot for bounded undo
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/UnfavoriteResult'
-    FavoriteRestoreJSONResponse:
-      description: Restore result including skipped games and folders
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/FavoriteRestoreResult'
-    FavoriteFolderJSONResponse:
-      description: Current favorite folder
-      headers:
-        ETag:
-          schema:
-            type: string
-        Location:
-          schema:
-            type: string
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/FavoriteFolder'
-    ImmersivePlatformListResponse:
-      description: Visible immersive platform summaries for the current Profile
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ImmersivePlatformList'
-    ImmersiveGameListResponse:
-      description: One immersive platform and a cursor-paginated game projection for the current Profile
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ImmersiveGameList'
-    ImmersiveDestinationListResponse:
-      description: Current Profile immersive destinations
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ImmersiveDestinationList'
-    ImmersiveLibraryGameListResponse:
-      description: Current Profile immersive library games
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ImmersiveLibraryGameList'
-  parameters:
-    GameIDQuery:
-      name: gameId
-      in: query
-      schema:
-        type: string
-        format: uuid
-    Availability:
-      name: availability
-      in: query
-      schema:
-        type: string
-    FavoriteScope:
-      name: scope
-      in: query
-      schema:
-        type: string
-        enum:
-          - ALL
-          - UNCATEGORIZED
-          - FOLDER
-        default: ALL
-    FavoriteFolderIDQuery:
-      name: folderId
-      in: query
-      schema:
-        type: string
-        format: uuid
-    FavoriteSort:
-      name: sort
-      in: query
-      schema:
-        type: string
-        enum:
-          - FAVORITED_DESC
-          - RECENTLY_PLAYED_DESC
-          - TITLE_ASC
-          - RELEASE_YEAR_DESC
-        default: FAVORITED_DESC
-    GameListSort:
-      name: sort
-      in: query
-      schema:
-        type: string
-        enum:
-          - RECENT_DESC
-          - ADDED_DESC
-          - TITLE_ASC
-        default: RECENT_DESC
-    PlatformID:
-      name: platformId
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: ^[a-z0-9-]{1,64}$
-    ImmersiveLibraryKind:
-      name: libraryKind
-      in: path
-      required: true
-      schema:
-        type: string
-        enum:
-          - all
-          - recent
-          - favorites
-          - saves
-    FavoriteFolderID:
-      name: folderId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+{
+  "paths": {
+    "/api/v1/home": {
+      "get": {
+        "operationId": "GetHome",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Home"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/games": {
+      "get": {
+        "operationId": "ListGames",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GamePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platformInstanceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tagId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "title",
+                "recent"
+              ]
+            }
+          },
+          {
+            "name": "platformId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Matches games in directories belonging to this platform; combines with directory and tag filters."
+          }
+        ]
+      }
+    },
+    "/api/v1/games/{gameId}": {
+      "get": {
+        "operationId": "GetGame",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/games/{gameId}/media/{mediaId}": {
+      "get": {
+        "operationId": "ReadGameMedia",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource bytes; Range requests return 206",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial resource bytes"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games": {
+      "get": {
+        "operationId": "ListAdminGames",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GamePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platformInstanceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tagId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "title",
+                "recent"
+              ]
+            }
+          },
+          {
+            "name": "platformId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Matches games in directories belonging to this platform; combines with directory and tag filters."
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games/{gameId}": {
+      "get": {
+        "operationId": "GetAdminGame",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "UpdateGame",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameWriteRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteGame",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games/{gameId}/content-replacement": {
+      "post": {
+        "operationId": "ReplaceGameContent",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentReplaceRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games/{gameId}/media": {
+      "post": {
+        "operationId": "UploadGameMedia",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "kind",
+                  "version"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "cover",
+                      "video",
+                      "screenshot"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/games/{gameId}/media/{mediaId}": {
+      "delete": {
+        "operationId": "DeleteGameMedia",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/scummvm": {
+      "post": {
+        "operationId": "IdentifyScummvm",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScummvmCandidates"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/dos": {
+      "get": {
+        "operationId": "ListDOSEntryCandidates",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DOSEntryCandidates"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "entryFile",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Optional current archive logical key, including an unsaved editor selection."
+          }
+        ],
+        "description": "Administrator-only read-only inspection for pending or published DOS games. Lists current archive program paths without validating the previously selected entryPath or creating a Run."
+      }
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/arcade": {
+      "get": {
+        "operationId": "GetArcadeParentOptions",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArcadeParentOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "coreId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "Administrator-only current Parent archive requirements for pending or published games, resolved from runtime DAT and actual archive members without preparing a Run."
+      }
+    },
+    "/api/v1/admin/games/{gameId}/parents": {
+      "post": {
+        "operationId": "UploadGameParent",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadGameParentMultipartBody"
+              }
+            }
+          }
+        },
+        "description": "Attach or replace a Parent archive in the same pending or published Game using its version. Runtime constructs the selected core Parent references; unrelated files, core options and publication status are retained."
+      }
+    }
+  }
+}

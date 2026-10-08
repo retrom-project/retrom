@@ -34,7 +34,7 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
             "backend": "make backend-check",
             "integration": "make integration-test",
             "web": "make web-check",
-            "browser_ui": "make acceptance-case CASE=ACC-UI-011",
+            "browser_ui": "make acceptance-case CASE=ACC-RF-BROWSER",
         }
         for job_id, command in commands.items():
             with self.subTest(job=job_id):
@@ -55,7 +55,7 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         for job_id, command in (
             ("backend", "run: make backend-check"),
             ("integration", "run: make integration-test"),
-            ("browser_ui", "make acceptance-case CASE=ACC-UI-011"),
+            ("browser_ui", "make acceptance-case CASE=ACC-RF-BROWSER"),
         ):
             with self.subTest(job=job_id):
                 job = ci_job(job_id)
@@ -74,7 +74,7 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertIn("make prepare-e2e-browser", browser)
         self.assertIn("make acceptance-prepare", browser)
         self.assertIn("if: always()", browser)
-        self.assertIn(".artifacts/acceptance/*/cases/acc-ui-011/", browser)
+        self.assertIn(".artifacts/acceptance/*/cases/acc-rf-browser/", browser)
 
         quality = ci_job("quality")
         self.assertIn("needs: [contracts, backend, integration, web, browser_ui]", quality)
@@ -98,6 +98,16 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
                                    env=failed_environment, capture_output=True).returncode,
                     0,
                 )
+
+    def test_integration_has_the_pinned_runtime_required_by_parent_uploads(self) -> None:
+        job = ci_job("integration")
+        self.assertIn("actions/setup-node@v6", job)
+        self.assertIn("node-version-file: .node-version", job)
+        self.assertTrue(
+            0 <= job.find("run: python3 scripts/prepare_image_inputs.py")
+            < job.find("run: make integration-test"),
+            job,
+        )
 
     def test_tag_release_builds_without_repeating_quality_job(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/docker-image.yml").read_text(
@@ -135,12 +145,22 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("DOCKER_PASSWORD", workflow)
         self.assertNotIn("xxxsen/retrom", workflow)
 
+    def test_browser_and_images_require_explicit_same_generation_inputs(self) -> None:
+        for job in (ci_job("browser_ui"), *( (REPOSITORY_ROOT / ".github/workflows" / name).read_text() for name in ("branch-image.yml", "docker-image.yml") )):
+            self.assertIn("scripts/prepare_image_inputs.py", job)
+            self.assertIn("RETROM_RUNTIME_INPUT_BASE_URL", job)
+            for variable in ("RETROM_RUNTIME_TOOL_ARCHIVE_URL", "RETROM_RUNTIME_TOOL_ARCHIVE_SHA256",
+                             "RETROM_PROVIDER_ARCHIVE_URL", "RETROM_PROVIDER_ARCHIVE_SHA256"):
+                self.assertNotIn(variable, job)
+            self.assertNotIn("runtime-provider-prepare-auto", job)
+            self.assertNotIn("--manifest", job)
+
     def test_both_image_pipelines_require_non_root_backend_startup_before_publish(self) -> None:
         for filename, publish in (("branch-image.yml", "Publish branch images to GHCR"),
                                   ("docker-image.yml", "Log in to Docker Hub")):
             with self.subTest(workflow=filename):
                 workflow = (REPOSITORY_ROOT / ".github/workflows" / filename).read_text()
-                command = 'bash scripts/verify-backend-image.sh "$BACKEND_IMAGE:$IMAGE_TAG"'
+                command = 'bash scripts/verify-backend-image.sh "$BACKEND_IMAGE:$IMAGE_TAG" "$WEB_IMAGE:$IMAGE_TAG"'
                 self.assertIn(command, workflow)
                 self.assertLess(workflow.index(command), workflow.index(publish))
 

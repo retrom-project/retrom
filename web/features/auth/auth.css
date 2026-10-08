@@ -12,8 +12,9 @@
 .auth-panel > h1 { margin: 0; font-size: var(--text-page); line-height: 1.25; letter-spacing: -.02em; }
 .auth-description { margin: 9px 0 0; color: var(--muted); font-size: var(--text-body); }
 .auth-form { margin-top: 24px; display: grid; gap: 16px; }
+.auth-panel > .auth-form { padding: 0; }
 .form-field { display: grid; gap: 6px; }
-.form-field > label { color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-semibold); }
+.form-field > label, .form-field-label { color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-semibold); }
 .form-field > input, .password-control > input { width: 100%; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--ink); background: var(--surface); }
 .form-field > input:focus, .password-control:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 13%); }
 .password-control { height: 44px; display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-control); }

@@ -4,7 +4,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-chip-more { color: var(--muted); border-color: var(--line); background: var(--surface-subtle); }
 .tag-chip-removable { padding-right: 4px; }
 .tag-chip-label { min-width: 0; padding-block: var(--space-1); overflow: hidden; text-overflow: ellipsis; text-box: trim-both cap alphabetic; }
-.tag-chip-removable button { flex: none; width: 20px; height: 20px; display: grid; place-items: center; color: inherit; border: 0; border-radius: 50%; background: transparent; font-size: var(--text-lead); line-height: 1; cursor: pointer; }
+.tag-chip-removable button { flex: none; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; color: inherit; border: 0; border-radius: 50%; background: transparent; font-size: var(--text-lead); line-height: 1; cursor: pointer; }
 .tag-chip-removable button:hover, .tag-chip-removable button:focus-visible { background: var(--purple-soft); }
 .tag-picker { display: grid; gap: 8px; position: relative; }
 .tag-picker > label { font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--ink); }
@@ -33,14 +33,14 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-manager-toolbar label { min-width: 150px; display: grid; gap: 5px; }
 .tag-manager-toolbar label:first-child { flex: 1; max-width: 380px; }
 .tag-manager-toolbar label span, .tag-name-field > span, .tag-delete-impact label span { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-.tag-manager-actions { display: flex; align-items: center; gap: 8px; }
+.tag-manager-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tag-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .tag-table { width: 100%; min-width: 980px; border-collapse: collapse; }
 .tag-table th, .tag-table td { height: 58px; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); text-align: left; }
 .tag-table thead th { height: 44px; color: var(--muted); background: var(--surface-subtle); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: .04em; }
-.tag-table tbody th { max-width: 240px; position: sticky; left: 0; z-index: 1; color: var(--ink); background: var(--surface); }
+.tag-table tbody th { max-width: 240px; position: sticky; left: 0; z-index: 1; color: var(--ink); background: var(--surface); text-transform: none; letter-spacing: normal; }
 .tag-table tbody th strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tag-table td:last-child, .tag-table thead th:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -8px 0 14px rgb(255 255 255 / 92%); }
+.tag-table td:last-child, .tag-table thead th:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -8px 0 14px rgb(0 0 0 / 12%); }
 .tag-table thead th:last-child { background: var(--surface-subtle); }
 .tag-table a { color: var(--purple-dark); font-weight: var(--weight-semibold); }
 .tag-row-actions { display: flex; gap: 8px; }
@@ -72,7 +72,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
   .tag-kpis { grid-template-columns: 1fr; }
   .tag-manager-toolbar, .tag-manager-toolbar form { align-items: stretch; flex-direction: column; }
   .tag-manager-toolbar label, .tag-manager-toolbar label:first-child { width: 100%; max-width: none; }
-  .tag-manager-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .tag-manager-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
   .tag-table { min-width: 0; }
   .tag-table thead { display: none; }
   .tag-table tbody { padding: 10px; display: grid; gap: 10px; }

@@ -8,6 +8,7 @@ import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import NoReturn
+from urllib.parse import urlsplit
 
 
 class ContractError(ValueError):
@@ -32,17 +33,17 @@ _TARGET_KEYS = {
 }
 _CAPABILITY_KEYS = {
     "pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter",
-    "volume", "discSwitch", "nativeSettings", "inputFilter",
+    "volume", "nativeSettings", "inputFilter",
     "videoModes", "requiresThreads", "frameMode",
 }
 _INPUT_KEYS = {"role", "kind", "cardinality", "optional", "maxFileBytes"}
-_CHECKPOINT_KEYS = {"writeFormat", "readFormats", "maxBytes"}
+_CHECKPOINT_KEYS = {"writeFormat", "readFormats", "maxBytes", "semantics"}
 _FRAME_MODES = {
     "NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE",
 }
 _RESOURCE_KINDS = {
     "ROM_BLOB", "FILE_TREE", "SEEKABLE_BLOB", "NATIVE_WEB",
-    "ISOLATED_WEB", "BIOS_BUNDLE", "PARENT_ARCHIVE", "MULTI_DISC",
+    "ISOLATED_WEB", "BIOS_BUNDLE", "PARENT_ARCHIVE",
     "EXTERNAL_FILE_SET", "WASM4_CART",
 }
 _VIDEO_MODES = {"original", "pixel", "smooth", "sharp-bilinear", "adaptive-sharpen"}
@@ -56,6 +57,7 @@ _AUTHORITY_FILES = (
     "provider-module-v1.d.ts",
     "runtime-resource.schema.json",
     "fixtures/invalid/checkpoint-missing-read-formats.json",
+    "fixtures/invalid/checkpoint-missing-semantics.json",
     "fixtures/invalid/duplicate-field.json",
     "fixtures/invalid/exponent-json-input.json",
     "fixtures/invalid/float-json-input.json",
@@ -66,6 +68,10 @@ _AUTHORITY_FILES = (
     "fixtures/target-options/schema-validation.json",
     "fixtures/valid/checkpoint-restore.json",
     "fixtures/valid/single-minimal.json",
+    "fixtures/valid/isolated-web.json",
+    "fixtures/invalid/bridge-outside-provider.json",
+    "fixtures/valid/core-identifier.json",
+    "fixtures/invalid/core-identifier.json",
 )
 _AUTHORITY_REPOSITORY = "https://github.com/retrom-project/retrom"
 _AUTHORITY_PATH = "api/runtime-provider/v1"
@@ -141,7 +147,7 @@ def validate_launch_envelope(value: object) -> None:
         _fail("envelope.schemaVersion must be 1")
     session = _validate_launch_session(envelope["session"])
     runtime = _validate_launch_runtime(envelope["runtime"])
-    _validate_launch_resources(envelope["resources"])
+    _validate_launch_resources(envelope["resources"], runtime)
     _validate_launch_options(envelope["targetOptions"])
     _validate_launch_restore(envelope["restore"], runtime["checkpoint"])
 
@@ -169,7 +175,7 @@ def _validate_launch_session(value: object) -> Mapping[str, object]:
 def _validate_launch_runtime(value: object) -> Mapping[str, object]:
     runtime = _launch_record(value, "runtime")
     _launch_keys(runtime, {
-        "bundleSha256", "capabilities", "checkpoint", "moduleSha256", "moduleUrl",
+        "bundleSha256", "capabilities", "checkpoint", "coreId", "coreFingerprint", "romHash", "moduleSha256", "moduleUrl",
         "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetId",
     }, "runtime")
     if runtime["providerApiVersion"] != 1:
@@ -179,7 +185,9 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
             _fail(f"runtime.{key} is invalid")
     if not isinstance(runtime["providerVersion"], str) or not _SEMVER.fullmatch(runtime["providerVersion"]):
         _fail("runtime.providerVersion is invalid")
-    for key in ("bundleSha256", "moduleSha256"):
+    if not isinstance(runtime["coreId"], str) or len(runtime["coreId"]) > 64 or not re.fullmatch(r"[a-z0-9]+(?:[-_][a-z0-9]+)*", runtime["coreId"]):
+        _fail("runtime.coreId is invalid")
+    for key in ("bundleSha256", "moduleSha256", "coreFingerprint", "romHash"):
         if not isinstance(runtime[key], str) or not re.fullmatch(r"[0-9a-f]{64}", runtime[key]):
             _fail(f"runtime.{key} is invalid")
     capabilities = _validate_launch_capabilities(runtime["capabilities"])
@@ -197,7 +205,7 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
 def _validate_launch_capabilities(value: object) -> Mapping[str, object]:
     capabilities = _launch_record(value, "runtime.capabilities")
     keys = {
-        "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
+        "checkpoint", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
         "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
     }
     keys |= _content_loading_keys(capabilities, "runtime.capabilities")
@@ -226,7 +234,7 @@ def _validate_launch_checkpoint(value: object) -> None:
         _fail("runtime.checkpoint.readFormats is invalid")
 
 
-def _validate_launch_resources(value: object) -> None:
+def _validate_launch_resources(value: object, runtime: Mapping[str, object]) -> None:
     resources = _launch_array(value, "resources")
     if len(resources) > 128:
         _fail("resources has too many items")
@@ -252,18 +260,20 @@ def _validate_launch_resources(value: object) -> None:
             _launch_digest(resource["contentDigest"], "resource.contentDigest")
             _launch_relative_url(resource["indexUrl"], "resource.indexUrl")
         elif kind in {"NATIVE_WEB", "ISOLATED_WEB"}:
-            _launch_keys(resource, {
-                "bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "kind", "ordinal", "origin", "role",
-            }, "resource")
+            _launch_keys(resource, {"bridgeUrl", "contentDigest", "entryFile", "entryUrl", "indexUrl", "kind", "ordinal", "origin", "role"}, "resource")
             _launch_digest(resource["contentDigest"], "resource.contentDigest")
+            _launch_safe_path(resource["entryFile"], "resource.entryFile")
+            bridge = resource["bridgeUrl"]
+            _launch_relative_url(bridge, "resource.bridgeUrl")
+            base = str(runtime["runtimeBaseUrl"])
+            if not bridge.startswith(base + "assets/") or not bridge.endswith("/bridge.js") or urlsplit(bridge).path != bridge:
+                _fail("resource.bridgeUrl is outside the selected Provider")
+            _launch_safe_path(bridge[len(base):], "resource.bridgeUrl")
+            _launch_relative_url(resource["indexUrl"], "resource.indexUrl")
             if not isinstance(resource["origin"], str) or not re.fullmatch(r"https?://[^/#]+(?::[0-9]+)?", resource["origin"]):
                 _fail("resource.origin is invalid")
-            for key in ("entryUrl", "cleanupUrl"):
-                if resource[key] is not None and (not isinstance(resource[key], str) or
-                    not resource[key].startswith(f'{resource["origin"]}/') or "#" in resource[key]):
-                    _fail(f"resource.{key} is invalid")
-            if not isinstance(resource["bootstrapTicket"], str) or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", resource["bootstrapTicket"]):
-                _fail("resource.bootstrapTicket is invalid")
+            if not isinstance(resource["entryUrl"], str) or not resource["entryUrl"].startswith(f'{resource["origin"]}/'):
+                _fail("resource.entryUrl is invalid")
         elif kind in {"BIOS_BUNDLE", "EXTERNAL_FILE_SET"}:
             _launch_keys(resource, {"files", "kind", "ordinal", "role"}, "resource")
             files = _launch_array(resource["files"], "resource.files")
@@ -279,20 +289,7 @@ def _validate_launch_resources(value: object) -> None:
                 _launch_digest(file["sha256"], "resource.file.sha256")
                 _launch_positive_integer(file["sizeBytes"], "resource.file.sizeBytes")
             _launch_sorted_unique(paths, "resource.files")
-        elif kind == "MULTI_DISC":
-            _launch_keys(resource, {"entries", "initialDiscIndex", "kind", "ordinal", "role"}, "resource")
-            entries = _launch_array(resource["entries"], "resource.entries")
-            if not entries or not _launch_non_negative(resource["initialDiscIndex"]) or resource["initialDiscIndex"] >= len(entries):
-                _fail("multi-disc bounds are invalid")
-            for index, entry_value in enumerate(entries):
-                entry = _launch_record(entry_value, "resource.disc")
-                _launch_keys(entry, {"index", "label", "sha256", "sizeBytes", "url"}, "resource.disc")
-                if entry["index"] != index:
-                    _fail("resource.disc.index is invalid")
-                _launch_text(entry["label"], 1, 240, "resource.disc.label")
-                _launch_relative_url(entry["url"], "resource.disc.url")
-                _launch_digest(entry["sha256"], "resource.disc.sha256")
-                _launch_positive_integer(entry["sizeBytes"], "resource.disc.sizeBytes")
+
         else:
             _fail("resource.kind is invalid")
     if any(ordinals != list(range(len(ordinals))) for ordinals in roles.values()):
@@ -311,14 +308,21 @@ def _validate_launch_restore(value: object, checkpoint_value: object) -> None:
         return
     restore = _launch_record(value, "restore")
     checkpoint = _launch_record(checkpoint_value, "runtime.checkpoint")
-    _launch_keys(restore, {"format", "sha256", "sizeBytes", "url"}, "restore")
+    kind = restore.get("kind")
+    if kind not in {"HTTP", "LOCAL"}:
+        _fail("restore.kind is invalid")
+    keys = {"kind", "format", "sha256", "sizeBytes"}
+    if kind == "HTTP":
+        keys.add("url")
+    _launch_keys(restore, keys, "restore")
     if restore["format"] not in checkpoint["readFormats"]:
         _fail("restore.format is unsupported")
     _launch_digest(restore["sha256"], "restore.sha256")
     _launch_positive_integer(restore["sizeBytes"], "restore.sizeBytes")
     if restore["sizeBytes"] > checkpoint["maxBytes"]:
         _fail("restore exceeds checkpoint maxBytes")
-    _launch_relative_url(restore["url"], "restore.url")
+    if kind == "HTTP":
+        _launch_relative_url(restore["url"], "restore.url")
 
 
 def _validate_launch_json(value: object, depth: int) -> None:
@@ -382,8 +386,8 @@ def _launch_relative_url(value: object, label: str) -> str:
 
 
 def _launch_safe_path(value: object, label: str) -> str:
-    if not isinstance(value, str) or not 1 <= len(value) <= 240 or value.startswith("/") or \
-            any(item in value for item in ("\\", "?", "#", "\x00")) or any(
+    if not isinstance(value, str) or not 1 <= len(value) <= 1024 or not _launch_unicode(value) or value.startswith("/") or \
+            any(item in value for item in ("\\", "\x00")) or any(
                 part in {"", ".", ".."} for part in value.split("/")
             ):
         _fail(f"{label} is invalid")
@@ -715,11 +719,9 @@ def _validate_checkpoint(checkpoint: Mapping[str, object], target_label: str) ->
 
 
 def _checkpoint_keys(checkpoint: Mapping[str, object], label: str) -> set[str]:
-    if "semantics" not in checkpoint:
-        return _CHECKPOINT_KEYS
-    if checkpoint["semantics"] not in ("INSTANT", "GAME_SAVE"):
+    if checkpoint.get("semantics") not in ("INSTANT", "GAME_SAVE"):
         _fail(f"{label}.semantics is invalid")
-    return _CHECKPOINT_KEYS | {"semantics"}
+    return _CHECKPOINT_KEYS
 
 
 def _canonical(value: object) -> str:

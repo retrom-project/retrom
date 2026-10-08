@@ -11,7 +11,7 @@ export function ImmersiveHomeEntry() {
   const router = useRouter();
   const navigatingRef = useRef(false);
 
-  if (!context.user) {return null;}
+  if (!context?.user) {return null;}
 
   const enter = () => {
     if (navigatingRef.current) {return;}

@@ -21,6 +21,18 @@ services:
       retries: 30
     networks:
       - database
+  redis:
+    image: redis:6.2-alpine@sha256:fad643c78fadb65fdfe79e19a37b0923ae48e69b4a1e7c6be2e94e080f2554b4
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1::6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks:
+      - database
   app:
     image: retrom-pfb-dev:${PFB_TOOLCHAIN_DIGEST:?}
     user: "${PFB_UID:?}:${PFB_GID:?}"
@@ -30,8 +42,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       PFB_ID: ${PFB_ID:?}
+      RETROM_REDIS_ADDR: redis:6379
       RETROM_DATABASE_URL: postgres://retrom:retrom-pfb@postgres:5432/retrom?sslmode=disable
       # Large development catalogs can exceed the production startup budget on cold storage.
       RETROM_STARTUP_CHECK_TIMEOUT: ${RETROM_STARTUP_CHECK_TIMEOUT:-5m}

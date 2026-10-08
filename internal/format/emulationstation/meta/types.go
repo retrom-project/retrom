@@ -56,14 +56,14 @@ type Warning struct {
 }
 
 type Metadata struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Developer     string `json:"developer"`
-	Publisher     string `json:"publisher"`
-	Genre         string `json:"genre"`
-	Players       *int   `json:"players"`
-	ReleaseYear   *int   `json:"releaseYear"`
+	SchemaVersion int     `json:"schemaVersion"`
+	Title         string  `json:"title"`
+	Description   string  `json:"description"`
+	Developer     string  `json:"developer"`
+	Publisher     string  `json:"publisher"`
+	Genre         string  `json:"genre"`
+	Players       *string `json:"players"`
+	ReleaseYear   *int    `json:"releaseYear"`
 }
 
 type SourceFlags struct {

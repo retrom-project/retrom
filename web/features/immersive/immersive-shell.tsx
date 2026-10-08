@@ -1,227 +1,105 @@
 "use client";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
-import {
-  consumeImmersivePlayerReturn,
-  getActiveImmersiveGamepadIndex,
-  isImmersivePlayerReturnPending,
-  setActiveImmersiveGamepadIndex,
-} from "./active-gamepad";
-import { browserGamepadSource, type GamepadFrame, type GamepadFrameSource } from "./gamepad-source";
-import { ImmersiveAudioProvider, useImmersiveAudio, useImmersiveAudioContext } from "./immersive-audio-provider";
-import { GamepadClaimModel, NavigationInputModel, isStandardGamepad, type NavigationAction } from "./input-model";
+import { AppIcon } from "@/components/app-icon";
+import { useToast } from "@/components/toast-provider";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { ResourceState } from "@/components/resource-state";
+import { toggleFavorite } from "@/features/library/api";
+import { useImmersiveNavigation } from "./use-navigation";
+import { setActiveImmersiveGamepadIndex } from "./active-gamepad";
+import type { NavigationAction } from "./input-model";
+import { ImmersiveGames } from "./immersive-content";
+import { PlatformCarousel } from "./platform-carousel";
+import type { View } from "./immersive-data";
+import { useImmersiveLibrary } from "./use-immersive-library";
+import { ImmersiveAudioProvider, useImmersiveAudio } from "./immersive-audio-provider";
 import { ImmersiveSystemMenu } from "./immersive-system-menu";
-import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
 import { useImmersiveSystemMenu } from "./use-immersive-system-menu";
+import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
+import { ImmersiveChoiceDialog } from "./choice-dialog";
+import { ImmersiveChrome } from "./immersive-chrome";
 import styles from "./immersive.module.css";
 
-export type HelpAction = Readonly<{ button: string; label: string }>;
-type ImmersiveShellProps = Readonly<{
-  children: ReactNode;
-  help: readonly HelpAction[];
-  inputEpoch?: string | number;
-  onAction: (action: NavigationAction) => void;
-  source?: GamepadFrameSource;
-}>;
-
-function HelpButton({ button }: { button: string }) {
-  if (button !== "horizontal" && button !== "vertical") {
-    return button === "Select"
-      ? <kbd data-button={button} role="img" aria-label="Select">
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <circle cx="6" cy="12" r="1.8" />
-          <circle cx="12" cy="12" r="1.8" />
-          <circle cx="18" cy="12" r="1.8" />
-        </svg>
-      </kbd>
-      : <kbd data-button={button}>{button}</kbd>;
-  }
-  const horizontal = button === "horizontal";
-  return <kbd data-button={button} role="img" aria-label={horizontal ? "左右方向键" : "上下方向键"}>
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {horizontal
-        ? <path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4" />
-        : <path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4" />}
-    </svg>
-  </kbd>;
+export function ImmersiveShell() {
+  return <Suspense><ImmersiveAudioProvider><ImmersiveContent /></ImmersiveAudioProvider></Suspense>;
 }
-
-function keyboardAction(key: string): NavigationAction | null {
-  return ({ ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down", Enter: "confirm", Escape: "cancel", s: "menu", S: "menu", y: "favorite", Y: "favorite" } as const)[key as "ArrowLeft"] ?? null;
-}
-
-function useSupportedViewport() {
-  const [supported, setSupported] = useState(true);
-  useEffect(() => {
-    const query = window.matchMedia("(orientation: landscape) and (min-width: 960px) and (min-height: 540px)");
-    const update = () => setSupported(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return supported;
-}
-
-function formatClock(value: Date) {
-  return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(value);
-}
-
-type ControllerState = "checking" | "ready" | "waiting";
-const MISSING_GAMEPAD_GRACE_MS = 250;
-
-function ImmersiveShellContent({ children, help, inputEpoch, onAction, source = browserGamepadSource }: ImmersiveShellProps) {
+function ImmersiveContent() {
+  const shell = useRef<HTMLDivElement>(null);
+  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo } = useImmersiveLibrary();
+  const { notify } = useToast();
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitChoice, setExitChoice] = useState("continue");
   const router = useRouter();
-  const immersiveAudio = useImmersiveAudio();
-  const supportedViewport = useSupportedViewport();
-  const [controllerState, setControllerState] = useState<ControllerState>(() => (
-    getActiveImmersiveGamepadIndex() === null ? "waiting" : "checking"
-  ));
-  const [clock, setClock] = useState<Date | null>(null);
-  const [inputModel] = useState(() => new NavigationInputModel(isImmersivePlayerReturnPending()));
-  const claimRef = useRef(new GamepadClaimModel());
-  const missingSinceMsRef = useRef<number | null>(null);
-  const {
-    active: fullscreenActive,
-    enterFullscreen,
-    restoreVisible: fullscreenRestoreVisible,
-    supported: fullscreenSupported,
-  } = useImmersiveFullscreen();
-  const exitImmersive = useCallback(() => {
-    setActiveImmersiveGamepadIndex(null);
-    router.replace("/");
-  }, [router]);
-  const systemMenu = useImmersiveSystemMenu({
-    commitPreference: immersiveAudio.commitPreference,
-    enterFullscreen,
-    fullscreenActive,
-    fullscreenSupported,
-    onBrowseAction: onAction,
-    onExit: exitImmersive,
-    preferences: immersiveAudio.preferences,
-  });
-  const routeActions = useEffectEvent(systemMenu.handleActions);
-
+  const audio = useImmersiveAudio();
+  const fullscreen = useImmersiveFullscreen();
+  const { enterFullscreen } = fullscreen;
+  function leave() { setActiveImmersiveGamepadIndex(null); router.replace("/"); }
+  function changeView(next: View) { setView(next); setSelected(0); setOffset(0); }
+  async function favorite() {
+    const game = entries.data?.items[selected]?.game;
+    if (!game) { return; }
+    try { await toggleFavorite(game.id, !game.favorite); entries.reload(); destinations.reload(); notify({ tone: "good", message: game.favorite ? "已取消收藏。" : "已加入收藏。" }); }
+    catch (failure) { notify({ tone: "bad", message: failure instanceof Error ? failure.message : "收藏失败。" }); }
+  }
+  function launch() { document.querySelector<HTMLButtonElement>(`.${styles.gameDetails} .home-launch-control button`)?.click(); }
+  function navigate(action: NavigationAction) {
+    if (action === "cancel") { if (view === "platforms") { setExitChoice("continue"); setExitOpen(true); } else { changeView("platforms"); } return; }
+    if (view === "platforms") { navigatePlatform(action); return; }
+    navigateGames(action);
+  }
+  function navigatePlatform(action: NavigationAction) {
+    const count = destinations.data?.items.length ?? 0;
+    if (!count) { return; }
+    if (action === "left" || action === "right") { setDestination((value) => (value + (action === "left" ? -1 : 1) + count) % count); }
+    if (action === "confirm" && current) { changeView(current.view); }
+  }
+  function navigateGames(action: NavigationAction) {
+    if (action === "up" || action === "down") { setSelected((value) => Math.max(0, Math.min((entries.data?.items.length ?? 1) - 1, value + (action === "up" ? -1 : 1)))); }
+    if (action === "left" && offset > 0) { setOffset(offset - 24); setSelected(0); }
+    if (action === "right" && entries.data?.hasMore) { setOffset(offset + 24); setSelected(0); }
+    if (action === "confirm") { launch(); }
+    if (action === "favorite") { void favorite(); }
+  }
+  const systemMenu = useImmersiveSystemMenu({ commitPreference: audio.commitPreference, enterFullscreen: fullscreen.enterFullscreen, fullscreenActive: fullscreen.active, fullscreenSupported: fullscreen.supported, onBrowseAction: navigate, onExit: leave, preferences: audio.preferences });
+  function chooseExit(id: string) { if (id === "exit") { leave(); } else { setExitOpen(false); } }
+  const controller = useImmersiveNavigation((action) => {
+    if (!exitOpen) { systemMenu.handleActions([action]); return; }
+    if (action === "left") { setExitChoice("continue"); }
+    if (action === "right") { setExitChoice("exit"); }
+    if (action === "cancel") { setExitOpen(false); }
+    if (action === "confirm") { chooseExit(exitChoice); }
+  }, shell);
+  useEffect(() => { document.querySelector<HTMLElement>(`.${styles.selectedGame}`)?.scrollIntoView({ block: "nearest" }); }, [selected]);
   useEffect(() => {
-    consumeImmersivePlayerReturn();
-  }, []);
-
-  useEffect(() => {
-    const initialTimer = window.setTimeout(() => setClock(new Date()), 0);
-    const timer = window.setInterval(() => setClock(new Date()), 30_000);
-    return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  useEffect(() => {
-    function onFrame(frame: GamepadFrame) {
-      if (frame.suspended) {
-        inputModel.reset(120);
-        return;
-      }
-      let activeIndex = getActiveImmersiveGamepadIndex();
-      if (activeIndex === null) {
-        const claim = claimRef.current.update(frame.gamepads);
-        if (claim.claimedIndex === null) {return;}
-        activeIndex = claim.claimedIndex;
-        setActiveImmersiveGamepadIndex(activeIndex);
-        inputModel.reset(120);
-      }
-      const candidate = frame.gamepads.find((item) => item.index === activeIndex) ?? null;
-      const gamepad = candidate && isStandardGamepad(candidate) ? candidate : null;
-      if (!gamepad) {
-        if (missingSinceMsRef.current === null) {
-          missingSinceMsRef.current = frame.nowMs;
-          inputModel.reset(120);
-          return;
-        }
-        if (frame.nowMs - missingSinceMsRef.current < MISSING_GAMEPAD_GRACE_MS) {return;}
-        setActiveImmersiveGamepadIndex(null);
-        setControllerState("waiting");
-        inputModel.reset(120);
-        claimRef.current.reset(frame.gamepads);
-        return;
-      }
-      missingSinceMsRef.current = null;
-      setControllerState("ready");
-      const update = inputModel.update(gamepad, frame.nowMs);
-      routeActions(update.actions);
+    function key(event: KeyboardEvent) {
+      if (event.key.toLowerCase() === "f" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); void enterFullscreen(); }
     }
-    return source.subscribe(onFrame);
-  }, [inputModel, source]);
-
-  useEffect(() => {
-    inputModel.reset(120);
-  }, [inputEpoch, inputModel, systemMenu.open]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "f" && fullscreenSupported && !fullscreenActive) {
-        event.preventDefault();
-        void enterFullscreen();
-        return;
-      }
-      const action = keyboardAction(event.key);
-      if (!action) {return;}
-      event.preventDefault();
-      if (!supportedViewport && (action === "cancel" || action === "confirm")) {
-        setActiveImmersiveGamepadIndex(null);
-        router.replace("/");
-        return;
-      }
-      setControllerState("ready");
-      routeActions([action]);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enterFullscreen, fullscreenActive, fullscreenSupported, router, supportedViewport]);
-
-  return <main
-    className={styles.shell}
-    data-controller-state={controllerState}
-    data-immersive-shell="true"
-  >
-    <header className={styles.shellHeader}>
-      <div><strong>RETROM</strong><span aria-hidden="true">/</span><span>沉浸模式</span></div>
-      {clock ? <time dateTime={clock.toISOString()}>{formatClock(clock)}</time> : <time aria-label="正在读取当前时间">--:--</time>}
-    </header>
-    <div className={styles.shellContent}>{children}</div>
-    <footer className={styles.helpBar} aria-label="手柄操作提示">
-      {help.map((item) => <span key={`${item.button}:${item.label}`}><HelpButton button={item.button} />{item.label}</span>)}
-      <span><HelpButton button="Select" />系统菜单</span>
-    </footer>
-    {fullscreenSupported && !fullscreenActive ? <button
-      type="button"
-      className={`${styles.fullscreenRestore} ${fullscreenRestoreVisible ? styles.fullscreenRestoreVisible : ""}`.trim()}
-      aria-hidden={!fullscreenRestoreVisible}
-      tabIndex={fullscreenRestoreVisible ? 0 : -1}
-      onClick={() => void enterFullscreen()}
-    ><span aria-hidden="true">⛶</span>进入全屏</button> : null}
-    {systemMenu.open ? <ImmersiveSystemMenu
-      announcement={systemMenu.announcement}
-      fullscreenActive={fullscreenActive}
-      fullscreenSupported={fullscreenSupported}
-      preferences={systemMenu.preferences}
-      selectedIndex={systemMenu.selectedIndex}
-      onActivate={systemMenu.activate}
-      onAdjust={systemMenu.commitPreference}
-      onClose={systemMenu.close}
-      onSelect={systemMenu.select}
-    /> : null}
-    {controllerState === "waiting" ? <section className={styles.controllerOverlay} role="status" aria-live="polite">
-      <div><span className={styles.controllerGlyph} aria-hidden="true">⌁</span><h2>等待手柄</h2><p>按下标准布局手柄上的任意按键以继续。</p><Link href="/" onClick={() => setActiveImmersiveGamepadIndex(null)}>返回首页</Link></div>
-    </section> : null}
-    {!supportedViewport ? <section className={styles.viewportOverlay} role="alert">
-      <div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><button type="button" onClick={exitImmersive}>返回普通首页</button></div>
-    </section> : null}
-  </main>;
-}
-
-export function ImmersiveShell(props: ImmersiveShellProps) {
-  const audio = useImmersiveAudioContext();
-  if (audio) {return <ImmersiveShellContent {...props} />;}
-  return <ImmersiveAudioProvider><ImmersiveShellContent {...props} /></ImmersiveAudioProvider>;
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [enterFullscreen]);
+  return (
+    <div ref={shell} tabIndex={-1} className={styles.shell} data-immersive-shell="true">
+      <ImmersiveChrome view={view} fullscreen={fullscreen} onMenu={() => systemMenu.handleActions(["menu"])} />
+      <main className={styles.shellContent}>
+        {controller.message ? <p className={styles.notice} role="status">{controller.message}</p> : null}
+        {view === "platforms" ? (
+          <ResourceState resource={destinations}>{(data) => <PlatformCarousel destinations={data.items} selected={destination} onSelect={setDestination} onOpen={() => current && changeView(current.view)} />}</ResourceState>
+        ) : (
+          <ResourceState resource={entries}>{(data) => (
+            <ImmersiveGames returnTo={returnTo} saveView={view === "saves"} entries={data.items} total={data.total} offset={offset} selected={selected} onSelect={setSelected} title={current?.name ?? "游戏库"} more={data.hasMore}
+              filter={view === "favorites" ? <label className="field">收藏夹<select aria-label="收藏夹" value={folder} onChange={(event) => { setFolder(event.target.value); setOffset(0); setSelected(0); }}>
+                <option value="">全部收藏</option><option value="unclassified">未分类</option>
+                {folders.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select></label> : null}
+              onPrevious={() => { setOffset(Math.max(0, offset - 24)); setSelected(0); }} onNext={() => { setOffset(offset + 24); setSelected(0); }} onLaunch={launch} />
+          )}</ResourceState>
+        )}
+      </main>
+      {systemMenu.open ? <ImmersiveSystemMenu announcement={systemMenu.announcement} fullscreenActive={fullscreen.active} fullscreenSupported={fullscreen.supported} preferences={audio.preferences} selectedIndex={systemMenu.selectedIndex} onActivate={systemMenu.activate} onAdjust={systemMenu.commitPreference} onClose={systemMenu.close} onSelect={systemMenu.select} /> : null}
+      {exitOpen ? <ImmersiveChoiceDialog title="退出沉浸模式？" description="返回后将继续使用普通 PC 或移动界面。" selectedId={exitChoice} choices={[{ id: "continue", label: "继续沉浸模式" }, { id: "exit", label: "返回普通首页", tone: "danger" }]} onChoose={chooseExit} /> : null}
+      {!controller.ready ? <section className={styles.controllerOverlay} role="status"><div><span className={styles.controllerGlyph}><AppIcon name="gamepad" /></span><h2>等待手柄</h2><p>按下标准布局手柄上的任意按键以继续，也可使用方向键浏览。</p><Link href="/">返回首页</Link></div></section> : null}
+      <div className={styles.viewportOverlay}><div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><Link className="button" href="/">返回普通首页</Link></div></div>
+    </div>
+  );
 }

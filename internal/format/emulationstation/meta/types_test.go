@@ -1,47 +1,30 @@
 package emulationstationmeta
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
 
-func TestPlayersNormalization(t *testing.T) {
+func TestPlayersPreserveBoundedSourceText(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		value       string
-		wantPlayers *int
-		warningCode string
-	}{
-		{value: "1", wantPlayers: intPointer(1)},
-		{value: "01", wantPlayers: intPointer(1)},
-		{value: "64", wantPlayers: intPointer(64)},
-		{value: "1-4", wantPlayers: intPointer(4), warningCode: WarningPlayerRange},
-		{value: "04-04", wantPlayers: intPointer(4), warningCode: WarningPlayerRange},
-		{value: "", wantPlayers: nil},
-		{value: "0", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "65", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "+1", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "1+", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "4-1", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "1 - 4", wantPlayers: nil, warningCode: WarningFieldInvalid},
-		{value: "１", wantPlayers: nil, warningCode: WarningFieldInvalid},
-	}
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("value_%q", test.value), func(t *testing.T) {
+	for _, value := range []string{"1", "01", "1-4", "04-04", "1+", "１"} {
+		t.Run(value, func(t *testing.T) {
 			t.Parallel()
-			game := parseOneGame(t, "<players>"+test.value+"</players>", 2027)
-			assertOptionalInt(t, game.Metadata.Players, test.wantPlayers)
-			if test.warningCode == "" {
-				if warningCount(game.Warnings, WarningFieldInvalid, "players") != 0 ||
-					warningCount(game.Warnings, WarningPlayerRange, "players") != 0 {
-					t.Fatalf("unexpected players warning: %#v", game.Warnings)
-				}
-			} else {
-				assertWarning(t, game.Warnings, test.warningCode, "players")
+			game := parseOneGame(t, "<players>"+value+"</players>", 2027)
+			if game.Metadata.Players == nil || *game.Metadata.Players != value {
+				t.Fatalf("players=%v", game.Metadata.Players)
 			}
 		})
 	}
+	empty := parseOneGame(t, "<players/>", 2027)
+	if empty.Metadata.Players != nil {
+		t.Fatal("empty source players must remain unknown")
+	}
+	large := parseOneGame(t, "<players>"+strings.Repeat("界", 81)+"</players>", 2027)
+	if large.Metadata.Players != nil {
+		t.Fatal("unbounded player metadata accepted")
+	}
+	assertWarning(t, large.Warnings, WarningFieldInvalid, "players")
 }
 
 func TestReleaseDateNormalizationUsesFrozenMaximum(t *testing.T) {

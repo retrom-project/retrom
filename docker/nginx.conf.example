@@ -17,7 +17,7 @@ server {
   proxy_set_header X-Forwarded-For $remote_addr;
   proxy_set_header Forwarded "";
 
-  location ~ ^/(?:api/v1|content|runtime)(?:/|$) {
+  location ~ ^/(?:api/v1|runtime)(?:/|$) {
     proxy_pass http://retrom:8080;
   }
   location ~ ^/health(?:/|$) { return 404; }
@@ -34,7 +34,7 @@ server {
   proxy_set_header X-Forwarded-For $remote_addr;
   proxy_set_header Forwarded "";
 
-  # Go 仍校验最左侧 label 是否为规范 launchId。
-  location /__retrom/ { proxy_pass http://retrom:8080; }
+  # Go 校验隔离资产路径中的规范 runId；此host只转发该静态资产前缀。
+  location /__retrom/runtime-isolation/ { proxy_pass http://retrom:8080; }
   location / { return 404; }
 }

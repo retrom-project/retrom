@@ -1,4 +1,10 @@
 .recent-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.recent-query-controls > input, .recent-query-controls > select, .recent-query-controls > label { min-width: 0; max-width: 100%; }
+@media (max-width: 767px) {
+  .recent-query-controls > input, .recent-query-controls > select, .recent-query-controls > label { width: 100%; }
+  .recent-query-controls > label { display: grid; gap: var(--space-2); }
+  .recent-query-controls > label > input { width: 100%; min-width: 0; }
+}
 .recent-game-card { overflow: hidden; display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); border: 1px solid var(--line); border-radius: var(--radius-cover); background: var(--surface); }
 .recent-game-card > img, .recent-game-cover { width: 100%; height: 100%; min-height: 170px; object-fit: cover; background: radial-gradient(circle at 72% 24%, rgb(78 212 221 / 55%), transparent 24%), linear-gradient(145deg, #303958, #171d30 65%); }
 .recent-game-card > div:last-child { min-width: 0; padding: 16px; }
@@ -56,5 +62,8 @@
 .recent-history-launch .status { width: 100%; margin-top: 8px; white-space: normal; }
 .recent-history-detail { min-height: 35px; padding: 0 8px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); border-radius: var(--radius-panel); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .recent-history-detail:hover { color: var(--purple-dark); background: var(--purple-soft); }
-.recent-history-detail span { font-size: var(--text-section); line-height: 1; }
+.recent-history-detail svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .recent-filter-search, .recent-filter-select { min-width: 0; display: grid; gap: 6px; color: var(--muted); font-size: var(--text-body); font-weight: var(--weight-semibold); }
+
+.recent-history-cover { padding: var(--space-3); }
+.recent-history-cover > span { min-width: 0; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; text-align: center; font-size: var(--text-title); font-family: var(--font-sans); letter-spacing: 0; line-height: var(--leading-heading); }

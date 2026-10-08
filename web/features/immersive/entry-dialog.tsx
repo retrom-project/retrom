@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useModalFocus } from "@/components/modal-focus";
 import { getActiveImmersiveGamepadIndex, setActiveImmersiveGamepadIndex } from "./active-gamepad";
 import { browserGamepadSource, type GamepadFrame, type GamepadFrameSource } from "./gamepad-source";
 import { requestImmersiveFullscreen } from "./immersive-fullscreen";
@@ -142,6 +143,7 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
   useEffect(() => {
     if (!open) {return;}
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {return;}
       if (event.key === "Escape") {
         event.preventDefault();
         cancel();
@@ -159,6 +161,8 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  useModalFocus({ open, locked: false, panel: dialogRef, initial: cancelButtonRef, onCancel: cancel });
 
   return <>
     {notice ? <p className={styles.homeGamepadNotice} role="status">{notice}</p> : null}
@@ -182,13 +186,14 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
       >
         <p className={styles.entryEyebrow}>检测到标准布局手柄</p>
         <h1 id="immersive-entry-title">进入沉浸模式？</h1>
-        <p id="immersive-entry-description">使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档和管理功能。</p>
+        <p id="immersive-entry-description">使用手柄浏览平台、游戏和存档，以独立的大屏界面继续游玩。</p>
         <div className={styles.entryActions}>
           <button
             ref={cancelButtonRef}
             className={selection === "cancel" ? styles.entrySelected : undefined}
             type="button"
             disabled={!ready}
+            onFocus={() => choose("cancel")}
             onClick={cancel}
           >取消</button>
           <button
@@ -196,6 +201,7 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
             className={selection === "enter" ? styles.entrySelected : undefined}
             type="button"
             disabled={!ready}
+            onFocus={() => choose("enter")}
             onClick={enter}
           >进入沉浸模式</button>
         </div>

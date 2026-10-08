@@ -1,23 +1,9 @@
-import { ButtonLink, PageHeader } from "@/components/ui";
-import { AdminGameManager, type AdminGame, type PlatformInstanceOption, type ScrapeCandidate } from "@/features/games/admin-game-manager";
-import type { ListResponse } from "@/lib/backend";
-import { backendJSON } from "@/lib/server-backend";
-import { loadActiveTags } from "@/features/tags/tag-library";
-
-export default async function AdminGameDetail({ params }: { params: Promise<{ gameId: string }> }) {
+import { GameDetail } from "@/features/games/game-detail";
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ gameId: string }>;
+}) {
   const { gameId } = await params;
-  const [game, instances, scrape, activeTags] = await Promise.all([
-    backendJSON<AdminGame>(`/api/v1/admin/games/${gameId}`),
-    backendJSON<ListResponse<PlatformInstanceOption>>("/api/v1/admin/platform-instances"),
-    backendJSON<{ items: ScrapeCandidate[] }>(`/api/v1/admin/games/${gameId}/scrape-candidates`),
-    loadActiveTags(),
-  ]);
-  return <>
-    <PageHeader
-      title={game.title}
-      description="维护发布信息、媒体与标签，查看游戏文件及管理操作。"
-      actions={<ButtonLink href="/admin/games" secondary>返回游戏管理</ButtonLink>}
-    />
-    <AdminGameManager game={game} platformInstances={instances.items} candidates={scrape.items} activeTags={activeTags} />
-  </>;
+  return <GameDetail gameId={gameId} mode="admin" />;
 }

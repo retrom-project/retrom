@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import type { ImmersivePlatform } from "./api";
+import type { Schema } from "@/lib/api/types";
 import styles from "./platform.module.css";
 
 const COVER_ROTATION_MS = 3_000;
-type FeaturedGame = ImmersivePlatform["featuredGames"][number];
+type FeaturedGame = Schema<"Game">;
 
 function useCoverRotationEnabled() {
   const [enabled, setEnabled] = useState(false);
@@ -55,14 +55,14 @@ export function PlatformCoverStack({ games, platformName }: {
     {visibleGames.map((game, index) => {
       const slot = coverSlot(index, frontIndex, visibleGames.length);
       return <figure
-        key={game.gameId}
+        key={game.id}
         className={`${styles.coverStackItem} ${styles[`coverStackSlot${slot}`]}`}
         data-cover-slot={slot}
-        data-game-id={game.gameId}
+        data-game-id={game.id}
       >
-        {game.coverUrl
+        {game.media.find((item) => item.kind === "cover")?.url
           ? <Image
-            src={game.coverUrl}
+            src={game.media.find((item) => item.kind === "cover")!.url}
             alt={`${game.title} 封面`}
             fill
             sizes="(min-width: 1920px) 260px, 18vw"

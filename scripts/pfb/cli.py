@@ -280,7 +280,7 @@ def command_provider_import(root: Path, args: argparse.Namespace) -> int:
         root,
         args.source_root,
         _validate_provider_base,
-        lambda current, incoming: verify_provider_upgrade(current, incoming, []),
+        lambda current, incoming: verify_provider_upgrade(current, incoming, [], allow_candidate_rebuild=True),
     )
     _result({"id": spec["id"], "status": "IMPORTED", **result})
     return 0

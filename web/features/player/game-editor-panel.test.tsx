@@ -1,15 +1,34 @@
 import {act, cleanup, fireEvent, render, waitFor, within} from "@testing-library/react";
-import {afterEach, describe, expect, it, vi} from "vitest";
+import {afterEach, expect, it, vi} from "vitest";
 import type {RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {GameEditorPanel} from "./game-editor-panel";
 
-describe("GameEditorPanel", () => {
   afterEach(async () => {
     // Vitest globals are disabled, so Testing Library cannot register auto-cleanup.
     await act(async () => cleanup());
     expect(document.body).toBeEmptyDOMElement();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+  it("keeps a pending category response and an unsaved value when its selected category is clicked again", async () => {
+    let finish!: (value: {entries: RuntimeGameEditEntryV1[]; nextOffset: null}) => void;
+    const entries = vi.fn(() => new Promise<{entries: RuntimeGameEditEntryV1[]; nextOffset: null}>((resolve) => {finish = resolve;}));
+    const editor: RuntimeGameEditorV1 = {
+      categories: async () => [{id: "gold", label: "金币"}], entries, set: vi.fn(),
+    };
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    const category = await panel.findByRole("button", {name: "金币"});
+    await waitFor(() => expect(entries).toHaveBeenCalledOnce());
+    fireEvent.click(category);
+    await act(async () => finish({entries: [{id: "gold", label: "金币", value: 10, valueType: "number"}], nextOffset: null}));
+    const value = await panel.findByRole("spinbutton", {name: "修改金币"});
+    fireEvent.change(value, {target: {value: "50"}});
+    fireEvent.click(category);
+    expect(value).toBeVisible();
+    expect(value).toHaveValue(50);
+    expect(entries).toHaveBeenCalledOnce();
+    expect(panel.getByRole("button", {name: "应用"})).toBeEnabled();
   });
   it("shows a draggable category scrollbar only when the category row overflows", async () => {
     let notify: ResizeObserverCallback | undefined;
@@ -75,11 +94,40 @@ describe("GameEditorPanel", () => {
     await panel.findByRole("button", {name: /宝箱 独立开关 A，当前开启/u});
     expect(panel.getByText("第 2 页 · 此开关条件已满足 · 无图像、无事件指令")).toBeVisible();
     fireEvent.click(panel.getByRole("button", {name: /村庄 · 当前地图/u}));
+    const mapSearch = panel.getByRole("searchbox", {name: "查找地图"});
+    expect(mapSearch).toHaveFocus();
+    fireEvent.keyDown(mapSearch, {key: "Escape"});
+    expect(panel.queryByRole("dialog", {name: "选择地图"})).toBeNull();
+    expect(panel.getByRole("button", {name: /村庄 · 当前地图/u})).toHaveFocus();
+    expect(panel.getByRole("dialog")).toBeVisible();
+    fireEvent.click(panel.getByRole("button", {name: /村庄 · 当前地图/u}));
     fireEvent.change(panel.getByRole("searchbox", {name: "查找地图"}), {target: {value: "森林"}});
     fireEvent.click(await panel.findByRole("button", {name: "森林 · 地图 #2"}));
     await panel.findByRole("button", {name: /大门 独立开关 D，当前关闭/u});
     expect(events).toHaveBeenCalledWith(2, "", 0, 40);
     expect(panel.queryByText("宝箱")).toBeNull();
+  });
+
+  it("explains GAME_SAVE edits as in-game data and waits for the public write before announcing success", async () => {
+    let finish!: (value: RuntimeGameEditEntryV1) => void;
+    const entry: RuntimeGameEditEntryV1 = {id: "gold", label: "金币", value: 10, valueType: "number", min: 0, max: 100};
+    const editor: RuntimeGameEditorV1 = {
+      categories: async () => [{id: "gold", label: "金币"}],
+      entries: async () => ({entries: [entry], nextOffset: null}),
+      set: vi.fn(() => new Promise<RuntimeGameEditEntryV1>((resolve) => {finish = resolve;})),
+    };
+    const view = render(<GameEditorPanel editor={editor} native onClose={vi.fn()} />);
+    const panel = within(view.container);
+    expect(panel.getByRole("dialog")).toHaveTextContent("在游戏内保存并同步存档");
+    expect(panel.getByRole("dialog")).not.toHaveTextContent("创建存档");
+    fireEvent.click(await panel.findByRole("button", {name: "金币加一"}));
+    fireEvent.click(panel.getByRole("button", {name: "应用"}));
+    expect(editor.set).toHaveBeenCalledWith("gold", "gold", 11);
+    expect(panel.queryByRole("status")).toBeNull();
+    expect(panel.getByRole("button", {name: "保存中"})).toBeDisabled();
+    await act(async () => finish({...entry, value: 11}));
+    expect(panel.getByRole("status")).toHaveTextContent("已应用修改。离开前请在游戏内保存并同步存档。");
+    expect(panel.getByText("当前：11")).toBeVisible();
   });
   it("lists named values directly and writes them without a search or an ID", async () => {
     const set = vi.fn(async (_category: string, id: string, value: number | string | boolean) =>
@@ -96,10 +144,9 @@ describe("GameEditorPanel", () => {
     expect(panel.queryByText("#gold", {exact: false})).toBeNull();
     expect(entries).toHaveBeenCalledWith("gold", "", 0, 40);
     const close = panel.getByRole("button", {name: "返回游戏"});
-    const focusable = view.container.querySelectorAll("button:not(:disabled), input:not(:disabled)");
     close.focus();
     fireEvent.keyDown(close, {key: "Tab", shiftKey: true});
-    expect(focusable.item(focusable.length - 1)).toHaveFocus();
+    expect(panel.getByRole("button", {name: "金币加一"})).toHaveFocus();
     fireEvent.change(panel.getByRole("spinbutton", {name: "修改金币"}), {target: {value: "50"}});
     fireEvent.click(panel.getByRole("button", {name: "应用"}));
     await waitFor(() => expect(set).toHaveBeenCalledWith("gold", "gold", 50));
@@ -330,4 +377,3 @@ describe("GameEditorPanel", () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith("party", "3", 0));
     expect(categories).toHaveBeenCalledTimes(4);
   });
-});

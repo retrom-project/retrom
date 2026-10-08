@@ -1,5 +1,6 @@
 "use client";
 
+import { useModalFocus } from "@/components/modal-focus";
 import { useEffect, useRef } from "react";
 import styles from "./immersive.module.css";
 
@@ -13,9 +14,11 @@ export function ImmersiveChoiceDialog({ choices, description, onChoose, selected
   title: string;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  useModalFocus({ open: true, locked: false, panel, initial: selectedRef, onCancel: () => onChoose(choices[0].id) });
   useEffect(() => selectedRef.current?.focus(), [selectedId]);
   return <div className={styles.dialogBackdrop}>
-    <section className={styles.choiceDialog} role="alertdialog" aria-modal="true" aria-labelledby="immersive-dialog-title" aria-describedby="immersive-dialog-description">
+    <section ref={panel} tabIndex={-1} className={styles.choiceDialog} role="alertdialog" aria-modal="true" aria-labelledby="immersive-dialog-title" aria-describedby="immersive-dialog-description">
       <span className={styles.dialogMark} aria-hidden="true">R</span>
       <h2 id="immersive-dialog-title">{title}</h2>
       <p id="immersive-dialog-description">{description}</p>

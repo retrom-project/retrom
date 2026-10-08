@@ -1,15 +1,17 @@
 "use client";
 
-import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref} from "react";
+import {useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref} from "react";
 import type {RuntimeGameEditCategoryV1, RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
-import {getActiveImmersiveGamepadIndex} from "@/features/immersive/active-gamepad";
+import {listenHorizontalWheel} from "@/lib/use-horizontal-wheel";
+import {useModalFocus} from "@/components/modal-focus";
 import {GameEditorSelfSwitches} from "./game-editor-self-switches";
 
 const PAGE_SIZE = 40;
 
-export function GameEditorPanel({editor, immersive, onClose}: {
-  editor: RuntimeGameEditorV1; immersive?: boolean; onClose: () => void;
+export function GameEditorPanel({editor, immersive, native = false, onClose}: {
+  editor: RuntimeGameEditorV1; immersive?: boolean; native?: boolean; onClose: () => void;
 }) {
+  const saveHint = native ? "离开前请在游戏内保存并同步存档。" : "离开前请创建存档，以保留修改后的进度。";
   const [categories, setCategories] = useState<RuntimeGameEditCategoryV1[]>([]);
   const [category, setCategory] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
@@ -34,7 +36,6 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   const groups = selectedCategory?.groups;
   const activeCategory = resolveActiveCategory(category, groups, selectedGroup);
 
-  useEffect(() => {closeRef.current?.focus();}, []);
   useEffect(() => {
     if (!notice) {return;}
     const timer = window.setTimeout(() => setNotice(null), 3200);
@@ -97,35 +98,9 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     observer.observe(marker);
     return () => observer.disconnect();
   }, [activeCategory, search, nextOffset, loading, loadingMore, pageError, load]);
-  useEffect(() => {
-    if (immersive) {return;}
-    const escape = (event: KeyboardEvent) => {if (event.key === "Escape") {event.preventDefault(); onClose();}};
-    window.addEventListener("keydown", escape);
-    return () => window.removeEventListener("keydown", escape);
-  }, [immersive, onClose]);
-  useEffect(() => {
-    if (!immersive) {return;}
-    const buttons = [0, 12, 13, 14, 15];
-    const initialIndex = getActiveImmersiveGamepadIndex();
-    const initialPad = initialIndex === null ? null : navigator.getGamepads?.()[initialIndex];
-    let previous = buttons.map((button) => Boolean(initialPad?.buttons[button]?.pressed));
-    const timer = window.setInterval(() => {
-      const index = getActiveImmersiveGamepadIndex();
-      const pad = index === null ? null : navigator.getGamepads?.()[index];
-      if (!pad || !panelRef.current) {return;}
-      const pressed = buttons.map((button) => Boolean(pad.buttons[button]?.pressed));
-      const rising = pressed.map((value, button) => value && !previous[button]);
-      previous = pressed;
-      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)"));
-      const current = focusable.indexOf(document.activeElement as HTMLElement);
-      if (rising[0]) {(document.activeElement as HTMLElement)?.click(); return;}
-      if (rising[1] || rising[4]) {focusable[(current + focusable.length - 1) % focusable.length]?.focus();}
-      if (rising[2] || rising[3]) {focusable[(current + 1) % focusable.length]?.focus();}
-    }, 70);
-    return () => window.clearInterval(timer);
-  }, [immersive]);
 
   function chooseCategory(value: string) {
+    if (value === category) {return;}
     requestSequence.current += 1;
     setCategory(value); setSelectedGroup(""); setEntries([]); setLoading(true); setShowLoading(false); setNextOffset(null);
     requestedPage.current = null; if (listRef.current) {listRef.current.scrollTop = 0;}
@@ -146,7 +121,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       const updated = await editor.set(activeCategory, entry.id, value);
       if (sequence !== requestSequence.current) {return;}
       setError("");
-      setNotice({text: "已应用修改。离开前请创建存档。"});
+      setNotice({text: `已应用修改。${saveHint}`});
       if (category === "classes") {
         setEntries((current) => current.map((item) => ({...item, value: item.id === updated.id})));
       } else if (category === "party") {
@@ -176,21 +151,14 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     if (searchOpen && search) {setQuery(""); changeSearch("");}
     setSearchOpen((open) => !open);
   }
-  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key !== "Tab" || !panelRef.current) {return;}
-    const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)"));
-    const first = focusable[0], last = focusable.at(-1);
-    if (!first || !last) {return;}
-    if (event.shiftKey && document.activeElement === first) {event.preventDefault(); last.focus();}
-    else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first.focus();}
-  }
+  useModalFocus({open: true, locked: false, panel: panelRef, initial: closeRef, onCancel: onClose});
 
-  return <section className={`game-editor-overlay${immersive ? " is-immersive" : ""}`} role="dialog" aria-modal="true" aria-labelledby="game-editor-title" onKeyDown={trapFocus}>
+  return <section className={`game-editor-overlay${immersive ? " is-immersive" : ""}`} role="dialog" aria-modal="true" aria-labelledby="game-editor-title">
     <div ref={panelRef} className="game-editor-panel">
       <header className="game-editor-head"><div><small>当前游戏</small><h1 id="game-editor-title">游戏修改</h1></div><button ref={closeRef} className="button secondary" type="button" onClick={onClose}>返回游戏</button></header>
-      <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。离开前请创建存档，以保留修改后的进度。</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
+      <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。{saveHint}</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       <GameEditorCategories categories={categories} active={category} onChoose={chooseCategory} />
-      {category === "self_switches" ? <GameEditorSelfSwitchSection editor={editor} onNotice={() => setNotice({text: "已应用修改。离开前请创建存档。"})} /> : <>
+      {category === "self_switches" ? <GameEditorSelfSwitchSection editor={editor} onNotice={() => setNotice({text: `已应用修改。${saveHint}`})} /> : <>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
       <GameEditorCategoryHelp category={category} />
@@ -253,7 +221,7 @@ function GameEditorCategories({categories, active, onChoose}: {
     observer?.observe(nav);
     nav.addEventListener("scroll", measure, {passive: true});
     window.addEventListener("resize", resize);
-    const stopWheel = scrollHorizontallyOnWheel(scrollArea, nav);
+    const stopWheel = listenHorizontalWheel(scrollArea, nav);
     resize();
     return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", resize); stopWheel();};
   }, [categories, active]);
@@ -292,7 +260,7 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
   const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const tabs = tabsRef.current;
-    return tabs ? scrollHorizontallyOnWheel(tabs, tabs) : undefined;
+    return tabs ? listenHorizontalWheel(tabs, tabs) : undefined;
   }, []);
   return <div ref={tabsRef} className="game-editor-actor-tabs" role="tablist" aria-label="选择人物">{groups.map((group, index) => <button key={group.id} className="button secondary" type="button" role="tab" aria-selected={group.id === activeCategory} aria-controls="game-editor-group-list" tabIndex={group.id === activeCategory ? 0 : -1} onClick={() => onChoose(group.id)} onKeyDown={(event) => {
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -302,21 +270,6 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
     event.preventDefault(); onChoose(groups[next].id);
     tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
   }}>{group.label}</button>)}</div>;
-}
-
-function scrollHorizontallyOnWheel(area: HTMLElement, scroller: HTMLElement) {
-  const onWheel = (event: WheelEvent) => {
-    const max = scroller.scrollWidth - scroller.clientWidth;
-    if (event.ctrlKey || max <= 0) {return;}
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientWidth : 1;
-    const next = Math.max(0, Math.min(max, scroller.scrollLeft + delta * scale));
-    if (next === scroller.scrollLeft) {return;}
-    scroller.scrollLeft = next;
-    event.preventDefault();
-  };
-  area.addEventListener("wheel", onWheel, {passive: false});
-  return () => area.removeEventListener("wheel", onWheel);
 }
 
 function GameEditorToolbar({label, searchOpen, onSearch, onRefresh}: {

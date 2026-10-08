@@ -36,16 +36,16 @@ class DesignAssetBoundaryTests(unittest.TestCase):
         source = (DESIGN_ROOT / "retrom-ui-review.fragment.html").read_text(encoding="utf-8")
         for removed in ("lastGateSequence", "machine gate", "高级验证", "rt-rpg-player-panel", "第 5 秒"):
             self.assertFalse(removed in source, removed)
-        self.assertIn("保存审核截图", source)
-        self.assertIn("从检查点恢复试运行", source)
-        self.assertIn("依赖已就绪", source)
+        self.assertIn("试玩", source)
+        self.assertIn("保存进度", source)
+        self.assertIn("本地草稿", source)
 
     def test_review_screenshot_belongs_to_player(self) -> None:
         source = (DESIGN_ROOT / "retrom-ui-review.fragment.html").read_text(encoding="utf-8")
-        player = source.split('<section class="rt-page" data-page="play">', 1)[1].split(
+        player = re.split(r'<section class="rt-page" data-page="player"[^>]*>', source, maxsplit=1)[1].split(
             '<section class="rt-page"', 1,
         )[0]
-        self.assertIn("保存审核截图", player)
+        self.assertIn("保存进度", player)
         self.assertNotIn('data-page="netplay-player"', source)
 
     def test_design_images_are_not_present_as_tracked_files(self) -> None:

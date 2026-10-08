@@ -1,74 +1,46 @@
-import { ToastProvider } from "@/components/toast-provider";
-import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { render } from "@/components/toast-test-utils";
+import type * as ApiClient from "@/lib/api/client";
 import { LaunchButton } from "./launch-button";
 
-const navigation = vi.hoisted(() => ({ replace: vi.fn(), replacePlayerDocument: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }) }));
-vi.mock("@/lib/player-document-navigation", () => ({
-  replaceWithPlayerDocument: navigation.replacePlayerDocument,
-}));
-vi.mock("./orientation", () => ({
-  requestFullscreenAndLandscape: vi.fn().mockResolvedValue({ fullscreen: "denied", orientation: "unsupported" }),
-  unlockLandscape: vi.fn(),
-}));
+const calls = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({
+  push: (path: string) => window.history.pushState(null, "", path),
+  replace: (path: string) => window.history.replaceState(null, "", path),
+}) }));
+vi.mock("@/lib/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiClient>();
+  return { ...actual, api: { POST: calls.create } };
+});
+beforeEach(() => { calls.create.mockReset(); calls.create.mockResolvedValue({ data: { id: "new-run" }, response: new Response() }); });
+afterEach(cleanup);
 
-describe("LaunchButton thread capability guard", () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); navigation.replace.mockReset(); navigation.replacePlayerDocument.mockReset(); });
+it.each([
+  { path: "/games/game?from=favorites#launch", purpose: "play" as const, saveId: undefined, returnTo: undefined },
+  { path: "/saves?gameId=game&kind=checkpoint", purpose: "play" as const, saveId: "save", returnTo: undefined },
+  { path: "/admin/reviews/game", purpose: "review" as const, saveId: undefined, returnTo: undefined },
+  { path: "/immersive", purpose: "play" as const, saveId: "save", returnTo: "/immersive?view=saves&destination=folder&offset=24&folder=mine&entry=save" },
+])("replaces the current entry and retains launch/return context from $path", async ({ path, purpose, saveId, returnTo }) => {
+  window.history.replaceState(null, "", path);
+  const historyLength = window.history.length;
+  render(<LaunchButton gameId="game" coreId="core" saveId={saveId} purpose={purpose} returnTo={returnTo} contentLoading="ON_DEMAND" />);
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  await waitFor(() => expect(window.location.pathname).toBe("/play/new-run"));
+  expect(window.history.length).toBe(historyLength);
+  expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(returnTo ?? path);
+  expect(new URLSearchParams(window.location.search).get("contentLoading")).toBe("ON_DEMAND");
+  expect(calls.create).toHaveBeenCalledExactlyOnceWith("/api/v1/runs", { body: { gameId: "game", coreId: "core", saveId, purpose } });
+});
 
-  it("does not send an impossible threaded launch", async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("isSecureContext", false);
-    vi.stubGlobal("crossOriginIsolated", false);
-    vi.stubGlobal("SharedArrayBuffer", undefined);
-    render(<LaunchButton gameId="game-1" coreId="ppsspp" requiresThreads />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent("远程明文 HTTP 无法提供 SharedArrayBuffer");
-  });
-
-  it("replays a recent game through an ordinary launch", async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      launchId: "launch-single", playUrl: "/play/launch-single",
-    }), { status: 201, headers: { "Content-Type": "application/json" } }));
-    vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("isSecureContext", true);
-    vi.stubGlobal("crossOriginIsolated", true);
-
-    render(<LaunchButton gameId="recent-game" returnTo="/recent" label="再玩一次" />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "再玩一次" }));
-
-    await vi.waitFor(() => expect(navigation.replacePlayerDocument).toHaveBeenCalledWith("/play/launch-single", navigation.replace));
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/launches");
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(request.method).toBe("POST");
-    expect(JSON.parse(request.body as string)).toEqual({
-      gameId: "recent-game",
-      coreId: null,
-      saveStateId: null,
-      dosEntry: null,
-      returnTo: "/recent",
-      clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
-    });
-  });
-
-  it("shows a failed launch in the global toast and leaves the action available for retry", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false, json: async () => ({ error: { message: "缺少 BIOS 固件" } }),
-    }));
-    const { container } = render(<LaunchButton gameId="game-1" />, { wrapper: ToastProvider });
-    await userEvent.setup().click(screen.getByRole("button", { name: "开始游戏" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("缺少 BIOS 固件");
-    expect(container.querySelector("[role=alert]")).toBeNull();
-    expect(screen.queryByRole("button", { name: "关闭通知" })).toBeNull();
-    expect(screen.getByRole("link", { name: "前往 BIOS 管理" })).toHaveAttribute("href", "/admin/bios?scope=REQUIRED_BY_LIBRARY");
-    expect(screen.getByRole("button", { name: "开始游戏" })).toBeEnabled();
-    expect(navigation.replacePlayerDocument).not.toHaveBeenCalled();
-  });
+it("keeps the origin entry and permits retry if Run creation fails", async () => {
+  calls.create.mockRejectedValueOnce(new Error("启动失败"));
+  window.history.replaceState(null, "", "/games/game?from=recent");
+  const historyLength = window.history.length;
+  render(<LaunchButton gameId="game" />);
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("启动失败");
+  expect(window.location.pathname + window.location.search).toBe("/games/game?from=recent");
+  expect(window.history.length).toBe(historyLength);
+  expect(screen.getByRole("button", { name: "开始游戏" })).toBeEnabled();
 });

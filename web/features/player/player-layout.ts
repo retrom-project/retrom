@@ -1,7 +1,7 @@
 "use client";
 
 import {useState, useSyncExternalStore} from "react";
-import {mobilePlayerQuery} from "./orientation";
+const mobilePlayerQuery = "(max-width: 1279px), (hover: none) and (pointer: coarse)";
 
 function subscribe(onChange: () => void) {
   if (typeof window.matchMedia !== "function") {return () => {};}

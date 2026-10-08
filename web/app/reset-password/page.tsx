@@ -1,2 +1,4 @@
-import { ResetPasswordForm } from "@/features/auth/auth-ui";
-export default function ResetPasswordPage() { return <ResetPasswordForm />; }
+import { AuthForm } from "@/features/auth/auth-form";
+export default function Page() {
+  return <AuthForm mode="reset-password" />;
+}

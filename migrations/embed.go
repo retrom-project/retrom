@@ -1,8 +1,13 @@
 package migrations
 
-import "embed"
+import _ "embed"
 
-// Files contains the immutable ordered SQL migration sources.
+// Schema creates the current application schema in a new database.
 //
-//go:embed *.sql
-var Files embed.FS
+//go:embed 001_schema.sql
+var Schema string
+
+// QueryIndexes adds pagination and active-reference indexes without changing domain facts.
+//
+//go:embed 002_query_indexes.sql
+var QueryIndexes string

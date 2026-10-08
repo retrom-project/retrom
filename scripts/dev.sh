@@ -301,7 +301,7 @@ if [[ -z "${RETROM_DATABASE_URL:-}" ]]; then
 fi
 
 process_start_ticks="$(read_start_ticks "$$")"
-setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" 9>&- &
+setsid env RETROM_MODE="$auth_mode" go run ./cmd/retrom 9>&- &
 backend_pid=$!
 setsid env -u RETROM_DEV_STATE_DIR -u RETROM_PUBLIC_ORIGIN -u RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE \
   bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3" --webpack' \

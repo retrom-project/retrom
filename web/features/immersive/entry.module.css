@@ -5,7 +5,7 @@
   inset: 0;
   z-index: 1000;
   display: grid;
-  min-width: 100vw;
+  width: 100%;
   min-height: 100dvh;
   padding: clamp(30px, 4vw, 76px) clamp(36px, 6vw, 112px);
   box-sizing: border-box;
@@ -190,4 +190,12 @@
   border: 1px solid #a9e5df;
   border-radius: var(--radius-panel);
   box-shadow: 0 16px 46px rgb(11 18 31 / 0.18);
+}
+
+@media (width < 640px) {
+  .entryTakeover { padding: 20px 16px; overflow-y: auto; }
+  .entryHeader { top: 20px; right: 20px; left: 20px; }
+  .entryHeader .entryControls { display: none; }
+  .entryDialog { width: 100%; padding: 30px 20px; }
+  .entryActions { gap: 12px; }
 }

@@ -24,7 +24,11 @@ Retrom-owned; no default database, font, icon, asset, or plugin is copied from
 an editor installation.
 
 The LCF projects start directly on a 20x15 passable map, play a project-owned
-250 ms tone, and show a generation-specific marker. Moving right from the
+250 ms tone, and show a generation-specific marker and a visible character.
+The blank upper tile uses palette index zero, which the native LCF renderer
+treats as transparent independently of PNG alpha metadata. A generator regression
+checks this and the opaque lower floor through `make public-fixtures-check`.
+Moving right from the
 `(10,8)` start onto `(11,8)` changes variable 1 from 0 to 1; moving through
 `(12,8)` onto `(13,8)` changes it from 1 to 2. Both state events use the
 below-player collision trigger, so neither event blocks movement and the state

@@ -4,7 +4,10 @@
 .dev-data
 .pfb
 bin
-web
+web/**
+!web/public
+!web/public/runtime-isolation
+!web/public/runtime-isolation/**
 testdata
 data/runtime
 data/runtime-providers/active.json
@@ -21,3 +24,6 @@ data/dat/emulatorjs/*/mame2003_plus/*.xml
 data/dat/mame-current/*/*.xml
 **/__pycache__
 **/*.pyc
+internal/httpapi/generated/models.gen.go
+internal/httpapi/generated/server.gen.go
+internal/httpapi/generated/spec.gen.go

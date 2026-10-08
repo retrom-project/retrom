@@ -52,9 +52,30 @@ const confirmDialogDefaults = {
 export function ConfirmDialog(input: ConfirmDialogProps) {
   const props = { ...confirmDialogDefaults, ...input };
   const {
-    busy, cancelLabel, children, confirmDisabled, confirmLabel, description, dialogClassName, hideCancel, interactionDisabled, leadingBusy,
-    leadingBusyLabel, leadingDisabled, leadingLabel, onCancel, onConfirm, onLeading, onSecondary, open,
-    portalToBody, role, secondaryLabel, title, tone, wide,
+    busy,
+    cancelLabel,
+    children,
+    confirmDisabled,
+    confirmLabel,
+    description,
+    dialogClassName,
+    hideCancel,
+    interactionDisabled,
+    leadingBusy,
+    leadingBusyLabel,
+    leadingDisabled,
+    leadingLabel,
+    onCancel,
+    onConfirm,
+    onLeading,
+    onSecondary,
+    open,
+    portalToBody,
+    role,
+    secondaryLabel,
+    title,
+    tone,
+    wide,
   } = props;
   const titleId = useId();
   const descriptionId = useId();
@@ -62,15 +83,25 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const locked = busy || leadingBusy || interactionDisabled;
 
-  useModalFocus({ open, locked, panel: dialogRef, initial: cancelRef, onCancel });
+  useModalFocus({
+    open,
+    locked,
+    panel: dialogRef,
+    initial: cancelRef,
+    onCancel,
+  });
 
-  if (!open) {return null;}
+  if (!open) {
+    return null;
+  }
 
   const layer = (
     <div
       className="dialog-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !locked) {onCancel();}
+        if (event.target === event.currentTarget && !locked) {
+          onCancel();
+        }
       }}
     >
       <section
@@ -83,7 +114,9 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
         aria-describedby={description ? descriptionId : undefined}
       >
         <div className="dialog-copy">
-          <span className="dialog-mark" aria-hidden="true">{tone === "danger" ? "!" : "i"}</span>
+          <span className="dialog-mark" aria-hidden="true">
+            {tone === "danger" ? "!" : "i"}
+          </span>
           <div>
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
@@ -91,8 +124,24 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
         </div>
         {children ? <div className="dialog-impact">{children}</div> : null}
         <DialogActions
-          {...{ busy, cancelLabel, confirmDisabled, confirmLabel, hideCancel, leadingBusy, leadingBusyLabel,
-            leadingDisabled, leadingLabel, locked, onCancel, onConfirm, onLeading, onSecondary, secondaryLabel, tone }}
+          {...{
+            busy,
+            cancelLabel,
+            confirmDisabled,
+            confirmLabel,
+            hideCancel,
+            leadingBusy,
+            leadingBusyLabel,
+            leadingDisabled,
+            leadingLabel,
+            locked,
+            onCancel,
+            onConfirm,
+            onLeading,
+            onSecondary,
+            secondaryLabel,
+            tone,
+          }}
           cancelRef={cancelRef}
         />
       </section>
@@ -101,21 +150,86 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
   return portalToBody ? createPortal(layer, document.body) : layer;
 }
 
-type DialogActionsProps = Pick<ConfirmDialogProps,
-  "busy" | "cancelLabel" | "confirmDisabled" | "confirmLabel" | "hideCancel" | "leadingBusy" |
-  "leadingBusyLabel" | "leadingDisabled" | "leadingLabel" | "onCancel" | "onConfirm" | "onLeading" |
-  "onSecondary" | "secondaryLabel" | "tone"
+type DialogActionsProps = Pick<
+  ConfirmDialogProps,
+  | "busy"
+  | "cancelLabel"
+  | "confirmDisabled"
+  | "confirmLabel"
+  | "hideCancel"
+  | "leadingBusy"
+  | "leadingBusyLabel"
+  | "leadingDisabled"
+  | "leadingLabel"
+  | "onCancel"
+  | "onConfirm"
+  | "onLeading"
+  | "onSecondary"
+  | "secondaryLabel"
+  | "tone"
 > & { cancelRef: RefObject<HTMLButtonElement | null>; locked: boolean };
 
 function DialogActions(props: DialogActionsProps) {
   const {
-    busy, cancelLabel, cancelRef, confirmDisabled, confirmLabel, hideCancel, leadingBusy, leadingBusyLabel,
-    leadingDisabled, leadingLabel, locked, onCancel, onConfirm, onLeading, onSecondary, secondaryLabel, tone,
+    busy,
+    cancelLabel,
+    cancelRef,
+    confirmDisabled,
+    confirmLabel,
+    hideCancel,
+    leadingBusy,
+    leadingBusyLabel,
+    leadingDisabled,
+    leadingLabel,
+    locked,
+    onCancel,
+    onConfirm,
+    onLeading,
+    onSecondary,
+    secondaryLabel,
+    tone,
   } = props;
-  return <div className="dialog-actions">
-    {leadingLabel && onLeading ? <button className="button secondary dialog-leading-action" type="button" disabled={locked || leadingDisabled} onClick={onLeading}>{leadingBusy ? leadingBusyLabel : leadingLabel}</button> : null}
-    {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" disabled={locked} onClick={onCancel}>{cancelLabel}</button>}
-    {secondaryLabel && onSecondary ? <button className="button secondary" type="button" disabled={locked} onClick={onSecondary}>{secondaryLabel}</button> : null}
-    <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={locked || confirmDisabled} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
-  </div>;
+  return (
+    <div className="dialog-actions">
+      {leadingLabel && onLeading ? (
+        <button
+          className="button secondary dialog-leading-action"
+          type="button"
+          disabled={locked || leadingDisabled}
+          onClick={onLeading}
+        >
+          {leadingBusy ? leadingBusyLabel : leadingLabel}
+        </button>
+      ) : null}
+      {hideCancel ? null : (
+        <button
+          ref={cancelRef}
+          className="button secondary"
+          type="button"
+          disabled={locked}
+          onClick={onCancel}
+        >
+          {cancelLabel}
+        </button>
+      )}
+      {secondaryLabel && onSecondary ? (
+        <button
+          className="button secondary"
+          type="button"
+          disabled={locked}
+          onClick={onSecondary}
+        >
+          {secondaryLabel}
+        </button>
+      ) : null}
+      <button
+        className={`button${tone === "danger" ? " danger" : ""}`}
+        type="button"
+        disabled={locked || confirmDisabled}
+        onClick={onConfirm}
+      >
+        {busy ? "处理中…" : confirmLabel}
+      </button>
+    </div>
+  );
 }

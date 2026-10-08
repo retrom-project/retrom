@@ -70,7 +70,7 @@ func TestParseProjectsDocumentGamesFieldsAndAssets(t *testing.T) {
 	if game.Ordinal != 1 || game.Path != "roms/demo.gba" || game.BlockedCode != "" {
 		t.Fatalf("game identity = %#v", game)
 	}
-	wantPlayers, wantYear := 4, 2024
+	wantPlayers, wantYear := "1-4", 2024
 	wantMetadata := Metadata{
 		SchemaVersion: 1, Title: "Demo & Test", Description: "first\nsecond", Developer: "Dev",
 		Publisher: "Pub", Genre: "Action", Players: &wantPlayers, ReleaseYear: &wantYear,
@@ -88,7 +88,6 @@ func TestParseProjectsDocumentGamesFieldsAndAssets(t *testing.T) {
 	if !reflect.DeepEqual(game.Assets, wantAssets) {
 		t.Fatalf("assets = %#v", game.Assets)
 	}
-	assertWarning(t, game.Warnings, WarningPlayerRange, "players")
 	assertWarning(t, game.Warnings, WarningFieldIgnored, "game/@id")
 	assertWarning(t, game.Warnings, WarningFieldIgnored, "game/@source")
 	assertStringsEqual(t, document.IgnoredFields, []string{"future", "game/@id", "game/@source"})

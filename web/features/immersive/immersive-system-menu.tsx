@@ -1,5 +1,6 @@
 "use client";
 
+import { useModalFocus } from "@/components/modal-focus";
 import { useEffect, useRef } from "react";
 import type { ImmersiveAudioPreferences } from "./immersive-audio-preferences";
 import {
@@ -65,9 +66,11 @@ export function ImmersiveSystemMenu({ announcement, fullscreenActive, fullscreen
   onSelect: (index: number) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  useModalFocus({ open: true, locked: false, panel, initial: selectedRef, onCancel: onClose });
   useEffect(() => selectedRef.current?.focus(), [selectedIndex]);
   return <div className={styles.backdrop}>
-    <section className={styles.menu} role="dialog" aria-modal="true" aria-labelledby="immersive-system-menu-title" aria-describedby="immersive-system-menu-description">
+    <section ref={panel} tabIndex={-1} className={styles.menu} role="dialog" aria-modal="true" aria-labelledby="immersive-system-menu-title" aria-describedby="immersive-system-menu-description">
       <header><p>RETROM</p><h2 id="immersive-system-menu-title">系统菜单</h2><span id="immersive-system-menu-description">调整沉浸模式的声音与显示</span></header>
       <div className={styles.options} role="group" aria-label="系统菜单选项">
         {immersiveSystemMenuItems.map((item, index) => <div

@@ -1,6 +1,7 @@
 "use client";
 
 import {useCallback, useEffect, useRef, useState, type FormEvent, type UIEvent} from "react";
+import {useModalFocus} from "@/components/modal-focus";
 import type {RuntimeGameEditEventV1, RuntimeGameEditMapV1, RuntimeGameEditSelfSwitchKeyV1,
   RuntimeGameEditorV1} from "./runtime/contract";
 
@@ -137,8 +138,12 @@ function GameEditorMapPicker({mapName, mapId, currentMapId, open, setOpen, query
   busy: boolean; error: boolean; onScroll: (event: UIEvent<HTMLDivElement>) => void;
   onSelect: (map: RuntimeGameEditMapV1) => void; onRetry: () => void;
 }) {
-  return <div className="game-editor-map-picker"><span>地图</span><button className="button secondary" type="button" aria-expanded={open} aria-controls="game-editor-map-options" onClick={() => setOpen((value) => !value)}>{mapName || "读取中…"}{mapId === currentMapId ? " · 当前地图" : ""} ▾</button>
-    {open ? <div id="game-editor-map-options" className="game-editor-map-options" onKeyDown={(event) => {if (event.key === "Escape") {event.stopPropagation(); setOpen(false);}}}><input type="search" aria-label="查找地图" placeholder="按地图名称或编号查找" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="game-editor-map-results" onScroll={onScroll}>{maps.map((map) => <button key={map.id} className="button secondary" type="button" aria-label={`${map.label} · 地图 #${map.id}${map.id === currentMapId ? " · 当前" : ""}`} aria-current={map.id === mapId ? "true" : undefined} onClick={() => onSelect(map)}><span>{map.label}</span><small>地图 #{map.id}{map.id === currentMapId ? " · 当前" : ""}</small></button>)}{busy ? <p>正在读取地图…</p> : error ? <p role="alert">地图读取失败。<button className="button secondary" type="button" onClick={onRetry}>重试</button></p> : maps.length === 0 ? <p>没有找到地图。</p> : null}</div></div> : null}
+  const panel = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  useModalFocus({ open, locked: false, panel, initial: search, returnTo: trigger, onCancel: () => setOpen(false) });
+  return <div className="game-editor-map-picker"><span>地图</span><button ref={trigger} className="button secondary" type="button" aria-expanded={open} aria-controls="game-editor-map-options" onClick={() => setOpen((value) => !value)}>{mapName || "读取中…"}{mapId === currentMapId ? " · 当前地图" : ""} ▾</button>
+    {open ? <div ref={panel} id="game-editor-map-options" className="game-editor-map-options" role="dialog" aria-modal="true" aria-label="选择地图" tabIndex={-1}><input ref={search} type="search" aria-label="查找地图" placeholder="按地图名称或编号查找" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="game-editor-map-results" onScroll={onScroll}>{maps.map((map) => <button key={map.id} className="button secondary" type="button" aria-label={`${map.label} · 地图 #${map.id}${map.id === currentMapId ? " · 当前" : ""}`} aria-current={map.id === mapId ? "true" : undefined} onClick={() => onSelect(map)}><span>{map.label}</span><small>地图 #{map.id}{map.id === currentMapId ? " · 当前" : ""}</small></button>)}{busy ? <p>正在读取地图…</p> : error ? <p role="alert">地图读取失败。<button className="button secondary" type="button" onClick={onRetry}>重试</button></p> : maps.length === 0 ? <p>没有找到地图。</p> : null}</div></div> : null}
   </div>;
 }
 
@@ -148,5 +153,5 @@ function GameEditorSelfSwitchEvent({event, onToggle}: {
 }) {
   const [pending, setPending] = useState<RuntimeGameEditSelfSwitchKeyV1 | null>(null);
   const usedKeys = KEYS.filter((key) => event.pageUses.some((use) => use.key === key));
-  return <article className="game-editor-self-switch-event"><div><strong>{event.label}</strong><small>事件 #{event.id} · 坐标 {event.x}, {event.y}</small></div><div className="game-editor-self-switch-uses">{usedKeys.map((key) => <div className="game-editor-self-switch-use" key={key}><div>{event.pageUses.filter((use) => use.key === key).map((use) => <small key={use.page}>第 {use.page} 页 · 此开关条件{event.switches[key] ? "已满足" : "未满足"} · {use.summary}</small>)}</div><button className={`button secondary${event.switches[key] ? " is-active" : ""}`} type="button" disabled={pending !== null} aria-label={`${event.label} 独立开关 ${key}，当前${event.switches[key] ? "开启" : "关闭"}，点击${event.switches[key] ? "关闭" : "开启"}`} onClick={() => {setPending(key); void onToggle(event, key).finally(() => setPending(null));}}>{key} · {event.switches[key] ? "开" : "关"}</button></div>)}</div></article>;
+  return <article className="game-editor-self-switch-event"><div><strong>{event.label}</strong><small>事件 #{event.id} · 坐标 {event.x}, {event.y}</small></div><div className="game-editor-self-switch-uses">{usedKeys.map((key) => <div className="game-editor-self-switch-use" key={key}><div>{event.pageUses.filter((use) => use.key === key).map((use) => <small key={use.page}>第 {use.page} 页 · 此开关条件{event.switches[key] ? "已满足" : "未满足"} · {use.summary}</small>)}</div><button className={`button${event.switches[key] ? "" : " secondary"}`} aria-pressed={event.switches[key]} type="button" disabled={pending !== null} aria-label={`${event.label} 独立开关 ${key}，当前${event.switches[key] ? "开启" : "关闭"}，点击${event.switches[key] ? "关闭" : "开启"}`} onClick={() => {setPending(key); void onToggle(event, key).finally(() => setPending(null));}}>{key} · {event.switches[key] ? "开" : "关"}</button></div>)}</div></article>;
 }

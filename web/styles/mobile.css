@@ -4,6 +4,8 @@
 
 .responsive-sheet-layer { position: fixed; z-index: 220; inset: 0; }
 .responsive-sheet-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: rgb(12 17 28 / 58%); cursor: default; backdrop-filter: blur(3px); }
+.responsive-sheet-layer[data-placement="left"] .responsive-sheet-backdrop,
+.responsive-sheet-layer[data-placement="right"] .responsive-sheet-backdrop { background: rgb(17 23 39 / 40%); backdrop-filter: none; }
 .responsive-sheet { position: absolute; min-width: 0; overflow: hidden; display: flex; flex-direction: column; color: var(--ink); border: 1px solid var(--line); background: var(--surface-raised); box-shadow: 0 24px 70px rgb(12 17 28 / 28%); }
 .responsive-sheet-bottom { right: 0; bottom: 0; left: 0; max-height: 88dvh; border-width: 1px 0 0; border-radius: var(--radius-dialog) var(--radius-dialog) 0 0; padding-bottom: env(safe-area-inset-bottom); }
 .responsive-sheet-left { top: 0; bottom: 0; left: 0; width: min(320px, 88vw); height: 100dvh; border-width: 0 1px 0 0; }
@@ -82,13 +84,6 @@
   .import-priority-grid,
   .review-workflow-columns,
   .review-workflow-top { grid-template-columns: minmax(0, 1fr); }
-  .import-pipeline,
-  .import-recent-list article { min-width: 0; }
-  .import-pipeline { grid-template-columns: repeat(5, minmax(110px, 1fr)); }
-  .import-pipeline-panel,
-  .import-recent-panel { max-width: 100%; overflow-x: auto; }
-  .import-pipeline-panel .import-pipeline { min-width: 680px; }
-  .import-recent-panel .import-recent-list { min-width: 720px; }
   .library-game-grid,
   .favorite-game-grid,
   .admin-game-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -97,12 +92,10 @@
   .admin-game-card { width: auto; min-width: 0; }
   .drawer-backdrop,
   .runtime-drawer-backdrop,
-  .platform-drawer-backdrop,
-  .review-multidisc-drawer-backdrop { z-index: 205; }
+  .platform-drawer-backdrop { z-index: 205; }
   .app-drawer,
   .runtime-drawer,
-  .platform-drawer,
-  .review-multidisc-drawer { z-index: 206; width: min(520px, 90vw); max-width: 100%; }
+  .platform-drawer { z-index: 206; width: min(520px, 90vw); max-width: 100%; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -191,8 +184,7 @@
 
   .app-drawer,
   .runtime-drawer,
-  .platform-drawer,
-  .review-multidisc-drawer { inset: 0; width: 100%; height: 100dvh; border: 0; }
+  .platform-drawer { inset: 0; width: 100%; height: 100dvh; border: 0; }
   .app-drawer > header,
   .runtime-drawer > header,
   .platform-drawer header { padding: calc(16px + env(safe-area-inset-top)) 16px 14px; }
@@ -232,43 +224,21 @@
   .server-root-options,
   .source-scan-summary,
   .source-collection-list article,
-  .server-import-result-filters,
-  .server-import-result-filters.source-result-filters,
   .source-runtime-diagnostic-body > dl,
   .source-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
 
   .import-priority-grid article,
   .import-selected-summary,
-  .server-import-detail-head,
   .source-review-callout { align-items: flex-start; flex-direction: column; }
-  .import-priority-grid article > div:last-child,
-  .server-import-detail-head > div:last-child { width: 100%; justify-items: start; justify-content: flex-start; }
-  .import-pipeline-panel,
-  .import-recent-panel { overflow-x: auto; }
-  .import-pipeline-panel .import-pipeline { min-width: 620px; }
-  .import-recent-panel .import-recent-list { min-width: 0; }
-  .import-recent-list article { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .import-priority-grid article > div:last-child { width: 100%; justify-items: start; justify-content: flex-start; }
   .import-wizard-steps { overflow-x: auto; }
   .import-dropzone { min-height: 220px; }
   .import-dropzone > div { padding: 22px 16px; }
   .import-stage-actions { align-items: stretch; flex-direction: column; }
   .import-stage-actions > span { margin-right: 0; }
   .import-stage-actions > * { width: 100%; }
-  .import-task-list,
   .review-workflow-list,
-  .import-task-entry,
-  .review-workflow-row,
-  .import-task-card { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .import-task-card > .status { justify-self: start; }
-  .import-task-main h3,
-  .import-task-multidisc strong { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
-  .import-task-actions,
-  .import-task-problem { align-items: stretch; flex-direction: column; }
-  .import-task-actions .button,
-  .import-task-problem .button { width: 100%; min-width: 0; flex-basis: auto; }
-  .import-task-stages { overflow-x: auto; grid-template-columns: repeat(6, minmax(108px, 1fr)); }
-  .import-task-multidisc > article { grid-template-columns: minmax(0, 1fr); }
-  .import-task-no-ignored { justify-self: start; }
+  .review-workflow-row { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 
   .review-workflow-row { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .review-workflow-detail { display: flex; flex-direction: column; }
@@ -346,8 +316,7 @@
   .platform-directory-menu { position: fixed; z-index: 232; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); left: 16px; top: auto; width: auto; }
   .platform-directory-menu button { min-height: 48px; }
 
-  .runtime-kpis { overflow-x: auto; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; scroll-snap-type: x proximity; }
-  .runtime-kpis article { scroll-snap-align: start; }
+  .runtime-kpis { overflow-x: auto; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; }
   .runtime-list { overflow: visible; border: 0; background: transparent; }
   .runtime-bios-row,
   .runtime-dat-row { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
@@ -372,11 +341,8 @@
   .runtime-diff-table td::before { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
   .bios-entry-comparison { grid-template-columns: minmax(0, 1fr); }
 
-  .server-import-result-table,
   .source-result-table { overflow: visible; border: 0; background: transparent; }
-  .server-import-result-table > article,
   .source-result-table > article { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
-  .server-import-result-table strong,
   .source-result-table h3 { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
   .source-collection-list { max-height: none; }
   .source-review-table > div { align-items: flex-start; flex-direction: column; }
@@ -397,15 +363,8 @@
   .invitation-list td { height: auto; min-width: 0; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; text-align: right; overflow-wrap: anywhere; }
   .user-table td:first-child,
   .invitation-list td:first-child { padding-bottom: 8px; display: grid; justify-content: start; text-align: left; border-bottom: 1px solid var(--line); }
-  .user-table td:nth-child(2)::before { content: "角色"; }
-  .user-table td:nth-child(3)::before { content: "状态"; }
-  .user-table td:nth-child(4)::before { content: "最近登录"; }
-  .user-table td:nth-child(5)::before { content: "创建时间"; }
-  .user-table td:nth-child(6)::before { content: "活跃会话"; }
-  .invitation-list td:nth-child(2)::before { content: "创建者"; }
-  .invitation-list td:nth-child(3)::before { content: "创建时间"; }
-  .invitation-list td:nth-child(4)::before { content: "到期时间"; }
-  .invitation-list td:nth-child(5)::before { content: "状态"; }
+  .user-table td:not(:first-child)::before,
+  .invitation-list td:not(:first-child)::before { content: attr(data-label); }
   .user-table td::before,
   .invitation-list td::before { color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
   .user-table td:last-child,
@@ -463,8 +422,8 @@
   .library-desktop-filter { display: none; }
   .library-mobile-filter-trigger { min-width: var(--control-height); min-height: var(--control-height); padding-inline: 12px; display: inline-flex; box-shadow: none; font-size: var(--text-icon-only); }
   .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
-  .library-platform-row { margin-top: 10px; padding-top: 10px; scroll-snap-type: x proximity; }
-  .library-platform-row button { min-height: 44px; scroll-snap-align: start; }
+  .library-platform-row { margin-top: 10px; padding-top: 10px; }
+  .library-platform-row button { min-height: 44px; }
   .library-platform-label { display: none; }
   .library-result-count { padding-left: 8px; }
   .library-section-head { align-items: flex-start; }
@@ -502,7 +461,7 @@
   .save-latest-actions { padding: 16px; }
   .save-library-toolbar { padding: 12px; grid-template-columns: minmax(0, 1fr); }
   .save-library-toolbar > p { margin-top: 0; text-align: left; }
-  .save-library-group-head { padding: 14px; align-items: flex-start; flex-direction: column; }
+  .save-library-group-head { padding: 14px; align-items: stretch; flex-direction: column; }
   .save-library-group-meta { width: 100%; flex-wrap: wrap; gap: 8px 14px; white-space: normal; }
   .save-library-group-meta a { min-height: 44px; display: inline-flex; align-items: center; }
   .save-library-grid { padding: 12px; grid-template-columns: minmax(0, 1fr); }
@@ -523,8 +482,8 @@
   .favorite-rail nav button { min-height: 44px; }
   .favorite-new-folder { min-height: 44px; }
   .favorite-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; scroll-snap-type: x proximity; }
-  .favorite-platforms button { min-height: 44px; scroll-snap-align: start; }
+  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; }
+  .favorite-platforms button { min-height: 44px; }
   .favorite-platforms .favorite-result-count { margin-left: 0; }
   .favorite-game-cover > a > span:last-child:not(.favorite-poster) { opacity: 1; padding: 9px; justify-content: flex-start; background: linear-gradient(transparent 72%, rgb(7 10 18 / 82%)); }
   .favorite-game-body { min-height: 78px; }

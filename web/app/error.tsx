@@ -1,5 +1,11 @@
 "use client";
-
-export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <section className="empty page-error"><span aria-hidden="true">!</span><h1>暂时无法读取数据</h1><p>后端服务可能仍在启动，请稍后重试。</p><button className="button" onClick={reset}>重新加载</button></section>;
+export default function ErrorPage({ reset }: { reset: () => void }) {
+  return (
+    <div className="empty" role="alert">
+      <h1>页面加载失败</h1>
+      <button className="button" onClick={reset}>
+        重试
+      </button>
+    </div>
+  );
 }

@@ -1,4 +1,4 @@
-const platformArtwork: Readonly<Record<string, string>> = {
+export const platformArtwork: Readonly<Record<string, string>> = {
   "3do": "3do",
   "amiga": "amiga",
   "amigacd32": "amigacd32",

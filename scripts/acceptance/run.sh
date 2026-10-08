@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec python3 "$repository_root/scripts/acceptance/run.py" "$@"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+exec "$root/.cache/tools/postgres-python/bin/python3" "$root/scripts/acceptance/browser.py" "$@"

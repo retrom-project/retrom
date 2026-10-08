@@ -4,43 +4,6 @@
  */
 
 export interface paths {
-    "/api/v1/web-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Non-secret effective configuration for server-rendered document security policy. Available before account initialization; never cached. */
-        get: operations["getWebConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/import-batches/{kind}/{importId}/discard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: "IMPORT" | "SOURCE";
-                importId: string;
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminImportBatchDiscard"];
-        put?: never;
-        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games retain their independently owned files. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Domain cleanup and immediate file deletion use durable workers. */
-        post: operations["postAdminImportBatchDiscard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -48,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getHealthLive"];
+        get: operations["HealthLive"];
         put?: never;
         post?: never;
         delete?: never;
@@ -64,7 +27,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getHealthReady"];
+        get: operations["HealthReady"];
         put?: never;
         post?: never;
         delete?: never;
@@ -80,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getAuthContext"];
+        get: operations["GetAuthContext"];
         put?: never;
         post?: never;
         delete?: never;
@@ -98,7 +61,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthInitialize"];
+        post: operations["Initialize"];
         delete?: never;
         options?: never;
         head?: never;
@@ -114,7 +77,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthLogin"];
+        post: operations["Login"];
         delete?: never;
         options?: never;
         head?: never;
@@ -130,7 +93,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthLogout"];
+        post: operations["Logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -146,8 +109,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Changes the password of the current authenticated account. An incorrect current password returns 422 CURRENT_PASSWORD_INVALID without revoking the session; only AUTHENTICATION_REQUIRED indicates a missing or invalid account session. */
-        post: operations["postAuthChangePassword"];
+        post: operations["ChangePassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -163,7 +125,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthAccountLinkInspect"];
+        post: operations["InspectAccountLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -179,7 +141,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthInvitationAccept"];
+        post: operations["AcceptInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -195,7 +157,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postAuthPasswordResetComplete"];
+        post: operations["CompletePasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -209,9 +171,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminInvitations"];
+        get?: never;
         put?: never;
-        post: operations["postAdminInvitation"];
+        post: operations["CreateInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -225,7 +187,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminUsers"];
+        get: operations["ListUsers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -238,32 +200,28 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
+            path?: never;
             cookie?: never;
         };
-        get: operations["getAdminUser"];
+        get?: never;
         put?: never;
         post?: never;
-        delete: operations["deleteAdminUser"];
+        delete?: never;
         options?: never;
         head?: never;
-        patch: operations["patchAdminUser"];
+        patch: operations["UpdateUser"];
         trace?: never;
     };
     "/api/v1/admin/users/{userId}/password-reset-links": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
+            path?: never;
             cookie?: never;
         };
-        get: operations["getAdminUserPasswordResetLinks"];
+        get?: never;
         put?: never;
-        post: operations["postAdminUserPasswordResetLink"];
+        post: operations["CreatePasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -274,29 +232,26 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                accountLinkId: components["parameters"]["AccountLinkID"];
-            };
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["deleteAdminAccountLink"];
+        delete: operations["RevokeAccountLink"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/home": {
+    "/api/v1/runtime/catalog": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Homepage aggregate from enabled platform directories. It includes library counters, up to ten recently played games excluding the featured game, the ten most recently added published games ordered by game creation time, the latest started session's game (including its current full description string, empty when unset) with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
-        get: operations["getHome"];
+        get: operations["GetRuntimeCatalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -305,1110 +260,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/recent-games": {
+    "/api/v1/platform-instances": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Cursor-paginated Profile-scoped play history including deleted-game tombstones. Default 50 and maximum 100 games per page, read from transactional per-game activity summaries. Supports server-side search, platform, rolling-window cutoff, and deterministic recent/title/duration/session sorts. First pages include global stats, complete history platform facets and filteredCount; later pages include only items, generatedAtMs and nextCursor. Cursors are bound to the Profile and all filters. */
-        get: operations["getRecentGames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/games": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Cursor-paginated published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL. The first page also includes filteredCount and complete visible-library platform, directory and active-tag facets so clients can render accurate filters without downloading every game; generatedAtMs gives relative-time labels a stable response clock. */
-        get: operations["getGames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/games/{gameId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        /** @description Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current game's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
-        get: operations["getGame"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/immersive/platforms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns visible base platforms with shared-library counts and up to three cover previews ordered by the authenticated Profile's recent play history, then recent additions. */
-        get: operations["getImmersivePlatforms"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/immersive/platforms/{platformId}/games": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platformId: components["parameters"]["PlatformID"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected from each game's current state, and play history is isolated to the authenticated Profile. */
-        get: operations["getImmersivePlatformGames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/immersive/destinations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns the four Profile-scoped library destinations first, followed by visible base platforms. Counts, recent-play clocks and cover previews are read from one snapshot. */
-        get: operations["getImmersiveDestinations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/immersive/libraries/{libraryKind}/games": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                libraryKind: components["parameters"]["ImmersiveLibraryKind"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns the authenticated Profile's all, recent, favorite or saved games. Only recent is ordered by play time; the other scopes use the persisted title initial, title and game id. Favorite folders are available only for the favorites scope. */
-        get: operations["getImmersiveLibraryGames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns the authenticated Profile's visible favorites, derived counts, folders and platform summary from one read transaction. */
-        get: operations["getFavorites"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites/{gameId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Idempotently favorites one currently visible game without changing an existing favoritedAtMs. */
-        put: operations["putFavorite"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites/{gameId}/folders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Atomically replaces the complete favorite-folder set for one visible game and favorites it when necessary. */
-        put: operations["putFavoriteFolders"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites/organize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postFavoriteOrganize"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites/unfavorite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postFavoriteUnfavorite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorites/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postFavoriteRestore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorite-folders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postFavoriteFolder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/favorite-folders/{folderId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                folderId: components["parameters"]["FavoriteFolderID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteFavoriteFolder"];
-        options?: never;
-        head?: never;
-        patch: operations["patchFavoriteFolder"];
-        trace?: never;
-    };
-    "/api/v1/saves": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. Native data slots include nullable lastSyncedAtMs; ordering and cursor times use lastSyncedAtMs when present, otherwise createdAtMs. */
-        get: operations["getSaves"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/saves/{saveStateId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saveStateId: components["parameters"]["SaveStateID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteSave"];
-        options?: never;
-        head?: never;
-        patch: operations["patchSave"];
-        trace?: never;
-    };
-    "/api/v1/launches/{launchId}/local-save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply. */
-        post: operations["postLocalGameSave"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/launches": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Creates a launch only for a published game in an enabled platform directory. */
-        post: operations["postLaunch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/uploads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminUpload"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/uploads/{uploadId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminUpload"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminUpload"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-                fileId: components["parameters"]["FileID"];
-                partNo: components["parameters"]["PartNo"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["putAdminUploadPart"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/uploads/{uploadId}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Atomically freezes this finalization round and queues an UPLOAD_FINALIZE job. Invalid or stale upload state returns 409; persistence failures return 500 and preserve their original server-side cause. */
-        post: operations["postAdminUploadComplete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description User-visible import overview. Browser/reconfigure ImportJobs, organized source imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
-        get: operations["getAdminImportsSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by organized source review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/source-imports`. */
-        get: operations["getAdminImports"];
-        put?: never;
-        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, independent file materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
-        post: operations["postAdminImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports/{importJobId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminImport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports/{importJobId}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminImportEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports/{importJobId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminImportCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/imports/{importJobId}/reconfigure": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminImportReconfigure"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/import-items/{importItemId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminImportItemRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/jobs/{jobId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminJob"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/jobs/{jobId}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminJobEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/jobs/{jobId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Cancel current work by jobId; no client version or execution precondition. Repeated cancellation is idempotent. */
-        post: operations["postAdminJobCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/jobs/{jobId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminJobRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/SOURCE source identity for compact queue previews. */
-        get: operations["getAdminReviews"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/deduplicate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Discards pending reviews matching published content within the filtered scope, at most 50 scanned items per request. Continue with the returned cursor and upper bound until nextAfterItemId is null. Active attachments are skipped; published games are preserved. */
-        post: operations["postAdminReviewDeduplicate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Starts one bounded, global pending-review scan. Each item is rechecked before publication. */
-        post: operations["postAdminReviewBulkApproval"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getActiveAdminReviewBulkApproval"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminReviewBulkApproval"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns the review workspace with readiness computed from current runtime requirements, installed BIOS, and source content. Reading does not change the draft version. */
-        get: operations["getAdminReview"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["patchAdminReview"];
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/scrape-candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminReviewScrapeCandidates"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Validates a completed local cover (PNG/JPEG/WebP, 10 MiB) or video (MP4/WebM, 256 MiB) upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH. */
-        post: operations["postAdminReviewAsset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/previews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. The session freezes the concrete resources resolved at creation. An administrator can save a screenshot associated with the review item and use it to publish despite supported dependency blockers. */
-        post: operations["postAdminReviewPreview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/arcade-parent-attachments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review item's current Arcade DAT closure. */
-        post: operations["postAdminReviewArcadeParentAttachment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/multi-disc-attachments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Queues validation of one completed FILES upload containing exactly every currently missing CHD. */
-        post: operations["postAdminReviewMultiDiscAttachment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Freezes an eligible review decision and Game UUID, moves the prepared directory, then commits the game. Interrupted publication resumes from the PUBLISHING item; retries after publication return the same Game UUID. A blocked validation requires a matching review screenshot for explicit override, recorded in the published Variant compatibility code. */
-        post: operations["postAdminReviewApprove"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/reviews/{importItemId}/discard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminReviewDiscard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/tags": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Lists instance-wide administrator-managed tags and current or historical usage counts. */
-        get: operations["getAdminTags"];
-        put?: never;
-        post: operations["postAdminTag"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/tags/defaults": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Atomically creates every missing tag from the editable common-tag template and leaves existing active tags unchanged. */
-        post: operations["postAdminTagDefaults"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/tags/{tagId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                tagId: components["parameters"]["TagID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminTag"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminTag"];
-        options?: never;
-        head?: never;
-        patch: operations["patchAdminTag"];
-        trace?: never;
-    };
-    "/api/v1/admin/games": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination. The first page includes complete admin facets, filteredCount and global summary counters; subsequent pages omit these aggregates. Search includes title, tags, platform, directory and recommended core. */
-        get: operations["getAdminGames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns the current management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation. */
-        get: operations["getAdminGame"];
-        put?: never;
-        post?: never;
-        /** @description Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection. */
-        delete: operations["deleteAdminGame"];
-        options?: never;
-        head?: never;
-        patch: operations["patchAdminGame"];
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/tags": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["putAdminGameTags"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Replaces the selected current media slot and queues newly unreferenced payload for asynchronous GC. */
-        post: operations["postAdminGameAsset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/assets/{assetKind}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-                assetKind: components["parameters"]["GameAssetKind"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** @description Removes the selected media kind from the game's current media set and queues newly unreferenced payload for asynchronous GC. */
-        delete: operations["deleteAdminGameAsset"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/content-replacement": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Schedules an atomic complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch updates current game files and the current variant together while preserving saves; a failed replacement changes neither. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair. */
-        post: operations["postAdminGameContentReplacement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/scrape-candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns the latest completed candidate batch for the game's current content, including metadata, evidence, hit counts, and media assets. The required evidenceCount integer is the number of eligible file hashes in that run (zero when no run exists); zero means no provider lookup was attempted. */
-        get: operations["getAdminGameScrapeCandidates"];
-        put?: never;
-        /** @description Schedules a lookup from current content. Returns 409 METADATA_ARCHIVE_INDEX_MISSING when an Arcade main archive lacks its required member index, 409 VERSION_CONFLICT for stale content, and 500 for unexpected storage failures. Missing indexes roll back scheduling and preserve the previous result and game version. */
-        post: operations["postAdminGameScrapeCandidates"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-                candidateId: components["parameters"]["CandidateID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminGameScrapeCandidateApply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/move-preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminGameMovePreview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/games/{gameId}/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminGameMove"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/platforms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The platform/core catalog with the enabled state of each active Provider Target. */
-        get: operations["getAdminPlatforms"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/runtime-targets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminRuntimeTargets"];
+        get: operations["ListDirectories"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1424,34 +283,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Platform directory summaries ordered by createdAtMs ascending, then id ascending; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core. */
-        get: operations["getAdminPlatformInstances"];
+        get: operations["ListAdminDirectories"];
         put?: never;
-        post: operations["postAdminPlatformInstance"];
+        post: operations["CreateDirectory"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/platform-instances/recommendations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns the versioned code catalog and its current coverage without creating or changing directories. */
-        get: operations["getAdminPlatformInstanceRecommendations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/platform-instances/recommendations/apply": {
+    "/api/v1/admin/platform-instances/{directoryId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1460,63 +301,505 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories. */
-        post: operations["postAdminPlatformInstanceRecommendationsApply"];
-        delete?: never;
+        post?: never;
+        delete: operations["DeleteDirectory"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["UpdateDirectory"];
         trace?: never;
     };
-    "/api/v1/admin/platform-instances/{platformInstanceId}": {
+    "/api/v1/home": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
+            path?: never;
             cookie?: never;
         };
-        get: operations["getAdminPlatformInstance"];
+        get: operations["GetHome"];
         put?: never;
         post?: never;
-        delete: operations["deleteAdminPlatformInstance"];
-        options?: never;
-        head?: never;
-        /** @description Updates directory fields; enabled controls user-side visibility and may be changed while the directory contains games. */
-        patch: operations["patchAdminPlatformInstance"];
-        trace?: never;
-    };
-    "/api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminPlatformDefaultCorePreview"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/platform-instances/{platformInstanceId}/default-core": {
+    "/api/v1/games": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/games/{gameId}/media/{mediaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReadGameMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAdminGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetAdminGame"];
+        put?: never;
+        post?: never;
+        delete: operations["DeleteGame"];
+        options?: never;
+        head?: never;
+        patch: operations["UpdateGame"];
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/content-replacement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["postAdminPlatformDefaultCore"];
+        post: operations["ReplaceGameContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["UploadGameMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/media/{mediaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["DeleteGameMedia"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAdminTags"];
+        put?: never;
+        post: operations["CreateTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tags/{tagId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["DeleteTag"];
+        options?: never;
+        head?: never;
+        patch: operations["UpdateTag"];
+        trace?: never;
+    };
+    "/api/v1/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListFavorites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["SetFavorite"];
+        post?: never;
+        delete: operations["RemoveFavorite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorite-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListFavoriteFolders"];
+        put?: never;
+        post: operations["CreateFavoriteFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorite-folders/{folderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["DeleteFavoriteFolder"];
+        options?: never;
+        head?: never;
+        patch: operations["UpdateFavoriteFolder"];
+        trace?: never;
+    };
+    "/api/v1/saves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListSaves"];
+        put?: never;
+        post: operations["CreateSave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/saves/{saveId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["OverwriteSave"];
+        post?: never;
+        delete: operations["DeleteSave"];
+        options?: never;
+        head?: never;
+        patch: operations["RenameSave"];
+        trace?: never;
+    };
+    "/api/v1/saves/{saveId}/payload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET returns immutable resource bytes. HEAD on this same path uses the same parameters and authorization, returns the corresponding status and response headers, and has no response body. A valid Range on HEAD returns 206 with Content-Range and the selected byte length in Content-Length, still without a body. ETag is the strong SHA-256 identity of the complete resource bytes. Optional If-Match is evaluated before Range; a nonmatching identity returns 412 with no body. */
+        get: operations["ReadSavePayload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/saves/{saveId}/screenshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReadSaveScreenshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recent-games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListRecentGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Administrator-only, CSRF-protected read-only batch of at most 100 distinct pending-game IDs. Resolves BIOS requirements via runtime without creating a Run, changing any game, or requiring launch resource readiness. Results retain request order. */
+        post: operations["ReviewReadiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["UpdateReview"];
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{gameId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApproveReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{gameId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DiscardReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/source-directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListSourceDirectories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-scans/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InspectGameSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CreateGameScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListScans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/scans/{scanId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CancelScan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1530,7 +813,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminBIOS"];
+        get: operations["ListBios"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1539,665 +822,196 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/server-import-roots": {
+    "/api/v1/admin/bios/{requirementKey}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description 管理员无需配置即可浏览服务进程可访问的文件系统；固定返回 filesystem（/）。 */
-        get: operations["getAdminServerImportRoots"];
-        put?: never;
+        get?: never;
+        put: operations["InstallBios"];
         post?: never;
-        delete?: never;
+        delete: operations["RemoveBios"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/server-import-roots/{rootId}/directories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rootId: components["parameters"]["ServerImportRootID"];
-            };
-            cookie?: never;
-        };
-        /** @description 从服务器文件系统根目录 / 浏览可读取的直接子目录，path 使用不带前导斜杠的规范相对路径。 */
-        get: operations["getAdminServerImportRootDirectories"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/server-imports": {
+    "/api/v1/admin/bios-scans": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminServerImports"];
-        put?: never;
-        post: operations["postAdminServerImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/server-imports/{serverImportId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminServerImport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-                requirementId: components["parameters"]["RequirementID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminServerImportBIOSCandidates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/server-imports/{serverImportId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
         get?: never;
         put?: never;
-        post: operations["postAdminServerImportCancel"];
+        post: operations["CreateBiosScan"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/server-imports/{serverImportId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminServerImportRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports": {
+    "/api/v1/runs": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminSourceImports"];
-        put?: never;
-        post: operations["postAdminSourceImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminSourceImport"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminSourceImport"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}/collections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminSourceImportCollections"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}/collection-mappings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["putAdminSourceImportCollectionMappings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
         get?: never;
         put?: never;
-        post: operations["postAdminSourceImportStart"];
+        post: operations["CreateRun"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/source-imports/{sourceImportId}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminSourceImportItems"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/source-imports/{sourceImportId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminSourceImportRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/bios/{requirementId}/installations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                requirementId: components["parameters"]["RequirementID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Installs or replaces the current BIOS payload. Existing saves remain associated with their game and active runtime sessions are closed before the current payload changes. */
-        post: operations["postAdminBIOSInstallation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/bios/{requirementId}/entries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                requirementId: components["parameters"]["RequirementID"];
-            };
-            cookie?: never;
-        };
-        /** @description Compare the active BIOS archive with its pinned requirement members, from core source metadata or DAT. */
-        get: operations["getAdminBIOSEntries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/diagnostics": {
+    "/api/v1/runs/{runId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminDiagnostics"];
+        get: operations["GetRun"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["StopRun"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/content/assets/{assetId}": {
+    "/api/v1/runs/{runId}/events": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                assetId: components["parameters"]["AssetID"];
-            };
-            cookie?: never;
-        };
-        /** @description Serves only an asset owned by the current published game; replaced asset IDs return 404. */
-        get: operations["getContentAsset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headContentAsset"];
-        patch?: never;
-        trace?: never;
-    };
-    "/content/save-states/{saveStateId}/screenshot": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saveStateId: components["parameters"]["SaveStateID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getSaveStateScreenshot"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headSaveStateScreenshot"];
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-assets/{assetId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assetId: components["parameters"]["AssetID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminReviewAsset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headAdminReviewAsset"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                providerId: string;
-                bundleSha256: string;
-                runtimePath: string;
-            };
-            cookie?: never;
-        };
-        /** @description Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle. Cache-Control includes no-transform so proxies preserve the declared representation, byte length and strong ETag. */
-        get: operations["getRuntimeProviderResource"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeProviderResource"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/project/{contentIdentity}/{projectPath}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
-            };
-            cookie?: never;
-        };
-        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. Only a valid static-index format may use the frozen stored index; dynamic index storage failures return INTERNAL_ERROR. */
-        get: operations["getRuntimeProjectFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeProjectFile"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/web/{contentIdentity}/{projectPath}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
-            };
-            cookie?: never;
-        };
-        /** @description Serves the authorized frozen native-web index at index.json and non-executable byte downloads at files/{logicalPath}. Bodies use attachment and sandbox headers on the app origin. Supports exact lengths, strong ETags and single byte ranges. */
-        get: operations["getRuntimeWebContent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeWebContent"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/renew": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** @description Authenticates the shared runtime cookie and an owned active Launch. After more than 12 hours, renews the same credential for 24 hours independently of login idle/absolute expiry. Explicit logout or revocation denies renewal. Extends an active product Launch without affecting other games. */
-        post: operations["renewRuntimeSession"];
+        post: operations["SendRunEvent"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/config": {
+    "/api/v1/admin/games/{gameId}/runtime-options/scummvm": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimeLaunchConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/progress": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** @description Best-effort cumulative play duration. Missing, duplicate, or reordered samples never affect launch access. */
-        post: operations["postRuntimeLaunchProgress"];
+        post: operations["IdentifyScummvm"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/finish": {
+    "/api/v1/admin/account-links": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAccountLinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/resources/{resourceId}/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET returns immutable resource bytes. HEAD on this same path uses the same parameters and authorization, returns the corresponding status and response headers, and has no response body. A valid Range on HEAD returns 206 with Content-Range and the selected byte length in Content-Length, still without a body. ETag is the strong SHA-256 identity of the complete resource bytes. Optional If-Match is evaluated before Range; a nonmatching identity returns 412 with no body. */
+        get: operations["ReadRunResource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/resources/index/{indexId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetRunResourceIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/runtime-options/dos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administrator-only read-only inspection for pending or published DOS games. Lists current archive program paths without validating the previously selected entryPath or creating a Run. */
+        get: operations["ListDOSEntryCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/runtime-options/arcade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administrator-only current Parent archive requirements for pending or published games, resolved from runtime DAT and actual archive members without preparing a Run. */
+        get: operations["GetArcadeParentOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/parents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** @description Idempotently close a review preview and revoke its content grants. Product launches cannot use this operation. */
-        post: operations["finishRuntimeReviewPreview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/player-events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records a closed, low-cardinality multi-disc Player result after validating the Launch cookie. Names, paths, hashes, and capabilities are not accepted. */
-        post: operations["postRuntimeMultiDiscPlayerEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/save-states": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Creates a product SaveState for INSTANT checkpoints, synchronizes the launch-bound mutable slot for GAME_SAVE, or replaces a review preview checkpoint. GAME_SAVE creates at most one slot for a fresh launch and updates the selected slot for restored launches; screenshot is required, identical payloads are deduplicated, and stale/deleted targets return SAVE_SYNC_CONFLICT (409). The successful response remains 201 for both creation and synchronization. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route. */
-        post: operations["postRuntimeSaveState"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/checkpoint-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        /** @description Returns the frozen checkpoint format and the most recent ordered Provider availability projection; immediate Player state remains driven by Provider events. */
-        get: operations["getRuntimeCheckpointStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/game/{contentIdentity}/{logicalName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
-            };
-            cookie?: never;
-        };
-        /** @description Streams only an active Launch content grant's exact content-addressed game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. Responses are private immutable and retain strong ETag validation. */
-        get: operations["getRuntimeGame"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeGame"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/external/{contentIdentity}/{logicalName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
-            };
-            cookie?: never;
-        };
-        /** @description Streams only an active Launch content grant's exact content-addressed BIOS or canonical disc-NNN.chd external file with the common single-Range contract. */
-        get: operations["getRuntimeExternalFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeExternalFile"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/bios/{contentIdentity}/bundle.zip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimeBIOSBundle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeBIOSBundle"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/content/parent/{contentIdentity}/bundle.zip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimeParentBundle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeParentBundle"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/state": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        /** @description Streams only the frozen binary checkpoint payload after compatibility validation; success never wraps bytes in JSON. */
-        get: operations["getRuntimeState"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeState"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/review-screenshot": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Stores one bounded PNG or JPEG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only PNG from the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds it directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route. */
-        post: operations["postRuntimeReviewScreenshot"];
+        /** @description Attach or replace a Parent archive in the same pending or published Game using its version. Runtime constructs the selected core Parent references; unrelated files, core options and publication status are retained. */
+        post: operations["UploadGameParent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2208,3144 +1022,671 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        WebConfig: {
-            /** @description Validated effective template with one complete leftmost {launchId} DNS label, including scheme and optional port. */
-            runtimeOriginTemplate: string;
-        };
-        GameScrapeCandidates: {
-            /** Format: uuid */
-            gameId: string;
-            /** Format: uuid */
-            scrapeRunId: string | null;
-            evidenceCount: number;
-            items: {
-                [key: string]: unknown;
-            }[];
-        };
-        ImportTaskList: {
-            items: components["schemas"]["ImportTaskListItem"][];
-            nextCursor: string | null;
-        };
-        ImportTaskListItem: {
-            id: string;
-            state: string;
-            platformInstanceName: string;
-            metadataProvider: string;
-            contentMode: string;
-            /** Format: int64 */
-            totalItemCount: number;
-            /** Format: int64 */
-            reviewPendingItemCount: number;
-            /** Format: int64 */
-            failedItemCount: number;
-            /** Format: int64 */
-            rejectedFileCount: number;
-            /** Format: int64 */
-            unresolvedRejectedFileCount: number;
-            /** Format: int64 */
-            alreadyImportedItemCount: number;
-            /** Format: int64 */
-            alreadyImportedFileCount: number;
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            lastErrorCode: string | null;
-            discard: components["schemas"]["ImportBatchDiscard"];
-        };
-        ImportTaskDetail: {
-            discard: components["schemas"]["ImportBatchDiscard"];
-        } & {
-            [key: string]: unknown;
-        };
-        ImportBatchDiscard: {
-            /** @enum {string} */
-            kind: "IMPORT" | "SOURCE";
-            /** Format: uuid */
-            importId: string;
-            /** @enum {string} */
-            state: "AVAILABLE" | "UNAVAILABLE" | "REQUESTED" | "COMPLETED" | "FAILED";
-            errorCode: string | null;
-        };
-        DiagnosticsSnapshot: {
-            /** @enum {integer} */
-            schemaVersion: 2;
-            /** Format: int64 */
-            generatedAtMs: number;
-            /** @enum {integer} */
-            databaseSchemaVersion: 10;
-            runtimeProviders: components["schemas"]["DiagnosticsRuntimeProvider"][];
-            counts: components["schemas"]["DiagnosticsCounts"];
-        };
-        DiagnosticsRuntimeProvider: {
-            providerId: string;
-            providerVersion: string;
-            bundleSha256: string;
-            /** @enum {string} */
-            source: "candidate" | "production";
-        };
-        DiagnosticsCounts: {
-            games: components["schemas"]["DiagnosticsGameCounts"];
-            saveStates: components["schemas"]["DiagnosticsLifecycleCounts"];
-            jobs: components["schemas"]["DiagnosticsJobCounts"];
-            datVersions: components["schemas"]["DiagnosticsDATCounts"];
-        };
-        DiagnosticsLifecycleCounts: {
-            /** Format: int64 */
-            active: number;
-            /** Format: int64 */
-            deleted: number;
-        };
-        DiagnosticsGameCounts: {
-            /** Format: int64 */
-            published: number;
-            /** Format: int64 */
-            deleted: number;
-        };
-        DiagnosticsJobCounts: {
-            /** Format: int64 */
-            queued: number;
-            /** Format: int64 */
-            running: number;
-            /** Format: int64 */
-            cancelRequested: number;
-            /** Format: int64 */
-            succeeded: number;
-            /** Format: int64 */
-            failed: number;
-            /** Format: int64 */
-            cancelled: number;
-        };
-        DiagnosticsDATCounts: {
-            /** Format: int64 */
-            pending: number;
-            /** Format: int64 */
-            parsing: number;
-            /** Format: int64 */
-            ready: number;
-            /** Format: int64 */
-            failed: number;
-            /** Format: int64 */
-            cancelled: number;
-        };
-        ImportOverviewSummary: {
-            /**
-             * Format: int64
-             * @description User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Source import once.
-             */
-            running: number;
-            /**
-             * Format: int64
-             * @description ImportItems whose current state is exactly REVIEW_PENDING.
-             */
-            reviewPending: number;
-            /**
-             * Format: int64
-             * @description ImportItems whose current state is exactly PUBLISHED.
-             */
-            publishedItems: number;
-            /**
-             * Format: int64
-             * @description User-visible completed batches, counting each browser/reconfigure ImportJob or Source import once.
-             */
-            completed: number;
-            /**
-             * Format: int64
-             * @description User-visible batches in PARTIAL_FAILURE or FAILED; cancelled batches are excluded.
-             */
-            failed: number;
-            /**
-             * Format: int64
-             * @description Browser/reconfigure ImportJobs included in failed.
-             */
-            ordinaryFailed: number;
-            /**
-             * Format: int64
-             * @description Source imports included in failed.
-             */
-            sourceFailed: number;
-            /**
-             * Format: int64
-             * @description Known game/item count in currently non-terminal user-visible batches.
-             */
-            processingItems: number;
-            /**
-             * Format: int64
-             * @description Failed or blocked items plus unresolved rejected files in user-visible attention batches.
-             */
-            issueItems: number;
-        };
-        AuthInitializeRequest: {
-            username: string;
-            displayName: string;
-            password: string;
-            passwordConfirmation: string;
-        };
-        AuthLoginRequest: {
-            username: string;
-            password: string;
-        };
-        AuthChangePasswordRequest: {
-            currentPassword: string;
-            newPassword: string;
-            newPasswordConfirmation: string;
-        };
-        AccountLinkInspectRequest: {
-            /** @enum {string} */
-            expectedKind: "INVITATION" | "PASSWORD_RESET";
-            token: string;
-        };
-        InvitationAcceptRequest: {
-            token: string;
-            username: string;
-            displayName: string;
-            password: string;
-            passwordConfirmation: string;
-        };
-        PasswordResetCompleteRequest: {
-            token: string;
-            password: string;
-            passwordConfirmation: string;
-        };
-        CreateInvitationRequest: {
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
-            confirmAdminRole: boolean;
-        };
-        PatchUserRequest: {
-            /** @enum {string} */
-            role?: "ADMIN" | "USER";
-            /** @enum {string} */
-            status?: "ENABLED" | "DISABLED";
-            confirmAdminRole?: boolean;
-        };
-        DeleteUserRequest: {
-            confirmUsername: string;
-        };
-        EmptyRequest: Record<string, never>;
-        ReplaceFavoriteFoldersRequest: {
-            folderIds: string[];
-        };
-        OrganizeFavoritesRequest: {
-            gameIds: string[];
-            addFolderIds: string[];
-            removeFolderIds: string[];
-        };
-        UnfavoriteRequest: {
-            gameIds: string[];
-        };
-        FavoriteRestoreItemRequest: {
-            /** Format: uuid */
-            gameId: string;
-            /**
-             * Format: int64
-             * @description Original timestamp from the unfavorite snapshot.
-             */
-            favoritedAtMs: number;
-            folderIds: string[];
-        };
-        RestoreFavoritesRequest: {
-            items: components["schemas"]["FavoriteRestoreItemRequest"][];
-        };
-        CreateFavoriteFolderRequest: {
-            name: string;
-            initialGameIds: string[];
-        };
-        PatchFavoriteFolderRequest: {
-            name: string;
-        };
-        TagReference: {
-            /** Format: uuid */
-            tagId: string;
-            name: string;
-        };
-        TagUsage: {
-            /** Format: int64 */
-            publishedGameCount: number;
-            /** Format: int64 */
-            deletedGameCount: number;
-            /** Format: int64 */
-            reviewDraftCount: number;
-            /** Format: int64 */
-            sourceCollectionCount: number;
-        };
-        TagAdminItem: {
-            /** Format: uuid */
-            tagId: string;
-            name: string;
-            /** @enum {string} */
-            status: "ACTIVE" | "DELETED";
-            /** Format: int64 */
-            version: number;
-            usage: components["schemas"]["TagUsage"];
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            /** Format: int64 */
-            deletedAtMs: number | null;
-        };
-        TagSummary: {
-            /** Format: int64 */
-            activeTagCount: number;
-            /** Format: int64 */
-            taggedGameCount: number;
-            /** Format: int64 */
-            pendingReviewCount: number;
-        };
-        TagList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            summary: components["schemas"]["TagSummary"];
-            items: components["schemas"]["TagAdminItem"][];
-            nextCursor: string | null;
-        };
-        CommonTagsApplyResult: {
-            createdItems: components["schemas"]["TagAdminItem"][];
-            existingItems: components["schemas"]["TagAdminItem"][];
-        };
-        CreateTagRequest: {
-            name: string;
-        };
-        RenameTagRequest: {
-            name: string;
-        };
-        DeleteTagRequest: {
-            confirmName: string;
-        };
-        ReplaceGameTagsRequest: {
-            tagIds: string[];
-        };
-        GameTagsResult: {
-            /** Format: uuid */
-            gameId: string;
-            /** Format: int64 */
-            version: number;
-            tags: components["schemas"]["TagReference"][];
-        };
-        GameMutationResult: {
-            /** Format: uuid */
-            gameId: string;
-            /** Format: int64 */
-            version: number;
-        };
-        AdminGameFile: {
-            role: string;
-            logicalName: string;
-            sortOrder: number;
-            /** Format: int64 */
-            sizeBytes: number;
-            sha256: string;
-            md5: string;
-            sha1: string;
-            crc32: string;
-            mediaType: string;
-        };
-        AdminGameAsset: {
-            /** Format: uuid */
-            assetId: string;
-            kind: string;
-            ordinal: number;
-            widthPx: number | null;
-            heightPx: number | null;
-            mediaType: string;
-            url: string;
-        };
-        AdminGameVariant: {
-            /** Format: uuid */
-            id: string;
-            coreId: string;
-            coreName: string;
-            providerId: string | null;
-            targetId: string | null;
-            datVersionId: string | null;
-            status: string;
-            compatibilityCode: string;
-            dependencySnapshot: {
-                [key: string]: unknown;
-            };
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        AdminGameDeleteImpact: {
-            impactDigest: string;
-            registeredBytes: string;
-            fileCount: number;
-            saveStateCount: number;
-            assetCount: number;
-            contentFileCount: number;
-            activeLaunchCount: number;
-            sourceKinds: string[];
-        };
-        AdminGameDetail: {
-            /** Format: uuid */
-            gameId: string;
-            status: string;
-            /** @enum {string} */
-            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
-            /** Format: uuid */
-            payloadReleaseJobId: string | null;
-            payloadLastErrorCode: string | null;
-            title: string;
-            description: string;
-            developer: string;
-            publisher: string;
-            genre: string;
-            players: number | null;
-            releaseYear: number | null;
-            platformId: string;
-            platformInstance: {
-                /** Format: uuid */
-                id: string;
-                name: string;
-            };
-            contentKind: string;
-            files: components["schemas"]["AdminGameFile"][];
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            /** Format: int64 */
-            generatedAtMs: number;
-            /** Format: int64 */
-            deletedAtMs: number | null;
-            deleteImpact: components["schemas"]["AdminGameDeleteImpact"];
-            assets: components["schemas"]["AdminGameAsset"][];
-            variants: components["schemas"]["AdminGameVariant"][];
-            tags: components["schemas"]["TagReference"][];
-        };
-        FavoriteReference: {
-            /** Format: int64 */
-            favoritedAtMs: number;
-            folderIds: string[];
-        };
-        FavoriteState: {
-            /** Format: uuid */
-            gameId: string;
-            /** Format: int64 */
-            favoritedAtMs: number;
-            folderIds: string[];
-        };
-        FavoriteFolder: {
-            /** Format: uuid */
-            folderId: string;
-            name: string;
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            visibleGameCount: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        FavoriteSummary: {
-            /** Format: int64 */
-            favoriteCount: number;
-            /** Format: int64 */
-            uncategorizedCount: number;
-            /** Format: int64 */
-            folderCount: number;
-        };
-        FavoritePlatformSummary: {
-            id: string;
-            name: string;
-            /** Format: int64 */
-            count: number;
-        };
-        FavoriteNamedResource: {
-            id: string;
-            name: string;
-        };
-        FavoriteGameItem: {
-            /** Format: uuid */
-            gameId: string;
-            title: string;
-            /** @enum {string} */
-            status: "PUBLISHED" | "DELETED";
-            /** @enum {string} */
-            availability: "PUBLISHED" | "DELETED";
-            platform: components["schemas"]["FavoriteNamedResource"];
-            platformInstance: components["schemas"]["FavoriteNamedResource"];
-            defaultCore: components["schemas"]["FavoriteNamedResource"];
-            coverUrl: string | null;
-            releaseYear: number | null;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            lastPlayedAtMs: number | null;
-            tags: components["schemas"]["TagReference"][];
-            favorite: components["schemas"]["FavoriteReference"];
-        };
-        FavoriteListResponse: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            summary: components["schemas"]["FavoriteSummary"];
-            folders: components["schemas"]["FavoriteFolder"][];
-            platforms: components["schemas"]["FavoritePlatformSummary"][];
-            /** Format: int64 */
-            totalCount: number;
-            items: components["schemas"]["FavoriteGameItem"][];
-            nextCursor: string | null;
-        };
-        FavoriteBatchResult: {
-            items: components["schemas"]["FavoriteState"][];
-        };
-        UnfavoriteItem: {
-            /** Format: uuid */
-            gameId: string;
-            /**
-             * Format: int64
-             * @description Original favorite timestamp returned by unfavorite and preserved by restore.
-             */
-            favoritedAtMs: number;
-            folderIds: string[];
-        };
-        UnfavoriteResult: {
-            items: components["schemas"]["UnfavoriteItem"][];
-        };
-        FavoriteRestoreResult: {
-            restoredGameIds: string[];
-            skippedGameIds: string[];
-            skippedFolderIds: string[];
-        };
-        ImmersivePlatformSummary: {
-            platformId: string;
-            platformName: string;
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            lastPlayedAtMs: number | null;
-            featuredGames: components["schemas"]["ImmersivePlatformFeaturedGame"][];
-        };
-        ImmersivePlatformFeaturedGame: {
-            /** Format: uuid */
-            gameId: string;
-            title: string;
-            coverUrl: string | null;
-            /** Format: int64 */
-            lastPlayedAtMs: number | null;
-        };
-        ImmersiveNamedResource: {
-            id: string;
-            name: string;
-        };
-        ImmersiveGameItem: {
-            /** Format: uuid */
-            gameId: string;
-            title: string;
-            titleInitial: string;
-            description: string;
-            releaseYear: number | null;
-            developer: string;
-            genre: string;
-            platformInstance: components["schemas"]["ImmersiveNamedResource"];
-            defaultCore: components["schemas"]["ImmersiveNamedResource"];
-            coverUrl: string | null;
-            videoUrl: string | null;
-            /** Format: int64 */
-            lastPlayedAtMs: number | null;
-            favorited: boolean;
-            saveStates: components["schemas"]["ImmersiveSaveState"][];
-        };
-        ImmersiveSaveState: {
-            /** Format: uuid */
-            saveStateId: string;
-            name: string;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            lastSyncedAtMs?: number | null;
-            /** Format: int64 */
-            sizeBytes: number;
-            discIndex: number | null;
-            screenshotUrl: string | null;
-        };
-        ImmersiveDestinationSummary: {
-            destinationId: string;
-            /** @enum {string} */
-            kind: "all" | "recent" | "favorites" | "saves" | "platform";
-            name: string;
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            lastPlayedAtMs: number | null;
-            featuredGames: components["schemas"]["ImmersivePlatformFeaturedGame"][];
-        };
-        ImmersiveDestinationList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            items: components["schemas"]["ImmersiveDestinationSummary"][];
-        };
-        ImmersiveFavoriteFolder: {
-            /** Format: uuid */
-            folderId: string;
-            name: string;
-            /** Format: int64 */
-            gameCount: number;
-        };
-        ImmersiveLibraryGameList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            library: components["schemas"]["ImmersiveDestinationSummary"];
-            folder: components["schemas"]["ImmersiveFavoriteFolder"] | null;
-            folders: components["schemas"]["ImmersiveFavoriteFolder"][];
-            items: components["schemas"]["ImmersiveGameItem"][];
-            nextCursor: string | null;
-        };
-        ImmersivePlatformList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            items: components["schemas"]["ImmersivePlatformSummary"][];
-        };
-        ImmersiveGameList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            platform: components["schemas"]["ImmersivePlatformSummary"];
-            items: components["schemas"]["ImmersiveGameItem"][];
-            nextCursor: string | null;
-        };
-        RenameSaveRequest: {
-            name: string;
-        };
-        ClientCapabilities: {
-            secureContext: boolean;
-            crossOriginIsolated: boolean;
-            sharedArrayBuffer: boolean;
-        };
-        LaunchRequest: {
-            /** Format: uuid */
-            gameId: string;
-            coreId: string | null;
-            /** Format: uuid */
-            saveStateId: string | null;
-            dosEntry: string | null;
-            /** @description Exact product return page (/, /library, /recent, /saves or /games/{gameId}), or a validated immersive game-list URL. Unsafe or unknown paths return 400 INVALID_LAUNCH_RETURN_TO. */
-            returnTo: string;
-            clientCapabilities: components["schemas"]["ClientCapabilities"];
-        };
-        StartupAction: {
-            /** @enum {string} */
-            event: "GAME_START";
-            /** @enum {string} */
-            kind: "PRESS_CONTROL";
-            delayMs: number;
-            player: number;
-            control: number;
-            durationMs: number;
-        };
-        DiscEntry: {
-            index: number;
-            label: string;
-            virtualPath: string;
-        };
-        DiscSet: {
-            /** @enum {string} */
-            contentKind: "MULTI_DISC";
-            count: number;
-            initialDiscIndex: number;
-            entries: components["schemas"]["DiscEntry"][];
-        } | null;
-        /** Retrom Launch Envelope V1 */
-        LaunchConfig: {
-            /** @enum {unknown} */
-            schemaVersion: 1;
-            session: {
-                id: string;
-                /** @enum {unknown} */
-                purpose: "PRODUCT" | "REVIEW_PREVIEW";
-                /** @enum {unknown} */
-                mode: "SINGLE";
-                title: string;
-                platformName: string;
-                coreName: string;
-                returnTo: string;
-                warnings: string[];
-            };
-            runtime: {
-                providerId: string;
-                providerVersion: string;
-                /** @enum {unknown} */
-                providerApiVersion: 1;
-                bundleSha256: string;
-                targetId: string;
-                capabilities: {
-                    pause: boolean;
-                    screenshot: boolean;
-                    checkpoint: boolean;
-                    standardGamepad: boolean;
-                    frameCounter: boolean;
-                    volume: boolean;
-                    discSwitch: boolean;
-                    nativeSettings: boolean;
-                    inputFilter: boolean;
-                    videoModes: ("original" | "pixel" | "smooth" | "sharp-bilinear" | "adaptive-sharpen")[];
-                    requiresThreads: boolean;
-                    /** @enum {unknown} */
-                    frameMode: "NONE" | "SAME_ORIGIN_BLANK" | "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE";
-                    /**
-                     * @description Supported game content loading modes. Omitted for unmanaged loaders.
-                     * @enum {unknown}
-                     */
-                    contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY";
-                };
-                checkpoint: {
-                    /**
-                     * @description Omission means INSTANT. GAME_SAVE preserves native game save data and may require in-game save/load menus.
-                     * @enum {unknown}
-                     */
-                    semantics?: "INSTANT" | "GAME_SAVE";
-                    writeFormat: string;
-                    readFormats: string[];
-                    maxBytes: number;
-                } | null;
-                moduleUrl: string;
-                moduleSha256: string;
-                runtimeBaseUrl: string;
-            };
-            resources: ({
-                role: string;
-                ordinal: number;
-                /** @enum {unknown} */
-                kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "PARENT_ARCHIVE" | "WASM4_CART";
-                url: string;
-                sha256: string;
-                sizeBytes: number;
-                rangeRequired: boolean;
-            } | {
-                role: string;
-                ordinal: number;
-                /** @enum {unknown} */
-                kind: "FILE_TREE";
-                indexUrl: string;
-                contentDigest: string;
-            } | {
-                role: string;
-                ordinal: number;
-                /** @enum {unknown} */
-                kind: "NATIVE_WEB" | "ISOLATED_WEB";
-                indexUrl: string;
-                origin: string;
-                entryUrl: string;
-                bootstrapTicket: string;
-                cleanupUrl: string | null;
-                contentDigest: string;
-            } | {
-                role: string;
-                ordinal: number;
-                /** @enum {unknown} */
-                kind: "BIOS_BUNDLE" | "EXTERNAL_FILE_SET";
-                files: {
-                    logicalName: string;
-                    virtualPath: string;
-                    url: string;
-                    sha256: string;
-                    sizeBytes: number;
-                }[];
-            } | {
-                role: string;
-                ordinal: number;
-                /** @enum {unknown} */
-                kind: "MULTI_DISC";
-                initialDiscIndex: number;
-                entries: {
-                    index: number;
-                    label: string;
-                    url: string;
-                    sha256: string;
-                    sizeBytes: number;
-                }[];
-            })[];
-            targetOptions: {
-                [key: string]: unknown;
-            };
-            restore: {
-                url: string;
-                format: string;
-                sha256: string;
-                sizeBytes: number;
-            } | null;
-        };
-        /** @enum {string} */
-        RpgGeneration: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE" | "RPGMV" | "RPGMZ";
-        /** @enum {string} */
-        RpgCoreID: "rpgmaker_2000" | "rpgmaker_2003" | "rpgmaker_xp" | "rpgmaker_vx" | "rpgmaker_vx_ace" | "rpgmaker_mv" | "rpgmaker_mz";
-        CheckpointFormat: string;
-        /** @enum {string} */
-        CheckpointUnavailableReason: "CORE_REPORTED_UNAVAILABLE" | "STARTUP_NOT_READY" | "SESSION_TERMINAL";
-        CheckpointAvailability: {
-            available: boolean;
-            /** Format: int64 */
-            sequence: number;
-            reason: components["schemas"]["CheckpointUnavailableReason"] | null;
-        };
-        RuntimeTargetAdminItem: {
-            providerId: string;
-            providerVersion: string;
-            /** @enum {integer} */
-            providerApiVersion: 1;
-            bundleSha256: string;
-            targetId: string;
-            displayName: string;
-            coreId: string;
-            coreName: string;
-            /** @enum {string} */
-            launchPolicy: "SUPPORTED" | "EXPERIMENTAL" | "DISABLED";
-        };
-        RuntimeTargetList: {
-            items: components["schemas"]["RuntimeTargetAdminItem"][];
-            nextCursor: string | null;
-        };
-        /** @description PRODUCT requires name after trim to contain 1..120 Unicode code points; runtime validation omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. The format must be declared readable by the Launch Target. */
-        RuntimeCheckpointMetadata: {
-            name?: string;
-            discIndex?: number | null;
-            checkpointFormat: components["schemas"]["CheckpointFormat"];
-        };
-        ProductSaveStateCreated: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            resourceKind: "SAVE_STATE";
-            /** Format: uuid */
-            saveStateId: string;
-            checkpointFormat: components["schemas"]["CheckpointFormat"];
-            screenshotUrl: string | null;
-            /** Format: int64 */
-            createdAtMs: number;
-        };
-        ReviewPreviewCheckpointCreated: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            resourceKind: "REVIEW_PREVIEW_CHECKPOINT";
-            /** Format: uuid */
-            previewId: string;
-            checkpointFormat: components["schemas"]["CheckpointFormat"];
-            /** Format: int64 */
-            createdAtMs: number;
-        };
-        RuntimeCheckpointCreated: components["schemas"]["ProductSaveStateCreated"] | components["schemas"]["ReviewPreviewCheckpointCreated"];
-        CheckpointStatus: {
-            checkpointFormat: components["schemas"]["CheckpointFormat"];
-            availability: components["schemas"]["CheckpointAvailability"];
-        };
-        CreateUploadRequest: {
-            /**
-             * @description GENERAL is an ordinary import and PROJECT is an engine-independent project input. Engine and archive validation occurs in the selected import strategy, not the upload transport.
-             * @default GENERAL
-             * @enum {string}
-             */
-            purpose: "GENERAL" | "PROJECT";
-            /** @enum {string} */
-            sourceType: "FILES" | "DIRECTORY";
-            files: {
-                clientFileId: string;
-                relativePath: string;
-                /** Format: int64 */
-                sizeBytes: number;
-            }[];
-        };
-        CreateImportRequest: {
-            /** Format: uuid */
-            uploadId: string;
-            /** Format: uuid */
-            targetPlatformInstanceId: string;
-            /**
-             * @description Project content modes are normalized to NONE because projects have no single-ROM hash identity. A STANDARD import targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT and NONE before its immutable job snapshot is created.
-             * @enum {string}
-             */
-            metadataProvider: "HASHEOUS" | "NONE";
-            tagIds: string[];
-            /**
-             * @description Omitted requests use STANDARD. For import creation only, STANDARD targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT before the immutable job snapshot is created.
-             * @enum {string}
-             */
-            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT" | "DAPHNE_PROJECT";
-        };
-        ReconfigureImportRequest: {
-            /** Format: uuid */
-            targetPlatformInstanceId: string;
-            /** @enum {string} */
-            metadataProvider: "HASHEOUS" | "NONE";
-            tagIds: string[];
-        };
-        ReasonRequest: {
-            reason: string;
-        };
-        ApprovalReasonRequest: {
-            reason?: string | null;
-        };
-        ReviewApprovalResult: {
-            /** Format: uuid */
-            gameId: string;
-            /** @enum {string} */
-            status: "PUBLISHED" | "SKIPPED_EXISTING";
-        };
-        ApprovalRequest: {
-            reason?: string | null;
-        };
-        /** @enum {string} */
-        ReviewSourceKind: "STANDARD" | "SOURCE";
-        ReviewQueueItem: {
-            /** Format: uuid */
-            itemId: string;
-            /** Format: int64 */
-            reviewVersion: number;
-            /** Format: uuid */
-            importJobId: string;
-            sourceDisplayName: string;
-            draftTitle: string;
-            platformInstance: {
-                /** Format: uuid */
-                id: string;
-                name: string;
-            };
-            /** @enum {string} */
-            validationStatus: "READY" | "BLOCKED" | "INCOMPATIBLE" | "NEEDS_VALIDATION";
-            /** Format: uuid */
-            validationJobId: string | null;
-            blockerCodes: string[];
-            /** Format: int64 */
-            candidateCount: number;
-            /** Format: int64 */
-            sourceTotalSizeBytes: number;
-            sourceMd5: string | null;
-            coverUrl: string | null;
-            sourceKind: components["schemas"]["ReviewSourceKind"];
-            sourceLabel: string | null;
-            /** Format: uuid */
-            sourceImportId: string | null;
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        ReviewQueueList: {
-            items: components["schemas"]["ReviewQueueItem"][];
-            nextCursor: string | null;
-        };
-        ReviewBulkApprovalScope: {
-            q?: string;
-            /** Format: uuid */
-            tagId?: string;
-            /** Format: uuid */
-            importJobId?: string;
-            /** Format: uuid */
-            sourceImportId?: string;
-            /** Format: uuid */
-            platformInstanceId?: string;
-            blockerCode?: string;
-        };
-        ReviewBulkApprovalSummary: {
-            /** Format: uuid */
-            bulkApprovalId: string;
-            /** Format: uuid */
-            jobId: string;
-            /** @enum {string} */
-            state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-            version: number;
-            /** Format: uuid */
-            maxItemId: string;
-            /** Format: uuid */
-            cursorItemId: string | null;
-            initialPendingCount: number;
-            scannedCount: number;
-            publishedCount: number;
-            skippedChangedCount: number;
-            skippedDuplicateCount: number;
-            skippedNotReadyCount: number;
-            createdAtMs: number;
-            updatedAtMs: number;
-            startedAtMs: number | null;
-            completedAtMs: number | null;
-            lastErrorCode: string | null;
-        };
-        ReviewDeduplicateRequest: {
-            scope: components["schemas"]["ReviewBulkApprovalScope"];
-            /** Format: uuid */
-            afterItemId?: string;
-            /** Format: uuid */
-            throughItemId?: string;
-        };
-        ReviewDeduplicateResult: {
-            scannedCount: number;
-            discardedCount: number;
-            attachmentActiveCount: number;
-            /** Format: uuid */
-            nextAfterItemId: string | null;
-            /** Format: uuid */
-            throughItemId: string | null;
-        };
-        MetadataFields: {
-            title?: string;
-            description?: string;
-            developer?: string;
-            publisher?: string;
-            genre?: string;
-            /** Format: int64 */
-            players?: number | null;
-            /** Format: int64 */
-            releaseYear?: number | null;
-        };
-        SelectedAssetsRequest: {
-            /** Format: uuid */
-            coverCandidateAssetId: string | null;
-            /** Format: uuid */
-            backgroundCandidateAssetId: string | null;
-            screenshotCandidateAssetIds: string[];
-        };
-        ReviewSelectedAssetsRequest: {
-            /** Format: uuid */
-            coverCandidateAssetId: string | null;
-            /** Format: uuid */
-            coverUploadedAssetId: string | null;
-            /** Format: uuid */
-            videoUploadedAssetId: string | null;
-            /** Format: uuid */
-            backgroundCandidateAssetId: string | null;
-            screenshotCandidateAssetIds: string[];
-        };
-        ReviewReadiness: {
-            /** @enum {string} */
-            status: "READY" | "BLOCKED" | "INCOMPATIBLE";
-            compatibilityCode: string;
-            /** @description Dependencies resolved from current requirements and active installations; no validation identity or historical selection. */
-            dependencySnapshot: {
-                [key: string]: unknown;
-            };
-        };
-        /** @description Metadata fields are patched individually. Clients submit only edited metadata fields; an untouched incomplete title must not block independent RTP confirmation, asset or tag choices. Publication still requires a valid title. */
-        ReviewDraftRequest: {
-            /** Format: uuid */
-            targetPlatformInstanceId?: string;
-            metadata?: components["schemas"]["MetadataFields"];
-            /** @description Selects one runnable upstream ScummVM candidate from the current immutable source; requires the ordinary review version precondition. */
-            scummvmCandidateId?: string;
-            /** Format: uuid */
-            selectedCandidateId?: string | null;
-            selectedAssets?: components["schemas"]["ReviewSelectedAssetsRequest"];
-            defaultDosEntry?: string | null;
-            /** @description Optional explicit administrator confirmation that a 2000/2003/XP/VX/VX Ace project is self-contained. Allows approval despite external RTP declarations without supplying runtime resources. False clears the confirmation; forbidden on non-RPG reviews and true is invalid for MV/MZ. */
-            rpgSelfContainedOverride?: boolean;
-            tagIds: string[];
-        };
-        MetadataProviderRequest: {
-            /** @enum {string} */
-            metadataProvider: "HASHEOUS" | "NONE";
-        };
-        DeleteGameRequest: {
-            confirmTitle: string;
-            impactDigest: string;
-        };
-        GameAssetRequest: {
-            /** Format: uuid */
-            uploadFileId: string;
-            /** @enum {string} */
-            kind: "COVER" | "BACKGROUND" | "SCREENSHOT" | "VIDEO";
-            ordinal: number;
-        };
-        ReviewAssetRequest: {
-            /** Format: uuid */
-            uploadFileId: string;
-            /** @enum {string} */
-            kind: "COVER" | "VIDEO";
-        };
-        ReviewArcadeParentAttachmentRequest: {
-            /** Format: uuid */
-            baseSourceSnapshotId: string;
-            dependencyMachine: string;
-            /** Format: uuid */
-            uploadFileId: string;
-        };
-        ReviewMultiDiscAttachmentRequest: {
-            /** Format: uuid */
-            uploadId: string;
-        };
-        ReviewPreviewRequest: {
-            clientCapabilities: components["schemas"]["ClientCapabilities"];
-            /**
-             * Format: uuid
-             * @description Optionally freeze this actor's unexpired trial checkpoint into a new preview of the same current source and Target.
-             */
-            restoreFromPreviewId?: string | null;
-        };
-        UploadReferenceRequest: {
-            /** Format: uuid */
-            uploadId: string;
-            /**
-             * @default STANDARD
-             * @enum {string}
-             */
-            contentMode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "DAPHNE_PROJECT";
-        };
-        ApplyCandidateRequest: {
-            fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];
-            selectedAssets: components["schemas"]["SelectedAssetsRequest"];
-        };
-        MovePreviewRequest: {
-            /** Format: uuid */
-            targetPlatformInstanceId: string;
-        };
-        MoveGameRequest: {
-            /** Format: uuid */
-            targetPlatformInstanceId: string;
-            impactDigest: string;
-            confirmBlocked: boolean;
-        };
-        CreatePlatformInstanceRequest: {
-            platformId: string;
-            defaultCoreId: string;
-            name: string;
-            description: string;
-        };
-        PlatformDirectoryReference: {
-            id: string;
-            name: string;
-        };
-        PlatformInstanceRecommendation: {
-            templateKey: string;
-            catalogOrder: number;
-            name: string;
-            description: string;
-            platform: components["schemas"]["PlatformDirectoryReference"];
-            defaultCore: components["schemas"]["PlatformDirectoryReference"];
-            supportedExtensions: string[];
-            /** @enum {string} */
-            state: "ACTIVE" | "CUSTOMIZED" | "COVERED_BY_EQUIVALENT" | "SUPPRESSED" | "MISSING";
-            /** Format: uuid */
-            platformInstanceId: string | null;
-        };
-        PlatformInstanceRecommendationSummary: {
-            totalCount: number;
-            activeCount: number;
-            customizedCount: number;
-            coveredByEquivalentCount: number;
-            suppressedCount: number;
-            missingCount: number;
-        };
-        PlatformInstanceRecommendations: {
-            catalogVersion: number;
-            summary: components["schemas"]["PlatformInstanceRecommendationSummary"];
-            items: components["schemas"]["PlatformInstanceRecommendation"][];
-        };
-        RecommendedPlatformInstance: {
-            /** Format: uuid */
-            id: string;
-            platformId: string;
-            platformName: string;
-            defaultCoreId: string;
-            defaultCoreName: string;
-            name: string;
-            slug: string;
-            description: string;
-            enabled: boolean;
-            /** Format: int64 */
-            gameCount: number;
-            supportedExtensions: string[];
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        PlatformInstanceRecommendationsApplySummary: {
-            createdCount: number;
-            coveredCount: number;
-            suppressedCount: number;
-            remainingMissingCount: number;
-        };
-        PlatformInstanceRecommendationsApplyResult: {
-            catalogVersion: number;
-            createdTemplateKeys: string[];
-            created: components["schemas"]["RecommendedPlatformInstance"][];
-            summary: components["schemas"]["PlatformInstanceRecommendationsApplySummary"];
-            items: components["schemas"]["PlatformInstanceRecommendation"][];
-        };
-        PatchPlatformInstanceRequest: {
-            name?: string;
-            description?: string;
-            enabled?: boolean;
-        };
-        DefaultCorePreviewRequest: {
-            coreId: string;
-            cursor?: string | null;
-            /** @description Omit to use 50; null is not accepted. */
-            limit?: number;
-        };
-        DefaultCoreRequest: {
-            coreId: string;
-            impactDigest: string;
-            confirmBlocked: boolean;
-        };
-        InstallBIOSRequest: {
-            /** Format: uuid */
-            uploadFileId: string;
-        };
-        CreateServerImportRequest: {
-            /** @enum {string} */
-            kind: "BIOS_DIRECTORY";
-            rootId: string;
-            sourceRelativePath: string;
-            /** @default false */
-            replaceIfBetter: boolean;
-        };
-        CreateSourceImportRequest: {
-            /** @enum {string} */
-            format: "BASIC" | "PEGASUS" | "GAMELIST";
-            /** @description Only BASIC accepts suffixes with one leading dot, separated by semicolons. Empty allows all files. */
-            extensionFilter?: string;
-            rootId: string;
-            sourceRelativePath: string;
-        };
-        SourceCollectionMapping: {
-            /** Format: uuid */
-            collectionId: string;
-            /** @enum {string} */
-            action: "IMPORT" | "SKIP";
-            /** Format: uuid */
-            platformInstanceId?: string;
-            tagIds: string[];
-        };
-        SourceCollectionMappingsRequest: {
-            mappings: components["schemas"]["SourceCollectionMapping"][];
-        };
-        SourceImportStartRequest: {
-            /** Format: int64 */
-            version: number;
-        };
-        ServerImportRoot: {
-            id: string;
-            label: string;
-            /** @enum {string} */
-            status: "AVAILABLE" | "UNAVAILABLE";
-        };
-        ServerImportRootList: {
-            items: components["schemas"]["ServerImportRoot"][];
-        };
-        ServerImportDirectory: {
-            name: string;
-            relativePath: string;
-        };
-        ServerImportDirectoryList: {
-            rootId: string;
-            path: string;
-            items: components["schemas"]["ServerImportDirectory"][];
-            nextCursor: string | null;
-        };
-        ServerImportCounts: {
-            /** Format: int64 */
-            catalogItems: number;
-            /** Format: int64 */
-            candidates: number;
-            /** Format: int64 */
-            evaluatedItems: number;
-            /** Format: int64 */
-            imported: number;
-            /** Format: int64 */
-            matched: number;
-            /** Format: int64 */
-            warnings: number;
-            /** Format: int64 */
-            notFound: number;
-            /** Format: int64 */
-            skipped: number;
-            /** Format: int64 */
-            conflicts: number;
-            /** Format: int64 */
-            failed: number;
-            /** Format: int64 */
-            cancelled: number;
-        };
-        ServerImportSummary: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            kind: "BIOS_DIRECTORY";
-            root: {
-                id: string;
-                label: string;
-            };
-            sourceRelativePath: string;
-            replaceIfBetter: boolean;
-            /** @enum {string} */
-            state: "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL_FAILURE" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED";
-            /** @enum {string|null} */
-            phase: "PREPARING_ROOT" | "DISCOVERING" | "HASHING" | "VALIDATING_ARCHIVES" | "DISCOVERY_COMPLETED" | "RANKING" | "INSTALLING" | "QUEUEING_REVALIDATION" | null;
-            counts: components["schemas"]["ServerImportCounts"];
-            /** Format: uuid */
-            jobId: string;
-            createdBy: {
-                /** Format: uuid */
-                id: string;
-                displayName: string;
-            };
-            lastErrorCode: string | null;
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            /** Format: int64 */
-            completedAtMs: number | null;
-        };
-        ServerImportList: {
-            items: components["schemas"]["ServerImportSummary"][];
-            nextCursor: string | null;
-        };
-        ServerBIOSImportItem: {
-            requirementId: string;
-            coreId: string;
-            coreName: string;
-            providerId: string;
-            targetId: string;
-            logicalName: string;
-            /** @enum {string} */
-            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
-            /** @enum {string} */
-            sourceKind: "STATIC" | "DAT_MACHINE";
-            /** @enum {string} */
-            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_UNVERIFIED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
-            /** Format: int64 */
-            candidateCount: number;
-            /** @enum {string|null} */
-            matchMethod: "EXACT_HASH" | "EXPECTED_SIZE_FALLBACK" | "LARGEST_SIZE_FALLBACK" | "DAT_ENTRY_MATCH" | "DAT_ENTRY_WARNING" | "DAT_PARTIAL_FALLBACK" | null;
-            outcomeCode: string | null;
-            selectedRelativePath: string | null;
-            /** @enum {string|null} */
-            previousInstallationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
-            /** @enum {string|null} */
-            newInstallationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
-            replaced: boolean;
-            selectionDetails?: {
-                [key: string]: unknown;
-            };
-        };
-        ServerImportDetail: {
-            summary: components["schemas"]["ServerImportSummary"];
-            items: components["schemas"]["ServerBIOSImportItem"][];
-            nextCursor: string | null;
-        };
-        ServerBIOSImportCandidate: {
-            /** Format: uuid */
-            id: string;
-            relativePath: string;
-            basename: string;
-            /** @enum {string} */
-            associationKind: "EXACT_NAME" | "CASEFOLD_NAME" | "RENAMED_HASH_MATCH";
-            /** Format: int64 */
-            sizeBytes: number;
-            md5: string | null;
-            sha1: string | null;
-            sha256: string | null;
-            crc32: string | null;
-            /** @enum {string} */
-            state: "DISCOVERED" | "EVALUATING" | "ELIGIBLE" | "INELIGIBLE" | "SELECTED" | "SOURCE_CHANGED" | "READ_FAILED" | "ARCHIVE_UNSAFE" | "INVALID_ARCHIVE" | "CATALOG_INVALID" | "VALIDATION_FAILED" | "DUPLICATE_BYTES";
-            /** Format: int64 */
-            rankOrdinal: number | null;
-            notSelectedReason: string | null;
-            evaluationDetails?: {
-                [key: string]: unknown;
-            };
-        };
-        ServerImportCandidateList: {
-            items: components["schemas"]["ServerBIOSImportCandidate"][];
-            nextCursor: string | null;
-        };
-        SourceImportCounts: {
-            /** Format: int64 */
-            metadata: number;
-            /** Format: int64 */
-            invalidMetadata: number;
-            /** Format: int64 */
-            collections: number;
-            /** Format: int64 */
-            games: number;
-            /** Format: int64 */
-            estimatedSourceBytes: number;
-            /** Format: int64 */
-            mappedCollections: number;
-            /** Format: int64 */
-            skippedCollections: number;
-            /** Format: int64 */
-            processable: number;
-            /** Format: int64 */
-            blocked: number;
-            /** Format: int64 */
-            reviewPending: number;
-            /** Format: int64 */
-            published: number;
-            /** Format: int64 */
-            reviewDiscarded: number;
-            /** Format: int64 */
-            existing: number;
-            /** Format: int64 */
-            failed: number;
-            /** Format: int64 */
-            cancelled: number;
-            /** Format: int64 */
-            mediaWarnings: number;
-            /** Format: int64 */
-            covers: number;
-            /** Format: int64 */
-            videos: number;
-        };
-        SourceScanDiagnostic: {
-            relativePath: string;
-            /** Format: int64 */
-            line: number | null;
+        Error: {
             code: string;
             message: string;
         };
-        SourceImportSummary: {
-            discard: components["schemas"]["ImportBatchDiscard"];
-            /** @enum {string} */
-            scanOutcome: "PENDING" | "READY" | "PARTIAL" | "INVALID" | "EMPTY" | "NO_METADATA";
-            scanDiagnostics: components["schemas"]["SourceScanDiagnostic"][];
-            extensionFilter: string;
-            /** @enum {string} */
-            format: "BASIC" | "PEGASUS" | "GAMELIST";
+        User: {
             /** Format: uuid */
             id: string;
-            root: {
-                id: string;
-                label: string;
-            };
-            sourceRelativePath: string;
-            /** @enum {string} */
-            state: "SCANNING" | "AWAITING_MAPPING" | "QUEUED" | "RUNNING" | "PARTIAL_FAILURE" | "COMPLETED" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED" | "EXPIRED";
-            /** @enum {string|null} */
-            phase: "DISCOVERING_METADATA" | "PARSING_METADATA" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | null;
-            /** Format: uuid */
-            scanJobId: string;
-            /** Format: uuid */
-            importJobId: string | null;
-            counts: components["schemas"]["SourceImportCounts"];
-            /** Format: int64 */
-            mappingVersion: number;
-            /** Format: int64 */
-            version: number;
-            createdBy: {
-                /** Format: uuid */
-                id: string;
-                displayName: string;
-            };
-            lastErrorCode: string | null;
-            retryable: boolean;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            /** Format: int64 */
-            expiresAtMs: number;
-            /** Format: int64 */
-            completedAtMs: number | null;
-        };
-        SourceImportList: {
-            items: components["schemas"]["SourceImportSummary"][];
-            nextCursor: string | null;
-        };
-        SourceSourceCollection: {
-            /** Format: uuid */
-            id: string;
-            metadataRelativePath: string;
-            /** Format: int64 */
-            segmentOrdinal: number;
-            name: string;
-            shortName: string | null;
-            description: string;
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            issueCount: number;
-            /** @enum {string|null} */
-            mappingAction: "IMPORT" | "SKIP" | null;
-            /** Format: uuid */
-            targetPlatformInstanceId: string | null;
-            targetPlatformInstanceName: string | null;
-            targetDefaultCoreId: string | null;
-            targetDefaultCoreName: string | null;
-            tagSnapshot: components["schemas"]["TagReference"][];
-            ignoredRules: string[];
-            warningFields: string[];
-        };
-        SourceCollectionList: {
-            items: components["schemas"]["SourceSourceCollection"][];
-            nextCursor: string | null;
-        };
-        SourceItem: {
-            /** Format: uuid */
-            id: string;
-            title: string;
-            /** Format: uuid */
-            collectionId: string | null;
-            collectionName: string | null;
-            /** Format: uuid */
-            targetPlatformInstanceId: string | null;
-            targetPlatformInstanceName: string | null;
-            metadataRelativePath: string;
-            /** @enum {string} */
-            executionState: "PENDING" | "COPYING" | "VALIDATING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
-            /** @enum {string} */
-            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
-            /** Format: uuid */
-            payloadReleaseJobId: string | null;
-            /** @enum {string|null} */
-            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC" | null;
-            tags: components["schemas"]["TagReference"][];
-            media: {
-                /** @enum {string} */
-                cover: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
-                /** @enum {string} */
-                video: "PENDING" | "READY" | "RELEASED" | "MISSING" | "WARNING";
-            };
-            sourceFlags: {
-                hidden: boolean;
-                adult: boolean;
-                kidGame: boolean;
-            };
-            warnings: components["schemas"]["SourceWarningValue"][];
-            discoveryCode: string | null;
-            errorCode: string | null;
-            failureDetails: components["schemas"]["SourceItemFailureDetails"] | null;
-            runtimeCheck: components["schemas"]["SourceRuntimeCheck"] | null;
-            retryable: boolean;
-            /** Format: uuid */
-            reviewItemId: string | null;
-            /** Format: uuid */
-            publishedGameId: string | null;
-            /** Format: uuid */
-            existingGameId: string | null;
-            existingMatches: {
-                /** Format: uuid */
-                gameId: string;
-            }[];
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        SourceWarningValue: {
-            code: string;
-            field?: string;
-        };
-        ContentRejection: {
-            code: string;
-            relativePath: string;
-            limit: {
-                /** @enum {string} */
-                metric: "TOTAL_BYTES" | "DISC_COUNT" | "PLAYLIST_BYTES" | "REFERENCE_BYTES";
-                /** Format: int64 */
-                actual: number;
-                /** Format: int64 */
-                maximum: number;
-            } | null;
-        };
-        SourceItemFailureDetails: {
-            contentRejection: components["schemas"]["ContentRejection"] | null;
-            /**
-             * Format: int64
-             * @enum {integer}
-             */
-            schemaVersion: 1;
-            /** @enum {string} */
-            stage: "SOURCE_COPY" | "SOURCE_ASSEMBLY" | "LIBRARY_IMPORT" | "RESULT_ATTACHMENT" | "METADATA" | "PUBLICATION" | "STORAGE";
-            operation: string;
-            causeCode: string;
-            technicalDetail: string;
-            relativePath: string | null;
-            /** Format: int64 */
-            observedFileCount: number | null;
-            /** Format: int64 */
-            allowedFileCount: number | null;
-            /** Format: uuid */
-            libraryImportJobId: string | null;
-            /** Format: uuid */
-            libraryImportItemId: string | null;
-        };
-        SourceRuntimeDependency: {
-            /** @enum {string} */
-            kind: "PARENT" | "BIOS_OR_BASE";
-            machine: string;
-            requiredBy: string | null;
-            expectedLogicalName: string;
-            /** @enum {string} */
-            state: "SATISFIED_BY_CONTENT" | "SATISFIED_EXTERNAL" | "HASH_WARNING" | "MISSING" | "MISMATCH" | "UNSUPPORTED";
-            requiredEntries: string[];
-        };
-        SourceRuntimeBIOS: {
-            logicalName: string;
-            /** @enum {string} */
-            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
-            conditionCode: string | null;
-            /** @enum {string|null} */
-            installationStatus: "MATCHED" | "UNVERIFIED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
-        };
-        SourceRuntimeMissingDisc: {
-            /** Format: int64 */
-            ordinal: number;
-            sourceReference: string;
-        };
-        SourceRuntimeCheck: {
-            /** @enum {string} */
-            status: "READY" | "BLOCKED" | "INCOMPATIBLE";
-            code: string;
-            coreId: string;
-            coreName: string;
-            machine: string | null;
-            missingEntries: string[];
-            mismatchedEntries: string[];
-            dependencies: components["schemas"]["SourceRuntimeDependency"][];
-            bios: components["schemas"]["SourceRuntimeBIOS"][];
-            missingDiscs: components["schemas"]["SourceRuntimeMissingDisc"][];
-        };
-        SourceItemList: {
-            items: components["schemas"]["SourceItem"][];
-            nextCursor: string | null;
-        };
-        BIOSInstallationSummary: {
-            id: string;
-            md5: string;
-            sha1: string;
-            sha256: string;
-            /** Format: int64 */
-            validatedRequirementVersion: number;
-            /** Format: int64 */
-            createdAtMs: number;
-        };
-        BIOSRequirementSummary: {
-            id: string;
-            coreId: string;
-            coreName: string;
-            providerId: string;
-            targetId: string;
-            logicalName: string;
-            /** @enum {string} */
-            sourceKind: "STATIC" | "DAT_MACHINE";
-            /** @enum {string} */
-            fileKind: "FILE" | "ARCHIVE";
-            /** @enum {string} */
-            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
-            conditionCode: string | null;
-            expectedMd5: string | null;
-            enabled: boolean;
-            /** Format: int64 */
-            version: number;
-            /** @enum {string} */
-            status: "MATCHED" | "UNVERIFIED" | "MISSING" | "HASH_WARNING" | "MISSING_ENTRY" | "OPTIONAL_MISSING" | "INVALID";
-            activeInstallation: components["schemas"]["BIOSInstallationSummary"] | null;
-        };
-        BIOSListResponseBody: {
-            /** @description All distinct cores with enabled BIOS requirements in the selected scope, independent of search, other filters and pagination. */
-            coreOptions: {
-                id: string;
-                name: string;
-            }[];
-            /** Format: int64 */
-            generatedAtMs: number;
-            /** @enum {string} */
-            scope: "REQUIRED_BY_LIBRARY" | "FULL_CATALOG";
-            scopeCounts: {
-                /** Format: int64 */
-                requiredByLibrary: number;
-                /** Format: int64 */
-                fullCatalog: number;
-            };
-            summary: {
-                /** Format: int64 */
-                totalCount: number;
-                /** Format: int64 */
-                blockingCount: number;
-                /** Format: int64 */
-                warningCount: number;
-                /** Format: int64 */
-                readyCount: number;
-                /** Format: int64 */
-                attentionCount: number;
-                /** Format: int64 */
-                requiredCount: number;
-                /** Format: int64 */
-                optionalCount: number;
-            };
-            /** Format: int64 */
-            filteredCount: number;
-            items: components["schemas"]["BIOSRequirementSummary"][];
-            nextCursor: string | null;
-        };
-        PlayProgressRequest: {
-            /** Format: int64 */
-            activeDurationMs: number;
-        };
-        MultiDiscPlayerEventRequest: {
-            /** @enum {string} */
-            eventType: "START" | "DISK_COUNT_MISMATCH" | "SWITCH_SUCCESS" | "SWITCH_FAILURE" | "SAVE_RESTORE_SUCCESS" | "SAVE_RESTORE_FAILURE";
-            /** @enum {string} */
-            resultCode: "OK" | "PLAYER_DISC_SET_INVALID" | "PLAYER_DISC_API_UNAVAILABLE" | "PLAYER_DISC_SWITCH_UNAVAILABLE" | "PLAYER_DISC_SWITCH_FAILED" | "PLAYER_SAVE_STATE_UNAVAILABLE" | "PLAYER_SAVE_STATE_RESTORE_FAILED";
-            discCount: number;
-            observedDiscCount: number | null;
-        };
-        HealthLive: {
-            /** @enum {string} */
-            status: "ok";
-        };
-        HealthReady: {
-            /** @enum {string} */
-            status: "ready";
-        };
-        HealthNotReady: {
-            /** @enum {string} */
-            status: "not_ready";
-            /** @enum {string} */
-            reasonCode: "DATABASE_UNAVAILABLE" | "FILE_STORAGE_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
-        };
-        AuthUser: {
-            /** Format: uuid */
-            userId: string;
             username: string;
             displayName: string;
             /** @enum {string} */
-            role: "ADMIN" | "USER";
-        };
-        AuthContext: {
+            role: "admin" | "user";
             /** @enum {string} */
-            instanceState: "INITIALIZATION_REQUIRED" | "READY";
-            /** @enum {string} */
-            mode: "release" | "test";
-            /** @enum {string} */
-            authenticationState: "NOT_APPLICABLE" | "UNAUTHENTICATED" | "AUTHENTICATED";
-            user: components["schemas"]["AuthUser"] | null;
-            csrfToken: string | null;
-            /** Format: int64 */
-            idleExpiresAtMs: number | null;
-            /** Format: int64 */
-            absoluteExpiresAtMs: number | null;
-            testDefaultAccountActive: boolean;
-        };
-        AccountLinkInspection: {
-            /** @enum {string} */
-            kind: "INVITATION" | "PASSWORD_RESET";
-            /** @enum {string|null} */
-            role: "ADMIN" | "USER" | null;
-            username: string | null;
-            /** Format: int64 */
-            expiresAtMs: number;
-        };
-        AdminUser: {
-            /** Format: uuid */
-            userId: string;
-            username: string;
-            displayName: string;
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
-            /** @enum {string} */
-            status: "ENABLED" | "DISABLED" | "DELETED";
+            status: "active" | "disabled" | "deleted";
             /** Format: int64 */
             version: number;
             /** Format: int64 */
             createdAtMs: number;
             /** Format: int64 */
             lastLoginAtMs: number | null;
-            /** Format: int64 */
-            activeSessionCount: number;
         };
-        AdminUserList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            items: components["schemas"]["AdminUser"][];
-            nextCursor: string | null;
+        AuthContext: {
+            initialized: boolean;
+            user: components["schemas"]["User"] | null;
+            csrfToken: string;
         };
-        AccountLinkCreator: {
-            /** Format: uuid */
-            userId: string;
+        LoginRequest: {
             username: string;
+            password: string;
+        };
+        InitializeRequest: {
+            username: string;
+            displayName: string;
+            password: string;
+        };
+        PasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+        };
+        LinkInspectRequest: {
+            token: string;
+        };
+        LinkAcceptRequest: {
+            token: string;
+            username: string;
+            displayName: string;
+            password: string;
+        };
+        PasswordResetRequest: {
+            token: string;
+            newPassword: string;
         };
         AccountLink: {
             /** Format: uuid */
-            accountLinkId: string;
+            id: string;
             /** @enum {string} */
-            kind: "INVITATION" | "PASSWORD_RESET";
-            /** @enum {string|null} */
-            role: "ADMIN" | "USER" | null;
-            /** Format: uuid */
-            targetUserId: string | null;
-            createdBy: components["schemas"]["AccountLinkCreator"];
+            kind: "invitation" | "password_reset";
             /** @enum {string} */
-            state: "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            expiresAtMs: number;
-            /** Format: int64 */
-            consumedAtMs: number | null;
-            /** Format: int64 */
-            revokedAtMs: number | null;
-        };
-        AccountLinkList: {
-            /** Format: int64 */
-            generatedAtMs: number;
-            items: components["schemas"]["AccountLink"][];
-            nextCursor: string | null;
-        };
-        InvitationCreated: {
-            /** Format: uuid */
-            accountLinkId: string;
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
-            /** @enum {string} */
-            state: "ACTIVE";
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            expiresAtMs: number;
-            /** Format: uri */
+            role: "admin" | "user";
             url: string;
-        };
-        PasswordResetCreated: {
-            /** Format: uuid */
-            accountLinkId: string;
-            /** Format: uuid */
-            targetUserId: string;
             /** Format: int64 */
-            targetUserVersion: number;
+            expiresAtMs: number;
+            /** Format: int64 */
+            version: number;
+        };
+        AccountLinkInspect: {
             /** @enum {string} */
-            state: "ACTIVE";
+            kind: "invitation" | "password_reset";
+            /** @enum {string} */
+            role: "admin" | "user";
+            /** Format: int64 */
+            expiresAtMs: number;
+            username: string;
+        };
+        CreateInvitationRequest: {
+            /** @enum {string} */
+            role: "admin" | "user";
+            /** Format: int64 */
+            expiresInHours: number;
+        };
+        UserUpdateRequest: {
+            /** Format: int64 */
+            version: number;
+            displayName: string;
+            /** @enum {string} */
+            role: "admin" | "user";
+            /** @enum {string} */
+            status: "active" | "disabled" | "deleted";
+        };
+        VersionRequest: {
+            /** Format: int64 */
+            version: number;
+        };
+        Platform: {
+            id: string;
+            name: string;
+        };
+        Core: {
+            id: string;
+            name: string;
+            platformIds: string[];
+            fingerprint: string | null;
+        };
+        RuntimeCatalog: {
+            platforms: components["schemas"]["Platform"][];
+            cores: components["schemas"]["Core"][];
+            providers: components["schemas"]["RuntimeProvider"][];
+            bindings: components["schemas"]["RuntimeBinding"][];
+        };
+        Directory: {
+            /** Format: uuid */
+            id: string;
+            platformId: string;
+            name: string;
+            slug: string;
+            description: string;
+            defaultCoreId: string;
+            coreIds: string[];
+            enabled: boolean;
             /** Format: int64 */
             version: number;
             /** Format: int64 */
-            createdAtMs: number;
+            gameCount: number;
+        };
+        DirectoryWriteRequest: {
+            platformId: string;
+            name: string;
+            slug: string;
+            description: string;
+            defaultCoreId: string;
+            coreIds: string[];
+            enabled: boolean;
+        };
+        DirectoryUpdateRequest: {
             /** Format: int64 */
-            expiresAtMs: number;
-            /** Format: uri */
-            url: string;
+            version: number;
+            platformId: string;
+            name: string;
+            slug: string;
+            description: string;
+            defaultCoreId: string;
+            coreIds: string[];
+            enabled: boolean;
         };
-        PasswordChangedDisabled: {
-            /** @enum {string} */
-            status: "PASSWORD_CHANGED_ACCOUNT_DISABLED";
-        };
-        Session: {
-            csrfToken: string;
+        Tag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
             /** Format: int64 */
-            expiresAtMs: number;
+            version: number;
+            /** Format: int64 */
+            gameCount: number;
         };
-        JSONObject: {
-            action?: unknown;
-            activatedAtMs?: unknown;
-            active?: unknown;
-            activeAttachment?: unknown;
-            activeDurationMs?: unknown;
-            activeInstallation?: unknown;
-            activeLaunchCount?: unknown;
-            actor?: {
-                /** @enum {string} */
-                kind: "USER" | "SYSTEM";
-                /** Format: uuid */
-                userId: string | null;
-                label: string | null;
+        TagWriteRequest: {
+            name: string;
+        };
+        TagUpdateRequest: {
+            name: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RuntimeConfig: {
+            content: components["schemas"]["RuntimeContent"];
+            cores?: {
+                [key: string]: components["schemas"]["RuntimeCoreOptions"];
             };
-            after?: unknown;
-            alreadyImportedFileCount?: unknown;
-            alreadyImportedFiles?: unknown;
-            alreadyImportedItemCount?: unknown;
-            alreadyImportedItems?: unknown;
-            alreadyImportedMatches?: unknown;
-            archive?: boolean;
-            archiveEntries?: unknown;
-            /** @enum {string|null} */
-            archiveFormat?: "ZIP" | "SEVEN_Z" | "NWJS_EXECUTABLE" | "ELECTRON_ASAR" | null;
-            arcadeDependencies?: unknown;
-            attachment?: unknown;
-            attachmentId?: unknown;
-            assetId?: unknown;
-            assetIds?: unknown;
-            assets?: unknown;
-            attemptCount?: unknown;
-            association?: unknown;
-            attributeRelationType?: unknown;
-            attributeType?: unknown;
-            attributes?: unknown;
-            availability?: unknown;
-            backgroundCandidateAssetId?: unknown;
-            base?: unknown;
-            binary?: unknown;
-            bios?: unknown;
-            biosSetCount?: unknown;
-            biosUrl?: unknown;
-            blocked?: unknown;
-            blockedCount?: unknown;
-            blockerCode?: unknown;
-            blockerCodes?: unknown;
-            blockers?: unknown;
-            bootstrapExpiresAtMs?: unknown;
-            bundleVersion?: unknown;
-            cancelReason?: unknown;
-            cancelled?: unknown;
-            candidateCount?: unknown;
-            candidateId?: unknown;
-            candidates?: unknown;
-            change?: unknown;
-            chunkSizeBytes?: unknown;
-            class?: unknown;
-            /** @description True when current readiness passes or a current runtime screenshot authorizes administrator approval, for every content kind. Screenshot approval does not change readiness diagnostics. */
-            canApprove?: unknown;
-            canAttachMissingDiscs?: unknown;
-            canRetry?: unknown;
-            clientCapabilities?: unknown;
-            clientFileId?: unknown;
-            cloneof?: unknown;
-            code?: unknown;
-            column?: unknown;
-            commit?: unknown;
-            canonicalName?: unknown;
-            compatibilityCode?: unknown;
-            compatibilityStatus?: unknown;
-            completed?: unknown;
-            conditionCode?: unknown;
-            configEvidence?: unknown;
-            configSnapshot?: unknown;
-            configSnapshotDigest?: unknown;
-            configuredDependencyVersionCount?: unknown;
-            configuredVersion?: unknown;
-            contentKind?: unknown;
-            contentIdentityDigest?: unknown;
-            core?: unknown;
-            coreId?: unknown;
-            coreName?: string;
-            coreOptions?: unknown;
-            cores?: unknown;
-            counts?: unknown;
-            coverCandidateAssetId?: unknown;
-            coverUrl?: unknown;
-            createdAtMs?: unknown;
-            crossOriginIsolated?: unknown;
-            csrfToken?: string;
-            current?: unknown;
-            dat?: unknown;
-            datEvidence?: unknown;
-            datVersionId?: unknown;
-            databaseSchemaVersion?: unknown;
-            databaseSha256?: unknown;
-            decision?: unknown;
-            default?: unknown;
-            defaultCoreId?: unknown;
-            defaultCoreName?: unknown;
-            defaultCoreOptions?: unknown;
-            externalFiles?: unknown;
-            effectiveSourceSnapshotId?: unknown;
-            expectedLogicalName?: unknown;
-            defaultDosEntry?: unknown;
-            deleteImpact?: unknown;
-            deleted?: unknown;
-            deletedAtMs?: unknown;
-            dependencies?: unknown;
-            dependencyManifests?: unknown;
-            dependencyVersionCount?: unknown;
-            dependencyVersions?: unknown;
-            description?: unknown;
-            details?: unknown;
-            developer?: unknown;
-            diff?: unknown;
-            directLaunchSafe?: unknown;
-            discCount?: unknown;
-            discIndex?: unknown;
-            discarded?: unknown;
-            disk?: unknown;
-            diskEntryCount?: unknown;
-            diffErrorCode?: unknown;
-            diffJobId?: unknown;
-            diffStatus?: unknown;
-            diffVersion?: unknown;
-            dosEntry?: unknown;
-            dosEntries?: unknown;
-            duplicateGames?: unknown;
-            edges?: unknown;
-            emulatorGameId?: unknown;
-            emulatorjs?: unknown;
-            enabled?: unknown;
-            entries?: unknown;
-            error?: unknown;
-            errorCode?: unknown;
-            eventType?: unknown;
-            evidence?: unknown;
-            executionId?: unknown;
-            executionNo?: unknown;
-            existingGame?: unknown;
-            expectedMd5?: unknown;
-            /** Format: int64 */
-            expiresAtMs?: number;
-            explicit?: unknown;
-            failed?: unknown;
-            failedItemCount?: unknown;
-            fileCount?: unknown;
-            fileOutcomes?: unknown;
-            fileId?: unknown;
-            files?: unknown;
-            filterDigest?: unknown;
-            finalizationNo?: unknown;
-            finalizeJobId?: unknown;
-            flavor?: unknown;
-            game?: unknown;
-            gameCount?: unknown;
-            gameId?: unknown;
-            gameIds?: unknown;
-            gameName?: unknown;
-            gameTitle?: string;
-            gameUrl?: unknown;
-            gameVersion?: unknown;
-            games?: unknown;
-            /** Format: int64 */
-            generatedAtMs?: number;
-            genre?: unknown;
-            hardExpiresAtMs?: unknown;
-            heightPx?: unknown;
-            hitCount?: unknown;
-            id?: unknown;
-            ignoredFiles?: unknown;
-            impact?: unknown;
-            impactDigest?: unknown;
-            importItemId?: unknown;
-            importJobId?: unknown;
-            importCapabilities?: unknown;
-            imports?: unknown;
-            index?: unknown;
-            inputs?: unknown;
-            installationId?: unknown;
-            isDefault?: unknown;
-            itemCount?: unknown;
-            itemId?: unknown;
-            itemSummaries?: unknown;
-            items?: unknown;
-            jobId?: unknown;
-            jobState?: unknown;
-            jobVersion?: unknown;
-            jobs?: unknown;
-            kind?: unknown;
-            label?: unknown;
-            level?: unknown;
-            library?: unknown;
-            latestGames?: unknown;
-            latestAttachment?: unknown;
-            license?: unknown;
-            loader?: unknown;
-            loaderUrl?: unknown;
-            logicalName?: unknown;
-            machine?: unknown;
-            machineCount?: unknown;
-            manifestPath?: unknown;
-            manifestSha256?: unknown;
-            maxAttempts?: unknown;
-            maxDiscs?: number;
-            /** Format: int64 */
-            maxTotalBytes?: number;
-            md5?: unknown;
-            mediaType?: unknown;
-            message?: unknown;
-            metadata?: unknown;
-            metadataProvider?: unknown;
-            missingDiscCount?: unknown;
-            missingReferences?: unknown;
-            mode?: unknown;
-            contentModes?: unknown;
-            multiDisc?: unknown;
-            name?: unknown;
-            needsValidation?: unknown;
-            nextCursor?: unknown;
-            non?: unknown;
-            operationId?: unknown;
-            originalPath?: unknown;
-            ordinal?: unknown;
-            output?: unknown;
-            parentUrl?: unknown;
-            parse?: unknown;
-            parseStatus?: unknown;
-            partNo?: unknown;
-            path?: unknown;
-            paused?: unknown;
-            playlist?: unknown;
-            platform?: unknown;
-            platformId?: unknown;
-            platformInstance?: unknown;
-            platformInstanceId?: unknown;
-            platformInstanceName?: unknown;
-            platformInstanceVersion?: unknown;
-            platformName?: string;
-            playSessionId?: unknown;
-            playUrl?: unknown;
-            player?: unknown;
-            players?: unknown;
-            presentDiscCount?: unknown;
-            protected?: unknown;
-            provider?: unknown;
-            providerAssetId?: unknown;
-            providerEvidence?: unknown;
-            providerGameId?: unknown;
-            published?: unknown;
-            publisher?: unknown;
-            q?: unknown;
-            queued?: unknown;
-            rank?: unknown;
-            ready?: unknown;
-            reason?: unknown;
-            reasonCode?: unknown;
-            reasons?: unknown;
-            receivedParts?: unknown;
-            receivedSizeBytes?: unknown;
-            recentGames?: unknown;
-            recentSaves?: unknown;
-            rejectedFiles?: unknown;
-            /** Format: int64 */
-            rejectedFileCount?: number;
-            reconfiguredFromImportJobId?: unknown;
-            replacementImportJobId?: unknown;
-            releaseYear?: unknown;
-            resolution?: unknown;
-            /** Format: int64 */
-            resolvedAtMs?: number;
-            repository?: unknown;
-            requestId?: unknown;
-            requestedArtifactBasename?: unknown;
-            requirementId?: unknown;
-            requirementMode?: unknown;
-            requires?: unknown;
-            /**
-             * @description Public loading capability of the resolved game Target; null when unavailable.
-             * @enum {string|null}
-             */
-            contentLoading?: "ON_DEMAND_AND_PRELOAD" | "PRELOAD_ONLY" | null;
-            requiresThreads?: unknown;
-            retained?: unknown;
-            retryAfterMs?: unknown;
-            retryable?: unknown;
-            returnTo?: unknown;
-            reviewPending?: unknown;
-            reviewPendingCount?: unknown;
-            reviewPendingItemCount?: unknown;
-            reviewVersion?: unknown;
-            role?: unknown;
-            rom?: unknown;
-            romEntryCount?: unknown;
-            romof?: unknown;
-            running?: unknown;
-            runtime?: unknown;
-            runtimeBaseUrl?: unknown;
-            runtimePath?: unknown;
-            runtimePathOverrides?: unknown;
-            sample?: unknown;
-            saveStateCount?: unknown;
-            saveStateId?: unknown;
-            saveStates?: unknown;
-            scheduled?: unknown;
-            schema?: unknown;
-            schemaVersion?: number;
-            scope?: unknown;
-            scopeId?: unknown;
-            scopeType?: unknown;
-            score?: unknown;
-            scrapeRunId?: unknown;
-            scrapeRuns?: Record<string, never>[];
-            outcomes?: unknown;
-            evidenceCount?: unknown;
-            completedAtMs?: unknown;
-            screenshot?: unknown;
-            screenshotCandidateAssetIds?: unknown;
-            section?: unknown;
-            secureContext?: unknown;
-            selected?: unknown;
-            selectedAssets?: unknown;
-            selectedCandidateId?: unknown;
-            sequence?: unknown;
-            sha1?: unknown;
-            sha256?: unknown;
-            sha256sumsPath?: unknown;
-            sha256sumsSha256?: unknown;
-            sharedArrayBuffer?: unknown;
-            signature?: unknown;
-            size?: unknown;
-            sizeBytes?: unknown;
-            slug?: unknown;
-            sort?: unknown;
-            sortCode?: unknown;
-            sortOrder?: unknown;
-            sortValues?: unknown;
-            source?: unknown;
-            supportedExtensions?: string[];
-            sourceDisplayName?: unknown;
-            sourceFiles?: unknown;
-            sourceManifest?: unknown;
-            sourceReference?: unknown;
-            sourceTotalSizeBytes?: unknown;
-            sourcePlatformInstanceId?: unknown;
-            sourceType?: unknown;
-            state?: unknown;
-            stateUrl?: unknown;
-            status?: unknown;
-            summary?: unknown;
-            table?: unknown;
-            target?: unknown;
-            targetCoreId?: unknown;
-            targetDatVersionId?: unknown;
-            targetPlatformInstance?: unknown;
-            targetPlatformInstanceId?: unknown;
-            tested?: unknown;
-            third?: unknown;
-            title?: unknown;
-            toAtMs?: unknown;
-            total?: unknown;
-            totalBytes?: unknown;
-            totalPresentBytes?: unknown;
-            totalItemCount?: unknown;
-            trailing?: unknown;
-            unresolved?: unknown;
-            updatedAtMs?: unknown;
-            /** Format: int64 */
-            unresolvedRejectedFileCount?: number;
-            /** Format: int64 */
-            unresolvedRejectedFiles?: number;
-            uploadFileId?: unknown;
-            uploadId?: unknown;
-            uploadPartCount?: unknown;
-            uploadSessionId?: unknown;
-            validatedRequirementVersion?: unknown;
-            readiness?: components["schemas"]["ReviewReadiness"];
-            validation?: unknown;
-            validationDetails?: unknown;
-            validationJobId?: unknown;
-            validationStatus?: unknown;
-            value?: unknown;
-            variantStatus?: unknown;
-            version?: unknown;
-            visible?: unknown;
-            warnings?: unknown;
-            widthPx?: unknown;
-            year?: unknown;
         };
-        /** @enum {string} */
-        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_EXTERNAL_RTP_REQUIRED" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "SAVE_SYNC_CONFLICT" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
-        RpgError: {
-            code: components["schemas"]["RpgErrorCode"];
-            message: string;
-            details: {
+        GameMedia: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "cover" | "video" | "screenshot";
+            url: string;
+            mediaType: string;
+            /** Format: int64 */
+            ordinal: number;
+        };
+        GameFile: {
+            /** Format: uuid */
+            id: string;
+            logicalKey: string;
+            /** @enum {string} */
+            role: "content" | "parent";
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+        };
+        Game: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            platformInstanceId: string;
+            platformId: string;
+            directoryName: string;
+            title: string;
+            description: string;
+            developer: string;
+            publisher: string;
+            genre: string;
+            players: string | null;
+            /** Format: int64 */
+            releaseYear: number | null;
+            /** @enum {string} */
+            status: "pending_review" | "published";
+            /** @enum {string} */
+            source: "server_import";
+            /** Format: int64 */
+            version: number;
+            contentHash: string;
+            tags: components["schemas"]["Tag"][];
+            media: components["schemas"]["GameMedia"][];
+            favorite: boolean;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        GameDetail: {
+            game: components["schemas"]["Game"];
+            files: components["schemas"]["GameFile"][];
+            coreIds: string[];
+            defaultCoreId: string;
+            runtimeConfig: components["schemas"]["RuntimeConfig"];
+            saves: components["schemas"]["Save"][];
+            favoriteFolderIds: string[];
+        };
+        GameWriteRequest: {
+            /** Format: int64 */
+            version: number;
+            /** Format: uuid */
+            platformInstanceId: string;
+            title: string;
+            description: string;
+            developer: string;
+            publisher: string;
+            genre: string;
+            players: string | null;
+            /** Format: int64 */
+            releaseYear: number | null;
+            tagIds: string[];
+            runtimeConfig: components["schemas"]["RuntimeConfig"];
+        };
+        ContentReplaceRequest: {
+            /** Format: int64 */
+            version: number;
+            /** @description Absolute path visible to the server process. */
+            path: string;
+        };
+        FavoriteFolder: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int64 */
+            gameCount: number;
+            /** Format: int64 */
+            version: number;
+        };
+        FolderWriteRequest: {
+            name: string;
+        };
+        FolderUpdateRequest: {
+            name: string;
+            /** Format: int64 */
+            version: number;
+        };
+        FavoriteWriteRequest: {
+            folderIds: string[];
+        };
+        SaveExtinfo: {
+            coreId: string;
+            providerId: string;
+            targetId: string;
+            coreFingerprint: string;
+            romHash: string;
+            checkpointFormat: string;
+            runtimeOptions: {
+                [key: string]: components["schemas"]["RuntimeOptionValue"];
+            };
+            content: components["schemas"]["RuntimeContent"];
+        };
+        Save: {
+            /** Format: uuid */
+            id: string;
+            game: components["schemas"]["Game"];
+            /** @enum {string} */
+            kind: "checkpoint" | "game_save";
+            name: string;
+            slot: string | null;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            screenshotUrl: string | null;
+            restorable: boolean;
+            /** @enum {string} */
+            restoreReason: "" | "core_unavailable" | "core_changed" | "content_changed" | "format_unreadable" | "game_unavailable" | "save_unavailable";
+            extinfo: components["schemas"]["SaveExtinfo"];
+        };
+        SaveRenameRequest: {
+            /** Format: int64 */
+            version: number;
+            name: string;
+        };
+        RecentGame: {
+            game: components["schemas"]["Game"];
+            /** Format: int64 */
+            lastPlayedAtMs: number;
+        };
+        Home: {
+            recent: components["schemas"]["RecentGame"][];
+            saves: components["schemas"]["Save"][];
+            favorites: components["schemas"]["Game"][];
+            directories: components["schemas"]["Directory"][];
+            summary: {
+                /** Format: int64 */
+                gameCount: number;
+                /** Format: int64 */
+                saveCount: number;
+            };
+        };
+        SourceDirectory: {
+            /** @description Absolute path visible to the server process. */
+            path: string;
+            name: string;
+        };
+        SourceEntry: {
+            key: string;
+            name: string;
+            /** @description Absolute path visible to the server process. */
+            path: string;
+            /** Format: int64 */
+            gameCount: number;
+        };
+        SourceInspectRequest: {
+            /** @description Absolute path visible to the server process. */
+            path: string;
+            /** @enum {string} */
+            format: "pegasus" | "emulationstation";
+        };
+        SourceMapping: {
+            sourceKey: string;
+            /** Format: uuid */
+            platformInstanceId: string;
+            tagIds: string[];
+        };
+        GameScanRequest: {
+            /** @description Absolute path visible to the server process. */
+            path: string;
+            /** @enum {string} */
+            format: "pegasus" | "emulationstation";
+            mappings: components["schemas"]["SourceMapping"][];
+        };
+        BiosScanRequest: {
+            /** @description Absolute path visible to the server process. */
+            path: string;
+            platformIds: string[];
+            coreIds: string[];
+        };
+        ScanProgress: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            scanType: "game" | "bios";
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "cancelled" | "failed";
+            /** Format: int64 */
+            totalCount: number;
+            totalKnown: boolean;
+            /** Format: int64 */
+            processedCount: number;
+            /** Format: int64 */
+            importedCount: number;
+            /** Format: int64 */
+            skippedCount: number;
+            /** Format: int64 */
+            failedCount: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            error: string | null;
+        };
+        BiosRequirement: {
+            key: string;
+            name: string;
+            platformIds: string[];
+            coreIds: string[];
+            required: boolean;
+            installed: boolean;
+            filename: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+            /** @description Runtime requirements for every applicable core sharing this BIOS key. */
+            requirements: components["schemas"]["BiosValidationRequirement"][];
+        };
+        RunRequest: {
+            /** Format: uuid */
+            gameId: string;
+            /** @enum {string} */
+            purpose: "play" | "review";
+            coreId?: string;
+            /** Format: uuid */
+            saveId?: string;
+        };
+        Run: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            gameId: string;
+            /** @enum {string} */
+            purpose: "play" | "review";
+            coreId: string;
+            providerId: string;
+            targetId: string;
+            coreFingerprint: string;
+            romHash: string;
+            providerModuleUrl: string;
+            envelope: {
                 [key: string]: unknown;
             };
+            /** Format: int64 */
+            expiresAtMs: number;
+            extinfo: components["schemas"]["SaveExtinfo"];
+            save: components["schemas"]["Save"] | null;
+        };
+        RunEventRequest: {
+            /** @enum {string} */
+            event: "running";
+        };
+        SaveCommitMetadata: {
             /** Format: uuid */
-            requestId: string;
+            runId: string;
+            name: string;
+            /** @enum {string} */
+            kind: "checkpoint" | "game_save";
+            slot: string | null;
+            extinfo: components["schemas"]["SaveExtinfo"];
+            /** Format: int64 */
+            version?: number;
+            /** Format: uuid */
+            commitId: string;
         };
-        RpgErrorEnvelope: {
-            error: components["schemas"]["RpgError"];
+        UserPage: {
+            items: components["schemas"]["User"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
         };
-        ErrorEnvelope: {
+        GamePage: {
+            items: components["schemas"]["Game"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
+        };
+        ReviewReadinessRequest: {
+            gameIds: string[];
+        };
+        /** @description Read-only BIOS requirements for the current pending game and default runtime core. A failed check returns null biosSatisfied and a safe per-item error; it does not mean BIOS is missing. */
+        ReviewReadiness: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            version: number | null;
+            biosSatisfied: boolean | null;
             error: {
                 code: string;
                 message: string;
-                details: {
-                    [key: string]: unknown;
-                };
-                /** Format: uuid */
-                requestId: string;
+            } | null;
+            /** @description Only required BIOS absent from the current installation, as resolved by runtime for this game. Empty on success with no missing requirements or on error; inspect biosSatisfied/error first. */
+            missingBios: components["schemas"]["ReviewMissingBIOS"][];
+        };
+        ReviewReadinessList: {
+            items: components["schemas"]["ReviewReadiness"][];
+        };
+        SavePage: {
+            items: components["schemas"]["Save"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            gameCount: number;
+        };
+        RecentPage: {
+            items: components["schemas"]["RecentGame"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
+        };
+        TagPage: {
+            items: components["schemas"]["Tag"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
+        };
+        DirectoryList: {
+            items: components["schemas"]["Directory"][];
+        };
+        TagList: {
+            items: components["schemas"]["Tag"][];
+        };
+        FolderList: {
+            items: components["schemas"]["FavoriteFolder"][];
+        };
+        ScanList: {
+            items: components["schemas"]["ScanProgress"][];
+        };
+        SourceDirectoryList: {
+            items: components["schemas"]["SourceDirectory"][];
+        };
+        SourceEntryList: {
+            items: components["schemas"]["SourceEntry"][];
+        };
+        BiosList: {
+            items: components["schemas"]["BiosRequirement"][];
+        };
+        RuntimeContent: {
+            /** @enum {string} */
+            kind: "SINGLE_FILE" | "DOS_BUNDLE" | "ARCADE" | "RPG_MAKER_PROJECT" | "SCUMMVM_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "NXENGINE_PROJECT" | "DAPHNE_PROJECT";
+            entryFile?: string;
+            entryPath?: string;
+            /** @enum {string} */
+            engine?: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE" | "RPGMV" | "RPGMZ";
+        };
+        RuntimeCoreOptions: {
+            parentFiles?: string[];
+            options?: {
+                [key: string]: components["schemas"]["RuntimeOptionValue"];
             };
+        };
+        RuntimeOptionValue: (string | boolean | number | components["schemas"]["RuntimeOptionValue"][] | {
+            [key: string]: components["schemas"]["RuntimeOptionValue"];
+        }) | null;
+        RuntimeTarget: {
+            id: string;
+            targetOptionsSchema: {
+                [key: string]: components["schemas"]["RuntimeOptionValue"];
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        RuntimeProvider: {
+            providerId: string;
+            providerVersion: string;
+            targets: components["schemas"]["RuntimeTarget"][];
+        } & {
+            [key: string]: unknown;
+        };
+        RuntimeBinding: {
+            coreId: string;
+            providerId: string;
+            targetId: string;
+            platformIds: string[];
+            contentKinds: string[];
+            engine?: string;
+        };
+        ScummvmCandidate: {
+            id: string;
+            description: string;
+            options: {
+                [key: string]: components["schemas"]["RuntimeOptionValue"];
+            };
+            /** @enum {string|null} */
+            blocker: "UNKNOWN_VARIANT" | "UNSUPPORTED_GAME" | "ENGINE_UNAVAILABLE" | null;
+        };
+        ScummvmCandidates: {
+            candidates: components["schemas"]["ScummvmCandidate"][];
+            automaticSelection: string | null;
+        };
+        RuntimeIndexFile: {
+            path: string;
+            url: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            mediaType: string;
+            sha256?: string;
+        };
+        RuntimeIndex: {
+            /** @enum {integer} */
+            schemaVersion: 1;
+            files: components["schemas"]["RuntimeIndexFile"][];
+        };
+        AccountLinkSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "invitation" | "password_reset";
+            /** @enum {string} */
+            status: "active" | "consumed" | "revoked" | "expired";
+            /** @enum {string|null} */
+            role: "admin" | "user" | null;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            version: number;
+        };
+        AccountLinkList: {
+            items: components["schemas"]["AccountLinkSummary"][];
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            total: number;
+        };
+        DOSEntryCandidates: {
+            entries: string[];
+        };
+        ReviewMissingBIOS: {
+            key: string;
+            /** @description Runtime logical filename, not a host filesystem path. */
+            name: string;
+            coreId: string;
+        };
+        /** @description Runtime validation requirements for a core. Null denotes a value not declared by runtime; installed file facts remain separate. */
+        BiosValidationRequirement: {
+            coreId: string;
+            /** Format: int64 */
+            sizeBytes: number | null;
+            sha256: string | null;
+            md5: string | null;
+        };
+        ArcadeParentOptions: {
+            coreId: string;
+            parentFiles: string[];
+            missingParents: string[];
+        };
+        UploadGameParentMultipartBody: {
+            version: number;
+            coreId: string;
+            /** Format: binary */
+            file: string;
         };
     };
-    responses: {
-        /** @description Malformed request or invalid idempotency key (400) */
-        BadRequestResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description A current If-Match resource version is required (428) */
-        PreconditionRequiredResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description Administrative immutable Runtime Target catalog */
-        RuntimeTargetListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RuntimeTargetList"];
-            };
-        };
-        /** @description Product save-state or temporary ordinary review-preview checkpoint */
-        RuntimeCheckpointCreateResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RuntimeCheckpointCreated"];
-            };
-        };
-        /** @description Current route payload kind and ordered checkpoint availability */
-        CheckpointStatusResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["CheckpointStatus"];
-            };
-        };
-        /** @description RPG_PROJECT_NOT_FOUND, INVALID_REQUEST, or INVALID_IDEMPOTENCY_KEY (400) */
-        RpgBadRequestResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG_RUNTIME_BOOTSTRAP_EXPIRED (410) */
-        RpgGoneResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG runtime validation was not found (404) */
-        RpgNotFoundResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
-        RpgConflictResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG_RGSS_CONTENT_TOO_LARGE (413) */
-        RpgPayloadTooLargeResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description REQUEST_TOO_LARGE (413); this generic transport limit is not an RPG detector result */
-        RequestTooLargeResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description Unsupported core/generation, selected-core mismatch, invalid LCF/LMT/INI/Web project, unsafe dependency/path, unsupported native bridge, invalid checkpoint, or failed engine restore (422) */
-        RpgUnprocessableResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description Runtime Provider and database diagnostic snapshot */
-        DiagnosticsResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["DiagnosticsSnapshot"];
-            };
-        };
-        /** @description Recommended platform/core directory catalog and current coverage */
-        PlatformInstanceRecommendationsResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["PlatformInstanceRecommendations"];
-            };
-        };
-        /** @description Atomic recommended-directory ensure result */
-        PlatformInstanceRecommendationsApplyResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["PlatformInstanceRecommendationsApplyResult"];
-            };
-        };
-        /** @description User-visible import batch and item totals */
-        ImportOverviewSummaryResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ImportOverviewSummary"];
-            };
-        };
-        /** @description Cursor-paged pending review summaries */
-        ReviewQueueListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ReviewQueueList"];
-            };
-        };
-        /** @description Administrator tag projection */
-        TagAdminItemResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["TagAdminItem"];
-            };
-        };
-        /** @description Cursor-paged tag management list and instance-wide summary */
-        TagListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["TagList"];
-            };
-        };
-        /** @description Atomic common-tag ensure result, separated into newly created and already-active items */
-        CommonTagsApplyResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["CommonTagsApplyResult"];
-            };
-        };
-        /** @description Current active tag set for one managed game */
-        GameTagsResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["GameTagsResult"];
-            };
-        };
-        /** @description Current game state after a successful mutation */
-        GameMutationResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["GameMutationResult"];
-            };
-        };
-        /** @description Current game management projection */
-        AdminGameDetailResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AdminGameDetail"];
-            };
-        };
-        /** @description Cursor-paged BIOS catalog with scope-wide aggregates */
-        BIOSListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["BIOSListResponseBody"];
-            };
-        };
-        /** @description Configured safe server roots */
-        ServerImportRootListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportRootList"];
-            };
-        };
-        /** @description Direct child directories below one configured root */
-        ServerImportDirectoryListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportDirectoryList"];
-            };
-        };
-        /** @description Server import summary */
-        ServerImportResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportSummary"];
-            };
-        };
-        /** @description Server import history */
-        ServerImportListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportList"];
-            };
-        };
-        /** @description Server import summary and BIOS item page */
-        ServerImportDetailResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportDetail"];
-            };
-        };
-        /** @description Ranked candidates for one frozen BIOS requirement */
-        ServerImportCandidateListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ServerImportCandidateList"];
-            };
-        };
-        /** @description Source scan/import aggregate */
-        SourceImportResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["SourceImportSummary"];
-            };
-        };
-        /** @description Source scan/import history */
-        SourceImportListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["SourceImportList"];
-            };
-        };
-        /** @description Source collection mapping page */
-        SourceCollectionListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["SourceCollectionList"];
-            };
-        };
-        /** @description Source item result page */
-        SourceItemListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["SourceItemList"];
-            };
-        };
-        /** @description Process is live */
-        HealthLiveResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["HealthLive"];
-            };
-        };
-        /** @description Service is ready */
-        HealthReadyResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["HealthReady"];
-            };
-        };
-        /** @description Service is not ready */
-        HealthNotReadyResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["HealthNotReady"];
-            };
-        };
-        /** @description Instance and current authenticated-session context */
-        AuthContextResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AuthContext"];
-            };
-        };
-        /** @description Non-secret metadata visible to a valid account-link holder */
-        AccountLinkInspectionResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AccountLinkInspection"];
-            };
-        };
-        /** @description Account-security-only user list */
-        AdminUserListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AdminUserList"];
-            };
-        };
-        /** @description Account-security-only user detail */
-        AdminUserResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AdminUser"];
-            };
-        };
-        /** @description Secretless account-link metadata list */
-        AccountLinkListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["AccountLinkList"];
-            };
-        };
-        /** @description Invitation metadata and the one-time capability URL */
-        InvitationCreatedResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["InvitationCreated"];
-            };
-        };
-        /** @description Password-reset metadata and the one-time capability URL */
-        PasswordResetCreatedResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["PasswordResetCreated"];
-            };
-        };
-        /** @description JSON response */
-        JSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["JSONObject"];
-            };
-        };
-        /** @description Current Profile's favorite list and derived summaries */
-        FavoriteListJSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["FavoriteListResponse"];
-            };
-        };
-        /** @description Current state of one favorite */
-        FavoriteStateJSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["FavoriteState"];
-            };
-        };
-        /** @description Current state of each organized favorite */
-        FavoriteBatchJSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["FavoriteBatchResult"];
-            };
-        };
-        /** @description Deleted favorite membership snapshot for bounded undo */
-        UnfavoriteJSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["UnfavoriteResult"];
-            };
-        };
-        /** @description Restore result including skipped games and folders */
-        FavoriteRestoreJSONResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["FavoriteRestoreResult"];
-            };
-        };
-        /** @description Current favorite folder */
-        FavoriteFolderJSONResponse: {
-            headers: {
-                ETag?: string;
-                Location?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["FavoriteFolder"];
-            };
-        };
-        /** @description Visible immersive platform summaries for the current Profile */
-        ImmersivePlatformListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ImmersivePlatformList"];
-            };
-        };
-        /** @description One immersive platform and a cursor-paginated game projection for the current Profile */
-        ImmersiveGameListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ImmersiveGameList"];
-            };
-        };
-        /** @description Current Profile immersive destinations */
-        ImmersiveDestinationListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ImmersiveDestinationList"];
-            };
-        };
-        /** @description Current Profile immersive library games */
-        ImmersiveLibraryGameListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ImmersiveLibraryGameList"];
-            };
-        };
-        /** @description Exact Launch Envelope V1 derived from an immutable Provider Target and authorized resources */
-        LaunchConfigResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["LaunchConfig"];
-            };
-        };
-        /** @description Server-sent events */
-        SSEResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "text/event-stream": string;
-            };
-        };
-        /** @description Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges. */
-        BinaryResponse: {
-            headers: {
-                ETag?: string;
-                "Accept-Ranges"?: string;
-                "Cache-Control"?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/octet-stream": string;
-            };
-        };
-    };
-    parameters: {
-        Q: string;
-        Q80: string;
-        Role: "ADMIN" | "USER";
-        PlatformIDQuery: string;
-        GameIDQuery: string;
-        TagIDQuery: string;
-        TagStatus: "ACTIVE" | "DELETED" | "ALL";
-        TagSort: "NAME_ASC" | "UPDATED_DESC";
-        PlatformInstanceIDQuery: string;
-        CoreIDQuery: string;
-        ProviderIDQuery: string;
-        TargetIDQuery: string;
-        ImportJobIDQuery: string;
-        SourceImportIDQuery: string;
-        Availability: string;
-        State: string;
-        Status: string;
-        BlockerCode: string;
-        Decision: string;
-        Enabled: boolean;
-        Scope: string;
-        BIOSQuick: "ALL" | "ATTENTION" | "REQUIRED" | "OPTIONAL";
-        Outcome: string;
-        MatchMethod: string;
-        SourceWarning: string;
-        ReviewSourceMediaKind: "COVER" | "VIDEO";
-        SourceCollectionIDQuery: string;
-        ServerImportKind: "BIOS_DIRECTORY";
-        ServerRelativePath: string;
-        FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
-        FavoriteFolderIDQuery: string;
-        FavoriteSort: "FAVORITED_DESC" | "RECENTLY_PLAYED_DESC" | "TITLE_ASC" | "RELEASE_YEAR_DESC";
-        GameListSort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC";
-        Source: string;
-        ParseStatus: string;
-        Section: string;
-        Change: string;
-        Sort: string;
-        FromAtMs: number;
-        ToAtMs: number;
-        Cursor: string;
-        Limit: number;
-        Limit50: number;
-        Limit20: number;
-        Limit100: number;
-        IfMatch: string;
-        IdempotencyKey: string;
-        CSRFToken: string;
-        ContentRange: string;
-        ContentDigest: string;
-        LastEventID: string;
-        GameID: string;
-        PlatformID: string;
-        ImmersiveLibraryKind: "all" | "recent" | "favorites" | "saves";
-        TagID: string;
-        FavoriteFolderID: string;
-        SaveStateID: string;
-        UploadID: string;
-        FileID: string;
-        PartNo: number;
-        ImportJobID: string;
-        ImportItemID: string;
-        BulkApprovalID: string;
-        JobID: string;
-        CandidateID: string;
-        PlatformInstanceID: string;
-        RequirementID: string;
-        ServerImportRootID: string;
-        ServerImportID: string;
-        SourceImportID: string;
-        GameAssetKind: "VIDEO";
-        AssetID: string;
-        LaunchID: string;
-        ContentIdentity: string;
-        UserID: string;
-        AccountLinkID: string;
-        LogicalName: string;
-    };
-    requestBodies: {
-        AuthInitialize: {
-            content: {
-                "application/json": components["schemas"]["AuthInitializeRequest"];
-            };
-        };
-        AuthLogin: {
-            content: {
-                "application/json": components["schemas"]["AuthLoginRequest"];
-            };
-        };
-        AuthChangePassword: {
-            content: {
-                "application/json": components["schemas"]["AuthChangePasswordRequest"];
-            };
-        };
-        AccountLinkInspect: {
-            content: {
-                "application/json": components["schemas"]["AccountLinkInspectRequest"];
-            };
-        };
-        InvitationAccept: {
-            content: {
-                "application/json": components["schemas"]["InvitationAcceptRequest"];
-            };
-        };
-        PasswordResetComplete: {
-            content: {
-                "application/json": components["schemas"]["PasswordResetCompleteRequest"];
-            };
-        };
-        CreateInvitation: {
-            content: {
-                "application/json": components["schemas"]["CreateInvitationRequest"];
-            };
-        };
-        PatchUser: {
-            content: {
-                "application/json": components["schemas"]["PatchUserRequest"];
-            };
-        };
-        DeleteUser: {
-            content: {
-                "application/json": components["schemas"]["DeleteUserRequest"];
-            };
-        };
-        RenameSave: {
-            content: {
-                "*/*"?: never;
-            };
-        };
-        FromRenameSave: {
-            content: {
-                "application/json": components["schemas"]["RenameSaveRequest"];
-            };
-        };
-        Launch: {
-            content: {
-                "application/json": components["schemas"]["LaunchRequest"];
-            };
-        };
-        CreateUpload: {
-            content: {
-                "application/json": components["schemas"]["CreateUploadRequest"];
-            };
-        };
-        CreateImport: {
-            content: {
-                "application/json": components["schemas"]["CreateImportRequest"];
-            };
-        };
-        ReconfigureImport: {
-            content: {
-                "application/json": components["schemas"]["ReconfigureImportRequest"];
-            };
-        };
-        Reason: {
-            content: {
-                "application/json": components["schemas"]["ReasonRequest"];
-            };
-        };
-        ApprovalReason: {
-            content: {
-                "application/json": components["schemas"]["ApprovalReasonRequest"];
-            };
-        };
-        Approval: {
-            content: {
-                "application/json": components["schemas"]["ApprovalRequest"];
-            };
-        };
-        Empty: {
-            content: {
-                "application/json": components["schemas"]["EmptyRequest"];
-            };
-        };
-        ReplaceFavoriteFolders: {
-            content: {
-                "application/json": components["schemas"]["ReplaceFavoriteFoldersRequest"];
-            };
-        };
-        OrganizeFavorites: {
-            content: {
-                "application/json": components["schemas"]["OrganizeFavoritesRequest"];
-            };
-        };
-        Unfavorite: {
-            content: {
-                "application/json": components["schemas"]["UnfavoriteRequest"];
-            };
-        };
-        RestoreFavorites: {
-            content: {
-                "application/json": components["schemas"]["RestoreFavoritesRequest"];
-            };
-        };
-        CreateFavoriteFolder: {
-            content: {
-                "application/json": components["schemas"]["CreateFavoriteFolderRequest"];
-            };
-        };
-        PatchFavoriteFolder: {
-            content: {
-                "application/json": components["schemas"]["PatchFavoriteFolderRequest"];
-            };
-        };
-        CreateTag: {
-            content: {
-                "application/json": components["schemas"]["CreateTagRequest"];
-            };
-        };
-        RenameTag: {
-            content: {
-                "application/json": components["schemas"]["RenameTagRequest"];
-            };
-        };
-        DeleteTag: {
-            content: {
-                "application/json": components["schemas"]["DeleteTagRequest"];
-            };
-        };
-        ReplaceGameTags: {
-            content: {
-                "application/json": components["schemas"]["ReplaceGameTagsRequest"];
-            };
-        };
-        ReviewDraft: {
-            content: {
-                "application/json": components["schemas"]["ReviewDraftRequest"];
-            };
-        };
-        MetadataProvider: {
-            content: {
-                "application/json": components["schemas"]["MetadataProviderRequest"];
-            };
-        };
-        MetadataFields: {
-            content: {
-                "application/json": components["schemas"]["MetadataFields"];
-            };
-        };
-        DeleteGame: {
-            content: {
-                "application/json": components["schemas"]["DeleteGameRequest"];
-            };
-        };
-        GameAsset: {
-            content: {
-                "application/json": components["schemas"]["GameAssetRequest"];
-            };
-        };
-        ReviewAsset: {
-            content: {
-                "application/json": components["schemas"]["ReviewAssetRequest"];
-            };
-        };
-        ReviewArcadeParentAttachment: {
-            content: {
-                "application/json": components["schemas"]["ReviewArcadeParentAttachmentRequest"];
-            };
-        };
-        ReviewMultiDiscAttachment: {
-            content: {
-                "application/json": components["schemas"]["ReviewMultiDiscAttachmentRequest"];
-            };
-        };
-        ReviewPreview: {
-            content: {
-                "application/json": components["schemas"]["ReviewPreviewRequest"];
-            };
-        };
-        UploadReference: {
-            content: {
-                "application/json": components["schemas"]["UploadReferenceRequest"];
-            };
-        };
-        ApplyCandidate: {
-            content: {
-                "application/json": components["schemas"]["ApplyCandidateRequest"];
-            };
-        };
-        MovePreview: {
-            content: {
-                "application/json": components["schemas"]["MovePreviewRequest"];
-            };
-        };
-        MoveGame: {
-            content: {
-                "application/json": components["schemas"]["MoveGameRequest"];
-            };
-        };
-        CreatePlatformInstance: {
-            content: {
-                "application/json": components["schemas"]["CreatePlatformInstanceRequest"];
-            };
-        };
-        PatchPlatformInstance: {
-            content: {
-                "application/json": components["schemas"]["PatchPlatformInstanceRequest"];
-            };
-        };
-        DefaultCorePreview: {
-            content: {
-                "application/json": components["schemas"]["DefaultCorePreviewRequest"];
-            };
-        };
-        DefaultCore: {
-            content: {
-                "application/json": components["schemas"]["DefaultCoreRequest"];
-            };
-        };
-        InstallBIOS: {
-            content: {
-                "application/json": components["schemas"]["InstallBIOSRequest"];
-            };
-        };
-        CreateServerImport: {
-            content: {
-                "application/json": components["schemas"]["CreateServerImportRequest"];
-            };
-        };
-        CreateSourceImport: {
-            content: {
-                "application/json": components["schemas"]["CreateSourceImportRequest"];
-            };
-        };
-        SourceCollectionMappings: {
-            content: {
-                "application/json": components["schemas"]["SourceCollectionMappingsRequest"];
-            };
-        };
-        SourceImportStart: {
-            content: {
-                "application/json": components["schemas"]["SourceImportStartRequest"];
-            };
-        };
-        PlayProgress: {
-            content: {
-                "application/json": components["schemas"]["PlayProgressRequest"];
-            };
-        };
-        MultiDiscPlayerEvent: {
-            content: {
-                "application/json": components["schemas"]["MultiDiscPlayerEventRequest"];
-            };
-        };
-    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getWebConfig: {
+    HealthLive: {
         parameters: {
             query?: never;
             header?: never;
@@ -5354,889 +1695,70 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Effective Web configuration */
-            200: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebConfig"];
-                };
-            };
-        };
-    };
-    getAdminImportBatchDiscard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: "IMPORT" | "SOURCE";
-                importId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current batch disposition; AVAILABLE when not yet requested. */
+            /** @description Success */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["ImportBatchDiscard"];
-                };
-            };
-        };
-    };
-    postAdminImportBatchDiscard: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                kind: "IMPORT" | "SOURCE";
-                importId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Disposition accepted, already pending or already completed. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportBatchDiscard"];
-                };
-            };
-            409: components["responses"]["JSONResponse"];
-        };
-    };
-    getHealthLive: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["HealthLiveResponse"];
-        };
-    };
-    getHealthReady: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["HealthReadyResponse"];
-            503: components["responses"]["HealthNotReadyResponse"];
-        };
-    };
-    getAuthContext: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AuthContextResponse"];
-        };
-    };
-    postAuthInitialize: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["AuthInitialize"];
-        responses: {
-            201: components["responses"]["AuthContextResponse"];
-        };
-    };
-    postAuthLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["AuthLogin"];
-        responses: {
-            200: components["responses"]["AuthContextResponse"];
-        };
-    };
-    postAuthLogout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            /** @description Logged out */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
                 content?: never;
             };
-        };
-    };
-    postAuthChangePassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["AuthChangePassword"];
-        responses: {
-            200: components["responses"]["AuthContextResponse"];
-            /** @description CURRENT_PASSWORD_INVALID or PASSWORD_POLICY_VIOLATION; the authenticated session remains valid. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    postAuthAccountLinkInspect: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["AccountLinkInspect"];
-        responses: {
-            200: components["responses"]["AccountLinkInspectionResponse"];
-        };
-    };
-    postAuthInvitationAccept: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["InvitationAccept"];
-        responses: {
-            201: components["responses"]["AuthContextResponse"];
-        };
-    };
-    postAuthPasswordResetComplete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PasswordResetComplete"];
-        responses: {
-            /** @description Authenticated context for an enabled account, or the disabled-account completion state */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthContext"] | components["schemas"]["PasswordChangedDisabled"];
-                };
-            };
-        };
-    };
-    getAdminInvitations: {
-        parameters: {
-            query?: {
-                state?: components["parameters"]["State"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AccountLinkListResponse"];
-        };
-    };
-    postAdminInvitation: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateInvitation"];
-        responses: {
-            201: components["responses"]["InvitationCreatedResponse"];
-        };
-    };
-    getAdminUsers: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q80"];
-                role?: components["parameters"]["Role"];
-                status?: components["parameters"]["Status"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AdminUserListResponse"];
-        };
-    };
-    getAdminUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AdminUserResponse"];
-        };
-    };
-    deleteAdminUser: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["DeleteUser"];
-        responses: {
-            /** @description User soft-deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    patchAdminUser: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PatchUser"];
-        responses: {
-            200: components["responses"]["AdminUserResponse"];
-        };
-    };
-    getAdminUserPasswordResetLinks: {
-        parameters: {
-            query?: {
-                state?: components["parameters"]["State"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AccountLinkListResponse"];
-        };
-    };
-    postAdminUserPasswordResetLink: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                userId: components["parameters"]["UserID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            201: components["responses"]["PasswordResetCreatedResponse"];
-        };
-    };
-    deleteAdminAccountLink: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                accountLinkId: components["parameters"]["AccountLinkID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            /** @description Account link revoked */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getHome: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getRecentGames: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-                sort?: "RECENT_DESC" | "TITLE_ASC" | "DURATION_DESC" | "SESSIONS_DESC";
-                fromAtMs?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getGames: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                tagId?: components["parameters"]["TagIDQuery"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                sort?: components["parameters"]["GameListSort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getGame: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getImmersivePlatforms: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ImmersivePlatformListResponse"];
-        };
-    };
-    getImmersivePlatformGames: {
-        parameters: {
-            query?: {
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                platformId: components["parameters"]["PlatformID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ImmersiveGameListResponse"];
-        };
-    };
-    getImmersiveDestinations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ImmersiveDestinationListResponse"];
-        };
-    };
-    getImmersiveLibraryGames: {
-        parameters: {
-            query?: {
-                folderId?: components["parameters"]["FavoriteFolderIDQuery"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                libraryKind: components["parameters"]["ImmersiveLibraryKind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ImmersiveLibraryGameListResponse"];
-        };
-    };
-    getFavorites: {
-        parameters: {
-            query?: {
-                scope?: components["parameters"]["FavoriteScope"];
-                folderId?: components["parameters"]["FavoriteFolderIDQuery"];
-                q?: components["parameters"]["Q"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                sort?: components["parameters"]["FavoriteSort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["FavoriteListJSONResponse"];
-        };
-    };
-    putFavorite: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            200: components["responses"]["FavoriteStateJSONResponse"];
-        };
-    };
-    putFavoriteFolders: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReplaceFavoriteFolders"];
-        responses: {
-            200: components["responses"]["FavoriteStateJSONResponse"];
-        };
-    };
-    postFavoriteOrganize: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["OrganizeFavorites"];
-        responses: {
-            200: components["responses"]["FavoriteBatchJSONResponse"];
-        };
-    };
-    postFavoriteUnfavorite: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Unfavorite"];
-        responses: {
-            200: components["responses"]["UnfavoriteJSONResponse"];
-        };
-    };
-    postFavoriteRestore: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["RestoreFavorites"];
-        responses: {
-            200: components["responses"]["FavoriteRestoreJSONResponse"];
-        };
-    };
-    postFavoriteFolder: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateFavoriteFolder"];
-        responses: {
-            201: components["responses"]["FavoriteFolderJSONResponse"];
-        };
-    };
-    deleteFavoriteFolder: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                folderId: components["parameters"]["FavoriteFolderID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            /** @description Favorite folder deleted; favorites are retained */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    patchFavoriteFolder: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                folderId: components["parameters"]["FavoriteFolderID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PatchFavoriteFolder"];
-        responses: {
-            200: components["responses"]["FavoriteFolderJSONResponse"];
-        };
-    };
-    getSaves: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                gameId?: components["parameters"]["GameIDQuery"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                coreId?: components["parameters"]["CoreIDQuery"];
-                availability?: components["parameters"]["Availability"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    deleteSave: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                saveStateId: components["parameters"]["SaveStateID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    patchSave: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                saveStateId: components["parameters"]["SaveStateID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["RenameSave"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postLocalGameSave: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @description UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected. */
-                    metadata: string;
-                    /** Format: binary */
-                    payload: string;
-                    /** Format: binary */
-                    screenshot?: string;
-                };
-            };
-        };
-        responses: {
-            201: components["responses"]["RuntimeCheckpointCreateResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-            413: components["responses"]["RequestTooLargeResponse"];
-            422: components["responses"]["RpgUnprocessableResponse"];
-        };
-    };
-    postLaunch: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Launch"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-            202: components["responses"]["JSONResponse"];
-            /** @description Invalid request, including an unrecognized or unsafe returnTo (INVALID_LAUNCH_RETURN_TO). */
+            /** @description Request failed */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    postAdminUpload: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateUpload"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminUpload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    deleteAdminUpload: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            202: components["responses"]["JSONResponse"];
-            /** @description Cancelled */
-            204: {
+            /** @description Request failed */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-        };
-    };
-    putAdminUploadPart: {
-        parameters: {
-            query?: never;
-            header: {
-                "Content-Range": components["parameters"]["ContentRange"];
-                "Content-Digest": components["parameters"]["ContentDigest"];
-            };
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-                fileId: components["parameters"]["FileID"];
-                partNo: components["parameters"]["PartNo"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/octet-stream": string;
-            };
-        };
-        responses: {
-            /** @description Stored */
-            204: {
+            /** @description Request failed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-        };
-    };
-    postAdminUploadComplete: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            path: {
-                uploadId: components["parameters"]["UploadID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            202: components["responses"]["JSONResponse"];
-            /** @description VERSION_CONFLICT when the upload is unavailable, consumed or its state or version changed. */
+            /** @description Request failed */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description INTERNAL_ERROR when upload finalization persistence fails. */
-            500: {
+            /** @description Request failed */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    getAdminImportsSummary: {
+    HealthReady: {
         parameters: {
             query?: never;
             header?: never;
@@ -6245,859 +1767,300 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ImportOverviewSummaryResponse"];
-        };
-    };
-    getAdminImports: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                state?: components["parameters"]["State"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit20"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Import tasks with authoritative discard state, read in a bounded batch for this page. */
+            /** @description Success */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ImportTaskList"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    postAdminImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateImport"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-            /** @description IMPORT_INPUT_INVALID when admission input is invalid or its upload or target version changed. */
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description INTERNAL_ERROR when admission persistence fails. No import is committed or dispatched. */
-            500: {
+            /** @description Request failed */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    getAdminImport: {
+    GetAuthContext: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current task details including authoritative discard state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportTaskDetail"];
-                };
-            };
-        };
-    };
-    getAdminImportEvents: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Last-Event-ID"?: components["parameters"]["LastEventID"];
-            };
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["SSEResponse"];
-        };
-    };
-    postAdminImportCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminImportReconfigure: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importJobId: components["parameters"]["ImportJobID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReconfigureImport"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminImportItemRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminJobEvents: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Last-Event-ID"?: components["parameters"]["LastEventID"];
-            };
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["SSEResponse"];
-        };
-    };
-    postAdminJobCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminJobRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                jobId: components["parameters"]["JobID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminReviews: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                tagId?: components["parameters"]["TagIDQuery"];
-                importJobId?: components["parameters"]["ImportJobIDQuery"];
-                sourceImportId?: components["parameters"]["SourceImportIDQuery"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                blockerCode?: components["parameters"]["BlockerCode"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit20"];
-            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ReviewQueueListResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthContext"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    postAdminReviewDeduplicate: {
+    Initialize: {
         parameters: {
             query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReviewDeduplicateRequest"];
+                "application/json": components["schemas"]["InitializeRequest"];
             };
         };
         responses: {
-            /** @description Committed page counts and continuation bounds. */
+            /** @description Success */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewDeduplicateResult"];
+                    "application/json": components["schemas"]["AuthContext"];
                 };
             };
-        };
-    };
-    postAdminReviewBulkApproval: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            /** @description Created background approval task. */
-            202: {
+            /** @description Request failed */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewBulkApprovalSummary"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    getActiveAdminReviewBulkApproval: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The globally active task, if any. */
-            200: {
+            /** @description Request failed */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        activeBulkApproval: components["schemas"]["ReviewBulkApprovalSummary"] | null;
-                    };
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    getAdminReviewBulkApproval: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current task state and aggregate progress. */
-            200: {
+            /** @description Request failed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewBulkApprovalSummary"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    getAdminReview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current review facts in one read transaction; BIOS or DAT changes do not increment the review version. */
-            200: {
+            /** @description Request failed */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JSONObject"] & {
-                        readiness: components["schemas"]["ReviewReadiness"];
-                    };
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    patchAdminReview: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReviewDraft"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewScrapeCandidates: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["MetadataProvider"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewAsset: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReviewAsset"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewPreview: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReviewPreview"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewArcadeParentAttachment: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReviewArcadeParentAttachment"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewMultiDiscAttachment: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReviewMultiDiscAttachment"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewApprove: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Approval"];
-        responses: {
-            /** @description Published a new game or skipped identical content already in the library. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewApprovalResult"];
-                };
-            };
-            /** @description REVIEW_VALIDATION_STALE; review input changed before publication. */
+            /** @description Request failed */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description INTERNAL_ERROR when persistence fails or persisted review evidence cannot be decoded. No publication is committed. */
-            500: {
+            /** @description Request failed */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    postAdminReviewDiscard: {
+    Login: {
         parameters: {
             query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                importItemId: components["parameters"]["ImportItemID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ApprovalReason"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminTags: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q80"];
-                status?: components["parameters"]["TagStatus"];
-                sort?: components["parameters"]["TagSort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
         responses: {
-            200: components["responses"]["TagListResponse"];
-        };
-    };
-    postAdminTag: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateTag"];
-        responses: {
-            201: components["responses"]["TagAdminItemResponse"];
-        };
-    };
-    postAdminTagDefaults: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            200: components["responses"]["CommonTagsApplyResponse"];
-        };
-    };
-    getAdminTag: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                tagId: components["parameters"]["TagID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["TagAdminItemResponse"];
-        };
-    };
-    deleteAdminTag: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                tagId: components["parameters"]["TagID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["DeleteTag"];
-        responses: {
-            /** @description Tag soft-deleted; retained relationships are historical only. */
-            204: {
-                headers: {
-                    ETag?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    patchAdminTag: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                tagId: components["parameters"]["TagID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["RenameTag"];
-        responses: {
-            200: components["responses"]["TagAdminItemResponse"];
-        };
-    };
-    getAdminGames: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                tagId?: components["parameters"]["TagIDQuery"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                status?: components["parameters"]["Status"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-                runtime?: "ALL" | "READY" | "ATTENTION" | "DELETED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminGame: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["AdminGameDetailResponse"];
-        };
-    };
-    deleteAdminGame: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["DeleteGame"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    patchAdminGame: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["MetadataFields"];
-        responses: {
-            200: components["responses"]["GameMutationResponse"];
-        };
-    };
-    putAdminGameTags: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ReplaceGameTags"];
-        responses: {
-            200: components["responses"]["GameTagsResponse"];
-        };
-    };
-    postAdminGameAsset: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["GameAsset"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    deleteAdminGameAsset: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-                assetKind: components["parameters"]["GameAssetKind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Asset kind removed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    postAdminGameContentReplacement: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["UploadReference"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminGameScrapeCandidates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current completed lookup result. */
+            /** @description Success */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GameScrapeCandidates"];
+                    "application/json": components["schemas"]["AuthContext"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    postAdminGameScrapeCandidates: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["MetadataProvider"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminGameScrapeCandidateApply: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-                candidateId: components["parameters"]["CandidateID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ApplyCandidate"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminGameMovePreview: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["MovePreview"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminGameMove: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                gameId: components["parameters"]["GameID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["MoveGame"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminPlatforms: {
+    Logout: {
         parameters: {
             query?: never;
             header?: never;
@@ -7106,518 +2069,774 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminRuntimeTargets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["RuntimeTargetListResponse"];
-        };
-    };
-    getAdminPlatformInstances: {
-        parameters: {
-            query?: {
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                enabled?: components["parameters"]["Enabled"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminPlatformInstance: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreatePlatformInstance"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminPlatformInstanceRecommendations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["PlatformInstanceRecommendationsResponse"];
-        };
-    };
-    postAdminPlatformInstanceRecommendationsApply: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            200: components["responses"]["PlatformInstanceRecommendationsApplyResponse"];
-        };
-    };
-    getAdminPlatformInstance: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    deleteAdminPlatformInstance: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
+            /** @description Success */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    patchAdminPlatformInstance: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PatchPlatformInstance"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminPlatformDefaultCorePreview: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["DefaultCorePreview"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminPlatformDefaultCore: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                platformInstanceId: components["parameters"]["PlatformInstanceID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["DefaultCore"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminBIOS: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                platformId?: components["parameters"]["PlatformIDQuery"];
-                coreId?: components["parameters"]["CoreIDQuery"];
-                providerId?: components["parameters"]["ProviderIDQuery"];
-                targetId?: components["parameters"]["TargetIDQuery"];
-                scope?: components["parameters"]["Scope"];
-                status?: components["parameters"]["Status"];
-                quick?: components["parameters"]["BIOSQuick"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit100"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BIOSListResponse"];
-        };
-    };
-    getAdminServerImportRoots: {
+    ChangePassword: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRequest"];
+            };
+        };
         responses: {
-            200: components["responses"]["ServerImportRootListResponse"];
-        };
-    };
-    getAdminServerImportRootDirectories: {
-        parameters: {
-            query?: {
-                path?: components["parameters"]["ServerRelativePath"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit100"];
-            };
-            header?: never;
-            path: {
-                rootId: components["parameters"]["ServerImportRootID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ServerImportDirectoryListResponse"];
-        };
-    };
-    getAdminServerImports: {
-        parameters: {
-            query?: {
-                kind?: components["parameters"]["ServerImportKind"];
-                state?: components["parameters"]["State"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit20"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ServerImportListResponse"];
-        };
-    };
-    postAdminServerImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateServerImport"];
-        responses: {
-            202: components["responses"]["ServerImportResponse"];
-        };
-    };
-    getAdminServerImport: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                outcome?: components["parameters"]["Outcome"];
-                matchMethod?: components["parameters"]["MatchMethod"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ServerImportDetailResponse"];
-        };
-    };
-    getAdminServerImportBIOSCandidates: {
-        parameters: {
-            query?: {
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-                requirementId: components["parameters"]["RequirementID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ServerImportCandidateListResponse"];
-        };
-    };
-    postAdminServerImportCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["ServerImportResponse"];
-            202: components["responses"]["ServerImportResponse"];
-        };
-    };
-    postAdminServerImportRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                serverImportId: components["parameters"]["ServerImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["ServerImportResponse"];
-        };
-    };
-    getAdminSourceImports: {
-        parameters: {
-            query?: {
-                state?: components["parameters"]["State"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit20"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["SourceImportListResponse"];
-        };
-    };
-    postAdminSourceImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateSourceImport"];
-        responses: {
-            202: components["responses"]["SourceImportResponse"];
-        };
-    };
-    getAdminSourceImport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["SourceImportResponse"];
-        };
-    };
-    deleteAdminSourceImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Unstarted Source import plan deleted */
+            /** @description Success */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getAdminSourceImportCollections: {
+    InspectAccountLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkInspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountLinkInspect"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AcceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthContext"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CompletePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountLink"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListUsers: {
         parameters: {
             query?: {
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit100"];
+                offset?: number;
+                limit?: number;
+                q?: string;
             };
             header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["SourceCollectionListResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    putAdminSourceImportCollectionMappings: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["SourceCollectionMappings"];
-        responses: {
-            200: components["responses"]["SourceImportResponse"];
-        };
-    };
-    postAdminSourceImportStart: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["SourceImportStart"];
-        responses: {
-            202: components["responses"]["SourceImportResponse"];
-        };
-    };
-    getAdminSourceImportItems: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                outcome?: components["parameters"]["Outcome"];
-                warning?: components["parameters"]["SourceWarning"];
-                collectionId?: components["parameters"]["SourceCollectionIDQuery"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["SourceItemListResponse"];
-        };
-    };
-    postAdminSourceImportRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                sourceImportId: components["parameters"]["SourceImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["SourceImportResponse"];
-        };
-    };
-    postAdminBIOSInstallation: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                requirementId: components["parameters"]["RequirementID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["InstallBIOS"];
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminBIOSEntries: {
+    UpdateUser: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                requirementId: components["parameters"]["RequirementID"];
+                userId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
         responses: {
-            200: components["responses"]["JSONResponse"];
-            404: components["responses"]["JSONResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getAdminDiagnostics: {
+    CreatePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    expiresInHours: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountLink"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RevokeAccountLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountLinkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetRuntimeCatalog: {
         parameters: {
             query?: never;
             header?: never;
@@ -7626,506 +2845,5029 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["DiagnosticsResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeCatalog"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getContentAsset: {
+    ListDirectories: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                assetId: components["parameters"]["AssetID"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    headContentAsset: {
+    ListAdminDirectories: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                assetId: components["parameters"]["AssetID"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getSaveStateScreenshot: {
+    CreateDirectory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectoryWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Directory"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteDirectory: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                saveStateId: components["parameters"]["SaveStateID"];
+                directoryId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    headSaveStateScreenshot: {
+    UpdateDirectory: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                saveStateId: components["parameters"]["SaveStateID"];
+                directoryId: string;
             };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectoryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Directory"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getAdminReviewAsset: {
+    ListGames: {
         parameters: {
             query?: {
-                kind?: components["parameters"]["ReviewSourceMediaKind"];
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
             };
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GamePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetGame: {
+        parameters: {
+            query?: never;
+            header?: never;
             path: {
-                assetId: components["parameters"]["AssetID"];
+                gameId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    headAdminReviewAsset: {
+    ReadGameMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource bytes; Range requests return 206 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Partial resource bytes */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListAdminGames: {
         parameters: {
             query?: {
-                kind?: components["parameters"]["ReviewSourceMediaKind"];
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
             };
             header?: never;
-            path: {
-                assetId: components["parameters"]["AssetID"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GamePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    getRuntimeProviderResource: {
+    GetAdminGame: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                providerId: string;
-                bundleSha256: string;
-                runtimePath: string;
+                gameId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
-            404: components["responses"]["JSONResponse"];
-            416: components["responses"]["JSONResponse"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    headRuntimeProviderResource: {
+    DeleteGame: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                providerId: string;
-                bundleSha256: string;
-                runtimePath: string;
+                gameId: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            404: components["responses"]["JSONResponse"];
-            416: components["responses"]["JSONResponse"];
-        };
-    };
-    getRuntimeProjectFile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
             };
-            cookie?: never;
         };
-        requestBody?: never;
         responses: {
-            200: components["responses"]["BinaryResponse"];
-            401: components["responses"]["JSONResponse"];
-            500: components["responses"]["JSONResponse"];
-            503: components["responses"]["JSONResponse"];
-        };
-    };
-    headRuntimeProjectFile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            401: components["responses"]["JSONResponse"];
-            500: components["responses"]["JSONResponse"];
-            503: components["responses"]["JSONResponse"];
-        };
-    };
-    getRuntimeWebContent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            206: components["responses"]["BinaryResponse"];
-            401: components["responses"]["JSONResponse"];
-            404: components["responses"]["JSONResponse"];
-            416: components["responses"]["JSONResponse"];
-            503: components["responses"]["JSONResponse"];
-        };
-    };
-    headRuntimeWebContent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                projectPath: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            206: components["responses"]["BinaryResponse"];
-            401: components["responses"]["JSONResponse"];
-            404: components["responses"]["JSONResponse"];
-            416: components["responses"]["JSONResponse"];
-            503: components["responses"]["JSONResponse"];
-        };
-    };
-    renewRuntimeSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Runtime credential remains valid. */
+            /** @description Success */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            401: components["responses"]["JSONResponse"];
-        };
-    };
-    getRuntimeLaunchConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["LaunchConfigResponse"];
-        };
-    };
-    postRuntimeLaunchProgress: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PlayProgress"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-            401: components["responses"]["JSONResponse"];
-        };
-    };
-    finishRuntimeReviewPreview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Review preview closed */
-            204: {
+            /** @description Request failed */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            401: components["responses"]["JSONResponse"];
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    postRuntimeMultiDiscPlayerEvent: {
+    UpdateGame: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                gameId: string;
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["MultiDiscPlayerEvent"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameWriteRequest"];
+            };
+        };
         responses: {
-            /** @description Event accepted */
-            204: {
+            /** @description Success */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
         };
     };
-    postRuntimeSaveState: {
+    ReplaceGameContent: {
         parameters: {
             query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadGameMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
                 "multipart/form-data": {
-                    /** @description UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected. */
-                    metadata: string;
                     /** Format: binary */
-                    payload: string;
-                    /** Format: binary */
-                    screenshot?: string;
+                    file: string;
+                    /** @enum {string} */
+                    kind: "cover" | "video" | "screenshot";
+                    /** Format: int64 */
+                    version: number;
                 };
             };
         };
         responses: {
-            201: components["responses"]["RuntimeCheckpointCreateResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-            413: components["responses"]["RequestTooLargeResponse"];
-            422: components["responses"]["RpgUnprocessableResponse"];
-        };
-    };
-    getRuntimeCheckpointStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["CheckpointStatusResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-        };
-    };
-    getRuntimeGame: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    headRuntimeGame: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    getRuntimeExternalFile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    headRuntimeExternalFile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-                logicalName: components["parameters"]["LogicalName"];
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    getRuntimeBIOSBundle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    headRuntimeBIOSBundle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
         };
     };
-    getRuntimeParentBundle: {
+    DeleteGameMedia: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    headRuntimeParentBundle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                contentIdentity: components["parameters"]["ContentIdentity"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    getRuntimeState: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-        };
-    };
-    headRuntimeState: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    postRuntimeReviewScreenshot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
+                gameId: string;
+                mediaId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "image/*": string;
+                "application/json": components["schemas"]["VersionRequest"];
             };
         };
         responses: {
-            201: components["responses"]["JSONResponse"];
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListAdminTags: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagPage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tagId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tagId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListFavorites: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                folderId?: string;
+                /** @description Return favorites without a folder. Cannot be combined with folderId. */
+                unclassified?: boolean;
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GamePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    SetFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoriteWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RemoveFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListFavoriteFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteFolder"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteFolder"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListSaves: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                gameId?: string;
+                kind?: "checkpoint" | "game_save";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description JSON SaveCommitMetadata */
+                    metadata: string;
+                    /** Format: binary */
+                    payload: string;
+                    /**
+                     * Format: binary
+                     * @description Optional bounded PNG or JPEG screenshot. Preserve the original image bytes; the server validates the actual image format.
+                     */
+                    screenshot?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Save"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    OverwriteSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description JSON SaveCommitMetadata */
+                    metadata: string;
+                    /** Format: binary */
+                    payload: string;
+                    /**
+                     * Format: binary
+                     * @description Optional bounded PNG or JPEG screenshot. Preserve the original image bytes; the server validates the actual image format.
+                     */
+                    screenshot?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Save"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RenameSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Save"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ReadSavePayload: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional HTTP byte range. */
+                Range?: string;
+                /** @description Optional HTTP conditional identity; a mismatch returns 412 without resource bytes. */
+                "If-Match"?: string;
+            };
+            path: {
+                saveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource bytes; Range requests return 206 */
+            200: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description Byte ranges are supported. */
+                    "Accept-Ranges"?: "bytes";
+                    /** @description Response byte length; HEAD reports the corresponding GET length without a body. */
+                    "Content-Length"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Partial resource bytes */
+            206: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description Byte ranges are supported. */
+                    "Accept-Ranges"?: "bytes";
+                    /** @description Response byte length; HEAD reports the corresponding GET length without a body. */
+                    "Content-Length"?: number;
+                    /** @description Returned byte interval and full resource length. */
+                    "Content-Range"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description If-Match did not match the immutable resource identity; empty body. */
+            412: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description No body is returned. */
+                    "Content-Length"?: 0;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ReadSaveScreenshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original validated PNG or JPEG screenshot bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            /** @description Original validated PNG or JPEG screenshot bytes; partial Range response */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListRecentGames: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                afterMs?: number;
+                beforeMs?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentPage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListReviews: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                sort?: "title" | "recent";
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GamePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ReviewReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewReadinessRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewReadinessList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ApproveReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DiscardReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListSourceDirectories: {
+        parameters: {
+            query: {
+                /** @description Absolute directory path visible to the server process. */
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDirectoryList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    InspectGameSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceInspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceEntryList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateGameScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameScanRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanProgress"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListScans: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CancelScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanProgress"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListBios: {
+        parameters: {
+            query?: {
+                platformId?: string;
+                coreId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BiosList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    InstallBios: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirementKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BiosRequirement"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RemoveBios: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirementKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateBiosScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BiosScanRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanProgress"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    StopRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    SendRunEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    IdentifyScummvm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScummvmCandidates"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListAccountLinks: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                kind?: "invitation" | "password_reset";
+                status?: "active" | "consumed" | "revoked" | "expired";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountLinkList"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ReadRunResource: {
+        parameters: {
+            query?: never;
+            header?: {
+                Range?: string;
+                /** @description Optional HTTP conditional identity; a mismatch returns 412 without resource bytes. */
+                "If-Match"?: string;
+            };
+            path: {
+                runId: string;
+                resourceId: string;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource bytes; Range requests return 206 */
+            200: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description Byte ranges are supported. */
+                    "Accept-Ranges"?: "bytes";
+                    /** @description Response byte length; HEAD reports the corresponding GET length without a body. */
+                    "Content-Length"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Partial resource bytes */
+            206: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description Byte ranges are supported. */
+                    "Accept-Ranges"?: "bytes";
+                    /** @description Response byte length; HEAD reports the corresponding GET length without a body. */
+                    "Content-Length"?: number;
+                    /** @description Returned byte interval and full resource length. */
+                    "Content-Range"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description If-Match did not match the immutable resource identity; empty body. */
+            412: {
+                headers: {
+                    /** @description Strong identity of the complete resource bytes, including on partial responses, in the form "sha256-<lowercase SHA-256>". */
+                    ETag?: string;
+                    /** @description No body is returned. */
+                    "Content-Length"?: 0;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetRunResourceIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+                indexId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeIndex"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListDOSEntryCandidates: {
+        parameters: {
+            query?: {
+                /** @description Optional current archive logical key, including an unsaved editor selection. */
+                entryFile?: string;
+            };
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DOSEntryCandidates"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetArcadeParentOptions: {
+        parameters: {
+            query: {
+                coreId: string;
+            };
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArcadeParentOptions"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadGameParent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadGameParentMultipartBody"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

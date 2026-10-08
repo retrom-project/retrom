@@ -1,754 +1,670 @@
-paths:
-  /runtime/launches/{launchId}/renew:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: renewRuntimeSession
-      description: Authenticates the shared runtime cookie and an owned active Launch. After more than 12 hours, renews the same credential for 24 hours independently of login idle/absolute expiry. Explicit logout or revocation denies renewal. Extends an active product Launch without affecting other games.
-      responses:
-        '204':
-          description: Runtime credential remains valid.
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /content/assets/{assetId}:
-    parameters:
-      - $ref: '#/components/parameters/AssetID'
-    get:
-      operationId: getContentAsset
-      description: Serves only an asset owned by the current published game; replaced asset IDs return 404.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      operationId: headContentAsset
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /content/save-states/{saveStateId}/screenshot:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/SaveStateID
-    get:
-      operationId: getSaveStateScreenshot
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      operationId: headSaveStateScreenshot
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /api/v1/admin/review-assets/{assetId}:
-    parameters:
-      - $ref: '#/components/parameters/AssetID'
-    get:
-      operationId: getAdminReviewAsset
-      parameters:
-        - $ref: '#/components/parameters/ReviewSourceMediaKind'
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      operationId: headAdminReviewAsset
-      parameters:
-        - $ref: '#/components/parameters/ReviewSourceMediaKind'
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}:
-    x-retrom-router-template: /runtime/providers/{providerId}/{bundleSha256}/{runtimePath:.+}
-    parameters:
-      - name: providerId
-        in: path
-        required: true
-        schema:
-          type: string
-          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
-      - name: bundleSha256
-        in: path
-        required: true
-        schema:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-      - name: runtimePath
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      security: []
-      operationId: getRuntimeProviderResource
-      description: Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle. Cache-Control includes no-transform so proxies preserve the declared representation, byte length and strong ETag.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '416':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-    head:
-      security: []
-      operationId: headRuntimeProviderResource
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '416':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/content/project/{contentIdentity}/{projectPath}:
-    x-retrom-router-template: /runtime/content/project/{contentIdentity}/{projectPath:.+}
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-      - name: projectPath
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      security: []
-      operationId: getRuntimeProjectFile
-      description: Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. Only a valid static-index format may use the frozen stored index; dynamic index storage failures return INTERNAL_ERROR.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '503':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '500':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-    head:
-      security: []
-      operationId: headRuntimeProjectFile
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '503':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '500':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/content/web/{contentIdentity}/{projectPath}:
-    x-retrom-router-template: /runtime/content/web/{contentIdentity}/{projectPath:.+}
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-      - name: projectPath
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      security: []
-      operationId: getRuntimeWebContent
-      description: Serves the authorized frozen native-web index at index.json and non-executable byte downloads at files/{logicalPath}. Bodies use attachment and sandbox headers on the app origin. Supports exact lengths, strong ETags and single byte ranges.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '206':
-          $ref: '#/components/responses/BinaryResponse'
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '503':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '404':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '416':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-    head:
-      security: []
-      operationId: headRuntimeWebContent
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '206':
-          $ref: '#/components/responses/BinaryResponse'
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '503':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '404':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '416':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/launches/{launchId}/config:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    get:
-      security: []
-      operationId: getRuntimeLaunchConfig
-      responses:
-        '200':
-          $ref: '#/components/responses/LaunchConfigResponse'
-  /runtime/launches/{launchId}/progress:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeLaunchProgress
-      x-retrom-max-body-bytes: 65536
-      description: Best-effort cumulative play duration. Missing, duplicate, or reordered samples never affect launch access.
-      requestBody:
-        $ref: '#/components/requestBodies/PlayProgress'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/launches/{launchId}/finish:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: finishRuntimeReviewPreview
-      description: Idempotently close a review preview and revoke its content grants. Product launches cannot use this operation.
-      responses:
-        '204':
-          description: Review preview closed
-        '401':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /runtime/launches/{launchId}/player-events:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeMultiDiscPlayerEvent
-      x-retrom-max-body-bytes: 8192
-      description: Records a closed, low-cardinality multi-disc Player result after validating the Launch cookie. Names, paths, hashes, and capabilities are not accepted.
-      requestBody:
-        $ref: '#/components/requestBodies/MultiDiscPlayerEvent'
-      responses:
-        '204':
-          description: Event accepted
-  /api/v1/launches/{launchId}/local-save:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      operationId: postLocalGameSave
-      x-retrom-max-body-bytes: 283115520
-      x-retrom-streaming-body: true
-      description: Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                metadata:
-                  type: string
-                  description: UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected.
-                payload:
-                  type: string
-                  format: binary
-                screenshot:
-                  type: string
-                  format: binary
-              required:
-                - metadata
-                - payload
-            encoding:
-              metadata:
-                contentType: application/json
-              payload:
-                contentType: application/octet-stream
-              screenshot:
-                contentType: image/png, image/jpeg, image/webp
-      responses:
-        '201':
-          $ref: '#/components/responses/RuntimeCheckpointCreateResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '413':
-          $ref: '#/components/responses/RequestTooLargeResponse'
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
-  /runtime/launches/{launchId}/save-states:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeSaveState
-      x-retrom-max-body-bytes: 283115520
-      x-retrom-streaming-body: true
-      description: Creates a product SaveState for INSTANT checkpoints, synchronizes the launch-bound mutable slot for GAME_SAVE, or replaces a review preview checkpoint. GAME_SAVE creates at most one slot for a fresh launch and updates the selected slot for restored launches; screenshot is required, identical payloads are deduplicated, and stale/deleted targets return SAVE_SYNC_CONFLICT (409). The successful response remains 201 for both creation and synchronization. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                metadata:
-                  type: string
-                  description: UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected.
-                payload:
-                  type: string
-                  format: binary
-                screenshot:
-                  type: string
-                  format: binary
-              required:
-                - metadata
-                - payload
-            encoding:
-              metadata:
-                contentType: application/json
-              payload:
-                contentType: application/octet-stream
-              screenshot:
-                contentType: image/png, image/jpeg, image/webp
-      responses:
-        '201':
-          $ref: '#/components/responses/RuntimeCheckpointCreateResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '413':
-          $ref: '#/components/responses/RequestTooLargeResponse'
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
-  /runtime/launches/{launchId}/checkpoint-status:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    get:
-      security: []
-      operationId: getRuntimeCheckpointStatus
-      description: Returns the frozen checkpoint format and the most recent ordered Provider availability projection; immediate Player state remains driven by Provider events.
-      responses:
-        '200':
-          $ref: '#/components/responses/CheckpointStatusResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-  /runtime/content/game/{contentIdentity}/{logicalName}:
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-      - $ref: '#/components/parameters/LogicalName'
-    get:
-      security: []
-      operationId: getRuntimeGame
-      description: Streams only an active Launch content grant's exact content-addressed game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. Responses are private immutable and retain strong ETag validation.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      security: []
-      operationId: headRuntimeGame
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/content/external/{contentIdentity}/{logicalName}:
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-      - $ref: '#/components/parameters/LogicalName'
-    get:
-      security: []
-      operationId: getRuntimeExternalFile
-      description: Streams only an active Launch content grant's exact content-addressed BIOS or canonical disc-NNN.chd external file with the common single-Range contract.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      security: []
-      operationId: headRuntimeExternalFile
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/content/bios/{contentIdentity}/bundle.zip:
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-    get:
-      security: []
-      operationId: getRuntimeBIOSBundle
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      security: []
-      operationId: headRuntimeBIOSBundle
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/content/parent/{contentIdentity}/bundle.zip:
-    parameters:
-      - $ref: '#/components/parameters/ContentIdentity'
-    get:
-      security: []
-      operationId: getRuntimeParentBundle
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      security: []
-      operationId: headRuntimeParentBundle
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/launches/{launchId}/state:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    get:
-      security: []
-      operationId: getRuntimeState
-      description: Streams only the frozen binary checkpoint payload after compatibility validation; success never wraps bytes in JSON.
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-    head:
-      security: []
-      operationId: headRuntimeState
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/launches/{launchId}/review-screenshot:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeReviewScreenshot
-      x-retrom-max-body-bytes: 10485761
-      x-retrom-streaming-body: true
-      description: Stores one bounded PNG or JPEG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only PNG from the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds it directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route.
-      requestBody:
-        required: true
-        content:
-          image/*:
-            schema:
-              type: string
-              format: binary
-      responses:
-        '201':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-components:
-  schemas:
-    StartupAction:
-      type: object
-      additionalProperties: false
-      required:
-        - event
-        - kind
-        - delayMs
-        - player
-        - control
-        - durationMs
-      properties:
-        event:
-          type: string
-          enum:
-            - GAME_START
-        kind:
-          type: string
-          enum:
-            - PRESS_CONTROL
-        delayMs:
-          type: integer
-          minimum: 1
-          maximum: 30000
-        player:
-          type: integer
-          minimum: 1
-          maximum: 3
-        control:
-          type: integer
-          minimum: 0
-          maximum: 255
-        durationMs:
-          type: integer
-          minimum: 1
-          maximum: 1000
-    DiscEntry:
-      type: object
-      additionalProperties: false
-      required:
-        - index
-        - label
-        - virtualPath
-      properties:
-        index:
-          type: integer
-          minimum: 0
-          maximum: 7
-        label:
-          type: string
-          minLength: 1
-          maxLength: 32
-        virtualPath:
-          type: string
-          pattern: ^/disc-[0-9]{3}\.chd$
-    DiscSet:
-      type: object
-      nullable: true
-      additionalProperties: false
-      required:
-        - contentKind
-        - count
-        - initialDiscIndex
-        - entries
-      properties:
-        contentKind:
-          type: string
-          enum:
-            - MULTI_DISC
-        count:
-          type: integer
-          minimum: 2
-          maximum: 8
-        initialDiscIndex:
-          type: integer
-          minimum: 0
-          maximum: 7
-        entries:
-          type: array
-          minItems: 2
-          maxItems: 8
-          items:
-            $ref: '#/components/schemas/DiscEntry'
-    LaunchConfig:
-      $ref: ../runtime-provider/v1/launch-envelope.schema.json
-    CheckpointUnavailableReason:
-      type: string
-      enum:
-        - CORE_REPORTED_UNAVAILABLE
-        - STARTUP_NOT_READY
-        - SESSION_TERMINAL
-    CheckpointAvailability:
-      type: object
-      additionalProperties: false
-      required:
-        - available
-        - sequence
-        - reason
-      properties:
-        available:
-          type: boolean
-        sequence:
-          type: integer
-          format: int64
-          minimum: 0
-        reason:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/CheckpointUnavailableReason'
-    ProductSaveStateCreated:
-      type: object
-      additionalProperties: false
-      required:
-        - resourceKind
-        - saveStateId
-        - checkpointFormat
-        - screenshotUrl
-        - createdAtMs
-      properties:
-        resourceKind:
-          type: string
-          enum:
-            - SAVE_STATE
-        saveStateId:
-          type: string
-          format: uuid
-        checkpointFormat:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
-        screenshotUrl:
-          type: string
-          nullable: true
-          pattern: ^/content/save-states/
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    ReviewPreviewCheckpointCreated:
-      type: object
-      additionalProperties: false
-      required:
-        - resourceKind
-        - previewId
-        - checkpointFormat
-        - createdAtMs
-      properties:
-        resourceKind:
-          type: string
-          enum:
-            - REVIEW_PREVIEW_CHECKPOINT
-        previewId:
-          type: string
-          format: uuid
-        checkpointFormat:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    RuntimeCheckpointCreated:
-      oneOf:
-        - $ref: '#/components/schemas/ProductSaveStateCreated'
-        - $ref: '#/components/schemas/ReviewPreviewCheckpointCreated'
-      discriminator:
-        propertyName: resourceKind
-        mapping:
-          SAVE_STATE: '#/components/schemas/ProductSaveStateCreated'
-          REVIEW_PREVIEW_CHECKPOINT: '#/components/schemas/ReviewPreviewCheckpointCreated'
-    CheckpointStatus:
-      type: object
-      additionalProperties: false
-      required:
-        - checkpointFormat
-        - availability
-      properties:
-        checkpointFormat:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
-        availability:
-          $ref: '#/components/schemas/CheckpointAvailability'
-    PlayProgressRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - activeDurationMs
-      properties:
-        activeDurationMs:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 2592000000
-    MultiDiscPlayerEventRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - eventType
-        - resultCode
-        - discCount
-        - observedDiscCount
-      properties:
-        eventType:
-          type: string
-          enum:
-            - START
-            - DISK_COUNT_MISMATCH
-            - SWITCH_SUCCESS
-            - SWITCH_FAILURE
-            - SAVE_RESTORE_SUCCESS
-            - SAVE_RESTORE_FAILURE
-        resultCode:
-          type: string
-          enum:
-            - OK
-            - PLAYER_DISC_SET_INVALID
-            - PLAYER_DISC_API_UNAVAILABLE
-            - PLAYER_DISC_SWITCH_UNAVAILABLE
-            - PLAYER_DISC_SWITCH_FAILED
-            - PLAYER_SAVE_STATE_UNAVAILABLE
-            - PLAYER_SAVE_STATE_RESTORE_FAILED
-        discCount:
-          type: integer
-          minimum: 2
-          maximum: 8
-        observedDiscCount:
-          type: integer
-          minimum: -1
-          maximum: 64
-          nullable: true
-  requestBodies:
-    PlayProgress:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/PlayProgressRequest'
-    MultiDiscPlayerEvent:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MultiDiscPlayerEventRequest'
-  responses:
-    RuntimeCheckpointCreateResponse:
-      description: Product save-state or temporary ordinary review-preview checkpoint
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RuntimeCheckpointCreated'
-    CheckpointStatusResponse:
-      description: Current route payload kind and ordered checkpoint availability
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CheckpointStatus'
-    RequestTooLargeResponse:
-      description: REQUEST_TOO_LARGE (413); this generic transport limit is not an RPG detector result
-      content:
-        application/json:
-          schema:
-            $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
-    LaunchConfigResponse:
-      description: Exact Launch Envelope V1 derived from an immutable Provider Target and authorized resources
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/LaunchConfig'
-    BinaryResponse:
-      description: Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges.
-      headers:
-        ETag:
-          schema:
-            type: string
-        Accept-Ranges:
-          schema:
-            type: string
-        Cache-Control:
-          schema:
-            type: string
-      content:
-        application/octet-stream:
-          schema:
-            type: string
-            format: binary
-  parameters:
-    ReviewSourceMediaKind:
-      name: kind
-      in: query
-      schema:
-        type: string
-        enum:
-          - COVER
-          - VIDEO
-    AssetID:
-      name: assetId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    LaunchID:
-      name: launchId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    ContentIdentity:
-      name: contentIdentity
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: ^[0-9a-f]{64}$
-    ConfiguredVersion:
-      name: configuredVersion
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$
-    LogicalName:
-      name: logicalName
-      in: path
-      required: true
-      schema:
-        type: string
+{
+  "paths": {
+    "/api/v1/runs": {
+      "post": {
+        "operationId": "CreateRun",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{runId}": {
+      "get": {
+        "operationId": "GetRun",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "StopRun",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/runs/{runId}/events": {
+      "post": {
+        "operationId": "SendRunEvent",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunEventRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/runs/{runId}/resources/{resourceId}/{filename}": {
+      "get": {
+        "operationId": "ReadRunResource",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource bytes; Range requests return 206",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Strong identity of the complete resource bytes, including on partial responses, in the form \"sha256-<lowercase SHA-256>\".",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"sha256-[a-f0-9]{64}\"$"
+                }
+              },
+              "Accept-Ranges": {
+                "description": "Byte ranges are supported.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "bytes"
+                  ]
+                }
+              },
+              "Content-Length": {
+                "description": "Response byte length; HEAD reports the corresponding GET length without a body.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial resource bytes",
+            "headers": {
+              "ETag": {
+                "description": "Strong identity of the complete resource bytes, including on partial responses, in the form \"sha256-<lowercase SHA-256>\".",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"sha256-[a-f0-9]{64}\"$"
+                }
+              },
+              "Accept-Ranges": {
+                "description": "Byte ranges are supported.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "bytes"
+                  ]
+                }
+              },
+              "Content-Length": {
+                "description": "Response byte length; HEAD reports the corresponding GET length without a body.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "Content-Range": {
+                "description": "Returned byte interval and full resource length.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "If-Match did not match the immutable resource identity; empty body.",
+            "headers": {
+              "ETag": {
+                "description": "Strong identity of the complete resource bytes, including on partial responses, in the form \"sha256-<lowercase SHA-256>\".",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"sha256-[a-f0-9]{64}\"$"
+                }
+              },
+              "Content-Length": {
+                "description": "No body is returned.",
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240,
+              "pattern": "^(?:[^/\\\\\u0000-\u001f\u007f]*[^/\\\\.\u0000-\u001f\u007f][^/\\\\\u0000-\u001f\u007f]*|\\.{3,})$"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "Optional HTTP conditional identity; a mismatch returns 412 without resource bytes.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "GET returns immutable resource bytes. HEAD on this same path uses the same parameters and authorization, returns the corresponding status and response headers, and has no response body. A valid Range on HEAD returns 206 with Content-Range and the selected byte length in Content-Length, still without a body. ETag is the strong SHA-256 identity of the complete resource bytes. Optional If-Match is evaluated before Range; a nonmatching identity returns 412 with no body."
+      }
+    },
+    "/api/v1/runs/{runId}/resources/index/{indexId}": {
+      "get": {
+        "operationId": "GetRunResourceIndex",
+        "tags": [
+          "runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeIndex"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "indexId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ]
+      }
+    }
+  }
+}

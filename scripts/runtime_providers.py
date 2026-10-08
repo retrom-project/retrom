@@ -2,28 +2,21 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 if __package__:
-    from scripts.runtime_provider_cache import cached_download
-    from scripts.runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
-    from scripts.runtime_provider_release import (
-        _valid_release_identity, load_release_config, pin_provider_release, resolve_provider_release,
-    )
+    from scripts.runtime_provider_io import _load_json, _write_json_atomic
+    from scripts.runtime_input_manifest import release_identity as _valid_release_identity
     from scripts.runtime_provider_bundle import (
         describe_installed_provider,
         install_provider_bundle,
     )
 else:
-    from runtime_provider_cache import cached_download
-    from runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
-    from runtime_provider_release import (
-        _valid_release_identity, load_release_config, pin_provider_release, resolve_provider_release,
-    )
+    from runtime_provider_io import _load_json, _write_json_atomic
+    from runtime_input_manifest import release_identity as _valid_release_identity
     from runtime_provider_bundle import (
         describe_installed_provider,
         install_provider_bundle,
@@ -71,42 +64,6 @@ def prepare_candidate_providers(
                 raise ValueError("RUNTIME_PROVIDER_PRODUCTION_FORBIDDEN")
             verify_provider_upgrade(existing, active, [])
         _write_json_atomic(active_path, active)
-    return active
-
-
-def prepare_production_providers(
-    release_path: Path,
-    cache_root: Path,
-    installed_root: Path,
-    active_path: Path,
-    fetch_bytes=None,
-) -> dict[str, Any]:
-    if active_path.exists():
-        existing = _load_json(active_path, "RUNTIME_PROVIDER_ACTIVE_INVALID")
-        if existing.get("source") == "candidate":
-            raise ValueError("RUNTIME_PROVIDER_CANDIDATE_FORBIDDEN")
-    config = load_release_config(release_path)
-    release, locks = resolve_provider_release(config["tag"], cache_root, fetch_bytes)
-    active_providers = []
-    downloader = fetch_bytes or _fetch_bytes
-    for lock in locks:
-        cache_path = cache_root / lock["providerId"] / f'{lock["bundleSha256"]}.tar.gz'
-        cached_download(
-            cache_path, lambda: downloader(lock["bundleUrl"], lock["bundleSizeBytes"]),
-            lambda contents: _verify_archive_bytes(contents, lock), lock["bundleSizeBytes"],
-        )
-        install_provider_bundle(cache_path, lock, installed_root)
-        active_providers.append(describe_installed_provider(lock, installed_root))
-    active = {
-        "providers": sorted(active_providers, key=lambda item: item["providerId"]),
-        "release": release,
-        "schemaVersion": 1,
-        "source": "production",
-        "sourceTreeSha256": None,
-    }
-    if active_path.exists():
-        verify_provider_upgrade(existing, active, [])
-    _write_json_atomic(active_path, active)
     return active
 
 
@@ -177,6 +134,8 @@ def verify_provider_upgrade(
     current: dict[str, Any],
     candidate: dict[str, Any],
     checkpoint_references: list[dict[str, str]],
+    *,
+    allow_candidate_rebuild: bool = False,
 ) -> None:
     current_by_id = _active_providers(current)
     candidate_by_id = _active_providers(candidate)
@@ -187,7 +146,8 @@ def verify_provider_upgrade(
         ordering = _compare_semver(proposed["providerVersion"], previous["providerVersion"])
         if ordering < 0:
             raise ValueError("RUNTIME_PROVIDER_DOWNGRADE_FORBIDDEN")
-        if ordering == 0 and proposed["bundleSha256"] != previous["bundleSha256"]:
+        explicit_candidate = allow_candidate_rebuild and candidate.get("source") == "candidate"
+        if ordering == 0 and proposed["bundleSha256"] != previous["bundleSha256"] and not explicit_candidate:
             raise ValueError("RUNTIME_PROVIDER_VERSION_REBUILT")
     for reference in checkpoint_references:
         if not isinstance(reference, dict) or set(reference) != {"format", "providerId", "targetId"}:
@@ -267,16 +227,6 @@ def _positive_safe_integer(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 < value <= 9_007_199_254_740_991
 
 
-def _verify_archive_bytes(contents: Any, lock: dict[str, Any]) -> None:
-    if not isinstance(contents, bytes) or len(contents) != lock["bundleSizeBytes"] or \
-            _digest(contents) != lock["bundleSha256"]:
-        raise ValueError("PROVIDER_BUNDLE_DIGEST_INVALID")
-
-
-def _digest(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manage immutable Retrom runtime Provider bundles")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -284,19 +234,10 @@ def main() -> int:
     prepare.add_argument("--candidate-root", type=Path, required=True)
     prepare.add_argument("--installed-root", type=Path, required=True)
     prepare.add_argument("--active-path", type=Path, required=True)
-    production = subcommands.add_parser("prepare")
-    production.add_argument("--release-path", type=Path, required=True)
-    production.add_argument("--cache-root", type=Path, required=True)
-    production.add_argument("--installed-root", type=Path, required=True)
-    production.add_argument("--active-path", type=Path, required=True)
     check = subcommands.add_parser("check")
     check.add_argument("--active-path", type=Path, required=True)
     check.add_argument("--installed-root", type=Path, required=True)
     check.add_argument("--source", choices=("candidate", "production"), required=True)
-    pin = subcommands.add_parser("pin-release")
-    pin.add_argument("--tag", required=True)
-    pin.add_argument("--release-path", type=Path, required=True)
-    pin.add_argument("--cache-root", type=Path, required=True)
     upgrade = subcommands.add_parser("verify-upgrade")
     upgrade.add_argument("--current", type=Path, required=True)
     upgrade.add_argument("--candidate", type=Path, required=True)
@@ -308,14 +249,8 @@ def main() -> int:
             arguments.installed_root,
             arguments.active_path,
         )
-    elif arguments.command == "prepare":
-        result = prepare_production_providers(
-            arguments.release_path, arguments.cache_root, arguments.installed_root, arguments.active_path,
-        )
     elif arguments.command == "check":
         result = check_active_providers(arguments.active_path, arguments.installed_root, arguments.source)
-    elif arguments.command == "pin-release":
-        result = pin_provider_release(arguments.tag, arguments.release_path, arguments.cache_root)
     elif arguments.command == "verify-upgrade":
         current = _load_json(arguments.current, "RUNTIME_PROVIDER_ACTIVE_INVALID")
         candidate = _load_json(arguments.candidate, "RUNTIME_PROVIDER_ACTIVE_INVALID")

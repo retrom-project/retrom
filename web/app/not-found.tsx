@@ -1,5 +1,11 @@
-import { ButtonLink, EmptyState } from "@/components/ui";
-
+import Link from "next/link";
 export default function NotFound() {
-  return <EmptyState title="没有找到这个页面" description="链接可能已经失效，或资源尚未创建。" action={<ButtonLink href="/">返回首页</ButtonLink>} />;
+  return (
+    <div className="empty">
+      <h1>页面不存在</h1>
+      <Link className="button" href="/">
+        返回首页
+      </Link>
+    </div>
+  );
 }

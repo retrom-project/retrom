@@ -37,6 +37,7 @@
 /data/runtime/
 
 /data/*
+!/data/runtime-inputs.json
 !/data/dat/
 !/data/dat/**
 /data/dat/**/__pycache__/

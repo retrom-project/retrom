@@ -11,8 +11,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 class ManualSource implements GamepadFrameSource {
   private listener: GamepadFrameListener | null = null;
   subscribe(listener: GamepadFrameListener) {this.listener = listener; return () => {this.listener = null;};}
-  emit(gamepads: readonly GamepadSnapshot[], nowMs: number) {
-    const frame: GamepadFrame = { gamepads, nowMs, suspended: false };
+  emit(gamepads: readonly GamepadSnapshot[], nowMs: number, suspended = false) {
+    const frame: GamepadFrame = { gamepads, nowMs, suspended };
     act(() => this.listener?.(frame));
   }
 }
@@ -35,6 +35,33 @@ afterEach(() => {
 });
 
 describe("immersive home entry dialog", () => {
+  it("keeps the home unchanged for no pad or stick movement and explains unsupported mappings", () => {
+    const source = new ManualSource();
+    render(<ImmersiveEntryDialog source={source} />);
+    source.emit([], 0);
+    source.emit([{ ...pad(), axes: [1, 0] }], 1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    source.emit([{ ...pad([0]), mapping: "" }], 2);
+    expect(screen.getByRole("status")).toHaveTextContent("当前手柄不是标准布局");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("requires fresh neutral after focus suspension and closes on disconnect without navigation", () => {
+    const source = new ManualSource();
+    render(<ImmersiveEntryDialog source={source} />);
+    source.emit([pad()], 0); source.emit([pad([0])], 1);
+    source.emit([pad()], 2); source.emit([pad()], 122);
+    expect(screen.getByRole("button", { name: "取消" })).toBeEnabled();
+    source.emit([], 123, true);
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled();
+    source.emit([pad([0])], 300);
+    expect(push).not.toHaveBeenCalled();
+    source.emit([], 400);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("手柄已断开");
+  });
+
   it("consumes the trigger, waits for neutral, defaults to cancel and re-arms after cooldown", () => {
     const source = new ManualSource();
     render(<ImmersiveEntryDialog source={source} />);

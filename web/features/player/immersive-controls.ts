@@ -5,16 +5,6 @@ export const IMMERSIVE_NEUTRAL_MS = 120;
 
 type ReservedButton = "select" | "start";
 
-export type GamepadLike = {
-  axes: readonly number[];
-  buttons: readonly GamepadButton[];
-  connected: boolean;
-  id: string;
-  index: number;
-  mapping: GamepadMappingType;
-  timestamp: number;
-};
-
 export type ReservedButtonOutput = {
   openMenu: boolean;
   select: boolean;
@@ -26,10 +16,6 @@ type Candidate = {
   startedAtMs: number;
   secondChord: boolean;
 };
-
-function pressed(button: GamepadButton | undefined) {
-  return Boolean(button && (button.pressed || button.value >= 0.5));
-}
 
 export class ImmersiveChordDetector {
   private previous = { select: false, start: false };
@@ -165,78 +151,4 @@ export class ImmersiveNeutralGate {
     if (this.neutralSinceMs === null) {this.neutralSinceMs = nowMs;}
     return nowMs - this.neutralSinceMs >= IMMERSIVE_NEUTRAL_MS;
   }
-}
-
-export type ImmersiveMenuAction = "confirm" | "cancel" | "left" | "right";
-
-export class ImmersiveMenuInputReader {
-  private readonly neutralGate = new ImmersiveNeutralGate();
-  private previous = { confirm: false, cancel: false, left: false, right: false };
-  private ready = false;
-
-  reset() {
-    this.neutralGate.reset();
-    this.previous = { confirm: false, cancel: false, left: false, right: false };
-    this.ready = false;
-  }
-
-  update(gamepads: readonly (GamepadLike | null)[], activeIndex: number | null, nowMs: number) {
-    if (!this.ready) {
-      this.ready = this.neutralGate.update(isNeutralGamepads(gamepads), nowMs);
-      return null;
-    }
-    const gamepad = activeIndex === null ? null : gamepads.find((candidate) => candidate?.index === activeIndex);
-    const current = menuButtons(gamepad);
-    const action = (Object.keys(current) as ImmersiveMenuAction[]).find((key) => current[key] && !this.previous[key]) ?? null;
-    this.previous = current;
-    return action;
-  }
-}
-
-function menuButtons(gamepad: GamepadLike | null | undefined): Record<ImmersiveMenuAction, boolean> {
-  const horizontal = gamepad?.axes[0] ?? 0;
-  return {
-    confirm: gamepadButtonPressed(gamepad, 0),
-    cancel: gamepadButtonPressed(gamepad, 1),
-    left: gamepadButtonPressed(gamepad, 14) || horizontal <= -0.6,
-    right: gamepadButtonPressed(gamepad, 15) || horizontal >= 0.6,
-  };
-}
-
-export function isNeutralGamepads(gamepads: readonly (GamepadLike | null)[]) {
-  return gamepads.every((gamepad) => !gamepad || gamepad.buttons.every((button) => !pressed(button)) &&
-    gamepad.axes.every((axis) => Number.isFinite(axis) && Math.abs(axis) < 0.35));
-}
-
-export function isStandardImmersiveGamepad(gamepad: GamepadLike | null | undefined): gamepad is Gamepad {
-  return Boolean(gamepad?.connected && gamepad.mapping === "standard" && gamepad.buttons.length > 15 &&
-    [0, 1, 8, 9, 12, 13, 14, 15].every((index) => {
-      const button = gamepad.buttons[index];
-      return button && Number.isFinite(button.value);
-    }) && gamepad.axes.every(Number.isFinite));
-}
-
-export function gamepadButtonPressed(gamepad: GamepadLike | null | undefined, index: number) {
-  return pressed(gamepad?.buttons[index]);
-}
-
-export function cloneFilteredGamepad(
-  gamepad: GamepadLike,
-  buttons: readonly GamepadButton[],
-  axes: readonly number[],
-) {
-  return {
-    axes: [...axes],
-    buttons: buttons.map((button) => ({ pressed: button.pressed, touched: button.touched, value: button.value })),
-    connected: gamepad.connected,
-    id: gamepad.id,
-    index: gamepad.index,
-    mapping: gamepad.mapping,
-    timestamp: gamepad.timestamp,
-  };
-}
-
-export function zeroGamepad(gamepad: GamepadLike) {
-  const buttons = gamepad.buttons.map(() => ({ pressed: false, touched: false, value: 0 }));
-  return cloneFilteredGamepad(gamepad, buttons, gamepad.axes.map(() => 0));
 }

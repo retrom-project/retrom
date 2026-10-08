@@ -20,7 +20,6 @@ from runtime_provider_bundle import (
 from runtime_providers import (
     check_active_providers,
     prepare_candidate_providers,
-    prepare_production_providers,
     verify_provider_upgrade,
 )
 
@@ -197,21 +196,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
                 check_active_providers(active_path, installed_root, "candidate")
 
-    def test_production_prepare_rejects_candidate_active_descriptor(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            active_path = root / "active.json"
-            active_path.write_text(json.dumps(active_fixture(
-                version="1.0.0", bundle="a", read_formats=["state-v1"],
-            )), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_CANDIDATE_FORBIDDEN"):
-                prepare_production_providers(
-                    root / "locks", root / "cache", root / "installed", active_path,
-                    lambda _url, _maximum: b"",
-                )
-
-
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture"):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture", runtime_source=None):
     target = {
         **({
             "gameCompatibilityLine": "fixture-v1",
@@ -220,7 +205,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "assetPaths": [manifest_asset],
         "capabilities": {
             "checkpoint": False, "frameCounter": False, "frameMode": "NONE",
-            "discSwitch": False, "inputFilter": False, "nativeSettings": False,
+            "inputFilter": False, "nativeSettings": False,
             "pause": False, "requiresThreads": False,
             "screenshot": False, "standardGamepad": False,
             "videoModes": [], "volume": False,
@@ -245,9 +230,12 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "assets/core.wasm": b"\x00asm\x01\x00\x00\x00",
         "client.mjs": f"export const providerId='{provider_id}';\n".encode(),
         "provider.json": manifest,
-        "provenance.json": json_bytes({"schemaVersion": 1}),
+        "provenance.json": json_bytes({"schemaVersion": 1, **({"runtimeSourceTreeSha256": runtime_source} if runtime_source else {})}),
         "licenses/fixture/LICENSE": b"fixture license\n",
     }
+    if runtime_source:
+        files["runtime-fingerprints.json"] = json_bytes({"schemaVersion": 1, "providerId": provider_id,
+                                                       "targets": {"fixture": {"fingerprint": "f" * 64, "inputs": []}}})
     integrity = json_bytes({
         "files": [{
             "mediaType": media_type(path), "path": path, "sha256": digest(contents),
@@ -349,6 +337,7 @@ def legacy_active_fixture(root: Path):
 def active_fixture(*, version, bundle, read_formats):
     checkpoint = {
         "maxBytes": 1024,
+        "semantics": "INSTANT",
         "readFormats": read_formats,
         "writeFormat": read_formats[-1],
     }

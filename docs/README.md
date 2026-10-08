@@ -1,90 +1,20 @@
-# Retrom 文档索引
+# Retrom 文档
 
-手机端以找游戏、继续存档和游玩为主，采用“首页、游戏库、我的”三项导航；导入、审核等管理操作在电脑上完成。PC、平板与沉浸模式保留各自既有交互，具体范围见 [UI 规范](./ui-specification.md#4-响应式桌面与-4k) 和 [移动验收](./project-acceptance.md#20-移动端与横屏-player)。
+当前实现采用八个产品模块、19张业务表、统一 User 身份和运行组件事实源。数据库与 HTTP 契约直接更新；本分支没有旧数据或旧接口兼容层，Provider Module V1 的代际保持不变。
 
-Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数据基线”维护。总览只保留跨领域决策；字段与流程在对应专题维护一次，全部验收 Case 只在统一验收文档维护。
+| 事实源 | 内容 |
+| --- | --- |
+| [产品与模块](retrom-product-architecture.md) | 范围、职责、依赖方向与写入边界 |
+| [数据模型](data-model.md) | 19表、状态、索引与应用完整性 |
+| [HTTP](http-api-contract.md) / [OpenAPI](../api/openapi.yaml) | 权限、请求、错误和唯一字段定义 |
+| [导入审核](import-and-review.md) | 两个服务器来源、原子进度与同一 Game 审核 |
+| [运行与存档](runtime-and-play-data.md) | runtime 工具、冻结身份、资源与恢复 |
+| [存储](storage-and-database.md) | 受管所有权、文件发布、宽限清理 |
+| [账号与部署](backend-api-and-operations.md) | 登录保护、配置、PostgreSQL/Redis/镜像 |
+| [质量](engineering-quality-and-testing.md) | 有效门禁及风险测试 |
+| [依赖输入](dependency-management.md) | 唯一配套描述、归档认证、运输与发行 |
+| [验收](project-acceptance.md) | 完整检查项、证据、性能和未完成边界 |
+| [PFB](pfb-development.md) | 隔离工作树、持久状态与不可变工具 |
+| [实施状态](implementation-plan.md) | 分阶段门禁与本次可验证状态 |
 
-## 当前实现基线
-
-当前数据库由 PostgreSQL `001_schema.sql` 创建完整建库基线；不创建 trigger 或 view，文件所有权由领域显式事务维护，应用存储层负责跨表校验与关联写入；不兼容开发库在停止对应开发实例后重建，不提供旧表转换、兼容回填或双读分支。兼容变更按序追加并验证升级路径。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，管理操作与任务诊断进入 audit/event；审核不保留历史，抓取仅保留当前结果。运行时以 Provider Bundle 为唯一部署单元：当前锁定的正式 Provider v0.59.1 声明 75 个 EmulatorJS Target 和 35 个 retrom-runtime Target（2026-10-06 核对）；完整数量与身份以该版本 Bundle declaration 为准；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch 与 Preview 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
-
-全新数据库在启动时从 Host catalog 同步 Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期继续使用各自领域契约。
-
-一期基线、账户隔离、Saturn/yabause 多盘系统、服务器 BIOS 导入、Pegasus ROM 目录导入与精确诊断、统一审核交接、审核运行预览、截图人工放行和快速审批都已落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile。服务器导入页提供 BIOS 与游戏目录两个入口：前者按完整启用 catalog 逐项安装，后者选择 BASIC、Pegasus 或 gamelist.xml 格式，扫描服务进程可读的目录、显式映射目标目录、复制并生成普通审核事项。三种游戏格式共享来源计划和接收链路。审核页可对全局待审队列启动有界后台扫描，并将重新验证为严格 `READY`、没有重复内容且没有活动补传的条目逐项发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，通过普通 Player 按需保存运行截图；进入发布、丢弃、跳过或不可恢复失败等终态后，审核只保留当前决定状态，工作流独立文件存储 payload 由可恢复的 OwnerCleanup 后台任务释放。管理员“永久删除游戏”保留 Game 与历史关系的文字墓碑，立即关闭运行能力并异步释放游戏内容、媒体、存档和运行时 payload；各游戏的文件独立持有，退休文件立即进入有界后台删除队列。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
-
-所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
-
-标准手柄沉浸模式是独立于普通 PC/移动界面的电视交互面：PC 与平板首页在符合沉浸视口条件时提供显式入口，手机首页隐藏按钮；各端首页仍可由任意标准手柄
-按键打开确认层。进入后先按“全部游戏、最近游玩、收藏游戏、我的存档”固定顺序展示 Profile 私有入口，
-再列可见平台；用户可浏览收藏夹、从存档启动，并以 Y 快速切换默认收藏。浏览阶段循环播放内置 BGM，
-Select 打开声音、全屏与退出系统菜单；单机 Player 中双击 Select+Start 打开“取消、创建存档、退出游戏”
-菜单。该模式仍复用现有认证、Favorite/SaveState、Game/媒体、Launch 与 Core stage，不包含搜索、
-管理或普通全站手柄导航，也不让普通 Player 继承其输入过滤。页面、API、adapter 与验收细节由 UI、
-HTTP、运行时、依赖及统一验收专题维护。
-
-| 检查面 | 状态 | 实施事实源 |
-| --- | --- | --- |
-| 一期范围、非目标与跨模块不变量 | 已锁定 | [`retrom-product-architecture.md`](./retrom-product-architecture.md) |
-| 实体、状态机、migration 顺序与存储安全 | 已锁定 | [`data-model.md`](./data-model.md)、[`storage-and-database.md`](./storage-and-database.md)、[`implementation-plan.md`](./implementation-plan.md) |
-| HTTP、上传、SSE、并发、凭据与诊断输出 | 已锁定；实施时按切片先写 OpenAPI | [`http-api-contract.md`](./http-api-contract.md) |
-| EmulatorJS/core/DAT/BIOS 与真实兼容基线 | 已锁定；payload 按 manifest 物化 | [`dependency-management.md`](./dependency-management.md)、[`core-runtime-validation.md`](./core-runtime-validation.md) |
-| Provider、RPG Maker 七世代 Target、项目导入、隔离运行时与通用检查点 | 已锁定；业务按稳定 Provider/Target 绑定，执行会话冻结 Bundle | [`import-and-review.md`](./import-and-review.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md)、[`dependency-management.md`](./dependency-management.md) |
-| KiriKiri2 KAG 项目导入、审核试玩、运行与书签检查点 | 已接入；非 KAG 自定义 TJS 只保证形状识别，不声明存档兼容 | [`import-and-review.md`](./import-and-review.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md)、[`project-acceptance.md`](./project-acceptance.md) |
-| GameMaker 项目导入与 Butterscotch Web runtime | 已接入基础闭环；`data.win` 只做候选识别，实际兼容由审核试玩与产品 Case 证明 | [`import-and-review.md`](./import-and-review.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md)、[`project-acceptance.md`](./project-acceptance.md) |
-| TyranoScript 项目导入、隔离运行与语义检查点 | 已接入基础闭环；只在稳定等待标签开放存档，实际兼容由审核试玩与产品 Case 证明 | [`import-and-review.md`](./import-and-review.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md)、[`project-acceptance.md`](./project-acceptance.md) |
-| 页面、直接启动、320px 起的响应式布局、横屏 Player、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
-| 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
-| 本机 localhost 与 PFB 并行联调 | 已实施；共享网关只绑定回环地址 | [`backend-api-and-operations.md`](./backend-api-and-operations.md)、[`dependency-management.md`](./dependency-management.md)、[`project-acceptance.md`](./project-acceptance.md) |
-
-以 `api/openapi.yaml` 为入口的 OpenAPI 领域文件集、编译期 Go 生成结果、须提交的 TypeScript schema、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。OpenAPI 的 route 与领域 DTO 位于 `api/domains/`，跨领域组件位于 `api/components/`；所有生成器只消费经过本地引用校验的统一 bundle。剩余外部条件包括依赖首次物化需要公网、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA、NES、SNES 与 Arcade ROM，不属于外部前置条件。SNES9x、Nestopia、MAME2003 Plus 与 FBA2012 CPS1/CPS2 另有单浏览器真实核心基线；这些结果只覆盖 manifest 锁定 artifact 和项目自有测试程序，不能外推到未登记核心、其他 artifact 或任意游戏内容。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
-
-## 从这里开始
-
-全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验 DAT 与许可输入；正式 Provider 由 `make runtime-provider-prepare` 按 `data/runtime-providers/release.json` 的唯一 tag 解析和安装。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、单份原子发布的开发 provider 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production release tag、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash失败关闭。
-
-- [`../AGENTS.md`](../AGENTS.md)：项目级 Agent 实施铁律；任何代码、测试、迁移或正式文档变更都必须先遵守。
-- [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。
-- [`implementation-plan.md`](./implementation-plan.md)：不可倒置的实现依赖、migration 顺序、里程碑与退出门禁；后续 Agent 的落地路线图。
-- [`project-acceptance.md`](./project-acceptance.md)：一期唯一验收事实源；包含覆盖全部领域的可执行、可复现、短时 Case、证据格式和最终通过规则。
-- [`ui-specification.md`](./ui-specification.md)：页面信息架构、移动/平板/桌面响应式布局、交互状态、4K 规则，以及“一次点击、自动启动、默认全屏”的 UI 契约。
-
-## 领域与实现专题
-
-- [`platform-instance.md`](./platform-instance.md)：游戏目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
-- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、当前决定与 payload 清理。
-- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、服务器目录批量导入、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
-- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、移动横屏方向门禁、启动检查、Provider dispatcher、DOS 启动程序、通用检查点与游玩时长。
-- [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
-- [`game-tags.md`](./game-tags.md)：实例共享、管理员维护的游戏标签，覆盖生命周期、关系并发、导入继承、搜索投影与页面接入。
-- [`core-runtime-validation.md`](./core-runtime-validation.md)：核心运行时的实际产品测试覆盖、未覆盖边界、内容格式约束和 MAME2003 兼容覆盖。
-- [`storage-and-database.md`](./storage-and-database.md)：PostgreSQL Unix 毫秒 `BIGINT` 时间规范、表目录、本地独立文件存储、SHA-256 校验、后台删除。
-- [`data-model.md`](./data-model.md)：current-state 表、ID、枚举、外键、索引和数据库级不变量的领域说明。
-- [`http-api-contract.md`](./http-api-contract.md)：认证/授权、Origin/CSRF、JSON/错误、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
-- [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 与 RPG Maker 开源运行时的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
-- [`backend-api-and-operations.md`](./backend-api-and-operations.md)：Go 模块、HTTP/API、后台任务、文件端点、双镜像、`make dev`、NG/TLS 边界、安全和部署。
-- [`pfb-development.md`](./pfb-development.md)：PFB 轻量开发容器、loose provider、持久 workspace、迁移与验收。
-- [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)：Go/Next.js lint、统一命令、镜像构建 targets、关键路径测试、bug 回归固化与 CI 落地规范。
-- [`arcade-dat-baseline.md`](./arcade-dat-baseline.md)：EmulatorJS 4.2.3、实际 core artifact、真实 Arcade DAT、SHA-256 和升级流程的精确绑定基线。
-
-## UI 评审
-
-- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、收藏、其他用户侧页面、管理后台和移动 Player 的统一可交互响应式 UI 评审稿。
-- [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML。
-- `web/scripts/capture-ui-design.mjs` 仍可按固定 viewport 在本地生成评审图片；`docs/design/.gitignore` 忽略所有常见图片格式，图片不提交 Git，也不作为正式文档依赖。
-
-## 维护规则
-
-- `td/` 是临时工作目录，不是正式事实源；`docs/` 不得链接或依赖其中任何文件。临时方案合入时必须按领域职责拆入正式文档，并把视觉内容合并到统一设计源，而不是保留平行稿。
-- 跨领域产品决策先更新总览，再更新受影响专题。
-- 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
-- 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
-- `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。本地生成的图片只用于即时评审，由 `docs/design/.gitignore` 忽略且不得被正式文档引用。
-- active `emulatorjs` Provider Bundle 的 declaration 是当前全部 EJS Target、运行文件、能力和 checkpoint 格式的唯一机器事实源；`data/dat/emulatorjs/<version>/manifest.json` 只维护对应真实 DAT 的来源、稳定 Provider/Target、SHA-256 和统计。前端不维护 adapter registry；所有运行入口只经 Launch Envelope V1 与共享 dispatcher。DAT payload 由 `make prepare-deps` 按 manifest 物化并被 Git 忽略；Provider 许可与 notice 随 Bundle 提供。
-- `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
-- `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。
-- `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 保存 Retrom 自有、MIT 许可且由同目录生成源确定性生成的产品 E2E 程序。生成二进制随仓库提交，`make public-fixtures-check` 与实际 HTTP/E2E 消费者共同锁定 bytes。NES 的两个独立内容身份分别覆盖 FCEUmm 与 Nestopia；SNES 夹具覆盖 SNES9x；Arcade 小型 DAT 由 acceptance-only 装置登记为 test-only `BUILTIN`，覆盖 MAME2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的实际装配与核心运行，但不替代 `ACC-DAT-004` 的 production DAT 验证。CPS2 锁定 core loader 要求单独提供 `spf2t.zip` 父归档；该父归档只有项目自有 marker，不含第三方 ROM，也不被驱动执行。自动化测试不读取操作者私有 ROM/BIOS，也不存在绕过产品链路的独立 example 或私有 fixture 根目录。`.dev-data/dev.mk`、`.dev-data/data` 与 `.dev-data/dev-state` 保存标准开发实例的配置、数据和启动状态，`.dev-data/bios` 与 `.dev-data/roms` 保存服务器导入语料；整个目录都不属于测试 fixture。
-- active `retrom-runtime` Provider Bundle declaration 是当前全部独立引擎 Target 的唯一机器事实源；Retrom 的 `data/runtime-target-bindings/v1/catalog.json` 只把产品 Core 绑定到精确 Target，不声明内部实现。Provider 源码、项目自有 bridge 与聚合发布 workflow 位于独立 `retrom-runtime`，第三方核心源码、构建与 Release workflow 位于各维护 fork。公开 RPG fixture 只有在来源、许可、确定性生成和真实产品消费者全部满足仓库夹具规则时才可进入 `testdata/public-roms/rpgmaker-smoke/`；不可分发输入仍只由对应当次 smoke 证明。
-- 任何表示时刻的 PostgreSQL 字段必须为 Unix 毫秒 `BIGINT` 并以 `*_at_ms` 命名。
-- 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。
-
-- [步步高 RPG（GAM4980）集成](bbkrpg-integration.md)：平台、双 BIOS、输入、即时存档与 PFB 验证边界。
+API字段以当前OpenAPI及Provider V1 schema为准；运行规则、核心声明和指纹由retrom-runtime拥有。正式文档不依赖临时设计目录。验收记录和私有素材位于忽略的验收workspace，不能把历史截图或运行时声明数量当作当前产品通过证据。

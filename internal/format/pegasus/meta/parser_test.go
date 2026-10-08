@@ -15,7 +15,7 @@ func TestParseProjectsFieldsAliasesAndFlowingText(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return len(document.Collections) != 1 }, func() bool { return len(document.Collections[0].Games) != 1 }), "projection = %#v", document)
 	collection := document.Collections[0]
 	game := collection.Games[0]
-	testassert.Falsef(t, testassert.Any(func() bool { return collection.Name != "FC" }, func() bool { return collection.ShortName != "famicom" }, func() bool { return len(collection.IgnoredRules) != 1 }, func() bool { return game.Metadata.Title != "Metal Max" }, func() bool { return game.Metadata.Description != "Wasteland\n\nTank\ncombat" }, func() bool { return game.Metadata.Developer != "Crea-Tech / Data East" }, func() bool { return game.Metadata.Publisher != "Data East" }, func() bool { return game.Metadata.Genre != "RPG" }, func() bool { return game.Metadata.Players == nil }, func() bool { return *game.Metadata.Players != 1 }, func() bool { return game.Metadata.ReleaseYear == nil }, func() bool { return *game.Metadata.ReleaseYear != 1991 }, func() bool { return len(game.Files) != 1 }, func() bool { return game.Files[0] != `roms\Metal Max.zip` }, func() bool { return len(game.Assets.Covers) != 1 }, func() bool { return len(game.Assets.Videos) != 1 }, func() bool { return game.BlockedCode != "" }), "collection/game = %#v / %#v", collection, game)
+	testassert.Falsef(t, testassert.Any(func() bool { return collection.Name != "FC" }, func() bool { return collection.ShortName != "famicom" }, func() bool { return len(collection.IgnoredRules) != 1 }, func() bool { return game.Metadata.Title != "Metal Max" }, func() bool { return game.Metadata.Description != "Wasteland\n\nTank\ncombat" }, func() bool { return game.Metadata.Developer != "Crea-Tech / Data East" }, func() bool { return game.Metadata.Publisher != "Data East" }, func() bool { return game.Metadata.Genre != "RPG" }, func() bool { return game.Metadata.Players == nil }, func() bool { return *game.Metadata.Players != "1" }, func() bool { return game.Metadata.ReleaseYear == nil }, func() bool { return *game.Metadata.ReleaseYear != 1991 }, func() bool { return len(game.Files) != 1 }, func() bool { return game.Files[0] != `roms\Metal Max.zip` }, func() bool { return len(game.Assets.Covers) != 1 }, func() bool { return len(game.Assets.Videos) != 1 }, func() bool { return game.BlockedCode != "" }), "collection/game = %#v / %#v", collection, game)
 	for _, field := range game.UnknownFields {
 		testassert.Falsef(t, testassert.Any(func() bool { return field == "launch" }, func() bool { return field == "assets.logo" }), "recognized ignored field leaked as unknown: %q", field)
 	}
@@ -34,12 +34,12 @@ func TestParseWarningsAndBounds(t *testing.T) {
 	document, err := Parse([]byte("collection: Test\ngame: current\nplayers: 1\nplayers: 1-4\nrelease: 2024-13-01\ndescription: " + strings.Repeat("界", MaxDescriptionRunes+1) + "\nfile: game.rom\n"))
 	testassert.False(t, err != nil, err)
 	game := document.Collections[0].Games[0]
-	testassert.Falsef(t, testassert.Any(func() bool { return game.Metadata.Title != "current" }, func() bool { return game.Metadata.Players != nil }, func() bool { return game.Metadata.ReleaseYear != nil }, func() bool { return len([]rune(game.Metadata.Description)) != MaxDescriptionRunes }), "game = %#v", game)
+	testassert.Falsef(t, testassert.Any(func() bool { return game.Metadata.Title != "current" }, func() bool { return game.Metadata.Players == nil || *game.Metadata.Players != "1-4" }, func() bool { return game.Metadata.ReleaseYear != nil }, func() bool { return len([]rune(game.Metadata.Description)) != MaxDescriptionRunes }), "game = %#v", game)
 	codes := map[string]bool{}
 	for _, warning := range game.Warnings {
 		codes[warning.Code+":"+warning.Field] = true
 	}
-	for _, expected := range []string{"DUPLICATE_SINGLETON_FIELD:players", "FIELD_VALUE_INVALID:players", "FIELD_VALUE_INVALID:release", "FIELD_TRUNCATED:description"} {
+	for _, expected := range []string{"DUPLICATE_SINGLETON_FIELD:players", "FIELD_VALUE_INVALID:release", "FIELD_TRUNCATED:description"} {
 		testassert.Truef(t, codes[expected], "missing warning %s in %#v", expected, game.Warnings)
 	}
 }

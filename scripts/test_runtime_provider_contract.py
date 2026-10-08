@@ -47,7 +47,6 @@ def valid_manifest() -> dict[str, object]:
                     "standardGamepad": True,
                     "frameCounter": True,
                     "volume": False,
-                    "discSwitch": False,
                     "nativeSettings": False,
                     "inputFilter": True,
                     "videoModes": ["original", "pixel"],
@@ -67,6 +66,7 @@ def valid_manifest() -> dict[str, object]:
                     "writeFormat": "wasm4-state-v1",
                     "readFormats": ["wasm4-state-v1"],
                     "maxBytes": 132144,
+                    "semantics": "INSTANT",
                 },
                 "assetPaths": ["assets/wasm4/wasm4-retrom.mjs"],
             }
@@ -149,8 +149,6 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         documents = [
             json.loads((ROOT / "api/runtime-provider/v1/provider-manifest.schema.json").read_text()),
             json.loads((ROOT / "api/runtime-provider/v1/runtime-resource.schema.json").read_text()),
-            json.loads((ROOT / "data/runtime-target-bindings/v1/catalog.json").read_text()),
-            json.loads((ROOT / "data/runtime-target-bindings/v1/schema.json").read_text()),
         ]
         offenders = sorted({item for document in documents for item in semantic_values(document) if suffix.search(item)})
         self.assertEqual(offenders, [])
@@ -163,11 +161,9 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
             "RETROM_SINGLE_FILE_V1", "RETROM_VARIANT_VALIDATION_INPUT_V3", "SOURCE_V1",
         }
         paths = [
-            ROOT / "api/domains/catalog.yaml", ROOT / "api/domains/imports.yaml",
-            ROOT / "api/domains/runtime.yaml", ROOT / "data/runtime-target-bindings/v1/catalog.json",
-            ROOT / "internal/content/capability", ROOT / "internal/content/manifest", ROOT / "internal/content/profile",
-            ROOT / "internal/launch", ROOT / "internal/runtime/catalog", ROOT / "migrations",
-            ROOT / "web/features/imports", ROOT / "web/features/player", ROOT / "web/features/reviews",
+            ROOT / "api/domains/catalog.yaml", ROOT / "api/domains/scans.yaml",
+            ROOT / "api/domains/runtime.yaml", ROOT / "internal/model", ROOT / "internal/service", ROOT / "migrations",
+            ROOT / "web/features/scans", ROOT / "web/features/player", ROOT / "web/features/reviews",
         ]
         quoted = re.compile(r'(?<![A-Z0-9_])([A-Z][A-Z0-9_]*_V[0-9]+)(?![A-Z0-9_])')
         found: set[str] = set()
@@ -203,8 +199,8 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
     def test_module_abi_covers_every_host_action_without_provider_private_types(self) -> None:
         source = (ROOT / "api/runtime-provider/v1/provider-module-v1.d.ts").read_text(encoding="utf-8")
         for operation in (
-            "setVideoMode(", "openNativeSettings(", "closeNativeSettings(", "getDiscState(",
-            "switchDisc(", "setInputFilter(",
+            "setVideoMode(", "openNativeSettings(", "closeNativeSettings(",
+            "setVolume(", "setInputFilter(", "checkpoint(", "pause(",
         ):
             self.assertIn(operation, source)
         self.assertNotIn("NETPLAY_CHANNEL", source)
@@ -314,7 +310,10 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                 [
                     "SOURCE.json",
                     "common.schema.json",
+                    "fixtures/invalid/bridge-outside-provider.json",
                     "fixtures/invalid/checkpoint-missing-read-formats.json",
+                    "fixtures/invalid/checkpoint-missing-semantics.json",
+                    "fixtures/invalid/core-identifier.json",
                     "fixtures/invalid/duplicate-field.json",
                     "fixtures/invalid/exponent-json-input.json",
                     "fixtures/invalid/float-json-input.json",
@@ -324,6 +323,8 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "fixtures/invalid/unsafe-integer-json-input.json",
                     "fixtures/target-options/schema-validation.json",
                     "fixtures/valid/checkpoint-restore.json",
+                    "fixtures/valid/core-identifier.json",
+                    "fixtures/valid/isolated-web.json",
                     "fixtures/valid/single-minimal.json",
                     "launch-envelope.schema.json",
                     "provider-integrity.schema.json",

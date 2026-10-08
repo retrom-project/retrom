@@ -14,37 +14,67 @@ describe("ResponsiveSheet", () => {
   it("announces busy state and contains focus until the action settles", async () => {
     const user = userEvent.setup();
     const close = vi.fn();
-    const view = render(<ResponsiveSheet open busy title="保存" onClose={close}><input disabled /></ResponsiveSheet>);
+    const view = render(
+      <ResponsiveSheet open busy title="保存" onClose={close}>
+        <input disabled />
+      </ResponsiveSheet>,
+    );
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-busy", "true");
     expect(dialog).toHaveFocus();
-    await user.tab(); await user.keyboard("{Escape}");
-    expect(dialog).toHaveFocus(); expect(close).not.toHaveBeenCalled();
-    view.rerender(<ResponsiveSheet open title="保存" onClose={close}><input /></ResponsiveSheet>);
+    await user.tab();
+    await user.keyboard("{Escape}");
+    expect(dialog).toHaveFocus();
+    expect(close).not.toHaveBeenCalled();
+    view.rerender(
+      <ResponsiveSheet open title="保存" onClose={close}>
+        <input />
+      </ResponsiveSheet>,
+    );
     expect(dialog).toHaveAttribute("aria-busy", "false");
-    await user.keyboard("{Escape}"); expect(close).toHaveBeenCalledOnce();
+    await user.keyboard("{Escape}");
+    expect(close).toHaveBeenCalledOnce();
   });
   it("locks background scrolling, traps focus, and restores the trigger", async () => {
     const user = userEvent.setup();
     const trigger = createRef<HTMLButtonElement>();
     const close = vi.fn();
-    const { rerender } = render(<>
-      <button ref={trigger}>打开筛选</button>
-      <ResponsiveSheet open title="筛选" onClose={close} returnFocusRef={trigger}>
-        <button>第一项</button><button>最后一项</button>
-      </ResponsiveSheet>
-    </>);
+    const { rerender } = render(
+      <>
+        <button ref={trigger}>打开筛选</button>
+        <ResponsiveSheet
+          open
+          title="筛选"
+          onClose={close}
+          returnFocusRef={trigger}
+        >
+          <button>第一项</button>
+          <button>最后一项</button>
+        </ResponsiveSheet>
+      </>,
+    );
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(document.body.style.overflow).toBe("hidden");
-    expect(screen.getAllByRole("button", { name: "关闭筛选" }).at(-1)).toHaveFocus();
+    expect(
+      screen.getAllByRole("button", { name: "关闭筛选" }).at(-1),
+    ).toHaveFocus();
     await user.tab({ shift: true });
     expect(screen.getByRole("button", { name: "最后一项" })).toHaveFocus();
 
-    rerender(<>
-      <button ref={trigger}>打开筛选</button>
-      <ResponsiveSheet open={false} title="筛选" onClose={close} returnFocusRef={trigger}><button>第一项</button></ResponsiveSheet>
-    </>);
+    rerender(
+      <>
+        <button ref={trigger}>打开筛选</button>
+        <ResponsiveSheet
+          open={false}
+          title="筛选"
+          onClose={close}
+          returnFocusRef={trigger}
+        >
+          <button>第一项</button>
+        </ResponsiveSheet>
+      </>,
+    );
     expect(document.body.style.overflow).toBe("");
     expect(trigger.current).toHaveFocus();
   });
@@ -52,7 +82,11 @@ describe("ResponsiveSheet", () => {
   it("closes on Escape and from the visible close action", async () => {
     const user = userEvent.setup();
     const close = vi.fn();
-    render(<ResponsiveSheet open title="筛选" onClose={close}><button>字段</button></ResponsiveSheet>);
+    render(
+      <ResponsiveSheet open title="筛选" onClose={close}>
+        <button>字段</button>
+      </ResponsiveSheet>,
+    );
     await new Promise((resolve) => requestAnimationFrame(resolve));
     await user.keyboard("{Escape}");
     expect(close).toHaveBeenCalledTimes(1);
@@ -70,7 +104,13 @@ describe("ResponsiveSheet", () => {
         title="新建标签"
         onClose={() => undefined}
         initialFocusRef={input}
-        footer={<><button disabled>不可用操作</button><button>取消</button><button>保存标签</button></>}
+        footer={
+          <>
+            <button disabled>不可用操作</button>
+            <button>取消</button>
+            <button>保存标签</button>
+          </>
+        }
       >
         <input ref={input} aria-label="标签名称" />
       </ResponsiveSheet>,
@@ -87,8 +127,13 @@ describe("ResponsiveSheet", () => {
   it("does not steal focus already moved inside the sheet before initial focus runs", async () => {
     const input = createRef<HTMLInputElement>();
     render(
-      <ResponsiveSheet open title="新建标签" onClose={() => undefined} initialFocusRef={input}
-        footer={<button>取消</button>}>
+      <ResponsiveSheet
+        open
+        title="新建标签"
+        onClose={() => undefined}
+        initialFocusRef={input}
+        footer={<button>取消</button>}
+      >
         <input ref={input} aria-label="标签名称" />
       </ResponsiveSheet>,
     );

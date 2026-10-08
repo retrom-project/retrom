@@ -37,7 +37,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(pfb_id("___"), "pfb-bda251550bf0")
         identifier = pfb_id("hello")
         self.assertEqual(app_origin(identifier), "http://hello-2cf24dba5fb0.localhost:3000")
-        self.assertEqual(runtime_origin_template(identifier), "http://{launchId}.rpg.hello-2cf24dba5fb0.localhost:3000")
+        self.assertEqual(runtime_origin_template(identifier), "http://{runId}.rpg.hello-2cf24dba5fb0.localhost:3000")
 
     def test_invalid_names_and_ids_fail_closed(self) -> None:
         for name in ("", "with space", "\n", "x" * 129):
@@ -213,8 +213,8 @@ class GatewayContractTests(unittest.TestCase):
         self.assertIn("source: ${PFB_RETROM_GIT_COMMON_DIR:?}", app_compose)
         self.assertIn("source: ${PFB_RUNTIME_GIT_COMMON_DIR:?}", app_compose)
         self.assertGreaterEqual(app_compose.count("read_only: true"), 2)
-        self.assertIn('http://{launchId}.rpg.${PFB_ID}.localhost:3000', entrypoint)
-        self.assertNotIn('http://{launchId}.${PFB_ID}.rpg.localhost:3000', entrypoint)
+        self.assertIn('http://{runId}.rpg.${PFB_ID}.localhost:3000', entrypoint)
+        self.assertNotIn('http://{runId}.${PFB_ID}.rpg.localhost:3000', entrypoint)
         self.assertIn('label=com.docker.compose.oneoff=False', docker_controller)
         self.assertIn("stop_grace_period: 45s", app_compose)
 
@@ -251,14 +251,18 @@ class LightweightDevelopmentContractTests(unittest.TestCase):
             root = Path(temporary)
             marker = root / "toolchain.json"
             marker.write_text(json.dumps({"schemaVersion": 1, "toolchainSha256": "old", "inputsSha256": "same"}))
-            with mock.patch("pfb.docker.ensure_workspace", return_value={"root": root}), \
+            with mock.patch.dict(os.environ, {"RETROM_RUNTIME_TOOL_INPUT": ""}), \
+                    mock.patch("pfb.docker.ensure_workspace", return_value={"root": root}), \
                     mock.patch("pfb.docker._toolchain_digest", return_value="new"), \
                     mock.patch("pfb.docker._development_inputs_digest", return_value="same"), \
                     mock.patch("pfb.docker.subprocess.run", return_value=mock.Mock(returncode=0)), \
-                    mock.patch("pfb.docker._run_dev_command") as prepare:
-                result = build_toolchain(root, {})
+                    mock.patch("pfb.docker._run_dev_command") as prepare, \
+                    mock.patch("pfb.runtime_tool.publish_runtime_tool", return_value="tool-sha"):
+
+                result = build_toolchain(root, {"runtime":{"root":str(root / "runtime")}})
             self.assertFalse(result["dependenciesChanged"])
-            prepare.assert_not_called()
+            prepare.assert_called_once()
+            self.assertEqual(prepare.call_args.args[-1], ["npm", "run", "build"])
             self.assertEqual(json.loads(marker.read_text())["toolchainSha256"], "new")
 
     def test_workspace_is_stable_and_bind_mounted(self) -> None:
