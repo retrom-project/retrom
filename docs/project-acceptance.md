@@ -1,6 +1,10 @@
 # 当前项目验收
 
-2026-10-08 发布决定：用户要求先发布 RC，停止逐 ROM 扩大验收。当前54项限定范围通过、58项当前指纹语义待核实、10项素材不足继续保留原状态；正常构建、CI、镜像及配套依赖检查仍须通过。这不代表完整兼容矩阵或稳定版验收通过。已知异常与后续核实见 runtime [#106](https://github.com/retrom-project/retrom-runtime/issues/106)、[#107](https://github.com/retrom-project/retrom-runtime/issues/107)、[#108](https://github.com/retrom-project/retrom-runtime/issues/108)、[#109](https://github.com/retrom-project/retrom-runtime/issues/109)、[#110](https://github.com/retrom-project/retrom-runtime/issues/110)。
+2026-10-08 首个 RC 发布决定：用户要求先发布 RC，停止逐 ROM 扩大验收。当前54项限定范围通过、58项当前指纹语义待核实、10项素材不足继续保留原状态；正常构建、CI、镜像及配套依赖检查仍须通过。这不代表完整兼容矩阵或稳定版验收通过。已知异常与后续核实见 runtime [#106](https://github.com/retrom-project/retrom-runtime/issues/106)、[#107](https://github.com/retrom-project/retrom-runtime/issues/107)、[#108](https://github.com/retrom-project/retrom-runtime/issues/108)、[#109](https://github.com/retrom-project/retrom-runtime/issues/109)、[#110](https://github.com/retrom-project/retrom-runtime/issues/110)。
+
+当前稳定版工作继续在同一 PFB 中完成：测试发现的问题先记录 issue，确认的故障修复后复验，再合入 master、打不可变 tag 并发布。此前 RC 通过不等于稳定版已通过，未完成的兼容矩阵也不能改写为通过。
+
+用户明确收窄 PS2 本轮标准为能加载并进入游戏；贴图等核心问题不阻塞发布，也不要求本轮证明完整比赛或存档语义。实际 Ridge Racer V 已进入原生队伍设置，方向切换颜色有效，正常操作出现 SAVE COMPLETE 并可继续 Grand Prix／引擎／变速箱菜单。旧版正式 runtime 同样出现破损贴图；本次没有修改或下调 PS2 声明的能力。证明 `root/release-r15/stable-ps2/sealed-proof.json` SHA `9ae16b8f60cb49a754f572ea7333feb9e49f5ff6d449e02b64fafff9e24df83d`，按此限定范围接受，不宣称比赛或公开存档恢复通过。
 
 本文件定义当前完整验收标准。以下T01–T47均为必须逐项追踪的Case，不是通过声明；取消旧能力不取消保留行为的回归。测试不能靠旧站、旧SQL种子、伪造payload、标题图标或声明数量冒充新链路。
 

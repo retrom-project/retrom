@@ -62,7 +62,11 @@
         "dosbox-pure",
         "mame",
         "fbneo",
-        "azahar"
+        "azahar",
+        "mame2003",
+        "mame2003_plus",
+        "fbalpha2012_cps2",
+        "parallel-n64"
       ]
     },
     {
@@ -586,6 +590,42 @@
       "gitlink": "git@github.com:retrom-project/azahar.git",
       "defaultBranch": "retrom/g62cfcfb5e488",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "mame2003",
+      "path": "project/retrom-core/mame2003-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/mame2003-libretro.git",
+      "defaultBranch": "retrom/gb6c6d52d8d63",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "mame2003_plus",
+      "path": "project/retrom-core/mame2003-plus-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/mame2003-plus-libretro.git",
+      "defaultBranch": "retrom/g09e84fe55799",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "fbalpha2012_cps2",
+      "path": "project/retrom-core/fbalpha2012_cps2",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/fbalpha2012_cps2.git",
+      "defaultBranch": "retrom/g3fb5b89d2ab7",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "parallel-n64",
+      "path": "project/retrom-core/parallel-n64",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/parallel-n64.git",
+      "defaultBranch": "retrom/g56f4daf8ec9b",
+      "submodules": false,
       "dependsOn": []
     }
   ]

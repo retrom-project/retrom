@@ -6,6 +6,8 @@
 
 Provider基座必须显式pfb-provider-import，核验完整bytes/size/integrity/proof；来源只读，不执行另一PFB源码。候选同版本重建的例外仅限显式PFB candidate导入，正式production升级门禁保留。watcher生成scope内loose overrides和实际Target指纹，restart加载事实。日常命令不自动构建Core或Provider archive。
 
+`pfb-core-build CORE=<id>` 只构建并验证该核心，输出 `.pfb/workspace/core-builds/<id>/current`，不自动切换 Provider 的运行资源。核心修复复验前，应通过配套 runtime 的候选构建流程装配这些显式核心输入，再以 `pfb-provider-import` 导入经过验证的新基座。不要把生成目录存在或 adapter 模块变化当作新核心已生效；实际 Run 的核心资源 hash、Target 指纹与候选描述必须相符，再记录产品验收。
+
 reset使用exact ID停止本PFB，归档data与postgres到workspace/reset-backups/<timestamp>，保留Provider、依赖、构建缓存、ID与URL。完整清理只能用工作区pfb-remove的clean检查和交互边界，不能rm其他worktree/共享缓存。状态先make pfb-list，不能从目录或本地registry猜。
 
 隔离桥唯一/__retrom/runtime-isolation/传输路径复用共享网关允许的前缀。此规则保全其他运行环境，不增加本Go旧接口别名，也不改动全局网关契约。
