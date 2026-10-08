@@ -179,7 +179,7 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck 共四十八项限定场景已核对；64 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck／Virtual Boy 共四十九项限定场景已核对；63 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -250,3 +250,5 @@ Potator／Supervision 使用作者 XSnake 实际手柄 A 启动、方向转弯�
 FreeChaF／Channel F 的作者 QUEST 通过方向移动与 A 战斗确认；1,972 字节公共存档在仅cookies新浏览器恢复非初始位置、随机敌人场景和血量，公开暂停七秒后可继续碰撞战斗、攻击并返回地图。初期错误控制器选择及不存在的只读截图诊断方法不计通过；实际发布和恢复实例只用标准手柄输入。证明 `root/release-r15/freechaf-quest-current/semantic-proof.json` SHA `9436f17dcdf2ec555d31b72d2cf779c4299a852b9b07aafc68c33dc9140c68f0`；自有数据和会话均清理。
 
 SameDuck／Mega Duck 的 Max Pirate 通过 Start／双向移动，正式游玩进入新的尖刺敌人房间。10,350字节公共存档在仅cookies新浏览器恢复房间、右侧角色及8血，公开暂停七秒后继续左右移动；敌人碰撞导致正常掉血。第一轮不暂停恢复的掉血记录保留，不据此断言血量恢复异常；没有返回上一房间或 A 攻击结论。证明 `root/release-r15/sameduck-maxpirate-current/semantic-proof.json` SHA `567a968418ff163d2e85d128e00ce23d2522ce29f4ca320b7373a74a8a271540`；自有数据与会话已清理。
+
+Virtual Boy 的固定时间模拟 A／Start 会在正常比赛及恢复后擅自打开暂停菜单，现已移除该核心启动按键。新开局／恢复两项回归先红后绿；runtime lint、类型、291文件／1,574测试与包检查通过。VB Racing 经实际审核和发布方向／Start确认／A加速；公开46,154字节即时快照在仅登录态新浏览器恢复原生暂停、00:07:48、剩余158、速度104及路旁布局，运行未暂停观察30秒保持不变，随后手动Start和左右／A继续驾驶。早先标题转场快照不计通过；自建记录和会话均清理。证据 `root/release-r15/virtualboy-racing-fixed/semantic-proof.json` SHA `f9edd62c6ef60d2c2183b132a9c9086460fe54412ce9035f149cd27163c5fa78`；仅Virtual Boy指纹变更，不改核心二进制或协议代际。当前共49项范围通过、63项待完成、10项素材缺口，T18/T37及正式发布仍未完成。
