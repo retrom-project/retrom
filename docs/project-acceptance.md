@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-08 发布决定：用户要求先发布 RC，停止逐 ROM 扩大验收。当前54项限定范围通过、58项当前指纹语义待核实、10项素材不足继续保留原状态；正常构建、CI、镜像及配套依赖检查仍须通过。这不代表完整兼容矩阵或稳定版验收通过。已知异常与后续核实见 runtime [#106](https://github.com/retrom-project/retrom-runtime/issues/106)、[#107](https://github.com/retrom-project/retrom-runtime/issues/107)、[#108](https://github.com/retrom-project/retrom-runtime/issues/108)、[#109](https://github.com/retrom-project/retrom-runtime/issues/109)、[#110](https://github.com/retrom-project/retrom-runtime/issues/110)。
+
 本文件定义当前完整验收标准。以下T01–T47均为必须逐项追踪的Case，不是通过声明；取消旧能力不取消保留行为的回归。测试不能靠旧站、旧SQL种子、伪造payload、标题图标或声明数量冒充新链路。
 
 证据记录Case、源码/工具/Provider SHA、环境与负载、步骤、硬超时、实际响应/SQL/文件/浏览器结果、PASS/FAIL/不适用及原因。私有素材需明确授权且源只读，素材/真实路径/会话/password/token不进入正式文档或Git。受管副本和机器记录放忽略的验收workspace。历史UI参照只用于视觉比较，不是当前功能通过。
@@ -177,9 +179,9 @@ SQL先分页24条Game再投影媒体/Tag，并添加active storage引用索引�
 
 ## R15 正式发布准备与验收复核
 
-README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。用户选择补完剩余验收后直接发布正式版，当前尚未发布 Retrom 或 runtime 稳定版。
+README 已补全新版本部署、首次初始化、扫描入库、备份与开发说明；Compose 示例要求显式提供同一个 `RETROM_VERSION`，使用服务端和前端两张对应镜像。契约门禁与示例配置解析已通过。最新发布决定为先发布 RC，不继续逐 ROM 验证；标准构建与配套依赖门禁保留，稳定版另行评估。
 
-按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck／Virtual Boy／Stella2014 Atari2600／Uzem Uzebox／O2EM Odyssey2／FreeIntv Intellivision 共五十三项限定场景已核对；59 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
+按实现指纹重新审计后，不能沿用历史 R10 的通过数量作为当前发布依据。runtime 的 `docs/acceptance/release-readiness.json` 记录当前逐行状态：NES（FCEUmm、Nestopia）、SNES（bsnes、Snes9x）、MV、MZ、TyranoScript、J2ME、ONS、VecX、OpenBOR、ScummVM、WASM-4、PICO-8、TIC-80、Lutro、RPG Maker 2000／2003／XP／VX／VX Ace、mGBA／GBA、DOS、FBNeo／街机、FBA2012 CPS1／街机、Flash、Gambatte／GBC、PrBoom／Doom、Gearboy／SGB、mGBA／GBC、MAME2003／MAME2003 Plus 街机、Ardens／Arduboy、Genesis Plus GX／GX Wide／PicoDrive Mega Drive、Genesis Plus GX SG-1000／Game Gear、Mednafen PCE、Handy／Lynx、ProSystem／Atari7800 及 SuperGrafx／NGPC／WonderSwan／GAM4980／Potator Supervision ／FreeChaF Channel F ／SameDuck Mega Duck／Virtual Boy／Stella2014 Atari2600／Uzem Uzebox／O2EM Odyssey2／FreeIntv Intellivision／Gearcoleco ColecoVision 共五十四项限定场景已核对；58 项当前指纹语义与十项素材缺口仍未闭合，因此 T18／T37 仍为部分完成。
 
 ONS 与 VecX 核心修复已分别经 PR、CI 合入维护分支并发布不可移动核心 tag。实际使用正式核心字节重新完成审核预览、运行、保存、新浏览器恢复和继续输入：ONS 恢复第三个对白等待点及背景；VecX 原始 PNG 比对证明 7,509 个迷宫像素及玩家位置均保留，此前根据预览图推断的暂停缺线并未成立。核心发布与这些限定场景不代表 Retrom 整体通过。
 
@@ -262,3 +264,9 @@ Uzem／Uzebox Arkanoid 已完成审核／发布方向挡板与A发球；35,689�
 O2EM／Odyssey2 作者 Bird Hunt 在正常模拟器设置中交换手柄端口后，审核与发布试玩均可方向移动准星、A开火。311字节公开即时存档在仅登录态新Chromium恢复已移动准星、四发子弹和飞鸟场景，公开暂停七秒后再选择相同手柄端口，继续左右移动与开火使弹药降为三发。不宣称核心原生偏好自动存入extinfo或击中得分；直接键盘输入保留默认启用。早期未交换端口的标题尝试及被拒绝的配置请求不计通过。证据 `root/release-r15/o2em-birdhunt-current/semantic-proof.json` SHA `dfe4aaf3ed4595948f20e9a3b255d19d77551261ab0ce2bf9457488885041961` 绑定成功的第二次审核Run，自建数据及会话已清理。
 
 FreeIntv／Intellivision 4-TRIS 完成审核A启动／旋转与左右移动，发布游戏形成440分的彩色落块堆叠。23,963字节公开即时存档在仅登录态新Chromium恢复棋盘／分数／绿色下落块，公开暂停七秒后继续左右操作并自然落块。核心前端自带PAUSED覆盖层不随机器快照保留，未将它计作恢复要求或通过证据；最终使用公开暂停观察。不宣称消行或最终受碰撞限制的旋转成功。证据 `root/release-r15/freeintv-4tris-current/semantic-proof.json` SHA `4df66a6d6a83f217c29d9eb43a1525080c0688b978362fa3cb52e62eb1961bc6`，自有数据及会话已清理。
+
+Gearcoleco／ColecoVision 使用现有240p Test Suite测试ROM验证方向／A进入原生菜单和Grid校准功能。35,449字节公开即时存档在仅登录态新Chromium恢复红色边框、白色网格和点阵，运行七秒保持；B返回后继续上下选择，A打开另一Monoscope图案。限定为测试ROM的活动状态恢复，不宣称商业游戏关卡通过；早期黑屏校准快照及转场不计证据。证明 `root/release-r15/gearcoleco-suite-current/semantic-proof.json` SHA `f1e56ded9fc3177e7dec9dc619e43f8ffa335c23157c0495293e418cb0dbb278`；自有数据及会话已清理。
+
+## 首个 RC 的配套发行输入
+
+runtime `v0.60.0-rc.1` 已通过 quality `37712099498` 与 release `37712529719`（第二次运行；首次仅上传 HTTP408 超时），标签提交为 `88ec0ad5bed4a56bfbc1620ea36b9a622d865a84`。Retrom 经标准 pin-release / prepare 下载、校验并固定完整的已发布工具包和两个 Provider；源码树摘要为 `036368516f5346a575b1c34e49b497ae370f8fef494d0fb640b5ce96b9b95466`。实际发行包的110个Target指纹与122行验收台账全部一致；没有将待核实行提升为通过。已知问题见 runtime #106–#110。Retrom PR 继续对该实际发行输入执行完整 CI、浏览器产品链和镜像检查。
