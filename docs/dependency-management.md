@@ -2,17 +2,17 @@
 
 `workspace/manifest.yaml`拥有源码仓库、维护 branch 和依赖边。构建、默认依赖准备和 CI 的唯一配套权威是版本控制的 `data/runtime-inputs.json`，包括实际 runtime 源码树摘要、两个完整 Provider 构建记录和自足 host-tool 的归档名、字节数、SHA256。Provider 和工具必须来自同一次真实源码捕获，不能用版本字段推断配套关系。
 
-## 当前 RC
+## 当前正式版本
 
-当前 pin 使用 [retrom-runtime v0.60.0-rc.1](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.60.0-rc.1)。这是不可移动标签上的预发布，配套 Retrom v0.0.111-rc.1；不兼容旧版数据库、存档和接口。所有 core 输入继续固定各自已发布的 tag/commit，Retrom 不自行选择或编译核心。
+当前 pin 使用 [retrom-runtime v0.60.0](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.60.0)。这是不可移动标签上的正式发行，配套 Retrom v0.0.111；不兼容旧版数据库、存档和接口。所有 core 输入继续固定各自已发布的 tag/commit，Retrom 不自行选择或编译核心。
 
-`make runtime-provider-pin-release TAG=v0.60.0-rc.1` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+`make runtime-provider-pin-release TAG=v0.60.0` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare
 ```
 
-准备结果位于 `.cache/runtime-inputs/<描述摘要>/`。`make build-images` 在缺少已准备路径时执行同一准备链；显式 context 也必须属于该 pin 认证的完整集合。前后端使用同一 Retrom 标签。PR 验证两张分支镜像及独立 PostgreSQL/Redis 部署；tag 流水线构建并验证发行镜像，RC 不更新 `latest`。
+准备结果位于 `.cache/runtime-inputs/<描述摘要>/`。`make build-images` 在缺少已准备路径时执行同一准备链；显式 context 也必须属于该 pin 认证的完整集合。前后端使用同一 Retrom 标签。PR 验证两张分支镜像及独立 PostgreSQL/Redis 部署；tag 流水线构建并验证发行镜像；稳定版更新 `latest`，RC 不更新。
 
 ## 身份与校验
 
@@ -28,4 +28,4 @@ make prepare-deps runtime-provider-prepare
 
 候选材料只用于对应开发验收，不冒充已发布依赖。没有输入时明确失败，不下载历史版本作为默认替代。初次认证后，完整准备结果及认证缓存支持无运输输入的重复准备，不依赖原 PFB、runtime 源码路径或其 node_modules。
 
-实际逐核心验证范围与已知问题见 [项目验收](project-acceptance.md)。发布 RC 不表示全部 ROM 或存档场景已经验证。
+实际逐核心验证范围与已知问题见 [项目验收](project-acceptance.md)。发布版本不表示全部 ROM 或存档场景已经验证。
