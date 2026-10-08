@@ -11,9 +11,13 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); accept.mockReset(); });
 
 it("reports login failure once, releases the submit control, and accepts a later retry", async () => {
   const post = vi.spyOn(api, "POST");
-  let reject!: (failure: Error) => void;
-  post.mockImplementationOnce(() => new Promise((_, rejectRequest) => {
-    reject = rejectRequest;
+  const failedResponse = {
+    error: { code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue" },
+    response: new Response(null, { status: 401 }),
+  };
+  let respond!: (response: typeof failedResponse) => void;
+  post.mockImplementationOnce(() => new Promise((resolve) => {
+    respond = resolve;
   }));
   render(<ToastProvider><AuthForm mode="login" /></ToastProvider>);
   const username = screen.getByLabelText("用户名");
@@ -28,7 +32,7 @@ it("reports login failure once, releases the submit control, and accepts a later
   fireEvent.click(submit);
   expect(post).toHaveBeenCalledTimes(1);
 
-  await act(async () => reject(new Error("用户名或密码不正确")));
+  await act(async () => respond(failedResponse));
   expect(accept).not.toHaveBeenCalled();
   expect(submit).toBeEnabled();
   expect(submit.closest("form")).toHaveAttribute("aria-busy", "false");
@@ -47,4 +51,31 @@ it("reports login failure once, releases the submit control, and accepts a later
   expect(submit).toBeEnabled();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(submit.closest("form")).not.toHaveAttribute("aria-describedby");
+});
+
+it.each([
+  { mode: "login", status: 429, code: "RATE_LIMITED", message: "Try again later" },
+  { mode: "login", status: 401, code: "OTHER_AUTH_ERROR", message: "Other authentication error" },
+  { mode: "login", status: 500, code: "AUTHENTICATION_REQUIRED", message: "Unexpected server error" },
+  { mode: "setup", status: 401, code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue" },
+] as const)("preserves $mode $status/$code errors", async ({ mode, status, code, message }) => {
+  vi.spyOn(api, "POST").mockResolvedValueOnce({
+    error: { code, message },
+    response: new Response(null, { status }),
+  });
+  render(<ToastProvider><AuthForm mode={mode} /></ToastProvider>);
+  fireEvent.change(screen.getByLabelText(mode === "login" ? "用户名" : "账号"), {
+    target: { value: "review-user" },
+  });
+  fireEvent.change(screen.getByLabelText("密码"), { target: { value: "entered-password" } });
+  if (mode === "setup") {
+    fireEvent.change(screen.getByLabelText("显示名称"), { target: { value: "Review User" } });
+  }
+  const submit = screen.getByRole("button", { name: mode === "login" ? "登录" : "初始化 Retrom" });
+  await act(async () => fireEvent.click(submit));
+  expect(accept).not.toHaveBeenCalled();
+  expect(submit).toBeEnabled();
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(screen.getByRole("alert")).toHaveTextContent(message);
+  expect(screen.getByRole("alert")).toHaveClass(mode === "login" ? "app-toast" : "feedback-banner");
 });

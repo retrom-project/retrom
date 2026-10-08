@@ -3,11 +3,20 @@ import Link from "next/link";
 import { AccountLinkStatus, useAccountLinkToken } from "./account-link-status";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { api, result } from "@/lib/api/client";
+import { api, ApiError, result } from "@/lib/api/client";
 import { useAuth } from "./auth-provider";
 import { FeedbackBanner } from "@/components/ui";
 import { useToast } from "@/components/toast-provider";
 import { LoginForm } from "./login-form";
+
+function authFailureMessage(failure: unknown, login: boolean) {
+  if (login && failure instanceof ApiError &&
+      failure.status === 401 && failure.code === "AUTHENTICATION_REQUIRED") {
+    return "用户名或密码不正确";
+  }
+  return failure instanceof Error ? failure.message : "请求失败。";
+}
+
 export function AuthForm({
   mode,
 }: {
@@ -73,7 +82,7 @@ export function AuthForm({
         setComplete(true);
       }
     } catch (failure) {
-      const message = failure instanceof Error ? failure.message : "请求失败。";
+      const message = authFailureMessage(failure, login);
       setError(message);
       if (login) {
         notify({ tone: "bad", message });
