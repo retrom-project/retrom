@@ -137,8 +137,7 @@ def run_browser() -> int:
             "NEXT_BACKEND_ORIGIN": backend_origin, "NEXT_WEB_E2E": "true", "NEXT_DIST_DIR": ".next",
             "RETROM_WEB_ORIGIN": web_origin, "RETROM_BROWSER_SOURCE_PATH": str(data / "sources" / "browser"),
             "RETROM_BROWSER_GAME_TITLE": title,
-            "RETROM_BROWSER_ADMIN_USER": "browser-admin", "RETROM_BROWSER_ADMIN_PASSWORD": "Browser-" + uuid.uuid4().hex,
-            "RETROM_TRUSTED_PROXY_CIDRS": ""}
+            "RETROM_BROWSER_ADMIN_USER": "browser-admin", "RETROM_BROWSER_ADMIN_PASSWORD": "Browser-" + uuid.uuid4().hex}
         for command, name, cwd in [
             ([str(binary)], "backend", ROOT),
             ([inputs["node"], "node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", str(web_port), "--webpack"], "web", web),

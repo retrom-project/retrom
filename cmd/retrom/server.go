@@ -102,10 +102,6 @@ func run(ctx context.Context) error {
 			"http://{runId}.rpg.localhost:4000"),
 	}
 	saveService := &saves.Service{Repository: repository, Runs: runService, Storage: managed, Now: time.Now}
-	proxies, err := trustedProxies()
-	if err != nil {
-		return err
-	}
 	if err = repository.InterruptScans(ctx, time.Now().UnixMilli()); err != nil {
 		return fmt.Errorf("interrupt old scans: %w", err)
 	}
@@ -119,8 +115,8 @@ func run(ctx context.Context) error {
 	}
 	transport := &httpapi.Server{
 		Accounts: service, Origin: environment("RETROM_PUBLIC_ORIGIN", "http://localhost:4000"),
-		CookieName: "retrom_session", TrustedProxies: proxies,
-		Runtime: runtime, Storage: managed, Sources: storage.Sources{},
+		CookieName: "retrom_session",
+		Runtime:    runtime, Storage: managed, Sources: storage.Sources{},
 		WebRoot:   environment("RETROM_WEB_ROOT", "web"),
 		Directory: &directory.Service{Repository: repository, Catalog: runtime.GetCatalog, Now: time.Now},
 		Library: &library.Service{

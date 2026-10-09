@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,26 +11,49 @@ import (
 	"retrom/internal/model"
 )
 
-func TestClientIPOnlyTrustsConfiguredProxyChain(t *testing.T) {
+func TestClientIPTrustsInternalProxiesByDefault(t *testing.T) {
 	t.Parallel()
-	_, network, err := net.ParseCIDR("172.29.240.0/24")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := &Server{TrustedProxies: []*net.IPNet{network}}
-	cases := []struct{ remote, forwarded, want string }{
-		{"192.0.2.2:9000", "198.51.100.1", "192.0.2.2"},
-		{"172.29.240.2:9000", "198.51.100.1, 172.29.240.3", "198.51.100.1"},
-		{"172.29.240.2:9000", "203.0.113.1, 192.0.2.5", "192.0.2.5"},
-		{"172.29.240.2:9000", "198.51.100.1, garbage", "172.29.240.2"},
+	s := &Server{}
+	cases := []struct{ name, remote, forwarded, want string }{
+		{"public peer", "192.0.2.2:9000", "198.51.100.1", "192.0.2.2"},
+		{"docker proxy", "172.16.16.18:9000", "198.51.100.1", "198.51.100.1"},
+		{"private 10 proxy", "10.0.0.2:9000", "198.51.100.1", "198.51.100.1"},
+		{"private 192 proxy", "192.168.1.2:9000", "198.51.100.1", "198.51.100.1"},
+		{"loopback proxy", "127.0.0.1:9000", "198.51.100.1", "198.51.100.1"},
+		{"IPv6 loopback", "[::1]:9000", "2001:db8::1", "2001:db8::1"},
+		{"IPv6 private proxy", "[fd12::2]:9000", "2001:db8::1", "2001:db8::1"},
+		{"IPv6 public peer", "[2001:db8::2]:9000", "198.51.100.1", "2001:db8::2"},
+		{"mapped private proxy", "[::ffff:172.16.16.18]:9000", "198.51.100.1", "198.51.100.1"},
+		{"internal chain", "172.29.240.2:9000", "198.51.100.1, 172.29.240.3", "198.51.100.1"},
+		{"untrusted hop", "172.29.240.2:9000", "203.0.113.1, 192.0.2.5", "192.0.2.5"},
+		{"LAN client", "172.16.16.18:9000", "192.168.1.50, 10.0.0.2", "192.168.1.50"},
+		{"malformed hop", "172.29.240.2:9000", "198.51.100.1, garbage", "172.29.240.2"},
+		{"missing header", "172.29.240.2:9000", "", "172.29.240.2"},
+		{"too many hops", "172.29.240.2:9000", strings.Repeat("10.0.0.1,", 16) + "198.51.100.1", "172.29.240.2"},
+		{"malformed peer", "invalid", "198.51.100.1", "unknown"},
 	}
 	for _, item := range cases {
-		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
-		r.RemoteAddr = item.remote
-		r.Header.Set("X-Forwarded-For", item.forwarded)
-		if value := s.clientIP(r); value != item.want {
-			t.Fatalf("IP=%s want=%s", value, item.want)
-		}
+		t.Run(item.name, func(t *testing.T) {
+			t.Parallel()
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+			r.RemoteAddr = item.remote
+			r.Header.Set("X-Forwarded-For", item.forwarded)
+			if value := s.clientIP(r); value != item.want {
+				t.Fatalf("IP=%s want=%s", value, item.want)
+			}
+		})
+	}
+}
+
+func TestClientIPRejectsMultipleForwardedHeaders(t *testing.T) {
+	t.Parallel()
+	s := &Server{}
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	r.RemoteAddr = "172.16.16.18:9000"
+	r.Header.Add("X-Forwarded-For", "198.51.100.1")
+	r.Header.Add("X-Forwarded-For", "203.0.113.1")
+	if value := s.clientIP(r); value != "172.16.16.18" {
+		t.Fatalf("multiple forwarded headers accepted: %s", value)
 	}
 }
 

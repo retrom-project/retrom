@@ -4,29 +4,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"retrom/internal/model"
 )
-
-func trustedProxies() ([]*net.IPNet, error) {
-	result := make([]*net.IPNet, 0)
-	raw := os.Getenv("RETROM_TRUSTED_PROXY_CIDRS")
-	if raw == "" {
-		return result, nil
-	}
-	for _, value := range strings.Split(raw, ",") {
-		_, network, err := net.ParseCIDR(strings.TrimSpace(value))
-		if err != nil {
-			return nil, fmt.Errorf("trusted proxy CIDR: %w", err)
-		}
-		result = append(result, network)
-	}
-	return result, nil
-}
 
 func linkKey(directory string) ([]byte, error) {
 	name := filepath.Join(directory, "account-link.key")
