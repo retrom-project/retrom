@@ -4,6 +4,7 @@
 
 | 事实源 | 内容 |
 | --- | --- |
+| [Docker 部署](docker-deployment.md) | 发行镜像、域名与 HTTPS、持久存储、启动检查及升级 |
 | [产品与模块](retrom-product-architecture.md) | 范围、职责、依赖方向与写入边界 |
 | [数据模型](data-model.md) | 19表、状态、索引与应用完整性 |
 | [HTTP](http-api-contract.md) / [OpenAPI](../api/openapi.yaml) | 权限、请求、错误和唯一字段定义 |
