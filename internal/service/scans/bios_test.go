@@ -52,12 +52,8 @@ func biosSourceFixture(t *testing.T, nested bool) string {
 
 func writeBiosSourceFiles(t *testing.T, directory string, count int) {
 	t.Helper()
-	seed := filepath.Join(t.TempDir(), "bios.bin")
-	if err := os.WriteFile(seed, []byte("BIOS source"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	for index := range count {
-		if err := os.Link(seed, filepath.Join(directory, fmt.Sprintf("bios-%06d.bin", index))); err != nil {
+		if err := os.WriteFile(filepath.Join(directory, fmt.Sprintf("bios-%06d.bin", index)), nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
