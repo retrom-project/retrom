@@ -31,7 +31,6 @@ export PFB_PROVIDER_DEV_ROOT="$RETROM_PROVIDER_DEV_ROOT"
 export RETROM_RUNTIME_ROOT="$(readlink -f /pfb-workspace/runtime-tool)"
 mkdir -p /pfb-workspace/acceptance/sources
 export RETROM_PROVIDER_ROOT=/pfb-workspace/providers
-export RETROM_TRUSTED_PROXY_CIDRS="172.29.240.0/24"
 export NEXT_DEV_HOST=0.0.0.0
 export NEXT_DEV_PORT=3000
 export NEXT_BACKEND_ORIGIN=http://127.0.0.1:8080

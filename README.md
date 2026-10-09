@@ -62,7 +62,7 @@ Retrom 是面向个人和可信朋友的自托管浏览器游戏库。管理员�
 
 6. 打开 `https://你的域名/setup`，创建首个管理员。空实例没有默认生产账号；生产环境不要设置 `RETROM_MODE=test`。
 
-代理需将 `/api/v1` 和 `/runtime` 转给后端，其余宿主页面转给 Web。隔离域只转发 `/__retrom/runtime-isolation/`，其他路径返回 404；不能把所有请求都交给前端。`RETROM_TRUSTED_PROXY_CIDRS` 应匹配实际可信代理所在网段，修改示例网络时一并核对。完整配置说明见[账号、配置与部署](docs/backend-api-and-operations.md)。
+代理需将 `/api/v1` 和 `/runtime` 转给后端，其余宿主页面转给 Web。隔离域只转发 `/__retrom/runtime-isolation/`，其他路径返回 404；不能把所有请求都交给前端。后端默认信任内网或回环地址的直接代理，无需配置代理网段；nginx 必须覆盖 `X-Forwarded-For`。完整配置说明见[账号、配置与部署](docs/backend-api-and-operations.md)。
 
 ### 首次导入
 

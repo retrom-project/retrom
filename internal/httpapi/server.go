@@ -48,7 +48,6 @@ type (
 		WebRoot            string
 		Origin             string
 		CookieName         string
-		TrustedProxies     []*net.IPNet
 		validate           func(*http.Request) error
 		decodeSaveMetadata func(string, *model.SaveInput) error
 	}
@@ -221,7 +220,7 @@ func (s *Server) clientIP(r *http.Request) string {
 		return "unknown"
 	}
 	remote := net.ParseIP(host)
-	if !s.trusted(remote) {
+	if !internalProxy(remote) {
 		return host
 	}
 	values := r.Header.Values("X-Forwarded-For")
@@ -237,20 +236,15 @@ func (s *Server) clientIP(r *http.Request) string {
 		if ip == nil {
 			return host
 		}
-		if !s.trusted(ip) {
+		if i == 0 || !internalProxy(ip) {
 			return ip.String()
 		}
 	}
 	return host
 }
 
-func (s *Server) trusted(ip net.IP) bool {
-	for _, network := range s.TrustedProxies {
-		if network.Contains(ip) {
-			return true
-		}
-	}
-	return false
+func internalProxy(ip net.IP) bool {
+	return ip.IsPrivate() || ip.IsLoopback()
 }
 
 func wrap(err error) error {
