@@ -213,16 +213,20 @@ func readBounded(root *os.Root, name string, limit int64) ([]byte, error) {
 }
 
 func readDir(root *os.Root, name string) ([]os.DirEntry, error) {
+	return readDirLimit(root, name, 10000)
+}
+
+func readDirLimit(root *os.Root, name string, limit int) ([]os.DirEntry, error) {
 	file, err := root.Open(name)
 	if err != nil {
 		return nil, fmt.Errorf("open source directory: %w", err)
 	}
 	defer closeFile(file)
-	entries, err := file.ReadDir(10001)
+	entries, err := file.ReadDir(limit + 1)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("read source tree: %w", err)
 	}
-	if len(entries) > 10000 {
+	if len(entries) > limit {
 		return nil, model.ErrInvalid
 	}
 	return entries, nil

@@ -17,6 +17,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const maxBiosSourceFiles = 100000
+
 type biosCandidate struct {
 	Name   string
 	SHA256 string
@@ -249,7 +251,7 @@ func sourceFiles(root *os.Root, directory string, depth int) ([]string, error) {
 	if depth > 12 {
 		return nil, model.ErrInvalid
 	}
-	entries, err := readDir(root, directory)
+	entries, err := readDirLimit(root, directory, maxBiosSourceFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +270,7 @@ func sourceFiles(root *os.Root, directory string, depth int) ([]string, error) {
 		} else {
 			result = append(result, name)
 		}
-		if len(result) > 10000 {
+		if len(result) > maxBiosSourceFiles {
 			return nil, model.ErrInvalid
 		}
 	}
