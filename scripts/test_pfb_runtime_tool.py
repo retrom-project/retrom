@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from pfb.errors import PFBError
-from pfb.runtime_tool import publish_runtime_tool
+from pfb.runtime_tool import publish_runtime_tool, verify_runtime_tool
 
 
 class RuntimeToolTests(unittest.TestCase):
@@ -51,6 +51,24 @@ class RuntimeToolTests(unittest.TestCase):
             with self.assertRaisesRegex(PFBError, "runtime-package-symlink"):
                 publish_runtime_tool(tool, workspace, self_contained=True)
             self.assertFalse((workspace / "runtime-tool").exists())
+
+    def test_verification_rejects_changed_source_or_corrupt_published_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tool, workspace = self.tool(root), root / "workspace"
+            workspace.mkdir()
+            publish_runtime_tool(tool, workspace)
+            current = verify_runtime_tool(tool, workspace)
+            self.assertEqual(current, (workspace / "runtime-tool").resolve())
+            path = current / "dist/runtime/index.js"
+            original = path.read_bytes()
+            path.write_bytes(b"corrupt")
+            with self.assertRaisesRegex(PFBError, "runtime-tool-snapshot"):
+                verify_runtime_tool(tool, workspace)
+            path.write_bytes(original)
+            (tool / "dist/runtime/index.js").write_bytes(b"new source")
+            with self.assertRaises((PFBError, FileNotFoundError)):
+                verify_runtime_tool(tool, workspace)
 
 
 if __name__ == "__main__":
