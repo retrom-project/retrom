@@ -8,6 +8,7 @@ type EmulatorWindow = Window & {
 };
 
 export async function nesFrame(page: Page) {
+  await ensurePlayerLandscape(page);
   const surface = page.locator(".player-runtime-mount iframe");
   await expect(surface).toBeVisible({ timeout: 60_000 });
   const frame = await (await surface.elementHandle())?.contentFrame();
@@ -24,6 +25,18 @@ export async function nesFrame(page: Page) {
     )
     .toBeGreaterThan(0);
   return frame;
+}
+
+export async function ensurePlayerLandscape(page: Page) {
+  if (await page.evaluate(() => /Android.*Mobile|iPhone|iPod/iu.test(navigator.userAgent) && !screen.orientation.type.startsWith("landscape"))) {
+    await expect(page.getByRole("region", {name: "横屏游玩提示"})).toBeVisible();
+    await expect(page.locator(".player-runtime-mount iframe")).toHaveCount(0);
+    await page.setViewportSize({width: 844, height: 390});
+    const protocol = await page.context().newCDPSession(page);
+    await protocol.send("Emulation.setDeviceMetricsOverride", {width: 844, height: 390, mobile: true,
+      deviceScaleFactor: 1, screenWidth: 844, screenHeight: 390, screenOrientation: {type: "landscapePrimary", angle: 90}});
+    await expect(page.getByRole("region", {name: "横屏游玩提示"})).toHaveCount(0);
+  }
 }
 
 // FCEUmm native state serializes its 2 KiB CPU RAM under RAM\0 + u32LE size.

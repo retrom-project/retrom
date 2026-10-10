@@ -52,12 +52,14 @@ type SessionProps = {
   userId: string;
   onSnapshot: Parameters<typeof usePlayerSession>[4];
   onNativeChange?: Parameters<typeof usePlayerSession>[1];
+  startAllowed?: boolean;
 };
 function Session({
   run,
   userId,
   onSnapshot,
   onNativeChange = () => undefined,
+  startAllowed = true,
 }: SessionProps) {
   const { mount, state } = usePlayerSession(
     run,
@@ -68,9 +70,43 @@ function Session({
     userId,
     "ON_DEMAND",
     async () => {},
+    startAllowed,
   );
   return <div ref={mount}>{state}</div>;
 }
+
+it("waits for landscape before loading a provider and keeps a completed session across rotations", async () => {
+  const instance = runningRuntime();
+  vi.mocked(loadProviderRuntime).mockResolvedValue(instance);
+  const props = {run: sessionRun(), userId: "owner-a", onSnapshot: vi.fn(async () => undefined)};
+  const view = render(<Session {...props} startAllowed={false} />);
+  await act(async () => {});
+  expect(loadProviderRuntime).not.toHaveBeenCalled();
+  view.rerender(<Session {...props} startAllowed />);
+  await waitFor(() => expect(instance.mount).toHaveBeenCalledOnce());
+  view.rerender(<Session {...props} startAllowed={false} />);
+  view.rerender(<Session {...props} startAllowed />);
+  expect(loadProviderRuntime).toHaveBeenCalledOnce();
+  expect(instance.exit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("cancels an unfinished start on portrait and never saves or mounts a late provider", async () => {
+  const late = runningRuntime(), active = runningRuntime();
+  let finish!: (value: PlayerRuntimeV1) => void;
+  vi.mocked(loadProviderRuntime).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockResolvedValueOnce(active);
+  const props = {run: sessionRun(), userId: "owner-a", onSnapshot: vi.fn(async () => undefined)};
+  const view = render(<Session {...props} startAllowed />);
+  await waitFor(() => expect(loadProviderRuntime).toHaveBeenCalledOnce());
+  view.rerender(<Session {...props} startAllowed={false} />);
+  await act(async () => { finish(late); });
+  expect(late.mount).not.toHaveBeenCalled();
+  expect(late.exit).toHaveBeenCalledOnce();
+  expect(props.onSnapshot).not.toHaveBeenCalled();
+  view.rerender(<Session {...props} startAllowed />);
+  await waitFor(() => expect(active.mount).toHaveBeenCalledOnce());
+  view.unmount();
+});
 
 it("keeps the mounted runtime when callbacks and runtime events rerender the player", async () => {
   const instance = runningRuntime();

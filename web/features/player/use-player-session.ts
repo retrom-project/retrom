@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Schema } from "@/lib/api/types";
 import { api } from "@/lib/api/client";
 import type {
@@ -27,6 +27,7 @@ export function usePlayerSession(
   userId: string,
   contentLoading: ContentLoading,
   onBeforeUnmount: () => Promise<void>,
+  startAllowed = true,
 ) {
   const mount = useRef<HTMLDivElement>(null);
   const runtime = useRef<PlayerRuntimeV1 | null>(null);
@@ -43,16 +44,23 @@ export function usePlayerSession(
     });
   const [step, setStep] = useState("正在准备运行环境…");
   const [tasks, setTasks] = useState<RuntimeStartupTaskV1[]>([]);
+  const [completed, setCompleted] = useState<{run: typeof run; restore: typeof restore; userId: string; contentLoading: ContentLoading} | null>(null);
+  const canStart = startAllowed || !!completed && completed.run === run && completed.restore === restore &&
+    completed.userId === userId && completed.contentLoading === contentLoading;
+  const permitted = useEffectEvent(() => startAllowed);
   useEffect(() => {
+    if (!canStart) { return; }
     const controller = new AbortController();
     const timeline = new StartupTimeline();
     let unsubscribe: (() => void) | undefined;
     let instance: PlayerRuntimeV1 | null = null;
+    let started = false;
     function receive(event: RuntimeEventV1) {
       if (controller.signal.aborted) {
         return;
       }
       if (event.type === "STATE_CHANGED") {
+        if (event.state === "RUNNING" && !permitted()) { void instance?.pause(); return; }
         setState(event.state);
       }
       if (event.type === "LOAD_TASK") {
@@ -106,7 +114,7 @@ export function usePlayerSession(
             contentLoading,
           ),
         );
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || !permitted()) {
           await instance.exit();
           return;
         }
@@ -117,9 +125,13 @@ export function usePlayerSession(
           throw new Error("无法建立游戏画面。");
         }
         await instance.mount(mount.current);
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || !permitted()) {
+          controller.abort();
+          await instance.exit();
           return;
         }
+        started = true;
+        setCompleted({run, restore, userId, contentLoading});
         setState(instance.getState());
         setAvailability(instance.getCheckpointAvailability());
         const response = await api.POST("/api/v1/runs/{runId}/events", {
@@ -143,11 +155,13 @@ export function usePlayerSession(
         controller.abort();
         return;
       }
-      const mounted = ["RUNNING", "PAUSED", "CHECKPOINTING"].includes(
+      const mounted = started && ["RUNNING", "PAUSED", "CHECKPOINTING"].includes(
         instance.getState(),
       );
       if (!mounted) {
         controller.abort();
+        void instance.exit();
+        return;
       }
       void disposeRuntime(instance, callbacks.current.onUnmountSnapshot, callbacks.current.onBeforeUnmount)
         .catch((failure) =>
@@ -165,7 +179,7 @@ export function usePlayerSession(
         )
         .finally(() => controller.abort());
     };
-  }, [run, restore, userId, contentLoading]);
+  }, [run, restore, userId, contentLoading, canStart]);
   return { mount, runtime, state, error, availability, step, tasks };
 }
 async function hash(bytes: Uint8Array) {
