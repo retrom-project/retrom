@@ -4,10 +4,18 @@ import { approveReviewSnapshot, reviewSnapshot } from "./review-approval";
 import type { ReviewCandidate, ReviewReadiness } from "./review-approval";
 
 const games = (count: number): ReviewCandidate[] => Array.from({ length: count }, (_, index) => ({ id: `game-${index}`, title: `游戏 ${index}`, version: 2 }));
-const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [] }));
+const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [], crcWarnings: [] }));
 const signal = () => new AbortController().signal;
 
 describe("quick review approval", () => {
+  it("skips CRC warnings even when all BIOS are present and test play has not been required", async () => {
+    const items = games(2), projections = ready(items), approve = vi.fn(async () => {});
+    projections[0].crcWarnings = [{role: "BIOS", file: "hachamfb.zip", member: "nmk004.bin", expectedCRC32: "8ae61a09", actualCRC32: "83b6f611"}];
+    const summary = await approveReviewSnapshot(items, {readiness: async () => projections, approve}, signal(), vi.fn());
+    expect(approve).toHaveBeenCalledExactlyOnceWith(items[1]);
+    expect(summary).toMatchObject({approved: 1, crcMismatch: 1, failed: 0, checked: 2});
+    expect(summary.crcDetails).toEqual([{game: items[0], warnings: projections[0].crcWarnings}]);
+  });
   it("snapshots every filtered page before any item is published", async () => {
     const pending = games(201);
     const load = vi.fn(async (offset: number) => ({ items: pending.slice(offset, offset + 100), total: pending.length }));

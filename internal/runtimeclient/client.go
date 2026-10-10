@@ -25,11 +25,12 @@ type Client struct {
 }
 type (
 	Binding struct {
-		CoreID       string   `json:"coreId"`
-		ProviderID   string   `json:"providerId"`
-		TargetID     string   `json:"targetId"`
-		PlatformIDs  []string `json:"platformIds"`
-		ContentKinds []string `json:"contentKinds"`
+		CoreID            string   `json:"coreId"`
+		ProviderID        string   `json:"providerId"`
+		TargetID          string   `json:"targetId"`
+		PlatformIDs       []string `json:"platformIds"`
+		ContentKinds      []string `json:"contentKinds"`
+		ArchiveExtensions []string `json:"archiveExtensions"`
 	}
 	Provider struct {
 		ProviderID       string          `json:"providerId"`
@@ -126,6 +127,11 @@ func (c *Client) Prepare(ctx context.Context,
 		}
 	}
 	input["locators"] = locators
+	providerRoots := make(map[string]string, len(c.Providers))
+	for id, provider := range c.Providers {
+		providerRoots[id] = provider.Root
+	}
+	input["providerRoots"] = providerRoots
 	if core != "" {
 		input["coreId"] = core
 	}

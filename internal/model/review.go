@@ -15,6 +15,15 @@ type ReviewReadiness struct {
 	BIOSSatisfied *bool                 `json:"biosSatisfied"`
 	Error         *ReviewReadinessError `json:"error"`
 	MissingBIOS   []ReviewMissingBIOS   `json:"missingBios"`
+	CRCWarnings   []ReviewCRCWarning    `json:"crcWarnings"`
+}
+
+type ReviewCRCWarning struct {
+	Role          string `json:"role"`
+	File          string `json:"file"`
+	Member        string `json:"member"`
+	ExpectedCRC32 string `json:"expectedCRC32"`
+	ActualCRC32   string `json:"actualCRC32"`
 }
 
 type ReviewMissingBIOS struct {

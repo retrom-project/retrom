@@ -34,7 +34,7 @@ it("keeps the second selected core through upload's version reload and shows tha
       bindings: original.coreIds.map((coreId) => ({ coreId, providerId: "provider", targetId: coreId, platformIds: ["arcade"], contentKinds: ["ARCADE"] })),
     } : { coreId: init?.params.query.coreId, parentFiles: uploaded && init?.params.query.coreId === "mame2003_plus" ? ["1941.zip"] : [], missingParents: uploaded && init?.params.query.coreId === "mame2003_plus" ? [] : ["1941.zip"] },
   }));
-  calls.post.mockImplementation(async () => ({ data: { items: [{ id: "child", version: uploaded ? 2 : 1, biosSatisfied: true, error: null, missingBios: [] }] }, response: new Response() }));
+  calls.post.mockImplementation(async () => ({ data: { items: [{ id: "child", version: uploaded ? 2 : 1, biosSatisfied: true, error: null, missingBios: [], crcWarnings: [] }] }, response: new Response() }));
   calls.upload.mockImplementation(async () => { uploaded = true; return updated; });
   render(<Editor />);
   const core = await screen.findByRole("combobox", { name: "运行核心" });

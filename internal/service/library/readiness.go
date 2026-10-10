@@ -11,6 +11,7 @@ import (
 type biosProjection struct {
 	Requirements []runtimeclient.BiosRequirement `json:"biosRequirements"`
 	Error        *string                         `json:"error"`
+	CRCWarnings  []model.ReviewCRCWarning        `json:"crcWarnings"`
 }
 
 // Readiness reads current BIOS requirements; publishing remains a separate CAS operation.
@@ -28,10 +29,29 @@ func (s *Service) Readiness(ctx context.Context, p model.Principal, ids []string
 	if err != nil {
 		return result, wrap(err)
 	}
+	biosFiles := make([]map[string]string, 0, len(installed))
+	for _, file := range installed {
+		if s.Runtime.Locate == nil {
+			return result, wrap(model.ErrInvalid)
+		}
+		location, locateErr := s.Runtime.Locate(file.StorageKey)
+		if locateErr != nil {
+			return result, wrap(locateErr)
+		}
+		biosFiles = append(biosFiles, map[string]string{
+			"requirementKey": file.RequirementKey, "filename": file.Filename, "path": location,
+		})
+	}
+	providerRoots := make(map[string]string, len(s.Runtime.Providers))
+	for id, provider := range s.Runtime.Providers {
+		providerRoots[id] = provider.Root
+	}
 	inputs, positions := make([]map[string]any, 0, len(ids)), make([]int, 0, len(ids))
 	for _, id := range ids {
 		item, input := s.readinessInput(ctx, p, id)
 		if input != nil {
+			input["biosFiles"] = biosFiles
+			input["providerRoots"] = providerRoots
 			inputs = append(inputs, input)
 			positions = append(positions, len(result.Items))
 		}
@@ -72,7 +92,9 @@ func readinessIDs(ids []string) error {
 func (s *Service) readinessInput(ctx context.Context, p model.Principal, id string) (
 	model.ReviewReadiness, map[string]any,
 ) {
-	item := model.ReviewReadiness{ID: id, MissingBIOS: []model.ReviewMissingBIOS{}}
+	item := model.ReviewReadiness{
+		ID: id, MissingBIOS: []model.ReviewMissingBIOS{}, CRCWarnings: []model.ReviewCRCWarning{},
+	}
 	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
 	if err != nil {
 		item.Error = readinessFailure(errors.Is(err, model.ErrNotFound))
@@ -111,10 +133,12 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 	for index, position := range positions {
 		item := &items[position]
 		item.MissingBIOS = []model.ReviewMissingBIOS{}
-		if len(projections) != len(positions) || projections[index].Error != nil || projections[index].Requirements == nil {
+		if len(projections) != len(positions) || projections[index].Error != nil ||
+			projections[index].Requirements == nil || projections[index].CRCWarnings == nil {
 			item.Error = readinessFailure(false)
 			continue
 		}
+		item.CRCWarnings = projections[index].CRCWarnings
 		satisfied := true
 		for _, requirement := range projections[index].Requirements {
 			if requirement.Required && !keys[requirement.RequirementKey] {

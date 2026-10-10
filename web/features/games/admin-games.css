@@ -168,6 +168,13 @@
 .review-bios-status h2 { margin: 0; font-size: var(--text-lead); }
 .review-bios-status-head p { margin: 4px 0 0; font-size: var(--text-small); overflow-wrap: anywhere; }
 .review-bios-status-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-crc-warnings { min-width: 0; margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.review-crc-warnings h3 { margin: 0; font-size: var(--text-lead); }
+.review-crc-warnings p { color: var(--muted); font-size: var(--text-small); overflow-wrap: anywhere; }
+.review-crc-warnings summary { cursor: pointer; font-size: var(--text-small); }
+.review-crc-warnings ul { max-height: 20rem; overflow-y: auto; padding-left: var(--space-5); display: grid; gap: var(--space-3); }
+.review-crc-warnings li { min-width: 0; overflow-wrap: anywhere; font-size: var(--text-small); }
+.review-crc-warnings li > span { display: block; color: var(--muted); }
 .review-bios-note { margin: 10px 0 0; color: var(--muted); font-size: var(--text-caption); }
 .review-bios-status .review-bios-requirements, .review-approval-status .review-bios-requirements { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); list-style: none; }
 .review-bios-requirements > li { min-width: 0; display: grid; align-content: start; gap: 4px; overflow-wrap: anywhere; font-size: var(--text-small); }

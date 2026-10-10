@@ -1504,6 +1504,15 @@ export interface components {
             } | null;
             /** @description Only required BIOS absent from the current installation, as resolved by runtime for this game. Empty on success with no missing requirements or on error; inspect biosSatisfied/error first. */
             missingBios: components["schemas"]["ReviewMissingBIOS"][];
+            /** @description CRC mismatches in ROM, Parent, or embedded BIOS members. Informational for manual approval and optional test play; quick approval must skip this game. Computed from current content and runtime facts, never persisted. */
+            crcWarnings: {
+                /** @enum {string} */
+                role: "ROM" | "PARENT" | "BIOS";
+                file: string;
+                member: string;
+                expectedCRC32: string;
+                actualCRC32: string;
+            }[];
         };
         ReviewReadinessList: {
             items: components["schemas"]["ReviewReadiness"][];

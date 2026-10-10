@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -76,7 +77,7 @@ func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name strin
 		return nil, nil, model.ErrInvalid
 	}
 	ext := strings.ToLower(path.Ext(name))
-	if (ext == ".zip" || ext == ".7z") && !s.keepArchive(directory) {
+	if (ext == ".zip" || ext == ".7z") && !s.keepArchive(directory, ext) {
 		files, archiveErr := s.archive(ctx, root, id, name, ext)
 		return files, nil, archiveErr
 	}
@@ -92,10 +93,13 @@ func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name strin
 	return []model.GameFile{stored}, map[string]string{stored.LogicalKey: name}, nil
 }
 
-func (s *Service) keepArchive(directory model.Directory) bool {
+func (s *Service) keepArchive(directory model.Directory, extension string) bool {
 	for _, binding := range s.Runtime.Bindings {
-		if binding.CoreID != directory.DefaultCoreID {
+		if binding.CoreID != directory.DefaultCoreID || !slices.Contains(binding.PlatformIDs, directory.PlatformID) {
 			continue
+		}
+		if slices.Contains(binding.ArchiveExtensions, strings.TrimPrefix(extension, ".")) {
+			return true
 		}
 		for _, kind := range binding.ContentKinds {
 			if kind == "ARCADE" || kind == "DOS_BUNDLE" {
