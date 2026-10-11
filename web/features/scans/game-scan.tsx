@@ -19,6 +19,7 @@ export function GameScan() {
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
   const [scanningBios, setScanningBios] = useState(false);
+  const [scanRevision, setScanRevision] = useState(0);
   const [path, setPath] = useState("/");
   const [format, setFormat] = useState<SourceFormat>("");
   const [entries, setEntries] = useState<Schema<"SourceEntry">[]>([]);
@@ -227,8 +228,8 @@ export function GameScan() {
           {directories.error || tags.error}
         </FeedbackBanner>
       ) : null}
-      {scanningBios ? <BiosScan onClose={() => setScanningBios(false)} /> : null}
-      <ScanProgressList />
+      {scanningBios ? <BiosScan onClose={() => setScanningBios(false)} onStarted={() => setScanRevision((value) => value + 1)} /> : null}
+      <ScanProgressList revision={scanRevision} />
     </>
   );
 }

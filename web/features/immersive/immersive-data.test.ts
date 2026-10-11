@@ -11,8 +11,8 @@ it("requests game groups before pagination and uses the server's game total", as
   const save = saveFixture("latest", "game-25");
   requests.GET.mockResolvedValue({ data: { items: [save], offset: 24, limit: 24, total: 25, gameCount: 25 } });
   const entries = await loadEntries("saves", undefined, "", 24);
-  expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 24, limit: 24, groupByGame: true } } });
-  expect(entries).toEqual({ items: [{ game: save.game, save }], hasMore: false, total: 25 });
+  expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 24, limit: 24, groupByGame: true } }, signal: undefined });
+  expect(entries).toEqual({ items: [{ game: save.game, save }], offset: 24, limit: 24, total: 25, gameCount: 25 });
   expect(entryId(entries.items[0])).toBe("game-25");
   expect(entryId({ game: save.game, save: saveFixture("newer", "game-25") })).toBe("game-25");
 });
@@ -26,5 +26,5 @@ it("uses grouped games for the save destination count and featured covers", asyn
   const destination = destinations.items.find((item) => item.id === "saves");
   expect(destination?.count).toBe(25);
   expect(destination?.featured.map((game) => game.id)).toEqual(["first", "second", "third"]);
-  expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 0, limit: 3, groupByGame: true } } });
+  expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 0, limit: 3, groupByGame: true } }, signal: undefined });
 });

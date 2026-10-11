@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { FavoriteFilters } from "./favorite-filters";
 import { ResourceState } from "@/components/resource-state";
+import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
+import { useInfiniteResource } from "@/lib/use-infinite-resource";
+import type { PageRequest } from "@/lib/use-infinite-resource";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useResource } from "@/lib/use-resource";
 import {
@@ -13,6 +16,7 @@ import {
   loadGames,
   toggleFavorite,
 } from "@/features/library/api";
+import type { Game } from "@/lib/api/types";
 import type { ListFilters } from "@/features/library/library-browser";
 import { FolderManager } from "./folder-manager";
 import { FavoriteCard } from "./favorite-card";
@@ -23,7 +27,6 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
   const [directory, setDirectory] = useState(initial.platformInstanceId ?? "");
   const [folder, setFolder] = useState(initial.folderId ?? "");
   const [sort, setSort] = useState<"recent" | "title">("recent");
-  const [offset, setOffset] = useState(0);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [organizing, setOrganizing] = useState<string[] | null>(null);
@@ -33,7 +36,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
   const [revision, setRevision] = useState(0);
   const router = useRouter();
   const loader = useCallback(
-    () =>
+    ({ offset, limit, signal }: PageRequest) =>
       loadGames("favorites", {
         q: query,
         platformInstanceId: directory || undefined,
@@ -41,11 +44,11 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
         unclassified: folder === "unclassified" || undefined,
         sort,
         offset,
-        limit: 24,
-      }),
-    [query, directory, folder, sort, offset],
+        limit,
+      }, signal),
+    [query, directory, folder, sort],
   );
-  const games = useResource(loader);
+  const games = useInfiniteResource(loader, gameKey);
   const directories = useResource(loadDirectories);
   function changed() {
     games.reload();
@@ -68,7 +71,6 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
       }
     }
     router.replace(`/favorites?${parameters}`, { scroll: false });
-    setOffset(0);
     setSelected([]);
   }
   async function remove(ids = removing) {
@@ -139,7 +141,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
         }}
         onSort={(value) => {
           setSort(value);
-          setOffset(0);
+          setSelected([]);
         }}
         onDirectory={(value) => {
           setDirectory(value);
@@ -172,23 +174,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
                   />
                 ))}
               </div>
-              <div className="workspace-paging">
-                <span>共 {data.total} 款</span>
-                <button
-                  className="button secondary"
-                  disabled={offset === 0}
-                  onClick={() => setOffset(Math.max(0, offset - 24))}
-                >
-                  上一页
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={offset + 24 >= data.total}
-                  onClick={() => setOffset(offset + 24)}
-                >
-                  下一页
-                </button>
-              </div>
+              <InfiniteScrollFooter {...games} count={data.items.length} total={data.total} />
               {selecting ? (
                 <div ref={batchRail} className="favorite-batch">
                   <strong>已选 {selected.length} 款</strong>
@@ -197,7 +183,7 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
                       setSelected(data.items.map((game) => game.id))
                     }
                   >
-                    全选本页
+                    全选已加载
                   </button>
                   <button
                     disabled={!selected.length || busy}
@@ -253,3 +239,5 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
     </div>
   );
 }
+
+function gameKey(game: Game) { return game.id; }

@@ -1,9 +1,13 @@
 "use client";
 import { useCallback, useState } from "react";
 import { api, result } from "@/lib/api/client";
+import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ResourceState } from "@/components/resource-state";
+import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
+import { useInfiniteResource } from "@/lib/use-infinite-resource";
+import type { PageRequest } from "@/lib/use-infinite-resource";
 import { AppIcon } from "@/components/app-icon";
 import { RecentCard } from "./recent-card";
 import { loadDirectories } from "@/features/library/api";
@@ -12,11 +16,11 @@ export function RecentHistory() {
   const [directory, setDirectory] = useState("");
   const [sort, setSort] = useState<"title" | "recent">("recent");
   const [after, setAfter] = useState("");
-  const [offset, setOffset] = useState(0);
   const loader = useCallback(
-    async () =>
+    async ({ offset, limit, signal }: PageRequest) =>
       result(
         await api.GET("/api/v1/recent-games", {
+          signal,
           params: {
             query: {
               q,
@@ -24,14 +28,14 @@ export function RecentHistory() {
               sort,
               afterMs: after ? new Date(after).getTime() : undefined,
               offset,
-              limit: 24,
+              limit,
             },
           },
         }),
       ),
-    [q, directory, sort, after, offset],
+    [q, directory, sort, after],
   );
-  const recent = useResource(loader);
+  const recent = useInfiniteResource(loader, recentKey);
   const directories = useResource(loadDirectories);
   return (
     <>
@@ -50,7 +54,6 @@ export function RecentHistory() {
           placeholder="搜索游戏…"
           onChange={(event) => {
             setQ(event.target.value);
-            setOffset(0);
           }}
         />
           </span>
@@ -62,7 +65,6 @@ export function RecentHistory() {
           aria-label="游戏目录"
           onChange={(event) => {
             setDirectory(event.target.value);
-            setOffset(0);
           }}
         >
           <option value="">全部目录</option>
@@ -84,7 +86,6 @@ export function RecentHistory() {
               event.target.value === "recent"
             ) {
               setSort(event.target.value);
-              setOffset(0);
             }
           }}
         >
@@ -99,7 +100,6 @@ export function RecentHistory() {
             value={after}
             onChange={(event) => {
               setAfter(event.target.value);
-              setOffset(0);
             }}
           />
         </label>
@@ -113,22 +113,7 @@ export function RecentHistory() {
               {data.items.map((item) => (
                 <RecentCard item={item} key={item.game.id} />
               ))}
-              <div className="workspace-paging">
-                <button
-                  className="button secondary"
-                  disabled={!offset}
-                  onClick={() => setOffset(Math.max(0, offset - 24))}
-                >
-                  上一页
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={offset + 24 >= data.total}
-                  onClick={() => setOffset(offset + 24)}
-                >
-                  下一页
-                </button>
-              </div>
+              <InfiniteScrollFooter {...recent} count={data.items.length} total={data.total} />
             </div>
           ) : (
             <EmptyState
@@ -141,3 +126,5 @@ export function RecentHistory() {
     </>
   );
 }
+
+function recentKey(item: Schema<"RecentPage">["items"][number]) { return item.game.id; }

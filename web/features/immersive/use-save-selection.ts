@@ -53,6 +53,10 @@ export function useSaveSelection(entry: ImmersiveEntry | undefined, enabled: boo
   const page = resource.data;
   const resolved = resolveSave(page, { entryId, anchorId, offset, ...requested });
   const { index, save } = resolved;
+  // The grouped game list already owns this screenshot. Keep it on screen while
+  // reading the full save page, but only a resolved save may be launched.
+  const representative = enabled && !requested.edge && (requested.saveId || anchorId) === entry?.save?.id ? entry?.save : undefined;
+  const previewSave = page ? save : representative;
 
   function select(saveId: string) {
     if (!page?.items.some((item) => item.id === saveId)) { return; }
@@ -65,6 +69,7 @@ export function useSaveSelection(entry: ImmersiveEntry | undefined, enabled: boo
     if (next < 0 && page.offset > 0) { setSelection({ entryId, offset: Math.max(0, page.offset - PAGE_SIZE), edge: "last" }); }
     if (next >= page.items.length && page.offset + page.items.length < page.total) { setSelection({ entryId, offset: page.offset + page.items.length, edge: "first" }); }
   }
-  return { resource, ...resolved, select, move };
+  const requestKey = JSON.stringify([gameId, anchorId, offset]);
+  return { resource, requestKey, ...resolved, previewSave, select, move };
 }
 export type ImmersiveSaveSelection = ReturnType<typeof useSaveSelection>;
