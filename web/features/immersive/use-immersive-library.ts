@@ -1,8 +1,9 @@
 "use client";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useResource } from "@/lib/use-resource";
-import { loadDestinations, loadEntries, loadFolders, type View, type ImmersiveEntry } from "./immersive-data";
+import { entryId, loadDestinations, loadEntries, loadFolders, type View } from "./immersive-data";
+import { useSaveSelection, type RestoredSaveSelection } from "./use-save-selection";
 export function useImmersiveLibrary() {
   const search = useSearchParams();
   const destinations = useResource(loadDestinations);
@@ -21,9 +22,14 @@ export function useImmersiveLibrary() {
   function setSelected(next: number | ((previous: number) => number)) { setSelectionId(""); setPosition(typeof next === "function" ? next(selected) : next); }
   function setDestination(next: number | ((previous: number) => number)) { const index = typeof next === "function" ? next(destination) : next; setDestinationId(destinations.data?.items[index]?.id ?? "all"); }
   const selectedEntry = entries.data?.items[selected];
-  const returnTo = `/immersive?${new URLSearchParams({ view, destination: destinationId, offset: String(offset), folder, entry: entryId(selectedEntry) })}`;
-  return { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo };
+  const saves = useSaveSelection(selectedEntry, view === "saves", restoredSaveSelection(search));
+  const query = new URLSearchParams({ view, destination: destinationId, offset: String(offset), folder, entry: entryId(selectedEntry) });
+  if (saves.save) { query.set("save", saves.save.id); query.set("saveOffset", String(saves.resource.data?.offset ?? 0)); }
+  const returnTo = `/immersive?${query}`;
+  return { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo, saves };
 }
 function restoredView(value: string | null): View { return value === "games" || value === "favorites" || value === "saves" || value === "recent" ? value : "platforms"; }
 
-function entryId(entry: ImmersiveEntry | undefined) { return entry?.save?.id ?? entry?.game.id ?? ""; }
+function restoredSaveSelection(search: ReadonlyURLSearchParams): RestoredSaveSelection {
+  return { entryId: search.get("entry") ?? "", saveId: search.get("save") ?? "", offset: search.has("saveOffset") ? Math.max(0, Number(search.get("saveOffset")) || 0) : undefined };
+}

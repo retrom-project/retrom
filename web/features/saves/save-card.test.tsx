@@ -33,6 +33,12 @@ function save(id: string): Save {
   };
 }
 
+it.each([false, true])("shows a human readable save size, including compact=%s game detail cards", (compact) => {
+  render(<SaveCard save={{ ...save("1"), sizeBytes: 4706100 }} compact={compact} />);
+  expect(screen.getByLabelText("存档大小 4.7MB")).toHaveTextContent("4.7MB");
+  expect(screen.getByLabelText("存档大小 4.7MB")).toHaveAttribute("title", "4,706,100 bytes");
+});
+
 it("closes for an outside pointer without swallowing its click or stealing input focus", async () => {
   const user = userEvent.setup();
   const outside = vi.fn();

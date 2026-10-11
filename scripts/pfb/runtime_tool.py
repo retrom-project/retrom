@@ -8,7 +8,7 @@ import tempfile
 from .errors import PFBError
 
 
-def publish_runtime_tool(runtime: Path, workspace: Path, *, self_contained: bool = False) -> str:
+def runtime_tool_files(runtime: Path, *, self_contained: bool = False) -> tuple[str, list[tuple[Path, Path]]]:
     package = json.loads((runtime / "package.json").read_text(encoding="utf-8"))
     inputs = ["package.json", *package["files"]]
     if self_contained:
@@ -30,7 +30,20 @@ def publish_runtime_tool(runtime: Path, workspace: Path, *, self_contained: bool
             digest.update(str(relative).encode())
             digest.update(path.read_bytes())
             files.append((path, relative))
-    revision = digest.hexdigest()
+    return digest.hexdigest(), files
+
+
+def verify_runtime_tool(runtime: Path, workspace: Path) -> Path:
+    revision, _ = runtime_tool_files(runtime)
+    expected = workspace / "runtime-tools" / revision
+    tool = (workspace / "runtime-tool").resolve(strict=True)
+    if tool != expected.resolve(strict=True) or runtime_tool_files(tool)[0] != revision:
+        raise PFBError("PFB_TOOLCHAIN_MISSING", "runtime-tool-snapshot")
+    return tool
+
+
+def publish_runtime_tool(runtime: Path, workspace: Path, *, self_contained: bool = False) -> str:
+    revision, files = runtime_tool_files(runtime, self_contained=self_contained)
     versions = workspace / "runtime-tools"
     versions.mkdir(mode=0o700, exist_ok=True)
     destination = versions / revision

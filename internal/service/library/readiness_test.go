@@ -28,14 +28,14 @@ func TestReadinessPreservesOnlyMissingRequiredFileMetadata(t *testing.T) {
 	failure := "RUNTIME_CONTENT_UNAVAILABLE"
 	items := make([]model.ReviewReadiness, 3)
 	applyBIOSProjections(items, []int{0, 1, 2}, []biosProjection{
-		{Requirements: []runtimeclient.BiosRequirement{
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{
 			missing,
 			{RequirementKey: "installed", Required: true},
 			{RequirementKey: "optional", Required: false},
 			{RequirementKey: "unconstrained", LogicalName: "firmware.zip", CoreID: "arcade", Required: true},
 		}},
-		{Requirements: []runtimeclient.BiosRequirement{missing}, Error: &failure},
-		{Requirements: []runtimeclient.BiosRequirement{missing}},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}, Error: &failure},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}},
 	}, []model.BiosFile{{RequirementKey: "installed"}})
 	want := []model.ReviewMissingBIOS{
 		{Key: missing.RequirementKey, Name: "os.rom", CoreID: "core"},
@@ -47,7 +47,7 @@ func TestReadinessPreservesOnlyMissingRequiredFileMetadata(t *testing.T) {
 	if items[1].BIOSSatisfied != nil || items[1].Error == nil || len(items[1].MissingBIOS) != 0 {
 		t.Fatalf("inspection error exposed misleading missing files: %#v", items[1])
 	}
-	applyBIOSProjections(items, []int{2}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{missing}}},
+	applyBIOSProjections(items, []int{2}, []biosProjection{{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}}},
 		[]model.BiosFile{{RequirementKey: missing.RequirementKey}})
 	if items[2].BIOSSatisfied == nil || !*items[2].BIOSSatisfied || len(items[2].MissingBIOS) != 0 {
 		t.Fatalf("new installation retained stale missing files: %#v", items[2])
@@ -71,11 +71,11 @@ func TestReadinessIDsBoundedAndUnique(t *testing.T) {
 func TestReadinessUsesRuntimeRequirementsWithoutConflatingUnknownAndMissing(t *testing.T) {
 	failure := "RUNTIME_UNKNOWN"
 	projections := []biosProjection{
-		{Requirements: []runtimeclient.BiosRequirement{}},
-		{Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "optional", Required: false}}},
-		{Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "installed", Required: true}}},
-		{Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "missing", Required: true}}},
-		{Requirements: []runtimeclient.BiosRequirement{}, Error: &failure},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "optional", Required: false}}},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "installed", Required: true}}},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "missing", Required: true}}},
+		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}, Error: &failure},
 		{},
 	}
 	items := make([]model.ReviewReadiness, len(projections))
@@ -94,10 +94,19 @@ func TestReadinessUsesRuntimeRequirementsWithoutConflatingUnknownAndMissing(t *t
 
 func TestReadinessRejectsIncompleteRuntimeBatch(t *testing.T) {
 	items := make([]model.ReviewReadiness, 2)
-	applyBIOSProjections(items, []int{0, 1}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{}}}, nil)
+	applyBIOSProjections(items, []int{0, 1}, []biosProjection{{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}}}, nil)
 	for _, item := range items {
 		if item.BIOSSatisfied != nil || item.Error == nil {
 			t.Fatalf("incomplete batch became eligible: %#v", item)
 		}
+	}
+}
+
+func TestReadinessKeepsCRCWarningsInformational(t *testing.T) {
+	warning := model.ReviewCRCWarning{Role: "BIOS", File: "game.zip", Member: "bios.bin", ExpectedCRC32: "12345678", ActualCRC32: "ffffffff"}
+	items := make([]model.ReviewReadiness, 1)
+	applyBIOSProjections(items, []int{0}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{}, CRCWarnings: []model.ReviewCRCWarning{warning}}}, nil)
+	if items[0].Error != nil || items[0].BIOSSatisfied == nil || !*items[0].BIOSSatisfied || !reflect.DeepEqual(items[0].CRCWarnings, []model.ReviewCRCWarning{warning}) {
+		t.Fatalf("CRC-only mismatch blocked BIOS readiness: %#v", items[0])
 	}
 }

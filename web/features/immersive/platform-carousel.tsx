@@ -30,14 +30,14 @@ export function PlatformCarousel({ destinations, selected, onSelect, onOpen }: {
             const index = (selected + shift + destinations.length) % destinations.length;
             const destination = destinations[index];
             return (
-              <button key={shift} aria-label={`${destination.name}，${destination.count} ${destination.view === "saves" ? "份存档" : "款游戏"}`}
+              <button key={shift} aria-label={`${destination.name}，${destination.count} 款游戏`}
                 className={`${platform.platformCard} ${shift === 0 ? platform.currentPlatform : ""} ${platform[`platformTone${index % 5}`]}`}
                 onClick={() => shift === 0 ? onOpen() : onSelect(index)}>
                 <div className={platform.platformCopy}>
                   <span className={platform.platformCode}>{destination.code.slice(0, 4)}</span>
                   <p>{shift === 0 ? destination.directoryId ? "当前平台" : "当前入口" : "相邻入口"}</p>
                   <h2 title={destination.name}>{destination.name}</h2>
-                  <strong>{destination.count} {destination.view === "saves" ? "份存档" : "款游戏"}</strong>
+                  <strong>{destination.count} 款游戏</strong>
                   <small>按 A 或回车浏览{destination.view === "saves" ? "存档" : "游戏"}</small>
                 </div>
                 {shift === 0 ? <PlatformCoverStack key={destination.id} games={preview.data ?? []} platformName={destination.name} /> : null}

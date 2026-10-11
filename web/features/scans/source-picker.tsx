@@ -1,13 +1,14 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
 import { AppIcon } from "@/components/app-icon";
 import styles from "./scan.module.css";
-export function SourcePicker({ path, onChange, onPendingChange }: {
+export function SourcePicker({ path, onChange, onPendingChange, children }: {
   path: string;
   onChange: (path: string) => void;
   onPendingChange: (pending: boolean) => void;
+  children?: ReactNode;
 }) {
   const [draft, setDraft] = useState(path);
   const absolute = path.startsWith("/");
@@ -31,6 +32,7 @@ export function SourcePicker({ path, onChange, onPendingChange }: {
       <button className="button secondary" disabled={!draft.startsWith("/")} type="submit">进入目录</button>
     </form>
     <small>从 / 浏览服务进程可见的目录；输入绝对路径后按回车或“进入目录”。</small>
+    {children}
     {absolute ? <section className={styles.directoryBrowser} aria-label="服务器目录浏览器">
       <header>{path}</header>
       <div className={styles.directoryRows}>

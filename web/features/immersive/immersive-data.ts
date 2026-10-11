@@ -3,6 +3,7 @@ import { loadDirectories, loadGames } from "@/features/library/api";
 import type { Schema } from "@/lib/api/types";
 export type View = "platforms" | "games" | "favorites" | "saves" | "recent";
 export type ImmersiveEntry = { game: Schema<"Game">; save?: Schema<"Save">; lastPlayedAtMs?: number };
+export function entryId(entry: ImmersiveEntry | undefined) { return entry?.game.id ?? ""; }
 export type Destination = { id: string; name: string; code: string; view: Exclude<View, "platforms">; directoryId?: string; count: number; featured: Schema<"Game">[] };
 export async function loadFolders() {
   return result(await api.GET("/api/v1/favorite-folders"));
@@ -10,7 +11,7 @@ export async function loadFolders() {
 export async function loadEntries(view: View, directory: string | undefined, folder: string, offset: number, limit = 24): Promise<{ items: ImmersiveEntry[]; hasMore: boolean; total: number }> {
   if (view === "platforms") { return { items: [], hasMore: false, total: 0 }; }
   if (view === "saves") {
-    const page = result(await api.GET("/api/v1/saves", { params: { query: { offset, limit } } }));
+    const page = result(await api.GET("/api/v1/saves", { params: { query: { offset, limit, groupByGame: true } } }));
     return { items: page.items.map((save) => ({ game: save.game, save })), hasMore: page.offset + page.items.length < page.total, total: page.total };
   }
   if (view === "recent") {

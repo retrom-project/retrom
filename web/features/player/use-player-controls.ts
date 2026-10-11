@@ -17,6 +17,7 @@ import { ImmersiveChordDetector } from "./immersive-controls";
 import { navigatePlayerMenu } from "./player-menu-navigation";
 
 type ControlConfig = {
+  state?: string;
   suppressInput: boolean;
   onFailure: (message: string) => void;
   menuOpen: boolean;
@@ -27,6 +28,12 @@ type ControlConfig = {
 export function usePlayerControls(runtime: RefObject<PlayerRuntimeV1 | null>, onMenu: () => void, onPause: () => void, options: ControlConfig) {
   const config = useRef({ onMenu, onPause, ...options });
   useEffect(() => { config.current = { onMenu, onPause, ...options }; }, [onMenu, onPause, options]);
+  useEffect(() => {
+    const instance = runtime.current;
+    if (instance && ["RUNNING", "PAUSED"].includes(instance.getState())) {
+      applyFilter(instance, getActiveImmersiveGamepadIndex(), options.suppressInput, config.current.onFailure);
+    }
+  }, [runtime, options.suppressInput, options.state]);
   useEffect(() => {
     let index = getActiveImmersiveGamepadIndex();
     let filtered = "";

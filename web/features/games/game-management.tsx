@@ -58,12 +58,12 @@ export function GameManagement({
       <div className="panel-head"><h2>文件与管理操作</h2></div>
       <div className="panel-body stack">
       <div className="admin-game-action-grid">
-        <article><h3>替换游戏内容</h3><p>从服务器目录选择新的内容文件，现有存档按实际内容身份判断能否恢复。</p>
+        <article><div><h3>替换游戏内容</h3><p>从服务器目录选择新的内容文件，现有存档按实际内容身份判断能否恢复。</p></div>
         <button className="button secondary" onClick={() => setReplace(true)}>
           替换游戏内容
         </button>
         </article>
-        <article><h3>删除游戏</h3><p>从游戏库移除当前游戏，关联内容按清理规则处理。</p>
+        <article><div><h3>删除游戏</h3><p>从游戏库移除当前游戏，关联内容按清理规则处理。</p></div>
         <button className="button danger" onClick={() => setRemove(true)}>
           删除游戏
         </button>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Save } from "@/lib/api/types";
 import { BrowserTime } from "@/components/browser-time";
 import { LaunchButton } from "@/features/player/launch-button";
+import { formatBytes } from "@/lib/format-bytes";
 export function SaveFeatured({ save }: { save: Save | undefined }) {
   return (
     <section
@@ -49,7 +50,7 @@ export function SaveFeatured({ save }: { save: Save | undefined }) {
               <div>
                 <span>存档类型</span>
                 <strong>
-                  {save.kind === "game_save" ? "游戏内存档" : "即时存档"}
+                  {save.kind === "game_save" ? "游戏内存档" : "即时存档"} · {formatBytes(save.sizeBytes)}
                 </strong>
               </div>
               <div>

@@ -29,14 +29,17 @@ func (r *Repository) Saves(ctx context.Context, userID, gameID string, q model.Q
  JOIN platform_instance_tab d ON d.id=g.platform_instance_id
  WHERE s.user_id=$1 AND s.status='active' AND ($2='' OR s.game_id=$2)
  AND ($3='' OR g.title ILIKE '%'||$3||'%' OR s.name ILIKE '%'||$3||'%') AND ($4='' OR s.save_type=$4)`
-	order := "s.updated_at_ms DESC,s.id"
 	outerOrder := "p.updated_at_ms DESC,p.id"
 	if q.Sort == "title" {
-		order = "g.title_initial,g.title,s.name,s.id"
 		outerOrder = "p.title_initial,p.title,p.name,p.id"
 	}
-	query := `WITH selected AS MATERIALIZED (SELECT s.id,s.updated_at_ms,g.title_initial,g.title,s.name` + filter +
-		` ORDER BY ` + order + ` LIMIT $5 OFFSET $6)
+	candidates := `SELECT s.id,s.updated_at_ms,g.title_initial,g.title,s.name` + filter
+	if q.GroupByGame {
+		candidates = `SELECT DISTINCT ON (s.game_id) s.id,s.updated_at_ms,g.title_initial,g.title,s.name` + filter +
+			` ORDER BY s.game_id,s.updated_at_ms DESC,s.id`
+	}
+	query := `WITH candidates AS (` + candidates + `),
+ selected AS MATERIALIZED (SELECT p.* FROM candidates p ORDER BY ` + outerOrder + ` LIMIT $5 OFFSET $6)
  SELECT ` + saveJSON + ` FROM selected p JOIN save_tab s ON s.id=p.id
  JOIN game_tab g ON g.id=s.game_id JOIN platform_instance_tab d ON d.id=g.platform_instance_id
  ORDER BY ` + outerOrder
@@ -46,11 +49,14 @@ func (r *Repository) Saves(ctx context.Context, userID, gameID string, q model.Q
 		return page, err
 	}
 	page.Items = items
-	page.Total, err = r.Count(ctx, "SELECT count(*)"+filter, args...)
+	page.GameCount, err = r.Count(ctx, "SELECT count(DISTINCT s.game_id)"+filter, args...)
 	if err != nil {
 		return page, err
 	}
-	page.GameCount, err = r.Count(ctx, "SELECT count(DISTINCT s.game_id)"+filter, args...)
+	page.Total = page.GameCount
+	if !q.GroupByGame {
+		page.Total, err = r.Count(ctx, "SELECT count(*)"+filter, args...)
+	}
 	return page, err
 }
 

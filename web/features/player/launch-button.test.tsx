@@ -5,6 +5,10 @@ import type * as ApiClient from "@/lib/api/client";
 import { LaunchButton } from "./launch-button";
 
 const calls = vi.hoisted(() => ({ create: vi.fn() }));
+const initialFullscreen = Object.getOwnPropertyDescriptor(document.documentElement, "requestFullscreen");
+const initialEnabled = Object.getOwnPropertyDescriptor(document, "fullscreenEnabled");
+const initialElement = Object.getOwnPropertyDescriptor(document, "fullscreenElement");
+const initialExit = Object.getOwnPropertyDescriptor(document, "exitFullscreen");
 vi.mock("next/navigation", () => ({ useRouter: () => ({
   push: (path: string) => window.history.pushState(null, "", path),
   replace: (path: string) => window.history.replaceState(null, "", path),
@@ -14,7 +18,18 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
   return { ...actual, api: { POST: calls.create } };
 });
 beforeEach(() => { calls.create.mockReset(); calls.create.mockResolvedValue({ data: { id: "new-run" }, response: new Response() }); });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  for (const [target, key, descriptor] of [
+    [document.documentElement, "requestFullscreen", initialFullscreen],
+    [document, "fullscreenEnabled", initialEnabled],
+    [document, "fullscreenElement", initialElement],
+    [document, "exitFullscreen", initialExit],
+  ] as const) {
+    if (descriptor) { Object.defineProperty(target, key, descriptor); }
+    else { Reflect.deleteProperty(target, key); }
+  }
+});
 
 it.each([
   { path: "/games/game?from=favorites#launch", purpose: "play" as const, saveId: undefined, returnTo: undefined },
@@ -43,4 +58,43 @@ it("keeps the origin entry and permits retry if Run creation fails", async () =>
   expect(window.location.pathname + window.location.search).toBe("/games/game?from=recent");
   expect(window.history.length).toBe(historyLength);
   expect(screen.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+});
+
+it("requests fullscreen from the launch gesture before waiting for Run creation", async () => {
+  const fullscreen = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(document.documentElement, "requestFullscreen", {configurable: true, value: fullscreen});
+  Object.defineProperty(document, "fullscreenEnabled", {configurable: true, value: true});
+  let finish: (value: unknown) => void = () => {};
+  calls.create.mockImplementation(() => new Promise(resolve => {finish = resolve;}));
+  render(<LaunchButton gameId="game" />);
+  fireEvent.click(screen.getByRole("button", {name: "开始游戏"}));
+  expect(fullscreen).toHaveBeenCalledOnce();
+  expect(fullscreen.mock.invocationCallOrder[0]).toBeLessThan(calls.create.mock.invocationCallOrder[0]);
+  finish({data: {id: "new-run"}, response: new Response()});
+  await waitFor(() => expect(window.location.pathname).toBe("/play/new-run"));
+});
+
+it("continues launching when fullscreen is rejected", async () => {
+  Object.defineProperty(document.documentElement, "requestFullscreen", {configurable: true, value: vi.fn().mockRejectedValue(new Error("denied"))});
+  Object.defineProperty(document, "fullscreenEnabled", {configurable: true, value: true});
+  render(<LaunchButton gameId="game" />);
+  fireEvent.click(screen.getByRole("button", {name: "开始游戏"}));
+  await waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
+  await waitFor(() => expect(window.location.pathname).toBe("/play/new-run"));
+});
+
+it.each([false, true])("a failed launch leaves prior fullscreen intact and clears only its own request: active=%s", async active => {
+  let fullscreen: Element | null = active ? document.documentElement : null;
+  const request = vi.fn().mockImplementation(async () => {fullscreen = document.documentElement;});
+  const exit = vi.fn().mockImplementation(async () => {fullscreen = null;});
+  Object.defineProperty(document.documentElement, "requestFullscreen", {configurable: true, value: request});
+  Object.defineProperty(document, "fullscreenEnabled", {configurable: true, value: true});
+  Object.defineProperty(document, "fullscreenElement", {configurable: true, get: () => fullscreen});
+  Object.defineProperty(document, "exitFullscreen", {configurable: true, value: exit});
+  calls.create.mockRejectedValueOnce(new Error("启动失败"));
+  render(<LaunchButton gameId="game" />);
+  fireEvent.click(screen.getByRole("button", {name: "开始游戏"}));
+  expect(await screen.findByRole("alert")).toHaveTextContent("启动失败");
+  expect(request).toHaveBeenCalledTimes(active ? 0 : 1);
+  expect(exit).toHaveBeenCalledTimes(active ? 0 : 1);
 });

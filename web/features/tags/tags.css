@@ -22,10 +22,6 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-picker-empty a { color: var(--purple-dark); font-weight: var(--weight-semibold); }
 .tag-picker-limit { color: var(--muted); font-size: var(--text-caption); }
 .tag-manager { display: grid; gap: 18px; }
-.tag-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.tag-kpis article { min-height: 112px; padding: 19px 21px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
-.tag-kpis span, .tag-kpis small { color: var(--muted); font-size: var(--text-caption); }
-.tag-kpis strong { color: var(--ink); font-size: var(--text-page); line-height: 1; }
 .tag-manager-toolbar { min-height: 82px; padding: 14px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .tag-manager-toolbar form { flex: 1; display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .tag-manager-toolbar .select { width: 100%; }
@@ -69,7 +65,6 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .admin-game-empty-tags { color: var(--muted); font-size: var(--text-caption); }
 .pegasus-collection-tags { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
 @media (max-width: 760px) {
-  .tag-kpis { grid-template-columns: 1fr; }
   .tag-manager-toolbar, .tag-manager-toolbar form { align-items: stretch; flex-direction: column; }
   .tag-manager-toolbar label, .tag-manager-toolbar label:first-child { width: 100%; max-width: none; }
   .tag-manager-actions { display: grid; grid-template-columns: minmax(0, 1fr); }

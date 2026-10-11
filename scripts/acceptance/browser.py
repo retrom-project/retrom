@@ -1,6 +1,7 @@
 """Run the normal product browser against an isolated database and managed files."""
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -54,10 +55,35 @@ def prepare() -> dict[str, str]:
     if not Path(node).is_file():
         raise ValueError("the pinned Node.js toolchain must be prepared")
     environment = {**os.environ, "RETROM_NODE": node}
+    if os.environ.get("RETROM_ACCEPTANCE_PFB"):
+        return prepare_pfb(tool, providers, node)
     digest = subprocess.check_output(
         [sys.executable, str(ROOT / "scripts/image_input_digest.py"), "--check"],
         cwd=ROOT, env=environment, text=True,
     ).strip()
+    return {"tool": str(tool), "providers": str(providers), "node": node, "inputDigest": digest}
+
+
+def prepare_pfb(tool: Path, providers: Path, node: str) -> dict[str, str]:
+    # PFB uses verified candidate bytes and an immutable tool; the formal image gate remains separate.
+    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from scripts.pfb.spec import load_spec
+    from scripts.pfb.runtime_tool import verify_runtime_tool
+    from scripts.pfb.cli import _validate_provider_base
+    from scripts.image_input_digest import tree_digest
+    spec = load_spec(ROOT)
+    workspace = ROOT / ".pfb/workspace"
+    if spec["name"] != os.environ["RETROM_ACCEPTANCE_PFB"] or spec["runtime"]["mode"] != "branch":
+        raise ValueError("acceptance PFB does not match this checkout")
+    verified_tool = verify_runtime_tool(Path(spec["runtime"]["root"]), workspace)
+    if tool != verified_tool or providers != (workspace / "providers").resolve():
+        raise ValueError("acceptance requires this PFB's tool and Providers")
+    active = _validate_provider_base(providers / "active.json", providers / "installed")
+    value = {"pfbId": spec["id"], "toolSha256": tool.name, "providers": active,
+        "sourceSha256": tree_digest(ROOT, ["api", "cmd", "internal", "migrations", "web/app", "web/features",
+            "web/components", "web/lib", "web/styles", "web/e2e", "web/scripts"], generated_go=True)}
+    digest = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return {"tool": str(tool), "providers": str(providers), "node": node, "inputDigest": digest}
 
 

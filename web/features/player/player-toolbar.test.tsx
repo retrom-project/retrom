@@ -49,6 +49,7 @@ function toolbarProps(): ComponentProps<typeof PlayerToolbar> {
 
     onMenu: vi.fn(),
     onControlError: vi.fn(),
+    onInteract: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -134,6 +135,32 @@ it("describes GAME_SAVE as written game data, never an instant capture", () => {
   expect(screen.getByRole("button", { name: "同步存档" })).toBeEnabled();
   expect(screen.queryByText("可创建存档")).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent("有待同步的游戏数据");
+});
+
+it("reveals the whole desktop top edge on hover and pauses clicks in toolbar whitespace and controls", () => {
+  const props = toolbarProps();
+  const view = render(<PlayerToolbar {...props} menu={false} desktopPointer visible={false} state="RUNNING" />);
+  const edge = screen.getByRole("button", {name: "显示游戏工具栏"});
+  expect(edge).toHaveClass("is-desktop-pointer");
+  fireEvent.pointerEnter(edge);
+  expect(props.onHover).toHaveBeenCalledWith(true);
+  expect(props.onInteract).not.toHaveBeenCalled();
+  view.rerender(<PlayerToolbar {...props} menu={false} desktopPointer state="RUNNING" />);
+  // Keep the same edge through the slide animation so leaving it still delivers pointerleave.
+  expect(view.container.querySelector(".player-hud-handle")).toBe(edge);
+  expect(edge).toHaveAttribute("tabindex", "-1");
+  fireEvent.pointerLeave(edge);
+  expect(props.onHover).toHaveBeenLastCalledWith(false);
+  fireEvent.click(edge);
+  fireEvent.click(view.container.querySelector(".player-toolbar")!);
+  fireEvent.click(screen.getByRole("button", {name: "调试信息"}));
+  expect(props.onInteract).toHaveBeenCalledTimes(3);
+  expect(props.onDebug).toHaveBeenCalledOnce();
+  view.rerender(<PlayerToolbar {...props} menu={false} desktopPointer state="PAUSED" />);
+  fireEvent.click(screen.getByRole("button", {name: "暂停"}));
+  expect(props.onInteract).toHaveBeenCalledTimes(4);
+  expect(props.onPause).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", {name: "继续"})).not.toBeInTheDocument();
 });
 
 it("keeps only the back control at top left and exposes an available game editor through more", () => {

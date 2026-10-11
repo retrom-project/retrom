@@ -6,10 +6,16 @@ export function PlayerHudHandle({
   visible,
   toolbarRef,
   onReveal,
+  desktopPointer,
+  onHover,
+  onInteract,
 }: {
   visible: boolean;
   toolbarRef: RefObject<HTMLElement | null>;
   onReveal: () => void;
+  desktopPointer: boolean;
+  onHover: (value: boolean) => void;
+  onInteract: () => Promise<void>;
 }) {
   const keyboardReveal = useRef(false);
   useEffect(() => {
@@ -20,14 +26,18 @@ export function PlayerHudHandle({
         ?.focus();
     }
   }, [visible, toolbarRef]);
-  if (visible) {
+  if (visible && !desktopPointer) {
     return null;
   }
   return (
     <button
-      className="player-hud-handle"
+      className={`player-hud-handle${desktopPointer ? " is-desktop-pointer" : ""}${visible ? " is-toolbar-visible" : ""}`}
       aria-label="显示游戏工具栏"
-      onClick={onReveal}
+      aria-hidden={visible || undefined}
+      tabIndex={visible ? -1 : undefined}
+      onClick={() => { if (visible && desktopPointer) { void onInteract(); } else { onReveal(); } }}
+      onPointerEnter={() => { if (desktopPointer) { onHover(true); } }}
+      onPointerLeave={() => { if (desktopPointer) { onHover(false); } }}
       onFocus={(event) => {
         if (event.currentTarget.matches(":focus-visible")) {
           keyboardReveal.current = true;

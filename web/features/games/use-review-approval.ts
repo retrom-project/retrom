@@ -36,8 +36,8 @@ export function useReviewApproval(query: GameQuery, onComplete: () => void) {
       if (!controller.signal.aborted) {
         setSummary(completed);
         notify({
-          tone: completed.failed || completed.interrupted || completed.missingBios ? "warn" : "good",
-          message: `快速审批${completed.interrupted ? "已停止" : "完成"}：已发布 ${completed.approved} 项，缺少 BIOS ${completed.missingBios} 项，失败 ${completed.failed} 项。`,
+          tone: completed.failed || completed.interrupted || completed.missingBios || completed.crcMismatch ? "warn" : "good",
+          message: `快速审批${completed.interrupted ? "已停止" : "完成"}：已发布 ${completed.approved} 项，CRC 需手动审核 ${completed.crcMismatch} 项，缺少 BIOS ${completed.missingBios} 项，失败 ${completed.failed} 项。`,
         });
         onComplete();
       }

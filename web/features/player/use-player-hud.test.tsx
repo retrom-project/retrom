@@ -62,3 +62,18 @@ it("cleans the reveal timer on unmount", async () => {
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it("reveals desktop controls on hover and retracts immediately after leaving, including while paused", async () => {
+  vi.useFakeTimers();
+  const view = renderHook(({state}) => usePlayerHud(state, false, true),
+    {initialProps: {state: "RUNNING" as RuntimeStateV1}});
+  await act(() => vi.advanceTimersByTime(2000));
+  expect(view.result.current.visible).toBe(false);
+  await act(() => view.result.current.onHover(true));
+  expect(view.result.current.visible).toBe(true);
+  view.rerender({state: "PAUSED"});
+  await act(() => view.result.current.onHover(false));
+  expect(view.result.current.visible).toBe(false);
+  await act(() => view.result.current.onFocus(true));
+  expect(view.result.current.visible).toBe(true);
+});

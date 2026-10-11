@@ -571,6 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Lists the current user’s active saves. With groupByGame=true, filters are applied first and only the most recently updated matching save per game is returned; pagination and total count games. Timestamp ties use ascending save ID. Without grouping, pagination and total count individual saves. gameCount always counts distinct matching games. */
         get: operations["ListSaves"];
         put?: never;
         post: operations["CreateSave"];
@@ -1504,6 +1505,15 @@ export interface components {
             } | null;
             /** @description Only required BIOS absent from the current installation, as resolved by runtime for this game. Empty on success with no missing requirements or on error; inspect biosSatisfied/error first. */
             missingBios: components["schemas"]["ReviewMissingBIOS"][];
+            /** @description CRC mismatches in ROM, Parent, or embedded BIOS members. Informational for manual approval and optional test play; quick approval must skip this game. Computed from current content and runtime facts, never persisted. */
+            crcWarnings: {
+                /** @enum {string} */
+                role: "ROM" | "PARENT" | "BIOS";
+                file: string;
+                member: string;
+                expectedCRC32: string;
+                actualCRC32: string;
+            }[];
         };
         ReviewReadinessList: {
             items: components["schemas"]["ReviewReadiness"][];
@@ -5117,6 +5127,8 @@ export interface operations {
                 sort?: "title" | "recent";
                 gameId?: string;
                 kind?: "checkpoint" | "game_save";
+                /** @description Return the latest matching save for each game, grouped before pagination. */
+                groupByGame?: boolean;
             };
             header?: never;
             path?: never;

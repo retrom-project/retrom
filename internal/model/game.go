@@ -102,6 +102,7 @@ type (
 		FolderID     string
 		Unclassified bool
 		Favorite     bool
+		GroupByGame  bool
 		Status       string
 		Kind         string
 		Sort         string

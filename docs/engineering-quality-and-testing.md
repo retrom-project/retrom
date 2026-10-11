@@ -15,3 +15,5 @@ make acceptance-prepare验证配套输入，make acceptance-case CASE=ACC-RF-BRO
 scripts/verify-backend-image.sh <backend-image> <web-image>验证实际两张部署镜像。临时独立网络内以UID/GID1000创建全新PostgreSQL/Redis与合法只读MIT来源，正常HTTP初始化、扫描、批准、创建Run、读取强If-Match/Range、无cookie隔离shell/SW与实际Provider bridge，再关闭Run。Web standalone使用构建时retrom:8080 rewrite连接同一新库，检查登录HTML、健康代理、已初始化匿名账号上下文和受保护catalog的401。无旧checkout挂载或业务SQL种子；任何失败均清理仅本次自有容器/网络/来源副本。此检查证明镜像闭包与部署连接，不替代浏览器真实运行和原生恢复。
 
 来源浏览回归覆盖未配置的绝对目录、正常目录符号链接和超过1000个子目录，扫描保留管理员认证与受管复制。正式浏览器fixture通过 `RETROM_BROWSER_SOURCE_PATH` 提供服务进程可见的绝对目录；inspect/game/bios/replace不再传来源根ID或相对选择目录。
+
+PFB候选浏览器验收可显式设置 `RETROM_ACCEPTANCE_PFB=<当前名称>`，并将 `RETROM_RUNTIME_TOOL_INPUT`、`RETROM_PROVIDER_INPUT` 指向同一PFB已构建的不可变工具快照与已验证基座。入口校验spec、分支、工具内容摘要和完整Provider基座；仍创建独立PG数据库与Redis、经正常导入和审核运行全部视口，不改变正式镜像的配套输入门禁。

@@ -17,7 +17,7 @@ const detail: Schema<"GameDetail"> = {
   files: [], coreIds: ["core"], defaultCoreId: "core", runtimeConfig: { content: { kind: "SINGLE_FILE", entryFile: "game.ssd" } }, saves: [], favoriteFolderIds: [],
 };
 function response(item: Partial<Schema<"ReviewReadiness">> = {}) {
-  return { data: { items: [{ id: "game", version: 1, biosSatisfied: false, error: null, missingBios: [requirement], ...item }] }, response: new Response() };
+  return { data: { items: [{ id: "game", version: 1, biosSatisfied: false, error: null, missingBios: [requirement], crcWarnings: [], ...item }] }, response: new Response() };
 }
 
 it("shows missing runtime filenames and cores without duplicating file validation requirements", async () => {
@@ -32,8 +32,8 @@ it("shows missing runtime filenames and cores without duplicating file validatio
 });
 
 it("keeps an inspection failure distinct from missing files and rechecks current installed facts", async () => {
-  vi.mocked(post).mockResolvedValueOnce(response({ biosSatisfied: null, error: { code: "BIOS_REQUIREMENTS_UNAVAILABLE", message: "无法读取内容" }, missingBios: [] }))
-    .mockResolvedValueOnce(response({ biosSatisfied: true, missingBios: [] }));
+  vi.mocked(post).mockResolvedValueOnce(response({ biosSatisfied: null, error: { code: "BIOS_REQUIREMENTS_UNAVAILABLE", message: "无法读取内容" }, missingBios: [], crcWarnings: [] }))
+    .mockResolvedValueOnce(response({ biosSatisfied: true, missingBios: [], crcWarnings: [] }));
   render(<ReviewBiosStatus detail={detail} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("无法检查 BIOS：无法读取内容");
   expect(screen.queryByText(/缺少 .*项必需 BIOS/)).not.toBeInTheDocument();
@@ -46,10 +46,23 @@ it("keeps an inspection failure distinct from missing files and rechecks current
 it("drops stale missing-file results when the saved game version changes", async () => {
   let resolve!: (value: Awaited<ReturnType<typeof post>>) => void;
   vi.mocked(post).mockImplementationOnce(() => new Promise((done) => { resolve = done; }))
-    .mockResolvedValueOnce(response({ version: 2, biosSatisfied: true, missingBios: [] }));
+    .mockResolvedValueOnce(response({ version: 2, biosSatisfied: true, missingBios: [], crcWarnings: [] }));
   const view = render(<ReviewBiosStatus detail={detail} />);
   view.rerender(<ReviewBiosStatus detail={{ ...detail, game: { ...detail.game, version: 2 } }} />);
   expect(await screen.findByText(/必需 BIOS 已满足/)).toBeVisible();
   await act(async () => { resolve(response()); });
   expect(screen.queryByText("os.rom")).not.toBeInTheDocument();
+});
+
+it("shows collapsed CRC details and explains manual approval without requiring a test run", async () => {
+  const filename = "汉化游戏目录/".repeat(20) + "solomonj.zip";
+  vi.mocked(post).mockResolvedValue(response({biosSatisfied: true, missingBios: [], crcWarnings: [
+    {role: "ROM", file: filename, member: "slmn_03.bin", expectedCRC32: "12345678", actualCRC32: "ffffffff"},
+  ]}));
+  render(<ReviewBiosStatus detail={detail} />);
+  const warning = await screen.findByRole("region", {name: "CRC 检查提示"});
+  expect(warning).toHaveTextContent("测试不是通过审核的必需条件");
+  expect(warning.querySelector("details")).not.toHaveAttribute("open");
+  expect(warning).toHaveTextContent(filename);
+  expect(screen.getByRole("status")).toHaveTextContent("CRC 不匹配项需手动审核");
 });
