@@ -90,7 +90,10 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
     ));
   const sourcePath = process.env.RETROM_BROWSER_SOURCE_PATH ?? "/pfb-workspace/acceptance/sources/browser";
   await page.goto("/admin/imports/server");
-  await page.getByRole("button", { name: "选择 Pegasus 目录", exact: true }).click();
+  await page.getByRole("button", { name: "本地扫描", exact: true }).click();
+  await expect(page.getByLabel("文件组织形式", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "读取来源集合", exact: true })).toBeDisabled();
+  await page.getByLabel("文件组织形式", { exact: true }).selectOption("pegasus");
   await page.getByLabel("服务器目录", { exact: true }).fill(sourcePath);
   await page.getByRole("button", { name: "进入目录", exact: true }).click();
   await page.getByRole("button", { name: "读取来源集合", exact: true }).click();

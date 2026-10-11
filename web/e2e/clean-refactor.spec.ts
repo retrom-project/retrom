@@ -5,6 +5,8 @@ import { test } from "./clean-refactor-fixtures";
 import type { Schema } from "../lib/api/types";
 import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
 import { holdController, installStandardController, pressController } from "./immersive-gamepad";
+import { verifyScanControls } from "./scan-controls";
+import { verifyDesktopPlayerControls } from "./player-desktop";
 import {
   instantConflict,
   newInstantSave,
@@ -98,10 +100,16 @@ test("shared review, real NES save and new-instance restore", async ({
   await start.click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?/u);
   await ensurePlayerLandscape(page);
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
   await expect(
     page.getByRole("button", { name: /^(创建存档|保存)$/u }),
   ).toBeEnabled({ timeout: 60_000 });
   await revealPlayerControls(page);
+  await verifyDesktopPlayerControls(page);
+  await revealPlayerControls(page);
+  if (await page.evaluate(() => document.fullscreenElement !== null)) {
+    await page.evaluate(() => document.exitFullscreen());
+  }
   const toolbarFullscreen = page.getByRole("button", { name: "全屏", exact: true });
   if (await toolbarFullscreen.isVisible()) {
     await toolbarFullscreen.click();
@@ -121,7 +129,9 @@ test("shared review, real NES save and new-instance restore", async ({
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
   const surfaceMenu = page.getByRole("menu", { name: "Player 更多操作", exact: true });
   await expect(surfaceMenu).toBeVisible();
-  if (await page.locator(".player-menu-backdrop").isVisible()) {
+  if (await page.locator(".player-pause-overlay").isVisible()) {
+    await page.locator(".player-pause-overlay").click();
+  } else if (await page.locator(".player-menu-backdrop").isVisible()) {
     await page.locator(".player-menu-backdrop").click({ position: { x: 10, y: 10 } });
   } else {
     await firstFrame.locator("canvas").click();
@@ -143,10 +153,8 @@ test("shared review, real NES save and new-instance restore", async ({
     )
     .toBe(true);
   await pause.click();
-  await expect(
-    page.getByRole("button", { name: "继续", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "继续", exact: true }).click();
+  await expect(page.locator(".player-pause-overlay")).toBeVisible();
+  await page.locator(".player-pause-overlay").click();
   const playerCounter = await sendNesInput(page, firstFrame);
   await expect
     .poll(async () =>
@@ -306,11 +314,33 @@ test("populated pages keep their viewport and functional favorite classification
     if (route === "/saves") {
       await expectSaveContentToFit(page);
     }
+    if (route === "/admin/imports/server") {
+      await verifyScanControls(page, test.info());
+    }
     await page.screenshot({
       path: test
         .info()
         .outputPath(`${route.replace(/[^a-z0-9]/gu, "-") || "home"}.png`),
     });
+  }
+  if ((page.viewportSize()?.width ?? 0) >= 960) {
+    const groups = await request<Schema<"SavePage">>(page, "/api/v1/saves?groupByGame=true&limit=24");
+    expect(groups.total).toBe(groups.gameCount);
+    expect(new Set(groups.items.map((save) => save.game.id)).size).toBe(groups.items.length);
+    await page.goto(`/immersive?view=saves&destination=saves&entry=${game.id}`);
+    const games = page.getByRole("region", { name: "有存档的游戏", exact: true });
+    await expect(games.getByText(`${groups.total} 款游戏`, { exact: true })).toBeVisible();
+    await expect(games.locator("button[aria-pressed]")).toHaveCount(groups.items.length);
+    await expect(games.getByRole("button").filter({ hasText: game.title })).toHaveCount(1);
+    const saves = await request<Schema<"SavePage">>(page, `/api/v1/saves?gameId=${game.id}&limit=100`);
+    await expect(page.locator(`[data-save-id="${saves.items[0].id}"]`)).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("ArrowUp");
+    if (saves.items.length > 1) {
+      await page.keyboard.press("ArrowRight");
+      await expect(page.locator(`[data-save-id="${saves.items[1].id}"]`)).toHaveAttribute("aria-pressed", "true");
+      await expect(games.getByRole("button").filter({ hasText: game.title })).toHaveCount(1);
+    }
+    await page.screenshot({ path: test.info().outputPath("immersive-save-game-groups.png") });
   }
   expect(errors).toEqual([]);
 });
