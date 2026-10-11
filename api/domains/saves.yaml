@@ -150,8 +150,18 @@
                 "game_save"
               ]
             }
+          },
+          {
+            "name": "groupByGame",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Return the latest matching save for each game, grouped before pagination."
           }
-        ]
+        ],
+        "description": "Lists the current user’s active saves. With groupByGame=true, filters are applied first and only the most recently updated matching save per game is returned; pagination and total count games. Timestamp ties use ascending save ID. Without grouping, pagination and total count individual saves. gameCount always counts distinct matching games."
       },
       "post": {
         "operationId": "CreateSave",

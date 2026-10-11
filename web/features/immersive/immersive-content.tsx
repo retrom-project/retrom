@@ -4,6 +4,10 @@ import type { Schema } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
 import styles from "./immersive.module.css";
+import { ImmersiveSaveCarousel } from "./save-carousel";
+import type { ImmersiveSaveSelection } from "./use-save-selection";
+import libraryStyles from "./library.module.css";
+import { SaveRestoreWarning } from "./save-restore-warning";
 
 import type { ImmersiveEntry } from "./immersive-data";
 export function ImmersiveGames({
@@ -13,6 +17,7 @@ export function ImmersiveGames({
   offset,
   filter,
   saveView,
+  saves,
   selected,
   onSelect,
   title,
@@ -27,6 +32,7 @@ export function ImmersiveGames({
   offset: number;
   filter?: ReactNode;
   saveView: boolean;
+  saves: ImmersiveSaveSelection;
   selected: number;
   onSelect: (index: number) => void;
   title: string;
@@ -38,17 +44,17 @@ export function ImmersiveGames({
   const entry = entries[selected];
   return (
     <div className={styles.gameListView}>
-      <section className={styles.gameTitles}>
+      <section className={styles.gameTitles} aria-label={saveView ? "有存档的游戏" : "游戏列表"}>
         <div>
           <p>游戏资料库</p>
           <h1>{title}</h1>
-          <span>{total} {saveView ? "份存档" : "款游戏"}</span>
+          <span>{total} 款游戏</span>
           {filter}
         </div>
         <div className={styles.titleList}>
           {entries.map((item, index) => (
             <button
-              key={item.save?.id ?? item.game.id}
+              key={item.game.id}
               className={index === selected ? styles.selectedGame : ""}
               aria-pressed={index === selected}
               onClick={() => onSelect(index)}
@@ -56,7 +62,7 @@ export function ImmersiveGames({
             >
               <span>{String(offset + index + 1).padStart(2, "0")}</span>
               <strong>{item.game.title}</strong>
-              {item.save ? <small>{item.save.name}</small> : item.game.favorite ? <small className={styles.favoriteIndicator}>♥</small> : null}
+              {item.game.favorite ? <small className={styles.favoriteIndicator}>♥</small> : null}
             </button>
           ))}
         </div>
@@ -66,7 +72,7 @@ export function ImmersiveGames({
         </div>
       </section>
       {entry ? (
-        <GamePresentation entry={entry} returnTo={returnTo} />
+        <GamePresentation entry={entry} returnTo={returnTo} saves={saveView ? saves : undefined} />
       ) : (
         <div className={styles.centerState}>
           <h2>{saveView ? "这里还没有存档" : "这里还没有游戏"}</h2>
@@ -76,12 +82,12 @@ export function ImmersiveGames({
     </div>
   );
 }
-function GamePresentation({ entry, returnTo }: { entry: ImmersiveEntry; returnTo: string }) {
+function GamePresentation({ entry, returnTo, saves }: { entry: ImmersiveEntry; returnTo: string; saves?: ImmersiveSaveSelection }) {
   const { game, save } = entry;
   return (
-    <section className={styles.gameDetails}>
-      <GameMedia entry={entry} />
-      <div className={styles.descriptionPanel}>
+    <section className={`${styles.gameDetails} ${saves ? libraryStyles.saveGameDetails : ""}`}>
+      <GameMedia entry={saves ? { game, save: saves.save } : entry} />
+      {saves ? <ImmersiveSaveCarousel gameTitle={game.title} selection={saves} returnTo={returnTo} /> : <div className={styles.descriptionPanel}>
         <p>{game.directoryName} {game.releaseYear ?? ""}</p>
         <h2>{game.title}</h2>
         <div className={styles.description}><GameSynopsis entry={entry} /></div>
@@ -97,7 +103,7 @@ function GamePresentation({ entry, returnTo }: { entry: ImmersiveEntry; returnTo
         {save?.kind === "game_save" ? (
           <p>进入游戏后，请在游戏内读取存档。</p>
         ) : null}
-      </div>
+      </div>}
     </section>
   );
 }
@@ -129,6 +135,7 @@ function GameMedia({ entry: { game, save } }: { entry: ImmersiveEntry }) {
             <video src={video.url} controls playsInline preload="metadata" />
           </div>
         ) : null}
+        {save ? <SaveRestoreWarning save={save} /> : null}
       </div>
   );
 }

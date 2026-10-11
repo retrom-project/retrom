@@ -34,7 +34,14 @@ export function PlatformCoverStack({ games, platformName }: {
   games: readonly FeaturedGame[];
   platformName: string;
 }) {
-  const visibleGames = useMemo(() => games.slice(0, 3), [games]);
+  const visibleGames = useMemo(() => {
+    const seen = new Set<string>();
+    return games.filter((game) => {
+      if (seen.has(game.id)) { return false; }
+      seen.add(game.id);
+      return true;
+    }).slice(0, 3);
+  }, [games]);
   const [frontIndex, setFrontIndex] = useState(0);
   const rotationEnabled = useCoverRotationEnabled();
 

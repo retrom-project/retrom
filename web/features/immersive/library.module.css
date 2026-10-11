@@ -17,9 +17,11 @@
   font-size: var(--text-immersive-mark);
 }
 
+.saveGameDetails { grid-template-rows: minmax(0, 1fr) minmax(240px, 38%); }
+
 .saveDetails {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   container-type: size;
   min-width: 0;
   min-height: 0;
@@ -33,7 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--space-3);
   padding: 0 clamp(18px, 1.8vw, 34px);
 }
 
@@ -75,7 +77,8 @@
 
 .saveCard {
   display: grid;
-  flex: 0 0 clamp(72px, calc((100cqh - 54px) * 0.72), 170px);
+  grid-template-columns: minmax(0, 1fr);
+  flex: 0 0 clamp(72px, calc((100cqh - 160px) * 0.72), 170px);
   gap: 4px;
   min-width: 0;
   max-height: 100%;
@@ -91,7 +94,7 @@
 }
 
 .selectedSaveCard {
-  flex-basis: clamp(144px, calc((100cqh - 54px) * 1.5), 390px);
+  flex-basis: clamp(108px, calc((100cqh - 160px) * 1.4), 390px);
   color: #f7f5f0;
   opacity: 1;
   transform: scale(1);
@@ -135,11 +138,15 @@
   line-height: 1;
   white-space: nowrap;
   background: #4435a7;
-  border-radius: 5px;
+  border-radius: var(--radius-cover);
 }
 
 .saveCard time {
   justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding-right: 4px;
   font-size: var(--text-immersive-caption);
   font-variant-numeric: tabular-nums;
@@ -151,6 +158,27 @@
   outline: 4px solid #50d6ca;
   outline-offset: 7px;
   border-radius: var(--radius-cover);
+}
+
+.savePaging { display: flex; gap: var(--space-2); }
+.savePaging button { min-width: 44px; }
+.saveActions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) clamp(18px, 1.8vw, 34px) 0; }
+.saveActions > div { min-width: 0; }
+.saveActions strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-immersive-caption); }
+.saveActions p { margin: 0; color: var(--immersive-muted); font-size: var(--text-caption); }
+.saveActions > :last-child { flex-shrink: 0; }
+.saveState { margin: var(--space-4); color: var(--immersive-muted); font-size: var(--text-immersive-body); }
+.saveUnavailable { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: var(--space-2); color: var(--immersive-text); background: rgb(5 8 15 / 76%); text-align: center; pointer-events: none; }
+.saveUnavailable svg { color: var(--danger); }
+.saveUnavailablePreview { padding: var(--space-3); }
+.saveUnavailablePreview svg { width: clamp(28px, 3vw, 56px); height: clamp(28px, 3vw, 56px); }
+.saveUnavailablePreview strong { font-size: var(--text-lead); font-weight: var(--weight-semibold); line-height: 1.3; }
+.saveUnavailablePreview > span { max-width: 36ch; font-size: var(--text-small); line-height: 1.5; }
+.saveUnavailableThumbnail { background: rgb(5 8 15 / 58%); }
+.saveUnavailableThumbnail svg { width: clamp(24px, 2.5vw, 42px); height: clamp(24px, 2.5vw, 42px); }
+
+@media (width <= 1100px) {
+  .saveHeading > span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

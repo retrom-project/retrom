@@ -8,6 +8,7 @@ import { LaunchButton } from "@/features/player/launch-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AppIcon } from "@/components/app-icon";
 import { BrowserTime } from "@/components/browser-time";
+import { formatBytes } from "@/lib/format-bytes";
 const reasons: Record<Save["restoreReason"], string> = {
   "": "",
   game_unavailable: "游戏当前不可用",
@@ -205,11 +206,9 @@ function SaveImage({ save, compact }: { save: Save; compact: boolean }) {
           当前不可恢复
         </span>
       ) : null}
-      {!compact ? (
-        <span className="save-library-size">
-          {(save.sizeBytes / 1024).toFixed(1)} KiB
-        </span>
-      ) : null}
+      <span className="save-library-size" aria-label={`存档大小 ${formatBytes(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>
+        {formatBytes(save.sizeBytes)}
+      </span>
     </div>
   );
 }

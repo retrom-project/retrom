@@ -571,6 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Lists the current user’s active saves. With groupByGame=true, filters are applied first and only the most recently updated matching save per game is returned; pagination and total count games. Timestamp ties use ascending save ID. Without grouping, pagination and total count individual saves. gameCount always counts distinct matching games. */
         get: operations["ListSaves"];
         put?: never;
         post: operations["CreateSave"];
@@ -5126,6 +5127,8 @@ export interface operations {
                 sort?: "title" | "recent";
                 gameId?: string;
                 kind?: "checkpoint" | "game_save";
+                /** @description Return the latest matching save for each game, grouped before pagination. */
+                groupByGame?: boolean;
             };
             header?: never;
             path?: never;

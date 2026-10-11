@@ -28,7 +28,8 @@ export function ImmersiveChrome({ view, fullscreen, onMenu }: {
       </div>
     </header>
     <footer className={styles.helpBar} aria-label="手柄操作提示">
-      <span><HelpButton button={view === "platforms" ? "horizontal" : "vertical"} />{view === "platforms" ? "选择平台" : view === "saves" ? "选择存档" : "选择游戏"}</span>
+      <span><HelpButton button={view === "platforms" ? "horizontal" : "vertical"} />{view === "platforms" ? "选择平台" : "选择游戏"}</span>
+      {view === "saves" ? <span><HelpButton button="horizontal" />切换存档</span> : null}
       <span><HelpButton button="A" />{view === "platforms" ? "进入" : view === "saves" ? "从存档继续" : "开始游戏"}</span>
       <span><HelpButton button="B" />{view === "platforms" ? "退出沉浸模式" : "返回平台"}</span>
       {view !== "platforms" ? <span><HelpButton button="Y" />收藏</span> : null}

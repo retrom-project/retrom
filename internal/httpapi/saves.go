@@ -16,6 +16,7 @@ func (s *Server) saves(w http.ResponseWriter, r *http.Request, p model.Principal
 	if err != nil {
 		return err
 	}
+	q.GroupByGame = r.URL.Query().Get("groupByGame") == "true"
 	page, err := s.Saves.List(r.Context(), p, r.URL.Query().Get("gameId"), q)
 	if err != nil {
 		return wrap(err)

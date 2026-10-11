@@ -26,7 +26,7 @@ export function ImmersiveShell() {
 }
 function ImmersiveContent() {
   const shell = useRef<HTMLDivElement>(null);
-  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo } = useImmersiveLibrary();
+  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
   const { notify } = useToast();
   const [exitOpen, setExitOpen] = useState(false);
   const [exitChoice, setExitChoice] = useState("continue");
@@ -56,8 +56,11 @@ function ImmersiveContent() {
   }
   function navigateGames(action: NavigationAction) {
     if (action === "up" || action === "down") { setSelected((value) => Math.max(0, Math.min((entries.data?.items.length ?? 1) - 1, value + (action === "up" ? -1 : 1)))); }
-    if (action === "left" && offset > 0) { setOffset(offset - 24); setSelected(0); }
-    if (action === "right" && entries.data?.hasMore) { setOffset(offset + 24); setSelected(0); }
+    if (action === "left" || action === "right") {
+      if (view === "saves") { saves.move(action); }
+      else if (action === "left" && offset > 0) { setOffset(offset - 24); setSelected(0); }
+      else if (action === "right" && entries.data?.hasMore) { setOffset(offset + 24); setSelected(0); }
+    }
     if (action === "confirm") { launch(); }
     if (action === "favorite") { void favorite(); }
   }
@@ -87,7 +90,7 @@ function ImmersiveContent() {
           <ResourceState resource={destinations}>{(data) => <PlatformCarousel destinations={data.items} selected={destination} onSelect={setDestination} onOpen={() => current && changeView(current.view)} />}</ResourceState>
         ) : (
           <ResourceState resource={entries}>{(data) => (
-            <ImmersiveGames returnTo={returnTo} saveView={view === "saves"} entries={data.items} total={data.total} offset={offset} selected={selected} onSelect={setSelected} title={current?.name ?? "游戏库"} more={data.hasMore}
+            <ImmersiveGames returnTo={returnTo} saves={saves} saveView={view === "saves"} entries={data.items} total={data.total} offset={offset} selected={selected} onSelect={setSelected} title={current?.name ?? "游戏库"} more={data.hasMore}
               filter={view === "favorites" ? <label className="field">收藏夹<select aria-label="收藏夹" value={folder} onChange={(event) => { setFolder(event.target.value); setOffset(0); setSelected(0); }}>
                 <option value="">全部收藏</option><option value="unclassified">未分类</option>
                 {folders.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
