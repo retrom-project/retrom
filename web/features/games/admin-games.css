@@ -116,8 +116,9 @@
 .admin-game-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .admin-game-action-grid h3 { margin: 0; font-size: var(--text-body); }
 .admin-game-action-grid p { color: var(--muted); font-size: var(--text-small); }
-.admin-game-action-grid > article { min-width: 0; display: flex; flex-direction: column; align-items: start; }
-.admin-game-action-grid > article > .button { align-self: end; margin-top: auto; }
+.admin-game-action-grid > article { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
+.admin-game-action-grid > article > div { min-width: 0; }
+.admin-game-action-grid > article > .button { align-self: center; }
 .admin-game-action-grid > article:last-child { padding-left: 24px; border-left: 1px solid var(--line); }
 .admin-game-file-summary { display: flex; align-items: center; gap: 12px; }
 .admin-game-file-summary svg { width: 20px; height: 20px; }

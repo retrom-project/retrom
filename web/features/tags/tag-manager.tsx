@@ -62,7 +62,6 @@ export function TagManager() {
   return <>
     <PageHeader title="标签管理" description="建立标签用于游戏分类与筛选，标签由整个资料库共享。" />
     <div className="tag-manager">
-      <div className="tag-kpis" aria-label="标签摘要"><article><span>{query ? "匹配标签" : "活动标签"}</span><strong>{tags.data?.total ?? "—"}</strong><small>用于游戏分类与筛选</small></article></div>
       <div className="tag-manager-toolbar">
         <form onSubmit={(event) => { event.preventDefault(); setQuery(draft); setOffset(0); }}>
           <label><span className="sr-only">名称搜索</span><input value={draft} placeholder="搜索标签名称" onChange={(event) => setDraft(event.target.value)} /></label>

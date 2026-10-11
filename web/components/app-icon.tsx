@@ -37,9 +37,11 @@ export type AppIconName =
   | "more"
   | "log-out"
   | "keyboard"
+  | "ban"
   | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
+  ban: <><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></>,
   user: (
     <>
       <circle cx="12" cy="8" r="4" />
