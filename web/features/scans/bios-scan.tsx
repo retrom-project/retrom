@@ -10,7 +10,7 @@ import styles from "./scan.module.css";
 async function catalog() {
   return result(await api.GET("/api/v1/runtime/catalog"));
 }
-export function BiosScan({ onClose }: { onClose: () => void }) {
+export function BiosScan({ onClose, onStarted }: { onClose: () => void; onStarted?: () => void }) {
   const declarations = useResource(catalog);
   const { notify } = useToast();
   const [path, setPath] = useState("/");
@@ -25,6 +25,7 @@ export function BiosScan({ onClose }: { onClose: () => void }) {
     try {
       result(await api.POST("/api/v1/admin/bios-scans", { body: { path, platformIds, coreIds } }));
       notify({ tone: "good", message: "BIOS 扫描已开始。仅补齐明确匹配的缺失要求，已有安装保持原样。" });
+      onStarted?.();
       onClose();
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : "扫描失败。";

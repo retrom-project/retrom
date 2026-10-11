@@ -1,5 +1,7 @@
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
+import type { InfiniteResource } from "@/lib/use-infinite-resource";
 import type { Schema } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
@@ -9,38 +11,41 @@ import type { ImmersiveSaveSelection } from "./use-save-selection";
 import libraryStyles from "./library.module.css";
 import { SaveRestoreWarning } from "./save-restore-warning";
 
-import type { ImmersiveEntry } from "./immersive-data";
+import type { ImmersiveEntry, ImmersivePage } from "./immersive-data";
 export function ImmersiveGames({
   returnTo,
   entries,
   total,
-  offset,
+  resource,
   filter,
   saveView,
   saves,
   selected,
   onSelect,
   title,
-  more,
-  onPrevious,
-  onNext,
   onLaunch,
 }: {
   returnTo: string;
   entries: ImmersiveEntry[];
   total: number;
-  offset: number;
+  resource: InfiniteResource<ImmersivePage>;
   filter?: ReactNode;
   saveView: boolean;
   saves: ImmersiveSaveSelection;
   selected: number;
   onSelect: (index: number) => void;
   title: string;
-  more: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
   onLaunch: () => void;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  const selectedButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const container = list.current, button = selectedButton.current;
+    if (!container || !button) { return; }
+    const area = container.getBoundingClientRect(), item = button.getBoundingClientRect();
+    if (item.top < area.top) { container.scrollTop += item.top - area.top; }
+    else if (item.bottom > area.bottom) { container.scrollTop += item.bottom - area.bottom; }
+  }, [selected]);
   const entry = entries[selected];
   return (
     <div className={styles.gameListView}>
@@ -51,24 +56,22 @@ export function ImmersiveGames({
           <span>{total} 款游戏</span>
           {filter}
         </div>
-        <div className={styles.titleList}>
+        <div className={styles.titleList} ref={list}>
           {entries.map((item, index) => (
             <button
               key={item.game.id}
+              ref={index === selected ? selectedButton : undefined}
               className={index === selected ? styles.selectedGame : ""}
               aria-pressed={index === selected}
               onClick={() => onSelect(index)}
               onDoubleClick={onLaunch}
             >
-              <span>{String(offset + index + 1).padStart(2, "0")}</span>
+              <span>{String(index + 1).padStart(2, "0")}</span>
               <strong>{item.game.title}</strong>
               {item.game.favorite ? <small className={styles.favoriteIndicator}>♥</small> : null}
             </button>
           ))}
-        </div>
-        <div className={styles.listPaging}>
-          <button className="button secondary" disabled={offset === 0} onClick={onPrevious}>上一页</button>
-          <button className="button secondary" disabled={!more} onClick={onNext}>下一页</button>
+          <InfiniteScrollFooter count={entries.length} total={total} {...resource} scrollRoot={list} />
         </div>
       </section>
       {entry ? (
@@ -86,7 +89,7 @@ function GamePresentation({ entry, returnTo, saves }: { entry: ImmersiveEntry; r
   const { game, save } = entry;
   return (
     <section className={`${styles.gameDetails} ${saves ? libraryStyles.saveGameDetails : ""}`}>
-      <GameMedia entry={saves ? { game, save: saves.save } : entry} />
+      <GameMedia entry={saves ? { game, save: saves.previewSave } : entry} saveView={!!saves} />
       {saves ? <ImmersiveSaveCarousel gameTitle={game.title} selection={saves} returnTo={returnTo} /> : <div className={styles.descriptionPanel}>
         <p>{game.directoryName} {game.releaseYear ?? ""}</p>
         <h2>{game.title}</h2>
@@ -107,15 +110,15 @@ function GamePresentation({ entry, returnTo, saves }: { entry: ImmersiveEntry; r
     </section>
   );
 }
-function GameMedia({ entry: { game, save } }: { entry: ImmersiveEntry }) {
+function GameMedia({ entry: { game, save }, saveView = false }: { entry: ImmersiveEntry; saveView?: boolean }) {
   const cover = game.media.find((item) => item.kind === "cover");
-  const video = save ? undefined : game.media.find((item) => item.kind === "video");
-  const artwork = save?.screenshotUrl ?? cover?.url;
+  const video = saveView ? undefined : game.media.find((item) => item.kind === "video");
+  const artwork = saveView ? save?.screenshotUrl : cover?.url;
   return (
       <div
         className={`${styles.mediaStage} ${video ? styles.withVideo : styles.coverOnly}`}
       >
-        <div className={save?.screenshotUrl ? styles.savePreview : styles.poster}>
+        <div className={saveView ? styles.savePreview : styles.poster}>
           {artwork ? (
             <Image
               src={artwork}

@@ -35,7 +35,7 @@
 .tagChoices label { display: flex; align-items: center; gap: 6px; font-size: var(--text-small); }
 .mappingFooter { padding: 16px 20px; display: flex; justify-content: flex-end; }
 .progress { margin-top: 24px; }
-.progress > header { margin-bottom: 12px; }
+.progress > header { margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .progress > header h2 { margin: 0; font-size: var(--text-lead); }
 .progress > header p { margin: 4px 0 0; color: var(--muted); font-size: var(--text-caption); }
 .progressRow { display: flex; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }

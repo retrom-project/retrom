@@ -26,7 +26,7 @@ export function ImmersiveShell() {
 }
 function ImmersiveContent() {
   const shell = useRef<HTMLDivElement>(null);
-  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, offset, setOffset, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
+  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
   const { notify } = useToast();
   const [exitOpen, setExitOpen] = useState(false);
   const [exitChoice, setExitChoice] = useState("continue");
@@ -35,7 +35,7 @@ function ImmersiveContent() {
   const fullscreen = useImmersiveFullscreen();
   const { enterFullscreen } = fullscreen;
   function leave() { setActiveImmersiveGamepadIndex(null); router.replace("/"); }
-  function changeView(next: View) { setView(next); setSelected(0); setOffset(0); }
+  function changeView(next: View) { setView(next); setSelected(0); }
   async function favorite() {
     const game = entries.data?.items[selected]?.game;
     if (!game) { return; }
@@ -55,12 +55,13 @@ function ImmersiveContent() {
     if (action === "confirm" && current) { changeView(current.view); }
   }
   function navigateGames(action: NavigationAction) {
-    if (action === "up" || action === "down") { setSelected((value) => Math.max(0, Math.min((entries.data?.items.length ?? 1) - 1, value + (action === "up" ? -1 : 1)))); }
-    if (action === "left" || action === "right") {
-      if (view === "saves") { saves.move(action); }
-      else if (action === "left" && offset > 0) { setOffset(offset - 24); setSelected(0); }
-      else if (action === "right" && entries.data?.hasMore) { setOffset(offset + 24); setSelected(0); }
+    if (action === "up" || action === "down") {
+      const last = Math.max(0, (entries.data?.items.length ?? 1) - 1);
+      const next = Math.max(0, selected + (action === "up" ? -1 : 1));
+      setSelected(Math.min(next, last + (entries.hasMore ? 1 : 0)));
+      if (next >= last && entries.hasMore && !entries.moreError) { entries.loadMore(); }
     }
+    if (view === "saves" && (action === "left" || action === "right")) { saves.move(action); }
     if (action === "confirm") { launch(); }
     if (action === "favorite") { void favorite(); }
   }
@@ -73,7 +74,6 @@ function ImmersiveContent() {
     if (action === "cancel") { setExitOpen(false); }
     if (action === "confirm") { chooseExit(exitChoice); }
   }, shell);
-  useEffect(() => { document.querySelector<HTMLElement>(`.${styles.selectedGame}`)?.scrollIntoView({ block: "nearest" }); }, [selected]);
   useEffect(() => {
     function key(event: KeyboardEvent) {
       if (event.key.toLowerCase() === "f" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); void enterFullscreen(); }
@@ -90,12 +90,12 @@ function ImmersiveContent() {
           <ResourceState resource={destinations}>{(data) => <PlatformCarousel destinations={data.items} selected={destination} onSelect={setDestination} onOpen={() => current && changeView(current.view)} />}</ResourceState>
         ) : (
           <ResourceState resource={entries}>{(data) => (
-            <ImmersiveGames returnTo={returnTo} saves={saves} saveView={view === "saves"} entries={data.items} total={data.total} offset={offset} selected={selected} onSelect={setSelected} title={current?.name ?? "游戏库"} more={data.hasMore}
-              filter={view === "favorites" ? <label className="field">收藏夹<select aria-label="收藏夹" value={folder} onChange={(event) => { setFolder(event.target.value); setOffset(0); setSelected(0); }}>
+            <ImmersiveGames returnTo={returnTo} saves={saves} saveView={view === "saves"} resource={entries} entries={data.items} total={data.total} selected={selected} onSelect={setSelected} title={current?.name ?? "游戏库"}
+              filter={view === "favorites" ? <label className="field">收藏夹<select aria-label="收藏夹" value={folder} onChange={(event) => { setFolder(event.target.value); setSelected(0); }}>
                 <option value="">全部收藏</option><option value="unclassified">未分类</option>
                 {folders.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select></label> : null}
-              onPrevious={() => { setOffset(Math.max(0, offset - 24)); setSelected(0); }} onNext={() => { setOffset(offset + 24); setSelected(0); }} onLaunch={launch} />
+              onLaunch={launch} />
           )}</ResourceState>
         )}
       </main>
