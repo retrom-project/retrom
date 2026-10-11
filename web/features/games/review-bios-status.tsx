@@ -7,17 +7,17 @@ import { useResource } from "@/lib/use-resource";
 import { MissingBiosList } from "./missing-bios-list";
 import { ReviewCRCWarnings } from "./review-crc-warnings";
 
-export function ReviewBiosStatus({ detail }: { detail: Schema<"GameDetail"> }) {
+export function ReviewBiosStatus({ detail, coreId = detail.defaultCoreId }: { detail: Schema<"GameDetail">; coreId?: string }) {
   const [revision, setRevision] = useState(0);
-  const source = JSON.stringify([detail.game.id, detail.game.version, detail.defaultCoreId, detail.coreIds,
+  const source = JSON.stringify([detail.game.id, detail.game.version, coreId, detail.coreIds,
     detail.runtimeConfig, detail.files.map(({ id, sha256 }) => [id, sha256]), revision]);
-  return <ReviewBiosCheck key={source} gameId={detail.game.id} version={detail.game.version} onReload={() => setRevision((value) => value + 1)} />;
+  return <ReviewBiosCheck key={source} gameId={detail.game.id} coreId={coreId} version={detail.game.version} onReload={() => setRevision((value) => value + 1)} />;
 }
 
-function ReviewBiosCheck({ gameId, version, onReload }: { gameId: string; version: number; onReload: () => void }) {
+function ReviewBiosCheck({ gameId, coreId, version, onReload }: { gameId: string; coreId: string; version: number; onReload: () => void }) {
   const load = useCallback(async () => result(await api.POST("/api/v1/admin/reviews/readiness", {
-    body: { gameIds: [gameId] },
-  })).items.find((item) => item.id === gameId), [gameId]);
+    body: { gameIds: [gameId], coreId },
+  })).items.find((item) => item.id === gameId), [gameId, coreId]);
   const check = useResource(load);
   const outcome = check.loading ? { message: "正在检查已保存配置的运行条件…", error: false, missing: [] }
     : biosOutcome(check.data, check.error, version);
@@ -33,7 +33,7 @@ function ReviewBiosCheck({ gameId, version, onReload }: { gameId: string; versio
     </div>
     {outcome.missing.length > 0 ? <MissingBiosList items={outcome.missing} /> : null}
     {!check.loading && !outcome.error && check.data ? <ReviewCRCWarnings warnings={check.data.crcWarnings} /> : null}
-    <p className="review-bios-note">按当前已保存的运行配置检查。补齐文件后可重新检查。</p>
+    <p className="review-bios-note">按当前所选核心的已保存配置检查。补齐文件后可重新检查。</p>
   </section>;
 }
 

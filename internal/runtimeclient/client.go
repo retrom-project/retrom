@@ -25,12 +25,13 @@ type Client struct {
 }
 type (
 	Binding struct {
-		CoreID            string   `json:"coreId"`
-		ProviderID        string   `json:"providerId"`
-		TargetID          string   `json:"targetId"`
-		PlatformIDs       []string `json:"platformIds"`
-		ContentKinds      []string `json:"contentKinds"`
-		ArchiveExtensions []string `json:"archiveExtensions"`
+		CoreID            string           `json:"coreId"`
+		ProviderID        string           `json:"providerId"`
+		TargetID          string           `json:"targetId"`
+		PlatformIDs       []string         `json:"platformIds"`
+		ContentKinds      []string         `json:"contentKinds"`
+		ArchiveExtensions []string         `json:"archiveExtensions"`
+		ROMSetSelection   *ROMSetSelection `json:"romSetSelection,omitempty"`
 	}
 	Provider struct {
 		ProviderID       string          `json:"providerId"`
@@ -71,6 +72,7 @@ type (
 		ROMHash          string            `json:"romHash"`
 		Config           json.RawMessage   `json:"config"`
 		TargetOptions    json.RawMessage   `json:"targetOptions"`
+		ROMSet           string            `json:"romSet,omitempty"`
 		Checkpoint       *Checkpoint       `json:"checkpoint"`
 		BiosRequirements []BiosRequirement `json:"biosRequirements"`
 		Dependencies     json.RawMessage   `json:"dependencies"`

@@ -10,7 +10,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
   return { ...actual, api: { POST: vi.fn() } };
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
-const post = api.POST<"/api/v1/admin/reviews/readiness", { body: { gameIds: string[] } }>;
+const post = api.POST<"/api/v1/admin/reviews/readiness", { body: { gameIds: string[]; coreId?: string } }>;
 const requirement: Schema<"ReviewMissingBIOS"> = { key: "runtime/core/os.rom", name: "os.rom", coreId: "core" };
 const detail: Schema<"GameDetail"> = {
   game: { id: "game", version: 1, title: "游戏", platformId: "bbc", platformInstanceId: "directory", directoryName: "目录", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "pending_review", source: "server_import", contentHash: "hash", favorite: false, lastPlayedAtMs: null, tags: [], media: [], createdAtMs: 1, updatedAtMs: 1 },
@@ -28,7 +28,7 @@ it("shows missing runtime filenames and cores without duplicating file validatio
   expect(screen.queryByText("文件校验要求")).not.toBeInTheDocument();
   expect(screen.queryByText(/要求大小|SHA-256|MD5/)).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "管理运行依赖" })).toHaveAttribute("href", "/admin/bios");
-  expect(post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"] } });
+  expect(post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "core" } });
 });
 
 it("keeps an inspection failure distinct from missing files and rechecks current installed facts", async () => {
@@ -62,6 +62,18 @@ it("drops stale missing-file results when the saved game version changes", async
   const view = render(<ReviewBiosStatus detail={detail} />);
   view.rerender(<ReviewBiosStatus detail={{ ...detail, game: { ...detail.game, version: 2 } }} />);
   expect(await screen.findByText(/必需 BIOS 已满足/)).toBeVisible();
+  await act(async () => { resolve(response()); });
+  expect(screen.queryByText("os.rom")).not.toBeInTheDocument();
+});
+
+it("rechecks the selected core and ignores the previous core's late result", async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof post>>) => void;
+  vi.mocked(post).mockImplementationOnce(() => new Promise(done => { resolve = done; }))
+    .mockResolvedValueOnce(response({ biosSatisfied: true, missingBios: [] }));
+  const view = render(<ReviewBiosStatus detail={detail} coreId="fbneo" />);
+  view.rerender(<ReviewBiosStatus detail={detail} coreId="mame2003" />);
+  expect(await screen.findByText(/必需 BIOS 已满足/)).toBeVisible();
+  expect(post).toHaveBeenLastCalledWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "mame2003" } });
   await act(async () => { resolve(response()); });
   expect(screen.queryByText("os.rom")).not.toBeInTheDocument();
 });

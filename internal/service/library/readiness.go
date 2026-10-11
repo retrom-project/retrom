@@ -15,7 +15,7 @@ type biosProjection struct {
 }
 
 // Readiness reads current BIOS requirements; publishing remains a separate CAS operation.
-func (s *Service) Readiness(ctx context.Context, p model.Principal, ids []string) (
+func (s *Service) Readiness(ctx context.Context, p model.Principal, ids []string, coreID string) (
 	model.List[model.ReviewReadiness], error,
 ) {
 	result := model.List[model.ReviewReadiness]{Items: make([]model.ReviewReadiness, 0, len(ids))}
@@ -50,6 +50,9 @@ func (s *Service) Readiness(ctx context.Context, p model.Principal, ids []string
 	for _, id := range ids {
 		item, input := s.readinessInput(ctx, p, id)
 		if input != nil {
+			if coreID != "" {
+				input["coreId"] = coreID
+			}
 			input["biosFiles"] = biosFiles
 			input["providerRoots"] = providerRoots
 			inputs = append(inputs, input)

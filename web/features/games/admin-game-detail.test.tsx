@@ -47,4 +47,10 @@ it("keeps the second selected core through upload's version reload and shows tha
   expect(await screen.findByText("已保存配置未发现缺失父包。")).toBeVisible();
   expect(calls.upload.mock.calls[0][1].get("coreId")).toBe("mame2003_plus");
   expect(calls.get).toHaveBeenLastCalledWith("/api/v1/admin/games/{gameId}/runtime-options/arcade", { params: { path: { gameId: "child" }, query: { coreId: "mame2003_plus" } } });
+  calls.post.mockClear();
+  calls.post.mockResolvedValue({ data: { id: "preview" }, response: new Response() });
+  fireEvent.click(screen.getByRole("button", { name: "运行游戏" }));
+  await waitFor(() => expect(calls.post).toHaveBeenCalledWith("/api/v1/runs", {
+    body: { gameId: "child", coreId: "mame2003_plus", saveId: undefined, purpose: "review" },
+  }));
 });

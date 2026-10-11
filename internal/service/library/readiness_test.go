@@ -13,7 +13,7 @@ import (
 
 func TestReadinessRequiresAdminBeforeReading(t *testing.T) {
 	s := &Service{}
-	_, err := s.Readiness(context.Background(), model.Principal{User: model.User{Role: "user"}}, []string{"abc"})
+	_, err := s.Readiness(context.Background(), model.Principal{User: model.User{Role: "user"}}, []string{"abc"}, "")
 	if !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("non-admin result = %v", err)
 	}

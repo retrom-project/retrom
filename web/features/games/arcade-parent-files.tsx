@@ -5,9 +5,10 @@ import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
 import { useToast } from "@/components/toast-provider";
 
-export function ArcadeParentFiles({ gameId, version, coreId, entryFile, files, selected, onChange, onUploaded }: {
+export function ArcadeParentFiles({ gameId, version, coreId, entryFile, files, selected, configurationChanged = false, onChange, onUploaded }: {
   gameId: string; version: number; coreId: string; entryFile: string | undefined;
   files: Schema<"GameFile">[]; selected: string[];
+  configurationChanged?: boolean;
   onChange: (files: string[]) => void; onUploaded: () => void;
 }) {
   const load = useCallback(async () => result(await api.GET("/api/v1/admin/games/{gameId}/runtime-options/arcade", {
@@ -32,14 +33,14 @@ export function ArcadeParentFiles({ gameId, version, coreId, entryFile, files, s
     <div className="arcade-parent-header"><h3>Parent 父包</h3>
       <label className="button secondary">
         {busy ? "正在上传父包…" : "上传父包"}
-        <input aria-label="上传父包" type="file" accept=".zip,application/zip" disabled={busy} hidden onChange={(event) => {
+        <input aria-label="上传父包" type="file" accept=".zip,application/zip" disabled={busy || configurationChanged} hidden onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) { void send(file); }
         }} />
       </label>
     </div>
-    {parents.loading ? <p role="status">正在检查已保存配置的父包…</p> : parents.error ? <p role="alert">无法检查父包：{parents.error} <button type="button" className="button secondary" onClick={parents.reload}>重新检查父包</button></p>
+    {configurationChanged ? <p role="status">ROM 集或入口文件已更改，请先保存运行配置，再检查或上传 Parent。</p> : parents.loading ? <p role="status">正在检查已保存配置的父包…</p> : parents.error ? <p role="alert">无法检查父包：{parents.error} <button type="button" className="button secondary" onClick={parents.reload}>重新检查父包</button></p>
       : parents.data?.missingParents.length ? <div role="status"><p>缺少以下父包，请上传对应 ZIP：</p><ul>{parents.data.missingParents.map((name) => <li key={name}>{name}</li>)}</ul></div>
       : <p role="status">已保存配置未发现缺失父包。</p>}
     <label className="field">Parent 文件

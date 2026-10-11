@@ -8,69 +8,147 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"retrom/internal/model"
 )
 
-const maximumMessage = 64 * 1024 * 1024
+const (
+	maximumMessage = 64 * 1024 * 1024
+	maximumPending = 32
+)
 
 var errOutputLimit = errors.New("runtime message exceeds limit")
 
 type workerPool struct {
 	context   context.Context
 	cancel    context.CancelFunc
-	available chan *runtimeWorker
-	workers   []*runtimeWorker
+	root      string
+	node      string
+	admission chan struct{}
+	sequence  atomic.Uint64
+	mutex     sync.Mutex
+	process   *sharedProcess
 }
 
-type runtimeWorker struct {
-	mutex   sync.Mutex
-	process *exec.Cmd
+type runtimeResponse struct {
+	ID           string            `json:"id"`
+	Result       json.RawMessage   `json:"result"`
+	Error        string            `json:"error"`
+	ErrorDetails map[string]string `json:"errorDetails"`
+	failure      error
+}
+
+type sharedProcess struct {
+	owner   *workerPool
+	command *exec.Cmd
 	input   io.WriteCloser
 	output  *bufio.Reader
-	root    string
-	node    string
+	writes  chan []byte
+	done    chan struct{}
+	stopped chan struct{}
+	once    sync.Once
+	mutex   sync.Mutex
+	pending map[string]chan runtimeResponse
+	failure error
 }
 
 func newWorkerPool(ctx context.Context, root, node string) *workerPool {
 	lifetime, cancel := context.WithCancel(ctx)
-	pool := &workerPool{context: lifetime, cancel: cancel, available: make(chan *runtimeWorker, 4)}
-	for range 4 {
-		worker := &runtimeWorker{root: root, node: node}
-		pool.workers = append(pool.workers, worker)
-		pool.available <- worker
+	return &workerPool{
+		context: lifetime, cancel: cancel, root: root, node: node,
+		admission: make(chan struct{}, maximumPending),
 	}
-	return pool
 }
 
 func (p *workerPool) Close() {
 	p.cancel()
-	for _, worker := range p.workers {
-		worker.mutex.Lock()
-		worker.stop()
-		worker.mutex.Unlock()
+	p.mutex.Lock()
+	process := p.process
+	p.mutex.Unlock()
+	if process != nil {
+		process.fail(fmt.Errorf("runtime stopped: %w", model.ErrUnavailable))
+		<-process.stopped
 	}
 }
 
 func (p *workerPool) Call(ctx context.Context, command string, input, output any) error {
 	bounded, cancel := context.WithTimeout(ctx, commandTimeout(command))
 	defer cancel()
-	var worker *runtimeWorker
 	select {
-	case worker = <-p.available:
+	case p.admission <- struct{}{}:
 	case <-bounded.Done():
 		return fmt.Errorf("runtime admission: %w", bounded.Err())
 	case <-p.context.Done():
 		return fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
 	}
-	defer func() { p.available <- worker }()
-	return worker.call(bounded, p.context, command, input, output)
+	defer func() { <-p.admission }()
+	if input == nil {
+		input = map[string]any{}
+	}
+	id := strconv.FormatUint(p.sequence.Add(1), 10)
+	encoded, err := json.Marshal(map[string]any{"id": id, "command": command, "input": input})
+	if err != nil {
+		return fmt.Errorf("runtime input: %w", err)
+	}
+	if len(encoded) > maximumMessage {
+		return errOutputLimit
+	}
+	process, err := p.current()
+	if err != nil {
+		return err
+	}
+	if err := process.exchange(bounded, id, encoded, output); err != nil {
+		return fmt.Errorf("runtime %s: %w", command, err)
+	}
+	return nil
+}
+
+func (process *sharedProcess) exchange(ctx context.Context, id string, encoded []byte, output any) error {
+	var err error
+	completed := make(chan runtimeResponse, 1)
+	process.mutex.Lock()
+	if process.failure != nil {
+		err = process.failure
+	} else {
+		process.pending[id] = completed
+	}
+	process.mutex.Unlock()
+	if err != nil {
+		return err
+	}
+	defer process.forget(id)
+	select {
+	case process.writes <- append(encoded, '\n'):
+	case <-process.done:
+		return process.reason()
+	case <-ctx.Done():
+		return fmt.Errorf("runtime request cancelled: %w", ctx.Err())
+	}
+	select {
+	case response := <-completed:
+		if response.failure != nil {
+			return response.failure
+		}
+		if response.Error != "" {
+			return runtimeFailure(response.Error, response.ErrorDetails)
+		}
+		if err := json.Unmarshal(response.Result, output); err != nil {
+			return fmt.Errorf("runtime result: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		process.forget(id)
+		process.cancelRequest(id)
+		return fmt.Errorf("runtime request cancelled: %w", ctx.Err())
+	case <-process.owner.context.Done():
+		return fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
+	}
 }
 
 func commandTimeout(command string) time.Duration {
@@ -84,109 +162,128 @@ func commandTimeout(command string) time.Duration {
 	}
 }
 
-func (w *runtimeWorker) call(ctx, lifetime context.Context, command string, input, output any) error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	if input == nil {
-		input = map[string]any{}
+func (p *workerPool) current() (*sharedProcess, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if p.context.Err() != nil {
+		return nil, fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
 	}
-	encoded, err := json.Marshal(map[string]any{"id": "request", "command": command, "input": input})
+	if p.process != nil {
+		return p.process, nil
+	}
+	command := exec.CommandContext(p.context, p.node, filepath.Join(p.root, "scripts/runtime-cli.mjs"), "--serve")
+	input, err := command.StdinPipe()
 	if err != nil {
-		return fmt.Errorf("runtime input: %w", err)
+		return nil, fmt.Errorf("runtime input pipe: %w", err)
 	}
-	if len(encoded) > maximumMessage {
-		return errOutputLimit
+	output, err := command.StdoutPipe()
+	if err != nil {
+		_ = input.Close()
+		return nil, fmt.Errorf("runtime output pipe: %w", err)
 	}
-	if w.process == nil {
-		if err = w.start(lifetime); err != nil {
-			return err
-		}
+	command.Stderr = io.Discard
+	if err := command.Start(); err != nil {
+		_ = input.Close()
+		_ = output.Close()
+		return nil, fmt.Errorf("start runtime CLI: %w", err)
 	}
-	completed := make(chan error, 1)
-	writer, reader := w.input, w.output
-	go func() { completed <- exchange(writer, reader, encoded, output) }()
+	process := &sharedProcess{
+		owner: p, command: command, input: input, output: bufio.NewReaderSize(output, 64*1024),
+		writes: make(chan []byte, maximumPending*2), done: make(chan struct{}),
+		stopped: make(chan struct{}), pending: make(map[string]chan runtimeResponse),
+	}
+	p.process = process
+	go process.writeRequests()
+	go process.readResponses()
+	return process, nil
+}
+
+func (p *sharedProcess) forget(id string) {
+	p.mutex.Lock()
+	delete(p.pending, id)
+	p.mutex.Unlock()
+}
+
+func (p *sharedProcess) cancelRequest(id string) {
+	encoded, _ := json.Marshal(map[string]string{"cancel": id})
 	select {
-	case err = <-completed:
-		if err != nil && !errors.Is(err, model.ErrInvalid) && !errors.Is(err, model.ErrConflict) {
-			w.stop()
+	case p.writes <- append(encoded, '\n'):
+	case <-p.done:
+	default:
+		p.fail(fmt.Errorf("runtime write queue stalled: %w", model.ErrUnavailable))
+	}
+}
+
+func (p *sharedProcess) reason() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	return p.failure
+}
+
+func (p *sharedProcess) fail(err error) {
+	p.once.Do(func() {
+		p.mutex.Lock()
+		p.failure = err
+		for id, completed := range p.pending {
+			completed <- runtimeResponse{failure: err}
+			delete(p.pending, id)
 		}
-		return err
-	case <-ctx.Done():
-		w.kill()
-		<-completed
-		w.stop()
-		return fmt.Errorf("runtime %s: %w", command, ctx.Err())
-	}
+		close(p.done)
+		p.mutex.Unlock()
+		p.owner.mutex.Lock()
+		if p.owner.process == p {
+			p.owner.process = nil
+		}
+		p.owner.mutex.Unlock()
+		_ = p.command.Process.Kill()
+		_ = p.input.Close()
+	})
 }
 
-func (w *runtimeWorker) start(ctx context.Context) error {
-	process := exec.CommandContext(ctx, w.node, filepath.Join(w.root, "scripts/runtime-cli.mjs"), "--serve")
-	input, err := process.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("runtime input pipe: %w", err)
-	}
-	output, err := process.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("runtime output pipe: %w", err)
-	}
-	process.Stderr = io.Discard
-	if err = process.Start(); err != nil {
-		return fmt.Errorf("start runtime worker: %w", err)
-	}
-	w.process, w.input, w.output = process, input, bufio.NewReaderSize(output, 64*1024)
-	return nil
-}
-
-func (w *runtimeWorker) stop() {
-	if w.process == nil {
-		return
-	}
-	w.kill()
-	if err := w.process.Wait(); err != nil {
-		var exit *exec.ExitError
-		if !errors.As(err, &exit) {
-			slog.Error("wait runtime worker", "error", err)
+func (p *sharedProcess) writeRequests() {
+	for {
+		select {
+		case <-p.done:
+			return
+		case encoded := <-p.writes:
+			if _, err := p.input.Write(encoded); err != nil {
+				p.fail(fmt.Errorf("write runtime request: %w", err))
+				return
+			}
 		}
 	}
-	w.process, w.input, w.output = nil, nil, nil
 }
 
-func (w *runtimeWorker) kill() {
-	if w.process == nil || w.process.Process == nil {
-		return
+func (p *sharedProcess) readResponses() {
+	defer close(p.stopped)
+	// Wait only after stdout is drained; Wait closes the pipe otherwise.
+	defer func() { _ = p.command.Wait() }()
+	for {
+		raw, err := readMessage(p.output)
+		if err != nil {
+			p.fail(fmt.Errorf("runtime transport: %w", err))
+			return
+		}
+		var response runtimeResponse
+		if err := json.Unmarshal(raw, &response); err != nil || response.ID == "" ||
+			(response.Error == "" && len(response.Result) == 0) || (response.Error != "" && len(response.Result) > 0) {
+			p.fail(fmt.Errorf("runtime response invalid: %w", model.ErrUnavailable))
+			return
+		}
+		sequence, sequenceErr := strconv.ParseUint(response.ID, 10, 64)
+		if sequenceErr != nil || sequence == 0 || sequence > p.owner.sequence.Load() {
+			p.fail(fmt.Errorf("runtime response correlation: %w", model.ErrUnavailable))
+			return
+		}
+		p.mutex.Lock()
+		completed := p.pending[response.ID]
+		delete(p.pending, response.ID)
+		if completed != nil {
+			completed <- response
+		}
+		p.mutex.Unlock()
+		// Responses from cancelled requests are deliberately discarded.
 	}
-	if err := w.process.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		slog.Error("stop runtime worker", "error", err)
-	}
-}
-
-func exchange(input io.Writer, reader *bufio.Reader, encoded []byte, output any) error {
-	if _, err := input.Write(append(encoded, '\n')); err != nil {
-		return fmt.Errorf("write runtime request: %w", err)
-	}
-	raw, err := readMessage(reader)
-	if err != nil {
-		return err
-	}
-	var response struct {
-		ID           string            `json:"id"`
-		Result       json.RawMessage   `json:"result"`
-		Error        string            `json:"error"`
-		ErrorDetails map[string]string `json:"errorDetails"`
-	}
-	if err = json.Unmarshal(raw, &response); err != nil {
-		return fmt.Errorf("decode runtime response: %w", err)
-	}
-	if response.ID != "request" {
-		return fmt.Errorf("runtime response correlation: %w", model.ErrUnavailable)
-	}
-	if response.Error != "" {
-		return runtimeFailure(response.Error, response.ErrorDetails)
-	}
-	if err = json.Unmarshal(response.Result, output); err != nil {
-		return fmt.Errorf("runtime result: %w", err)
-	}
-	return nil
 }
 
 func runtimeFailure(code string, details map[string]string) error {
@@ -207,6 +304,8 @@ func runtimeFailure(code string, details map[string]string) error {
 	}
 	category := model.ErrInvalid
 	switch code {
+	case "RUNTIME_BUSY", "RUNTIME_CANCELLED":
+		category = model.ErrUnavailable
 	case "CORE_UNAVAILABLE", "CORE_CHANGED", "CONTENT_CHANGED", "FORMAT_UNREADABLE":
 		category = model.ErrConflict
 	}

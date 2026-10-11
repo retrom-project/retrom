@@ -1097,6 +1097,12 @@
           },
           "content": {
             "$ref": "#/components/schemas/RuntimeContent"
+          },
+          "romSet": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z0-9_]+$"
           }
         }
       },
@@ -2075,6 +2081,12 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/RuntimeOptionValue"
             }
+          },
+          "romSet": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z0-9_]+$"
           }
         }
       },
@@ -2181,6 +2193,19 @@
           },
           "engine": {
             "type": "string"
+          },
+          "romSetSelection": {
+            "type": "object",
+            "required": [
+              "datSHA256"
+            ],
+            "properties": {
+              "datSHA256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "additionalProperties": false
           }
         }
       },
@@ -2392,6 +2417,12 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "coreId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+            "maxLength": 64,
+            "description": "Optional allowed core to inspect; omitted batches use each game directory default."
           }
         }
       },
@@ -2622,6 +2653,87 @@
             "format": "binary"
           }
         }
+      },
+      "ROMSetEntry": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "year",
+          "manufacturer"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ROMSetOptions": {
+        "type": "object",
+        "required": [
+          "coreId",
+          "datSHA256",
+          "automaticSelection",
+          "selected",
+          "entries",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string"
+          },
+          "datSHA256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "automaticSelection": {
+            "type": "string",
+            "nullable": true
+          },
+          "selected": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ROMSetEntry"
+              }
+            ],
+            "nullable": true
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ROMSetEntry"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

@@ -1,6 +1,7 @@
 package model
 
 type ReviewReadinessRequest struct {
+	CoreID  string   `json:"coreId,omitempty"`
 	GameIDs []string `json:"gameIds"`
 }
 

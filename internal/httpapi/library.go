@@ -81,7 +81,7 @@ func (s *Server) reviewReadiness(w http.ResponseWriter, r *http.Request, p model
 	if err := decode(r, &input); err != nil {
 		return err
 	}
-	items, err := s.Library.Readiness(r.Context(), p, input.GameIDs)
+	items, err := s.Library.Readiness(r.Context(), p, input.GameIDs, input.CoreID)
 	if err != nil {
 		return wrap(err)
 	}

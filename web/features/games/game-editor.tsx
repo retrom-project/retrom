@@ -103,7 +103,7 @@ export function GameEditor({
         </section>
         <section className="panel admin-game-wide-panel">
           <div className="panel-head"><div><h2>运行配置</h2><p>配置当前游戏的内容与核心选项，保存后生效。</p></div></div>
-          <div className="panel-body"><RuntimeConfigEditor coreId={coreId} onCoreChange={onCoreChange} gameId={detail.game.id} version={detail.game.version} onUploaded={onSaved} value={runtimeConfig} coreIds={detail.coreIds} files={detail.files} onChange={setRuntimeConfig} />
+          <div className="panel-body"><RuntimeConfigEditor coreId={coreId} onCoreChange={onCoreChange} gameId={detail.game.id} version={detail.game.version} onUploaded={onSaved} value={runtimeConfig} savedValue={detail.runtimeConfig} coreIds={detail.coreIds} files={detail.files} onChange={setRuntimeConfig} />
             <div className="admin-game-savebar"><span>运行配置与发布资料一起保存。</span><button className="button" disabled={busy}>{busy ? "正在保存…" : "保存更改"}</button></div>
           </div>
         </section>

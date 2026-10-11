@@ -176,7 +176,7 @@ func parentFixture(t *testing.T) (*Service, testsupport.Fixture, string) {
 	}
 	t.Cleanup(client.Close)
 	client.Locate = store.Absolute
-	return &Service{Repository: f.Repository, Runtime: client, Storage: store, Now: time.Now}, f, directory
+	return &Service{Repository: f.Repository, Runtime: client, ValidateConfig: client.Validate, Storage: store, Now: time.Now}, f, directory
 }
 
 func parentZIP(t *testing.T, content string) []byte {

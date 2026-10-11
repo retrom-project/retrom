@@ -91,13 +91,21 @@ func (s *Service) attachParent(ctx context.Context, old model.GameDetail,
 	if err != nil {
 		return wrap(err)
 	}
-	identity, err := s.Runtime.Identity(ctx, directory, projection.Config, files, core)
+	config, files, retired, err := s.reconcileConfig(ctx, directory, projection.Config, old.RuntimeConfig, files)
+	if err != nil {
+		return err
+	}
+	identity, err := s.Runtime.Identity(ctx, directory, config, files, core)
 	if err != nil {
 		return wrap(err)
 	}
 	err = s.Repository.Transaction(ctx, func(r *persistence.Repository) error {
-		return wrap(r.ChangeParent(ctx, old.Game.ID, old.Game.Status, old.Game.Version,
-			file, projection.Config, identity.ROMHash, s.Now().UnixMilli()))
+		now := s.Now().UnixMilli()
+		if err := r.ChangeParent(ctx, old.Game.ID, old.Game.Status, old.Game.Version,
+			file, config, identity.ROMHash, now); err != nil {
+			return wrap(err)
+		}
+		return wrap(s.updateFileIdentity(ctx, r, old.Game.ID, identity.ROMHash, retired, now))
 	})
 	return wrap(err)
 }

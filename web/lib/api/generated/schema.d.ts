@@ -1019,6 +1019,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/games/{gameId}/runtime-options/rom-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administrator-only paginated search in the selected core built DAT, excluding BIOS, device and non-runnable entries. The selected entry is returned separately, independent of the search page. Selections are saved per core in RuntimeConfig. */
+        get: operations["ListArcadeROMSets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1303,6 +1320,7 @@ export interface components {
                 [key: string]: components["schemas"]["RuntimeOptionValue"];
             };
             content: components["schemas"]["RuntimeContent"];
+            romSet?: string;
         };
         Save: {
             /** Format: uuid */
@@ -1491,6 +1509,8 @@ export interface components {
         };
         ReviewReadinessRequest: {
             gameIds: string[];
+            /** @description Optional allowed core to inspect; omitted batches use each game directory default. */
+            coreId?: string;
         };
         /** @description Read-only BIOS requirements for the current pending game and default runtime core. A failed check returns null biosSatisfied and a safe per-item error; it does not mean BIOS is missing. */
         ReviewReadiness: {
@@ -1581,6 +1601,7 @@ export interface components {
             options?: {
                 [key: string]: components["schemas"]["RuntimeOptionValue"];
             };
+            romSet?: string;
         };
         RuntimeOptionValue: (string | boolean | number | components["schemas"]["RuntimeOptionValue"][] | {
             [key: string]: components["schemas"]["RuntimeOptionValue"];
@@ -1607,6 +1628,9 @@ export interface components {
             platformIds: string[];
             contentKinds: string[];
             engine?: string;
+            romSetSelection?: {
+                datSHA256: string;
+            };
         };
         ScummvmCandidate: {
             id: string;
@@ -1686,6 +1710,22 @@ export interface components {
             coreId: string;
             /** Format: binary */
             file: string;
+        };
+        ROMSetEntry: {
+            name: string;
+            description: string;
+            year: string;
+            manufacturer: string;
+        };
+        ROMSetOptions: {
+            coreId: string;
+            datSHA256: string;
+            automaticSelection: string | null;
+            selected: components["schemas"]["ROMSetEntry"] | null;
+            entries: components["schemas"]["ROMSetEntry"][];
+            total: number;
+            offset: number;
+            limit: number;
         };
     };
     responses: never;
@@ -7824,6 +7864,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameDetail"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListArcadeROMSets: {
+        parameters: {
+            query: {
+                coreId: string;
+                q?: string;
+                offset?: number;
+                limit?: number;
+                /** @description Optional unsaved entry archive logical path. */
+                entryFile?: string;
+                /** @description Optional unsaved selection for this core; empty string requests filename matching. */
+                romSet?: string;
+            };
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ROMSetOptions"];
                 };
             };
             /** @description Request failed */

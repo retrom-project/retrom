@@ -6,18 +6,19 @@ export type Resource<T> = {
   loading: boolean;
   reload: () => void;
 };
-export function useResource<T>(loader: () => Promise<T>): Resource<T> {
+export function useResource<T>(loader: (signal?: AbortSignal) => Promise<T>): Resource<T> {
   const [state, setState] = useState<{
     data: T | null;
     error: string;
     loading: boolean;
-    source: () => Promise<T>;
+    source: (signal?: AbortSignal) => Promise<T>;
   }>({ data: null, error: "", loading: true, source: loader });
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
     let active = true;
-    void loader()
+    const controller = new AbortController();
+    void loader(controller.signal)
       .then((data) => {
         if (active) {
           setState({ data, error: "", loading: false, source: loader });
@@ -35,6 +36,7 @@ export function useResource<T>(loader: () => Promise<T>): Resource<T> {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [loader, revision]);
   return state.source === loader

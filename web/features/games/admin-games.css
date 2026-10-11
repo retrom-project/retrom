@@ -1,12 +1,12 @@
 .admin-game-library, .review-library { min-width: 0; }
-.dos-entry-selector { position: relative; min-width: 0; }
-.dos-entry-selector small { display: block; margin-top: 6px; color: var(--muted); font-size: var(--text-caption); }
-.dos-entry-selector > p { margin-top: 8px; color: var(--danger); font-size: var(--text-caption); overflow-wrap: anywhere; }
-.dos-entry-options { position: absolute; inset: 70px 0 auto; z-index: var(--layer-popover); max-height: 260px; overflow-y: auto; padding: 6px; border: 1px solid var(--purple-line); border-radius: var(--radius-control); background: var(--surface); box-shadow: var(--shadow); }
-.dos-entry-options > button { width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: var(--radius-control); color: var(--ink); background: transparent; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
-.dos-entry-options > button:is(:hover, .is-active) { background: var(--purple-soft); color: var(--purple-dark); }
-.dos-entry-options > button[aria-selected="true"] { font-weight: var(--weight-bold); }
-.dos-entry-options > p { padding: 10px; color: var(--muted); font-size: var(--text-caption); }
+:is(.dos-entry-selector, .rom-set-selector) { position: relative; min-width: 0; }
+:is(.dos-entry-selector, .rom-set-selector) small { display: block; margin-top: 6px; color: var(--muted); font-size: var(--text-caption); }
+:is(.dos-entry-selector, .rom-set-selector) > p { margin-top: 8px; color: var(--danger); font-size: var(--text-caption); overflow-wrap: anywhere; }
+:is(.dos-entry-options, .rom-set-options) { position: absolute; inset: 70px 0 auto; z-index: var(--layer-popover); max-height: 260px; overflow-y: auto; padding: 6px; border: 1px solid var(--purple-line); border-radius: var(--radius-control); background: var(--surface); box-shadow: var(--shadow); }
+:is(.dos-entry-options, .rom-set-options) > button { width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: var(--radius-control); color: var(--ink); background: transparent; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+:is(.dos-entry-options, .rom-set-options) > button:is(:hover, .is-active) { background: var(--purple-soft); color: var(--purple-dark); }
+:is(.dos-entry-options, .rom-set-options) > button[aria-selected="true"] { font-weight: var(--weight-bold); }
+:is(.dos-entry-options, .rom-set-options) > p { padding: 10px; color: var(--muted); font-size: var(--text-caption); }
 .review-approval-scope { margin: -8px 0 16px; color: var(--muted); font-size: var(--text-small); }
 .review-approval-status { padding: 16px; margin-bottom: 14px; }
 .review-approval-status h2 { margin: 0; font-size: var(--text-lead); }
@@ -210,3 +210,9 @@
 .arcade-parent-header h3 { margin: 0; font-size: var(--text-body); }
 .arcade-parent-files p { margin: 0; }
 .arcade-parent-files li { overflow-wrap: anywhere; }
+
+.rom-set-results { position: absolute; inset: 70px 0 auto; z-index: var(--layer-popover); border: 1px solid var(--purple-line); border-radius: var(--radius-control); background: var(--surface); box-shadow: var(--shadow); }
+.rom-set-results .rom-set-options { position: static; border: 0; box-shadow: none; }
+.rom-set-options > button > span { display: block; }
+.rom-set-results .list-pagination { padding-inline: var(--space-3); }
+.rom-set-selector > button { margin-top: var(--space-2); }
