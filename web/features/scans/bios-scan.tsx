@@ -41,20 +41,34 @@ export function BiosScan({ onClose }: { onClose: () => void }) {
     <section className="stack">
       <SourcePicker path={path} onChange={setPath} onPendingChange={setSourcePending} />
       <p className="workspace-note">已安装项跳过，仅补齐明确匹配的缺失要求。未匹配或存在歧义时，请手动上传。</p>
-      <Scope title="平台范围" items={declarations.data?.platforms ?? []} selected={platformIds} onChange={setPlatforms} />
-      <Scope title="核心范围" items={declarations.data?.cores ?? []} selected={coreIds} onChange={setCores} />
+      <Scope title="平台范围" items={declarations.data?.platforms ?? []} selected={platformIds} onChange={setPlatforms} disabled={busy} />
+      <Scope title="核心范围" items={declarations.data?.cores ?? []} selected={coreIds} onChange={setCores} disabled={busy} />
       {declarations.error ? <FeedbackBanner tone="bad">{declarations.error}</FeedbackBanner> : null}
       {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
     </section>
   </ResponsiveSheet>;
 }
-function Scope({ title, items, selected, onChange }: {
+function Scope({ title, items, selected, onChange, disabled }: {
   title: string;
   items: { id: string; name: string }[];
   selected: string[];
   onChange: (value: string[]) => void;
+  disabled: boolean;
 }) {
-  return <fieldset className={styles.scope}><legend>{title}</legend><div className="workspace-tags">
+  const selectedCount = items.filter((item) => selected.includes(item.id)).length;
+  const allSelected = items.length > 0 && selectedCount === items.length;
+  const partiallySelected = selectedCount > 0 && !allSelected;
+  const action = allSelected ? "取消全选" : "全选";
+  return <fieldset className={styles.scope} aria-label={title} disabled={disabled}>
+    <legend><span>{title}</span><label className={styles.scopeSelectAll}>
+      <input type="checkbox" aria-label={`${action}${title}`} checked={allSelected}
+        aria-checked={partiallySelected ? "mixed" : allSelected}
+        ref={(input) => { if (input) { input.indeterminate = partiallySelected; } }}
+        disabled={disabled || !items.length}
+        onChange={() => onChange(allSelected ? [] : items.map((item) => item.id))} />
+      <span>{action}</span>
+    </label></legend>
+    <div className="workspace-tags">
     {items.map((item) => <label key={item.id}><input type="checkbox" checked={selected.includes(item.id)}
       onChange={(event) => onChange(event.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} />{item.name}</label>)}
   </div></fieldset>;

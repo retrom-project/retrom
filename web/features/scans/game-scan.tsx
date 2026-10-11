@@ -12,16 +12,15 @@ import { SourcePicker } from "./source-picker";
 import { BiosScan } from "./bios-scan";
 import { ScanProgressList } from "./scan-progress";
 import { useToast } from "@/components/toast-provider";
+type SourceFormat = Schema<"GameScanRequest">["format"] | "";
+
 export function GameScan() {
   const router = useRouter();
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
   const [scanningBios, setScanningBios] = useState(false);
   const [path, setPath] = useState("/");
-  const [sourcePending, setSourcePending] = useState(false);
-  const [format, setFormat] = useState<"pegasus" | "emulationstation">(
-    "pegasus",
-  );
+  const [format, setFormat] = useState<SourceFormat>("");
   const [entries, setEntries] = useState<Schema<"SourceEntry">[]>([]);
   const [mappings, setMappings] = useState<Schema<"SourceMapping">[]>([]);
   const [error, setError] = useState("");
@@ -42,6 +41,9 @@ export function GameScan() {
     setMappings([]);
   }
   async function inspect() {
+    if (!format) {
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -77,6 +79,9 @@ export function GameScan() {
     }
   }
   async function start() {
+    if (!format) {
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -104,53 +109,24 @@ export function GameScan() {
       />
       <ScanSources
         onBios={() => setScanningBios(true)}
-        onSelect={(value) => {
-          setSourcePending(false);
-          setFormat(value);
+        onSelect={() => {
+          setFormat("");
           setEntries([]);
           setMappings([]);
           setError("");
           setSelecting(true);
         }}
       />
-      <ResponsiveSheet
-        open={selecting}
+      {selecting ? <GameSourcePicker
         busy={busy}
-        title="选择游戏所在目录"
-        description={
-          format === "pegasus"
-            ? "选择包含 metadata.pegasus.txt 的来源目录。"
-            : "选择包含 gamelist.xml 的来源目录。"
-        }
-        placement="right"
-        className={styles.sheet}
+        path={path}
+        format={format}
+        error={error}
+        onPathChange={changeSource}
+        onFormatChange={(value) => { setFormat(value); setError(""); }}
         onClose={() => setSelecting(false)}
-        footer={
-          <>
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => setSelecting(false)}
-            >
-              取消
-            </button>
-            <button
-              className="button"
-              disabled={sourcePending || !path.startsWith("/") || busy}
-              onClick={() => void inspect()}
-            >
-              {busy ? "正在读取…" : "读取来源集合"}
-            </button>
-          </>
-        }
-      >
-        <SourcePicker
-          path={path}
-          onChange={changeSource}
-          onPendingChange={setSourcePending}
-        />
-        {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
-      </ResponsiveSheet>
+        onInspect={() => void inspect()}
+      /> : null}
       {entries.length ? (
         <section className={`panel ${styles.selection}`}>
           <header className="panel-head">
@@ -234,7 +210,7 @@ export function GameScan() {
             <button
               className="button"
               disabled={
-                busy || mappings.some((mapping) => !mapping.platformInstanceId)
+                !format || busy || mappings.some((mapping) => !mapping.platformInstanceId)
               }
               onClick={() => void start()}
             >
@@ -257,17 +233,85 @@ export function GameScan() {
   );
 }
 
+function GameSourcePicker({ busy, path, format, error, onPathChange, onFormatChange, onClose, onInspect }: {
+  busy: boolean;
+  path: string;
+  format: SourceFormat;
+  error: string;
+  onPathChange: (path: string) => void;
+  onFormatChange: (format: SourceFormat) => void;
+  onClose: () => void;
+  onInspect: () => void;
+}) {
+  const [sourcePending, setSourcePending] = useState(false);
+  return (
+    <ResponsiveSheet
+      open
+      busy={busy}
+      title="选择游戏所在目录"
+      description={
+        format === "pegasus"
+          ? "选择包含 metadata.pegasus.txt 的来源目录。"
+          : format === "emulationstation"
+            ? "选择包含 gamelist.xml 的来源目录。"
+            : "选择服务器目录，并指定文件组织形式。"
+      }
+      placement="right"
+      className={styles.sheet}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={onClose}
+          >
+            取消
+          </button>
+          <button
+            className="button"
+            disabled={!format || sourcePending || !path.startsWith("/") || busy}
+            onClick={onInspect}
+          >
+            {busy ? "正在读取…" : "读取来源集合"}
+          </button>
+        </>
+      }
+    >
+      <SourcePicker
+        path={path}
+        onChange={onPathChange}
+        onPendingChange={setSourcePending}
+      >
+        <label className="field">
+          <span className="field-label">文件组织形式</span>
+          <select
+            aria-label="文件组织形式"
+            value={format}
+            required
+            disabled={busy}
+            onChange={(event) => onFormatChange(event.target.value as SourceFormat)}
+          >
+            <option value="">请选择文件组织形式</option>
+            <option value="pegasus">metadata.pegasus.txt</option>
+            <option value="emulationstation">gamelist.xml</option>
+          </select>
+        </label>
+      </SourcePicker>
+      {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
+    </ResponsiveSheet>
+  );
+}
+
 function ScanSources({ onSelect, onBios }: {
-  onSelect: (format: "pegasus" | "emulationstation") => void;
+  onSelect: () => void;
   onBios: () => void;
 }) {
   return <div className={styles.entryGrid}>
     <article className={styles.entry}>
       <h2>游戏扫描</h2>
       <p>读取 Pegasus 或 EmulationStation 游戏清单，核对集合与目标目录后复制内容。游戏进入待审核，不会自动发布。</p>
-      <footer>{(["pegasus", "emulationstation"] as const).map((value) => <button className="button" key={value} onClick={() => onSelect(value)}>
-        选择 {value === "pegasus" ? "Pegasus" : "EmulationStation"} 目录
-      </button>)}</footer>
+      <footer><button className="button" onClick={onSelect}>本地扫描</button></footer>
     </article>
     <article className={styles.entry}>
       <h2>BIOS扫描</h2>

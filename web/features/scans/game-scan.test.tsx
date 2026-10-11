@@ -39,14 +39,50 @@ afterEach(cleanup);
 
 async function prepareMapping(format: "pegasus" | "emulationstation") {
   render(<GameScan />);
-  fireEvent.click(screen.getByRole("button", {
-    name: `选择 ${format === "pegasus" ? "Pegasus" : "EmulationStation"} 目录`,
-  }));
+  fireEvent.click(screen.getByRole("button", { name: "本地扫描" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "文件组织形式" }), { target: { value: format } });
   fireEvent.click(screen.getByRole("button", { name: "读取来源集合" }));
   const directory = await screen.findByRole("combobox", { name: "测试集合游戏目录" });
+  expect(calls.post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/game-scans/inspect", { body: { path: "/", format } });
   fireEvent.change(directory, { target: { value: "directory" } });
   return screen.getByRole("button", { name: "开始扫描" });
 }
+
+it("requires a manual format selection on every opening before inspecting a source", async () => {
+  render(<GameScan />);
+  expect(screen.getAllByRole("button", { name: "本地扫描" })).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: /选择 (Pegasus|EmulationStation) 目录/u })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "本地扫描" }));
+  const format = screen.getByRole("combobox", { name: "文件组织形式" });
+  const read = screen.getByRole("button", { name: "读取来源集合" });
+  expect(format).toHaveValue("");
+  expect(read).toBeDisabled();
+  fireEvent.click(read);
+  expect(calls.post).not.toHaveBeenCalled();
+  expect(screen.getByRole("option", { name: "metadata.pegasus.txt" })).toHaveValue("pegasus");
+  expect(screen.getByRole("option", { name: "gamelist.xml" })).toHaveValue("emulationstation");
+  fireEvent.change(format, { target: { value: "emulationstation" } });
+  expect(read).toBeEnabled();
+  expect(screen.getByText("选择包含 gamelist.xml 的来源目录。")).toBeInTheDocument();
+  fireEvent.change(format, { target: { value: "" } });
+  expect(read).toBeDisabled();
+  fireEvent.change(format, { target: { value: "pegasus" } });
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  fireEvent.click(screen.getByRole("button", { name: "本地扫描" }));
+  expect(screen.getByRole("combobox", { name: "文件组织形式" })).toHaveValue("");
+  expect(screen.getByRole("button", { name: "读取来源集合" })).toBeDisabled();
+});
+
+it("keeps an unapplied path from being inspected even after choosing its format", () => {
+  render(<GameScan />);
+  fireEvent.click(screen.getByRole("button", { name: "本地扫描" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "文件组织形式" }), { target: { value: "pegasus" } });
+  fireEvent.change(screen.getByLabelText("服务器目录"), { target: { value: "/games" } });
+  expect(screen.getByRole("button", { name: "读取来源集合" })).toBeDisabled();
+  expect(calls.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "进入目录" }));
+  expect(screen.getByRole("button", { name: "读取来源集合" })).toBeEnabled();
+});
 
 it.each(["pegasus", "emulationstation"] as const)(
   "navigates to the unfiltered review queue as soon as the %s scan is accepted",
