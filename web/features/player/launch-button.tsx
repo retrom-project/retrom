@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast-provider";
 import { api, result } from "@/lib/api/client";
 import type { ContentLoading } from "./content-loading";
+import { cancelLaunchFullscreen, requestPlayerFullscreen } from "./player-fullscreen";
 export function LaunchButton({
   gameId,
   coreId,
@@ -31,16 +32,19 @@ export function LaunchButton({
   async function launch() {
     setBusy(true);
     clear();
+    const fullscreen = requestPlayerFullscreen();
     try {
       const run = result(
         await api.POST("/api/v1/runs", {
           body: { gameId, coreId, saveId, purpose },
         }),
       );
+      await fullscreen;
       router.replace(
         `/play/${run.id}?returnTo=${encodeURIComponent(returnTo ?? `${location.pathname}${location.search}${location.hash}`)}${contentLoading ? `&contentLoading=${contentLoading}` : ""}`,
       );
     } catch (failure) {
+      await cancelLaunchFullscreen(await fullscreen);
       notify({ tone: "bad", message: failure instanceof Error ? failure.message : "启动失败。" });
       setBusy(false);
     }

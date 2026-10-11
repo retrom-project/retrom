@@ -31,7 +31,8 @@ import { usePlayerEditor } from "./use-player-editor";
 import { GameEditorPanel } from "./game-editor-panel";
 import { usePlayerSettings } from "./use-player-settings";
 import { EmulatorSettingsLayer } from "./player-settings";
-import { useMobilePlayerLayout, usePlayerDebugState } from "./player-layout";
+import { useMobilePlayerLayout, usePlayerDebugState, useDesktopPlayerPointer } from "./player-layout";
+import { usePlayerSurfacePause } from "./use-player-surface-pause";
 import { PlayerDebugPanel } from "./player-debug-panel";
 import { AppIcon } from "@/components/app-icon";
 import { usePlayerOrientation, useOrientationPause } from "./use-player-orientation";
@@ -88,6 +89,7 @@ function PlayerContent({
   const saves = useSaveSession(run, ownerId, native);
   const reviewCover = useReviewCover(run);
   const mobile = useMobilePlayerLayout();
+  const desktopPointer = useDesktopPlayerPointer();
   const orientation = usePlayerOrientation();
   const [debugOpen, setDebugOpen] = usePlayerDebugState();
   const unmutedVolume = useRef(1);
@@ -174,7 +176,13 @@ function PlayerContent({
   useEffect(() => { exitRequest.current = () => void exit.request(); }, [exit]);
   const overlays = playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, editor, orientationBlocked: orientation.blocked });
   const orientationPause = useOrientationPause(runtime, state, orientation.blocked, overlays.pinned || saves.busy, reportError);
-  const hud = usePlayerHud(state, overlays.pinned);
+  const surface = usePlayerSurfacePause(runtime, !desktopPointer || orientation.blocked, orientationPause.manualPause, reportError);
+  const hud = usePlayerHud(state, playerHudPinned(desktopPointer, overlays, settings.open), desktopPointer);
+  function resumeFromSurface() {
+    setMenu(false);
+    hud.onFocus(false);
+    command(desktopPointer ? surface.resume() : pause());
+  }
   usePlayerMenuDismiss(mount, menu, () => setMenu(false));
   function requestExitMenu() { setMenu(false); void exit.request(); }
   function showMenu() { hud.show(); if (immersive) { requestExitMenu(); } else { setMenu((value) => !value); } }
@@ -216,14 +224,16 @@ function PlayerContent({
         busy={saves.busy || reviewCover.busy}
         status={saves.status}
         visible={hud.visible}
+        desktopPointer={desktopPointer}
         menu={!immersive && menu}
         onMenu={() => immersive ? requestExitMenu() : setMenu(!menu)}
         onControlError={reportError}
+        onInteract={surface.pause}
         onReveal={hud.show}
         onHover={hud.onHover}
         onFocus={hud.onFocus}
         onPause={() => command(pause())}
-        onSave={() => {
+        onSave={() => { command(surface.pause().then(() => {
           const instance = readyRuntime(runtime.current);
           if (!instance) {
             return;
@@ -233,10 +243,10 @@ function PlayerContent({
           } else {
             void saves.capture(instance, native ? "EXPORT" : "CAPTURE");
           }
-        }}
-        onExit={requestExitMenu}
-        onSettings={() => { setMenu(false); void settings.show(); }}
-        onGameEditor={editor.editor ? () => { setMenu(false); void editor.show(); } : undefined}
+        })); }}
+        onExit={() => command(surface.pause().then(requestExitMenu))}
+        onSettings={() => { setMenu(false); command(surface.pause().then(settings.show)); }}
+        onGameEditor={editor.editor ? () => { setMenu(false); command(surface.pause().then(editor.show)); } : undefined}
         debugOpen={debugOpen}
         onDebug={() => setDebugOpen(!debugOpen)}
         onUseCover={
@@ -245,7 +255,7 @@ function PlayerContent({
             : undefined
         }
       /> : null}
-      <PlayerOrientationLayer blocked={orientation.blocked} known={orientation.known} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={() => { setMenu(false); command(pause()); }} />
+      <PlayerOrientationLayer blocked={orientation.blocked} known={orientation.known} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={resumeFromSurface} />
       <PlayerDebugPanel open={debugOpen} runtime={runtime} envelope={envelope} state={state} onClose={() => setDebugOpen(false)} />
       <EmulatorSettingsLayer open={settings.open} mobile={mobile} capabilities={envelope.runtime.capabilities} volume={volume.volume} muted={volume.volume === 0} renderingMode={settings.mode} onHold={hud.show}
         onVolume={volume.change} onMute={() => { if (volume.volume) { unmutedVolume.current = volume.volume; volume.change(0); } else { volume.change(unmutedVolume.current); } }}
@@ -288,6 +298,10 @@ function readyRuntime(instance: PlayerRuntimeV1 | null) {
   return instance && ["RUNNING", "PAUSED"].includes(instance.getState())
     ? instance
     : null;
+}
+
+function playerHudPinned(desktopPointer: boolean, overlays: {dialogOpen: boolean; pinned: boolean}, settingsOpen: boolean) {
+  return desktopPointer ? overlays.dialogOpen || settingsOpen : overlays.pinned;
 }
 
 function PlayerPauseOverlay({ state, immersive, settingsOpen, onResume }: { state: string; immersive: boolean; settingsOpen: boolean; onResume: () => void }) {

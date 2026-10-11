@@ -14,11 +14,13 @@ type Props = {
   busy: boolean;
   status: string;
   visible: boolean;
+  desktopPointer?: boolean;
   menu: boolean;
   debugOpen: boolean;
   onDebug: () => void;
   onMenu: () => void;
   onControlError: (message: string) => void;
+  onInteract: () => Promise<void>;
   onReveal: () => void;
   onHover: (value: boolean) => void;
   onFocus: (value: boolean) => void;
@@ -36,14 +38,15 @@ export function PlayerToolbar(props: Props) {
   const mobile = useMobilePlayerLayout();
   if (props.immersive) { return null; }
   return <>
-    <PlayerHudHandle visible={visible} toolbarRef={toolbarRef} onReveal={onReveal} />
-    <header ref={toolbarRef} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)} onFocusCapture={() => onFocus(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}>
+    <PlayerHudHandle visible={visible} toolbarRef={toolbarRef} onReveal={onReveal} desktopPointer={!!props.desktopPointer} onHover={onHover} onInteract={props.onInteract} />
+    <header ref={toolbarRef} inert={!visible} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)} onFocusCapture={(event) => onFocus(!props.desktopPointer || event.target.matches(":focus-visible"))} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}
+      onClickCapture={(event) => { if (props.desktopPointer) { if (event.detail > 0) { onFocus(false); } void props.onInteract(); } }}>
       <button className="player-back button ghost icon-only" aria-label="返回并退出游戏" onClick={onExit}><AppIcon name="arrow-left" /></button>
       <PlayerSyncStatus {...props} />
       <div className="player-actions">
         {!mobile ? <button className="player-control player-debug-control" aria-expanded={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button> : null}
         <button className="player-control player-save-button player-context-action is-primary" disabled={controls.saveDisabled} onClick={onSave}><AppIcon name="save" />{envelope.runtime.checkpoint?.semantics === "GAME_SAVE" ? "同步存档" : mobile ? "保存" : "创建存档"}</button>
-        <button className="player-control is-icon" aria-label={state === "PAUSED" ? "继续" : "暂停"} aria-pressed={state === "PAUSED"} disabled={controls.pauseDisabled} onClick={onPause}><AppIcon name={state === "PAUSED" ? "play" : "pause"} /></button>
+        <ToolbarPauseControl state={state} disabled={controls.pauseDisabled} desktopPointer={!!props.desktopPointer} onPause={onPause} />
         {!mobile ? <PlayerFullscreenControl onError={onControlError} /> : null}
         <div className="player-menu-wrap">
           <button id="player-more-button" className="player-control is-icon" aria-label="更多操作" aria-haspopup="menu" aria-expanded={props.menu} onClick={props.onMenu}><AppIcon name="more" /></button>
@@ -52,6 +55,10 @@ export function PlayerToolbar(props: Props) {
       </div>
     </header>
   </>;
+}
+function ToolbarPauseControl({state, disabled, desktopPointer, onPause}: {state: RuntimeStateV1; disabled: boolean; desktopPointer: boolean; onPause: () => void}) {
+  const resume = state === "PAUSED" && !desktopPointer;
+  return <button className="player-control is-icon" aria-label={resume ? "继续" : "暂停"} aria-pressed={state === "PAUSED"} disabled={disabled} onClick={desktopPointer ? undefined : onPause}><AppIcon name={resume ? "play" : "pause"} /></button>;
 }
 function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }) {
   const { controls, onMenu, onSettings, onUseCover, onExit, onControlError } = props;
