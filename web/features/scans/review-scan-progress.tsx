@@ -3,13 +3,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
-import { useResource } from "@/lib/use-resource";
+import { isScanRunning, useScanPolling } from "./use-scan-polling";
 import styles from "./scan.module.css";
 
-async function loadScan(scanId: string) {
+async function loadScan(scanId: string, signal: AbortSignal) {
   // Bound each lookup; never substitute a newer task for the requested one.
   for (let offset = 0; offset < 1000; offset += 100) {
+    signal.throwIfAborted();
     const page = result(await api.GET("/api/v1/admin/scans", {
+      signal,
       params: { query: { limit: 100, offset } },
     }));
     const scan = page.items.find((item) => item.id === scanId);
@@ -20,8 +22,8 @@ async function loadScan(scanId: string) {
 }
 
 export function ReviewScanProgress({ scanId, onChange }: { scanId: string; onChange: () => void }) {
-  const load = useCallback(() => loadScan(scanId), [scanId]);
-  const scan = useResource(load);
+  const load = useCallback((signal: AbortSignal) => loadScan(scanId, signal), [scanId]);
+  const scan = useScanPolling(load, isScanRunning);
   const lastProgress = useRef("");
   useEffect(() => {
     if (!scan.data) { return; }
@@ -31,10 +33,7 @@ export function ReviewScanProgress({ scanId, onChange }: { scanId: string; onCha
       lastProgress.current = progress;
       onChange();
     }
-    if (status !== "pending" && status !== "running") { return; }
-    const timer = setTimeout(scan.reload, 3000);
-    return () => clearTimeout(timer);
-  }, [scan.data, scan.reload, onChange]);
+  }, [scan.data, onChange]);
   return <section className={styles.reviewProgress} aria-label="当前游戏扫描">
     <header><h2>游戏扫描进度</h2><Link className="button secondary" href="/admin/imports/server">查看来源扫描</Link></header>
     {scan.loading ? <p role="status">正在读取当前扫描…</p> : scan.error ? <p role="alert">无法读取扫描进度：{scan.error}</p>

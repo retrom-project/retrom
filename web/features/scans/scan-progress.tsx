@@ -1,8 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect } from "react";
 import { api, result } from "@/lib/api/client";
-import { useResource } from "@/lib/use-resource";
+import { isScanRunning, useScanPolling } from "./use-scan-polling";
 import { ResourceState } from "@/components/resource-state";
 import { BrowserTime } from "@/components/browser-time";
 import styles from "./scan.module.css";
@@ -10,9 +9,10 @@ import { useToast } from "@/components/toast-provider";
 export function scanDestination(type: "game" | "bios", scanId: string) {
   return type === "game" ? `/admin/reviews?scanId=${encodeURIComponent(scanId)}` : "/admin/bios";
 }
-async function load() {
-  return result(await api.GET("/api/v1/admin/scans"));
+async function load(signal: AbortSignal) {
+  return result(await api.GET("/api/v1/admin/scans", { signal, params: { query: { limit: 100, offset: 0 } } }));
 }
+function hasRunningScan(data: Awaited<ReturnType<typeof load>>) { return data.items.some(isScanRunning); }
 const labels = {
   pending: "等待扫描",
   running: "扫描中",
@@ -20,13 +20,9 @@ const labels = {
   cancelled: "已取消",
   failed: "已中断",
 };
-export function ScanProgressList() {
+export function ScanProgressList({ revision = 0 }: { revision?: number }) {
   const { notify } = useToast();
-  const scans = useResource(load);
-  useEffect(() => {
-    const timer = setInterval(scans.reload, 3000);
-    return () => clearInterval(timer);
-  }, [scans.reload]);
+  const scans = useScanPolling(load, hasRunningScan, revision);
   async function cancel(scanId: string) {
     try {
       result(
@@ -46,11 +42,14 @@ export function ScanProgressList() {
   return (
     <section className={styles.progress}>
       <header>
+        <div>
         <h2>当前扫描进度</h2>
         <p>
           扫描离开页面后仍会继续。游戏扫描进入统一待审核，BIOS
           扫描查看当前安装。
         </p>
+        </div>
+        <button type="button" className="button secondary" onClick={scans.reload}>刷新进度</button>
       </header>
       <ResourceState resource={scans}>
         {(data) => (

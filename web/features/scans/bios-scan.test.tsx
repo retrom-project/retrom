@@ -23,7 +23,8 @@ it("requires an applied directory and scope before creating the BIOS scan with i
   mockCatalog({ platforms: [{ id: "bbc", name: "BBC Micro" }], cores: [], providers: [], bindings: [] });
   vi.mocked(createScan).mockResolvedValue({ data: { id: "scan", scanType: "bios", status: "pending", totalCount: 0, totalKnown: false, processedCount: 0, importedCount: 0, skippedCount: 0, failedCount: 0, createdAtMs: 1, updatedAtMs: 1, error: null }, response: new Response(null, { status: 201 }) });
   const onClose=vi.fn();
-  render(<BiosScan onClose={onClose} />);
+  const onStarted=vi.fn();
+  render(<BiosScan onClose={onClose} onStarted={onStarted} />);
   expect(screen.getByRole("button", { name: "开始扫描" })).toBeDisabled();
   fireEvent.click(await screen.findByRole("checkbox", { name: "BBC Micro" }));
   expect(screen.getByRole("checkbox", { name: "全选核心范围" })).toBeDisabled();
@@ -32,6 +33,7 @@ it("requires an applied directory and scope before creating the BIOS scan with i
   fireEvent.click(screen.getByRole("button", { name: "进入目录" }));
   fireEvent.click(screen.getByRole("button", { name: "开始扫描" }));
   await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  expect(onStarted).toHaveBeenCalledOnce();
   expect(api.POST).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/bios-scans", { body: { path: "/mnt/bios", platformIds: ["bbc"], coreIds: [] } });
   expect(await screen.findByRole("status")).toHaveTextContent("BIOS 扫描已开始");
 });

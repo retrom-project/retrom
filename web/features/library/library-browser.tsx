@@ -4,6 +4,9 @@ import { useCallback, useState } from "react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
 import { ResourceState } from "@/components/resource-state";
+import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
+import { useInfiniteResource } from "@/lib/use-infinite-resource";
+import type { PageRequest } from "@/lib/use-infinite-resource";
 import { useResource } from "@/lib/use-resource";
 import { loadCatalog, loadDirectories, loadGames, loadTags } from "./api";
 import { GameCard } from "./game-card";
@@ -30,9 +33,9 @@ function PublicLibraryBrowser({
 }) {
   const { values, query, update } = useLibraryQuery(initial);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { q, directory, platform, tag, folder, sort, offset } = values;
-  const loader = useCallback(() => loadGames(kind, query), [kind, query]);
-  const games = useResource(loader);
+  const { q, directory, platform, tag, folder, sort } = values;
+  const loader = useCallback(({ offset, limit, signal }: PageRequest) => loadGames(kind, { ...query, offset, limit }, signal), [kind, query]);
+  const games = useInfiniteResource(loader, gameKey);
   const directories = useResource(loadDirectories);
   const catalog = useResource(loadCatalog);
   const tags = useResource(loadTags);
@@ -129,25 +132,7 @@ function PublicLibraryBrowser({
                   />
                 ))}
               </div>
-              <div className="workspace-paging">
-                <span>共 {data.total} 款</span>
-                <button
-                  className="button secondary"
-                  disabled={offset === 0}
-                  onClick={() =>
-                    update({ offset: Math.max(0, offset - 24) }, false)
-                  }
-                >
-                  上一页
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={offset + 24 >= data.total}
-                  onClick={() => update({ offset: offset + 24 }, false)}
-                >
-                  下一页
-                </button>
-              </div>
+              <InfiniteScrollFooter {...games} count={data.items.length} total={data.total} />
             </>
           ) : (
             <EmptyState
@@ -167,3 +152,5 @@ function LibrarySectionHeader({ data }: { data: Schema<"GamePage"> | null }) {
     <span>已加载 {data?.items.length ?? 0} / {data?.total ?? 0} 款游戏</span>
   </div>;
 }
+
+function gameKey(game: Schema<"Game">) { return game.id; }

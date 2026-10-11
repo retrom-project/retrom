@@ -14,19 +14,20 @@ export type GameQuery = {
 export async function loadGames(
   kind: "library" | "favorites" | "admin" | "review",
   query: GameQuery,
+  signal?: AbortSignal,
 ) {
   if (kind === "favorites") {
-    return result(await api.GET("/api/v1/favorites", { params: { query } }));
+    return result(await api.GET("/api/v1/favorites", { params: { query }, signal }));
   }
   if (kind === "admin") {
-    return result(await api.GET("/api/v1/admin/games", { params: { query } }));
+    return result(await api.GET("/api/v1/admin/games", { params: { query }, signal }));
   }
   if (kind === "review") {
     return result(
-      await api.GET("/api/v1/admin/reviews", { params: { query } }),
+      await api.GET("/api/v1/admin/reviews", { params: { query }, signal }),
     );
   }
-  return result(await api.GET("/api/v1/games", { params: { query } }));
+  return result(await api.GET("/api/v1/games", { params: { query }, signal }));
 }
 export async function loadCatalog() {
   return result(await api.GET("/api/v1/runtime/catalog"));

@@ -10,6 +10,36 @@ const restored = { entryId: "", saveId: "" };
 function page(items: Save[], offset = 0, total = items.length) { return { data: { items, offset, total } }; }
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
+it("keeps the new game's known screenshot while its saves load without making the preview launchable", async () => {
+  const first = { ...saveFixture("first", "first-game"), screenshotUrl: "/first.png" };
+  const next = { ...saveFixture("next", "next-game"), screenshotUrl: "/next.png" };
+  requests.GET.mockResolvedValueOnce(page([first])).mockImplementationOnce(() => new Promise(() => {}));
+  const hook = renderHook(({ save }) => useSaveSelection({ game: save.game, save }, true, restored), { initialProps: { save: first } });
+  await waitFor(() => expect(hook.result.current.save?.id).toBe("first"));
+  hook.rerender({ save: next });
+  expect(hook.result.current.resource.loading).toBe(true);
+  expect(hook.result.current.previewSave).toBe(next);
+  expect(hook.result.current.save).toBeUndefined();
+  expect(hook.result.current.hasNext).toBe(false);
+});
+
+it("does not substitute a representative preview for an explicitly restored older save", () => {
+  const latest = saveFixture("latest");
+  requests.GET.mockImplementation(() => new Promise(() => {}));
+  const hook = renderHook(() => useSaveSelection({ game: latest.game, save: latest }, true, { entryId: "game", saveId: "older" }));
+  expect(hook.result.current.previewSave).toBeUndefined();
+  expect(hook.result.current.save).toBeUndefined();
+});
+
+it("removes a stale representative when the server confirms that the game has no saves", async () => {
+  const latest = saveFixture("removed");
+  requests.GET.mockResolvedValue(page([]));
+  const hook = renderHook(() => useSaveSelection({ game: latest.game, save: latest }, true, restored));
+  await waitFor(() => expect(hook.result.current.resource.loading).toBe(false));
+  expect(hook.result.current.save).toBeUndefined();
+  expect(hook.result.current.previewSave).toBeUndefined();
+});
+
 it("selects older and blocked saves within one game and resets when another game is chosen", async () => {
   const latest = saveFixture("latest");
   const older = { ...saveFixture("older"), restorable: false, restoreReason: "core_changed" as const };
