@@ -4,9 +4,9 @@
 
 ## 当前正式版本
 
-当前 pin 使用 [retrom-runtime v0.60.0](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.60.0)。这是不可移动标签上的正式发行，配套 Retrom v0.0.111；不兼容旧版数据库、存档和接口。所有 core 输入继续固定各自已发布的 tag/commit，Retrom 不自行选择或编译核心。
+当前 pin 使用 [retrom-runtime v0.60.1](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.60.1)，配套 Retrom v0.0.113。所有 core 输入固定各自已发布的 tag/commit，包括已通过配套游戏验证的 Flycast `retrom-core-1.0-r5`；Retrom 不自行选择或编译核心。本次升级没有数据库表、索引或迁移变更；存档是否可恢复仍按实际核心与内容身份判断。
 
-`make runtime-provider-pin-release TAG=v0.60.0` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+`make runtime-provider-pin-release TAG=v0.60.1` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare
