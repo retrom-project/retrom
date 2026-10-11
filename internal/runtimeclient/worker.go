@@ -196,11 +196,14 @@ func runtimeFailure(code string, details map[string]string) error {
 		if name == "" {
 			name = details["logicalKey"]
 		}
-		return &model.ArcadeParentError{Code: code, Message: "Required Parent ROM is missing: " + name}
+		return &model.RuntimeContentError{Code: code, Message: "Required Parent ROM is missing: " + name}
 	case "RUNTIME_PARENT_INVALID":
-		return &model.ArcadeParentError{
+		return &model.RuntimeContentError{
 			Code: code, Message: "Select a Parent archive for this core; the entry archive cannot be replaced here",
 		}
+	}
+	if failure := ContentFailure(code); failure != nil {
+		return failure
 	}
 	category := model.ErrInvalid
 	switch code {

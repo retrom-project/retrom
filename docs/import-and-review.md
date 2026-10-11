@@ -8,6 +8,8 @@
 
 pending_review是共享管理员审核队列，来自所有来源，不按扫描结果反查或划分批次。批准只改变同一Game状态，文件不再复制；拒绝标记deleted交给维护worker。试玩使用同一公共运行接口、管理员purpose=review，不建立持久普通存档；临时checkpoint由浏览器public LOCAL restore消费。
 
+审核详情的“运行条件检查”保留runtime返回的不支持媒体、未知ROM集、缺少ROM/Parent/启动文件等明确错误码及操作提示，不将这些问题显示为缺BIOS。未知内部异常使用REVIEW_READINESS_UNAVAILABLE，不向页面暴露原始异常或服务器路径。检查失败时biosSatisfied为null，快速审批跳过；CRC不匹配保持提示，由管理员手动决定是否批准，试玩不作强制门禁。
+
 取消只停止后续候选，已提交Game/BIOS保留；重启将运行中进度标记interrupted，不自动续跑。两个扫描执行槽有界。scan_progress只提供短期提示：维护worker每分钟最多删除200条超过24小时的终态，保留running，不读取/反查或删除Game与BIOS。
 
 发布后资料/媒体直接CAS编辑；ROM按所选绝对文件或项目目录路径复制替换，做文件安全、配置结构/引用与统一内容身份计算，不调用完整运行准备，不把缺BIOS/Parent当替换门禁。替换保留published，旧文件退休并保留宽限，下一次启动才判断实际可运行性。

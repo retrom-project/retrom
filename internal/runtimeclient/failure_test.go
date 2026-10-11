@@ -34,8 +34,22 @@ func TestParentFailureRetainsSpecificMissingNamesAcrossRuntimeIPC(t *testing.T) 
 	response := `{"id":"request","error":"RUNTIME_PARENT_MISSING","errorDetails":{"parents":"1941"}}` + "\n"
 	var output any
 	err := exchange(&bytes.Buffer{}, bufio.NewReader(strings.NewReader(response)), []byte(`{}`), &output)
-	var parent *model.ArcadeParentError
+	var parent *model.RuntimeContentError
 	if !errors.As(err, &parent) || parent.Code != "RUNTIME_PARENT_MISSING" || !strings.Contains(parent.Message, "1941") {
 		t.Fatalf("missing name lost across IPC: %v", err)
+	}
+}
+
+func TestContentFailureKeepsRuntimeReasonAcrossIPC(t *testing.T) {
+	for _, code := range []string{"RUNTIME_ARCADE_MACHINE_UNKNOWN", "RUNTIME_FLYCAST_MEDIA_UNSUPPORTED", "RUNTIME_FLYCAST_ROM_MISSING"} {
+		t.Run(code, func(t *testing.T) {
+			response := `{"id":"request","error":"` + code + `"}` + "\n"
+			var output any
+			err := exchange(&bytes.Buffer{}, bufio.NewReader(strings.NewReader(response)), []byte(`{}`), &output)
+			var content *model.RuntimeContentError
+			if !errors.As(err, &content) || content.Code != code || content.Message == "" || !errors.Is(err, model.ErrInvalid) {
+				t.Fatalf("content reason lost across IPC: %v", err)
+			}
+		})
 	}
 }

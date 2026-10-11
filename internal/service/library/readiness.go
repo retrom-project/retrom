@@ -133,8 +133,20 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 	for index, position := range positions {
 		item := &items[position]
 		item.MissingBIOS = []model.ReviewMissingBIOS{}
-		if len(projections) != len(positions) || projections[index].Error != nil ||
-			projections[index].Requirements == nil || projections[index].CRCWarnings == nil {
+		item.CRCWarnings = []model.ReviewCRCWarning{}
+		item.BIOSSatisfied, item.Error = nil, nil
+		if len(projections) != len(positions) {
+			item.Error = readinessFailure(false)
+			continue
+		}
+		if projections[index].Error != nil {
+			item.Error = readinessFailure(false)
+			if failure := runtimeclient.ContentFailure(*projections[index].Error); failure != nil {
+				item.Error = &model.ReviewReadinessError{Code: failure.Code, Message: failure.Message}
+			}
+			continue
+		}
+		if projections[index].Requirements == nil || projections[index].CRCWarnings == nil {
 			item.Error = readinessFailure(false)
 			continue
 		}
@@ -156,5 +168,7 @@ func readinessFailure(unavailable bool) *model.ReviewReadinessError {
 	if unavailable {
 		return &model.ReviewReadinessError{Code: "REVIEW_UNAVAILABLE", Message: "条目已不在待审核列表，请刷新后重试。"}
 	}
-	return &model.ReviewReadinessError{Code: "BIOS_REQUIREMENTS_UNAVAILABLE", Message: "无法检查所需 BIOS，请打开条目检查运行配置后重试。"}
+	return &model.ReviewReadinessError{
+		Code: "REVIEW_READINESS_UNAVAILABLE", Message: "无法检查运行条件，请稍后重新检查；若持续失败，请检查运行配置和游戏文件。",
+	}
 }

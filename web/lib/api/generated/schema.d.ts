@@ -671,7 +671,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Administrator-only, CSRF-protected read-only batch of at most 100 distinct pending-game IDs. Resolves BIOS requirements via runtime without creating a Run, changing any game, or requiring launch resource readiness. Results retain request order. */
+        /** @description Administrator-only, CSRF-protected read-only batch of at most 100 distinct pending-game IDs. Resolves runtime content conditions and BIOS requirements without creating a Run or changing any game. Known unsupported-media, unknown-machine, missing-content and missing-Parent failures retain their runtime reason codes with safe guidance; other failures use REVIEW_READINESS_UNAVAILABLE. Errors keep biosSatisfied null and block quick approval. CRC mismatches remain informational and require manual approval. Results retain request order. */
         post: operations["ReviewReadiness"];
         delete?: never;
         options?: never;

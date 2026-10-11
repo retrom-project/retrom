@@ -95,7 +95,7 @@ export async function approveReviewSnapshot(
 
 function eligible(game: ReviewCandidate, readiness: ReviewReadiness | undefined) {
   if (!readiness || readiness.error || readiness.biosSatisfied === null) {
-    throw new Error(readiness?.error?.message || "无法检查所需 BIOS，请重试。");
+    throw new Error(readiness?.error?.message || "无法检查运行条件，请重试。");
   }
   if (readiness.version !== game.version) { throw new Error("游戏资料已更新，请重新检查后重试。"); }
   return readiness.biosSatisfied;

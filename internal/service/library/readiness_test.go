@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"retrom/internal/model"
@@ -108,5 +109,33 @@ func TestReadinessKeepsCRCWarningsInformational(t *testing.T) {
 	applyBIOSProjections(items, []int{0}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{}, CRCWarnings: []model.ReviewCRCWarning{warning}}}, nil)
 	if items[0].Error != nil || items[0].BIOSSatisfied == nil || !*items[0].BIOSSatisfied || !reflect.DeepEqual(items[0].CRCWarnings, []model.ReviewCRCWarning{warning}) {
 		t.Fatalf("CRC-only mismatch blocked BIOS readiness: %#v", items[0])
+	}
+}
+
+func TestReadinessPreservesActionableRuntimeFailures(t *testing.T) {
+	for _, code := range []string{
+		"RUNTIME_ARCADE_MACHINE_UNKNOWN", "RUNTIME_FLYCAST_MACHINE_UNKNOWN",
+		"RUNTIME_FLYCAST_MEDIA_UNSUPPORTED", "RUNTIME_FLYCAST_ROM_MISSING",
+		"RUNTIME_PARENT_MISSING", "RUNTIME_ENTRY_MISSING", "RUNTIME_CONTENT_UNAVAILABLE",
+	} {
+		t.Run(code, func(t *testing.T) {
+			items := make([]model.ReviewReadiness, 1)
+			applyBIOSProjections(items, []int{0}, []biosProjection{{Error: &code}}, nil)
+			item := items[0]
+			if item.Error == nil || item.Error.Code != code || item.Error.Message == "" ||
+				strings.Contains(item.Error.Message, "BIOS") || item.BIOSSatisfied != nil || len(item.MissingBIOS) != 0 {
+				t.Fatalf("runtime failure became a BIOS failure or eligible item: %#v", item)
+			}
+		})
+	}
+}
+
+func TestReadinessUnknownFailureDoesNotExposeRuntimeText(t *testing.T) {
+	failure := "private/path: arbitrary runtime exception"
+	items := make([]model.ReviewReadiness, 1)
+	applyBIOSProjections(items, []int{0}, []biosProjection{{Error: &failure}}, nil)
+	if items[0].Error == nil || items[0].Error.Code != "REVIEW_READINESS_UNAVAILABLE" ||
+		strings.Contains(items[0].Error.Message, failure) || items[0].BIOSSatisfied != nil {
+		t.Fatalf("unsafe or misleading fallback: %#v", items[0])
 	}
 }

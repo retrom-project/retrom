@@ -19,11 +19,11 @@ function ReviewBiosCheck({ gameId, version, onReload }: { gameId: string; versio
     body: { gameIds: [gameId] },
   })).items.find((item) => item.id === gameId), [gameId]);
   const check = useResource(load);
-  const outcome = check.loading ? { message: "正在检查已保存配置所需的 BIOS…", error: false, missing: [] }
+  const outcome = check.loading ? { message: "正在检查已保存配置的运行条件…", error: false, missing: [] }
     : biosOutcome(check.data, check.error, version);
-  return <section className="review-bios-status" aria-label="BIOS 检查">
+  return <section className="review-bios-status" aria-label="运行条件检查">
     <div className="review-bios-status-head">
-      <div><h2>BIOS 检查</h2>
+      <div><h2>运行条件检查</h2>
         <p role={outcome.error ? "alert" : "status"}>{outcome.message}</p>
       </div>
       <div className="review-bios-status-actions">
@@ -38,10 +38,10 @@ function ReviewBiosCheck({ gameId, version, onReload }: { gameId: string; versio
 }
 
 function biosOutcome(item: Schema<"ReviewReadiness"> | null | undefined, failure: string, version: number) {
-  const error = (message: string) => ({ message: `无法检查 BIOS：${message}`, error: true, missing: [] });
+  const error = (message: string) => ({ message, error: true, missing: [] });
   if (failure) { return error(failure); }
-  if (item?.error) { return error(item.error.message || "无法检查所需 BIOS，请重试。"); }
-  if (!item || item.biosSatisfied === null) { return error("无法检查所需 BIOS，请重试。"); }
+  if (item?.error) { return error(item.error.message || "无法检查运行条件，请重试。"); }
+  if (!item || item.biosSatisfied === null) { return error("无法检查运行条件，请重试。"); }
   if (item.version !== version) { return error("条目已变化，请刷新页面后重试。"); }
   if (item.biosSatisfied) {
     return { message: item.crcWarnings.length ? "必需 BIOS 已满足。CRC 不匹配项需手动审核。" : "必需 BIOS 已满足。无必需项或仅缺少可选文件时，不影响快速审批。", error: false, missing: [] };

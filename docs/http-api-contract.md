@@ -27,3 +27,5 @@ Game.lastPlayedAtMs为必需但可为null的当前用户投影，由既有recent
 管理员读取 GET /api/v1/admin/scans 可使用既有 limit/offset 分页，响应 ScanList.items；待审核页的scanId仅为UI定位某项进度，不传给Game列表筛选，也不持久化为游戏批次关系。
 
 街机父包维护与待审、已发布Game共用管理员边界。GET /api/v1/admin/games/{gameId}/runtime-options/arcade?coreId=… 返回runtime按已保存配置、DAT与实际成员投影的{coreId,parentFiles,missingParents}；缺失名称为runtime给出的完整ZIP名，Go/Web不猜测。POST /api/v1/admin/games/{gameId}/parents 接受multipart的version、coreId、file并返回GameDetail，按Game版本CAS补充或替换同logicalKey父包，不能覆盖游戏入口。成功由runtime将所选核心中同DAT父名引用换为上传文件的logicalKey，保留其他核心/选项/其他文件及出版状态，Game.version递增一次并重算全部active文件的contentHash。上传验证普通ZIP和引用结构，不以完整成员或Prepare作为保存门禁；不齐时投影仍报告缺失，实际启动返回400 RUNTIME_PARENT_MISSING并说明名称。
+
+父包投影或启动中的已知runtime内容失败保留具体code和安全message，例如400 RUNTIME_ARCADE_MACHINE_UNKNOWN，不降为INVALID_INPUT。审核readiness的逐条error采用相同错误映射，运行条件无法检查时返回REVIEW_READINESS_UNAVAILABLE；响应结构与持久化模型保持不变。
