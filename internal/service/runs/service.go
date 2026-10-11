@@ -230,6 +230,7 @@ func (s *Service) envelope(ctx context.Context,
 		ROMHash:          prepared.ROMHash,
 		CheckpointFormat: format,
 		RuntimeOptions:   prepared.TargetOptions,
+		ROMSet:           prepared.ROMSet,
 		Content:          config.Content,
 	}
 	resources, err := s.resources(ctx, run, detail.Files, prepared)

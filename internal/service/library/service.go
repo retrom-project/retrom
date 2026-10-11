@@ -69,12 +69,30 @@ func (s *Service) Update(ctx context.Context,
 	if err := p.Admin(); err != nil {
 		return model.GameDetail{}, wrap(err)
 	}
-	files, err := s.Repository.GameFiles(ctx, id)
+	old, err := s.managedGame(ctx, p, id)
 	if err != nil {
 		return model.GameDetail{}, wrap(err)
 	}
+	files := old.Files
+	directory, err := s.Repository.Directory(ctx, input.PlatformInstanceID)
+	if err != nil {
+		return model.GameDetail{}, wrap(err)
+	}
+	config, files, retired, err := s.reconcileConfig(ctx, directory, input.RuntimeConfig, old.RuntimeConfig, files)
+	if err != nil {
+		return model.GameDetail{}, err
+	}
+	input.RuntimeConfig = config
 	if err = s.Validate(ctx, input, files); err != nil {
 		return model.GameDetail{}, err
+	}
+	var hash string
+	if len(retired) > 0 {
+		identity, identityErr := s.Runtime.Identity(ctx, directory, input.RuntimeConfig, files, "")
+		if identityErr != nil {
+			return model.GameDetail{}, wrap(identityErr)
+		}
+		hash = identity.ROMHash
 	}
 	err = s.Repository.Transaction(ctx, func(r *persistence.Repository) error {
 		directory, readErr := r.Directory(ctx, input.PlatformInstanceID)
@@ -84,7 +102,11 @@ func (s *Service) Update(ctx context.Context,
 		if !directory.Enabled {
 			return model.ErrConflict
 		}
-		return wrap(r.UpdateGame(ctx, id, p.User.ID, status, input, s.Now().UnixMilli()))
+		now := s.Now().UnixMilli()
+		if err := r.UpdateGame(ctx, id, p.User.ID, status, input, now); err != nil {
+			return wrap(err)
+		}
+		return wrap(s.updateFileIdentity(ctx, r, id, hash, retired, now))
 	})
 	if err != nil {
 		return model.GameDetail{}, wrap(err)

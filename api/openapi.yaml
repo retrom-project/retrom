@@ -204,6 +204,9 @@
     },
     "/api/v1/admin/games/{gameId}/parents": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1parents"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/rom-sets": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1rom-sets"
     }
   },
   "components": {
@@ -463,6 +466,12 @@
       },
       "UploadGameParentMultipartBody": {
         "$ref": "./components/common.yaml#/components/schemas/UploadGameParentMultipartBody"
+      },
+      "ROMSetEntry": {
+        "$ref": "./components/common.yaml#/components/schemas/ROMSetEntry"
+      },
+      "ROMSetOptions": {
+        "$ref": "./components/common.yaml#/components/schemas/ROMSetOptions"
       }
     }
   }

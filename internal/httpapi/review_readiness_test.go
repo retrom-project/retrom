@@ -31,6 +31,8 @@ func TestReviewReadinessContractBindsTheBoundedBatch(t *testing.T) {
 	}{
 		{"oversized", string(oversized), false},
 		{"single", `{"gameIds":["` + id + `"]}`, true},
+		{"selected core", `{"gameIds":["` + id + `"],"coreId":"mame2003_plus"}`, true},
+		{"invalid core", `{"gameIds":["` + id + `"],"coreId":"bad core"}`, false},
 		{"empty", `{"gameIds":[]}`, false},
 		{"duplicate", `{"gameIds":["` + id + `","` + id + `"]}`, false},
 		{"invalid id", `{"gameIds":["invalid"]}`, false},

@@ -11,6 +11,7 @@ type Extinfo struct {
 	CheckpointFormat string          `json:"checkpointFormat"`
 	Content          json.RawMessage `json:"content"`
 	RuntimeOptions   json.RawMessage `json:"runtimeOptions"`
+	ROMSet           string          `json:"romSet,omitempty"`
 }
 type Save struct {
 	ID            string  `json:"id"`

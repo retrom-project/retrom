@@ -2,6 +2,7 @@
 import { ArcadeParentFiles } from "./arcade-parent-files";
 import { ScummvmSelection } from "./scummvm-selection";
 import { DOSEntrySelector } from "./dos-entry-selector";
+import { ROMSetSelector } from "./rom-set-selector";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { useResource } from "@/lib/use-resource";
@@ -14,6 +15,7 @@ async function loadCatalog() {
 }
 export function RuntimeConfigEditor({
   value,
+  savedValue,
   gameId,
   version,
   onUploaded,
@@ -24,6 +26,7 @@ export function RuntimeConfigEditor({
   onChange,
 }: {
   value: Schema<"RuntimeConfig">;
+  savedValue?: Schema<"RuntimeConfig">;
   gameId: string;
   version: number;
   onUploaded: () => void;
@@ -44,7 +47,7 @@ export function RuntimeConfigEditor({
     .find((item) => item.providerId === binding?.providerId)
     ?.targets.find((item) => item.id === binding?.targetId);
   const core = value.cores?.[coreId] ?? {};
-  const fields = optionDescriptors(target?.targetOptionsSchema ?? {});
+  const fields = optionDescriptors(target?.targetOptionsSchema ?? {}).filter(field => !binding?.romSetSelection || field.key !== "machine");
   function content(key: "entryFile" | "entryPath" | "engine", text: string) {
     const next = { ...value.content };
     if (text) {
@@ -82,6 +85,7 @@ export function RuntimeConfigEditor({
         </label>
       </div>
       {catalog.error ? <p role="alert">{catalog.error}</p> : null}
+      <ROMSetField binding={binding} gameId={gameId} coreId={coreId} version={version} value={value} core={core} onUpdate={updateCore} />
       {value.content.kind === "SCUMMVM_PROJECT" ? (
         <ScummvmSelection
           gameId={gameId}
@@ -98,12 +102,30 @@ export function RuntimeConfigEditor({
         gameId={gameId} version={version} coreId={coreId}
         entryFile={value.content.entryFile} files={files}
         selected={core.parentFiles ?? []}
+        configurationChanged={runtimeSelectionChanged(savedValue, value, coreId)}
         onChange={(parentFiles) => updateCore({ ...core, parentFiles })}
         onUploaded={onUploaded}
       /> : null}
     </fieldset>
   );
 }
+function runtimeSelectionChanged(saved: Schema<"RuntimeConfig"> | undefined, current: Schema<"RuntimeConfig">, coreId: string) {
+  return !!saved && (saved.content.entryFile !== current.content.entryFile || saved.cores?.[coreId]?.romSet !== current.cores?.[coreId]?.romSet);
+}
+function ROMSetField({ binding, gameId, coreId, version, value, core, onUpdate }: {
+  binding: Schema<"RuntimeBinding"> | undefined; gameId: string; coreId: string; version: number;
+  value: Schema<"RuntimeConfig">; core: Schema<"RuntimeCoreOptions">; onUpdate: (core: Schema<"RuntimeCoreOptions">) => void;
+}) {
+  if (!binding?.romSetSelection) { return null; }
+  return <ROMSetSelector key={`${gameId}:${coreId}:${version}:${value.content.entryFile}`}
+    gameId={gameId} coreId={coreId} entryFile={value.content.entryFile ?? ""}
+    value={core.romSet} datSHA256={binding.romSetSelection.datSHA256} onSelect={romSet => {
+      const next = { ...core };
+      if (romSet) { next.romSet = romSet; } else { delete next.romSet; }
+      onUpdate(next);
+    }} />;
+}
+
 const rpgEngines = [
   "RPG2000",
   "RPG2003",

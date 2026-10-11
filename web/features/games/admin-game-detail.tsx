@@ -27,7 +27,7 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
       actions={<Link className="button secondary" href={review ? "/admin/reviews" : "/admin/games"}>{review ? "返回待审核列表" : "返回游戏管理"}</Link>}
     />
     <div className={`admin-game-detail${review ? " review-game-detail" : ""}`}>
-      {review ? <ReviewOverview detail={detail} busy={busy} onReview={onReview} /> : <>
+      {review ? <ReviewOverview detail={detail} coreId={coreId} busy={busy} onReview={onReview} /> : <>
         <section className="admin-game-hero">
           <AdminGameCover game={game} />
           <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{game.platformId} · {game.directoryName}{game.developer ? ` · ${game.developer}` : ""}</p><div><span className="status good">用户可见</span><span className="status neutral">{game.media.some((media) => media.kind === "cover") ? "已设置封面" : "暂无封面"}</span></div></div>
@@ -45,8 +45,9 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
     </div>
   </div>;
 }
-function ReviewOverview({ detail, busy, onReview }: {
+function ReviewOverview({ detail, coreId, busy, onReview }: {
   detail: Schema<"GameDetail">;
+  coreId: string;
   busy: boolean;
   onReview: (action: "approve" | "discard") => void;
 }) {
@@ -58,11 +59,11 @@ function ReviewOverview({ detail, busy, onReview }: {
         <p>{detail.game.directoryName} · {detail.game.platformId}</p>
       </div>
       <div className="review-summary-actions">
-        <LaunchButton gameId={detail.game.id} coreId={detail.defaultCoreId} purpose="review" variant="secondary" disabled={busy}>运行游戏</LaunchButton>
+        <LaunchButton gameId={detail.game.id} coreId={coreId} purpose="review" variant="secondary" disabled={busy}>运行游戏</LaunchButton>
         <button className="button secondary" disabled={busy} onClick={() => onReview("discard")}>丢弃条目</button>
         <button className="button" disabled={busy} onClick={() => onReview("approve")}>通过并发布</button>
       </div>
     </section>
-    <ReviewBiosStatus detail={detail} />
+    <ReviewBiosStatus detail={detail} coreId={coreId} />
   </>;
 }

@@ -4,7 +4,7 @@
 
 make backend-check执行数据库隔离上限、结构门禁、格式、build、普通tests和全部Go lint。depguard检查HTTP不能越过service读取持久层、基础层不反依赖业务、runtime/存档不依赖扫描，真实可编译的违规样例必须被门禁拒绝。make integration-test需要显式RETROM_TEST_DATABASE_URL，每例建独立DB迁移并销毁，不skip、不污染产品库。make api-check重生成同一authority对比TS；make web-check与runtime自身lint/type/test保留原强度。
 
-风险集成用真实PostgreSQL覆盖：Game/文件写入后失败与progress一起回滚、commit响应丢失按分配ID核对；两save同版本竞争仅一胜、同commit重试不增版本、Game删除后保存拒绝；BIOS自动安装遇并发手动安装只skip；真实文件移除失败保留deleted，active引用保护字节。纯回归覆盖可信代理链/伪造XFF、严格JSON、UUID和编码斜杠、目录有界迭代与并发消失、常驻runtime复用和取消重建。
+风险集成用真实PostgreSQL覆盖：Game/文件写入后失败与progress一起回滚、commit响应丢失按分配ID核对；两save同版本竞争仅一胜、同commit重试不增版本、Game删除后保存拒绝；BIOS自动安装遇并发手动安装只skip；真实文件移除失败保留deleted，active引用保护字节。纯回归覆盖可信代理链/伪造XFF、严格JSON、UUID和编码斜杠、目录有界迭代与并发消失、共享常驻runtime并发关联、单请求取消、异常退出后的恢复。
 
 Playwright通过正常HTTP建立合法MIT NES来源、扫描、共享审核、运行、保存和新实例恢复，页面无error/溢出；保留桌面/移动/4K视口。浏览器CI必须提供同版runtime工具/Provider明确输入，不能用旧正式release冒充新契约。私有素材验收只在授权目录读取并复制，证据和素材不提交。
 

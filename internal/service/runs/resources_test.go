@@ -1,11 +1,13 @@
 package runs
 
 import (
+	"errors"
 	"net/url"
 	"path"
 	"testing"
 
 	"retrom/internal/model"
+	"retrom/internal/runtimeclient"
 )
 
 func TestResourceURLPreservesDriverNameAndEscapesProjectFilename(t *testing.T) {
@@ -22,5 +24,50 @@ func TestResourceURLPreservesDriverNameAndEscapesProjectFilename(t *testing.T) {
 		if file.Filename != path.Base(name) || path.Base(parsed.Path) == file.ID {
 			t.Fatal("opaque resource identity replaced the actual filename")
 		}
+	}
+}
+
+func TestPlanVirtualFilenamePreservesOriginalBlobIdentity(t *testing.T) {
+	t.Parallel()
+	original := model.GameFile{ID: "file-id", LogicalKey: "original.zip", SHA256: "raw-digest", SizeBytes: 42}
+	byKey := map[string]model.GameFile{original.LogicalKey: original}
+	for _, kind := range []string{"ROM_BLOB", "SEEKABLE_BLOB"} {
+		plan := runtimeclient.Resource{
+			Kind: kind, Files: []string{original.LogicalKey},
+			Paths: map[string]string{original.LogicalKey: "1941.zip"},
+		}
+		selected, err := selectPlanFiles(byKey, plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := blob(original)
+		if len(selected) != 1 || selected[0].ID == "" {
+			t.Fatal("run blob identity is missing")
+		}
+		expected.ID = selected[0].ID
+		expected.Filename = "1941.zip"
+		if len(selected) != 1 || selected[0] != expected || byKey[original.LogicalKey] != original {
+			t.Fatal("virtual filename changed the original file, digest or logical key")
+		}
+		if path.Base(ResourceURL("run", selected[0])) != "1941.zip" {
+			t.Fatal("runtime resource URL did not use the selected driver basename")
+		}
+	}
+}
+
+func TestPlanRejectsUnsafeBlobFilenameAndKeepsTreePaths(t *testing.T) {
+	t.Parallel()
+	byKey := map[string]model.GameFile{"original.zip": {LogicalKey: "original.zip"}}
+	plan := runtimeclient.Resource{Kind: "ROM_BLOB", Files: []string{"original.zip"}}
+	for _, name := range []string{"../game.zip", "/game.zip", "nested/game.zip"} {
+		plan.Paths = map[string]string{"original.zip": name}
+		if _, err := selectPlanFiles(byKey, plan); !errors.Is(err, model.ErrInvalid) {
+			t.Fatalf("unsafe virtual basename %q accepted: %v", name, err)
+		}
+	}
+	plan.Kind = "FILE_TREE"
+	selected, err := selectPlanFiles(byKey, plan)
+	if err != nil || len(selected) != 1 || selected[0].Filename != "original.zip" {
+		t.Fatalf("file tree mapping was changed by blob naming: %v", err)
 	}
 }

@@ -6,10 +6,10 @@ type ArcadeParentOptions struct {
 	MissingParents []string `json:"missingParents"`
 }
 
-type ArcadeParentError struct {
+type RuntimeContentError struct {
 	Code    string
 	Message string
 }
 
-func (e *ArcadeParentError) Error() string { return e.Message }
-func (e *ArcadeParentError) Unwrap() error { return ErrInvalid }
+func (e *RuntimeContentError) Error() string { return e.Message }
+func (e *RuntimeContentError) Unwrap() error { return ErrInvalid }

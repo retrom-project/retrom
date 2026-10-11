@@ -2,6 +2,7 @@ package runs
 
 import (
 	"context"
+	"path"
 	"sort"
 
 	"retrom/internal/model"
@@ -20,7 +21,7 @@ func (s *Service) resources(ctx context.Context, run *Context, files []model.Gam
 	}
 	result := make([]map[string]any, 0, len(prepared.Resources))
 	for _, plan := range prepared.Resources {
-		selected, err := selectFiles(byKey, plan.Files)
+		selected, err := selectPlanFiles(byKey, plan)
 		if err != nil {
 			return nil, err
 		}
@@ -36,6 +37,25 @@ func (s *Service) resources(ctx context.Context, run *Context, files []model.Gam
 		return nil, err
 	}
 	return append(result, bios...), nil
+}
+
+func selectPlanFiles(byKey map[string]model.GameFile, plan runtimeclient.Resource) ([]Blob, error) {
+	selected, err := selectFiles(byKey, plan.Files)
+	if err != nil {
+		return nil, err
+	}
+	if plan.Encoding != "" || plan.Kind != "ROM_BLOB" && plan.Kind != "SEEKABLE_BLOB" {
+		return selected, nil
+	}
+	for i := range selected {
+		if name := plan.Paths[selected[i].LogicalPath]; name != "" {
+			if !storage.SafeRelative(name) || path.Base(name) != name {
+				return nil, model.ErrInvalid
+			}
+			selected[i].Filename = name
+		}
+	}
+	return selected, nil
 }
 
 func selectFiles(byKey map[string]model.GameFile, keys []string) ([]Blob, error) {

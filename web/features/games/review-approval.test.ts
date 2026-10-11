@@ -8,6 +8,18 @@ const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) 
 const signal = () => new AbortController().signal;
 
 describe("quick review approval", () => {
+  it("keeps specific runtime content failures blocked and retains their guidance", async () => {
+    const items = games(3), projections = ready(items), approve = vi.fn(async () => {});
+    const codes = ["RUNTIME_ARCADE_MACHINE_UNKNOWN", "RUNTIME_FLYCAST_MEDIA_UNSUPPORTED", "RUNTIME_FLYCAST_ROM_MISSING"];
+    projections.forEach((item, index) => {
+      item.biosSatisfied = null;
+      item.error = {code: codes[index], message: `运行条件 ${index} 未满足`};
+    });
+    const summary = await approveReviewSnapshot(items, {readiness: async () => projections, approve}, signal(), vi.fn());
+    expect(approve).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({approved: 0, missingBios: 0, failed: 3});
+    expect(summary.failures.map(item => item.message)).toEqual(projections.map(item => item.error!.message));
+  });
   it("skips CRC warnings even when all BIOS are present and test play has not been required", async () => {
     const items = games(2), projections = ready(items), approve = vi.fn(async () => {});
     projections[0].crcWarnings = [{role: "BIOS", file: "hachamfb.zip", member: "nmk004.bin", expectedCRC32: "8ae61a09", actualCRC32: "83b6f611"}];

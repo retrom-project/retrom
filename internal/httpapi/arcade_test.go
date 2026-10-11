@@ -29,13 +29,25 @@ func TestParentOptionsContractRequiresCoreAndCanonicalGameID(t *testing.T) {
 func TestParentFailureHTTPPreservesTheRuntimeMissingName(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	writeError(w, &model.ArcadeParentError{Code: "RUNTIME_PARENT_MISSING", Message: "Required Parent ROM is missing: 1941"})
+	writeError(w, &model.RuntimeContentError{Code: "RUNTIME_PARENT_MISSING", Message: "Required Parent ROM is missing: 1941"})
 	var body map[string]string
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
 	if w.Code != http.StatusBadRequest || body["code"] != "RUNTIME_PARENT_MISSING" || !strings.Contains(body["message"], "1941") {
 		t.Fatalf("parent failure=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRuntimeContentFailureHTTPRetainsSpecificReason(t *testing.T) {
+	w := httptest.NewRecorder()
+	writeError(w, &model.RuntimeContentError{Code: "RUNTIME_ARCADE_MACHINE_UNKNOWN", Message: "当前核心未识别此 ROM 集。"})
+	var body map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusBadRequest || body["code"] != "RUNTIME_ARCADE_MACHINE_UNKNOWN" || body["message"] != "当前核心未识别此 ROM 集。" {
+		t.Fatalf("runtime failure=%d %s", w.Code, w.Body.String())
 	}
 }
 
