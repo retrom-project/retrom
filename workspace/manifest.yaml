@@ -140,7 +140,7 @@
       "path": "project/retrom-core/Butterscotch",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/Butterscotch.git",
-      "defaultBranch": "retrom/ge8294c9070a4",
+      "defaultBranch": "retrom/g0a36f3762700",
       "submodules": false,
       "dependsOn": []
     },
