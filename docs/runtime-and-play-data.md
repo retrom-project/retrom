@@ -4,7 +4,7 @@
 
 目录保存管理员核心集与默认核心；runtime catalog提供平台友好名和唯一公共core ID，不自动建目录。Run以当前User登录态创建，默认核心不能静默替换不可用核心；saveId恢复由服务端先读本人save并选择原core，不能依赖浏览器重新指定默认值。
 
-准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹覆盖实际资产、转译adapter依赖和公共codec，不使用整个bundle摘要。Go验证安装bytes/proof/integrity并装配部署URL。
+准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹只覆盖Provider/Target身份及显式声明的核心文件内容摘要，不包含runtime版本、adapter/公共codec源码、输入/UI/加载辅助代码或部署路径。存档编码或恢复语义不兼容时由runtime显式修改checkpointFormat；Bundle/Module摘要继续用于产物完整性校验。游戏自带引擎由完整ROMHash覆盖。Go验证安装bytes/proof/integrity并装配部署URL。
 
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
@@ -15,3 +15,5 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 退出立即撤销PG会话、清cookie和释放运行资源，不整站Clear-Site-Data storage。未同步IndexedDB/OPFS草稿按User隔离，只有服务端明确成功或用户丢弃才删除。网络失败、Redis失效或响应丢失不能假成功、删除草稿或提前ack。
 
 resources由宿主允许ID/Range访问；runtime统一解释ZIP编码、虚拟paths、FILE_TREE/EXTERNAL_FILE_SET及bridgeAssetPath。隔离web bridgeUrl来自实际Target唯一桥资产，宿主不猜引擎。checkpoint HTTP与LOCAL restore均通过原V1公开Host接口。只有purpose=play收到running事件后更新最近表；创建run不提前记最近，review不进入个人最近。
+
+普通runtime/Provider升级在核心文件、存档格式与ROM未变时保持存档可恢复；列表与实际恢复共用runtime判定。沿用现有extinfo字段，无数据库结构变更或历史存档回填。历史指纹不做映射或迁移，也不单独识别旧算法。

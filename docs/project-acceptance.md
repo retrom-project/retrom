@@ -1,5 +1,9 @@
 # 当前项目验收
 
+2026-10-12 runtime `1caea63` 存档可用性候选在 `save-availability` PFB 完成受影响产品链验证：项目自有 MIT NES fixture 正常导入、审核试玩、发布，FCEUmm 标准手柄方向／确认和键盘输入有效，生成 602 字节公开存档。仅修改 runtime adapter 的错误提示后，实际 Module SHA 从 `db64f7fb02766c06f388a8291530895d17a6570f114c49428662abd18dc86700` 变为 `7fa502345d8d885a5b91ae0c1416e3fc6c4aefc4c21e34be7695da1bafe05def`，75 个 EmulatorJS Target 指纹全部不变。重启服务、重新登录并创建不同 Run 后，列表仍可恢复，真实核心 RAM 输入计数从保存时的 8 恢复为 8，随后输入继续改变状态。临时验证改动已撤回。证据为 PFB `save-availability/report.json`（SHA `a90aba25e954a8dc3fb14c866a49e02562c7aa91fe8a7780e9230763f3fe7636`）。两个候选 Provider 的 110 个 Target、327 个核心文件与正式 v0.60.2 核心字节核对一致，公共 manifest 未变；这不是全核心游戏验收，也不保证历史存档可用。候选验证未修改数据库、HTTP 契约或正式 Provider pin；正式发行复验见下。
+
+2026-10-12 正式 runtime `v0.60.3`（提交 `6e69dc0`）通过全部发布门禁后，Retrom 使用标准 pin 命令验证并固定同次发行的 host tool 和两个 Provider。PFB 导入正式基座与工具，实际浏览器使用正式 EmulatorJS Module SHA `7111a4fa97a772c27e8d6e20f42e4ab7363f386a28f156e98c5d275dcb063918`。候选包已保存的计数 8 在正式包新 Run 中恢复为 8；正式包另行完成新导入、审核试玩、发布、标准手柄与键盘输入、保存，以及全新浏览器／Run 恢复计数 14，恢复后输入继续有效。110 个 Target 的核心指纹与候选一致。证据 `save-availability/formal-report.json` SHA `8f164c74e831a1f79e4472c16ec72c8a91cd7dc6c003da3565e2bb58b8b3a482`；仅覆盖该 NES 产品链，不提升其他核心的历史验收状态。
+
 2026-10-08 首个 RC 发布决定：用户要求先发布 RC，停止逐 ROM 扩大验收。当前54项限定范围通过、58项当前指纹语义待核实、10项素材不足继续保留原状态；正常构建、CI、镜像及配套依赖检查仍须通过。这不代表完整兼容矩阵或稳定版验收通过。已知异常与后续核实见 runtime [#106](https://github.com/retrom-project/retrom-runtime/issues/106)、[#107](https://github.com/retrom-project/retrom-runtime/issues/107)、[#108](https://github.com/retrom-project/retrom-runtime/issues/108)、[#109](https://github.com/retrom-project/retrom-runtime/issues/109)、[#110](https://github.com/retrom-project/retrom-runtime/issues/110)。
 
 当前稳定版工作继续在同一 PFB 中完成：测试发现的问题先记录 issue，确认的故障修复后复验，再合入 master、打不可变 tag 并发布。此前 RC 通过不等于稳定版已通过，未完成的兼容矩阵也不能改写为通过。
@@ -40,7 +44,7 @@ Retrom `3a009a8` 的后端门禁、真实独立 PostgreSQL 集成测试 106 项�
 | T16 | 单 ROM、街机 Parent、项目游戏 | 统一公共运行接口启动，覆盖 NES／DOS、MV／MZ 文件树、ScummVM 实际游戏选择及 OpenBOR PAK 等保留类型；不需要业务模块解释引擎配置。文档 JSON 仅示例，实际验收使用正式契约和真实可运行内容，不导入 td 文件作为测试 fixture |
 | T17 | 核心选择与目录默认变更 | 普通启动遵循选择／默认；存档仍使用原核心，无静默 fallback |
 | T18 | 即时／原生存档 | 真实非空 payload 可在新实例恢复，原生读档语义明确 |
-| T19 | ROM 或原核心指纹变化 | 旧存档可见但不可恢复；后端同样阻止；无关核心升级不影响 |
+| T19 | ROM、核心文件或存档格式变化 | 变化时存档可见但不可恢复，后端同样阻止；普通runtime升级、输入/UI/加载辅助代码和无关核心变化不影响新规则下的存档；无历史指纹迁移 |
 | T20 | 两个标签页覆盖同一存档 | 版本冲突明确，不覆盖较新进度；失败不确认 checkpoint 已保存 |
 | T21 | 启动后替换内容，再保存 | 使用启动时上下文，不冒充新 ROM/core；旧进度按新当前态显示不可恢复 |
 | T22 | 登录与隔离项目加载 | 不创建独立运行凭据；隔离项目仍可正常加载脚本、Worker、音视频和存档 |
