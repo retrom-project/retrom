@@ -110,6 +110,12 @@ test("shared review, real NES save and new-instance restore", async ({
   if (await page.evaluate(() => document.fullscreenElement !== null)) {
     await page.evaluate(() => document.exitFullscreen());
   }
+  // Fullscreen exit resolves before Chromium restores the emulated viewport.
+  // Wait for the responsive layout before choosing desktop or mobile controls.
+  await expect.poll(() => page.evaluate(() => ({
+    width: innerWidth, height: innerHeight,
+  }))).toEqual(page.viewportSize());
+  await revealPlayerControls(page);
   const toolbarFullscreen = page.getByRole("button", { name: "全屏", exact: true });
   if (await toolbarFullscreen.isVisible()) {
     await toolbarFullscreen.click();
