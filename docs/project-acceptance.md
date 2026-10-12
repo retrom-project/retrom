@@ -314,3 +314,11 @@ runtime `v0.60.0-rc.1` 已通过 quality `37712099498` 与 release `37712529719`
 本轮 `platform-clipping/` 保存实际改动前后截图，并在同页临时装载 bf807d0b 的原布局样式进行外框对比；1440×1000、1920×800、2560×1440/DPR1.5、960×540 的三张卡片宽高及坐标差异均为 0px，transform 相等。真实 PFB 的六个入口逐一经标准手柄切换，名称、正文与卡片无纵向溢出；手机 390×844 保留尺寸限制及返回入口。存档列表 API 完整结果前后相等，原验收存档未变。正式浏览器回归增加实际标题高度、内容容纳及切换前后尺寸断言，并补充最小与较矮横屏视口；不以页面无横向溢出来代替文字完整性验证。
 
 平台卡片修复最终门禁：Web 84 文件／383 项测试、严格 lint／类型、生产构建和七项 UI 规则通过；完整四视口 `ACC-RF-BROWSER` 为 `e2f94531fe384897`，24/24 通过，inputDigest `2a9b271d32134d1eafd0bf5696754a3db73f0b1ed55e279c01e5497aad4403e5`。PFB verify 为 `.pfb/evidence/20261012T123629Z/`；本次未修改 API、runtime、数据库或存档策略。源码与证据回执见 `platform-clipping/delivery.json`。
+
+### v0.63.0 正式配套复验
+
+runtime PR #138 已合入 master；正式 tag `v0.63.0` 固定提交 `d43812d2c65944658e2ab7c2de2058ab18a1ed6f`，release 流水线 `38251763671` 第三次运行通过。前两次分别为 GitHub 发布 HTTP 500 与已固定核心描述下载失败，未修改或移动 tag。Retrom 经标准 pin-release／prepare 验证并固定实际发行的两个 Provider 和 Host 工具，源码树摘要 `012da6a96d889f2b087169f640e4d538c05e6e0f642e172efaba0432c8dfaa7c`；110 个 Target 的执行指纹与 checkpoint 格式逐项等于 v0.62.0，没有新增核心二进制或数据库迁移。
+
+正式包在独立 PostgreSQL／Redis 产品实例中重新执行真实 Pegasus 导入、审核试玩、发布、存档及新 Run 恢复。FCEUmm 普通／沉浸风险确认、取消与手柄防穿透、恢复后继续输入／另存／原档保护、ROM 与核心同时变化阻断均通过；TIC-80 未变化不写入、首次变化另存、后续更新新档及新 Run 再恢复通过；截断存档恢复失败可见且原档保持。核心差异仍为限定测试记录的指纹故障注入，不宣称任意历史核心二进制兼容。独立 PostgreSQL 全量集成测试通过。
+
+正式产品证据位于本轮忽略目录 `release/formal-product-afd58f71/`，inputDigest `1b48b87bc52e51d4fc1489ad0bde298daf2d6400570915ee1481972bb809ad1b`；指纹比对见 `release/formal-core-comparison.json`。临时数据库与 Redis 已移除，原 PFB 的用户验收存档保持。配套更新的远端 PR 继续执行完整质量、浏览器产品链及两张镜像的构建／独立部署检查。
