@@ -418,7 +418,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VersionRequest"
+                "$ref": "#/components/schemas/ApproveReviewRequest"
               }
             }
           }
@@ -433,7 +433,8 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "description": "Recheck required DAT members and BIOS using the current saved configuration before publication. Missing, incorrectly sized or uninspectable required content prevents approval; CRC differences and optional trial play do not. File I/O is outside the transaction; publication requires the inspected Game version."
       }
     },
     "/api/v1/admin/reviews/{gameId}/discard": {

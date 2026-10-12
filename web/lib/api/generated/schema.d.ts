@@ -704,6 +704,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Recheck required DAT members and BIOS using the current saved configuration before publication. Missing, incorrectly sized or uninspectable required content prevents approval; CRC differences and optional trial play do not. File I/O is outside the transaction; publication requires the inspected Game version. */
         post: operations["ApproveReview"];
         delete?: never;
         options?: never;
@@ -1030,6 +1031,23 @@ export interface paths {
         get: operations["ListArcadeROMSets"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Administrator-only versioned transition from published to pending_review. Preserve the same Game ID, files, media, tags, runtime configuration and private relations. Ordinary browsing and new play Runs require published state; administrator review Runs remain available. */
+        post: operations["WithdrawGame"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1512,7 +1530,7 @@ export interface components {
             /** @description Optional allowed core to inspect; omitted batches use each game directory default. */
             coreId?: string;
         };
-        /** @description Read-only BIOS requirements for the current pending game and default runtime core. A failed check returns null biosSatisfied and a safe per-item error; it does not mean BIOS is missing. */
+        /** @description Current saved configuration review checks for the selected allowed core (directory default if omitted). Failed checks have null biosSatisfied and a safe per-item error. Manual approval rechecks required files; CRC differences alone remain informational. */
         ReviewReadiness: {
             /** Format: uuid */
             id: string;
@@ -1534,6 +1552,8 @@ export interface components {
                 expectedCRC32: string;
                 actualCRC32: string;
             }[];
+            /** @description Required DAT game/Parent/BIOS members missing or incorrectly sized. Audit-only; never used as a new launch gate. Empty on error; check error first. */
+            missingRomMembers: components["schemas"]["ReviewMissingROMMember"][];
         };
         ReviewReadinessList: {
             items: components["schemas"]["ReviewReadiness"][];
@@ -1731,6 +1751,24 @@ export interface components {
             total: number;
             offset: number;
             limit: number;
+        };
+        ReviewMissingROMMember: {
+            coreId: string;
+            romSet: string;
+            /** @enum {string} */
+            role: "ROM" | "PARENT" | "BIOS";
+            /** @description DAT member name, never a server filesystem path. */
+            member: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** @enum {string} */
+            reason: "MISSING" | "SIZE_MISMATCH";
+        };
+        ApproveReviewRequest: {
+            /** Format: int64 */
+            version: number;
+            /** @description Selected allowed core to inspect; defaults to the game directory default. No persisted core selection is changed. */
+            coreId?: string;
         };
     };
     responses: never;
@@ -6193,7 +6231,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VersionRequest"];
+                "application/json": components["schemas"]["ApproveReviewRequest"];
             };
         };
         responses: {
@@ -7954,6 +7992,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ROMSetOptions"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    WithdrawGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameDetail"];
                 };
             };
             /** @description Request failed */

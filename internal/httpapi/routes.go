@@ -41,6 +41,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 		{"GET /api/v1/admin/games/{gameId}", s.game, true},
 		{"PATCH /api/v1/admin/games/{gameId}", s.writeGame, true},
 		{"DELETE /api/v1/admin/games/{gameId}", s.deleteGame, true},
+		{"POST /api/v1/admin/games/{gameId}/withdraw", s.withdraw, true},
 		{"GET /api/v1/admin/reviews", s.games, true},
 		{"POST /api/v1/admin/reviews/readiness", s.reviewReadiness, true},
 		{"GET /api/v1/admin/reviews/{gameId}", s.game, true},

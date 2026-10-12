@@ -6,7 +6,7 @@
 
 准备完成后创建同一pending_review Game、文件、媒体和Tag关系，并与processed/imported计数同一个短事务提交。重复目录+contentHash跳过（不承诺并行强去重）；失败计数独立提交。COMMIT结果不明时按本次分配Game/BIOS ID与进度核对，无法确认则interrupted，不盲目重建或把已提交项计failed。进度满足processed=imported+skipped+failed。
 
-pending_review是共享管理员审核队列，来自所有来源，不按扫描结果反查或划分批次。批准只改变同一Game状态，文件不再复制；拒绝标记deleted交给维护worker。试玩使用同一公共运行接口、管理员purpose=review，不建立持久普通存档；临时checkpoint由浏览器public LOCAL restore消费。
+pending_review是共享管理员审核队列，来自所有来源，不按扫描结果反查或划分批次。批准前在事务外使用当前配置和所选允许核心重新检查必需内容，版本CAS提交时仍只改变同一Game状态，文件不再复制；拒绝标记deleted交给维护worker。试玩使用同一公共运行接口、管理员purpose=review，不建立持久普通存档；临时checkpoint由浏览器public LOCAL restore消费。
 
 审核详情的“运行条件检查”保留runtime返回的不支持媒体、未知ROM集、缺少ROM/Parent/启动文件等明确错误码及操作提示，不将这些问题显示为缺BIOS。未知内部异常使用REVIEW_READINESS_UNAVAILABLE，不向页面暴露原始异常或服务器路径。检查失败时biosSatisfied为null，快速审批跳过；CRC不匹配保持提示，由管理员手动决定是否批准，试玩不作强制门禁。
 
@@ -17,3 +17,5 @@ pending_review是共享管理员审核队列，来自所有来源，不按扫描
 BIOS扫描与游戏扫描在“来源扫描”页并列，使用同一绝对目录选择和进度列表；运行依赖页只管理已安装BIOS。扫描按选定platform/core范围复用runtime识别，不修改来源文件。
 
 Flycast GD-ROM 本地扫描会按已安装核心的配套名录，受控复制入口目录内的 CHD 与缺失 Parent，保持来源和归档字节原样。未找到配套文件时仍接收至待审核，由审核页列出缺失文件；可在统一资源区上传名录声明的 ZIP／CHD，再检查或选择可选试玩。ROM、Parent、BIOS CRC 差异不直接拒绝人工审批，快速审核继续跳过存在差异的游戏。
+
+管理员可用当前版本将published退回pending_review，保留同一Game及全部内容／私有关系；普通列表、详情、新建play Run随状态隐藏，管理员可继续review试玩。DAT必需成员按所选游戏条目、Parent合并关系和独立BIOS归属检查，忽略optional及NO_DUMP，BAD_DUMP且有校验事实的必需成员仍需存在。游戏包和所选Parent按名称＋大小或重命名后的大小＋CRC识别；CRC差异保留人工决定。缺失／大小不符返回missingRomMembers，人工与快速审批均阻止，服务端不依赖前端判定；未经试运行也可以批准完整内容。正常启动没有新增此完整性检查。

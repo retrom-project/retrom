@@ -21,7 +21,7 @@ it("captures the current filters and prevents a second approval while the snapsh
   vi.mocked(getReviews).mockImplementation(() => new Promise((resolve) => { release = resolve; }));
   vi.mocked(api.POST).mockImplementation(async (path) => ({
     data: path === "/api/v1/admin/reviews/readiness"
-      ? { items: [{ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [], crcWarnings: [] }] }
+      ? { items: [{ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [], missingRomMembers: [], crcWarnings: [] }] }
       : game,
     response: new Response(),
   }) as Awaited<ReturnType<typeof api.POST>>);

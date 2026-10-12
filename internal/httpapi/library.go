@@ -65,11 +65,23 @@ func (s *Server) deleteGame(w http.ResponseWriter, r *http.Request, p model.Prin
 }
 
 func (s *Server) approve(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	var input model.ApproveReviewRequest
+	if err := decode(r, &input); err != nil {
+		return err
+	}
+	item, err := s.Library.Approve(r.Context(), p, r.PathValue("gameId"), input.Version, input.CoreID)
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, item)
+}
+
+func (s *Server) withdraw(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	version, err := versionBody(r)
 	if err != nil {
 		return err
 	}
-	item, err := s.Library.Approve(r.Context(), p, r.PathValue("gameId"), version)
+	item, err := s.Library.Withdraw(r.Context(), p, r.PathValue("gameId"), version)
 	if err != nil {
 		return wrap(err)
 	}

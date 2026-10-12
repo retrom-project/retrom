@@ -8,6 +8,7 @@ import { loadDetail, toggleFavorite } from "@/features/library/api";
 import { ResourceState } from "@/components/resource-state";
 import { AdminGameDetail } from "./admin-game-detail";
 import { useToast } from "@/components/toast-provider";
+import { useAuth } from "@/features/auth/auth-provider";
 export function GameDetail({
   gameId,
   mode = "user",
@@ -20,6 +21,8 @@ export function GameDetail({
   const detail = useResource(loader);
   const [busy, setBusy] = useState(false);
   const { notify } = useToast();
+  const { context } = useAuth();
+  const canWithdraw = context?.user?.role === "admin" && detail.data?.game.status === "published";
   async function nextReview() {
     let nextId: string | undefined;
     try {
@@ -32,7 +35,7 @@ export function GameDetail({
     }
     router.replace(nextId ? `/admin/reviews/${nextId}` : "/admin/reviews");
   }
-  async function review(action: "approve" | "discard") {
+  async function review(action: "approve" | "discard", coreId?: string) {
     if (!detail.data || busy) {
       return;
     }
@@ -44,7 +47,7 @@ export function GameDetail({
         result(
           await api.POST("/api/v1/admin/reviews/{gameId}/approve", {
             params,
-            body,
+            body: { ...body, ...(coreId ? { coreId } : {}) },
           }),
         );
         notify({ tone: "good", message: "游戏已通过审核并发布" });
@@ -66,6 +69,20 @@ export function GameDetail({
     } finally {
       setBusy(false);
     }
+  }
+  async function withdraw() {
+    if (!detail.data || busy || !canWithdraw) { return; }
+    setBusy(true);
+    try {
+      result(await api.POST("/api/v1/admin/games/{gameId}/withdraw", {
+        params: { path: { gameId } }, body: { version: detail.data.game.version },
+      }));
+      notify({ tone: "good", message: "游戏已退回审核，文件与存档已保留" });
+      router.replace(`/admin/reviews/${gameId}`);
+    } catch (failure) {
+      notify({ tone: "bad", message: failure instanceof Error ? failure.message : "退回审核失败，请重试。" });
+      detail.reload();
+    } finally { setBusy(false); }
   }
   async function favorite() {
     if (!detail.data || busy) {
@@ -91,13 +108,15 @@ export function GameDetail({
             mode={mode}
             onFavorite={() => void favorite()}
             onReview={(action) => void review(action)}
+            onWithdraw={canWithdraw ? () => void withdraw() : undefined}
             onChange={detail.reload}
             busy={busy}
           /> : <AdminGameDetail
             key={data.game.id}
             detail={data}
             mode={mode}
-            onReview={(action) => void review(action)}
+            onReview={(action, coreId) => void review(action, coreId)}
+            onWithdraw={canWithdraw ? () => void withdraw() : undefined}
             onChange={detail.reload}
             busy={busy}
           />

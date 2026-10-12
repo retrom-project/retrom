@@ -114,17 +114,19 @@ func (s *Service) Update(ctx context.Context,
 	return s.Detail(ctx, p, id, status)
 }
 
-func (s *Service) Approve(ctx context.Context, p model.Principal, id string, version int64) (model.GameDetail, error) {
+func (s *Service) Approve(ctx context.Context, p model.Principal, id string, version int64,
+	coreID string,
+) (model.GameDetail, error) {
 	if err := p.Admin(); err != nil {
 		return model.GameDetail{}, wrap(err)
+	}
+	if err := s.approvalReadiness(ctx, p, id, version, coreID); err != nil {
+		return model.GameDetail{}, err
 	}
 	err := s.Repository.Transaction(ctx, func(r *persistence.Repository) error {
 		status, current, lockErr := r.LockGame(ctx, id)
 		if lockErr != nil {
 			return wrap(lockErr)
-		}
-		if status == "published" {
-			return nil
 		}
 		if status != "pending_review" || current != version {
 			return model.ErrConflict

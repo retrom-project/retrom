@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ReviewApprovalSummary } from "./review-approval";
 import { MissingBiosList } from "./missing-bios-list";
+import { MissingRomMembers } from "./missing-rom-members";
 
 export function ReviewApprovalStatus({ busy, summary }: { busy: boolean; summary: ReviewApprovalSummary | null }) {
   if (!busy && !summary) { return null; }
   return <section className="panel review-approval-status" aria-label="快速审批进度">
     <div role="status" aria-live="polite">
       <h2>{approvalTitle(busy, summary)}</h2>
-      <p>{summary ? `已检查 ${summary.checked} / ${summary.total} 项 · 已发布 ${summary.approved} 项 · CRC 需手动审核 ${summary.crcMismatch} 项 · 缺少 BIOS ${summary.missingBios} 项 · 失败 ${summary.failed} 项` : "正在读取当前筛选结果中的全部待审游戏…"}</p>
+      <p>{summary ? `已检查 ${summary.checked} / ${summary.total} 项 · 已发布 ${summary.approved} 项 · DAT 缺件 ${summary.missingFiles} 项 · CRC 需手动审核 ${summary.crcMismatch} 项 · 缺少 BIOS ${summary.missingBios} 项 · 失败 ${summary.failed} 项` : "正在读取当前筛选结果中的全部待审游戏…"}</p>
     </div>
     <ApprovalDetails summary={summary} busy={busy} />
   </section>;
@@ -41,15 +42,21 @@ function CRCDetailGames({summary}: {summary: ReviewApprovalSummary}) {
 function ApprovalDetails({summary, busy}: {summary: ReviewApprovalSummary | null; busy: boolean}) {
   if (!summary) {return null;}
   return <>
-    {summary?.interrupted ? <p>未处理的条目继续待审，请恢复访问后重试。</p> : null}
-    {summary && summary.missingBios > 0 ? <MissingGames summary={summary} /> : null}
-    {summary && summary.crcMismatch > 0 ? <CRCDetailGames summary={summary} /> : null}
-    {summary && summary.failed > 0 ? <details>
+    {summary.interrupted ? <p>未处理的条目继续待审，请恢复访问后重试。</p> : null}
+    {summary.missingFiles > 0 ? <details>
+      <summary>DAT 必需文件不完整（{summary.missingFiles} 款{summary.missingFiles > 20 ? "，仅列前 20 款" : ""}）</summary>
+      <ul>{summary.missingFileDetails.slice(0, 20).map(({game, members}) => <li key={game.id}>
+        <Link href={`/admin/reviews/${game.id}`}>{game.title}</Link><MissingRomMembers items={members} />
+      </li>)}</ul>
+    </details> : null}
+    {summary.missingBios > 0 ? <MissingGames summary={summary} /> : null}
+    {summary.crcMismatch > 0 ? <CRCDetailGames summary={summary} /> : null}
+    {summary.failed > 0 ? <details>
       <summary>查看失败条目{summary.failed > 20 ? "（前 20 项）" : ""}</summary>
       <ul>{summary.failures.slice(0, 20).map(({ game, message }) => <li key={game.id}>
         <Link href={`/admin/reviews/${game.id}`}>{game.title}</Link><span>{message}</span>
       </li>)}</ul>
     </details> : null}
-    {!busy && summary && (summary.missingBios > 0 || summary.failed > 0) ? <p>这些条目继续待审；补齐 BIOS 或修正问题后，再次快速审批即可重新检查。</p> : null}
+    {!busy && (summary.missingFiles > 0 || summary.missingBios > 0 || summary.failed > 0) ? <p>这些条目继续待审；补齐必需文件或修正问题后，再次快速审批即可重新检查。</p> : null}
   </>;
 }

@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-12 新 `review-integrity` PFB 完成管理员退回审核及审核阶段 DAT 必需成员检查。四种街机核心的条目切换和核心隔离、原样缺件拦截、CRC 人工放行，以及真实 NES 存档在退回 / 重新发布前后的保留已验证；没有数据库表或正常启动门禁变化。完整工程检查及最终四视口 `ACC-RF-BROWSER` 24/24 通过（`42c9f9e4d805489c`）。限定范围、证据及逐项 T01–T47 追踪见 [候选验证](review-integrity-validation.md)，不提升全核心或负载矩阵状态。
+
 2026-10-12 FBNeo / Butterscotch 上游同步已完成两核心正式 tag 及 runtime `v0.62.0` 发行；Retrom 固定同次发行工具与两个 Provider。七款游戏在正式核心及正式 runtime 下完成输入、公开存档、不同 Run 恢复与继续操作，110 个 Target 指纹在 runtime 版本切换前后相同；正式输入四视口 `ACC-RF-BROWSER` 24/24 通过（`a8de5d1e2ec3420a`）。Butterscotch 黑屏及角度恢复精度问题已修复；早期两次冷浏览器异常仍未归因，不记为已修复。详细版本、限定验收范围、ROM set 变化及 T01–T47 追踪见 [上游同步验收](core-upstream-sync-2026-10-12.md)。
 
 2026-10-12 runtime `1caea63` 存档可用性候选在 `save-availability` PFB 完成受影响产品链验证：项目自有 MIT NES fixture 正常导入、审核试玩、发布，FCEUmm 标准手柄方向／确认和键盘输入有效，生成 602 字节公开存档。仅修改 runtime adapter 的错误提示后，实际 Module SHA 从 `db64f7fb02766c06f388a8291530895d17a6570f114c49428662abd18dc86700` 变为 `7fa502345d8d885a5b91ae0c1416e3fc6c4aefc4c21e34be7695da1bafe05def`，75 个 EmulatorJS Target 指纹全部不变。重启服务、重新登录并创建不同 Run 后，列表仍可恢复，真实核心 RAM 输入计数从保存时的 8 恢复为 8，随后输入继续改变状态。临时验证改动已撤回。证据为 PFB `save-availability/report.json`（SHA `a90aba25e954a8dc3fb14c866a49e02562c7aa91fe8a7780e9230763f3fe7636`）。两个候选 Provider 的 110 个 Target、327 个核心文件与正式 v0.60.2 核心字节核对一致，公共 manifest 未变；这不是全核心游戏验收，也不保证历史存档可用。候选验证未修改数据库、HTTP 契约或正式 Provider pin；正式发行复验见下。

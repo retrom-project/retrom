@@ -2453,7 +2453,8 @@
           "biosSatisfied",
           "error",
           "missingBios",
-          "crcWarnings"
+          "crcWarnings",
+          "missingRomMembers"
         ],
         "properties": {
           "id": {
@@ -2532,9 +2533,16 @@
                 }
               }
             }
+          },
+          "missingRomMembers": {
+            "type": "array",
+            "description": "Required DAT game/Parent/BIOS members missing or incorrectly sized. Audit-only; never used as a new launch gate. Empty on error; check error first.",
+            "items": {
+              "$ref": "#/components/schemas/ReviewMissingROMMember"
+            }
           }
         },
-        "description": "Read-only BIOS requirements for the current pending game and default runtime core. A failed check returns null biosSatisfied and a safe per-item error; it does not mean BIOS is missing."
+        "description": "Current saved configuration review checks for the selected allowed core (directory default if omitted). Failed checks have null biosSatisfied and a safe per-item error. Manual approval rechecks required files; CRC differences alone remain informational."
       },
       "ReviewReadinessList": {
         "type": "object",
@@ -2768,6 +2776,68 @@
           }
         },
         "additionalProperties": false
+      },
+      "ReviewMissingROMMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coreId",
+          "romSet",
+          "role",
+          "member",
+          "sizeBytes",
+          "reason"
+        ],
+        "properties": {
+          "coreId": {
+            "type": "string"
+          },
+          "romSet": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ROM",
+              "PARENT",
+              "BIOS"
+            ]
+          },
+          "member": {
+            "type": "string",
+            "description": "DAT member name, never a server filesystem path."
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "MISSING",
+              "SIZE_MISMATCH"
+            ]
+          }
+        }
+      },
+      "ApproveReviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "coreId": {
+            "type": "string",
+            "description": "Selected allowed core to inspect; defaults to the game directory default. No persisted core selection is changed."
+          }
+        }
       }
     }
   }

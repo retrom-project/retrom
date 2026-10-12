@@ -4,7 +4,7 @@ import { approveReviewSnapshot, reviewSnapshot } from "./review-approval";
 import type { ReviewCandidate, ReviewReadiness } from "./review-approval";
 
 const games = (count: number): ReviewCandidate[] => Array.from({ length: count }, (_, index) => ({ id: `game-${index}`, title: `游戏 ${index}`, version: 2 }));
-const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [], crcWarnings: [] }));
+const ready = (items: ReviewCandidate[]): ReviewReadiness[] => items.map((game) => ({ id: game.id, version: game.version, biosSatisfied: true, error: null, missingBios: [], missingRomMembers: [], crcWarnings: [] }));
 const signal = () => new AbortController().signal;
 
 describe("quick review approval", () => {
@@ -120,4 +120,14 @@ describe("quick review approval", () => {
     expect(summary.missingBiosDetails).toHaveLength(10000);
     expect(summary.failures).toHaveLength(10000);
   });
+});
+
+it("skips mandatory DAT gaps before considering informational CRC warnings", async () => {
+ const items = games(2), projections = ready(items), approve = vi.fn(async () => {});
+ projections[0].missingRomMembers = [{coreId: "mame_arcade", romSet: "sample", role: "ROM", member: "eeprom.bin", sizeBytes: 548, reason: "MISSING"}];
+ projections[0].crcWarnings = [{role: "ROM", file: "sample.zip", member: "changed.bin", expectedCRC32: "11111111", actualCRC32: "22222222"}];
+ const summary = await approveReviewSnapshot(items, {readiness: async () => projections, approve}, signal(), vi.fn());
+ expect(approve).toHaveBeenCalledExactlyOnceWith(items[1]);
+ expect(summary).toMatchObject({approved: 1, missingFiles: 1, crcMismatch: 0, failed: 0});
+ expect(summary.missingFileDetails).toEqual([{game: items[0], members: projections[0].missingRomMembers}]);
 });

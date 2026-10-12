@@ -177,6 +177,9 @@
 .review-crc-warnings li { min-width: 0; overflow-wrap: anywhere; font-size: var(--text-small); }
 .review-crc-warnings li > span { display: block; color: var(--muted); }
 .review-bios-note { margin: 10px 0 0; color: var(--muted); font-size: var(--text-caption); }
+.review-required-members { min-width: 0; margin-top: var(--space-4); }
+.review-required-members summary { cursor: pointer; overflow-wrap: anywhere; }
+.review-required-members .review-bios-requirements { max-height: 20rem; overflow-y: auto; }
 .review-bios-status .review-bios-requirements, .review-approval-status .review-bios-requirements { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); list-style: none; }
 .review-bios-requirements > li { min-width: 0; display: grid; align-content: start; gap: 4px; overflow-wrap: anywhere; font-size: var(--text-small); }
 .review-bios-requirements > li > span { display: block; color: var(--muted); font-size: var(--text-caption); }

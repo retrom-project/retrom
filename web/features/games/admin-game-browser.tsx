@@ -67,11 +67,11 @@ function AdminGameResults({ review, data, directories }: { review: boolean; data
 function AdminGameHeading({ review, busy, available, onApprove, scanId, onProgress }: { review: boolean; busy: boolean; available: boolean; onApprove: () => void; scanId?: string; onProgress: () => void }) {
   return <>
     <PageHeader title={review ? "待审核" : "游戏管理"}
-      description={review ? "核对游戏资料与运行配置，试玩后批准入库或丢弃。" : "维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。"}
+      description={review ? "核对游戏资料与运行配置，批准入库或丢弃；试玩由用户自行选择。" : "维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。"}
       actions={review ? <button className="button" disabled={busy || !available} onClick={onApprove}>{busy ? "正在快速审批…" : "快速审批"}</button> : undefined}
     />
     {review ? <>
-      <p className="review-approval-scope">快速审批会处理当前筛选结果中的全部待审游戏，自动跳过缺少必需 BIOS 的条目。</p>
+      <p className="review-approval-scope">快速审批会处理当前筛选结果中的全部待审游戏，跳过必需文件不完整、缺少 BIOS 或有 CRC 差异的条目。</p>
       {scanId ? <ReviewScanProgress key={scanId} scanId={scanId} onChange={onProgress} /> : null}
     </> : null}
   </>;

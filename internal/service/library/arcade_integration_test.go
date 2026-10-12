@@ -52,10 +52,7 @@ func TestParentAttachmentAndPublishedReplacementPreserveGameAndOtherCore(t *test
 	if err != nil || !reflect.DeepEqual(projection.MissingParents, []string{"1941.zip"}) {
 		t.Fatalf("incomplete parent must remain explicit: %+v error=%v", projection, err)
 	}
-	published, err := s.Approve(t.Context(), f.Principal, f.Game.ID, first.Game.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	published := historicalParentPublication(t, s, f, first)
 	replaced, err := s.UploadParent(t.Context(), f.Principal, f.Game.ID, "fbneo", "1941.zip", published.Game.Version,
 		bytes.NewReader(parentZIP(t, "second replacement")))
 	if err != nil {
@@ -240,4 +237,20 @@ func parentFile(t *testing.T, detail model.GameDetail, key string) model.GameFil
 	}
 	t.Fatalf("game file %q missing", key)
 	return model.GameFile{}
+}
+
+func historicalParentPublication(t *testing.T, s *Service, f testsupport.Fixture, first model.GameDetail) model.GameDetail {
+	t.Helper()
+	if _, err := s.Approve(t.Context(), f.Principal, f.Game.ID, first.Game.Version, ""); err == nil {
+		t.Fatal("incomplete content must not pass approval")
+	}
+	// Set up a historical published record to keep testing published content repair.
+	if err := f.Repository.TransitionGame(t.Context(), f.Game.ID, "pending_review", "published", first.Game.Version, 2000); err != nil {
+		t.Fatal(err)
+	}
+	published, err := s.Detail(t.Context(), f.Principal, f.Game.ID, "published")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return published
 }
