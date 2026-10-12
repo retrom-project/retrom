@@ -9,12 +9,13 @@ import { AdminGameCover } from "./admin-game-browser";
 import { GameEditor } from "./game-editor";
 import { GameManagement } from "./game-management";
 import { ReviewBiosStatus } from "./review-bios-status";
-export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
+export function AdminGameDetail({ detail, mode, busy, onReview, onChange, onWithdraw }: {
   detail: Schema<"GameDetail">;
   mode: "admin" | "review";
   busy: boolean;
-  onReview: (action: "approve" | "discard") => void;
+  onReview: (action: "approve" | "discard", coreId?: string) => void;
   onChange: () => void;
+  onWithdraw?: () => void;
 }) {
   const { game } = detail;
   const [selectedCore, setSelectedCore] = useState(detail.defaultCoreId);
@@ -24,7 +25,7 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
     <PageHeader
       title={review ? "审核条目" : game.title}
       description={review ? "核对资料与运行配置；修改后请先保存，再通过并发布。" : "维护发布信息、媒体与标签，查看游戏文件及管理操作。"}
-      actions={<Link className="button secondary" href={review ? "/admin/reviews" : "/admin/games"}>{review ? "返回待审核列表" : "返回游戏管理"}</Link>}
+      actions={<AdminDetailActions review={review} busy={busy} onWithdraw={onWithdraw} />}
     />
     <div className={`admin-game-detail${review ? " review-game-detail" : ""}`}>
       {review ? <ReviewOverview detail={detail} coreId={coreId} busy={busy} onReview={onReview} /> : <>
@@ -45,11 +46,16 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange }: {
     </div>
   </div>;
 }
+function AdminDetailActions({review, busy, onWithdraw}: {review: boolean; busy: boolean; onWithdraw?: () => void}) {
+  return <><Link className="button secondary" href={review ? "/admin/reviews" : "/admin/games"}>{review ? "返回待审核列表" : "返回游戏管理"}</Link>
+    {!review && onWithdraw ? <button className="button secondary" disabled={busy} onClick={onWithdraw}
+      title="重新进入待审核，保留游戏文件和存档，发布前将暂时从游戏库隐藏。">退回审核</button> : null}</>;
+}
 function ReviewOverview({ detail, coreId, busy, onReview }: {
   detail: Schema<"GameDetail">;
   coreId: string;
   busy: boolean;
-  onReview: (action: "approve" | "discard") => void;
+  onReview: (action: "approve" | "discard", coreId?: string) => void;
 }) {
   return <>
     <section className="review-summary" aria-label="审核条目概览">
@@ -61,7 +67,7 @@ function ReviewOverview({ detail, coreId, busy, onReview }: {
       <div className="review-summary-actions">
         <LaunchButton gameId={detail.game.id} coreId={coreId} purpose="review" variant="secondary" disabled={busy}>运行游戏</LaunchButton>
         <button className="button secondary" disabled={busy} onClick={() => onReview("discard")}>丢弃条目</button>
-        <button className="button" disabled={busy} onClick={() => onReview("approve")}>通过并发布</button>
+        <button className="button" disabled={busy} onClick={() => onReview("approve", coreId)}>通过并发布</button>
       </div>
     </section>
     <ReviewBiosStatus detail={detail} coreId={coreId} />

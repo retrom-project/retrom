@@ -5,18 +5,33 @@ type ReviewReadinessRequest struct {
 	GameIDs []string `json:"gameIds"`
 }
 
+type ApproveReviewRequest struct {
+	Version int64  `json:"version"`
+	CoreID  string `json:"coreId,omitempty"`
+}
+
 type ReviewReadinessError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
 type ReviewReadiness struct {
-	ID            string                `json:"id"`
-	Version       *int64                `json:"version"`
-	BIOSSatisfied *bool                 `json:"biosSatisfied"`
-	Error         *ReviewReadinessError `json:"error"`
-	MissingBIOS   []ReviewMissingBIOS   `json:"missingBios"`
-	CRCWarnings   []ReviewCRCWarning    `json:"crcWarnings"`
+	ID                string                   `json:"id"`
+	Version           *int64                   `json:"version"`
+	BIOSSatisfied     *bool                    `json:"biosSatisfied"`
+	Error             *ReviewReadinessError    `json:"error"`
+	MissingBIOS       []ReviewMissingBIOS      `json:"missingBios"`
+	CRCWarnings       []ReviewCRCWarning       `json:"crcWarnings"`
+	MissingROMMembers []ReviewMissingROMMember `json:"missingRomMembers"`
+}
+
+type ReviewMissingROMMember struct {
+	CoreID    string `json:"coreId"`
+	ROMSet    string `json:"romSet"`
+	Role      string `json:"role"`
+	Member    string `json:"member"`
+	SizeBytes int64  `json:"sizeBytes"`
+	Reason    string `json:"reason"`
 }
 
 type ReviewCRCWarning struct {

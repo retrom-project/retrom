@@ -8,12 +8,14 @@ export type ReviewApprovalSummary = {
   checked: number;
   approved: number;
   missingBios: number;
+  missingFiles: number;
   crcMismatch: number;
   failed: number;
   interrupted: boolean;
   failures: Array<{ game: ReviewCandidate; message: string }>;
   missingBiosDetails: Array<{ game: ReviewCandidate; requirements: ReviewReadiness["missingBios"] }>;
   crcDetails: Array<{game: ReviewCandidate; warnings: ReviewReadiness["crcWarnings"]}>;
+  missingFileDetails: Array<{game: ReviewCandidate; members: ReviewReadiness["missingRomMembers"]}>;
 };
 type ReviewPage = { items: ReviewCandidate[]; total: number };
 type ApprovalActions = {
@@ -42,9 +44,9 @@ export async function approveReviewSnapshot(
   progress: (summary: ReviewApprovalSummary) => void,
 ) {
   const summary: ReviewApprovalSummary = {
-    total: games.length, checked: 0, approved: 0, missingBios: 0, crcMismatch: 0, failed: 0, interrupted: false, failures: [], missingBiosDetails: [], crcDetails: [],
+    total: games.length, checked: 0, approved: 0, missingBios: 0, missingFiles: 0, crcMismatch: 0, failed: 0, interrupted: false, failures: [], missingBiosDetails: [], missingFileDetails: [], crcDetails: [],
   };
-  const publish = () => progress({ ...summary, failures: summary.failures.slice(0, 20), missingBiosDetails: summary.missingBiosDetails.slice(0, 20), crcDetails: summary.crcDetails.slice(0, 20) });
+  const publish = () => progress({ ...summary, failures: summary.failures.slice(0, 20), missingBiosDetails: summary.missingBiosDetails.slice(0, 20), missingFileDetails: summary.missingFileDetails.slice(0, 20), crcDetails: summary.crcDetails.slice(0, 20) });
   function failed(game: ReviewCandidate, failure: unknown) {
     summary.failed++;
     summary.failures.push({ game, message: failure instanceof Error ? failure.message : "审批失败，请重试。" });
@@ -67,15 +69,18 @@ export async function approveReviewSnapshot(
         try {
           const readiness = byId.get(game.id);
           const mayPublish = eligible(game, readiness);
-          if (readiness!.crcWarnings.length) {
+          if (readiness!.missingRomMembers.length) {
+            summary.missingFiles++;
+            summary.missingFileDetails.push({game, members: readiness!.missingRomMembers});
+          } else if (!mayPublish) {
+            summary.missingBios++;
+            summary.missingBiosDetails.push({ game, requirements: readiness!.missingBios });
+          } else if (readiness!.crcWarnings.length) {
             summary.crcMismatch++;
             summary.crcDetails.push({game, warnings: readiness!.crcWarnings});
           } else if (mayPublish) {
             await actions.approve(game);
             summary.approved++;
-          } else {
-            summary.missingBios++;
-            summary.missingBiosDetails.push({ game, requirements: readiness!.missingBios });
           }
         } catch (failure) { failed(game, failure); }
         summary.checked++;

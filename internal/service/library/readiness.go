@@ -9,9 +9,10 @@ import (
 )
 
 type biosProjection struct {
-	Requirements []runtimeclient.BiosRequirement `json:"biosRequirements"`
-	Error        *string                         `json:"error"`
-	CRCWarnings  []model.ReviewCRCWarning        `json:"crcWarnings"`
+	Requirements      []runtimeclient.BiosRequirement `json:"biosRequirements"`
+	Error             *string                         `json:"error"`
+	CRCWarnings       []model.ReviewCRCWarning        `json:"crcWarnings"`
+	MissingROMMembers []model.ReviewMissingROMMember  `json:"missingRomMembers"`
 }
 
 // Readiness reads current BIOS requirements; publishing remains a separate CAS operation.
@@ -97,6 +98,7 @@ func (s *Service) readinessInput(ctx context.Context, p model.Principal, id stri
 ) {
 	item := model.ReviewReadiness{
 		ID: id, MissingBIOS: []model.ReviewMissingBIOS{}, CRCWarnings: []model.ReviewCRCWarning{},
+		MissingROMMembers: []model.ReviewMissingROMMember{},
 	}
 	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
 	if err != nil {
@@ -137,6 +139,7 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 		item := &items[position]
 		item.MissingBIOS = []model.ReviewMissingBIOS{}
 		item.CRCWarnings = []model.ReviewCRCWarning{}
+		item.MissingROMMembers = []model.ReviewMissingROMMember{}
 		item.BIOSSatisfied, item.Error = nil, nil
 		if len(projections) != len(positions) {
 			item.Error = readinessFailure(false)
@@ -149,11 +152,13 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 			}
 			continue
 		}
-		if projections[index].Requirements == nil || projections[index].CRCWarnings == nil {
+		if projections[index].Requirements == nil || projections[index].CRCWarnings == nil ||
+			projections[index].MissingROMMembers == nil {
 			item.Error = readinessFailure(false)
 			continue
 		}
 		item.CRCWarnings = projections[index].CRCWarnings
+		item.MissingROMMembers = projections[index].MissingROMMembers
 		satisfied := true
 		for _, requirement := range projections[index].Requirements {
 			if requirement.Required && !keys[requirement.RequirementKey] {

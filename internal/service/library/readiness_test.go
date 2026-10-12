@@ -29,14 +29,14 @@ func TestReadinessPreservesOnlyMissingRequiredFileMetadata(t *testing.T) {
 	failure := "RUNTIME_CONTENT_UNAVAILABLE"
 	items := make([]model.ReviewReadiness, 3)
 	applyBIOSProjections(items, []int{0, 1, 2}, []biosProjection{
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{
 			missing,
 			{RequirementKey: "installed", Required: true},
 			{RequirementKey: "optional", Required: false},
 			{RequirementKey: "unconstrained", LogicalName: "firmware.zip", CoreID: "arcade", Required: true},
 		}},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}, Error: &failure},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}, Error: &failure},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}},
 	}, []model.BiosFile{{RequirementKey: "installed"}})
 	want := []model.ReviewMissingBIOS{
 		{Key: missing.RequirementKey, Name: "os.rom", CoreID: "core"},
@@ -48,7 +48,7 @@ func TestReadinessPreservesOnlyMissingRequiredFileMetadata(t *testing.T) {
 	if items[1].BIOSSatisfied != nil || items[1].Error == nil || len(items[1].MissingBIOS) != 0 {
 		t.Fatalf("inspection error exposed misleading missing files: %#v", items[1])
 	}
-	applyBIOSProjections(items, []int{2}, []biosProjection{{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}}},
+	applyBIOSProjections(items, []int{2}, []biosProjection{{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{missing}}},
 		[]model.BiosFile{{RequirementKey: missing.RequirementKey}})
 	if items[2].BIOSSatisfied == nil || !*items[2].BIOSSatisfied || len(items[2].MissingBIOS) != 0 {
 		t.Fatalf("new installation retained stale missing files: %#v", items[2])
@@ -72,11 +72,11 @@ func TestReadinessIDsBoundedAndUnique(t *testing.T) {
 func TestReadinessUsesRuntimeRequirementsWithoutConflatingUnknownAndMissing(t *testing.T) {
 	failure := "RUNTIME_UNKNOWN"
 	projections := []biosProjection{
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "optional", Required: false}}},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "installed", Required: true}}},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "missing", Required: true}}},
-		{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}, Error: &failure},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "optional", Required: false}}},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "installed", Required: true}}},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{{RequirementKey: "missing", Required: true}}},
+		{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}, Error: &failure},
 		{},
 	}
 	items := make([]model.ReviewReadiness, len(projections))
@@ -95,7 +95,7 @@ func TestReadinessUsesRuntimeRequirementsWithoutConflatingUnknownAndMissing(t *t
 
 func TestReadinessRejectsIncompleteRuntimeBatch(t *testing.T) {
 	items := make([]model.ReviewReadiness, 2)
-	applyBIOSProjections(items, []int{0, 1}, []biosProjection{{CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}}}, nil)
+	applyBIOSProjections(items, []int{0, 1}, []biosProjection{{MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{}, Requirements: []runtimeclient.BiosRequirement{}}}, nil)
 	for _, item := range items {
 		if item.BIOSSatisfied != nil || item.Error == nil {
 			t.Fatalf("incomplete batch became eligible: %#v", item)
@@ -106,7 +106,7 @@ func TestReadinessRejectsIncompleteRuntimeBatch(t *testing.T) {
 func TestReadinessKeepsCRCWarningsInformational(t *testing.T) {
 	warning := model.ReviewCRCWarning{Role: "BIOS", File: "game.zip", Member: "bios.bin", ExpectedCRC32: "12345678", ActualCRC32: "ffffffff"}
 	items := make([]model.ReviewReadiness, 1)
-	applyBIOSProjections(items, []int{0}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{}, CRCWarnings: []model.ReviewCRCWarning{warning}}}, nil)
+	applyBIOSProjections(items, []int{0}, []biosProjection{{Requirements: []runtimeclient.BiosRequirement{}, MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{warning}}}, nil)
 	if items[0].Error != nil || items[0].BIOSSatisfied == nil || !*items[0].BIOSSatisfied || !reflect.DeepEqual(items[0].CRCWarnings, []model.ReviewCRCWarning{warning}) {
 		t.Fatalf("CRC-only mismatch blocked BIOS readiness: %#v", items[0])
 	}
@@ -137,5 +137,20 @@ func TestReadinessUnknownFailureDoesNotExposeRuntimeText(t *testing.T) {
 	if items[0].Error == nil || items[0].Error.Code != "REVIEW_READINESS_UNAVAILABLE" ||
 		strings.Contains(items[0].Error.Message, failure) || items[0].BIOSSatisfied != nil {
 		t.Fatalf("unsafe or misleading fallback: %#v", items[0])
+	}
+}
+
+func TestReadinessPreservesDATGapsIndependentlyOfBIOSAndCRC(t *testing.T) {
+	missing := model.ReviewMissingROMMember{CoreID: "mame_arcade", ROMSet: "sample", Role: "ROM", Member: "eeprom.bin", SizeBytes: 548, Reason: "MISSING"}
+	items := make([]model.ReviewReadiness, 1)
+	projection := biosProjection{Requirements: []runtimeclient.BiosRequirement{}, CRCWarnings: []model.ReviewCRCWarning{}, MissingROMMembers: []model.ReviewMissingROMMember{missing}}
+	applyBIOSProjections(items, []int{0}, []biosProjection{projection}, nil)
+	if items[0].Error != nil || items[0].BIOSSatisfied == nil || !*items[0].BIOSSatisfied || !reflect.DeepEqual(items[0].MissingROMMembers, []model.ReviewMissingROMMember{missing}) {
+		t.Fatalf("DAT gap lost or mislabeled as BIOS: %+v", items[0])
+	}
+	projection.MissingROMMembers = nil
+	applyBIOSProjections(items, []int{0}, []biosProjection{projection}, nil)
+	if items[0].Error == nil || items[0].BIOSSatisfied != nil || len(items[0].MissingROMMembers) != 0 {
+		t.Fatalf("missing runtime facts treated as complete: %+v", items[0])
 	}
 }

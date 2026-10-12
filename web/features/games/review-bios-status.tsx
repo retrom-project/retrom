@@ -6,6 +6,7 @@ import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
 import { MissingBiosList } from "./missing-bios-list";
 import { ReviewCRCWarnings } from "./review-crc-warnings";
+import { MissingRomMembers } from "./missing-rom-members";
 
 export function ReviewBiosStatus({ detail, coreId = detail.defaultCoreId }: { detail: Schema<"GameDetail">; coreId?: string }) {
   const [revision, setRevision] = useState(0);
@@ -32,6 +33,7 @@ function ReviewBiosCheck({ gameId, coreId, version, onReload }: { gameId: string
       </div>
     </div>
     {outcome.missing.length > 0 ? <MissingBiosList items={outcome.missing} /> : null}
+    {!check.loading && !outcome.error && check.data ? <MissingRomMembers items={check.data.missingRomMembers} /> : null}
     {!check.loading && !outcome.error && check.data ? <ReviewCRCWarnings warnings={check.data.crcWarnings} /> : null}
     <p className="review-bios-note">按当前所选核心的已保存配置检查。补齐文件后可重新检查。</p>
   </section>;
@@ -43,8 +45,11 @@ function biosOutcome(item: Schema<"ReviewReadiness"> | null | undefined, failure
   if (item?.error) { return error(item.error.message || "无法检查运行条件，请重试。"); }
   if (!item || item.biosSatisfied === null) { return error("无法检查运行条件，请重试。"); }
   if (item.version !== version) { return error("条目已变化，请刷新页面后重试。"); }
-  if (item.biosSatisfied) {
-    return { message: item.crcWarnings.length ? "必需 BIOS 已满足。CRC 不匹配项需手动审核。" : "必需 BIOS 已满足。无必需项或仅缺少可选文件时，不影响快速审批。", error: false, missing: [] };
+  if (item.missingRomMembers.length) {
+    return {message: `DAT 必需文件有 ${item.missingRomMembers.length} 项缺失或大小不符，补齐后才能发布。${item.missingBios.length ? `另缺少 ${item.missingBios.length} 项必需 BIOS。` : ""}`, error: false, missing: item.missingBios};
   }
-  return { message: `缺少 ${item.missingBios.length} 项必需 BIOS，快速审批会跳过此条目。`, error: false, missing: item.missingBios };
+  if (item.biosSatisfied) {
+    return { message: item.crcWarnings.length ? "必需文件已满足。CRC 不匹配项需手动审核。" : "必需文件已满足。可选择试玩，试玩不是发布的必需条件。", error: false, missing: [] };
+  }
+  return { message: `缺少 ${item.missingBios.length} 项必需 BIOS，补齐后才能发布。`, error: false, missing: item.missingBios };
 }

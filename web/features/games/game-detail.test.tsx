@@ -6,7 +6,8 @@ import type { Schema } from "@/lib/api/types";
 import { loadDetail } from "@/features/library/api";
 import { GameDetail } from "./game-detail";
 
-const calls = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const calls = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), role: "admin" }));
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: {user: {role: calls.role}} }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({
   push: (path: string) => window.history.pushState(null, "", path),
   replace: (path: string) => window.history.replaceState(null, "", path),
@@ -28,6 +29,10 @@ vi.mock("./admin-game-detail", () => ({
   </>,
 }));
 
+vi.mock("./game-detail-content", () => ({GameDetailContent: ({onWithdraw, busy}: {onWithdraw?: () => void; busy: boolean}) => <>
+ <h1>Published game</h1>{onWithdraw ? <button disabled={busy} onClick={onWithdraw}>退回审核</button> : null}
+</>}));
+
 const detail: Schema<"GameDetail"> = {
   game: {
     id: "current", platformInstanceId: "directory", directoryName: "NES", platformId: "nes",
@@ -41,6 +46,7 @@ const detail: Schema<"GameDetail"> = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  calls.role = "admin";
   window.history.replaceState(null, "", "/admin/reviews/current");
   vi.mocked(loadDetail).mockResolvedValue(detail);
   calls.post.mockResolvedValue({ data: { ...detail.game, status: "published" }, response: new Response() });
@@ -113,4 +119,37 @@ it("retains discard navigation and accepts its empty 204 response", async () => 
   expect(window.history.length).toBe(historyLength + 1);
   expect(calls.get).not.toHaveBeenCalled();
   expect(screen.getByRole("status")).toHaveTextContent("审核条目已丢弃");
+});
+
+it("returns the same published Game to review once and preserves navigation on failure", async () => {
+ vi.mocked(loadDetail).mockResolvedValue({...detail, game: {...detail.game, status: "published", version: 2}});
+ window.history.replaceState(null, "", "/games/current");
+ const pending = Promise.withResolvers<{data: Schema<"GameDetail">; response: Response}>();
+ calls.post.mockReturnValueOnce(pending.promise);
+ render(<GameDetail gameId="current" />);
+ const button = await screen.findByRole("button", {name: "退回审核"});
+ fireEvent.click(button); fireEvent.click(button);
+ expect(button).toBeDisabled();
+ expect(calls.post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/games/{gameId}/withdraw", {params: {path: {gameId: "current"}}, body: {version: 2}});
+ await act(async () => pending.resolve({data: detail, response: new Response()}));
+ await waitFor(() => expect(window.location.pathname).toBe("/admin/reviews/current"));
+ expect(screen.getByRole("status")).toHaveTextContent("文件与存档已保留");
+});
+it("hides withdrawal from ordinary users even when the published detail loads", async () => {
+ calls.role = "user";
+ vi.mocked(loadDetail).mockResolvedValue({...detail, game: {...detail.game, status: "published"}});
+ render(<GameDetail gameId="current" />);
+ await screen.findByRole("heading", {name: "Published game"});
+ expect(screen.queryByRole("button", {name: "退回审核"})).not.toBeInTheDocument();
+ expect(calls.post).not.toHaveBeenCalled();
+});
+it("keeps the published page on withdrawal conflicts and refreshes its version", async () => {
+ vi.mocked(loadDetail).mockResolvedValue({...detail, game: {...detail.game, status: "published"}});
+ calls.post.mockResolvedValueOnce({error: {code: "VERSION_CONFLICT", message: "游戏已更新，请刷新。"}, response: new Response(null, {status: 409})});
+ window.history.replaceState(null, "", "/games/current");
+ render(<GameDetail gameId="current" />);
+ fireEvent.click(await screen.findByRole("button", {name: "退回审核"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent("游戏已更新");
+ expect(window.location.pathname).toBe("/games/current");
+ await waitFor(() => expect(loadDetail).toHaveBeenCalledTimes(2));
 });

@@ -14,6 +14,7 @@ type DetailProps = {
   onReview: (action: "approve" | "discard") => void;
   onChange: () => void;
   busy: boolean;
+  onWithdraw?: () => void;
 };
 export function GameDetailContent(props: DetailProps) {
   const { detail, mode, onChange } = props;
@@ -28,6 +29,8 @@ export function GameDetailContent(props: DetailProps) {
           <AppIcon name="arrow-left" />
           {mode === "review" ? "返回待审核" : "返回游戏库"}
         </Link>
+        {props.onWithdraw ? <button className="button secondary" disabled={props.busy} onClick={props.onWithdraw}
+          title="重新进入待审核，保留游戏文件和存档，发布前将暂时从游戏库隐藏。">退回审核</button> : null}
       </nav>
       <section className="game-detail-hero">
         <div className="game-detail-poster-shell">

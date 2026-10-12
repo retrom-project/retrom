@@ -207,6 +207,9 @@
     },
     "/api/v1/admin/games/{gameId}/runtime-options/rom-sets": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1rom-sets"
+    },
+    "/api/v1/admin/games/{gameId}/withdraw": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1withdraw"
     }
   },
   "components": {
@@ -472,6 +475,12 @@
       },
       "ROMSetOptions": {
         "$ref": "./components/common.yaml#/components/schemas/ROMSetOptions"
+      },
+      "ReviewMissingROMMember": {
+        "$ref": "./components/common.yaml#/components/schemas/ReviewMissingROMMember"
+      },
+      "ApproveReviewRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/ApproveReviewRequest"
       }
     }
   }
