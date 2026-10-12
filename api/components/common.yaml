@@ -2206,6 +2206,24 @@
               }
             },
             "additionalProperties": false
+          },
+          "dependencyFiles": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "extensions"
+            ],
+            "properties": {
+              "extensions": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+$"
+                }
+              }
+            }
           }
         }
       },
@@ -2606,7 +2624,9 @@
         "required": [
           "coreId",
           "parentFiles",
-          "missingParents"
+          "missingParents",
+          "mediaFiles",
+          "missingMedia"
         ],
         "properties": {
           "coreId": {
@@ -2622,6 +2642,20 @@
             "maxItems": 32
           },
           "missingParents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          },
+          "mediaFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          },
+          "missingMedia": {
             "type": "array",
             "items": {
               "type": "string"

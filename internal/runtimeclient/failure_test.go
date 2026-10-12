@@ -38,7 +38,10 @@ func TestParentFailureRetainsSpecificMissingNamesAcrossRuntimeIPC(t *testing.T) 
 }
 
 func TestContentFailureKeepsRuntimeReasonAcrossIPC(t *testing.T) {
-	for _, code := range []string{"RUNTIME_ARCADE_MACHINE_UNKNOWN", "RUNTIME_FLYCAST_MEDIA_UNSUPPORTED", "RUNTIME_FLYCAST_ROM_MISSING"} {
+	for _, code := range []string{
+		"RUNTIME_ARCADE_MACHINE_UNKNOWN", "RUNTIME_FLYCAST_MEDIA_UNSUPPORTED", "RUNTIME_FLYCAST_ROM_MISSING",
+		"RUNTIME_FLYCAST_DISC_MISSING", "RUNTIME_FLYCAST_DISC_INVALID", "RUNTIME_FLYCAST_DISC_AMBIGUOUS",
+	} {
 		t.Run(code, func(t *testing.T) {
 			response := `{"id":"request","error":"` + code + `"}` + "\n"
 			err := decodeFailure(t, response)

@@ -49,7 +49,7 @@ func (c *Client) ReconcileConfig(ctx context.Context, directory model.Directory,
 	var result ReconciledConfig
 	err := c.Call(ctx, "reconcile-config", map[string]any{
 		"directory": runtimeDirectory(directory), "config": config,
-		"previousConfig": previous, "files": Files(files),
+		"previousConfig": previous, "files": Files(files), "providerRoots": c.ProviderRoots(),
 	}, &result)
 	if err == nil && (len(result.Config) == 0 || result.RemovedParentFiles == nil) {
 		return result, model.ErrUnavailable

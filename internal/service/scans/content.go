@@ -51,7 +51,7 @@ func (s *Service) content(ctx context.Context,
 	if len(result) > 10000 {
 		return nil, model.ErrInvalid
 	}
-	return s.discoverContent(ctx, root, id, result, origins)
+	return s.discoverContent(ctx, root, id, result, origins, directory)
 }
 
 func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name string,

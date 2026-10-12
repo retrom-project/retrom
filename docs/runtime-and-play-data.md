@@ -15,3 +15,7 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 退出立即撤销PG会话、清cookie和释放运行资源，不整站Clear-Site-Data storage。未同步IndexedDB/OPFS草稿按User隔离，只有服务端明确成功或用户丢弃才删除。网络失败、Redis失效或响应丢失不能假成功、删除草稿或提前ack。
 
 resources由宿主允许ID/Range访问；runtime统一解释ZIP编码、虚拟paths、FILE_TREE/EXTERNAL_FILE_SET及bridgeAssetPath。隔离web bridgeUrl来自实际Target唯一桥资产，宿主不猜引擎。checkpoint HTTP与LOCAL restore均通过原V1公开Host接口。只有purpose=play收到running事件后更新最近表；创建run不提前记最近，review不进入个人最近。
+
+Flycast 的街机内容由所选核心同次构建生成的 ROM 名录判定。GD-ROM 入口保留原始 ZIP，并以名录声明的相对路径关联 CHD；分拆 ROM 的 Parent ZIP 按核心保存在现有运行配置中。ZIP、Parent 和 CHD 使用独立的按需读取句柄，BIOS 仍按声明单独交付。缺少必需文件阻止准备，CRC 差异只提供审核警告。更换入口后重新计算依赖并通过现有引用检查退役旧 Parent，无数据库结构变化。
+
+浏览器 Flycast 的 GD-ROM 在启动 SH4 JIT 前按扇区填充核心已有的 DIMM 内存，避免未插桩的动态代码跨越异步读取边界。压缩 CHD 仍通过有界分段读取交付，不在 JavaScript 或原生文件系统额外保留整份副本；这会增加首次启动的准备时间。
