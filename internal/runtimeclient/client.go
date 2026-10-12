@@ -32,6 +32,10 @@ type (
 		ContentKinds      []string         `json:"contentKinds"`
 		ArchiveExtensions []string         `json:"archiveExtensions"`
 		ROMSetSelection   *ROMSetSelection `json:"romSetSelection,omitempty"`
+		DependencyFiles   *DependencyFiles `json:"dependencyFiles,omitempty"`
+	}
+	DependencyFiles struct {
+		Extensions []string `json:"extensions"`
 	}
 	Provider struct {
 		ProviderID       string          `json:"providerId"`
@@ -129,11 +133,7 @@ func (c *Client) Prepare(ctx context.Context,
 		}
 	}
 	input["locators"] = locators
-	providerRoots := make(map[string]string, len(c.Providers))
-	for id, provider := range c.Providers {
-		providerRoots[id] = provider.Root
-	}
-	input["providerRoots"] = providerRoots
+	input["providerRoots"] = c.ProviderRoots()
 	if core != "" {
 		input["coreId"] = core
 	}

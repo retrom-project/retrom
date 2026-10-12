@@ -2,6 +2,7 @@ package scans
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -15,10 +16,11 @@ type contentReference struct {
 	LogicalKey   string `json:"logicalKey"`
 	RelativeTo   string `json:"relativeTo"`
 	RelativePath string `json:"relativePath"`
+	Optional     bool   `json:"optional"`
 }
 
 func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, files []model.GameFile,
-	origins map[string]string,
+	origins map[string]string, directory model.Directory,
 ) ([]model.GameFile, error) {
 	locators := make(map[string]string, len(files))
 	seen := make(map[string]bool, len(files))
@@ -35,6 +37,8 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 	}
 	if err := s.Runtime.Call(ctx, "discover-content", map[string]any{
 		"files": runtimeclient.Files(files), "locators": locators,
+		"directory":     map[string]any{"platformId": directory.PlatformID, "defaultCoreId": directory.DefaultCoreID},
+		"providerRoots": s.Runtime.ProviderRoots(),
 	}, &output); err != nil {
 		return nil, wrap(err)
 	}
@@ -53,6 +57,9 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 			return nil, model.ErrInvalid
 		}
 		file, err := s.copyReference(ctx, root, id, reference, source)
+		if reference.Optional && errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}

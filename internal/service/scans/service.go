@@ -209,10 +209,6 @@ func (s *Service) configure(ctx context.Context,
 		}
 		locators[file.LogicalKey] = absolute
 	}
-	providerRoots := make(map[string]string, len(s.Runtime.Providers))
-	for id, provider := range s.Runtime.Providers {
-		providerRoots[id] = provider.Root
-	}
 	var config json.RawMessage
 	err := s.Runtime.Call(ctx,
 		"configure",
@@ -221,7 +217,7 @@ func (s *Service) configure(ctx context.Context,
 			"coreIds":       directory.CoreIDs,
 			"files":         runtimeclient.Files(files),
 			"locators":      locators,
-			"providerRoots": providerRoots,
+			"providerRoots": s.Runtime.ProviderRoots(),
 		},
 		&config)
 	return config, wrap(err)

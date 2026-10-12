@@ -15,6 +15,14 @@ func ContentFailure(code string) *model.RuntimeContentError {
 		message = "当前 Flycast 核心不支持此游戏的媒体格式。"
 	case "RUNTIME_FLYCAST_ROM_MISSING":
 		message = "游戏包缺少当前 Flycast 核心所需的 ROM 文件，请补齐游戏文件或父包。"
+	case "RUNTIME_FLYCAST_DISC_MISSING":
+		message = "缺少当前核心所需的 CHD 光盘文件，请补齐配套文件后重新检查。"
+	case "RUNTIME_FLYCAST_DISC_INVALID":
+		message = "CHD 光盘文件格式无效，请检查文件完整性后重新上传。"
+	case "RUNTIME_FLYCAST_DISC_AMBIGUOUS":
+		message = "存在多个同名 CHD 光盘文件，请保留与当前 ROM 集对应的配套文件。"
+	case "RUNTIME_FLYCAST_PLATFORM_MISMATCH":
+		message = "此 ROM 集与当前平台不匹配，请检查游戏目录与核心选择。"
 	case "RUNTIME_PARENT_MISSING":
 		message = "缺少当前核心所需的 Parent 父包，请补齐父包后重新检查。"
 	case "RUNTIME_ENTRY_MISSING":
