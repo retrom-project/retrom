@@ -215,3 +215,12 @@
   background: rgb(13 18 31 / 94%);
   box-shadow: 0 20px 50px rgb(0 0 0 / 32%);
 }
+
+.saveVersionWarning {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  justify-content: center;
+}

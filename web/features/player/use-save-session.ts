@@ -15,8 +15,10 @@ export function useSaveSession(
   native: boolean,
 ) {
   const { notify } = useToast();
-  const selectedSave = useRef(run.save);
-  const [currentSave, setCurrentSave] = useState(run.save);
+  const protectedSourceId = run.save?.restoreWarning === "core_changed" ? run.save.id : null;
+  const writableSave = protectedSourceId ? null : run.save;
+  const selectedSave = useRef(writableSave);
+  const [currentSave, setCurrentSave] = useState(writableSave);
   const saving = useRef(false);
   const inFlight = useRef<Promise<boolean> | null>(null);
   const queued = useRef(false);
@@ -65,13 +67,15 @@ export function useSaveSession(
         throw new Error("运行模块生成了不匹配的存档格式。");
       }
       if (native && pending.current && await sameDraftCheckpoint(pending.current, snapshot.checkpoint)) { return false; }
-      const record = makeDraft(userId, run, snapshot.checkpoint, snapshot.screenshot, native ? selectedSave.current : target, native);
+      const chosen = native ? selectedSave.current : target;
+      const writable = chosen?.id === protectedSourceId ? null : chosen;
+      const record = makeDraft(userId, run, snapshot.checkpoint, snapshot.screenshot, writable, native);
       setDraft(record);
       pending.current = record;
       await putDraft(record);
       return persist(record, snapshot.checkpoint, runtime);
     },
-    [run, userId, native, notify, persist],
+    [run, userId, native, notify, persist, protectedSourceId],
   );
   const captureWork = useCallback(
     async (

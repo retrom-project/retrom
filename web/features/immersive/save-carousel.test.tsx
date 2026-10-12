@@ -61,7 +61,7 @@ it("shows feedback for slow reads and restarts the delay when the selected game 
 it("loads the selected older save with its frozen core and keeps blocked saves inspectable", async () => {
   const latest = saveFixture("latest");
   const older = { ...saveFixture("older"), extinfo: { ...latest.extinfo, coreId: "nestopia" } };
-  const blocked = { ...saveFixture("blocked"), restorable: false, restoreReason: "core_changed" as const };
+  const blocked = { ...saveFixture("blocked"), restorable: false, restoreReason: "content_changed" as const };
   mocks.GET.mockResolvedValue({ data: { items: [latest, older, blocked], offset: 0, total: 3 }, response: new Response() });
   mocks.POST.mockResolvedValue({ data: { id: "run" }, response: new Response() });
   Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
@@ -72,8 +72,8 @@ it("loads the selected older save with its frozen core and keeps blocked saves i
   expect(screen.getByRole("button", { name: "第 2 份存档，进度 older，4.7MB" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getAllByLabelText("存档大小 4.7MB")).toHaveLength(3);
   await user.click(screen.getByRole("button", { name: "第 3 份存档，进度 blocked，4.7MB" }));
-  expect(screen.getByRole("img", { name: "存档不可加载：运行核心已变化，无法恢复" })).toBeInTheDocument();
-  expect(screen.queryByText("运行核心已变化，无法恢复")).not.toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "存档不可加载：游戏文件与创建存档时不一致，无法恢复" })).toBeInTheDocument();
+  expect(screen.queryByText("游戏文件与创建存档时不一致，无法恢复")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "从存档继续" })).toBeDisabled();
   expect(mocks.POST).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "上一份存档" }));

@@ -8,7 +8,7 @@
 
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
-运行期间ROM/Core变更不会拒绝仍存续的原run保存；存档extinfo只能复制原run冻结coreId/providerId/targetId/coreFingerprint/romHash/checkpointFormat/content/runtimeOptions。普通启动使用当前配置。恢复先读取当前User的Save，再将原extinfo交给runtime：校验当前允许核心、Target指纹、完整ROM身份和可读格式后，按原content与runtimeOptions准备资源，不用后来编辑的运行选项替换存档上下文。Go在准备与restore descriptor中复用同一次Save投影，避免并发覆盖时混合原选项与新payload；实际下载遇到不匹配的强ETag仍可明确失败，不增加持久快照关系。旧存档显示真实不可恢复原因。saveId、kind、slot、name和version仍是存档领域字段，不从内容hash反推。
+运行期间ROM/Core变更不会拒绝仍存续的原run保存；存档extinfo只能复制原run冻结coreId/providerId/targetId/coreFingerprint/romHash/checkpointFormat/content/runtimeOptions。普通启动使用当前配置。恢复先读取当前User的Save，再将原extinfo交给runtime：校验当前允许核心、完整ROM身份和可读格式后，按原content与runtimeOptions准备资源，不用后来编辑的运行选项替换存档上下文。Go在准备与restore descriptor中复用同一次Save投影，避免并发覆盖时混合原选项与新payload；实际下载遇到不匹配的强ETag仍可明确失败，不增加持久快照关系。核心指纹变化只返回core_changed警告，不拦截恢复；ROM变化和不可读格式优先于警告。旧存档显示真实不可恢复原因。saveId、kind、slot、name和version仍是存档领域字段，不从内容hash反推。
 
 保存multipart metadata+payload+可选PNG/JPEG截图。commitId为浏览器持久草稿ID：创建save ID取commitId；覆盖保存last_commit_id。相同commit/payload hash/extinfo重试返回同一版本，其他提交按CAS竞争。IO完成后短事务锁Game确认published，再保存CAS；游戏删除后不能提交新存档。列表按distinct game/core一次batch-identity和一次batch-restorable，不逐存档调用Prepare/Node。筛选分页与count采用同条件。
 
@@ -21,3 +21,5 @@ Flycast 的街机内容由所选核心同次构建生成的 ROM 名录判定。G
 浏览器 Flycast 的 GD-ROM 在启动 SH4 JIT 前按扇区填充核心已有的 DIMM 内存，避免未插桩的动态代码跨越异步读取边界。压缩 CHD 仍通过有界分段读取交付，不在 JavaScript 或原生文件系统额外保留整份副本；这会增加首次启动的准备时间。
 
 普通runtime/Provider升级在核心文件、存档格式与ROM未变时保持存档可恢复；列表与实际恢复共用runtime判定。沿用现有extinfo字段，无数据库结构变更或历史存档回填。历史指纹不做映射或迁移，也不单独识别旧算法。
+
+Save 的 restorable / restoreReason / restoreWarning 是当前态投影，不持久化。runtime 的统一 restorable 与 batch-restorable 返回独立 warning，只有核心文件指纹不同且其他条件可恢复时是 CORE_CHANGED。恢复 Run 的 extinfo 使用当前实际运行核心指纹，Run.save 保留原存档身份与警告。跨版本恢复的来源存档不作为自动或手动覆盖目标，首次保存创建新档，之后更新新档；服务端也拒绝该Run覆盖来源ID。失败草稿保留同一commitId，重试不会额外复制。无需数据库迁移、指纹映射或旧核心回滚。

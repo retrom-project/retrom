@@ -306,7 +306,7 @@ func runtimeFailure(code string, details map[string]string) error {
 	switch code {
 	case "RUNTIME_BUSY", "RUNTIME_CANCELLED":
 		category = model.ErrUnavailable
-	case "CORE_UNAVAILABLE", "CORE_CHANGED", "CONTENT_CHANGED", "FORMAT_UNREADABLE":
+	case "CORE_UNAVAILABLE", "CONTENT_CHANGED", "FORMAT_UNREADABLE":
 		category = model.ErrConflict
 	}
 	return fmt.Errorf("runtime rejected input: %w (%s)", category, code)

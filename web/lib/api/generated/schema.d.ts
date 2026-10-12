@@ -1341,8 +1341,13 @@ export interface components {
             screenshotUrl: string | null;
             restorable: boolean;
             /** @enum {string} */
-            restoreReason: "" | "core_unavailable" | "core_changed" | "content_changed" | "format_unreadable" | "game_unavailable" | "save_unavailable";
+            restoreReason: "" | "core_unavailable" | "content_changed" | "format_unreadable" | "game_unavailable" | "save_unavailable";
             extinfo: components["schemas"]["SaveExtinfo"];
+            /**
+             * @description Non-blocking restore warning; empty when restoration is blocked or no warning is needed.
+             * @enum {string}
+             */
+            restoreWarning: "" | "core_changed";
         };
         SaveRenameRequest: {
             /** Format: int64 */

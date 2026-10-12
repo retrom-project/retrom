@@ -14,8 +14,7 @@ const reasons: Record<Save["restoreReason"], string> = {
   game_unavailable: "游戏当前不可用",
   save_unavailable: "存档文件当前不可用",
   core_unavailable: "原核心不可用",
-  core_changed: "核心实现已变化",
-  content_changed: "游戏内容已变化",
+  content_changed: "游戏文件与创建存档时不一致",
   format_unreadable: "当前核心无法读取存档格式",
 };
 export function SaveCard({
@@ -145,7 +144,7 @@ export function SaveCard({
           <LaunchButton
             gameId={save.game.id}
             coreId={save.extinfo.coreId}
-            saveId={save.id}
+            saveId={save.id} restoreWarning={save.restoreWarning}
             disabled={!save.restorable}
           >
             从这里继续

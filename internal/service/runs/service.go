@@ -302,8 +302,7 @@ func (s *Service) restore(ctx context.Context, run *Context, save *model.Save) (
 	if !result.Restorable {
 		return nil, model.ErrConflict
 	}
-	save.Restorable = true
-	save.RestoreReason = ""
+	result.Apply(save)
 	run.Run.Save = save
 	return map[string]any{
 			"kind":      "HTTP",
@@ -318,6 +317,19 @@ func (s *Service) restore(ctx context.Context, run *Context, save *model.Save) (
 type RestoreResult struct {
 	Restorable bool    `json:"restorable"`
 	Reason     *string `json:"reason"`
+	Warning    *string `json:"warning"`
+}
+
+// Apply projects transient compatibility facts without changing the frozen save identity.
+func (r RestoreResult) Apply(save *model.Save) {
+	save.Restorable = r.Restorable
+	save.RestoreReason, save.RestoreWarning = "", ""
+	if r.Reason != nil {
+		save.RestoreReason = strings.ToLower(*r.Reason)
+	}
+	if r.Restorable && r.Warning != nil {
+		save.RestoreWarning = strings.ToLower(*r.Warning)
+	}
 }
 
 func (s *Service) Restorable(ctx context.Context,

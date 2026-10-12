@@ -270,3 +270,28 @@ it.each([true, false])("waits for the pending native save before unmount (persis
   if (succeeds) { expect(result.current.draft).toBeNull(); }
   else { expect(result.current.draft?.id).toBe(draftId); }
 });
+
+
+it.each([true, false])("forks a cross-version restore without overwriting the source (native=%s)", async native => {
+  const run = runFixture();
+  const source = { id: "precious-source", name: "旧进度", version: 7, slot: null,
+    restoreWarning: "core_changed", extinfo: { ...run.extinfo, coreFingerprint: "c".repeat(64) } } as NonNullable<typeof run.save>;
+  run.save = source;
+  const runtime = runtimeFixture();
+  const fork = { ...source, id: "new-progress", version: 1, restoreWarning: "", extinfo: run.extinfo } as typeof source;
+  vi.mocked(uploadDraft).mockRejectedValueOnce(new Error("offline")).mockResolvedValue(fork);
+  vi.spyOn(runtime, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "UNCHANGED" });
+  const { result } = renderHook(() => useSaveSession(run, "user-a", native));
+  expect(result.current.currentSave).toBeNull();
+  await act(() => result.current.capture(runtime, native ? "EXPORT" : "CAPTURE", source));
+  const draft = result.current.draft;
+  expect(draft?.saveId).toBeNull();
+  expect(draft?.metadata.version).toBeUndefined();
+  expect(draft?.metadata.extinfo).toEqual(run.extinfo);
+  await act(() => result.current.retry(runtime));
+  expect(vi.mocked(uploadDraft).mock.calls[1][0].id).toBe(draft?.id);
+  await act(() => result.current.capture(runtime, native ? "EXPORT" : "CAPTURE", result.current.currentSave));
+  expect(vi.mocked(uploadDraft).mock.calls[2][0].saveId).toBe("new-progress");
+  expect(vi.mocked(uploadDraft).mock.calls.every(([record]) => record.saveId !== source.id)).toBe(true);
+  expect(source.version).toBe(7);
+});

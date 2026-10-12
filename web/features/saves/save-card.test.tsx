@@ -18,7 +18,7 @@ function save(id: string): Save {
   return {
     id, name: `进度 ${id}`, kind: "checkpoint", slot: null, version: 1,
     sizeBytes: 1024, createdAtMs: 0, updatedAtMs: 0, screenshotUrl: null,
-    restorable: false, restoreReason: "core_changed",
+    restorable: false, restoreReason: "content_changed", restoreWarning: "",
     game: {
       id: "game", platformInstanceId: "directory", platformId: "nes", directoryName: "NES",
       title: "测试游戏", description: "", developer: "", publisher: "", genre: "", players: null,
