@@ -4,7 +4,7 @@
 
 目录保存管理员核心集与默认核心；runtime catalog提供平台友好名和唯一公共core ID，不自动建目录。Run以当前User登录态创建，默认核心不能静默替换不可用核心；saveId恢复由服务端先读本人save并选择原core，不能依赖浏览器重新指定默认值。
 
-准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹覆盖实际资产、转译adapter依赖和公共codec，不使用整个bundle摘要。Go验证安装bytes/proof/integrity并装配部署URL。
+准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹只覆盖Provider/Target身份及显式声明的核心文件内容摘要，不包含runtime版本、adapter/公共codec源码、输入/UI/加载辅助代码或部署路径。存档编码或恢复语义不兼容时由runtime显式修改checkpointFormat；Bundle/Module摘要继续用于产物完整性校验。游戏自带引擎由完整ROMHash覆盖。Go验证安装bytes/proof/integrity并装配部署URL。
 
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
@@ -19,3 +19,5 @@ resources由宿主允许ID/Range访问；runtime统一解释ZIP编码、虚拟pa
 Flycast 的街机内容由所选核心同次构建生成的 ROM 名录判定。GD-ROM 入口保留原始 ZIP，并以名录声明的相对路径关联 CHD；分拆 ROM 的 Parent ZIP 按核心保存在现有运行配置中。ZIP、Parent 和 CHD 使用独立的按需读取句柄，BIOS 仍按声明单独交付。缺少必需文件阻止准备，CRC 差异只提供审核警告。更换入口后重新计算依赖并通过现有引用检查退役旧 Parent，无数据库结构变化。
 
 浏览器 Flycast 的 GD-ROM 在启动 SH4 JIT 前按扇区填充核心已有的 DIMM 内存，避免未插桩的动态代码跨越异步读取边界。压缩 CHD 仍通过有界分段读取交付，不在 JavaScript 或原生文件系统额外保留整份副本；这会增加首次启动的准备时间。
+
+普通runtime/Provider升级在核心文件、存档格式与ROM未变时保持存档可恢复；列表与实际恢复共用runtime判定。沿用现有extinfo字段，无数据库结构变更或历史存档回填。历史指纹不做映射或迁移，也不单独识别旧算法。
