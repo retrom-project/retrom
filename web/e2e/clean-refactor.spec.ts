@@ -7,6 +7,7 @@ import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from 
 import { holdController, installStandardController, pressController } from "./immersive-gamepad";
 import { verifyScanControls } from "./scan-controls";
 import { verifyDesktopPlayerControls } from "./player-desktop";
+import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import {
   instantConflict,
   newInstantSave,
@@ -415,6 +416,7 @@ test("immersive audio and keyboard controls retain their behavior", async ({ pag
   await expect(page.getByRole("heading", { name: "等待手柄", exact: true })).toBeVisible();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("heading", { name: "今天想玩哪个平台？", exact: true })).toBeVisible();
+  await verifyPlatformCardLayout(page, test.info());
   const audio = page.locator("audio[data-immersive-bgm]");
   const audioNode = await audio.elementHandle();
   expect(audioNode).not.toBeNull();
