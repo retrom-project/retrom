@@ -97,11 +97,12 @@ export function RuntimeConfigEditor({
         options={core.options ?? {}}
         onChange={(options) => updateCore({ ...core, options })}
       />
-      {binding?.contentKinds.includes("ARCADE") ? <ArcadeParentFiles
+      {binding?.dependencyFiles ? <ArcadeParentFiles
         key={`${gameId}:${coreId}:${version}`}
         gameId={gameId} version={version} coreId={coreId}
         entryFile={value.content.entryFile} files={files}
         selected={core.parentFiles ?? []}
+        extensions={binding.dependencyFiles.extensions}
         configurationChanged={runtimeSelectionChanged(savedValue, value, coreId)}
         onChange={(parentFiles) => updateCore({ ...core, parentFiles })}
         onUploaded={onUploaded}

@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   get.mockImplementation(async (path: string, options: { params?: { query?: { coreId?: string; romSet?: string } } }) => {
     if (path === "/api/v1/runtime/catalog") { return { data: { cores: cores.map(id => ({ id, name: id })),
-      bindings: cores.map(coreId => ({ coreId, providerId: "provider", targetId: coreId, contentKinds: ["ARCADE"], romSetSelection: { datSHA256: digest } })),
+      bindings: cores.map(coreId => ({ coreId, providerId: "provider", targetId: coreId, contentKinds: ["ARCADE"], dependencyFiles: {extensions: ["zip"]}, romSetSelection: { datSHA256: digest } })),
       providers: [{ providerId: "provider", targets: cores.map(id => ({ id, targetOptionsSchema: { properties: { machine: { type: "string" } } } })) }] }, response: new Response() }; }
     if (path.endsWith("/arcade")) { return { data: { coreId: options.params?.query?.coreId, parentFiles: [], missingParents: [] }, response: new Response() }; }
     return response(options.params?.query?.coreId ?? "fbneo", options.params?.query?.romSet);

@@ -11,6 +11,17 @@ beforeEach(() => {
   calls.get.mockResolvedValue({ data: { coreId: "fbneo", parentFiles: [], missingParents: ["1941.zip"] }, response: new Response() });
 });
 afterEach(cleanup);
+it("shows runtime-declared missing CHD and keeps it out of Parent choices", async () => {
+  calls.get.mockResolvedValue({data: {coreId: "flycast-naomi", parentFiles: [], missingParents: [],
+    mediaFiles: [], missingMedia: ["game/disc.chd"]}, response: new Response()});
+  render(<ArcadeParentFiles gameId="game" version={3} coreId="flycast-naomi" entryFile="game.zip"
+    files={["game.zip", "parent.zip", "game/disc.chd"].map(logicalKey => ({id: logicalKey, logicalKey, role: "content", sha256: "hash", sizeBytes: 1}))}
+    extensions={["zip", "chd"]} selected={[]} onChange={vi.fn()} onUploaded={vi.fn()} />);
+  await screen.findByText("缺少以下光盘文件，请上传对应 CHD：");
+  expect(screen.getByText("game/disc.chd")).toBeInTheDocument();
+  expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual(["parent.zip"]);
+  expect(screen.getByLabelText("上传配套文件")).toHaveAttribute("accept", ".zip,.chd");
+});
 function show(onUploaded = vi.fn()) {
   render(<ArcadeParentFiles gameId="child" version={7} coreId="fbneo" entryFile="1941j.zip"
     files={["1941j.zip", "1941.zip"].map((logicalKey) => ({ id: logicalKey, logicalKey, role: "content", sha256: "hash", sizeBytes: 1 }))}

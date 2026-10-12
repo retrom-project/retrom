@@ -1631,6 +1631,9 @@ export interface components {
             romSetSelection?: {
                 datSHA256: string;
             };
+            dependencyFiles?: {
+                extensions: string[];
+            };
         };
         ScummvmCandidate: {
             id: string;
@@ -1704,6 +1707,8 @@ export interface components {
             coreId: string;
             parentFiles: string[];
             missingParents: string[];
+            mediaFiles: string[];
+            missingMedia: string[];
         };
         UploadGameParentMultipartBody: {
             version: number;

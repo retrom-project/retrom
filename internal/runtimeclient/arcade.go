@@ -32,7 +32,7 @@ func (c *Client) ArcadeParents(ctx context.Context, directory model.Directory, c
 		"directory": map[string]any{
 			"platformId": directory.PlatformID, "defaultCoreId": directory.DefaultCoreID, "allowedCoreIds": directory.CoreIDs,
 		},
-		"config": config, "files": Files(files), "locators": locators, "coreId": core,
+		"config": config, "files": Files(files), "locators": locators, "coreId": core, "providerRoots": c.ProviderRoots(),
 	}
 	if attachment != "" {
 		input["attachFile"] = attachment
@@ -40,7 +40,8 @@ func (c *Client) ArcadeParents(ctx context.Context, directory model.Directory, c
 	if err := c.Call(ctx, "arcade-parents", input, &result); err != nil {
 		return result, err
 	}
-	if result.CoreID != core || result.ParentFiles == nil || result.MissingParents == nil || len(result.Config) == 0 {
+	if result.CoreID != core || result.ParentFiles == nil || result.MissingParents == nil ||
+		result.MediaFiles == nil || result.MissingMedia == nil || len(result.Config) == 0 {
 		return result, model.ErrUnavailable
 	}
 	return result, nil

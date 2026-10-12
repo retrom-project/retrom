@@ -31,7 +31,7 @@ it("keeps the second selected core through upload's version reload and shows tha
   calls.get.mockImplementation(async (path: string, init?: { params: { query: { coreId: string } } }) => ({
     response: new Response(), data: path === "/api/v1/runtime/catalog" ? {
       platforms: [], cores: original.coreIds.map((id) => ({ id, name: id, platformIds: ["arcade"], fingerprint: null })), providers: [],
-      bindings: original.coreIds.map((coreId) => ({ coreId, providerId: "provider", targetId: coreId, platformIds: ["arcade"], contentKinds: ["ARCADE"] })),
+      bindings: original.coreIds.map((coreId) => ({ coreId, providerId: "provider", targetId: coreId, platformIds: ["arcade"], contentKinds: ["ARCADE"], dependencyFiles: {extensions: ["zip"]} })),
     } : { coreId: init?.params.query.coreId, parentFiles: uploaded && init?.params.query.coreId === "mame2003_plus" ? ["1941.zip"] : [], missingParents: uploaded && init?.params.query.coreId === "mame2003_plus" ? [] : ["1941.zip"] },
   }));
   calls.post.mockImplementation(async () => ({ data: { items: [{ id: "child", version: uploaded ? 2 : 1, biosSatisfied: true, error: null, missingBios: [], crcWarnings: [] }] }, response: new Response() }));

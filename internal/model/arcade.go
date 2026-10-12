@@ -4,6 +4,8 @@ type ArcadeParentOptions struct {
 	CoreID         string   `json:"coreId"`
 	ParentFiles    []string `json:"parentFiles"`
 	MissingParents []string `json:"missingParents"`
+	MediaFiles     []string `json:"mediaFiles"`
+	MissingMedia   []string `json:"missingMedia"`
 }
 
 type RuntimeContentError struct {
