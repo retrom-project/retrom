@@ -61,7 +61,7 @@ export function ImmersiveSaveCarousel({ gameTitle, selection, returnTo }: {
           <p><BrowserTime value={save.updatedAtMs} /></p>
           {save.restorable && save.kind === "game_save" ? <p>进入游戏后，请在游戏内读取存档。</p> : null}
         </div>
-        <LaunchButton gameId={save.game.id} coreId={save.extinfo.coreId} saveId={save.id} disabled={!ready || !save.restorable} returnTo={returnTo}>从存档继续</LaunchButton>
+        <LaunchButton gameId={save.game.id} coreId={save.extinfo.coreId} saveId={save.id} restoreWarning={save.restoreWarning} disabled={!ready || !save.restorable} returnTo={returnTo}>从存档继续</LaunchButton>
       </div>
     </> : null}
   </section>;

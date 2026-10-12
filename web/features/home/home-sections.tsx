@@ -70,7 +70,7 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
         <div className="home-featured-actions">
           <LaunchButton
             gameId={game.id}
-            saveId={save?.id}
+            saveId={save?.id} restoreWarning={save?.restoreWarning}
             coreId={save?.extinfo.coreId}
             returnTo="/"
           >
@@ -81,7 +81,7 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
           </Link>
         </div>
         <p className="home-launch-note">
-          本次将从{save ? "存档位置" : "游戏开头"}启动
+          {launchNote(save)}
         </p>
         <Link className="home-save-link" href={`/saves?gameId=${game.id}`}>
           查看存档
@@ -89,6 +89,10 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
       </div>
     </article>
   );
+}
+function launchNote(save: Schema<"Save"> | undefined) {
+  if (save?.restoreWarning === "core_changed") { return "本次将尝试恢复旧版本存档"; }
+  return `本次将从${save ? "存档位置" : "游戏开头"}启动`;
 }
 export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
   const recentRail = useHorizontalWheel<HTMLDivElement>();

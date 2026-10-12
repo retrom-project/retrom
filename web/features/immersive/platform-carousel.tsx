@@ -34,7 +34,9 @@ export function PlatformCarousel({ destinations, selected, onSelect, onOpen }: {
                 className={`${platform.platformCard} ${shift === 0 ? platform.currentPlatform : ""} ${platform[`platformTone${index % 5}`]}`}
                 onClick={() => shift === 0 ? onOpen() : onSelect(index)}>
                 <div className={platform.platformCopy}>
-                  <span className={platform.platformCode}>{destination.code.slice(0, 4)}</span>
+                  <div className={platform.platformMark} aria-hidden="true">
+                    <span className={platform.platformCode}>{destination.code.slice(0, 4)}</span>
+                  </div>
                   <p>{shift === 0 ? destination.directoryId ? "当前平台" : "当前入口" : "相邻入口"}</p>
                   <h2 title={destination.name}>{destination.name}</h2>
                   <strong>{destination.count} 款游戏</strong>

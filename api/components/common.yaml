@@ -1122,6 +1122,7 @@
           "screenshotUrl",
           "restorable",
           "restoreReason",
+          "restoreWarning",
           "extinfo"
         ],
         "properties": {
@@ -1178,7 +1179,6 @@
             "enum": [
               "",
               "core_unavailable",
-              "core_changed",
               "content_changed",
               "format_unreadable",
               "game_unavailable",
@@ -1187,6 +1187,14 @@
           },
           "extinfo": {
             "$ref": "#/components/schemas/SaveExtinfo"
+          },
+          "restoreWarning": {
+            "type": "string",
+            "enum": [
+              "",
+              "core_changed"
+            ],
+            "description": "Non-blocking restore warning; empty when restoration is blocked or no warning is needed."
           }
         }
       },

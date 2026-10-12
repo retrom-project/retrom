@@ -30,7 +30,7 @@ func TestLaunchAndRestoreOptionsShareOneSaveProjection(t *testing.T) {
 		Name: "Original options", StorageKey: "saves/original", PayloadHash: "original-payload",
 		SizeBytes: 10, LastCommitID: uuid.NewString(), Extinfo: model.Extinfo{
 			CoreID: ordinary.CoreID, ProviderID: ordinary.ProviderID, TargetID: ordinary.TargetID,
-			CoreFingerprint: ordinary.CoreFingerprint, ROMHash: ordinary.ROMHash,
+			CoreFingerprint: "old-core-fingerprint", ROMHash: ordinary.ROMHash,
 			CheckpointFormat: ordinary.Checkpoint.WriteFormat, Content: json.RawMessage(`{"kind":"SINGLE_FILE",` +
 				`"entryFile":"game.nes"}`), RuntimeOptions: json.RawMessage(originalOptions),
 		},
@@ -112,6 +112,7 @@ func assertPreparationWrites(t *testing.T, f testsupport.Fixture, detail model.G
 func assertFrozenRestore(t *testing.T, run model.Run, original model.Save) {
 	t.Helper()
 	if run.Save == nil || run.Save.Version != 1 || run.Save.PayloadHash != original.PayloadHash ||
+		run.Save.RestoreWarning != "core_changed" || run.Extinfo.CoreFingerprint == original.Extinfo.CoreFingerprint ||
 		string(run.Extinfo.RuntimeOptions) != originalOptions {
 		t.Fatalf("mixed restore projection: save=%+v options=%s", run.Save, run.Extinfo.RuntimeOptions)
 	}
@@ -234,7 +235,7 @@ for line in sys.stdin:
             'targetOptions': options, 'capabilities': {}, 'resources': [], 'biosRequirements': [],
             'checkpoint': {'writeFormat': 'state', 'readFormats': ['state'], 'maxBytes': 1024, 'semantics': 'INSTANT'}}
     elif command == 'restorable':
-        result = {'restorable': value['current']['runtimeOptions'] == value['context']['runtimeOptions'], 'reason': None}
+        result = {'restorable': value['current']['runtimeOptions'] == value['context']['runtimeOptions'], 'reason': None, 'warning': 'CORE_CHANGED' if value['current']['coreFingerprint'] != value['context']['coreFingerprint'] else None}
     else:
         raise ValueError(command)
     print(json.dumps({'id': request['id'], 'result': result}, separators=(',', ':')), flush=True)

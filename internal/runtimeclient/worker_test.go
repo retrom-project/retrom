@@ -30,7 +30,7 @@ def execute(r):
     time.sleep(r['input'].get('delay', 0))
     if r['command']=='crash': os._exit(1)
     if r['command']=='invalid': v={'id':r['id'],'error':'INVALID_CONFIGURATION'}
-    elif r['command']=='conflict': v={'id':r['id'],'error':'CORE_CHANGED'}
+    elif r['command']=='conflict': v={'id':r['id'],'error':'CONTENT_CHANGED'}
     else: v={'id':r['id'],'result':{'pid':os.getpid(), 'value':r['input'].get('value',0)}}
     with lock:
         print(json.dumps(v), flush=True)

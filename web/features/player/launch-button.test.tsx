@@ -4,7 +4,7 @@ import { render } from "@/components/toast-test-utils";
 import type * as ApiClient from "@/lib/api/client";
 import { LaunchButton } from "./launch-button";
 
-const calls = vi.hoisted(() => ({ create: vi.fn() }));
+const calls = vi.hoisted(() => ({ create: vi.fn(), remove: vi.fn() }));
 const initialFullscreen = Object.getOwnPropertyDescriptor(document.documentElement, "requestFullscreen");
 const initialEnabled = Object.getOwnPropertyDescriptor(document, "fullscreenEnabled");
 const initialElement = Object.getOwnPropertyDescriptor(document, "fullscreenElement");
@@ -15,9 +15,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({
 }) }));
 vi.mock("@/lib/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>();
-  return { ...actual, api: { POST: calls.create } };
+  return { ...actual, api: { POST: calls.create, DELETE: calls.remove } };
 });
-beforeEach(() => { calls.create.mockReset(); calls.create.mockResolvedValue({ data: { id: "new-run" }, response: new Response() }); });
+beforeEach(() => {
+  calls.create.mockReset(); calls.create.mockResolvedValue({ data: { id: "new-run" }, response: new Response() });
+  calls.remove.mockReset(); calls.remove.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+});
 afterEach(() => {
   cleanup();
   for (const [target, key, descriptor] of [
@@ -97,4 +100,48 @@ it.each([false, true])("a failed launch leaves prior fullscreen intact and clear
   expect(await screen.findByRole("alert")).toHaveTextContent("启动失败");
   expect(request).toHaveBeenCalledTimes(active ? 0 : 1);
   expect(exit).toHaveBeenCalledTimes(active ? 0 : 1);
+});
+
+
+it("warns before creating a Run or requesting fullscreen and permits cancellation", async () => {
+  const fullscreen = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: fullscreen });
+  Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true });
+  render(<LaunchButton gameId="game" saveId="old-save" restoreWarning="core_changed" />);
+  expect(screen.getByRole("button", { name: "开始游戏" })).toHaveAccessibleDescription("核心版本已变化，确认后可尝试加载");
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("原存档会保留");
+  expect(calls.create).not.toHaveBeenCalled();
+  expect(fullscreen).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+  expect(calls.create).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  fireEvent.click(screen.getByRole("button", { name: "尝试加载" }));
+  await waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
+  expect(fullscreen).toHaveBeenCalledOnce();
+});
+
+it("confirms a new server warning even if the list was fetched before the core update", async () => {
+  calls.create.mockResolvedValue({ data: { id: "new-run", save: { restoreWarning: "core_changed" } }, response: new Response() });
+  window.history.replaceState(null, "", "/games/game");
+  render(<LaunchButton gameId="game" saveId="old-save" />);
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  expect(await screen.findByRole("alertdialog")).toHaveTextContent("尝试加载旧存档");
+  expect(window.location.pathname).toBe("/games/game");
+  fireEvent.click(screen.getByRole("button", { name: "尝试加载" }));
+  await waitFor(() => expect(window.location.pathname).toBe("/play/new-run"));
+});
+
+it("cancels a late server warning, releases the unused Run and restores launch focus", async () => {
+  calls.create.mockResolvedValue({ data: { id: "new-run", save: { restoreWarning: "core_changed" } }, response: new Response() });
+  window.history.replaceState(null, "", "/saves?gameId=game");
+  render(<LaunchButton gameId="game" saveId="old-save" />);
+  fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
+  await screen.findByRole("alertdialog");
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(calls.remove).toHaveBeenCalledExactlyOnceWith("/api/v1/runs/{runId}", { params: { path: { runId: "new-run" } } }));
+  expect(window.location.pathname + window.location.search).toBe("/saves?gameId=game");
+  await waitFor(() => expect(screen.getByRole("button", { name: "开始游戏" })).toHaveFocus());
 });

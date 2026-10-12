@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { RestoreConfirmationContext, restoreConfirmationTitle, restoreConfirmationDescription, useRestoreConfirmation } from "@/features/player/restore-confirmation";
 import { AppIcon } from "@/components/app-icon";
 import { useToast } from "@/components/toast-provider";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -28,6 +29,9 @@ function ImmersiveContent() {
   const shell = useRef<HTMLDivElement>(null);
   const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
   const { notify } = useToast();
+  const restoreConfirmation = useRestoreConfirmation();
+  const [restoreChoice, setRestoreChoice] = useState("cancel");
+  function confirmRestore() { setRestoreChoice("cancel"); return restoreConfirmation.request(); }
   const [exitOpen, setExitOpen] = useState(false);
   const [exitChoice, setExitChoice] = useState("continue");
   const router = useRouter();
@@ -68,12 +72,19 @@ function ImmersiveContent() {
   const systemMenu = useImmersiveSystemMenu({ commitPreference: audio.commitPreference, enterFullscreen: fullscreen.enterFullscreen, fullscreenActive: fullscreen.active, fullscreenSupported: fullscreen.supported, onBrowseAction: navigate, onExit: leave, preferences: audio.preferences });
   function chooseExit(id: string) { if (id === "exit") { leave(); } else { setExitOpen(false); } }
   const controller = useImmersiveNavigation((action) => {
+    if (restoreConfirmation.open) {
+      if (action === "left") { setRestoreChoice("cancel"); }
+      if (action === "right") { setRestoreChoice("load"); }
+      if (action === "cancel") { restoreConfirmation.settle(false); }
+      if (action === "confirm") { restoreConfirmation.settle(restoreChoice === "load"); }
+      return;
+    }
     if (!exitOpen) { systemMenu.handleActions([action]); return; }
     if (action === "left") { setExitChoice("continue"); }
     if (action === "right") { setExitChoice("exit"); }
     if (action === "cancel") { setExitOpen(false); }
     if (action === "confirm") { chooseExit(exitChoice); }
-  }, shell);
+  }, shell, restoreConfirmation.open || exitOpen || systemMenu.open);
   useEffect(() => {
     function key(event: KeyboardEvent) {
       if (event.key.toLowerCase() === "f" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); void enterFullscreen(); }
@@ -82,7 +93,7 @@ function ImmersiveContent() {
     return () => window.removeEventListener("keydown", key);
   }, [enterFullscreen]);
   return (
-    <div ref={shell} tabIndex={-1} className={styles.shell} data-immersive-shell="true">
+    <RestoreConfirmationContext value={confirmRestore}><div ref={shell} tabIndex={-1} className={styles.shell} data-immersive-shell="true">
       <ImmersiveChrome view={view} fullscreen={fullscreen} onMenu={() => systemMenu.handleActions(["menu"])} />
       <main className={styles.shellContent}>
         {controller.message ? <p className={styles.notice} role="status">{controller.message}</p> : null}
@@ -100,9 +111,12 @@ function ImmersiveContent() {
         )}
       </main>
       {systemMenu.open ? <ImmersiveSystemMenu announcement={systemMenu.announcement} fullscreenActive={fullscreen.active} fullscreenSupported={fullscreen.supported} preferences={audio.preferences} selectedIndex={systemMenu.selectedIndex} onActivate={systemMenu.activate} onAdjust={systemMenu.commitPreference} onClose={systemMenu.close} onSelect={systemMenu.select} /> : null}
+      {restoreConfirmation.open ? <ImmersiveChoiceDialog title={restoreConfirmationTitle} description={restoreConfirmationDescription}
+        selectedId={restoreChoice} choices={[{ id: "cancel", label: "取消" }, { id: "load", label: "尝试加载" }]}
+        onChoose={(id) => restoreConfirmation.settle(id === "load")} /> : null}
       {exitOpen ? <ImmersiveChoiceDialog title="退出沉浸模式？" description="返回后将继续使用普通 PC 或移动界面。" selectedId={exitChoice} choices={[{ id: "continue", label: "继续沉浸模式" }, { id: "exit", label: "返回普通首页", tone: "danger" }]} onChoose={chooseExit} /> : null}
       {!controller.ready ? <section className={styles.controllerOverlay} role="status"><div><span className={styles.controllerGlyph}><AppIcon name="gamepad" /></span><h2>等待手柄</h2><p>按下标准布局手柄上的任意按键以继续，也可使用方向键浏览。</p><Link href="/">返回首页</Link></div></section> : null}
       <div className={styles.viewportOverlay}><div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><Link className="button" href="/">返回普通首页</Link></div></div>
-    </div>
+    </div></RestoreConfirmationContext>
   );
 }

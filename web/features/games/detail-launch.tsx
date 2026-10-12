@@ -67,7 +67,7 @@ export function DetailLaunch({
     latest && !review ? (
       <LaunchButton
         gameId={detail.game.id}
-        saveId={latest.id}
+        saveId={latest.id} restoreWarning={latest.restoreWarning}
         coreId={latest.extinfo.coreId}
         contentLoading={contentLoading}
       >

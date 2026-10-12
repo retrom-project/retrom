@@ -9,13 +9,13 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AppIcon } from "@/components/app-icon";
 import { BrowserTime } from "@/components/browser-time";
 import { formatBytes } from "@/lib/format-bytes";
+import { StatusBadge } from "@/components/ui";
 const reasons: Record<Save["restoreReason"], string> = {
   "": "",
   game_unavailable: "游戏当前不可用",
   save_unavailable: "存档文件当前不可用",
   core_unavailable: "原核心不可用",
-  core_changed: "核心实现已变化",
-  content_changed: "游戏内容已变化",
+  content_changed: "游戏文件与创建存档时不一致",
   format_unreadable: "当前核心无法读取存档格式",
 };
 export function SaveCard({
@@ -145,7 +145,7 @@ export function SaveCard({
           <LaunchButton
             gameId={save.game.id}
             coreId={save.extinfo.coreId}
-            saveId={save.id}
+            saveId={save.id} restoreWarning={save.restoreWarning}
             disabled={!save.restorable}
           >
             从这里继续
@@ -204,6 +204,11 @@ function SaveImage({ save, compact }: { save: Save; compact: boolean }) {
           }
         >
           当前不可恢复
+        </span>
+      ) : null}
+      {save.restorable && save.restoreWarning === "core_changed" ? (
+        <span className="save-core-warning" title="核心版本已变化，加载可能失败">
+          <StatusBadge tone="warn">{compact ? "核心已变化" : "核心版本已变化"}</StatusBadge>
         </span>
       ) : null}
       <span className="save-library-size" aria-label={`存档大小 ${formatBytes(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>
