@@ -16,6 +16,8 @@ pending_review是共享管理员审核队列，来自所有来源，不按扫描
 
 BIOS扫描与游戏扫描在“来源扫描”页并列，使用同一绝对目录选择和进度列表；运行依赖页只管理已安装BIOS。扫描按选定platform/core范围复用runtime识别，不修改来源文件。
 
+ZIP BIOS识别使用当前核心DAT声明的成员事实；Host从catalog读取后，向识别工具完整传递成员名称、大小、CRC、SHA-1及必需标记，不在Host重复实现DAT匹配。每个缺失requirementKey只有一个不同内容的匹配候选时自动安装原始归档；多份候选保持人工选择，已安装记录不被扫描覆盖。
+
 Flycast GD-ROM 本地扫描会按已安装核心的配套名录，受控复制入口目录内的 CHD 与缺失 Parent，保持来源和归档字节原样。未找到配套文件时仍接收至待审核，由审核页列出缺失文件；可在统一资源区上传名录声明的 ZIP／CHD，再检查或选择可选试玩。ROM、Parent、BIOS CRC 差异不直接拒绝人工审批，快速审核继续跳过存在差异的游戏。
 
 管理员可用当前版本将published退回pending_review，保留同一Game及全部内容／私有关系；普通列表、详情、新建play Run随状态隐藏，管理员可继续review试玩。DAT必需成员按所选游戏条目、Parent合并关系和独立BIOS归属检查，忽略optional及NO_DUMP，BAD_DUMP且有校验事实的必需成员仍需存在。游戏包和所选Parent按名称＋大小或重命名后的大小＋CRC识别；CRC差异保留人工决定。缺失／大小不符返回missingRomMembers，人工与快速审批均阻止，服务端不依赖前端判定；未经试运行也可以批准完整内容。正常启动没有新增此完整性检查。
