@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { StrictMode } from "react";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type {
   PlayerRuntimeV1,
@@ -61,7 +61,7 @@ function Session({
   onNativeChange = () => undefined,
   startAllowed = true,
 }: SessionProps) {
-  const { mount, state } = usePlayerSession(
+  const { mount, state, error } = usePlayerSession(
     run,
     onNativeChange,
     () => undefined,
@@ -72,8 +72,31 @@ function Session({
     async () => {},
     startAllowed,
   );
-  return <div ref={mount}>{state}</div>;
+  return <div ref={mount}>{state}{error ? <p role="alert">{error}</p> : null}</div>;
 }
+
+it.each([true, false])("shows a useful failure and never replaces native evidence with the rejected mount code: native=%s", async native => {
+  let receive: (event: RuntimeEventV1) => void = () => undefined;
+  const instance = runtimeFixture("FAILED");
+  instance.subscribe = listener => {receive = listener; return () => undefined;};
+  instance.mount = async () => {
+    receive({type: "FATAL_ERROR", failure: {code: "PLAYER_CONTENT_REJECTED", category: "CONTENT", phase: "STARTUP", retryable: false,
+      diagnostics: [
+        ...(native ? [{source: "CORE" as const, message: "Required ROM program.bin is missing"}] : []),
+        {source: "RUNTIME", message: "PLAYER_CONTENT_REJECTED"},
+        {source: "RUNTIME", message: "at start ([URL])"},
+      ]}});
+    throw new Error("PLAYER_CONTENT_REJECTED");
+  };
+  vi.mocked(loadProviderRuntime).mockResolvedValue(instance);
+  const view = render(<Session run={sessionRun()} userId="owner-a" onSnapshot={async () => undefined} />);
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("核心无法加载游戏文件，请检查游戏内容和运行配置。");
+  if (native) {expect(alert).toHaveTextContent("program.bin");}
+  expect(alert).not.toHaveTextContent("PLAYER_CONTENT_REJECTED");
+  expect(alert).not.toHaveTextContent("at start");
+  view.unmount();
+});
 
 it("waits for landscape before loading a provider and keeps a completed session across rotations", async () => {
   const instance = runningRuntime();

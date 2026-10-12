@@ -18,6 +18,7 @@ import { createRuntimeHost } from "./runtime/runtime-host";
 import { loadProviderRuntime } from "./runtime/provider-dispatcher";
 import { validateLaunchEnvelopeBoundary } from "./runtime/envelope";
 import type { ContentLoading } from "./content-loading";
+import { runtimeFailureMessage } from "./runtime-failure-message";
 export function usePlayerSession(
   run: Schema<"Run">,
   onNativeChange: (runtime: PlayerRuntimeV1) => void,
@@ -55,6 +56,7 @@ export function usePlayerSession(
     let unsubscribe: (() => void) | undefined;
     let instance: PlayerRuntimeV1 | null = null;
     let started = false;
+    let fatalReceived = false;
     function receive(event: RuntimeEventV1) {
       if (controller.signal.aborted) {
         return;
@@ -68,10 +70,8 @@ export function usePlayerSession(
         setTasks(timeline.receive(event.task));
       }
       if (event.type === "FATAL_ERROR") {
-        setError(
-          event.failure.diagnostics.map((item) => item.message).join("\n") ||
-            event.failure.code,
-        );
+        fatalReceived = true;
+        setError(runtimeFailureMessage(event.failure));
       }
       if (event.type === "EXIT_REQUESTED") {
         callbacks.current.onExit(event.finalSnapshot);
@@ -142,7 +142,7 @@ export function usePlayerSession(
           throw new Error(response.error.message);
         }
       } catch (failure) {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && !fatalReceived) {
           setError(failure instanceof Error ? failure.message : "启动失败。");
         }
       }

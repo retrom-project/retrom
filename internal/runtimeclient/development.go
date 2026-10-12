@@ -15,13 +15,28 @@ import (
 )
 
 func (c *Client) loadDevelopment(directory string) error {
-	raw, err := os.ReadFile(filepath.Join(directory, "dev/dev-provider.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
+	primary := filepath.Join(directory, "dev/dev-provider.json")
+	additional, err := filepath.Glob(filepath.Join(directory, "dev/providers/*/dev-provider.json"))
 	if err != nil {
-		return fmt.Errorf("read development Provider: %w", err)
+		return fmt.Errorf("list development Providers: %w", err)
 	}
+	seen := make(map[string]bool)
+	for _, path := range append([]string{primary}, additional...) {
+		raw, readErr := os.ReadFile(path)
+		if path == primary && errors.Is(readErr, os.ErrNotExist) {
+			continue
+		}
+		if readErr != nil {
+			return fmt.Errorf("read development Provider: %w", readErr)
+		}
+		if err = c.loadDevelopmentProvider(raw, seen); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) loadDevelopmentProvider(raw []byte, seen map[string]bool) error {
 	var descriptor struct {
 		SchemaVersion      int               `json:"schemaVersion"`
 		ProviderID         string            `json:"providerId"`
@@ -35,13 +50,15 @@ func (c *Client) loadDevelopment(directory string) error {
 			ContentBase64 string `json:"contentBase64"`
 		} `json:"files"`
 	}
-	if err = json.Unmarshal(raw, &descriptor); err != nil {
+	if err := json.Unmarshal(raw, &descriptor); err != nil {
 		return fmt.Errorf("decode development Provider: %w", err)
 	}
 	provider, exists := c.Providers[descriptor.ProviderID]
-	if !exists || descriptor.SchemaVersion != 1 || provider.BundleSHA256 != descriptor.BaseBundleSHA256 {
+	if !exists || seen[descriptor.ProviderID] || descriptor.SchemaVersion != 1 ||
+		provider.BundleSHA256 != descriptor.BaseBundleSHA256 {
 		return model.ErrInvalid
 	}
+	seen[descriptor.ProviderID] = true
 	overrides := make(map[string][]byte, len(descriptor.Files))
 	var total int
 	for _, file := range descriptor.Files {

@@ -103,7 +103,7 @@
 .player-failure-details { width: 100%; text-align: left; }
 .player-failure-log { max-height: min(42dvh, 420px); overflow: auto; }
 .player-failure-details pre { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: var(--space-3); }
-.player-loading .player-loading-error { color: var(--danger); }
+.player-loading .player-loading-error { color: var(--danger); white-space: pre-line; overflow-wrap: anywhere; }
 /* Startup history uses the same shell for every Provider and Target. */
 .player-startup-viewport { --startup-step: calc(var(--space-4) + var(--space-3) + var(--space-2)); height: calc(var(--startup-step) * 3); margin-top: var(--space-4); overflow: hidden; }
 .player-startup-tasks { height: 100%; margin: 0; padding: 0; display: grid; grid-auto-rows: var(--startup-step); align-content: end; list-style: none; text-align: left; }
