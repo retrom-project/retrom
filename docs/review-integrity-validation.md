@@ -117,4 +117,10 @@ PFB watcher 为两个已安装 Provider 生成各自开发模块，Host 按同�
 
 新增回归先在旧实现失败，修复后通过：静默启动保留必需成员诊断、噪声不能挤走错误、前端 Promise 拒绝不覆盖具体错误，以及同一环境加载两种 Provider。原生 factory 钩子保留共享配置对象及已有 accessor setter，PSP 恢复回调回归通过。最终 runtime lint、类型、构建、311 文件 / 1,805 测试和 package check 通过；Retrom backend-check、Web lint/类型/84 文件 / 383 测试/生产构建/UI 门禁通过；PFB verify 与 validate 通过。私有新证据位于 `.pfb/evidence/review-integrity/native-errors-*`。
 
-追加最终 `ACC-RF-BROWSER` 四视口 24/24 通过，运行 ID `a0c5a7a8978140a2`，耗时 407.744 秒，输入摘要 `a66cb29ee63a13e431be6120dab4e7b2de67a4a557bd69fb2535c187dfccb20c`；证据位于 `.artifacts/acceptance/a0c5a7a8978140a2/`。独立验收数据库及 Redis 实例已正常清理；PFB 的数据和稳定 URL 保留，两个源码仓库仍为未提交的 `codex/review-integrity` 分支。
+追加最终 `ACC-RF-BROWSER` 四视口 24/24 通过，运行 ID `a0c5a7a8978140a2`，耗时 407.744 秒，输入摘要 `a66cb29ee63a13e431be6120dab4e7b2de67a4a557bd69fb2535c187dfccb20c`；证据位于 `.artifacts/acceptance/a0c5a7a8978140a2/`。独立验收数据库及 Redis 实例已正常清理；PFB 的数据和稳定 URL 保留。该记录是提交前的候选验证，正式版本固定见下文。
+
+## 正式版本固定
+
+发布阶段合入 runtime `d43812d` 和 Retrom `c7860043`，保留主分支的核心版本变化提示及旧存档尝试恢复流程。合并后的 runtime lint、类型、311 文件 / 1,805 测试、package check，以及 Provider input/build/check 和 release build 均通过；Retrom backend-check、api-check、Web lint/类型、84 文件 / 390 测试、生产构建和 UI 样式门禁通过。
+
+runtime PR #139 已合入并发布正式 `v0.64.0`（`089f380671bcbd2af31199b166bdaa9f13480a98`）。Retrom 的 `data/runtime-inputs.json` 独立固定正式双 Provider 与 host-tool，下载及完整性校验通过。EmulatorJS 正式 module SHA256 为 `f024fb4485e16d1f827734d9e6ad0c7a430666f29477dee9cfdd173ab60d4826`，Retrom Provider 为 `c368836c73ac4a7d9569ee0269f135a3efc378440903c0ac0ca8a33d4c42f0cc`。正式产品复验和 CI 使用这份固定描述，前文 PFB 开发模块摘要仅作为历史候选证据。
