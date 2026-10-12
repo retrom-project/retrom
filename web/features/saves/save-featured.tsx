@@ -55,7 +55,7 @@ export function SaveFeatured({ save }: { save: Save | undefined }) {
               </div>
               <div>
                 <span>存档状态</span>
-                <strong>可以继续</strong>
+                <strong>{save.restoreWarning ? "可尝试加载" : "可以继续"}</strong>
               </div>
             </div>
           </div>
@@ -63,7 +63,7 @@ export function SaveFeatured({ save }: { save: Save | undefined }) {
             <LaunchButton
               gameId={save.game.id}
               coreId={save.extinfo.coreId}
-              saveId={save.id}
+              saveId={save.id} restoreWarning={save.restoreWarning}
               returnTo="/saves"
             >
               从这里继续
@@ -72,7 +72,7 @@ export function SaveFeatured({ save }: { save: Save | undefined }) {
               查看游戏详情
             </Link>
             <small>
-              {save.kind === "game_save"
+              {save.restoreWarning ? "确认兼容风险后尝试恢复" : save.kind === "game_save"
                 ? "恢复后使用游戏内读档菜单"
                 : "直接恢复这份即时存档"}
             </small>

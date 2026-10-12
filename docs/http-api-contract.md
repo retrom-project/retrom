@@ -29,3 +29,5 @@ Game.lastPlayedAtMs为必需但可为null的当前用户投影，由既有recent
 街机父包维护与待审、已发布Game共用管理员边界。GET /api/v1/admin/games/{gameId}/runtime-options/arcade?coreId=… 返回runtime按已保存配置、DAT与实际成员投影的{coreId,parentFiles,missingParents}；缺失名称为runtime给出的完整ZIP名，Go/Web不猜测。POST /api/v1/admin/games/{gameId}/parents 接受multipart的version、coreId、file并返回GameDetail，按Game版本CAS补充或替换同logicalKey父包，不能覆盖游戏入口。成功由runtime将所选核心中同DAT父名引用换为上传文件的logicalKey，保留其他核心/选项/其他文件及出版状态，Game.version递增一次并重算全部active文件的contentHash。上传验证普通ZIP和引用结构，不以完整成员或Prepare作为保存门禁；不齐时投影仍报告缺失，实际启动返回400 RUNTIME_PARENT_MISSING并说明名称。
 
 父包投影或启动中的已知runtime内容失败保留具体code和安全message，例如400 RUNTIME_ARCADE_MACHINE_UNKNOWN，不降为INVALID_INPUT。审核readiness的逐条error采用相同错误映射，运行条件无法检查时返回REVIEW_READINESS_UNAVAILABLE；响应结构与持久化模型保持不变。
+
+Save.restoreWarning 为必需的当前态字符串：空值或 core_changed。核心版本差异对应 restorable=true、restoreReason=""、restoreWarning="core_changed"，表示可尝试但不保证恢复；ROM不一致等阻断结果的restoreWarning为空，core_changed不再是restoreReason。Run.save返回同一权威投影，Run.extinfo为实际运行身份。带核心变化警告的Run不能覆盖其来源存档ID（409），创建新存档与随后覆盖新档仍按原CAS/commitId契约。

@@ -4,7 +4,7 @@ export function saveFixture(id: string, gameId = "game"): Save {
   return {
     id, name: `进度 ${id}`, kind: "checkpoint", slot: null, version: 1,
     sizeBytes: 4706100, createdAtMs: 0, updatedAtMs: 0, screenshotUrl: null,
-    restorable: true, restoreReason: "",
+    restorable: true, restoreReason: "", restoreWarning: "",
     game: {
       id: gameId, platformInstanceId: "directory", platformId: "nes", directoryName: "NES",
       title: `游戏 ${gameId}`, description: "", developer: "", publisher: "", genre: "", players: null,

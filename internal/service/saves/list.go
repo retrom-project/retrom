@@ -2,11 +2,11 @@ package saves
 
 import (
 	"context"
-	"strings"
 
 	"retrom/internal/model"
 	"retrom/internal/persistence"
 	"retrom/internal/runtimeclient"
+	"retrom/internal/service/runs"
 )
 
 func (s *Service) availabilityBatch(ctx context.Context, items []model.Save) error {
@@ -61,10 +61,7 @@ func (s *Service) availabilityBatch(ctx context.Context, items []model.Save) err
 				"readFormats":   formats,
 			})
 	}
-	var results []struct {
-		Restorable bool    `json:"restorable"`
-		Reason     *string `json:"reason"`
-	}
+	var results []runs.RestoreResult
 	if err = s.Runs.Runtime.Call(ctx, "batch-restorable", map[string]any{"items": restoreInputs}, &results); err != nil {
 		return wrap(err)
 	}
@@ -72,11 +69,7 @@ func (s *Service) availabilityBatch(ctx context.Context, items []model.Save) err
 		return model.ErrUnavailable
 	}
 	for i, result := range results {
-		items[i].Restorable = result.Restorable
-		items[i].RestoreReason = ""
-		if result.Reason != nil {
-			items[i].RestoreReason = strings.ToLower(*result.Reason)
-		}
+		result.Apply(&items[i])
 	}
 	return nil
 }

@@ -42,7 +42,7 @@ it("removes a stale representative when the server confirms that the game has no
 
 it("selects older and blocked saves within one game and resets when another game is chosen", async () => {
   const latest = saveFixture("latest");
-  const older = { ...saveFixture("older"), restorable: false, restoreReason: "core_changed" as const };
+  const older = { ...saveFixture("older"), restorable: false, restoreReason: "content_changed" as const };
   requests.GET.mockResolvedValue(page([latest, older]));
   const hook = renderHook(({ save }) => useSaveSelection({ game: save.game, save }, true, restored), { initialProps: { save: latest } });
   await waitFor(() => expect(hook.result.current.save?.id).toBe("latest"));

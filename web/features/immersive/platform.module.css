@@ -76,6 +76,7 @@
   justify-content: flex-end;
   height: clamp(250px, 39dvh, 560px);
   padding: clamp(26px, 3vw, 58px);
+  padding-block: min(clamp(26px, 3vw, 58px), 4dvh);
   overflow: hidden;
   color: var(--immersive-text);
   text-align: left;
@@ -91,7 +92,9 @@
 
 .currentPlatform {
   display: grid;
+  container-type: size;
   grid-template-columns: minmax(0, 1fr) clamp(142px, 36%, 300px);
+  grid-template-rows: minmax(0, 1fr);
   gap: clamp(18px, 2vw, 42px);
   align-items: stretch;
   height: clamp(330px, 48dvh, 680px);
@@ -107,12 +110,17 @@
 }
 
 .platformCopy {
-  display: flex;
+  display: grid;
   flex: 1;
-  flex-direction: column;
-  justify-content: flex-end;
+  grid-template-rows: minmax(0, 1fr) repeat(4, auto);
   min-width: 0;
+  min-height: 0;
   height: 100%;
+}
+
+.platformMark {
+  min-height: 0;
+  container-type: size;
 }
 
 .platformTone0 {--platform-rgb: 80 214 202;}
@@ -122,11 +130,12 @@
 .platformTone4 {--platform-rgb: 225 106 151;}
 
 .platformCard .platformCode {
-  margin: 0 0 auto;
+  display: block;
   color: rgb(247 245 240 / 0.18);
   font-size: var(--text-immersive-mark);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.07em;
+  line-height: var(--leading-heading);
 }
 
 .platformCard p {
@@ -142,7 +151,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-immersive-title);
-  line-height: 1.03;
+  line-height: var(--leading-heading);
 }
 
 .platformCard strong {
@@ -159,7 +168,7 @@
   position: relative;
   align-self: center;
   justify-self: end;
-  width: 100%;
+  width: min(100%, calc(100cqh * 5 / 7));
   max-width: 300px;
   aspect-ratio: 5 / 7;
 }

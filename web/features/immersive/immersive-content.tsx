@@ -97,7 +97,7 @@ function GamePresentation({ entry, returnTo, saves }: { entry: ImmersiveEntry; r
         <LaunchButton
           gameId={game.id}
           coreId={save?.extinfo.coreId}
-          saveId={save?.id}
+          saveId={save?.id} restoreWarning={save?.restoreWarning}
           disabled={!!save && !save.restorable}
           returnTo={returnTo}
         >
@@ -147,7 +147,6 @@ const restoreMessages: Record<Schema<"Save">["restoreReason"], string> = {
   game_unavailable: "游戏当前不可用",
   save_unavailable: "存档文件当前不可用",
   core_unavailable: "保存时的核心当前不可用。",
-  core_changed: "运行核心已变化，无法恢复。",
   content_changed: "游戏内容已变化，无法恢复。",
   format_unreadable: "当前核心无法读取此存档格式。",
 };

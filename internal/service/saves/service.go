@@ -13,7 +13,6 @@ import (
 	_ "image/png"  // Register PNG for the public screenshot image boundary.
 	"io"
 	"reflect"
-	"strings"
 	"time"
 
 	"retrom/internal/model"
@@ -82,11 +81,7 @@ func (s *Service) availability(ctx context.Context, p model.Principal, save *mod
 	if err != nil {
 		return wrap(err)
 	}
-	save.Restorable = result.Restorable
-	save.RestoreReason = ""
-	if result.Reason != nil {
-		save.RestoreReason = strings.ToLower(*result.Reason)
-	}
+	result.Apply(save)
 	return nil
 }
 
@@ -116,7 +111,7 @@ func (s *Service) Write(ctx context.Context,
 	if err != nil {
 		return model.Save{}, wrap(err)
 	}
-	if err = validateInput(input, run); err != nil {
+	if err = validateInput(input, run, id); err != nil {
 		return model.Save{}, err
 	}
 	if readErr == nil && (existing.Game.ID != run.Run.GameID || existing.Kind != input.Kind || create) {
@@ -162,7 +157,10 @@ func (s *Service) commit(ctx context.Context, save model.Save, create bool) erro
 	}))
 }
 
-func validateInput(input model.SaveInput, run runs.Context) error {
+func validateInput(input model.SaveInput, run runs.Context, targetID string) error {
+	if source := run.Run.Save; source != nil && source.RestoreWarning == "core_changed" && source.ID == targetID {
+		return model.ErrConflict
+	}
 	if run.Run.Purpose != "play" || run.Checkpoint == nil {
 		return model.ErrForbidden
 	}

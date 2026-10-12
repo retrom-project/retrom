@@ -55,7 +55,7 @@
   --text-immersive-body: clamp(16px, 1.05vw, 22px);
   --text-immersive-heading: clamp(20px, 1.4vw, 30px);
   --text-immersive-title: clamp(32px, 3.2vw, 64px);
-  --text-immersive-mark: clamp(72px, 10vw, 150px);
+  --text-immersive-mark: min(clamp(72px, 10vw, 150px), 80cqh);
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;

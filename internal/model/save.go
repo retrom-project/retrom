@@ -14,24 +14,25 @@ type Extinfo struct {
 	ROMSet           string          `json:"romSet,omitempty"`
 }
 type Save struct {
-	ID            string  `json:"id"`
-	Game          Game    `json:"game"`
-	Kind          string  `json:"kind"`
-	Name          string  `json:"name"`
-	Slot          *string `json:"slot"`
-	Version       int64   `json:"version"`
-	SizeBytes     int64   `json:"sizeBytes"`
-	CreatedAtMs   int64   `json:"createdAtMs"`
-	UpdatedAtMs   int64   `json:"updatedAtMs"`
-	ScreenshotURL *string `json:"screenshotUrl"`
-	Restorable    bool    `json:"restorable"`
-	RestoreReason string  `json:"restoreReason"`
-	Extinfo       Extinfo `json:"extinfo"`
-	StorageKey    string  `json:"-"`
-	ScreenshotKey string  `json:"-"`
-	PayloadHash   string  `json:"-"`
-	UserID        string  `json:"-"`
-	LastCommitID  string  `json:"-"`
+	ID             string  `json:"id"`
+	Game           Game    `json:"game"`
+	Kind           string  `json:"kind"`
+	Name           string  `json:"name"`
+	Slot           *string `json:"slot"`
+	Version        int64   `json:"version"`
+	SizeBytes      int64   `json:"sizeBytes"`
+	CreatedAtMs    int64   `json:"createdAtMs"`
+	UpdatedAtMs    int64   `json:"updatedAtMs"`
+	ScreenshotURL  *string `json:"screenshotUrl"`
+	Restorable     bool    `json:"restorable"`
+	RestoreReason  string  `json:"restoreReason"`
+	RestoreWarning string  `json:"restoreWarning"`
+	Extinfo        Extinfo `json:"extinfo"`
+	StorageKey     string  `json:"-"`
+	ScreenshotKey  string  `json:"-"`
+	PayloadHash    string  `json:"-"`
+	UserID         string  `json:"-"`
+	LastCommitID   string  `json:"-"`
 }
 type SaveInput struct {
 	CommitID string  `json:"commitId"`

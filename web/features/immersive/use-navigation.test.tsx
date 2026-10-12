@@ -53,3 +53,25 @@ it("returns focus from the disposed player and waits for neutral before acceptin
   frame(325); frame(326, [0]);
   expect(onAction).toHaveBeenLastCalledWith("confirm");
 });
+
+it("requires a new neutral interval when a restore dialog opens or closes", () => {
+  setActiveImmersiveGamepadIndex(0);
+  const onAction = vi.fn();
+  const hook = renderHook(({ open }) => useImmersiveNavigation(onAction, undefined, open), { initialProps: { open: false } });
+  function frame(nowMs: number, pressed: number[] = []) {
+    act(() => source.receive({ nowMs, suspended: false, gamepads: [{ index: 0, connected: true, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, index) => ({ pressed: pressed.includes(index), value: pressed.includes(index) ? 1 : 0 })) }] }));
+  }
+  frame(0); frame(120); frame(121, [0]);
+  expect(onAction).toHaveBeenCalledExactlyOnceWith("confirm");
+  hook.rerender({ open: true });
+  frame(300, [0]); frame(400, [15]);
+  expect(onAction).toHaveBeenCalledOnce();
+  frame(500); frame(620); frame(621, [15]);
+  expect(onAction).toHaveBeenLastCalledWith("right");
+  hook.rerender({ open: false });
+  onAction.mockClear();
+  frame(900, [15]); frame(1200, [15]);
+  expect(onAction).not.toHaveBeenCalled();
+  frame(1201); frame(1321); frame(1322, [1]);
+  expect(onAction).toHaveBeenCalledExactlyOnceWith("cancel");
+});

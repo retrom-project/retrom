@@ -12,8 +12,11 @@ import {
 export function useImmersiveNavigation(
   onAction: (action: NavigationAction) => void,
   returnFocus?: RefObject<HTMLElement | null>,
+  inputBoundary = false,
 ) {
   const action = useRef(onAction);
+  const inputModel = useRef<NavigationInputModel | null>(null);
+  useEffect(() => { inputModel.current?.reset(); }, [inputBoundary]);
   useEffect(() => {
     action.current = onAction;
   }, [onAction]);
@@ -30,6 +33,7 @@ export function useImmersiveNavigation(
     }
     const claim = new GamepadClaimModel();
     const navigation = new NavigationInputModel();
+    inputModel.current = navigation;
     let index = getActiveImmersiveGamepadIndex();
     const unsubscribe = browserGamepadSource.subscribe((frame) => {
       if (frame.suspended) {
