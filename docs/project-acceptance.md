@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-13 FBAlpha 0.2.97.44 新核心候选在独立 PFB 完成 21 款问题样本的导入、审核预览与实际游玩验证，并验证代表样本的即时存档、新实例恢复、标准手柄和持久缓存。限定范围及最终证据见 [FBAlpha 候选验证](fbalpha-029744-validation.md)；未更改生产依赖或数据库。
+
 2026-10-12 新 `review-integrity` PFB 完成管理员退回审核及审核阶段 DAT 必需成员检查。四种街机核心的条目切换和核心隔离、原样缺件拦截、CRC 人工放行，以及真实 NES 存档在退回 / 重新发布前后的保留已验证；没有数据库表或正常启动门禁变化。完整工程检查及最终四视口 `ACC-RF-BROWSER` 24/24 通过（`42c9f9e4d805489c`）。限定范围、证据及逐项 T01–T47 追踪见 [候选验证](review-integrity-validation.md)，不提升全核心或负载矩阵状态。
 
 2026-10-12 FBNeo / Butterscotch 上游同步已完成两核心正式 tag 及 runtime `v0.62.0` 发行；Retrom 固定同次发行工具与两个 Provider。七款游戏在正式核心及正式 runtime 下完成输入、公开存档、不同 Run 恢复与继续操作，110 个 Target 指纹在 runtime 版本切换前后相同；正式输入四视口 `ACC-RF-BROWSER` 24/24 通过（`a8de5d1e2ec3420a`）。Butterscotch 黑屏及角度恢复精度问题已修复；早期两次冷浏览器异常仍未归因，不记为已修复。详细版本、限定验收范围、ROM set 变化及 T01–T47 追踪见 [上游同步验收](core-upstream-sync-2026-10-12.md)。
