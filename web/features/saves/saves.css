@@ -55,6 +55,8 @@
 .save-library-card:has(.save-library-menu) { z-index: 4; }
 .save-library-shot { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: calc(var(--radius-cover) - 1px) calc(var(--radius-cover) - 1px) 0 0; background: #171d30; }
 .save-library-shot img { object-fit: contain; }
+.save-core-warning { position: absolute; z-index: 3; top: var(--space-2); left: var(--space-2); right: var(--space-2); pointer-events: none; }
+.save-core-warning .status { max-width: 100%; white-space: nowrap; overflow: hidden; }
 .save-library-resume { display: grid; margin-top: var(--space-3); }
 .save-library-resume .button { width: 100%; }
 .save-library-resume .status { width: auto; white-space: normal; }

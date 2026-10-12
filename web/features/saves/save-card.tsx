@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AppIcon } from "@/components/app-icon";
 import { BrowserTime } from "@/components/browser-time";
 import { formatBytes } from "@/lib/format-bytes";
+import { StatusBadge } from "@/components/ui";
 const reasons: Record<Save["restoreReason"], string> = {
   "": "",
   game_unavailable: "游戏当前不可用",
@@ -203,6 +204,11 @@ function SaveImage({ save, compact }: { save: Save; compact: boolean }) {
           }
         >
           当前不可恢复
+        </span>
+      ) : null}
+      {save.restorable && save.restoreWarning === "core_changed" ? (
+        <span className="save-core-warning" title="核心版本已变化，加载可能失败">
+          <StatusBadge tone="warn">{compact ? "核心已变化" : "核心版本已变化"}</StatusBadge>
         </span>
       ) : null}
       <span className="save-library-size" aria-label={`存档大小 ${formatBytes(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>

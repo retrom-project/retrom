@@ -108,7 +108,7 @@ it("warns before creating a Run or requesting fullscreen and permits cancellatio
   Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: fullscreen });
   Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true });
   render(<LaunchButton gameId="game" saveId="old-save" restoreWarning="core_changed" />);
-  expect(screen.getByText("核心版本已变化")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "开始游戏" })).toHaveAccessibleDescription("核心版本已变化，确认后可尝试加载");
   fireEvent.click(screen.getByRole("button", { name: "开始游戏" }));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("原存档会保留");
   expect(calls.create).not.toHaveBeenCalled();

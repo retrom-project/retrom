@@ -41,5 +41,3 @@
 .phone-launch-options { min-height: 44px; display: grid; place-items: center; gap: var(--space-1); border: 0; color: var(--muted); background: transparent; font-size: var(--text-caption); }
 .phone-launch-options svg { width: 20px; height: 20px; }
 .local-game-save-notice { position: fixed; z-index: 250; right: var(--space-4); bottom: var(--space-4); max-width: 440px; display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--amber-line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
-
-.home-launch-control { display: grid; gap: var(--space-2); justify-items: start; }

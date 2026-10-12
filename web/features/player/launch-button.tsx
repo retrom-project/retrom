@@ -2,7 +2,7 @@
 import { useContext, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { StatusBadge } from "@/components/ui";
+import { AppIcon } from "@/components/app-icon";
 import type { Save } from "@/lib/api/types";
 import { RestoreConfirmationContext, restoreConfirmationTitle, restoreConfirmationDescription, useRestoreConfirmation } from "./restore-confirmation";
 import { useToast } from "@/components/toast-provider";
@@ -76,13 +76,15 @@ export function LaunchButton({
   }
   return (
     <div className="home-launch-control">
-      {restoreWarning === "core_changed" ? <StatusBadge tone="warn">核心版本已变化</StatusBadge> : null}
       <button
         ref={button}
         className={`button${variant === "secondary" ? " secondary" : ""}`}
+        title={restoreWarning === "core_changed" ? "核心版本已变化，加载可能失败" : undefined}
+        aria-description={restoreWarning === "core_changed" ? "核心版本已变化，确认后可尝试加载" : undefined}
         disabled={disabled || busy}
         onClick={() => void launch()}
       >
+        {restoreWarning === "core_changed" ? <AppIcon name="warning" /> : null}
         {busy ? "正在启动…" : children}
       </button>
       <ConfirmDialog open={confirmation.open} title={restoreConfirmationTitle} description={restoreConfirmationDescription}
