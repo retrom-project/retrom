@@ -17,6 +17,8 @@
 | RETROM_HTTP_ADDR | 内部监听地址 |
 | RETROM_WEB_ROOT | 含public/runtime-isolation的固定Web资产根，镜像已打包该目录 |
 
+本地独立运行端口需要给 Web 进程传入同一 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`。页面 CSP 仅追加该配置中明确的 `http://{runId}.<域名>.localhost:<端口>` 来源，支持隔离验收分配的随机端口；外部 HTTP 域名和无效模板不扩大许可范围。标准 PFB 的 localhost:3000 与生产 HTTPS 来源继续适用。
+
 Node工具和Provider必须与版本控制的 `data/runtime-inputs.json` 配套。默认准备和镜像构建共同认证其中三个归档、实际解包字节和源码身份；显式build context也必须属于该认证集合。固定正式发行与开发运输输入的流程见[配套依赖输入](dependency-management.md)。当前描述固定正式 runtime Release；发行身份、归档大小和摘要由该描述决定，候选验收不能代替正式发行。生产镜像只放离线工具、已验证Provider、可由服务UID读取的公共blocklist和Go binary，运行不依赖源码或PFB。
 
 生产同时运行PostgreSQL、Redis、Go、Web及可信反向代理。数据库和Redis不暴露公网；持久根仅服务UID可写。客户端IP默认信任内网与回环地址的直接代理，不需要配置代理网段。内网包括IPv4 RFC1918和IPv6 ULA；代理必须覆盖X-Forwarded-For。从右向左跳过内网代理，采用首个公网地址；整条链均为内网时采用最左侧客户端地址。公网直连忽略转发头，重复或超长的转发头，以及解析到无效地址时回退到直接连接地址。代理把/api/v1和/runtime交给Go，隔离host只代理/__retrom/runtime-isolation/，其他路径404；TLS、wildcard DNS和证书由部署者配置。健康ready端点仅内部验证依赖可用，不能将200当全部产品通过。
