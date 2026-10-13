@@ -74,7 +74,7 @@ func (s *Service) resourcePlan(ctx context.Context, run *Context, resource map[s
 	plan runtimeclient.Resource, prepared runtimeclient.Prepared,
 ) error {
 	switch plan.Kind {
-	case "ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART":
+	case "ROM_BLOB", "SEEKABLE_BLOB", "WASM4_CART":
 		return s.blobResource(ctx, run, resource, selected, plan)
 	case "FILE_TREE", "NATIVE_WEB", "ISOLATED_WEB":
 		return s.treeResource(run, resource, selected, plan, prepared)
@@ -89,7 +89,7 @@ func (s *Service) resourcePlan(ctx context.Context, run *Context, resource map[s
 func (s *Service) blobResource(ctx context.Context, run *Context, resource map[string]any, selected []Blob,
 	plan runtimeclient.Resource,
 ) error {
-	if plan.Encoding == "ZIP" || plan.Kind == "PARENT_ARCHIVE" && len(selected) > 1 {
+	if plan.Encoding == "ZIP" {
 		assembled, err := s.assembled(ctx, run, selected, plan)
 		if err != nil {
 			return err
@@ -104,7 +104,7 @@ func (s *Service) blobResource(ctx context.Context, run *Context, resource map[s
 	resource["url"] = ResourceURL(run.Run.ID, file)
 	resource["sha256"] = file.SHA256
 	resource["sizeBytes"] = file.SizeBytes
-	resource["rangeRequired"] = plan.Kind == "SEEKABLE_BLOB" || plan.Kind == "PARENT_ARCHIVE"
+	resource["rangeRequired"] = plan.Kind == "SEEKABLE_BLOB"
 	return nil
 }
 

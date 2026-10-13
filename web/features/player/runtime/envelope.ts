@@ -245,7 +245,7 @@ function validResources(value: unknown): value is RuntimeResourceV1[] {
 
 function validResource(value: Record<string, unknown>) {
   if (
-    ["ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART"].includes(
+    ["ROM_BLOB", "SEEKABLE_BLOB", "WASM4_CART"].includes(
       String(value.kind),
     )
   ) {
@@ -278,7 +278,7 @@ function validBlobResource(value: Record<string, unknown>) {
     positiveInteger(value.sizeBytes) &&
     relativeURL(value.url) &&
     value.rangeRequired ===
-      ["SEEKABLE_BLOB", "PARENT_ARCHIVE"].includes(String(value.kind))
+      ["SEEKABLE_BLOB"].includes(String(value.kind))
   );
 }
 
