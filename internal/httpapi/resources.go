@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"retrom/internal/model"
 	"retrom/internal/runtimeclient"
@@ -113,17 +111,16 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 		return err
 	}
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-	if data, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
-		w.Header().Set("Cache-Control", "private, no-store")
-		http.ServeContent(w, r, name, time.Unix(0, 0), bytes.NewReader(data))
-		return nil
+	rootPath, filePath := provider.Root, name
+	if asset, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
+		rootPath, filePath = asset.Root, asset.Name
 	}
-	root, err := os.OpenRoot(provider.Root)
+	root, err := os.OpenRoot(rootPath)
 	if err != nil {
 		return fmt.Errorf("open Provider resource: %w", err)
 	}
 	defer closeRoot(root)
-	file, err := root.Open(name)
+	file, err := root.Open(filePath)
 	if err != nil {
 		return model.ErrNotFound
 	}
