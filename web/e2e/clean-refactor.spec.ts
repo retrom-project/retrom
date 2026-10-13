@@ -90,6 +90,7 @@ test("shared review, real NES save and new-instance restore", async ({
   const game = await prepareLibrary(page);
   await page.goto(`/library?q=${encodeURIComponent(game.title)}`);
   await page.locator(`a[href="/games/${game.id}"]`).first().click();
+  await page.waitForURL(new RegExp(`/games/${game.id}$`, "u"));
   await expect(page).toHaveURL(new RegExp(`/games/${game.id}$`, "u"));
   await expect(
     page.getByRole("heading", { level: 1, name: game.title, exact: true }),
@@ -99,6 +100,7 @@ test("shared review, real NES save and new-instance restore", async ({
     await page.getByRole("button", { name: "启动选项", exact: true }).click();
   }
   await start.click();
+  await page.waitForURL(/\/play\/[0-9a-f-]+\?/u);
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?/u);
   await ensurePlayerLandscape(page);
   await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
