@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-14 移动端数字摇杆修复在 `mobile-input-responsiveness` PFB 完成：FBNeo / MAME 2003 / Plus 实际核心触摸、快速换向、多指、低帧率压力和暂停恢复通过，两版 EmulatorJS 控件集成及标准 Gamepad API 路径通过。限定输入范围及真机测量限制见 [移动输入候选验证](mobile-input-validation.md)；候选未发布，不提升全核心或 T01–T47 状态。
+
 2026-10-13 Parent 原始 ZIP 独立交付和 BIOS ZIP 自动扫描修复在 `bios-import-recovery` PFB 完成验证：69 款审计样例逐项核对原文件资源，50 款已发布游戏及一个 MAME 故障样例可运行，18 款原待审游戏仍有核心内容失败；五种 DAT 核心完成配置隔离、实际游玩与保存恢复。限定范围、黑屏样例及 T01–T47 追踪见 [Parent 完整性验证](parent-integrity-validation.md)。无数据库结构或特定 ROM 逻辑变更。
 
 2026-10-13 FBAlpha 0.2.97.44 新核心候选在独立 PFB 完成 21 款问题样本的导入、审核预览与实际游玩验证，并验证代表样本的即时存档、新实例恢复、标准手柄和持久缓存。限定范围及最终证据见 [FBAlpha 候选验证](fbalpha-029744-validation.md)；未更改生产依赖或数据库。
