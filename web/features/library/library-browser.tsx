@@ -99,6 +99,7 @@ function PublicLibraryBrowser({
           </button>
         </div>
         <LibraryPlatformFilter
+          showCounts={kind === "library"}
           platforms={catalog.data?.platforms ?? []}
           directories={directories.data?.items ?? []}
           selected={platform}

@@ -4,11 +4,11 @@ import { useState } from "react";
 import type { Schema } from "@/lib/api/types";
 import { BrowserTime } from "@/components/browser-time";
 import { PageHeader } from "@/components/ui";
-import { LaunchButton } from "@/features/player/launch-button";
 import { AdminGameCover } from "./admin-game-browser";
 import { GameEditor } from "./game-editor";
 import { GameManagement } from "./game-management";
 import { ReviewBiosStatus } from "./review-bios-status";
+import { ReviewSummary } from "./review-summary";
 export function AdminGameDetail({ detail, mode, busy, onReview, onChange, onWithdraw }: {
   detail: Schema<"GameDetail">;
   mode: "admin" | "review";
@@ -57,19 +57,7 @@ function ReviewOverview({ detail, coreId, busy, onReview }: {
   busy: boolean;
   onReview: (action: "approve" | "discard", coreId?: string) => void;
 }) {
-  return <>
-    <section className="review-summary" aria-label="审核条目概览">
-      <AdminGameCover game={detail.game} />
-      <div className="review-summary-copy">
-        <h2>{detail.game.title}</h2>
-        <p>{detail.game.directoryName} · {detail.game.platformId}</p>
-      </div>
-      <div className="review-summary-actions">
-        <LaunchButton gameId={detail.game.id} coreId={coreId} purpose="review" variant="secondary" disabled={busy}>运行游戏</LaunchButton>
-        <button className="button secondary" disabled={busy} onClick={() => onReview("discard")}>丢弃条目</button>
-        <button className="button" disabled={busy} onClick={() => onReview("approve", coreId)}>通过并发布</button>
-      </div>
-    </section>
-    <ReviewBiosStatus detail={detail} coreId={coreId} />
-  </>;
+  return <ReviewBiosStatus detail={detail} coreId={coreId}>
+    {check => <ReviewSummary detail={detail} coreId={coreId} busy={busy} onReview={onReview} check={check} />}
+  </ReviewBiosStatus>;
 }
