@@ -10,7 +10,7 @@ Playwright通过正常HTTP建立合法MIT NES来源、扫描、共享审核、�
 
 测试按实际风险选择，不为每个低影响CRUD机械复制实现。最终稳定源码仍需全量格式/lint/tests/schema与浏览器门禁；局部通过不能代表整体P7完成。
 
-make acceptance-prepare验证配套输入，make acceptance-case CASE=ACC-RF-BROWSER与make web-e2e使用同一新入口。需RETROM_TEST_DATABASE_URL作为可创建临时库的连接、RETROM_RUNTIME_TOOL_INPUT和RETROM_PROVIDER_INPUT自足目录；其余依赖用make prepare-deps。入口只创建/删除自己分配的DB，Redis有独立容器，Go/Next和受管来源有独立目录，300秒启动预算。使用项目MIT builder生成唯一NES来源，经正常UI扫描审核后执行clean-refactor.spec.ts全部四视口；无业务SQL seed。证据在.artifacts/acceptance/<id>/cases/acc-rf-browser，失败同样保留日志，成功/失败均销毁自有资源。
+make acceptance-prepare验证配套输入，make acceptance-case CASE=ACC-RF-BROWSER与make web-e2e使用同一新入口。需RETROM_TEST_DATABASE_URL作为可创建临时库的连接、RETROM_RUNTIME_TOOL_INPUT和RETROM_PROVIDER_INPUT自足目录；其余依赖用make prepare-deps。入口只创建/删除自己分配的DB，Redis有独立容器，Go/Next和受管来源有独立目录，300秒启动预算；准备阶段用只读GET预编译被测Next开发路由，页面交互的原有超时与断言不变。使用项目MIT builder生成唯一NES来源，经正常UI扫描审核后执行clean-refactor.spec.ts全部四视口；无业务SQL seed。证据在.artifacts/acceptance/<id>/cases/acc-rf-browser，失败同样保留日志，成功/失败均销毁自有资源。
 
 scripts/verify-backend-image.sh <backend-image> <web-image>验证实际两张部署镜像。临时独立网络内以UID/GID1000创建全新PostgreSQL/Redis与合法只读MIT来源，正常HTTP初始化、扫描、批准、创建Run、读取强If-Match/Range、无cookie隔离shell/SW与实际Provider bridge，再关闭Run。Web standalone使用构建时retrom:8080 rewrite连接同一新库，检查登录HTML、健康代理、已初始化匿名账号上下文和受保护catalog的401。无旧checkout挂载或业务SQL种子；任何失败均清理仅本次自有容器/网络/来源副本。此检查证明镜像闭包与部署连接，不替代浏览器真实运行和原生恢复。
 
