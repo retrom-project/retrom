@@ -108,20 +108,19 @@ test("shared review, real NES save and new-instance restore", async ({
   await revealPlayerControls(page);
   await verifyDesktopPlayerControls(page);
   await revealPlayerControls(page);
-  if (await page.evaluate(() => document.fullscreenElement !== null)) {
-    await page.evaluate(() => document.exitFullscreen());
-  }
-  // Fullscreen exit resolves before Chromium restores the emulated viewport.
-  // Wait for the responsive layout before opening More Actions.
+  await expect(page.getByRole("button", { name: /^(全屏|退出全屏)$/u })).toHaveCount(0);
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+  // Wait for Chromium to restore the emulated viewport after the user's menu action.
   await expect.poll(() => page.evaluate(() => ({
     width: innerWidth, height: innerHeight,
   }))).toEqual(page.viewportSize());
-  await revealPlayerControls(page);
-  await expect(page.getByRole("button", { name: /^(全屏|退出全屏)$/u })).toHaveCount(0);
-  await page.getByRole("button", { name: "更多操作", exact: true }).click();
   await page.getByRole("menuitem", { name: "在更多操作中进入全屏", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
   await expect(page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true })).toBeVisible();
   await page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
   await expect(page.getByRole("menu", { name: "Player 更多操作", exact: true })).toHaveCount(0);
   const firstFrame = await nesFrame(page);
