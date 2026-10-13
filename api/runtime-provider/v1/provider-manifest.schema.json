@@ -214,7 +214,6 @@
             "NATIVE_WEB",
             "ISOLATED_WEB",
             "BIOS_BUNDLE",
-            "PARENT_ARCHIVE",
             "MULTI_DISC",
             "EXTERNAL_FILE_SET",
             "WASM4_CART"

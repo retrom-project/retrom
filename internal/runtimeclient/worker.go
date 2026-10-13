@@ -155,7 +155,7 @@ func commandTimeout(command string) time.Duration {
 	switch command {
 	case "detect-scummvm":
 		return time.Minute
-	case "assemble-resource", "parent-archive", "normalize-content":
+	case "assemble-resource", "normalize-content":
 		return 2 * time.Minute
 	default:
 		return 30 * time.Second

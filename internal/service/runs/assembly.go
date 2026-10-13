@@ -34,15 +34,11 @@ func (s *Service) assembled(ctx context.Context, run *Context, selected []Blob,
 			slog.Error("remove resource assembly", "error", removeErr)
 		}
 	}()
-	command := "assemble-resource"
-	if plan.Kind == "PARENT_ARCHIVE" {
-		command = "parent-archive"
-	}
 	var output struct {
 		SHA256    string `json:"sha256"`
 		SizeBytes int64  `json:"sizeBytes"`
 	}
-	if err = s.Runtime.Call(ctx, command, map[string]any{
+	if err = s.Runtime.Call(ctx, "assemble-resource", map[string]any{
 		"files": facts, "locators": locators,
 		"paths": plan.Paths, "outputPath": absolute,
 	}, &output); err != nil {

@@ -8,4 +8,4 @@ BIOS 来源扫描最多枚举 100000 个文件，递归子目录的文件合并�
 
 手动上传/替换只检查requirementKey存在、文件安全/非空/大小，记录实际SHA，不以已知BIOS摘要校验门禁，也不触发游戏重审核或全库验证。旧安装deleted，current只有一条。删除当前安装同样由文件生命周期清理。
 
-街机DAT、实际ZIP成员、Parent闭包和BIOS需求由runtime准备解析，Go不截取第一个Parent或猜核心规则。多个Parent通过统一parent-archive输出一个规范受管归档。缺依赖在正式启动/试玩准确失败，列表与普通资料编辑不装配完整运行资源。
+街机DAT、实际ZIP成员、Parent闭包和BIOS需求由runtime准备解析，Go不截取第一个Parent或猜核心规则。所选DAT父链通过EXTERNAL_FILE_SET逐文件交付原始ZIP，保留每个文件的大小与SHA，仅规范化虚拟挂载名称；不合并成员、不重打包、不向父包注入BIOS。DAT要求的BIOS始终独立交付。缺依赖在正式启动/试玩准确失败，列表与普通资料编辑不装配完整运行资源。
