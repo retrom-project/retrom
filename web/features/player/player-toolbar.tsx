@@ -28,18 +28,19 @@ type Props = {
   onSave: () => void;
   onExit: () => void;
   onSettings: () => void;
+  onSurfaceClick?: () => void;
   onGameEditor?: () => void;
   onUseCover?: () => void;
 };
 export function PlayerToolbar(props: Props) {
-  const { envelope, state, availability, busy, visible, onReveal, onHover, onFocus, onPause, onSave, onExit, onControlError } = props;
+  const { envelope, state, availability, busy, visible, onReveal, onHover, onFocus, onPause, onSave, onExit } = props;
   const controls = controlState(envelope.runtime.capabilities, state, availability, busy);
   const toolbarRef = useRef<HTMLElement>(null);
   const mobile = useMobilePlayerLayout();
   if (props.immersive) { return null; }
   return <>
     <PlayerHudHandle visible={visible} toolbarRef={toolbarRef} onReveal={onReveal} desktopPointer={!!props.desktopPointer} onHover={onHover} onInteract={props.onInteract} />
-    <header ref={toolbarRef} inert={!visible} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)} onFocusCapture={(event) => onFocus(!props.desktopPointer || event.target.matches(":focus-visible"))} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}
+    <header ref={toolbarRef} inert={!visible} className={`player-toolbar${visible ? " is-visible" : ""}`} onPointerEnter={() => {if (props.desktopPointer) {onHover(true);}}} onPointerLeave={() => {if (props.desktopPointer) {onHover(false);}}} onFocusCapture={(event) => onFocus(!props.desktopPointer || event.target.matches(":focus-visible"))} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onFocus(false); } }}
       onClickCapture={(event) => { if (props.desktopPointer) { if (event.detail > 0) { onFocus(false); } void props.onInteract(); } }}>
       <button className="player-back button ghost icon-only" aria-label="返回并退出游戏" onClick={onExit}><AppIcon name="arrow-left" /></button>
       <PlayerSyncStatus {...props} />
@@ -47,7 +48,6 @@ export function PlayerToolbar(props: Props) {
         {!mobile ? <button className="player-control player-debug-control" aria-expanded={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button> : null}
         <button className="player-control player-save-button player-context-action is-primary" disabled={controls.saveDisabled} onClick={onSave}><AppIcon name="save" />{envelope.runtime.checkpoint?.semantics === "GAME_SAVE" ? "同步存档" : mobile ? "保存" : "创建存档"}</button>
         <ToolbarPauseControl state={state} disabled={controls.pauseDisabled} desktopPointer={!!props.desktopPointer} onPause={onPause} />
-        {!mobile ? <PlayerFullscreenControl onError={onControlError} /> : null}
         <div className="player-menu-wrap">
           <button id="player-more-button" className="player-control is-icon" aria-label="更多操作" aria-haspopup="menu" aria-expanded={props.menu} onClick={props.onMenu}><AppIcon name="more" /></button>
           {props.menu ? <PlayerMenu {...props} controls={controls} /> : null}
@@ -63,12 +63,12 @@ function ToolbarPauseControl({state, disabled, desktopPointer, onPause}: {state:
 function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }) {
   const { controls, onMenu, onSettings, onUseCover, onExit, onControlError } = props;
   return <>
-    <button className="player-menu-backdrop" tabIndex={-1} aria-label="关闭更多操作" onClick={onMenu} />
+    <button className="player-menu-backdrop" tabIndex={-1} aria-label="关闭更多操作" onClick={props.onSurfaceClick ?? onMenu} />
     <div className="player-menu" role="menu" aria-label="Player 更多操作">
       <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button aria-label="关闭更多操作" onClick={onMenu}><AppIcon name="x" /></button></header>
       <div className="player-menu-runtime"><i /><span><strong>{props.status || checkpointStatus(props.envelope, props.availability)}</strong><small>{props.state === "PAUSED" ? "当前已暂停" : props.envelope.session.coreName}</small></span></div>
       {onUseCover ? <button role="menuitem" aria-label="选用当前截图为封面" disabled={controls.coverDisabled} onClick={onUseCover}><AppIcon name="library" /><span>选用当前截图为封面</span></button> : null}
-      {props.onGameEditor ? <button role="menuitem" disabled={!controls.ready} onClick={props.onGameEditor}><AppIcon name="settings" /><span>游戏修改</span></button> : null}
+      {props.onGameEditor ? <button role="menuitem" aria-label="游戏修改" disabled={!controls.ready} onClick={props.onGameEditor}><AppIcon name="settings" /><span>游戏修改</span></button> : null}
       {controls.settingsAvailable ? <button role="menuitem" aria-label="模拟器设置" disabled={!controls.ready} onClick={onSettings}><AppIcon name="settings" /><span>模拟器设置</span></button> : null}
       <PlayerFullscreenControl menu onError={onControlError} />
       <hr />
