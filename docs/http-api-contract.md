@@ -12,7 +12,7 @@
 
 GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不返回body。当前Go1.26.5中，匹配If-Match的HEAD带有效单段Range返回206、选中段Content-Length与Content-Range；未带Range返回200和完整长度。GET与HEAD的If-Match不匹配均先返回412空body，保留实际强ETag，不能将它声明为业务错误JSON。存档payload同一次持久查询投影immutable路径和hash，响应强ETag；准备恢复到实际下载之间若存档并发覆盖，旧If-Match明确412，不把新bytes标为旧身份。既有Run的ROM/resources仍按启动冻结。
 
-资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
+资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。受管文件和Provider资产的响应带有Cache-Control: private, no-store, no-transform，防止中间代理压缩HTML/脚本等Range响应而改变已固定的字节表示。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
 
 存档checkpoint payload保持不透明。可选截图接受实际PNG/JPEG字节，检查大小及图像尺寸后原样保存；不以上传文件名推断格式，不把JPEG伪报为PNG。截图读取按实际字节返回MediaType；设为游戏封面沿用公共媒体上传边界。multipart metadata仍按权威SaveCommitMetadata校验，包括必需但可为null的slot。
 

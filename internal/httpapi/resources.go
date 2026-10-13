@@ -98,6 +98,7 @@ func (s *Server) serveManaged(w http.ResponseWriter, r *http.Request, key string
 	if !info.Mode().IsRegular() {
 		return model.ErrNotFound
 	}
+	w.Header().Set("Cache-Control", "private, no-store, no-transform")
 	http.ServeContent(w, r, "", info.ModTime(), file)
 	return nil
 }
@@ -111,6 +112,7 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	if !storage.SafeRelative(name) {
 		return model.ErrInvalid
 	}
+	w.Header().Set("Cache-Control", "private, no-store, no-transform")
 	if data, exists := s.Runtime.Overrides[provider.ProviderID][name]; exists {
 		http.ServeContent(w, r, name, time.Unix(0, 0), bytes.NewReader(data))
 		return nil
