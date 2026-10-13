@@ -4,6 +4,7 @@ import {useCallback, useEffect, useRef, useState, type FormEvent, type UIEvent} 
 import {useModalFocus} from "@/components/modal-focus";
 import type {RuntimeGameEditEventV1, RuntimeGameEditMapV1, RuntimeGameEditSelfSwitchKeyV1,
   RuntimeGameEditorV1} from "./runtime/contract";
+import {gameEditorScrollRoot, resetGameEditorScroll} from "./game-editor-scroll";
 
 type SelfSwitchEditor = NonNullable<RuntimeGameEditorV1["selfSwitches"]>;
 const PAGE_SIZE = 40;
@@ -62,7 +63,7 @@ export function GameEditorSelfSwitches({api, onNotice}: {
     const sequence = offset ? eventSequence.current : ++eventSequence.current;
     pendingEventPage.current = offset || null;
     setEventBusy(true); setEventError(false); setSaveError("");
-    if (!offset) {setEvents([]); setEventNext(null); if (listRef.current) {listRef.current.scrollTop = 0;}}
+    if (!offset) {setEvents([]); setEventNext(null); resetGameEditorScroll(listRef.current);}
     try {
       const page = await api.events(selected, filter, offset, PAGE_SIZE);
       if (sequence !== eventSequence.current) {return;}
@@ -83,10 +84,22 @@ export function GameEditorSelfSwitches({api, onNotice}: {
     return () => {active = false;};
   }, [loadEvents, mapId, search]);
   useEffect(() => {
-    const list = listRef.current;
+    const list = listRef.current ? gameEditorScrollRoot(listRef.current) : null;
     if (mapId && list && eventNext !== null && !eventBusy && !eventError &&
       list.scrollHeight <= list.clientHeight + 96) {void loadEvents(mapId, search, eventNext);}
   }, [mapId, search, eventNext, eventBusy, eventError, events, loadEvents]);
+  useEffect(() => {
+    const list = listRef.current;
+    const content = list?.closest<HTMLElement>(".game-editor-content");
+    if (!list || !content) {return;}
+    function scroll() {
+      const root = gameEditorScrollRoot(list!);
+      if (root === content && eventNext !== null && !eventBusy && !eventError &&
+        root.scrollTop + root.clientHeight >= root.scrollHeight - 96) {void loadEvents(mapId, search, eventNext);}
+    }
+    content.addEventListener("scroll", scroll);
+    return () => content.removeEventListener("scroll", scroll);
+  }, [mapId, search, eventNext, eventBusy, eventError, loadEvents]);
 
   function chooseMap(map: RuntimeGameEditMapV1) {
     selectedMap.current = map.id;

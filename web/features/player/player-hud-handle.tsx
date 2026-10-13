@@ -18,6 +18,7 @@ export function PlayerHudHandle({
   onInteract: () => Promise<void>;
 }) {
   const keyboardReveal = useRef(false);
+  const pointerInteraction = useRef(false);
   useEffect(() => {
     if (visible && keyboardReveal.current) {
       keyboardReveal.current = false;
@@ -35,11 +36,14 @@ export function PlayerHudHandle({
       aria-label="显示游戏工具栏"
       aria-hidden={visible || undefined}
       tabIndex={visible ? -1 : undefined}
-      onClick={() => { if (visible && desktopPointer) { void onInteract(); } else { onReveal(); } }}
+      onPointerDown={() => {pointerInteraction.current = true;}}
+      onPointerCancel={() => {pointerInteraction.current = false;}}
+      onBlur={() => {pointerInteraction.current = false;}}
+      onClick={() => { pointerInteraction.current = false; if (visible && desktopPointer) { void onInteract(); } else { onReveal(); } }}
       onPointerEnter={() => { if (desktopPointer) { onHover(true); } }}
       onPointerLeave={() => { if (desktopPointer) { onHover(false); } }}
       onFocus={(event) => {
-        if (event.currentTarget.matches(":focus-visible")) {
+        if (!pointerInteraction.current && event.currentTarget.matches(":focus-visible")) {
           keyboardReveal.current = true;
           onReveal();
         }

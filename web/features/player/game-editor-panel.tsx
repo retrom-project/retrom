@@ -5,6 +5,8 @@ import type {RuntimeGameEditCategoryV1, RuntimeGameEditEntryV1, RuntimeGameEdito
 import {listenHorizontalWheel} from "@/lib/use-horizontal-wheel";
 import {useModalFocus} from "@/components/modal-focus";
 import {GameEditorSelfSwitches} from "./game-editor-self-switches";
+import {gameEditorScrollRoot, resetGameEditorScroll} from "./game-editor-scroll";
+import {useGameEditorViewport} from "./use-game-editor-viewport";
 
 const PAGE_SIZE = 40;
 
@@ -27,6 +29,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{text: string} | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const overlayRef = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -35,6 +38,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   const selectedCategory = categories.find((item) => item.id === category);
   const groups = selectedCategory?.groups;
   const activeCategory = resolveActiveCategory(category, groups, selectedGroup);
+  useGameEditorViewport(overlayRef);
 
   useEffect(() => {
     if (!notice) {return;}
@@ -88,22 +92,29 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
     const list = marker?.parentElement;
     if (!marker || !list || !activeCategory || nextOffset === null || loading || loadingMore || pageError) {return;}
     const observedSequence = requestSequence.current;
-    const observer = new IntersectionObserver(([entry]) => {
+    const onIntersection: IntersectionObserverCallback = ([entry]) => {
       if (!entry?.isIntersecting || observedSequence !== requestSequence.current) {return;}
       const key = JSON.stringify([activeCategory, search, nextOffset]);
       if (requestedPage.current === key) {return;}
       requestedPage.current = key;
       void load(activeCategory, search, nextOffset);
-    }, {root: list, rootMargin: "0px 0px 96px 0px"});
-    observer.observe(marker);
-    return () => observer.disconnect();
+    };
+    let observer: IntersectionObserver;
+    function observe() {
+      observer?.disconnect();
+      observer = new IntersectionObserver(onIntersection, {root: gameEditorScrollRoot(list!), rootMargin: "0px 0px 96px 0px"});
+      observer.observe(marker!);
+    }
+    observe();
+    window.addEventListener("resize", observe);
+    return () => {observer.disconnect(); window.removeEventListener("resize", observe);};
   }, [activeCategory, search, nextOffset, loading, loadingMore, pageError, load]);
 
   function chooseCategory(value: string) {
     if (value === category) {return;}
     requestSequence.current += 1;
     setCategory(value); setSelectedGroup(""); setEntries([]); setLoading(true); setShowLoading(false); setNextOffset(null);
-    requestedPage.current = null; if (listRef.current) {listRef.current.scrollTop = 0;}
+    requestedPage.current = null; resetGameEditorScroll(listRef.current);
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
   }
   function chooseGroup(value: string) {
@@ -112,7 +123,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
     requestedPage.current = null;
     setSelectedGroup(value); setEntries([]); setNextOffset(null); setLoading(true); setShowLoading(false);
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
-    if (listRef.current) {listRef.current.scrollTop = 0;}
+    resetGameEditorScroll(listRef.current);
   }
 
   async function save(entry: RuntimeGameEditEntryV1, value: number | string | boolean) {
@@ -153,11 +164,12 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   }
   useModalFocus({open: true, locked: false, panel: panelRef, initial: closeRef, onCancel: onClose});
 
-  return <section className={`game-editor-overlay${immersive ? " is-immersive" : ""}`} role="dialog" aria-modal="true" aria-labelledby="game-editor-title">
+  return <section ref={overlayRef} className={`game-editor-overlay${immersive ? " is-immersive" : ""}`} role="dialog" aria-modal="true" aria-labelledby="game-editor-title">
     <div ref={panelRef} className="game-editor-panel">
       <header className="game-editor-head"><div><small>当前游戏</small><h1 id="game-editor-title">游戏修改</h1></div><button ref={closeRef} className="button secondary" type="button" onClick={onClose}>返回游戏</button></header>
-      <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。{saveHint}</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       <GameEditorCategories categories={categories} active={category} onChoose={chooseCategory} />
+      <div className="game-editor-content">
+      <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。{saveHint}</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       {category === "self_switches" ? <GameEditorSelfSwitchSection editor={editor} onNotice={() => setNotice({text: `已应用修改。${saveHint}`})} /> : <>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
@@ -172,6 +184,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
         }} />
       </GameEditorList>
       </>}
+      </div>
     </div>
   </section>;
 }
@@ -212,8 +225,13 @@ function GameEditorCategories({categories, active, onChoose}: {
       const selected = nav.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
       if (selected) {
         const bounds = nav.getBoundingClientRect(), button = selected.getBoundingClientRect();
-        if (button.right > bounds.right) {nav.scrollLeft += button.right - bounds.right;}
-        else if (button.left < bounds.left) {nav.scrollLeft -= bounds.left - button.left;}
+        if (getComputedStyle(nav).flexDirection === "column") {
+          if (button.bottom > bounds.bottom) {nav.scrollTop += button.bottom - bounds.bottom;}
+          else if (button.top < bounds.top) {nav.scrollTop -= bounds.top - button.top;}
+        } else {
+          if (button.right > bounds.right) {nav.scrollLeft += button.right - bounds.right;}
+          else if (button.left < bounds.left) {nav.scrollLeft -= bounds.left - button.left;}
+        }
       }
       measure();
     };
