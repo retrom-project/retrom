@@ -61,6 +61,7 @@
         "gearboy",
         "dosbox-pure",
         "mame",
+        "fbalpha",
         "fbneo",
         "azahar",
         "mame2003",
@@ -571,6 +572,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/Gearboy.git",
       "defaultBranch": "retrom/g340ebe3c2588",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "fbalpha",
+      "path": "project/retrom-core/fbalpha",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/fbalpha.git",
+      "defaultBranch": "retrom/gb25b724ba204",
       "submodules": false,
       "dependsOn": []
     },
