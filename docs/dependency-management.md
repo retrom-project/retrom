@@ -4,9 +4,11 @@
 
 ## 当前正式版本
 
-当前 pin 使用 [retrom-runtime v0.66.0](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.66.0)。本次将 Parent 改为原始 ZIP 逐文件交付，移除扁平合并和嵌套包假设，并保留独立 BIOS。核心二进制沿用 v0.65.0 的固定输入，包含 FBAlpha 0.2.97.44；没有数据库表、索引或迁移变更。相同原始内容的 MAME 存档身份编码保持不变；恢复历史加工父包会改变游戏内容身份，原有存档仍保留但不能强制视为新内容的可恢复存档。实际样例、已知兼容性问题和验收范围见 [Parent 完整性验证](parent-integrity-validation.md)。
+当前 pin 使用 [retrom-runtime v0.66.1](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.66.1)。本次修复 RPG Maker 手机端请求缺失音频编码时的资源解析：仅在原生 RPG Maker 音频目录中选择游戏包实际包含的另一编码，保留精确匹配优先级及歧义检查。核心二进制、Provider V1 协议和存档格式保持不变，没有数据库表、索引或迁移变更。
 
-`make runtime-provider-pin-release TAG=v0.66.0` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+v0.66.0 引入的原始 Parent ZIP 逐文件交付和独立 BIOS 继续生效，包含 FBAlpha 0.2.97.44。相同原始内容的 MAME 存档身份编码保持不变；恢复历史加工父包会改变游戏内容身份，原有存档仍保留但不能强制视为新内容的可恢复存档。实际样例、已知兼容性问题和验收范围见 [Parent 完整性验证](parent-integrity-validation.md)。
+
+`make runtime-provider-pin-release TAG=v0.66.1` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare
