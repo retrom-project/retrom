@@ -123,7 +123,16 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true })).toBeVisible();
   await page.getByRole("menuitem", { name: "在更多操作中退出全屏", exact: true }).click();
   await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
-  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => ({
+    width: innerWidth, height: innerHeight,
+  }))).toEqual(page.viewportSize());
+  const menuClose = page.getByRole("menu", { name: "Player 更多操作", exact: true })
+    .getByRole("button", { name: "关闭更多操作", exact: true });
+  if (await menuClose.isVisible()) {
+    await menuClose.click();
+  } else {
+    await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  }
   await expect(page.getByRole("menu", { name: "Player 更多操作", exact: true })).toHaveCount(0);
   const firstFrame = await nesFrame(page);
   await revealPlayerControls(page);
