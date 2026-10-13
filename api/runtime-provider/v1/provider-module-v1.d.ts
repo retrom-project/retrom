@@ -252,7 +252,7 @@ export type RestoreDescriptorV1 =
   | { kind: "LOCAL"; format: string; sha256: string; sizeBytes: number };
 export type RuntimeResourceIdentityV1 = { role: string; ordinal: number };
 export type RuntimeBlobResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "PARENT_ARCHIVE" | "WASM4_CART";
+  kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "WASM4_CART";
   url: string;
   sha256: string;
   sizeBytes: number;

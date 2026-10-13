@@ -1,6 +1,7 @@
 package runs
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"path"
@@ -69,5 +70,35 @@ func TestPlanRejectsUnsafeBlobFilenameAndKeepsTreePaths(t *testing.T) {
 	selected, err := selectPlanFiles(byKey, plan)
 	if err != nil || len(selected) != 1 || selected[0].Filename != "original.zip" {
 		t.Fatalf("file tree mapping was changed by blob naming: %v", err)
+	}
+}
+
+func TestParentFileSetPreservesEachOriginalArchive(t *testing.T) {
+	t.Parallel()
+	files := []Blob{
+		{ID: "base-id", Filename: "BASE.ZIP", LogicalPath: "stored/BASE.ZIP", SHA256: "base-digest", SizeBytes: 101},
+		{ID: "grand-id", Filename: "grand.zip", LogicalPath: "stored/grand.zip", SHA256: "grand-digest", SizeBytes: 202},
+	}
+	plan := runtimeclient.Resource{
+		Kind: "EXTERNAL_FILE_SET", Role: "parent",
+		Paths: map[string]string{"stored/BASE.ZIP": "base.zip", "stored/grand.zip": "grand.zip"},
+	}
+	run := &Context{Run: model.Run{ID: "run-id"}}
+	resource := map[string]any{}
+	service := &Service{}
+	// No runtime process or storage is available: delivery must use the original file locators.
+	if err := service.resourcePlan(context.Background(), run, resource, files, plan, runtimeclient.Prepared{}); err != nil {
+		t.Fatal(err)
+	}
+	actual, ok := resource["files"].([]map[string]any)
+	if !ok || len(actual) != len(files) {
+		t.Fatal("parent file set is missing")
+	}
+	for i, file := range files {
+		if actual[i]["sha256"] != file.SHA256 || actual[i]["sizeBytes"] != file.SizeBytes ||
+			actual[i]["url"] != ResourceURL(run.Run.ID, file) || actual[i]["logicalName"] != file.LogicalPath ||
+			actual[i]["virtualPath"] != plan.Paths[file.LogicalPath] {
+			t.Fatalf("parent archive identity changed: %#v", actual[i])
+		}
 	}
 }

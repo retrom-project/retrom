@@ -21,6 +21,15 @@ type BiosRequirement struct {
 	Delivery          string            `json:"delivery"`
 	VirtualPath       *string           `json:"virtualPath"`
 	ActivationOptions map[string]string `json:"activationOptions"`
+	Members           []BiosMember      `json:"members,omitempty"`
+}
+
+type BiosMember struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"sizeBytes"`
+	CRC32     string `json:"crc32"`
+	SHA1      string `json:"sha1"`
+	Required  bool   `json:"required"`
 }
 
 func (c *Client) Bios(ctx context.Context,
