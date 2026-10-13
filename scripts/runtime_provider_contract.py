@@ -71,6 +71,7 @@ _AUTHORITY_FILES = (
     "fixtures/valid/isolated-web.json",
     "fixtures/invalid/bridge-outside-provider.json",
     "fixtures/valid/core-identifier.json",
+    "fixtures/valid/development-assets.json",
     "fixtures/invalid/core-identifier.json",
 )
 _AUTHORITY_REPOSITORY = "https://github.com/retrom-project/retrom"
@@ -197,7 +198,7 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
     elif checkpoint is not None:
         _fail("runtime.checkpoint contradicts its capability")
     base = f'/runtime/providers/{runtime["providerId"]}/{runtime["bundleSha256"]}/'
-    if runtime["runtimeBaseUrl"] != base or runtime["moduleUrl"] != f"{base}client.mjs":
+    if runtime["runtimeBaseUrl"] not in (base, f'{base}dev/{runtime["moduleSha256"]}/') or runtime["moduleUrl"] != f'{runtime["runtimeBaseUrl"]}client.mjs':
         _fail("runtime Provider URLs are not canonical")
     return runtime
 

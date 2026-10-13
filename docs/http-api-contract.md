@@ -14,6 +14,10 @@ GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不�
 
 资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
 
+正式 Provider 资源 `/runtime/providers/{providerId}/{bundleSha256}/{asset}` 始终返回该已安装 Bundle 的原始内容。不超过 8 MiB 的脚本、样式、JSON、图片和字体采用 `private, max-age=31536000, immutable`；Wasm、核心归档和大型文件采用 `private, no-store`，由 Runtime 的摘要缓存复用。授权及资产允许列表仍在服务端校验。
+
+PFB 开发资源采用 `/runtime/providers/{providerId}/{bundleSha256}/dev/{moduleSha256}/{asset}`，精确匹配当前开发模块摘要，返回 `private, no-store`。覆盖层未修改的资源读取同一已安装 Bundle；旧开发摘要返回 404。Envelope 的 runtime base、入口模块和 bridge 必须属于同一正式或开发路径，正式 URL 不读取开发覆盖层。
+
 存档checkpoint payload保持不透明。可选截图接受实际PNG/JPEG字节，检查大小及图像尺寸后原样保存；不以上传文件名推断格式，不把JPEG伪报为PNG。截图读取按实际字节返回MediaType；设为游戏封面沿用公共媒体上传边界。multipart metadata仍按权威SaveCommitMetadata校验，包括必需但可为null的slot。
 
 管理员邀请URL为/register#token=...，重置为/reset-password#token=...；token只由匿名页面读取并提交inspect/consume。管理员链接列表只返回脱敏摘要，筛选active/consumed/revoked/expired与total采用同条件；撤销需版本，重置链接显式expiresInHours。创建目录/Tag/Folder请求没有version，编辑请求要求version≥1。

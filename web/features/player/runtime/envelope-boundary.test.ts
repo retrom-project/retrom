@@ -52,3 +52,14 @@ it("requires explicit checkpoint semantics at the public boundary", () => {
   );
   expect(native.runtime.checkpoint?.semantics).toBe("GAME_SAVE");
 });
+
+it("accepts revision-scoped development assets and rejects another module revision", () => {
+  const envelope = parseLaunchEnvelopeJSON(readFileSync(resolve(fixtureRoot, "valid/single-minimal.json"), "utf8"));
+  const base = `${envelope.runtime.runtimeBaseUrl}dev/${envelope.runtime.moduleSha256}/`;
+  envelope.runtime.runtimeBaseUrl = base;
+  envelope.runtime.moduleUrl = `${base}client.mjs`;
+  expect(validateLaunchEnvelopeBoundary(envelope)).toBe(envelope);
+  envelope.runtime.runtimeBaseUrl = base.replace(envelope.runtime.moduleSha256, "f".repeat(64));
+  envelope.runtime.moduleUrl = `${envelope.runtime.runtimeBaseUrl}client.mjs`;
+  expect(() => validateLaunchEnvelopeBoundary(envelope)).toThrow("PLAYER_LAUNCH_ENVELOPE_INVALID");
+});

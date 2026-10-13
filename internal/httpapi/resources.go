@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/model"
+	"retrom/internal/runtimeclient"
 	"retrom/internal/service/runs"
 	"retrom/internal/storage"
 )
@@ -107,11 +108,13 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	if !exists || provider.BundleSHA256 != r.PathValue("bundle") {
 		return model.ErrNotFound
 	}
-	name := r.PathValue("asset")
-	if !storage.SafeRelative(name) {
-		return model.ErrInvalid
+	name, development, err := s.providerAssetPath(provider, r.PathValue("asset"))
+	if err != nil {
+		return err
 	}
-	if data, exists := s.Runtime.Overrides[provider.ProviderID][name]; exists {
+	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	if data, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
+		w.Header().Set("Cache-Control", "private, no-store")
 		http.ServeContent(w, r, name, time.Unix(0, 0), bytes.NewReader(data))
 		return nil
 	}
@@ -135,9 +138,37 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	if strings.HasPrefix(filepath.Base(name), ".") || !s.Runtime.AssetAllowed(provider.ProviderID, name) {
 		return model.ErrNotFound
 	}
-	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	w.Header().Set("Cache-Control", providerAssetCacheControl(name, info.Size(), development))
 	http.ServeContent(w, r, name, info.ModTime(), file)
 	return nil
+}
+
+func (s *Server) providerAssetPath(provider runtimeclient.Provider, name string) (string, bool, error) {
+	if !storage.SafeRelative(name) {
+		return "", false, model.ErrInvalid
+	}
+	if !strings.HasPrefix(name, "dev/") {
+		return name, false, nil
+	}
+	parts := strings.SplitN(name, "/", 3)
+	if len(parts) != 3 || parts[1] != provider.ModuleSHA256 || len(s.Runtime.Overrides[provider.ProviderID]) == 0 {
+		return "", true, model.ErrNotFound
+	}
+	if !storage.SafeRelative(parts[2]) {
+		return "", true, model.ErrInvalid
+	}
+	return parts[2], true, nil
+}
+
+func providerAssetCacheControl(name string, size int64, development bool) string {
+	// Core binaries have a digest-keyed Content I/O cache; HTTP owns small static loaders and presentation assets.
+	if !development && size <= 8*1024*1024 {
+		switch filepath.Ext(name) {
+		case ".js", ".mjs", ".json", ".css", ".html", ".svg", ".png", ".jpg", ".woff", ".woff2", ".ttf", ".otf", ".ico":
+			return "private, max-age=31536000, immutable"
+		}
+	}
+	return "private, no-store"
 }
 
 func (s *Server) isolationAsset(w http.ResponseWriter, r *http.Request, _ model.Principal) error {
