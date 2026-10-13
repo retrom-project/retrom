@@ -1,12 +1,12 @@
 # FBAlpha 0.2.97.44 候选验证
 
-本次在独立 `fbalpha-029744` PFB 接入 `emulatorjs/fbalpha`，内容范围为街机 ZIP。核心 fork 为 `retrom-project/fbalpha`，上游为 `libretro/beetle-finalarcade2019` 的 `b25b724ba204`；驱动源码与授权 Pegasus 样本使用的 0.2.97.44 构建一致。没有数据库、HTTP 契约或生产 Provider pin 变更。
+本次在独立 `fbalpha-029744` PFB 接入 `emulatorjs/fbalpha`，内容范围为街机 ZIP。核心 fork 为 `retrom-project/fbalpha`，上游为 `libretro/beetle-finalarcade2019` 的 `b25b724ba204`；驱动源码与授权 Pegasus 样本使用的 0.2.97.44 构建一致。没有数据库或 HTTP 契约变更；正式 Provider 固定为 runtime `v0.65.0`。
 
 ## 实现边界
 
 - 从同次发货 Wasm 导出 5,807 个 DAT 条目，其中 8 个 BIOS；运行时复用已有 DAT 搜索、按核心保存的 ROM 集选择、Parent 清理及 BIOS/ROM 校验。
 - 核心原生装载回执区分真正接受与拒绝。EmulatorJS 注册街机分类，完整 ZIP、独立 BIOS 及 Parent 保持原字节；没有按游戏编写别名、补丁或特例。
-- 输入使用共享街机映射；即时存档使用公共压缩格式；内容使用公共持久缓存，启动选项固定为下载完成后开始。
+- 输入使用共享街机映射；即时存档使用公共压缩格式；游戏内容使用公共持久缓存，启动选项固定为下载完成后开始。
 - 核心、DAT、配对证明和许可共同构成候选资产。固定 SDK、前端提交、构建时间、Git 版本输入和 SHA-256 固定的 7-Zip 25.01；压缩使用单线程。
 
 ## 产品验证范围
@@ -43,4 +43,8 @@
 
 ## 交付状态
 
-保留新 PFB 的 21 款已发布样本与验证存档供体验。核心与 runtime 仅推送开发分支；没有创建 PR、合入、发布 tag 或更新线上容器。基线 checkout 未改变。正式发布仍须依次发行核心资产、固定 runtime 正式来源、发行 runtime，再更新 Retrom 正式 pin 并复验。
+核心已通过 [FBAlpha PR #1](https://github.com/retrom-project/fbalpha/pull/1) 合入维护分支，发布不可移动的 `retrom-core-gb25b724ba204-r1`。五个正式资产与上述已验证候选逐字节一致。runtime 已通过 [PR #143](https://github.com/retrom-project/retrom-runtime/pull/143) 合入 master 并发布 `v0.65.0`，Retrom 的正式 pin 使用该发行，不依赖本地候选目录。
+
+正式包验收仍须核对运行中的 Bundle/module 摘要，并覆盖审核预览、原 21 款游戏装载及代表样本存档、新实例恢复和输入。候选验收记录与正式包复验结果分别保留，不能以候选结果代替正式包结果。保留 PFB 中的游戏与存档供体验；本次不更新线上容器，基线 checkout 保持原状。
+
+核心资产漏缓存、已缓存脚本重复请求及宿主固定资产禁用缓存分别由 [runtime #141](https://github.com/retrom-project/retrom-runtime/issues/141)、[runtime #142](https://github.com/retrom-project/retrom-runtime/issues/142) 和 [Retrom #219](https://github.com/retrom-project/retrom/issues/219) 跟踪。新 PFB 从本次集成合入后的 master 开始修复。
