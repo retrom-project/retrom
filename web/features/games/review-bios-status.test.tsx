@@ -28,7 +28,7 @@ it("shows missing runtime filenames and cores without duplicating file validatio
   expect(screen.queryByText("文件校验要求")).not.toBeInTheDocument();
   expect(screen.queryByText(/要求大小|SHA-256|MD5/)).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "管理运行依赖" })).toHaveAttribute("href", "/admin/bios");
-  expect(post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "core" } });
+  expect(post).toHaveBeenCalledExactlyOnceWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "core" }, signal: expect.any(AbortSignal) });
 });
 
 it("keeps an inspection failure distinct from missing files and rechecks current installed facts", async () => {
@@ -73,7 +73,7 @@ it("rechecks the selected core and ignores the previous core's late result", asy
   const view = render(<ReviewBiosStatus detail={detail} coreId="fbneo" />);
   view.rerender(<ReviewBiosStatus detail={detail} coreId="mame2003" />);
   expect(await screen.findByText(/必需文件已满足/)).toBeVisible();
-  expect(post).toHaveBeenLastCalledWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "mame2003" } });
+  expect(post).toHaveBeenLastCalledWith("/api/v1/admin/reviews/readiness", { body: { gameIds: ["game"], coreId: "mame2003" }, signal: expect.any(AbortSignal) });
   await act(async () => { resolve(response()); });
   expect(screen.queryByText("os.rom")).not.toBeInTheDocument();
 });

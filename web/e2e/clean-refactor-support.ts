@@ -29,6 +29,9 @@ export async function login(page: Page) {
     await page.getByLabel("密码", { exact: true }).fill(password);
   }
   await page.locator("form").getByRole("button").click();
+  // Fresh acceptance servers compile the destination on first navigation.
+  // Use the navigation budget for that work, then assert the resulting route.
+  await page.waitForURL(/\/$/u);
   await expect(page).toHaveURL(/\/$/u);
 }
 
@@ -107,6 +110,7 @@ export async function prepareLibrary(page: Page): Promise<Schema<"Game">> {
   );
   await page.getByRole("button", { name: "开始扫描", exact: true }).click();
   const scan = (await (await scanResponse).json()) as Schema<"ScanProgress">;
+  await page.waitForURL(new RegExp(`/admin/reviews\\?scanId=${scan.id}$`, "u"));
   await expect(page).toHaveURL(new RegExp(`/admin/reviews\\?scanId=${scan.id}$`, "u"));
   await expect(page.getByRole("region", { name: "当前游戏扫描", exact: true })).toBeVisible();
   await expect
@@ -203,6 +207,9 @@ export async function verifyLibraryFilters(page: Page) {
   if (!platform) {
     throw new Error("The fixture platform declaration is missing.");
   }
+  const directories = await request<Schema<"DirectoryList">>(page, "/api/v1/platform-instances");
+  const count = directories.items.filter(item => item.enabled && item.platformId === platform.id)
+    .reduce((total, item) => total + item.gameCount, 0);
   await page.goto("/library?offset=24");
   const mobileFilters = page.getByRole("button", {
     name: "筛选游戏",
@@ -233,7 +240,7 @@ export async function verifyLibraryFilters(page: Page) {
   });
   await page
     .locator(".library-platform-row")
-    .getByRole("button", { name: platform.name, exact: true })
+    .getByRole("button", { name: `${platform.name}(${count > 1000 ? "999+" : count})`, exact: true })
     .click();
   const response = await filtered;
   expect(response.status()).toBe(200);

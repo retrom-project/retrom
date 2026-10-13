@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import type { ReactNode } from "react";
 import type { Schema } from "@/lib/api/types";
 import { api, result } from "@/lib/api/client";
 import { useResource } from "@/lib/use-resource";
@@ -8,21 +9,29 @@ import { MissingBiosList } from "./missing-bios-list";
 import { ReviewCRCWarnings } from "./review-crc-warnings";
 import { MissingRomMembers } from "./missing-rom-members";
 
-export function ReviewBiosStatus({ detail, coreId = detail.defaultCoreId }: { detail: Schema<"GameDetail">; coreId?: string }) {
+export type ReviewCheck = { loading: boolean; approvable: boolean; warnings: Schema<"ReviewReadiness">["crcWarnings"] };
+type ReviewActions = (check: ReviewCheck) => ReactNode;
+
+export function ReviewBiosStatus({ detail, coreId = detail.defaultCoreId, children }: {
+  detail: Schema<"GameDetail">; coreId?: string; children?: ReviewActions;
+}) {
   const [revision, setRevision] = useState(0);
   const source = JSON.stringify([detail.game.id, detail.game.version, coreId, detail.coreIds,
     detail.runtimeConfig, detail.files.map(({ id, sha256 }) => [id, sha256]), revision]);
-  return <ReviewBiosCheck key={source} gameId={detail.game.id} coreId={coreId} version={detail.game.version} onReload={() => setRevision((value) => value + 1)} />;
+  return <ReviewBiosCheck key={source} gameId={detail.game.id} coreId={coreId} version={detail.game.version} onReload={() => setRevision((value) => value + 1)}>{children}</ReviewBiosCheck>;
 }
 
-function ReviewBiosCheck({ gameId, coreId, version, onReload }: { gameId: string; coreId: string; version: number; onReload: () => void }) {
-  const load = useCallback(async () => result(await api.POST("/api/v1/admin/reviews/readiness", {
-    body: { gameIds: [gameId], coreId },
+function ReviewBiosCheck({ gameId, coreId, version, onReload, children }: {
+  gameId: string; coreId: string; version: number; onReload: () => void; children?: ReviewActions;
+}) {
+  const load = useCallback(async (signal?: AbortSignal) => result(await api.POST("/api/v1/admin/reviews/readiness", {
+    body: { gameIds: [gameId], coreId }, signal,
   })).items.find((item) => item.id === gameId), [gameId, coreId]);
   const check = useResource(load);
   const outcome = check.loading ? { message: "正在检查已保存配置的运行条件…", error: false, missing: [] }
     : biosOutcome(check.data, check.error, version);
-  return <section className="review-bios-status" aria-label="运行条件检查">
+  return <>{children?.(approvalCheck(check.data, check.loading, outcome.error))}
+  <section className="review-bios-status" aria-label="运行条件检查">
     <div className="review-bios-status-head">
       <div><h2>运行条件检查</h2>
         <p role={outcome.error ? "alert" : "status"}>{outcome.message}</p>
@@ -36,7 +45,15 @@ function ReviewBiosCheck({ gameId, coreId, version, onReload }: { gameId: string
     {!check.loading && !outcome.error && check.data ? <MissingRomMembers items={check.data.missingRomMembers} /> : null}
     {!check.loading && !outcome.error && check.data ? <ReviewCRCWarnings warnings={check.data.crcWarnings} /> : null}
     <p className="review-bios-note">按当前所选核心的已保存配置检查。补齐文件后可重新检查。</p>
-  </section>;
+  </section></>;
+}
+
+function approvalCheck(item: Schema<"ReviewReadiness"> | null | undefined, loading: boolean, error: boolean): ReviewCheck {
+  return {
+    loading,
+    approvable: !loading && !error && !!item?.biosSatisfied && !item.missingRomMembers.length,
+    warnings: item?.crcWarnings ?? [],
+  };
 }
 
 function biosOutcome(item: Schema<"ReviewReadiness"> | null | undefined, failure: string, version: number) {

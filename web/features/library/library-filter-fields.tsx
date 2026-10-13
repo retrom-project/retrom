@@ -1,4 +1,5 @@
 import type { Schema } from "@/lib/api/types";
+import { sortByName } from "@/lib/sort-by-name";
 
 export function LibraryFilterFields({
   directory,
@@ -29,7 +30,7 @@ export function LibraryFilterFields({
           onChange={(event) => onDirectory(event.target.value)}
         >
           <option value="">全部目录</option>
-          {directories.map((item) => (
+          {sortByName(directories).map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
@@ -44,7 +45,7 @@ export function LibraryFilterFields({
           onChange={(event) => onTag(event.target.value)}
         >
           <option value="">全部标签</option>
-          {tags.map((item) => (
+          {sortByName(tags).map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
