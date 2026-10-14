@@ -52,7 +52,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
       const destination = pathname + (search ? `?${search}` : "") + hash;
       router.replace(`/login?returnTo=${encodeURIComponent(destination)}`);
     } else if (context.user && publicRoute) {
-      router.replace(authenticationReturnPath(search));
+      // Authentication must discard cached anonymous routes, including their fragments.
+      location.replace(authenticationReturnPath(search));
     }
   }, [context, pathname, search, publicRoute, router]);
   if (error) {

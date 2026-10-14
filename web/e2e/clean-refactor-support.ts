@@ -9,11 +9,13 @@ const password = process.env.RETROM_BROWSER_ADMIN_PASSWORD ?? "test";
 
 export async function login(page: Page) {
   await page.goto("/login");
-  const auth = await request<Schema<"AuthContext">>(
-    page,
-    "/api/v1/auth/context",
-  );
+  // An authenticated login page can replace the document while setup is reading
+  // context. Use the browser context's request client so navigation cannot abort it.
+  const response = await page.request.get("/api/v1/auth/context");
+  expect(response.ok()).toBe(true);
+  const auth = await response.json() as Schema<"AuthContext">;
   if (auth.user) {
+    await page.waitForURL(/\/$/u);
     await expect(page).toHaveURL(/\/$/u);
     return;
   }
