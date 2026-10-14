@@ -1,9 +1,16 @@
+import {StrictMode} from "react";
 import {act, cleanup, renderHook} from "@testing-library/react";
-import {afterEach, expect, it, vi} from "vitest";
-import {requestPlayerFullscreen} from "./player-fullscreen";
+import {afterEach, beforeEach, expect, it, vi} from "vitest";
+import {acquirePlayerPresentation, requestPlayerFullscreen} from "./player-fullscreen";
 import {usePlayerPresentation} from "./use-player-presentation";
 
-vi.mock("./player-fullscreen", () => ({requestPlayerFullscreen: vi.fn()}));
+vi.mock("./player-fullscreen", () => ({requestPlayerFullscreen: vi.fn(), acquirePlayerPresentation: vi.fn()}));
+const scope = {stopped: false, requestFullscreen: vi.mocked(requestPlayerFullscreen),
+  stop: vi.fn(() => {scope.stopped = true;}), restore: vi.fn(async () => {scope.stopped = true;})};
+beforeEach(() => {
+  scope.stopped = false; scope.stop.mockClear(); scope.restore.mockClear();
+  vi.mocked(acquirePlayerPresentation).mockReturnValue(scope as unknown as ReturnType<typeof acquirePlayerPresentation>);
+});
 const request = vi.mocked(requestPlayerFullscreen);
 afterEach(() => {cleanup(); vi.restoreAllMocks(); request.mockReset();});
 
@@ -48,4 +55,44 @@ it("preserves desktop fullscreen behavior and waits until phone identity is know
   view.rerender({phone: true, known: true, blocked: true});
   await act(async () => {});
   expect(request).toHaveBeenCalledOnce();
+});
+
+
+it("ignores a queued surface retry after the player has unmounted", async () => {
+  request.mockResolvedValue(null);
+  const view = renderHook(() => usePlayerPresentation({phone: true, known: true, blocked: false}));
+  await act(async () => {});
+  const queuedRetry = view.result.current.retry;
+  view.unmount();
+  await act(async () => {queuedRetry();});
+  expect(request).toHaveBeenCalledOnce();
+});
+
+it("stops retries synchronously before exit-induced rotation, focus and visibility changes", async () => {
+  request.mockResolvedValue(null);
+  const view = renderHook(usePlayerPresentation, {initialProps: {phone: true, known: true, blocked: false}});
+  await act(async () => {});
+  act(() => view.result.current.stop());
+  view.rerender({phone: true, known: true, blocked: true});
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    view.result.current.retry();
+    await view.result.current.restore();
+  });
+  expect(request).toHaveBeenCalledOnce();
+  expect(scope.stop).toHaveBeenCalledOnce();
+  expect(scope.restore).toHaveBeenCalledOnce();
+});
+
+it("releases on navigation but keeps the scope alive during Strict Mode effect replay", async () => {
+  request.mockResolvedValue(null);
+  const view = renderHook(() => usePlayerPresentation({phone: true, known: true, blocked: false}),
+    {wrapper: StrictMode});
+  await act(async () => {});
+  expect(scope.restore).not.toHaveBeenCalled();
+  expect(request).toHaveBeenCalledOnce();
+  view.unmount();
+  await act(async () => {});
+  expect(scope.restore).toHaveBeenCalledOnce();
 });
