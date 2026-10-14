@@ -35,18 +35,17 @@ export function RPGEntrySelector({ gameId, engine, value, onSelect }: {
       </select>}
     </label>
     <EntryFeedback id={`${id}-help`} loading={candidates.loading} error={candidates.error} onRetry={candidates.reload}
-      invalid={invalid} value={value} empty={!!candidates.data && !entries.length} unique={unique} />
+      invalid={invalid} value={value} empty={!!candidates.data && !entries.length} />
   </div>;
 }
 
-function EntryFeedback({ id, loading, error, onRetry, invalid, value, empty, unique }: {
-  id: string; loading: boolean; error: string; onRetry: () => void; invalid: boolean; value: string; empty: boolean; unique: boolean;
+function EntryFeedback({ id, loading, error, onRetry, invalid, value, empty }: {
+  id: string; loading: boolean; error: string; onRetry: () => void; invalid: boolean; value: string; empty: boolean;
 }) {
   return <div id={id}>
     {loading ? <p role="status">正在读取入口…</p> : null}
     {error ? <p role="alert">无法读取入口。<button type="button" className="button secondary" onClick={onRetry}>重试读取入口</button></p> : null}
     {invalid ? <p role="alert">原入口“{value}”不适用于当前游戏版本，请重新选择并保存。</p> : null}
     {empty ? <p role="alert">未找到可用入口，请检查游戏文件和 RPG Maker 版本。</p> : null}
-    {unique ? <small>已识别唯一入口。</small> : null}
   </div>;
 }

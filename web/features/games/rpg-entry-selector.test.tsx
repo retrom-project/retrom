@@ -27,6 +27,7 @@ it("shows only runtime candidates and preserves the selected full path", async (
   render(<Editor />);
   await waitFor(() => expect(get).toHaveBeenCalledWith("/api/v1/admin/games/{gameId}/runtime-options/rpgmaker", expect.anything()));
   const select = screen.getByRole("combobox", { name: "入口文件" });
+  expect(screen.queryByRole("textbox", { name: "入口文件" })).not.toBeInTheDocument();
   expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "index.html", "www/index.html"]);
   fireEvent.change(select, { target: { value: "www/index.html" } });
   expect(select).toHaveValue("www/index.html");
@@ -36,6 +37,7 @@ it("displays a unique selected entry without an unnecessary selector", async () 
   entries = ["index.html"];
   render(<Editor />);
   expect(await screen.findByRole("textbox", { name: "入口文件" })).toHaveValue("index.html");
+  expect(screen.getByRole("textbox", { name: "入口文件" })).toHaveAttribute("readonly");
   expect(screen.queryByRole("combobox", { name: "入口文件" })).not.toBeInTheDocument();
 });
 

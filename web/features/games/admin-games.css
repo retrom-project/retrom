@@ -1,4 +1,5 @@
 .admin-game-library, .review-library { min-width: 0; }
+.runtime-content-fields { align-items: start; }
 :is(.dos-entry-selector, .rom-set-selector) { position: relative; min-width: 0; }
 :is(.dos-entry-selector, .rom-set-selector) small { display: block; margin-top: 6px; color: var(--muted); font-size: var(--text-caption); }
 :is(.dos-entry-selector, .rom-set-selector) > p { margin-top: 8px; color: var(--danger); font-size: var(--text-caption); overflow-wrap: anywhere; }

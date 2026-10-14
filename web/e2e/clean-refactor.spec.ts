@@ -7,6 +7,7 @@ import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from 
 import { holdController, installStandardController, pressController } from "./immersive-gamepad";
 import { verifyScanControls } from "./scan-controls";
 import { verifyLoginReturn } from "./login-return";
+import { verifyRPGEntrySelection } from "./rpg-entry-selection";
 import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import {
@@ -519,4 +520,10 @@ test("login returns shared game links to the complete destination", async ({ pag
   test.setTimeout(90_000);
   await login(page);
   await verifyLoginReturn(page, await prepareLibrary(page));
+});
+
+test("RPG entries stay aligned and multiple projects use a fixed dropdown", async ({ page }, info) => {
+  test.setTimeout(90_000);
+  await login(page);
+  await verifyRPGEntrySelection(page, info);
 });

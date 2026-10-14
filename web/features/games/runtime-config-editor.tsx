@@ -69,7 +69,7 @@ export function RuntimeConfigEditor({
     <fieldset className="stack">
       <legend>运行配置</legend>
       <p className="workspace-note">{contentNames[value.content.kind]}</p>
-      <div className="form-grid">
+      <div className="form-grid runtime-content-fields">
         <ContentFields gameId={gameId} value={value} files={files} onEdit={content} />{" "}
         <label className="field">
           运行核心
