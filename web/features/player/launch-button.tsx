@@ -8,7 +8,7 @@ import { RestoreConfirmationContext, restoreConfirmationTitle, restoreConfirmati
 import { useToast } from "@/components/toast-provider";
 import { api, result } from "@/lib/api/client";
 import type { ContentLoading } from "./content-loading";
-import { cancelLaunchFullscreen, requestPlayerFullscreen } from "./player-fullscreen";
+import { beginPlayerPresentation } from "./player-fullscreen";
 export function LaunchButton({
   gameId,
   coreId,
@@ -45,7 +45,8 @@ export function LaunchButton({
     if (confirmed && !await confirmRestore()) { return; }
     setBusy(true);
     clear();
-    const fullscreen = requestPlayerFullscreen();
+    let presentation = beginPlayerPresentation();
+    const fullscreen = presentation.requestFullscreen();
     try {
       const run = result(
         await api.POST("/api/v1/runs", {
@@ -55,7 +56,7 @@ export function LaunchButton({
       await fullscreen;
       // The installed core may have changed since this page fetched its saves.
       if (run.save?.restoreWarning === "core_changed" && !confirmed) {
-        await cancelLaunchFullscreen(await fullscreen);
+        await presentation.restore();
         if (!await confirmRestore()) {
           const removed = await api.DELETE("/api/v1/runs/{runId}", { params: { path: { runId: run.id } } });
           if (removed.error) { throw new Error(removed.error.message); }
@@ -63,13 +64,14 @@ export function LaunchButton({
           requestAnimationFrame(() => button.current?.focus());
           return;
         }
-        await requestPlayerFullscreen();
+        presentation = beginPlayerPresentation();
+        await presentation.requestFullscreen();
       }
       router.replace(
         `/play/${run.id}?returnTo=${encodeURIComponent(returnTo ?? `${location.pathname}${location.search}${location.hash}`)}${contentLoading ? `&contentLoading=${contentLoading}` : ""}`,
       );
     } catch (failure) {
-      await cancelLaunchFullscreen(await fullscreen);
+      await presentation.restore();
       notify({ tone: "bad", message: failure instanceof Error ? failure.message : "启动失败。" });
       setBusy(false);
     }

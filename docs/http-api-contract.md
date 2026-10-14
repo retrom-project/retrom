@@ -12,7 +12,7 @@
 
 GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不返回body。当前Go1.26.5中，匹配If-Match的HEAD带有效单段Range返回206、选中段Content-Length与Content-Range；未带Range返回200和完整长度。GET与HEAD的If-Match不匹配均先返回412空body，保留实际强ETag，不能将它声明为业务错误JSON。存档payload同一次持久查询投影immutable路径和hash，响应强ETag；准备恢复到实际下载之间若存档并发覆盖，旧If-Match明确412，不把新bytes标为旧身份。既有Run的ROM/resources仍按启动冻结。
 
-资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
+资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。受管文件和Provider资产的响应带有Cache-Control: private, no-store, no-transform，防止中间代理压缩HTML/脚本等Range响应而改变已固定的字节表示。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
 
 正式 Provider 资源 `/runtime/providers/{providerId}/{bundleSha256}/{asset}` 始终返回该已安装 Bundle 的原始内容。不超过 8 MiB 的脚本、样式、JSON、图片和字体采用 `private, max-age=31536000, immutable`；Wasm、核心归档和大型文件采用 `private, no-store`，由 Runtime 的摘要缓存复用。授权及资产允许列表仍在服务端校验。
 

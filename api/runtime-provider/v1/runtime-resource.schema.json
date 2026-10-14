@@ -74,7 +74,6 @@
           "enum": [
             "ROM_BLOB",
             "SEEKABLE_BLOB",
-            "PARENT_ARCHIVE",
             "WASM4_CART"
           ]
         },
@@ -97,8 +96,7 @@
             "properties": {
               "kind": {
                 "enum": [
-                  "SEEKABLE_BLOB",
-                  "PARENT_ARCHIVE"
+                  "SEEKABLE_BLOB"
                 ]
               }
             }

@@ -43,19 +43,19 @@ func providerCacheTestServer(t *testing.T) (*Server, string, string) {
 func TestProviderAssetsSeparateImmutableAndDevelopmentBytes(t *testing.T) {
 	s, bundle, revision := providerCacheTestServer(t)
 	for _, test := range []struct{ asset, body, cache string }{
-		{"client.mjs", "formal", "private, max-age=31536000, immutable"},
-		{"dev/" + revision + "/client.mjs", "development", "private, no-store"},
-		{"dev/" + revision + "/core.wasm", "new-binary", "private, no-store"},
-		{"core.wasm", "binary", "private, no-store"},
-		{"style.css", "static", "private, max-age=31536000, immutable"},
-		{"dev/" + revision + "/style.css", "static", "private, no-store"},
+		{"client.mjs", "formal", "private, max-age=31536000, immutable, no-transform"},
+		{"dev/" + revision + "/client.mjs", "development", "private, no-store, no-transform"},
+		{"dev/" + revision + "/core.wasm", "new-binary", "private, no-store, no-transform"},
+		{"core.wasm", "binary", "private, no-store, no-transform"},
+		{"style.css", "static", "private, max-age=31536000, immutable, no-transform"},
+		{"dev/" + revision + "/style.css", "static", "private, no-store, no-transform"},
 	} {
 		r := httptest.NewRequestWithContext(t.Context(), "GET", "/runtime/providers/test/"+bundle+"/"+test.asset, nil)
 		r.SetPathValue("providerId", "test")
 		r.SetPathValue("bundle", bundle)
 		r.SetPathValue("asset", test.asset)
 		w := httptest.NewRecorder()
-		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Cache-Control", "private, no-store, no-transform")
 		if err := s.providerAsset(w, r, model.Principal{}); err != nil {
 			t.Fatalf("%s: %v", test.asset, err)
 		}
@@ -73,7 +73,7 @@ func TestProviderAssetsSeparateImmutableAndDevelopmentBytes(t *testing.T) {
 }
 
 func TestProviderLargeScriptsDoNotDuplicatePersistentAssets(t *testing.T) {
-	if got := providerAssetCacheControl("large.js", 8*1024*1024+1, false); got != "private, no-store" {
+	if got := providerAssetCacheControl("large.js", 8*1024*1024+1, false); got != "private, no-store, no-transform" {
 		t.Fatalf("large script cache: %s", got)
 	}
 }
@@ -97,7 +97,7 @@ func TestDevelopmentProviderStreamsHeadAndRange(t *testing.T) {
 			t.Fatal(err)
 		}
 		if w.Code != test.status || w.Body.String() != test.body || w.Header().Get("Content-Length") != test.length ||
-			w.Header().Get("Content-Type") != "application/wasm" || w.Header().Get("Cache-Control") != "private, no-store" {
+			w.Header().Get("Content-Type") != "application/wasm" || w.Header().Get("Cache-Control") != "private, no-store, no-transform" {
 			t.Fatalf("development %s %s: %d %v %q", test.method, test.rangeHeader, w.Code, w.Header(), w.Body.String())
 		}
 	}

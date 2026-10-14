@@ -45,6 +45,17 @@ def wait_ready(url: str, processes: list[subprocess.Popen], deadline: float) -> 
     raise RuntimeError("acceptance service did not become ready within 300 seconds")
 
 
+def warm_browser_routes(origin: str, processes: list[subprocess.Popen], deadline: float) -> None:
+    # Next dev compiles routes lazily. Compilation belongs to service preparation,
+    # before the browser's unchanged deadlines for actual user interactions.
+    placeholder = "00000000-0000-0000-0000-000000000001"
+    routes = ("/", "/setup", "/admin/imports/server", "/admin/reviews",
+              f"/admin/reviews/{placeholder}", "/library", f"/games/{placeholder}",
+              f"/play/{placeholder}", "/favorites", "/saves", "/recent", "/immersive")
+    for route in routes:
+        wait_ready(origin + route, processes, deadline)
+
+
 def prepare() -> dict[str, str]:
     required = ("RETROM_TEST_DATABASE_URL", "RETROM_RUNTIME_TOOL_INPUT", "RETROM_PROVIDER_INPUT")
     if any(not os.environ.get(key) for key in required):
@@ -174,6 +185,7 @@ def run_browser() -> int:
         deadline = time.monotonic() + STARTUP_SECONDS
         wait_ready(backend_origin + "/health/ready", processes, deadline)
         wait_ready(web_origin + "/login", processes, deadline)
+        warm_browser_routes(web_origin, processes, deadline)
         command = [node_home + "/bin/npm", "run", "test:e2e", "--", "clean-refactor.spec.ts", "library-mobile.spec.ts", "--output", str(evidence / "test-results")]
         if os.environ.get("RETROM_E2E_GREP"):
             command += ["--grep", os.environ["RETROM_E2E_GREP"]]

@@ -97,6 +97,7 @@ func (s *Server) serveManaged(w http.ResponseWriter, r *http.Request, key string
 	if !info.Mode().IsRegular() {
 		return model.ErrNotFound
 	}
+	w.Header().Set("Cache-Control", "private, no-store, no-transform")
 	http.ServeContent(w, r, "", info.ModTime(), file)
 	return nil
 }
@@ -114,6 +115,7 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	rootPath, filePath := provider.Root, name
 	if asset, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
 		rootPath, filePath = asset.Root, asset.Name
+
 	}
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
@@ -162,10 +164,10 @@ func providerAssetCacheControl(name string, size int64, development bool) string
 	if !development && size <= 8*1024*1024 {
 		switch filepath.Ext(name) {
 		case ".js", ".mjs", ".json", ".css", ".html", ".svg", ".png", ".jpg", ".woff", ".woff2", ".ttf", ".otf", ".ico":
-			return "private, max-age=31536000, immutable"
+			return "private, max-age=31536000, immutable, no-transform"
 		}
 	}
-	return "private, no-store"
+	return "private, no-store, no-transform"
 }
 
 func (s *Server) isolationAsset(w http.ResponseWriter, r *http.Request, _ model.Principal) error {

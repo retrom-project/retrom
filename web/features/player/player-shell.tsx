@@ -26,7 +26,7 @@ import { useReviewCover } from "./use-review-cover";
 import type { ContentLoading } from "./content-loading";
 import { usePlayerVolume } from "./use-player-volume";
 import { usePlayerHud } from "./use-player-hud";
-import { usePlayerMenuDismiss } from "./use-player-menu-dismiss";
+import {PlayerHudDismiss} from "./player-hud-dismiss";
 import { usePlayerEditor } from "./use-player-editor";
 import { GameEditorPanel } from "./game-editor-panel";
 import { usePlayerSettings } from "./use-player-settings";
@@ -37,6 +37,7 @@ import { PlayerDebugPanel } from "./player-debug-panel";
 import { AppIcon } from "@/components/app-icon";
 import { usePlayerOrientation, useOrientationPause } from "./use-player-orientation";
 import { markImmersivePlayerReturn } from "@/features/immersive/active-gamepad";
+import {usePlayerPresentation} from "./use-player-presentation";
 export function PlayerShell({
   runId,
   returnTo,
@@ -59,6 +60,8 @@ export function PlayerShell({
     return data;
   }, [runId, ownerId]);
   const run = useResource(loader);
+  const orientation = usePlayerOrientation();
+  const presentation = usePlayerPresentation(orientation);
   return (
     <ResourceState resource={run}>
       {(data) => (
@@ -67,6 +70,8 @@ export function PlayerShell({
           ownerId={ownerId}
           returnTo={returnTo}
           contentLoading={contentLoading}
+          orientation={orientation}
+          presentation={presentation}
         />
       )}
     </ResourceState>
@@ -77,8 +82,12 @@ function PlayerContent({
   ownerId,
   returnTo,
   contentLoading,
+  orientation,
+  presentation,
 }: {
   run: Schema<"Run">;
+  orientation: ReturnType<typeof usePlayerOrientation>;
+  presentation: ReturnType<typeof usePlayerPresentation>;
   ownerId: string;
   returnTo: string;
   contentLoading: ContentLoading;
@@ -90,7 +99,6 @@ function PlayerContent({
   const reviewCover = useReviewCover(run);
   const mobile = useMobilePlayerLayout();
   const desktopPointer = useDesktopPlayerPointer();
-  const orientation = usePlayerOrientation();
   const [debugOpen, setDebugOpen] = usePlayerDebugState();
   const unmutedVolume = useRef(1);
   const { notify } = useToast();
@@ -159,8 +167,9 @@ function PlayerContent({
     );
   }
   async function leave() {
-    await runtime.current?.exit();
-    if (!immersive && document.fullscreenElement) { await document.exitFullscreen(); }
+    presentation.stop();
+    try {await runtime.current?.exit();}
+    finally {await presentation.restore();}
     if (!saves.draft) {
       const response = await api.DELETE("/api/v1/runs/{runId}", { params: { path: { runId: run.id } } });
       if (response.error) { throw new ApiError(response.error.code, response.error.message, response.response.status); }
@@ -180,10 +189,11 @@ function PlayerContent({
   const hud = usePlayerHud(state, playerHudPinned(desktopPointer, overlays, settings.open), desktopPointer);
   function resumeFromSurface() {
     setMenu(false);
-    hud.onFocus(false);
-    command(desktopPointer ? surface.resume() : pause());
+    hud.hide();
+    presentation.retry();
+    if (desktopPointer) {command(surface.resume());}
+    else if (runtime.current?.getState() === "PAUSED") {command(pause());}
   }
-  usePlayerMenuDismiss(mount, menu, () => setMenu(false));
   function requestExitMenu() { setMenu(false); void exit.request(); }
   function showMenu() { hud.show(); if (immersive) { requestExitMenu(); } else { setMenu((value) => !value); } }
   const inputSuppressed = overlays.suppressInput;
@@ -232,6 +242,7 @@ function PlayerContent({
         onReveal={hud.show}
         onHover={hud.onHover}
         onFocus={hud.onFocus}
+        onSurfaceClick={resumeFromSurface}
         onPause={() => command(pause())}
         onSave={() => { command(surface.pause().then(() => {
           const instance = readyRuntime(runtime.current);
@@ -255,7 +266,8 @@ function PlayerContent({
             : undefined
         }
       /> : null}
-      <PlayerOrientationLayer blocked={orientation.blocked} known={orientation.known} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={resumeFromSurface} />
+      <PlayerHudDismiss visible={hud.visible} enabled={overlays.surfaceDismissible} state={state} immersive={immersive} onDismiss={resumeFromSurface} />
+      <PlayerOrientationLayer blocked={orientation.blocked} known={orientation.known} attempting={presentation.attempting} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={resumeFromSurface} />
       <PlayerDebugPanel open={debugOpen} runtime={runtime} envelope={envelope} state={state} onClose={() => setDebugOpen(false)} />
       <EmulatorSettingsLayer open={settings.open} mobile={mobile} capabilities={envelope.runtime.capabilities} volume={volume.volume} muted={volume.volume === 0} renderingMode={settings.mode} onHold={hud.show}
         onVolume={volume.change} onMute={() => { if (volume.volume) { unmutedVolume.current = volume.volume; volume.change(0); } else { volume.change(unmutedVolume.current); } }}
@@ -318,20 +330,21 @@ function playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, edito
     dialogOpen,
     suppressInput: orientationBlocked || dialogOpen || menu || settings.open || editor.pending,
     pinned: exit.open || menu || saveChoice || settings.open || debugOpen || editor.open,
+    surfaceDismissible: !dialogOpen && !settings.open && !debugOpen && !orientationBlocked,
   };
 }
 
-function PlayerOrientationLayer({blocked, known, exitActive, title, state, immersive, settingsOpen, onReturn, onResume}: {
-  blocked: boolean; known: boolean; exitActive: boolean; title: string; state: string; immersive: boolean;
+function PlayerOrientationLayer({blocked, known, attempting, exitActive, title, state, immersive, settingsOpen, onReturn, onResume}: {
+  blocked: boolean; known: boolean; attempting: boolean; exitActive: boolean; title: string; state: string; immersive: boolean;
   settingsOpen: boolean; onReturn: () => void; onResume: () => void;
 }) {
   if (!blocked) {return <PlayerPauseOverlay state={state} immersive={immersive} settingsOpen={settingsOpen} onResume={onResume} />;}
   return blocked && !exitActive ? <section className="player-orientation-gate" aria-label="横屏游玩提示">
         <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div>
         <p>横屏游玩</p>
-        <h1>{known ? "请将手机横屏后开始游戏" : "正在确认屏幕方向…"}</h1>
+        <h1>{!known ? "正在确认屏幕方向…" : attempting ? "正在尝试横屏全屏…" : "请将手机横屏后开始游戏"}</h1>
         <strong>{title}</strong>
-        <small>竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。</small>
+        <small>{attempting ? "正在调整显示方向，请稍候。" : "竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。"}</small>
         <button className="button secondary" onClick={onReturn}>返回并退出游戏</button>
       </section> : null;
 }

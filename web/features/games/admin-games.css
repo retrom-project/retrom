@@ -219,3 +219,5 @@
 .rom-set-options > button > span { display: block; }
 .rom-set-results .list-pagination { padding-inline: var(--space-3); }
 .rom-set-selector > button { margin-top: var(--space-2); }
+
+.review-approval-risk { display: grid; gap: var(--space-3); overflow-wrap: anywhere; }

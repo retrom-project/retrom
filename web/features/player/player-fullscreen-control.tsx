@@ -1,6 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { AppIcon } from "@/components/app-icon";
+import {requestPlayerFullscreen} from "./player-fullscreen";
 
 function subscribe(listener: () => void) {
   document.addEventListener("fullscreenchange", listener);
@@ -29,7 +30,7 @@ export function PlayerFullscreenControl({
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await document.documentElement.requestFullscreen();
+        if (!await requestPlayerFullscreen()) {onError("浏览器暂时无法切换全屏。");}
       }
     } catch {
       onError("浏览器暂时无法切换全屏。");
