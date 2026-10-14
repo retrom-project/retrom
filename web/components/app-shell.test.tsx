@@ -20,7 +20,7 @@ beforeEach(() => {
   state.context = { initialized: true, user: null };
   window.history.replaceState(null, "", state.pathname);
 });
-afterEach(() => { cleanup(); vi.clearAllMocks(); window.history.replaceState(null, "", "/"); });
+afterEach(() => { vi.unstubAllGlobals(); cleanup(); vi.clearAllMocks(); window.history.replaceState(null, "", "/"); });
 
 it("preserves the protected path, query and fragment when opening login", () => {
   state.search = "from=shared&filter=%E4%B8%AD%E6%96%87";
@@ -36,9 +36,11 @@ it("uses the login route snapshot even when browser history has advanced to the 
   state.search = `returnTo=${encodeURIComponent(destination)}`;
   state.context = { initialized: true, user: { role: "user", displayName: "Player" } };
   window.history.replaceState(null, "", destination);
+  const replaceDocument = vi.fn();
+  vi.stubGlobal("location", { replace: replaceDocument });
   render(<AppShell>Login</AppShell>);
-  expect(state.replace).toHaveBeenCalledWith(destination);
-  expect(state.replace).not.toHaveBeenCalledWith("/");
+  expect(replaceDocument).toHaveBeenCalledWith(destination);
+  expect(replaceDocument).not.toHaveBeenCalledWith("/");
 });
 
 it("leaves failed or pending logins on the same login page", () => {
@@ -52,6 +54,20 @@ it("opens the home page when login has no return destination", () => {
   state.pathname = "/login";
   state.context = { initialized: true, user: { role: "user", displayName: "Player" } };
   window.history.replaceState(null, "", "/login");
+  const replaceDocument = vi.fn();
+  vi.stubGlobal("location", { replace: replaceDocument });
   render(<AppShell>Login</AppShell>);
-  expect(state.replace).toHaveBeenCalledWith("/");
+  expect(replaceDocument).toHaveBeenCalledWith("/");
+});
+
+it("leaves the anonymous route cache behind after authentication", () => {
+  const destination = "/games/shared-game?from=shared#details";
+  const replaceDocument = vi.fn();
+  state.pathname = "/login";
+  state.search = `returnTo=${encodeURIComponent(destination)}`;
+  state.context = { initialized: true, user: { role: "user", displayName: "Player" } };
+  vi.stubGlobal("location", { replace: replaceDocument });
+  render(<AppShell>Login</AppShell>);
+  expect(replaceDocument).toHaveBeenCalledWith(destination);
+  expect(state.replace).not.toHaveBeenCalled();
 });
