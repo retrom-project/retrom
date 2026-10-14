@@ -210,6 +210,9 @@
     },
     "/api/v1/admin/games/{gameId}/withdraw": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1withdraw"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/rpgmaker": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1rpgmaker"
     }
   },
   "components": {
@@ -481,6 +484,9 @@
       },
       "ApproveReviewRequest": {
         "$ref": "./components/common.yaml#/components/schemas/ApproveReviewRequest"
+      },
+      "RPGEntryCandidates": {
+        "$ref": "./components/common.yaml#/components/schemas/RPGEntryCandidates"
       }
     }
   }

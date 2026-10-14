@@ -33,3 +33,5 @@ Game.lastPlayedAtMs为必需但可为null的当前用户投影，由既有recent
 POST `/api/v1/admin/games/{gameId}/withdraw` 接收VersionRequest，仅管理员可用并经过同源Origin／CSRF校验；以版本CAS把published退回pending_review并返回GameDetail，重复／过时版本409，保留原Game与文件及私有关系。ReviewReadiness新增必填missingRomMembers数组（coreId、romSet、ROM／PARENT／BIOS角色、member、sizeBytes、MISSING／SIZE_MISMATCH原因），失败时为空，CRC仍独立提示。ApproveReviewRequest保留必填version并可选coreId；省略按目录默认核心检查。批准事务外检查当前原始归档与配套DAT，再锁定同版本提交；必需成员缺失或大小不符返回REVIEW_REQUIRED_FILES_MISSING，CRC差异不阻止人工批准，试玩非必需。没有新增数据库表／列或正常启动门禁。
 
 Save.restoreWarning 为必需的当前态字符串：空值或 core_changed。核心版本差异对应 restorable=true、restoreReason=""、restoreWarning="core_changed"，表示可尝试但不保证恢复；ROM不一致等阻断结果的restoreWarning为空，core_changed不再是restoreReason。Run.save返回同一权威投影，Run.extinfo为实际运行身份。带核心变化警告的Run不能覆盖其来源存档ID（409），创建新存档与随后覆盖新档仍按原CAS/commitId契约。
+
+GET /api/v1/admin/games/{gameId}/runtime-options/rpgmaker 仅允许管理员读取待审或已发布游戏的入口候选，返回 {entries: string[]}，可传未保存的 engine 选择。Host 仅传活动文件事实和配置，不复制入口规则；旧入口无效不阻止读取替代候选。runtime 对保存、审核和启动统一拒绝不匹配的 RPG 入口，返回 RUNTIME_RPG_ENTRY_INVALID。
