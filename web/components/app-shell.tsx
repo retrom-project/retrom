@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { PhoneShell } from "./phone-shell";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { AppIcon } from "./app-icon";
 import type { AppIconName } from "./app-icon";
@@ -11,7 +11,7 @@ import { ResponsiveSheet } from "./responsive-sheet";
 import { ServiceHealth } from "./service-health";
 import { SidebarAccount } from "./sidebar-account";
 import { useAuth } from "@/features/auth/auth-provider";
-import { authenticationReturnPath } from "@/features/auth/return-path";
+import { authenticationReturnPath, isAuthenticationRoute } from "@/features/auth/return-path";
 const userNav: Array<[string, string, AppIconName]> = [
   ["/", "首页", "home"],
   ["/library", "游戏库", "library"],
@@ -29,13 +29,18 @@ const adminNav: Array<[string, string, AppIconName]> = [
   ["/admin/bios", "运行依赖", "chip"],
   ["/admin/users", "用户管理", "user"],
 ];
-const publicRoutes = ["/login", "/setup", "/register", "/reset-password"];
 export function AppShell({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<main className="auth-route-loading" role="status">正在确认账号状态…</main>}>
+    <AppShellContent>{children}</AppShellContent>
+  </Suspense>;
+}
+function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
   const phone = usePhoneLayout();
   const router = useRouter();
   const { context, error, refresh } = useAuth();
-  const publicRoute = publicRoutes.includes(pathname);
+  const publicRoute = isAuthenticationRoute(pathname);
   useEffect(() => {
     if (!context) {
       return;
@@ -43,11 +48,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!context.initialized && pathname !== "/setup") {
       router.replace("/setup");
     } else if (context.initialized && !context.user && !publicRoute) {
-      router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      const hash = window.location.pathname === pathname ? window.location.hash : "";
+      const destination = pathname + (search ? `?${search}` : "") + hash;
+      router.replace(`/login?returnTo=${encodeURIComponent(destination)}`);
     } else if (context.user && publicRoute) {
-      router.replace(authenticationReturnPath(window.location.search));
+      router.replace(authenticationReturnPath(search));
     }
-  }, [context, pathname, publicRoute, router]);
+  }, [context, pathname, search, publicRoute, router]);
   if (error) {
     return (
       <main className="auth-route-message" role="alert">

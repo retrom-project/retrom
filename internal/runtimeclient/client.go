@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"retrom/internal/model"
 )
@@ -152,7 +153,7 @@ func (c *Client) Validate(ctx context.Context, platform string, config json.RawM
 	cores := make([]string, 0)
 	for _, binding := range c.Bindings {
 		for _, id := range binding.PlatformIDs {
-			if id == platform {
+			if id == platform && !slices.Contains(cores, binding.CoreID) {
 				cores = append(cores, binding.CoreID)
 			}
 		}

@@ -2846,6 +2846,21 @@
             "description": "Selected allowed core to inspect; defaults to the game directory default. No persisted core selection is changed."
           }
         }
+      },
+      "RPGEntryCandidates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       }
     }
   }

@@ -143,3 +143,11 @@ func (s *Server) dosEntryCandidates(w http.ResponseWriter, r *http.Request, p mo
 	}
 	return respond(w, result)
 }
+
+func (s *Server) rpgEntryCandidates(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	result, err := s.Library.RPGEntryCandidates(r.Context(), p, r.PathValue("gameId"), r.URL.Query().Get("engine"))
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, result)
+}
