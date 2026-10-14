@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {runtimeFrameSources} from "./lib/runtime-frame-sources";
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -10,7 +11,7 @@ export function proxy(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/__retrom/runtime-isolation/")) {
     response.headers.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; frame-src 'self' http://*.localhost:3000 https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; frame-src 'self' ${runtimeFrameSources(process.env.RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)} https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
     );
   }
   return response;

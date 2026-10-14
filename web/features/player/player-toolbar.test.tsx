@@ -177,3 +177,41 @@ it("keeps only the back control at top left and exposes an available game editor
   view.rerender(<PlayerToolbar {...props} state="RUNNING" />);
   expect(screen.queryByRole("menuitem", { name: "游戏修改" })).not.toBeInTheDocument();
 });
+
+it("does not pin the touch toolbar through synthetic hover", () => {
+  const props = toolbarProps();
+  const view = render(<PlayerToolbar {...props} menu={false} desktopPointer={false} state="RUNNING" />);
+  fireEvent.pointerEnter(view.container.querySelector(".player-toolbar")!);
+  expect(props.onHover).not.toHaveBeenCalled();
+});
+
+it("keeps a touch handle mounted until its click instead of revealing on pointer focus", () => {
+  const props = toolbarProps();
+  render(<PlayerToolbar {...props} menu={false} visible={false} desktopPointer={false} state="RUNNING" />);
+  const handle = screen.getByRole("button", {name: "显示游戏工具栏"});
+  const matches = vi.spyOn(handle, "matches").mockReturnValue(true);
+  try {
+    fireEvent.pointerDown(handle);
+    fireEvent.pointerUp(handle);
+    fireEvent.focus(handle);
+    expect(props.onReveal).not.toHaveBeenCalled();
+    fireEvent.click(handle);
+    expect(props.onReveal).toHaveBeenCalledOnce();
+  } finally {matches.mockRestore();}
+});
+
+it.each([false, true])("keeps fullscreen only in the more menu (mobile: %s)", (mobile) => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: mobile, media: query, onchange: null, addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {}, dispatchEvent: () => true,
+  }));
+  Object.defineProperty(document, "fullscreenElement", {configurable: true, value: null});
+  try {
+    const props = toolbarProps();
+    const view = render(<PlayerToolbar {...props} menu={false} state="RUNNING" />);
+    expect(screen.queryByRole("button", {name: /全屏/})).not.toBeInTheDocument();
+    view.rerender(<PlayerToolbar {...props} menu state="RUNNING" />);
+    expect(screen.getByRole("menuitem", {name: "在更多操作中进入全屏"})).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /全屏/})).not.toBeInTheDocument();
+  } finally {vi.unstubAllGlobals(); Reflect.deleteProperty(document, "fullscreenElement");}
+});

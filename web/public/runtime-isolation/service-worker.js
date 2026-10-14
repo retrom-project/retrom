@@ -3,6 +3,10 @@ let configuration = null;
 let connection = null;
 let sequence = 0;
 const pending = new Map();
+const maximumActiveRequests = 128;
+const maximumQueuedRequests = 256;
+const waitingRequests = [];
+let activeRequests = 0;
 const runId = new URL(self.location.href).pathname.split("/")[3];
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -111,21 +115,56 @@ self.addEventListener("fetch", (event) => {
   );
 });
 async function request(body) {
-  if (!connection || !configuration) {
-    await reconnect();
+  await acquireRequestSlot();
+  try {
+    if (!connection || !configuration) {
+      await reconnect();
+    }
+    if (!connection || !configuration) {
+      throw new Error("CONTENT_IO_UNAVAILABLE");
+    }
+    return await sendRequest(body);
+  } finally {
+    releaseRequestSlot();
   }
-  if (!connection || !configuration || pending.size >= 128) {
-    return Promise.reject(new Error("CONTENT_IO_UNAVAILABLE"));
+}
+function acquireRequestSlot() {
+  if (activeRequests < maximumActiveRequests) {
+    activeRequests++;
+    return Promise.resolve();
   }
+  if (waitingRequests.length >= maximumQueuedRequests) {
+    return Promise.reject(new Error("CONTENT_IO_CAPACITY_EXCEEDED"));
+  }
+  return new Promise((resolve) => waitingRequests.push(resolve));
+}
+function releaseRequestSlot() {
+  const next = waitingRequests.shift();
+  if (next) {
+    next();
+  } else {
+    activeRequests--;
+  }
+}
+function sendRequest(body) {
+  const port = connection;
   const id = ++sequence;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(id);
-      connection = null;
+      if (connection === port) {
+        connection = null;
+      }
       reject(new Error("CONTENT_IO_TIMEOUT"));
     }, 15000);
     pending.set(id, { resolve, reject, timer });
-    connection.postMessage({ ...body, id });
+    try {
+      port.postMessage({ ...body, id });
+    } catch (error) {
+      pending.delete(id);
+      clearTimeout(timer);
+      reject(error);
+    }
   });
 }
 async function block(path, offset, length) {

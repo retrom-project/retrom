@@ -20,7 +20,7 @@ export function usePlayerOrientation() {
     const landscape = phoneLandscape(window);
     return landscape === null ? "desktop" : landscape ? "landscape" : "portrait";
   }, () => "unknown");
-  return {blocked: status === "unknown" || status === "portrait", known: status !== "unknown"};
+  return {blocked: status === "unknown" || status === "portrait", known: status !== "unknown", phone: status === "portrait" || status === "landscape"};
 }
 export function useOrientationPause(runtime: RefObject<PlayerRuntimeV1 | null>, state: RuntimeStateV1,
   blocked: boolean, otherOverlay: boolean, onError: (message: string) => void) {
