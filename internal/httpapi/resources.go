@@ -115,7 +115,6 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	rootPath, filePath := provider.Root, name
 	if asset, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
 		rootPath, filePath = asset.Root, asset.Name
-
 	}
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
