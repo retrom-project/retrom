@@ -17,3 +17,9 @@ it.each(["https://example.com/", "//example.com/", "/\\example.com/", "/\n"])(
     );
   },
 );
+
+it.each(["/login", "/setup?returnTo=%2Flibrary", "/register#token=unused", "/reset-password", "/games/../login/"])(
+  "does not return an authenticated user to another authentication page: %s", (path) => {
+    expect(authenticationReturnPath(`?returnTo=${encodeURIComponent(path)}`)).toBe("/");
+  },
+);
