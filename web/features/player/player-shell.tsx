@@ -60,6 +60,8 @@ export function PlayerShell({
     return data;
   }, [runId, ownerId]);
   const run = useResource(loader);
+  const orientation = usePlayerOrientation();
+  const presentation = usePlayerPresentation(orientation);
   return (
     <ResourceState resource={run}>
       {(data) => (
@@ -68,6 +70,8 @@ export function PlayerShell({
           ownerId={ownerId}
           returnTo={returnTo}
           contentLoading={contentLoading}
+          orientation={orientation}
+          presentation={presentation}
         />
       )}
     </ResourceState>
@@ -78,8 +82,12 @@ function PlayerContent({
   ownerId,
   returnTo,
   contentLoading,
+  orientation,
+  presentation,
 }: {
   run: Schema<"Run">;
+  orientation: ReturnType<typeof usePlayerOrientation>;
+  presentation: ReturnType<typeof usePlayerPresentation>;
   ownerId: string;
   returnTo: string;
   contentLoading: ContentLoading;
@@ -91,8 +99,6 @@ function PlayerContent({
   const reviewCover = useReviewCover(run);
   const mobile = useMobilePlayerLayout();
   const desktopPointer = useDesktopPlayerPointer();
-  const orientation = usePlayerOrientation();
-  const presentation = usePlayerPresentation(orientation);
   const [debugOpen, setDebugOpen] = usePlayerDebugState();
   const unmutedVolume = useRef(1);
   const { notify } = useToast();
@@ -161,8 +167,9 @@ function PlayerContent({
     );
   }
   async function leave() {
-    await runtime.current?.exit();
-    if (!immersive && document.fullscreenElement) { await document.exitFullscreen(); }
+    presentation.stop();
+    try {await runtime.current?.exit();}
+    finally {await presentation.restore();}
     if (!saves.draft) {
       const response = await api.DELETE("/api/v1/runs/{runId}", { params: { path: { runId: run.id } } });
       if (response.error) { throw new ApiError(response.error.code, response.error.message, response.response.status); }
