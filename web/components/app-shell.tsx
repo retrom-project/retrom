@@ -12,6 +12,8 @@ import { ServiceHealth } from "./service-health";
 import { SidebarAccount } from "./sidebar-account";
 import { useAuth } from "@/features/auth/auth-provider";
 import { authenticationReturnPath } from "@/features/auth/return-path";
+import { PwaNotice } from "@/features/pwa/pwa-controls";
+import { usePwa } from "@/features/pwa/pwa-provider";
 const userNav: Array<[string, string, AppIconName]> = [
   ["/", "首页", "home"],
   ["/library", "游戏库", "library"],
@@ -35,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const phone = usePhoneLayout();
   const router = useRouter();
   const { context, error, refresh } = useAuth();
+  const appWindow = usePwa()?.appWindow;
   const publicRoute = publicRoutes.includes(pathname);
   useEffect(() => {
     if (!context) {
@@ -46,8 +49,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
     } else if (context.user && publicRoute) {
       router.replace(authenticationReturnPath(window.location.search));
+    } else if (context.user && appWindow && pathname.startsWith("/admin")) {
+      router.replace("/");
     }
-  }, [context, pathname, publicRoute, router]);
+  }, [context, pathname, publicRoute, router, appWindow]);
   if (error) {
     return (
       <main className="auth-route-message" role="alert">
@@ -76,6 +81,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     );
   }
+  if (pathname.startsWith("/admin") && appWindow !== false) {
+    return <main className="auth-route-loading" role="status">正在打开游戏库…</main>;
+  }
   if (pathname.startsWith("/admin") && context.user.role !== "admin") {
     return (
       <main className="auth-route-message">
@@ -90,9 +98,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
   return phone && !pathname.startsWith("/admin") ? (
-    <PhoneShell pathname={pathname}>{children}</PhoneShell>
+    <PhoneShell pathname={pathname}><PwaNotice />{children}</PhoneShell>
   ) : (
-    <StandardShell pathname={pathname}>{children}</StandardShell>
+    <StandardShell pathname={pathname}><PwaNotice />{children}</StandardShell>
   );
 }
 function Navigation({
@@ -133,6 +141,8 @@ function StandardShell({
   children: ReactNode;
 }) {
   const { context } = useAuth();
+  const pwa = usePwa();
+  const canManage = context?.user?.role === "admin" && (!pwa || pwa.appWindow === false);
   const [menu, setMenu] = useState(false);
   const admin = pathname.startsWith("/admin");
   const title =
@@ -151,7 +161,7 @@ function StandardShell({
         <Navigation pathname={pathname} />
         <div className="sidebar-foot">
           <SidebarAccount />
-          {context?.user?.role === "admin" ? (
+          {canManage ? (
             <Link
               className="context-switch"
               href={admin ? "/" : "/admin/imports"}
@@ -189,13 +199,13 @@ function StandardShell({
         onClose={() => setMenu(false)}
       >
         <Navigation pathname={pathname} close={() => setMenu(false)} />
-        <Link
+        {canManage ? <Link
           className="button secondary"
           href={admin ? "/" : "/admin/imports"}
           onClick={() => setMenu(false)}
         >
           {admin ? "返回用户侧" : "管理后台"}
-        </Link>
+        </Link> : null}
       </ResponsiveSheet>
     </div>
   );

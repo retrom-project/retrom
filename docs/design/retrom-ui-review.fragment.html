@@ -1,5 +1,6 @@
 <!-- Static UI review examples. Product behavior is implemented against the formal OpenAPI contract. -->
 <div id="retrom-ui-review">
+  <!-- PWA: account installation uses a real browser event; iOS shows share-menu guidance. Updates wait for all Player/immersive windows to exit and refresh only the requesting window. -->
   <!-- Library filters sort Chinese pinyin and Latin names together; hide platforms with zero published games; show published counts such as Arcade(863), 步步高 RPG(12), NES(999+). Directory/tag selects use the same sort, with 全部 first. -->
   <!-- Review CRC approval: shared ConfirmDialog, cancel focused; ROM/Parent/BIOS counts, optional 测试运行, 返回检查, 确认风险并发布. Hard missing-file/BIOS failures remain blocked. -->
   <!-- Published detail: right aligned administrator-only secondary 退回审核 action; versioned submission returns the same game to review. -->
@@ -177,6 +178,7 @@
         <button data-view="tags"><i data-lucide="tag"></i>标签管理</button>
         <button data-view="accounts"><i data-lucide="user"></i>用户管理</button>
         <button data-view="login"><i data-lucide="log-in"></i>登录页</button>
+        <button data-view="pwa"><i data-lucide="monitor"></i>应用安装与离线提示</button>
       </nav>
       <div class="rt-account"><details><summary>示例用户<i title="服务正常"></i></summary><div class="rt-account-menu"><button><i data-lucide="settings"></i>账户设置</button><button><i data-lucide="log-out"></i>退出登录</button></div></details><button><i data-lucide="arrow-left"></i>返回用户侧</button></div>
     </aside>
@@ -213,8 +215,16 @@
       <section class="rt-page" data-page="bios" hidden><header class="rt-head"><h1>运行依赖</h1></header><article class="rt-panel rt-row"><div><h3>BASIC.ROM</h3><p>jsbeeb · BBC Micro · 必需文件</p><details class="rt-file-check"><summary>文件校验要求</summary><p>要求大小：16,384 字节</p><p class="rt-muted">校验值按当前运行声明展示；未知要求不推测。</p></details></div><div class="rt-actions"><button class="rt-button">上传 / 替换</button><button class="rt-button">删除</button></div></article><p class="rt-notice">这里只管理运行所需的 BIOS 文件，不接收游戏内容。</p></section>
       <section class="rt-page" data-page="tags" hidden><header class="rt-head"><h1>标签管理</h1><div class="rt-actions"><button class="rt-button">一键创建推荐标签</button><button class="rt-button">创建标签</button></div></header><form class="rt-panel rt-actions"><input class="rt-tag-search" aria-label="名称搜索" placeholder="搜索标签名称"><button class="rt-button" type="button">应用筛选</button><button class="rt-button" type="button">重置</button></form><article class="rt-panel rt-row"><div><h3>角色扮演</h3><p>归类游戏与默认入库标签</p></div><div class="rt-actions"><button class="rt-button">重命名</button><button class="rt-button">删除</button></div></article><p class="rt-notice">推荐标签补齐10个常用类型，保留现有标签；删除后同名新建不恢复历史关联。删除后的标签不再出现在选择器和筛选器中；再次保存游戏资料时会移除已删除的标签。</p></section>
       <section class="rt-page" data-page="accounts" hidden><header class="rt-head"><h1>用户管理</h1><button class="rt-button">创建邀请</button></header><article class="rt-panel rt-row"><div><h3>示例用户</h3><p>普通用户 · 正常</p></div><div class="rt-actions"><button class="rt-button">编辑账号</button><button class="rt-button">重置密码链接</button></div></article><p class="rt-notice">邀请与密码重置链接显示用途和有效期，并可撤销。用户的收藏与存档只向本人展示。</p></section>
+      <section class="rt-page" data-page="pwa" hidden>
+        <header class="rt-head"><h1>Retrom 应用</h1></header>
+        <article class="rt-panel rt-section"><h2>手机应用 · 我的</h2><div class="rt-actions"><button class="rt-button">我的存档</button><button class="rt-button">我的收藏</button><button class="rt-button">最近游玩</button><button class="rt-button">账户设置</button></div><p class="rt-muted">PWA 独立窗口只展示游玩功能，管理员也不显示后台入口或“退回审核”。后台地址返回首页，普通浏览器继续提供管理功能。</p></article>
+        <article class="rt-panel rt-section"><h2>从桌面或主屏幕打开自己的游戏库</h2><p>安装后以独立窗口打开，方便随时回来继续游玩。</p><button class="rt-button rt-button-primary">安装 Retrom</button><p class="rt-muted">iOS：分享菜单 → 添加到主屏幕。游玩和同步存档需要连接服务器。</p></article>
+        <article class="rt-notice rt-row"><span>Retrom 有新版本，可在结束游玩后刷新更新。</span><button class="rt-button">刷新更新</button></article>
+        <article class="rt-panel rt-section"><h2>暂时无法连接</h2><p>请检查网络或服务器连接后重试。游玩和同步存档需要连接服务器。</p><p class="rt-muted">未同步的存档请在恢复连接后，前往“我的存档”重试或导出。</p><button class="rt-button rt-button-primary">重新连接</button></article>
+      </section>
       <section class="rt-page" data-page="player" hidden>
         <header class="rt-head"><h1>游戏运行</h1><span class="rt-muted">普通模式 · 沉浸模式</span></header>
+        <p class="rt-muted">触控 A／B、X／Y、肩键、数字与开始／选择／速度按钮的文字在按钮内容区双向居中，支持文字边缘裁切时按大写字高与字母基线对齐。普通网页、PWA 与沉浸游玩一致，保留原尺寸、字号、位置、边框及触控映射。</p>
         <p class="rt-muted">确认退出先停止自动横屏全屏，释放本次游戏方向锁，再恢复进入前的全屏状态并返回；竖屏启动的手机按设备原有旋转规则恢复，不再被游戏拉回横屏。取消退出保持游玩显示状态。</p>
         <p class="rt-muted">失败时沿用居中错误面板：先显示可读提示，再逐行显示核心原因与具体缺件；长文件名折行，版权提示与程序栈留在诊断层。</p>
         <div class="rt-player-preview">

@@ -4,10 +4,11 @@ import type { Page } from "@playwright/test";
 import { test } from "./clean-refactor-fixtures";
 import type { Schema } from "../lib/api/types";
 import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
-import { holdController, installStandardController, pressController } from "./immersive-gamepad";
+import { holdController, installStandardController, pressController, settleController } from "./immersive-gamepad";
 import { verifyScanControls } from "./scan-controls";
 import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
+import { verifyTouchButtonAlignment } from "./touch-button-alignment";
 import {
   instantConflict,
   newInstantSave,
@@ -166,6 +167,9 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(page.locator(".player-pause-overlay")).toBeVisible();
   await page.locator(".player-pause-overlay").click();
   const playerCounter = await sendNesInput(page, firstFrame);
+  if (test.info().project.name === "chrome-mobile") {
+    await verifyTouchButtonAlignment(firstFrame);
+  }
   await expect
     .poll(async () =>
       page.locator(".player-toolbar").evaluate((element) =>
@@ -479,9 +483,8 @@ test("immersive player owns its iframe shortcut and returns to the selected game
   await page.keyboard.press("m");
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("button", { name: "取消", exact: true })).toBeFocused();
-  await holdController(page, []);
   // Opening the menu intentionally requires 120ms of neutral controller input.
-  await page.waitForTimeout(200);
+  await settleController(page);
   await pressController(page, [15]);
   await pressController(page, [15]);
   await expect(menu.getByRole("button", { name: "退出游戏", exact: true })).toBeFocused();

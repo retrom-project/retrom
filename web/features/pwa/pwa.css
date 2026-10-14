@@ -1,0 +1,5 @@
+.pwa-settings { margin-top: var(--space-5); }
+.pwa-settings p { margin: 0; }
+.pwa-description { color: var(--muted); }
+.pwa-notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+.pwa-notice > span { flex: 1; min-width: min(100%, 220px); }

@@ -3,8 +3,11 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PageHeader } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
+import { usePwa } from "@/features/pwa/pwa-provider";
 export default function Page() {
   const { context, logout } = useAuth();
+  const pwa = usePwa();
+  const canManage = context?.user?.role === "admin" && (!pwa || pwa.appWindow === false);
   return (
     <>
       <PageHeader title="我的" description="存档、收藏与账户设置。" />
@@ -25,7 +28,7 @@ export default function Page() {
           <AppIcon className="nav-icon" name="user" />
           账户设置
         </Link>
-        {context?.user?.role === "admin" ? (
+        {canManage ? (
           <Link className="workspace-row" href="/admin/games">
             <AppIcon className="nav-icon" name="settings" />
             管理游戏库
