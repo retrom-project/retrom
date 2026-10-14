@@ -9,6 +9,7 @@ import { ResourceState } from "@/components/resource-state";
 import { AdminGameDetail } from "./admin-game-detail";
 import { useToast } from "@/components/toast-provider";
 import { useAuth } from "@/features/auth/auth-provider";
+import { usePwa } from "@/features/pwa/pwa-provider";
 export function GameDetail({
   gameId,
   mode = "user",
@@ -22,7 +23,8 @@ export function GameDetail({
   const [busy, setBusy] = useState(false);
   const { notify } = useToast();
   const { context } = useAuth();
-  const canWithdraw = context?.user?.role === "admin" && detail.data?.game.status === "published";
+  const pwa = usePwa();
+  const canWithdraw = context?.user?.role === "admin" && (!pwa || pwa.appWindow === false) && detail.data?.game.status === "published";
   async function nextReview() {
     let nextId: string | undefined;
     try {

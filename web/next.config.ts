@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { localDevOrigins } from "./lib/dev-origin";
+import { pwaRevision } from "./lib/pwa-build";
 
 const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
@@ -9,6 +10,7 @@ export const backendProxyLimits = {
 } as const;
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_PWA_REVISION: pwaRevision(import.meta.dirname) },
   devIndicators: process.env.NEXT_WEB_E2E === "true" ? false : { position: "bottom-right" },
   allowedDevOrigins: localDevOrigins(),
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
@@ -18,6 +20,9 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   poweredByHeader: false,
+  async headers() {
+    return [{ source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] }];
+  },
   redirects() {
     return [{ source: "/favicon.ico", destination: "/icon.svg", permanent: true }];
   },

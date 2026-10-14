@@ -6,7 +6,8 @@ import type { Schema } from "@/lib/api/types";
 import { loadDetail } from "@/features/library/api";
 import { GameDetail } from "./game-detail";
 
-const calls = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), role: "admin" }));
+const calls = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), role: "admin", appWindow: false }));
+vi.mock("@/features/pwa/pwa-provider", () => ({ usePwa: () => ({ appWindow: calls.appWindow }) }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: {user: {role: calls.role}} }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({
   push: (path: string) => window.history.pushState(null, "", path),
@@ -47,6 +48,7 @@ const detail: Schema<"GameDetail"> = {
 beforeEach(() => {
   vi.resetAllMocks();
   calls.role = "admin";
+  calls.appWindow = false;
   window.history.replaceState(null, "", "/admin/reviews/current");
   vi.mocked(loadDetail).mockResolvedValue(detail);
   calls.post.mockResolvedValue({ data: { ...detail.game, status: "published" }, response: new Response() });
@@ -152,4 +154,13 @@ it("keeps the published page on withdrawal conflicts and refreshes its version",
  expect(await screen.findByRole("alert")).toHaveTextContent("游戏已更新");
  expect(window.location.pathname).toBe("/games/current");
  await waitFor(() => expect(loadDetail).toHaveBeenCalledTimes(2));
+});
+
+it("hides withdrawal from administrators playing in the installed app", async () => {
+ calls.appWindow = true;
+ vi.mocked(loadDetail).mockResolvedValue({...detail, game: {...detail.game, status: "published"}});
+ render(<GameDetail gameId="current" />);
+ await screen.findByRole("heading", {name: "Published game"});
+ expect(screen.queryByRole("button", {name: "退回审核"})).not.toBeInTheDocument();
+ expect(calls.post).not.toHaveBeenCalled();
 });

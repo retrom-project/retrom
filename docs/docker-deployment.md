@@ -2,6 +2,8 @@
 
 [返回项目首页](../README.md) · [文档索引](README.md)
 
+部署完成后可在“账户设置 → Retrom 应用”安装到桌面或手机主屏幕。保持主站和游戏隔离域名的 HTTPS；反向代理应保留 `/sw.js` 的禁止缓存响应头及页面的跨源隔离头，不对业务API或运行资源增加整站缓存。安装与更新行为见 [PWA 说明](pwa.md)。
+
 本文使用发行镜像与 Docker Compose 部署 Retrom，包含 PostgreSQL、Redis、Retrom 后端、Web 前端和 Nginx 五个服务。配置以所选版本的 [Compose 示例](../docker/docker-compose.yml.example)和 [Nginx 示例](../docker/nginx.conf.example)为准。
 
 ## 1. 准备环境

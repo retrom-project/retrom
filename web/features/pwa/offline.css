@@ -1,0 +1,11 @@
+* { box-sizing: border-box; }
+html { min-height: 100%; background: var(--canvas); color: var(--ink); }
+body { min-height: 100dvh; margin: 0; padding: var(--space-4); display: grid; place-items: center; font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--leading-body); }
+main { width: min(100%, 480px); padding: var(--space-6); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-dialog); }
+.offline-brand { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-title); font-weight: var(--weight-semibold); }
+.offline-brand svg { width: 40px; height: 40px; }
+h1 { margin-block: var(--space-5) var(--space-3); font-size: var(--text-heading); font-weight: var(--weight-semibold); line-height: var(--leading-heading); }
+p { color: var(--muted); margin-block: var(--space-3); }
+a { display: inline-flex; align-items: center; justify-content: center; margin-top: var(--space-4); text-decoration: none; }
+a:focus-visible { outline: 2px solid var(--purple-dark); outline-offset: 3px; }
+@media (max-width: 480px) { main { padding: var(--space-5); } }
