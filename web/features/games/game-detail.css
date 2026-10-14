@@ -164,7 +164,6 @@
   .game-detail-drawer-row > .status { grid-column: 1 / -1; width: 100%; }
   .game-detail-page { padding-bottom: 100px; }
   .game-detail-breadcrumb { display: none; }
-  .game-detail-breadcrumb:has(button) { display: flex; }
   .game-detail-hero { height: auto; grid-template-columns: 108px minmax(0, 1fr); grid-template-rows: 144px auto; padding: 0; gap: var(--space-4); border: 0; background: transparent; }
   .game-detail-title-row { margin-bottom: var(--space-1); gap: var(--space-2); }
   .game-detail-title-row h1 { font-size: var(--text-heading); }
