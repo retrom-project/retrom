@@ -1,12 +1,10 @@
 package runtimeclient
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -22,21 +20,21 @@ func (c *Client) loadDevelopment(directory string) error {
 	}
 	seen := make(map[string]bool)
 	for _, path := range append([]string{primary}, additional...) {
-		raw, readErr := os.ReadFile(path)
+		raw, readErr := readDevelopmentDescriptor(path)
 		if path == primary && errors.Is(readErr, os.ErrNotExist) {
 			continue
 		}
 		if readErr != nil {
 			return fmt.Errorf("read development Provider: %w", readErr)
 		}
-		if err = c.loadDevelopmentProvider(raw, seen); err != nil {
+		if err = c.loadDevelopmentProvider(filepath.Dir(path), raw, seen); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *Client) loadDevelopmentProvider(raw []byte, seen map[string]bool) error {
+func (c *Client) loadDevelopmentProvider(directory string, raw []byte, seen map[string]bool) error {
 	var descriptor struct {
 		SchemaVersion      int               `json:"schemaVersion"`
 		ProviderID         string            `json:"providerId"`
@@ -44,10 +42,9 @@ func (c *Client) loadDevelopmentProvider(raw []byte, seen map[string]bool) error
 		TargetFingerprints map[string]string `json:"targetFingerprints"`
 		ProviderManifest   json.RawMessage   `json:"providerManifest"`
 		Files              []struct {
-			Path          string `json:"path"`
-			SHA256        string `json:"sha256"`
-			SizeBytes     int64  `json:"sizeBytes"`
-			ContentBase64 string `json:"contentBase64"`
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"sizeBytes"`
 		} `json:"files"`
 	}
 	if err := json.Unmarshal(raw, &descriptor); err != nil {
@@ -59,18 +56,24 @@ func (c *Client) loadDevelopmentProvider(raw []byte, seen map[string]bool) error
 		return model.ErrInvalid
 	}
 	seen[descriptor.ProviderID] = true
-	overrides := make(map[string][]byte, len(descriptor.Files))
-	var total int
+	filesDirectory := filepath.Join(directory, "files")
+	root, err := os.OpenRoot(filesDirectory)
+	if err != nil {
+		return fmt.Errorf("open development assets: %w", err)
+	}
+	defer closeRoot(root)
+	overrides := make(map[string]DevelopmentAsset, len(descriptor.Files))
+	if len(descriptor.Files) > 4096 {
+		return model.ErrInvalid
+	}
 	for _, file := range descriptor.Files {
-		data, decodeErr := developmentAsset(file.Path, file.ContentBase64, file.SHA256, file.SizeBytes)
-		if decodeErr != nil {
-			return decodeErr
-		}
-		total += len(data)
-		if total > 64*1024*1024 {
+		if _, duplicate := overrides[file.Path]; duplicate {
 			return model.ErrInvalid
 		}
-		overrides[file.Path] = data
+		if err := verifyDevelopmentAsset(root, file.Path, file.SHA256, file.SizeBytes); err != nil {
+			return err
+		}
+		overrides[file.Path] = DevelopmentAsset{Root: filesDirectory, Name: file.SHA256}
 		c.Assets[provider.ProviderID][file.Path] = true
 		if file.Path == "client.mjs" {
 			provider.ModuleSHA256 = file.SHA256
@@ -91,16 +94,36 @@ func (c *Client) loadDevelopmentProvider(raw []byte, seen map[string]bool) error
 	return nil
 }
 
-func developmentAsset(path, content, hash string, size int64) ([]byte, error) {
-	if !storage.SafeRelative(path) || !model.Hash(hash) {
-		return nil, model.ErrInvalid
+// Development files are immutable, digest-addressed objects. Keep only their
+// verified locations in memory; large core binaries are streamed by HTTP.
+type DevelopmentAsset struct{ Root, Name string }
+
+func verifyDevelopmentAsset(root *os.Root, path, hash string, size int64) error {
+	if !storage.SafeRelative(path) || !model.Hash(hash) || size < 1 {
+		return model.ErrInvalid
 	}
-	data, err := base64.StdEncoding.DecodeString(content)
+	info, err := root.Lstat(hash)
 	if err != nil {
-		return nil, fmt.Errorf("decode development asset: %w", err)
+		return fmt.Errorf("stat development asset: %w", err)
 	}
-	digest := sha256.Sum256(data)
-	if int64(len(data)) != size || hex.EncodeToString(digest[:]) != hash {
+	if !info.Mode().IsRegular() || info.Size() != size {
+		return model.ErrInvalid
+	}
+	return verifyFile(root, hash, hash, size)
+}
+
+func readDevelopmentDescriptor(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open development descriptor: %w", err)
+	}
+	defer closeFile(file)
+	const limit = 64 * 1024 * 1024
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("read development descriptor: %w", err)
+	}
+	if len(data) > limit {
 		return nil, model.ErrInvalid
 	}
 	return data, nil

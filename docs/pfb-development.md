@@ -15,3 +15,5 @@ reset使用exact ID停止本PFB，归档data与postgres到workspace/reset-backup
 联合验收可在明确pfb-build时传RETROM_RUNTIME_TOOL_INPUT=<本PFB中的自足工具包目录>；它复制全部production依赖到不可变SHA快照，避免读取另一个owner正在构建的dist。未传时显式build才编译本PFB runtime并发布开发快照；每日up/restart只读已发布工具。工具输入不允许越出本命名PFB。
 
 正式pfb-build拒绝正在运行的当前app，先协调停止该app再构建；不得手写toolchain marker绕过检查。标准pfb-up运行源码go run、Next dev和正常Provider watcher，并非固定生产binary或standalone。watcher为基座中已安装的retrom-runtime和emulatorjs分别生成开发模块，Host加载所有描述文件并拒绝重复Provider、基座不一致及文件校验失败。dev/provider-id决定哪个Provider使用显式core-inputs，默认retrom-runtime；其他Provider使用已验证的基座核心，额外描述文件位于dev/providers/<providerId>/dev-provider.json。此路径不构建核心或Provider归档。开发client的assetIndex与完整基座可不同，需比较实际Target指纹及资产，不能按client整包SHA推断存档失效。生产镜像与日常开发来源分别记录。切换保留本PFB PG/Redis及workspace；Redis临时键可正常TTL到期，前后对照必须按实际变化记录。
+
+开发覆盖层的 `dev-provider.json` 只保存路径、大小、摘要及 Provider 声明。资源以摘要命名，写入描述文件同级 `files/` 后才原子发布描述文件；失败重建保留上一份有效描述及其资源。Host 启动时流式验证普通文件的大小和 SHA256，HTTP 直接从磁盘提供，支持 Range/HEAD，不在 JSON 或进程常驻内存中嵌入核心二进制。开发 URL 绑定实际模块摘要且返回 `private, no-store`；正式 Bundle URL 仍只读取安装基座。此目录随所属 PFB workspace 清理，不能作为正式发行输入。

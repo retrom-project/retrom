@@ -18,7 +18,7 @@ type Client struct {
 	Providers        map[string]Provider
 	Fingerprints     map[string]string
 	Assets           map[string]map[string]bool
-	Overrides        map[string]map[string][]byte
+	Overrides        map[string]map[string]DevelopmentAsset
 	BiosRequirements []BiosRequirement
 	Locate           func(string) (string, error)
 	pool             *workerPool
@@ -178,7 +178,7 @@ func Open(ctx context.Context, root, node, providerRoot string) (*Client, error)
 		Providers:    make(map[string]Provider),
 		Fingerprints: make(map[string]string),
 		Assets:       make(map[string]map[string]bool),
-		Overrides:    make(map[string]map[string][]byte),
+		Overrides:    make(map[string]map[string]DevelopmentAsset),
 		pool:         newWorkerPool(ctx, root, node),
 	}
 	ready := false

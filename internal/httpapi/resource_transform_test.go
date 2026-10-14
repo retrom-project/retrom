@@ -51,18 +51,21 @@ func TestProviderRangesPreserveBytesThroughTransformingProxies(t *testing.T) {
 	for _, override := range []bool{false, true} {
 		t.Run(map[bool]string{false: "installed", true: "development"}[override], func(t *testing.T) {
 			client := &runtimeclient.Client{
-				Providers: map[string]runtimeclient.Provider{"test": {ProviderID: "test", BundleSHA256: "bundle", Root: root}},
+				Providers: map[string]runtimeclient.Provider{"test": {ProviderID: "test", BundleSHA256: "bundle", ModuleSHA256: "revision", Root: root}},
 				Assets:    map[string]map[string]bool{"test": {"core.js": true}},
-				Overrides: map[string]map[string][]byte{},
+				Overrides: map[string]map[string]runtimeclient.DevelopmentAsset{},
 			}
 			if override {
-				client.Overrides["test"] = map[string][]byte{"core.js": payload}
+				client.Overrides["test"] = map[string]runtimeclient.DevelopmentAsset{"core.js": {Root: root, Name: "core.js"}}
 			}
 			server := &Server{Runtime: client}
 			checkImmutableRange(t, payload, func(w http.ResponseWriter, r *http.Request) {
 				r.SetPathValue("providerId", "test")
 				r.SetPathValue("bundle", "bundle")
 				r.SetPathValue("asset", "core.js")
+				if override {
+					r.SetPathValue("asset", "dev/revision/core.js")
+				}
 				if err := server.providerAsset(w, r, model.Principal{}); err != nil {
 					t.Error(err)
 				}

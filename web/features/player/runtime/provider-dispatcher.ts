@@ -75,7 +75,7 @@ async function fetchProviderModule(
 ) {
   try {
     const response = await environment.fetcher(envelope.runtime.moduleUrl, {
-      cache: "no-store",
+      cache: "default",
       credentials: "same-origin",
       redirect: "error",
       signal: host.signal,
