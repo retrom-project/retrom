@@ -101,10 +101,10 @@ function validEnvelopeBody(
 ) {
   const base = `/runtime/providers/${runtime.providerId}/${runtime.bundleSha256}/`;
   return (
-    runtime.runtimeBaseUrl === base &&
-    runtime.moduleUrl === `${base}client.mjs` &&
+    [base, `${base}dev/${runtime.moduleSha256}/`].includes(runtime.runtimeBaseUrl) &&
+    runtime.moduleUrl === `${runtime.runtimeBaseUrl}client.mjs` &&
     validResources(value.resources) &&
-    validResourceBridges(value.resources, base) &&
+    validResourceBridges(value.resources, runtime.runtimeBaseUrl) &&
     validTargetOptions(value.targetOptions) &&
     validRestore(value.restore, runtime.checkpoint)
   );

@@ -131,8 +131,7 @@ func (s *Service) treeResource(run *Context, resource map[string]any, selected [
 	if !exists || !s.Runtime.AssetAllowed(provider.ProviderID, plan.BridgeAssetPath) {
 		return model.ErrInvalid
 	}
-	resource["bridgeUrl"] = "/runtime/providers/" + provider.ProviderID + "/" +
-		provider.BundleSHA256 + "/" + plan.BridgeAssetPath
+	resource["bridgeUrl"] = s.providerBaseURL(provider) + plan.BridgeAssetPath
 	origin := s.isolation(run.Run.ID)
 	resource["origin"] = origin
 	resource["entryUrl"] = origin + "/run/" + run.Run.ID + "/" + logicalURLPath(plan.EntryFile)
@@ -159,4 +158,12 @@ func virtualPath(file Blob, paths map[string]string) string {
 		return mapped
 	}
 	return file.LogicalPath
+}
+
+func (s *Service) providerBaseURL(provider runtimeclient.Provider) string {
+	base := "/runtime/providers/" + provider.ProviderID + "/" + provider.BundleSHA256 + "/"
+	if len(s.Runtime.Overrides[provider.ProviderID]) != 0 {
+		base += "dev/" + provider.ModuleSHA256 + "/"
+	}
+	return base
 }

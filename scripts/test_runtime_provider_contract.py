@@ -324,6 +324,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "fixtures/target-options/schema-validation.json",
                     "fixtures/valid/checkpoint-restore.json",
                     "fixtures/valid/core-identifier.json",
+                    "fixtures/valid/development-assets.json",
                     "fixtures/valid/isolated-web.json",
                     "fixtures/valid/single-minimal.json",
                     "launch-envelope.schema.json",

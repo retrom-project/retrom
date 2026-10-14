@@ -289,7 +289,7 @@
     "bridgeUrl": {
       "type": "string",
       "maxLength": 2048,
-      "pattern": "^/runtime/providers/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?/[0-9a-f]{64}/assets/(?!\\.{1,2}/)(?!.*\\/\\.{1,2}/)[a-zA-Z0-9_./-]+/bridge\\.js$"
+      "pattern": "^/runtime/providers/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?/[0-9a-f]{64}/(?:dev/[0-9a-f]{64}/)?assets/(?!\\.{1,2}/)(?!.*\\/\\.{1,2}/)[a-zA-Z0-9_./-]+/bridge\\.js$"
     }
   }
 }
