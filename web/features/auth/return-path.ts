@@ -1,3 +1,9 @@
+const publicRoutes = ["/login", "/setup", "/register", "/reset-password"];
+
+export function isAuthenticationRoute(pathname: string): boolean {
+  return publicRoutes.includes(pathname.replace(/\/+$/u, ""));
+}
+
 export function authenticationReturnPath(search: string): string {
   const value = new URLSearchParams(search).get("returnTo");
   if (
@@ -8,5 +14,6 @@ export function authenticationReturnPath(search: string): string {
   ) {
     return "/";
   }
-  return value;
+  const destination = new URL(value, "https://retrom.invalid");
+  return isAuthenticationRoute(destination.pathname) ? "/" : value;
 }

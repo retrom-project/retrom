@@ -1820,6 +1820,115 @@
         ],
         "description": "Administrator-only versioned transition from published to pending_review. Preserve the same Game ID, files, media, tags, runtime configuration and private relations. Ordinary browsing and new play Runs require published state; administrator review Runs remain available."
       }
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/rpgmaker": {
+      "get": {
+        "operationId": "ListRPGEntryCandidates",
+        "tags": [
+          "library"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RPGEntryCandidates"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "engine",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RPG2000",
+                "RPG2003",
+                "RPGXP",
+                "RPGVX",
+                "RPGVXACE",
+                "RPGMV",
+                "RPGMZ"
+              ]
+            },
+            "description": "Optional unsaved RPG Maker engine choice."
+          }
+        ],
+        "description": "Administrator-only entry candidates for pending or published RPG Maker games. Runtime filters current file facts for the selected engine, preserving full logical paths. An invalid saved entry does not prevent listing replacements."
+      }
     }
   }
 }

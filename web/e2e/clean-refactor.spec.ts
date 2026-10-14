@@ -6,6 +6,8 @@ import type { Schema } from "../lib/api/types";
 import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
 import { holdController, installStandardController, pressController, settleController } from "./immersive-gamepad";
 import { verifyScanControls } from "./scan-controls";
+import { verifyLoginReturn } from "./login-return";
+import { verifyRPGEntrySelection } from "./rpg-entry-selection";
 import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
@@ -514,4 +516,17 @@ test("immersive player owns its iframe shortcut and returns to the selected game
   await page.keyboard.press("m");
   await menu.getByRole("button", { name: "退出游戏", exact: true }).click();
   await expect(page).toHaveURL(/\/immersive\?/u);
+});
+
+
+test("login returns shared game links to the complete destination", async ({ page }) => {
+  test.setTimeout(90_000);
+  await login(page);
+  await verifyLoginReturn(page, await prepareLibrary(page));
+});
+
+test("RPG entries stay aligned and multiple projects use a fixed dropdown", async ({ page }, info) => {
+  test.setTimeout(90_000);
+  await login(page);
+  await verifyRPGEntrySelection(page, info);
 });

@@ -5,7 +5,11 @@ import MePage from "@/app/me/page";
 import { PwaProvider, usePwa } from "./pwa-provider";
 
 const route = vi.hoisted(() => ({ pathname: "/me", replace: vi.fn(), role: "admin" }));
-vi.mock("next/navigation", () => ({ usePathname: () => route.pathname, useRouter: () => ({ replace: route.replace }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => route.pathname,
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: route.replace }),
+}));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({
   context: { initialized: true, user: { role: route.role, displayName: "Player" } }, logout: vi.fn(),
 }) }));

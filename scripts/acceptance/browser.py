@@ -115,6 +115,22 @@ def source_fixture(directory: Path, marker: str) -> str:
     return title
 
 
+def rpg_source_fixture(directory: Path) -> None:
+    fixture = ROOT / "testdata/public-roms/rpgmaker-smoke/rpgmv"
+    source = directory / "rpg-entry"
+    shutil.copytree(fixture, source / "import/single")
+    (source / "import/metadata.pegasus.txt").write_text(
+        "collection: RPG entry acceptance\n\ngame: Browser RPG single\nfile: single\n"
+        "\ngame: Browser RPG multiple\nfile: multiple\n",
+        encoding="utf-8",
+    )
+    multiple = source / "import/multiple"
+    shutil.copytree(fixture, multiple)
+    shutil.copytree(fixture, multiple / "www")
+    (multiple / "docs").mkdir()
+    (multiple / "docs/index.html").write_text("<!doctype html><title>Documentation</title>")
+
+
 def stop(process: subprocess.Popen) -> None:
     if process.poll() is None:
         os.killpg(process.pid, signal.SIGTERM)
@@ -149,6 +165,7 @@ def run_browser() -> int:
                         ignore=shutil.ignore_patterns("node_modules", ".next*", "test-results", "playwright-report"))
         (web / "node_modules").symlink_to(ROOT / "web/node_modules", target_is_directory=True)
         title = source_fixture(data / "sources", marker)
+        rpg_source_fixture(data / "sources")
         with psycopg.connect(os.environ["RETROM_TEST_DATABASE_URL"], autocommit=True) as connection:
             connection.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database)))
         created = True
@@ -174,6 +191,7 @@ def run_browser() -> int:
             "NEXT_BACKEND_ORIGIN": backend_origin, "NEXT_WEB_E2E": "true", "NEXT_DIST_DIR": ".next",
             "RETROM_WEB_ORIGIN": web_origin, "RETROM_BROWSER_SOURCE_PATH": str(data / "sources" / "browser"),
             "RETROM_BROWSER_GAME_TITLE": title,
+            "RETROM_BROWSER_RPG_SOURCE_PATH": str(data / "sources/rpg-entry"),
             "RETROM_BROWSER_ADMIN_USER": "browser-admin", "RETROM_BROWSER_ADMIN_PASSWORD": "Browser-" + uuid.uuid4().hex}
         for command, name, cwd in [
             ([str(binary)], "backend", ROOT),

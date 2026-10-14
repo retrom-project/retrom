@@ -27,6 +27,8 @@ func ContentFailure(code string) *model.RuntimeContentError {
 		message = "缺少当前核心所需的 Parent 父包，请补齐父包后重新检查。"
 	case "RUNTIME_ENTRY_MISSING":
 		message = "已保存的启动文件不存在，请重新选择游戏启动文件。"
+	case "RUNTIME_RPG_ENTRY_INVALID":
+		message = "所选文件不是当前 RPG Maker 版本的有效入口，请重新选择入口文件。"
 	case "RUNTIME_CONTENT_UNAVAILABLE":
 		message = "无法读取游戏内容，请检查文件后重新检查。"
 	case "RUNTIME_CONTENT_UNSUPPORTED":
