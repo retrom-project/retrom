@@ -4,11 +4,13 @@
 
 ## 当前正式版本
 
-当前 pin 使用 [retrom-runtime v0.66.1](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.66.1)。本次修复 RPG Maker 手机端请求缺失音频编码时的资源解析：仅在原生 RPG Maker 音频目录中选择游戏包实际包含的另一编码，保留精确匹配优先级及歧义检查。核心二进制、Provider V1 协议和存档格式保持不变，没有数据库表、索引或迁移变更。
+当前 pin 使用 [retrom-runtime v0.66.2](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.66.2)。本次修复 EmulatorJS 数字摇杆快速换向时，旧的延迟释放任务清除当前方向的问题；数字方向同步先释放、再按下，保留模拟轴与原有控件外观。正式包在 FBNeo、MAME 2003 和 MAME 2003 Plus 下通过输入复验，范围见 [移动输入验证](mobile-input-validation.md)。核心二进制、Provider V1 协议和存档格式保持不变，没有数据库表、索引或迁移变更。
+
+v0.66.1 的 RPG Maker 音频编码解析修复继续保留：仅在原生音频目录中选择游戏包实际包含的另一编码，保留精确匹配优先级及歧义检查。
 
 v0.66.0 引入的原始 Parent ZIP 逐文件交付和独立 BIOS 继续生效，包含 FBAlpha 0.2.97.44。相同原始内容的 MAME 存档身份编码保持不变；恢复历史加工父包会改变游戏内容身份，原有存档仍保留但不能强制视为新内容的可恢复存档。实际样例、已知兼容性问题和验收范围见 [Parent 完整性验证](parent-integrity-validation.md)。
 
-`make runtime-provider-pin-release TAG=v0.66.1` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+`make runtime-provider-pin-release TAG=v0.66.2` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare
