@@ -22,8 +22,8 @@ export function RecentCard({ item }: { item: Schema<"RecentGame"> }) {
             <h2>{item.game.title}</h2>
           </Link>
           <p>
-            <AppIcon name="gamepad" />
-            {item.game.directoryName}
+            <AppIcon name="gamepad-retro" />
+            <span title={item.game.directoryName}>{item.game.directoryName}</span>
           </p>
         </div>
         <div className="recent-history-facts">

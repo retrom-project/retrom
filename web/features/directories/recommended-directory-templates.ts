@@ -8,6 +8,7 @@ export const recommendedDirectoryTemplates: ReadonlyArray<readonly [platform: st
   ["sgb", "gearboy", "Super Game Boy 游戏"],
   ["gba", "mgba", "GBA 游戏"],
   ["arcade", "fbneo", "FBNeo 游戏"],
+  ["arcade", "fbalpha", "FBAlpha 游戏", "使用 FBAlpha 0.2.97.44 运行的街机游戏。"],
   ["arcade", "mame2003_plus", "MAME 2003 Plus 游戏"],
   ["arcade", "mame_arcade", "MAME Current 游戏", "使用 MAME Current 校验的街机 ROM，可作为旧核心的另一种运行方式。"],
   ["arcade", "fbalpha2012_cps1", "FB Alpha 2012 CPS-1 游戏"],

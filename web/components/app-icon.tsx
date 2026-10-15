@@ -31,6 +31,7 @@ export type AppIconName =
   | "eye-off"
   | "pin"
   | "gamepad"
+  | "gamepad-retro"
   | "expand"
   | "maximize"
   | "minimize"
@@ -197,6 +198,14 @@ const paths: Record<AppIconName, ReactNode> = {
     <>
       <path d="M8 8h8l4 4v5a3 3 0 0 1-5 2l-1-1h-4l-1 1a3 3 0 0 1-5-2v-5Z" />
       <path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" />
+    </>
+  ),
+  "gamepad-retro": (
+    <>
+      <rect x="2" y="6" width="20" height="12" rx="3" />
+      <path d="M6 12h4M8 10v4" />
+      <circle cx="15" cy="13" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="11" r="1" fill="currentColor" stroke="none" />
     </>
   ),
   // Lucide maximize (Feather-derived); license: /licenses/lucide-icons.txt.

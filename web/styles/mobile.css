@@ -508,7 +508,7 @@
   .recent-history-cover { width: 96px; height: 128px; }
   .recent-history-content { padding: 2px 0; }
   .recent-history-main h2 { white-space: normal; font-size: var(--text-lead); }
-  .recent-history-main p { align-items: flex-start; white-space: normal; }
+  .recent-history-main p { white-space: normal; }
   .recent-history-facts { margin-top: 12px; padding-top: 8px; grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .recent-history-fact { padding: 0; border: 0; }
   .recent-history-actions { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
