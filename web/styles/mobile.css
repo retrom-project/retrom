@@ -481,9 +481,6 @@
   .favorite-rail nav button { min-height: 44px; }
   .favorite-new-folder { min-height: 44px; }
   .favorite-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; }
-  .favorite-platforms button { min-height: 44px; }
-  .favorite-platforms .favorite-result-count { margin-left: 0; }
   .favorite-game-cover > a > span:last-child:not(.favorite-poster) { opacity: 1; padding: 9px; justify-content: flex-start; background: linear-gradient(transparent 72%, rgb(7 10 18 / 82%)); }
   .favorite-game-body { min-height: 78px; }
   .favorite-actions-favorite-card .favorite-heart, .favorite-actions-favorite-card .favorite-manage { width: 44px; height: 44px; min-height: 44px; }
@@ -507,7 +504,7 @@
   .recent-history-cover { width: 96px; height: 128px; }
   .recent-history-content { padding: 2px 0; }
   .recent-history-main h2 { white-space: normal; font-size: var(--text-lead); }
-  .recent-history-main p { align-items: flex-start; white-space: normal; }
+  .recent-history-main p { white-space: normal; }
   .recent-history-facts { margin-top: 12px; padding-top: 8px; grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .recent-history-fact { padding: 0; border: 0; }
   .recent-history-actions { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

@@ -49,7 +49,9 @@
 .recent-history-main h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-lead); line-height: 1.3; }
 .recent-history-main a:hover h2 { color: var(--purple-dark); }
 .recent-history-main p { margin: 7px 0 0; overflow: hidden; display: flex; align-items: center; gap: 6px; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-caption); }
-.recent-history-main p svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--purple-dark); }
+/* Align the controller optically with caption glyphs, above the line-box center. */
+.recent-history-main p svg { display: block; width: 16px; height: 16px; flex: 0 0 auto; color: var(--purple-dark); transform: translateY(-1px); }
+.recent-history-main p span { min-width: 0; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; }
 .recent-history-facts { margin-top: auto; padding-top: 11px; display: grid; grid-template-columns: 1.35fr 1fr .8fr; border-top: 1px solid var(--line); }
 .recent-history-fact { min-width: 0; padding: 0 20px; display: grid; gap: 3px; border-left: 1px solid var(--line); }
 .recent-history-fact:first-child { padding-left: 0; border-left: 0; }

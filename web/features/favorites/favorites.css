@@ -43,23 +43,6 @@
 .favorite-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .favorite-search svg { width: 15px; height: 15px; }
 .favorite-search input { min-width: 0; width: 100%; height: 100%; padding: 0; color: var(--ink); border: 0; outline: 0; background: transparent; font-size: var(--text-caption); }
-.favorite-platforms { min-width: 0; min-height: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
-.favorite-platform-options { min-width: 0; display: flex; align-items: center; gap: 7px; overflow-x: auto; padding-block: 2px; scrollbar-color: transparent transparent; scrollbar-width: thin; }
-.favorite-platform-options:hover, .favorite-platform-options:focus-within { scrollbar-color: var(--muted) transparent; }
-.favorite-platform-options::-webkit-scrollbar { height: 6px; }
-.favorite-platform-options::-webkit-scrollbar-track { background: transparent; }
-.favorite-platform-options::-webkit-scrollbar-thumb { background: transparent; border-radius: var(--radius-control); }
-.favorite-platform-options:hover::-webkit-scrollbar-thumb, .favorite-platform-options:focus-within::-webkit-scrollbar-thumb { background: var(--muted); }
-@supports selector(::-webkit-scrollbar) {
-  .favorite-platform-options, .favorite-platform-options:hover, .favorite-platform-options:focus-within { scrollbar-width: auto; scrollbar-color: auto; }
-}
-.favorite-platforms > span { margin-right: 2px; flex: 0 0 auto; color: var(--muted); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-.favorite-platforms button { min-height: 32px; padding: 0 10px; flex: 0 0 auto; color: var(--muted); border: 1px solid transparent; border-radius: 999px; background: var(--surface-subtle); cursor: pointer; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-.favorite-platforms button:hover, .favorite-platforms button.is-active { color: var(--purple-dark); border-color: var(--purple-line); background: var(--purple-soft); }
-.favorite-platforms button strong { margin-left: 2px; }
-.favorite-platforms .favorite-result-count { margin-left: auto; color: var(--muted); white-space: nowrap; }
-.favorite-platforms .favorite-result-count strong { color: var(--ink); }
-.favorite-platforms .favorite-organize-uncategorized { padding-inline: 0; color: var(--purple-dark); border: 0; background: transparent; font-weight: var(--weight-semibold); }
 .favorite-game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 280px)); gap: 14px; align-items: start; }
 .favorite-game-card { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-cover); background: var(--surface); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 .favorite-game-card:hover, .favorite-game-card:focus-within { z-index: 3; border-color: var(--purple-line); box-shadow: var(--shadow); transform: translateY(-2px); }
@@ -99,7 +82,6 @@
 .favorite-skeleton-rail i { height: 36px; }
 .favorite-skeleton-control { min-height: 38px; }
 .favorite-loading-shell .favorite-toolbar > * { min-width: 0; }
-.favorite-loading-shell .favorite-platforms .favorite-skeleton-line { width: 45%; height: 18px; }
 .favorite-loading-card { width: 280px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .favorite-loading-card > i { height: 372px; border-radius: calc(var(--radius-cover) - 1px) calc(var(--radius-cover) - 1px) 0 0; }
 .favorite-loading-card > span { width: calc(100% - 28px); height: 13px; margin: 15px 14px 0; }
@@ -145,8 +127,7 @@
 @media (min-width: 2500px) {
   .favorite-game-grid { gap: 18px; }
   .favorite-search, .favorite-new-folder, .favorite-folder-search input, .favorite-folder-name input, .favorite-create-inline { min-height: 42px; font-size: var(--text-caption); }
-  .favorite-rail nav button, .favorite-head-summary, .favorite-platforms > span,
-  .favorite-platforms button, .favorite-game-body p, .favorite-dialog-head p { font-size: var(--text-caption); }
+  .favorite-rail nav button, .favorite-head-summary, .favorite-game-body p, .favorite-dialog-head p { font-size: var(--text-caption); }
   .favorite-rail nav button strong, .favorite-rail-label, .favorite-toolbar label,
   .favorite-game-cover > a > span:last-child:not(.favorite-poster), .favorite-poster small,
   .favorite-poster > span, .favorite-batch strong,

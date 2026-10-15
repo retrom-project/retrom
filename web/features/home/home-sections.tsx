@@ -178,6 +178,8 @@ export function HomeFavorites({ games }: { games: Game[] }) {
 }
 export function HomeDirectories({ directories }: { directories: Directory[] }) {
   const platformRail = useHorizontalWheel<HTMLDivElement>();
+  const populatedDirectories = directories.filter((directory) => directory.gameCount > 0);
+  if (!populatedDirectories.length) { return null; }
   return (
     <section className="home-layer">
       <div className="home-section-head">
@@ -185,7 +187,7 @@ export function HomeDirectories({ directories }: { directories: Directory[] }) {
         <Link href="/library">浏览全部</Link>
       </div>
       <div ref={platformRail} className="home-horizontal-rail home-platform-rail">
-        {directories.map((directory) => (
+        {populatedDirectories.map((directory) => (
           <article className="home-platform-card" key={directory.id}>
             <Link href={`/library?platformInstanceId=${directory.id}`}>
               <HomePlatformArt key={directory.platformId} platformId={directory.platformId} />
@@ -197,11 +199,6 @@ export function HomeDirectories({ directories }: { directories: Directory[] }) {
           </article>
         ))}
       </div>
-      {!directories.length ? (
-        <div className="home-inline-empty">
-          管理员可以从运行声明创建游戏目录。
-        </div>
-      ) : null}
     </section>
   );
 }

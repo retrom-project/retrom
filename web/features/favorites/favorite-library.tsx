@@ -10,9 +10,7 @@ import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
 import { useInfiniteResource } from "@/lib/use-infinite-resource";
 import type { PageRequest } from "@/lib/use-infinite-resource";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { useResource } from "@/lib/use-resource";
 import {
-  loadDirectories,
   loadGames,
   toggleFavorite,
 } from "@/features/library/api";
@@ -24,7 +22,6 @@ import { FavoriteCollectionDialog } from "./favorite-collection-dialog";
 export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
   const batchRail = useHorizontalWheel<HTMLDivElement>();
   const [query, setQuery] = useState(initial.q ?? "");
-  const [directory, setDirectory] = useState(initial.platformInstanceId ?? "");
   const [folder, setFolder] = useState(initial.folderId ?? "");
   const [sort, setSort] = useState<"recent" | "title">("recent");
   const [selecting, setSelecting] = useState(false);
@@ -39,17 +36,15 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
     ({ offset, limit, signal }: PageRequest) =>
       loadGames("favorites", {
         q: query,
-        platformInstanceId: directory || undefined,
         folderId: folder && folder !== "unclassified" ? folder : undefined,
         unclassified: folder === "unclassified" || undefined,
         sort,
         offset,
         limit,
       }, signal),
-    [query, directory, folder, sort],
+    [query, folder, sort],
   );
   const games = useInfiniteResource(loader, gameKey);
-  const directories = useResource(loadDirectories);
   function changed() {
     games.reload();
     setRevision((value) => value + 1);
@@ -58,11 +53,10 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
     setOrganizing(null);
     setRemoving(null);
   }
-  function filter(next: { q?: string; directory?: string; folder?: string }) {
+  function filter(next: { q?: string; folder?: string }) {
     const parameters = new URLSearchParams();
     const values = {
       q: next.q ?? query,
-      platformInstanceId: next.directory ?? directory,
       folderId: next.folder ?? folder,
     };
     for (const [key, value] of Object.entries(values)) {
@@ -133,8 +127,6 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
         query={query}
         sort={sort}
         selecting={selecting}
-        directory={directory}
-        directories={directories.data?.items ?? []}
         onQuery={(value) => {
           setQuery(value);
           filter({ q: value });
@@ -143,18 +135,11 @@ export function FavoriteLibrary({ initial }: { initial: ListFilters }) {
           setSort(value);
           setSelected([]);
         }}
-        onDirectory={(value) => {
-          setDirectory(value);
-          filter({ directory: value });
-        }}
         onToggle={() => {
           setSelecting(!selecting);
           setSelected([]);
         }}
       />
-      {directories.error ? (
-        <p role="alert">{directories.error}</p>
-      ) : null}
       <ResourceState resource={games}>
         {(data) =>
           data.items.length ? (
