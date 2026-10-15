@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-16 MAME Current CHD 与 BIOS 多候选选择完成 PFB 产品验证：元文件目录边界、依赖补齐、第一关操作、保存与新实例恢复、冷预加载及离线继续操作通过。实际范围、正式输入复验要求和未覆盖边界见 [MAME CHD 验证](mame-chd-validation.md)。无数据库结构或特定游戏逻辑变更，不提升全核心或 T01–T47 总体验收状态。
+
 2026-10-14 核心缓存修复的覆盖、真实问题复验和未完成边界见 [核心资源缓存验证](core-asset-cache-validation.md)。本轮未修改数据库结构，不提升全核心游玩或 T01–T47 总体验收状态。
 
 2026-10-14 移动端数字摇杆修复在 `mobile-input-responsiveness` PFB 完成：FBNeo / MAME 2003 / Plus 实际核心触摸、快速换向、多指、低帧率压力和暂停恢复通过，两版 EmulatorJS 控件集成及标准 Gamepad API 路径通过。限定输入范围及真机测量限制见 [移动输入验证](mobile-input-validation.md)。正式 runtime `v0.66.2` 已固定；独立环境下的正式模块摘要核对、三个核心的 28 项输入检查及标准手柄方向／Start 复验通过，不提升全核心或 T01–T47 状态。
