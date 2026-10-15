@@ -160,6 +160,11 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 		item.CRCWarnings = projections[index].CRCWarnings
 		item.MissingROMMembers = projections[index].MissingROMMembers
 		satisfied := true
+		for _, member := range item.MissingROMMembers {
+			if member.Role == "BIOS" {
+				satisfied = false
+			}
+		}
 		for _, requirement := range projections[index].Requirements {
 			if requirement.Required && !keys[requirement.RequirementKey] {
 				satisfied = false

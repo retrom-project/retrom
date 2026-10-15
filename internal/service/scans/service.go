@@ -113,6 +113,7 @@ func (s *Service) run(ctx context.Context,
 		if !exists {
 			continue
 		}
+		inventory := &sourceInventory{}
 		for _, candidate := range collection.Games {
 			if ctx.Err() != nil {
 				scan.Status = s.stopStatus()
@@ -120,7 +121,7 @@ func (s *Service) run(ctx context.Context,
 				return
 			}
 			candidateCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-			importErr := s.importGame(candidateCtx, root, p, collection.Directory, candidate, mapping, &scan)
+			importErr := s.importGame(candidateCtx, root, p, collection.Directory, candidate, mapping, &scan, inventory)
 			cancel()
 			if errors.Is(importErr, persistence.ErrCommitUncertain) {
 				s.interruptUncertain(ctx, scan.ID)
@@ -150,7 +151,7 @@ func (s *Service) importGame(ctx context.Context,
 	p model.Principal,
 	base string,
 	candidate Candidate,
-	mapping model.SourceMapping, scan *model.Scan,
+	mapping model.SourceMapping, scan *model.Scan, inventory *sourceInventory,
 ) error {
 	directory, err := s.Repository.Directory(ctx, mapping.DirectoryID)
 	if err != nil {
@@ -165,7 +166,7 @@ func (s *Service) importGame(ctx context.Context,
 	}
 	defer closeRoot(selected)
 	id := uuid.NewString()
-	files, err := s.content(ctx, selected, id, candidate.Files, directory)
+	files, err := s.content(ctx, selected, id, candidate.Files, directory, inventory)
 	if err != nil {
 		return err
 	}

@@ -1481,6 +1481,7 @@ export interface components {
             sha256: string;
             /** @description Runtime requirements for every applicable core sharing this BIOS key. */
             requirements: components["schemas"]["BiosValidationRequirement"][];
+            verification?: components["schemas"]["BiosVerification"];
         };
         RunRequest: {
             /** Format: uuid */
@@ -1574,7 +1575,7 @@ export interface components {
                 expectedCRC32: string;
                 actualCRC32: string;
             }[];
-            /** @description Required DAT game/Parent/BIOS members missing or incorrectly sized. Audit-only; never used as a new launch gate. Empty on error; check error first. */
+            /** @description Required DAT game/Parent members missing or incorrectly sized, and BIOS members missing or failing size/content digest verification. Invalid required BIOS blocks readiness and launch; ROM/Parent member auditing remains informational. Empty on error; check error first. */
             missingRomMembers: components["schemas"]["ReviewMissingROMMember"][];
         };
         ReviewReadinessList: {
@@ -1794,6 +1795,13 @@ export interface components {
         };
         RPGEntryCandidates: {
             entries: string[];
+        };
+        BiosVerification: {
+            /** @enum {string} */
+            status: "valid" | "incomplete" | "invalid";
+            matchedMembers: number;
+            expectedMembers: number;
+            missingMembers: string[];
         };
     };
     responses: never;

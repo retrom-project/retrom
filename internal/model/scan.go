@@ -54,6 +54,7 @@ type (
 		MD5       *string `json:"md5"`
 	}
 	BiosRequirement struct {
+		Verification *BiosVerification           `json:"verification,omitempty"`
 		Requirements []BiosValidationRequirement `json:"requirements"`
 		Key          string                      `json:"key"`
 		Name         string                      `json:"name"`
@@ -64,6 +65,12 @@ type (
 		Filename     string                      `json:"filename"`
 		SizeBytes    int64                       `json:"sizeBytes"`
 		SHA256       string                      `json:"sha256"`
+	}
+	BiosVerification struct {
+		Status          string   `json:"status"`
+		MatchedMembers  int      `json:"matchedMembers"`
+		ExpectedMembers int      `json:"expectedMembers"`
+		MissingMembers  []string `json:"missingMembers"`
 	}
 )
 

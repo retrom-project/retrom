@@ -30,7 +30,7 @@ func (s *Service) content(ctx context.Context,
 	root *os.Root,
 	id string,
 	files []string,
-	directory model.Directory) ([]model.GameFile,
+	directory model.Directory, inventory *sourceInventory) ([]model.GameFile,
 	error,
 ) {
 	if len(files) == 0 || len(files) > 64 {
@@ -51,7 +51,7 @@ func (s *Service) content(ctx context.Context,
 	if len(result) > 10000 {
 		return nil, model.ErrInvalid
 	}
-	return s.discoverContent(ctx, root, id, result, origins, directory)
+	return s.discoverContent(ctx, root, id, result, origins, directory, inventory)
 }
 
 func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name string,

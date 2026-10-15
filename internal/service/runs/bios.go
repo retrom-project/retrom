@@ -36,6 +36,9 @@ func (s *Service) bios(ctx context.Context,
 		if readErr != nil {
 			return nil, wrap(readErr)
 		}
+		if err := s.verifyBios(ctx, requirement, file); err != nil {
+			return nil, err
+		}
 		entry := Blob{
 			ID:          uuid.NewString(),
 			Filename:    path.Base(requirement.LogicalName),
@@ -75,4 +78,23 @@ func (s *Service) bios(ctx context.Context,
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) verifyBios(ctx context.Context, requirement runtimeclient.BiosRequirement, file model.BiosFile,
+) error {
+	if !requirement.Required || len(requirement.Members) == 0 {
+		return nil
+	}
+	location, err := s.Storage.Absolute(file.StorageKey)
+	if err != nil {
+		return wrap(err)
+	}
+	verification, err := s.Runtime.VerifyBios(ctx, requirement, location)
+	if err != nil {
+		return wrap(err)
+	}
+	if verification.Status != "valid" {
+		return model.ErrBIOSMissing
+	}
+	return nil
 }

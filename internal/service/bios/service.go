@@ -55,6 +55,12 @@ func (s *Service) List(ctx context.Context) ([]model.BiosRequirement, error) {
 			value.Filename = file.Filename
 			value.SizeBytes = file.SizeBytes
 			value.SHA256 = file.SHA256
+			if len(req.Members) > 0 {
+				value.Verification, err = s.verify(ctx, req, file)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 		if i, exists := positions[value.Key]; exists {
 			result[i].Requirements = append(result[i].Requirements, value.Requirements...)
@@ -67,6 +73,19 @@ func (s *Service) List(ctx context.Context) ([]model.BiosRequirement, error) {
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) verify(ctx context.Context, requirement runtimeclient.BiosRequirement, file model.BiosFile,
+) (*model.BiosVerification, error) {
+	location, err := s.Storage.Absolute(file.StorageKey)
+	if err != nil {
+		return nil, wrap(err)
+	}
+	result, err := s.Runtime.VerifyBios(ctx, requirement, location)
+	if err != nil {
+		return nil, wrap(err)
+	}
+	return &result, nil
 }
 
 func (s *Service) Upload(ctx context.Context, p model.Principal, key, name string,

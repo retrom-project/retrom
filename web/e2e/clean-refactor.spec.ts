@@ -333,6 +333,15 @@ test("populated pages keep their viewport and functional favorite classification
     if (route === "/admin/imports/server") {
       await verifyScanControls(page, test.info());
     }
+    if (route === "/admin/bios" && (page.viewportSize()?.width ?? 0) < 768) {
+      const lastSection = page.locator(".runtime-section").last();
+      await expect(lastSection).toBeVisible();
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+      const bottom = await lastSection.evaluate((element) => element.getBoundingClientRect().bottom);
+      const navigationTop = await page.getByRole("navigation", { name: "手机主导航" })
+        .evaluate((element) => element.getBoundingClientRect().top);
+      expect(bottom).toBeLessThanOrEqual(navigationTop);
+    }
     await page.screenshot({
       path: test
         .info()
