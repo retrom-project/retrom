@@ -482,9 +482,6 @@
   .favorite-rail nav button { min-height: 44px; }
   .favorite-new-folder { min-height: 44px; }
   .favorite-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; }
-  .favorite-platforms button { min-height: 44px; }
-  .favorite-platforms .favorite-result-count { margin-left: 0; }
   .favorite-game-cover > a > span:last-child:not(.favorite-poster) { opacity: 1; padding: 9px; justify-content: flex-start; background: linear-gradient(transparent 72%, rgb(7 10 18 / 82%)); }
   .favorite-game-body { min-height: 78px; }
   .favorite-actions-favorite-card .favorite-heart, .favorite-actions-favorite-card .favorite-manage { width: 44px; height: 44px; min-height: 44px; }
