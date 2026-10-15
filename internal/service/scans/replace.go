@@ -30,7 +30,7 @@ func (s *Service) Replace(ctx context.Context, p model.Principal, id, sourcePath
 		return old, wrap(err)
 	}
 	defer closeRoot(root)
-	files, err := s.content(ctx, root, id, []string{filepath.ToSlash(name)}, directory)
+	files, err := s.content(ctx, root, id, []string{filepath.ToSlash(name)}, directory, nil)
 	if err != nil {
 		return old, err
 	}

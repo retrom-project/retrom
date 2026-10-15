@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"syscall"
 
 	"retrom/internal/model"
 	"retrom/internal/runtimeclient"
@@ -14,13 +15,14 @@ import (
 
 type contentReference struct {
 	LogicalKey   string `json:"logicalKey"`
+	SourcePath   string `json:"sourcePath"`
 	RelativeTo   string `json:"relativeTo"`
 	RelativePath string `json:"relativePath"`
 	Optional     bool   `json:"optional"`
 }
 
 func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, files []model.GameFile,
-	origins map[string]string, directory model.Directory,
+	origins map[string]string, directory model.Directory, inventory *sourceInventory,
 ) ([]model.GameFile, error) {
 	locators := make(map[string]string, len(files))
 	seen := make(map[string]bool, len(files))
@@ -32,15 +34,9 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 		locators[file.LogicalKey] = absolute
 		seen[file.LogicalKey] = true
 	}
-	var output struct {
-		Files []contentReference `json:"files"`
-	}
-	if err := s.Runtime.Call(ctx, "discover-content", map[string]any{
-		"files": runtimeclient.Files(files), "locators": locators,
-		"directory":     map[string]any{"platformId": directory.PlatformID, "defaultCoreId": directory.DefaultCoreID},
-		"providerRoots": s.Runtime.ProviderRoots(),
-	}, &output); err != nil {
-		return nil, wrap(err)
+	output, err := s.contentReferences(ctx, root, files, locators, directory, inventory)
+	if err != nil {
+		return nil, err
 	}
 	if len(output.Files) > 10000 {
 		return nil, model.ErrInvalid
@@ -53,7 +49,7 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 			continue
 		}
 		source, exists := origins[reference.RelativeTo]
-		if !exists || len(files) >= 10000 {
+		if !exists && reference.SourcePath == "" || len(files) >= 10000 {
 			return nil, model.ErrInvalid
 		}
 		file, err := s.copyReference(ctx, root, id, reference, source)
@@ -70,6 +66,10 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 }
 
 func validContentReference(reference contentReference, locators map[string]string) bool {
+	if reference.SourcePath != "" {
+		return storage.SafeRelative(reference.SourcePath) && storage.SafeRelative(reference.LogicalKey) &&
+			reference.RelativeTo == "" && reference.RelativePath == ""
+	}
 	_, exists := locators[reference.RelativeTo]
 	return exists && storage.SafeRelative(reference.LogicalKey) && storage.SafeRelative(reference.RelativeTo) &&
 		storage.SafeRelative(reference.RelativePath) &&
@@ -79,7 +79,11 @@ func validContentReference(reference contentReference, locators map[string]strin
 func (s *Service) copyReference(ctx context.Context, root *os.Root, id string, reference contentReference,
 	source string,
 ) (model.GameFile, error) {
-	file, err := root.Open(path.Join(path.Dir(source), reference.RelativePath))
+	name := reference.SourcePath
+	if name == "" {
+		name = path.Join(path.Dir(source), reference.RelativePath)
+	}
+	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		return model.GameFile{}, fmt.Errorf("open referenced source content: %w", err)
 	}
@@ -92,4 +96,34 @@ func (s *Service) copyReference(ctx context.Context, root *os.Root, id string, r
 		return model.GameFile{}, model.ErrInvalid
 	}
 	return s.copy(ctx, id, reference.LogicalKey, file)
+}
+
+type discoveredContent struct {
+	Files        []contentReference `json:"files"`
+	SourceSearch *sourceSearch      `json:"sourceSearch"`
+}
+
+func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []model.GameFile,
+	locators map[string]string, directory model.Directory, inventory *sourceInventory,
+) (*discoveredContent, error) {
+	output := &discoveredContent{}
+	input := map[string]any{
+		"files": runtimeclient.Files(files), "locators": locators,
+		"directory":     map[string]any{"platformId": directory.PlatformID, "defaultCoreId": directory.DefaultCoreID},
+		"providerRoots": s.Runtime.ProviderRoots(),
+	}
+	if err := s.Runtime.Call(ctx, "discover-content", input, &output); err != nil {
+		return nil, wrap(err)
+	}
+	if output.SourceSearch != nil && inventory != nil {
+		candidates, err := inventory.search(ctx, root, *output.SourceSearch)
+		if err != nil {
+			return nil, err
+		}
+		input["sourceCandidates"] = candidates
+		if err = s.Runtime.Call(ctx, "discover-content", input, &output); err != nil {
+			return nil, wrap(err)
+		}
+	}
+	return output, nil
 }

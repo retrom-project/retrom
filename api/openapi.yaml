@@ -487,6 +487,9 @@
       },
       "RPGEntryCandidates": {
         "$ref": "./components/common.yaml#/components/schemas/RPGEntryCandidates"
+      },
+      "BiosVerification": {
+        "$ref": "./components/common.yaml#/components/schemas/BiosVerification"
       }
     }
   }

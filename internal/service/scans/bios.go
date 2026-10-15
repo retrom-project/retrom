@@ -20,8 +20,15 @@ import (
 const maxBiosSourceFiles = 100000
 
 type biosCandidate struct {
-	Name   string
-	SHA256 string
+	Name     string
+	SHA256   string
+	Evidence *biosCandidateEvidence
+}
+
+type biosCandidateEvidence struct {
+	MemberIdentity string `json:"memberIdentity"`
+	MatchedMembers int    `json:"matchedMembers"`
+	TotalMembers   int    `json:"totalMembers"`
 }
 
 func (s *Service) CreateBios(ctx context.Context, p model.Principal, input model.BiosScanInput) (model.Scan, error) {
@@ -163,7 +170,10 @@ func (s *Service) biosCandidates(ctx context.Context, root *os.Root,
 			continue
 		}
 		facts.Name = path.Base(name)
-		var matched []runtimeclient.BiosRequirement
+		var matched []struct {
+			runtimeclient.BiosRequirement
+			Candidate *biosCandidateEvidence `json:"candidate"`
+		}
 		if readErr = s.Runtime.Call(ctx, "bios-identify", map[string]any{
 			"file": facts,
 			"path": filepath.Join(root.Name(), filepath.FromSlash(name)), "requirements": requirements,
@@ -174,8 +184,9 @@ func (s *Service) biosCandidates(ctx context.Context, root *os.Root,
 		}
 		for _, req := range matched {
 			result[req.RequirementKey] = appendCandidate(result[req.RequirementKey], biosCandidate{
-				Name:   name,
-				SHA256: facts.SHA256,
+				Name:     name,
+				SHA256:   facts.SHA256,
+				Evidence: req.Candidate,
 			})
 		}
 	}
@@ -183,8 +194,12 @@ func (s *Service) biosCandidates(ctx context.Context, root *os.Root,
 }
 
 func appendCandidate(existing []biosCandidate, value biosCandidate) []biosCandidate {
-	for _, candidate := range existing {
-		if candidate.SHA256 == value.SHA256 {
+	for index, candidate := range existing {
+		if candidate.SHA256 == value.SHA256 || candidate.Evidence != nil && value.Evidence != nil &&
+			candidate.Evidence.MemberIdentity == value.Evidence.MemberIdentity {
+			if value.Name < candidate.Name {
+				existing[index] = value
+			}
 			return existing
 		}
 	}
@@ -199,11 +214,12 @@ func (s *Service) prepareBios(ctx context.Context, root *os.Root, req runtimecli
 	} else if !errors.Is(err, model.ErrNotFound) {
 		return model.BiosFile{}, wrap(err)
 	}
-	if len(candidates) != 1 {
+	candidate, found := selectBiosCandidate(candidates)
+	if !found {
 		return model.BiosFile{}, nil
 	}
 	id := uuid.NewString()
-	source, err := root.Open(candidates[0].Name)
+	source, err := root.Open(candidate.Name)
 	if err != nil {
 		return model.BiosFile{}, fmt.Errorf("open matched BIOS: %w", err)
 	}
@@ -212,13 +228,33 @@ func (s *Service) prepareBios(ctx context.Context, root *os.Root, req runtimecli
 	if err != nil {
 		return model.BiosFile{}, wrap(err)
 	}
-	if prepared.SHA256 != candidates[0].SHA256 {
+	if prepared.SHA256 != candidate.SHA256 {
 		return model.BiosFile{}, model.ErrConflict
 	}
 	return model.BiosFile{
-		ID: id, RequirementKey: req.RequirementKey, Filename: path.Base(candidates[0].Name),
+		ID: id, RequirementKey: req.RequirementKey, Filename: path.Base(candidate.Name),
 		StorageKey: prepared.Key, SizeBytes: prepared.Size, SHA256: prepared.SHA256,
 	}, nil
+}
+
+// Runtime supplies DAT evidence; the Host only orders candidates and copies the selected bytes.
+func selectBiosCandidate(candidates []biosCandidate) (biosCandidate, bool) {
+	if len(candidates) == 0 {
+		return biosCandidate{}, false
+	}
+	best := candidates[0]
+	for _, candidate := range candidates[1:] {
+		if best.Evidence == nil || candidate.Evidence == nil {
+			return biosCandidate{}, false
+		}
+		left, right := candidate.Evidence, best.Evidence
+		if left.MatchedMembers > right.MatchedMembers ||
+			left.MatchedMembers == right.MatchedMembers && (left.TotalMembers > right.TotalMembers ||
+				left.TotalMembers == right.TotalMembers && candidate.Name < best.Name) {
+			best = candidate
+		}
+	}
+	return best, true
 }
 
 func (s *Service) commitBios(ctx context.Context, scan *model.Scan, file model.BiosFile, prepareErr error) error {
@@ -267,7 +303,7 @@ func sourceFiles(root *os.Root, directory string, depth int) ([]string, error) {
 				return nil, walkErr
 			}
 			result = append(result, children...)
-		} else {
+		} else if entry.Type().IsRegular() {
 			result = append(result, name)
 		}
 		if len(result) > maxBiosSourceFiles {

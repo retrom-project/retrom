@@ -55,3 +55,11 @@ func (c *Client) Bios(ctx context.Context,
 func (c *Client) AllBios(_ context.Context) ([]BiosRequirement, error) {
 	return c.BiosRequirements, nil
 }
+
+// VerifyBios inspects installed bytes against the runtime's member requirements.
+func (c *Client) VerifyBios(ctx context.Context, requirement BiosRequirement, location string,
+) (model.BiosVerification, error) {
+	var result model.BiosVerification
+	err := c.Call(ctx, "bios-verify", map[string]any{"requirement": requirement, "path": location}, &result)
+	return result, err
+}

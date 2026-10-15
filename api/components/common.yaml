@@ -1586,6 +1586,9 @@
               "$ref": "#/components/schemas/BiosValidationRequirement"
             },
             "description": "Runtime requirements for every applicable core sharing this BIOS key."
+          },
+          "verification": {
+            "$ref": "#/components/schemas/BiosVerification"
           }
         }
       },
@@ -2544,7 +2547,7 @@
           },
           "missingRomMembers": {
             "type": "array",
-            "description": "Required DAT game/Parent/BIOS members missing or incorrectly sized. Audit-only; never used as a new launch gate. Empty on error; check error first.",
+            "description": "Required DAT game/Parent members missing or incorrectly sized, and BIOS members missing or failing size/content digest verification. Invalid required BIOS blocks readiness and launch; ROM/Parent member auditing remains informational. Empty on error; check error first.",
             "items": {
               "$ref": "#/components/schemas/ReviewMissingROMMember"
             }
@@ -2855,6 +2858,40 @@
         ],
         "properties": {
           "entries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BiosVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "matchedMembers",
+          "expectedMembers",
+          "missingMembers"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "incomplete",
+              "invalid"
+            ]
+          },
+          "matchedMembers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedMembers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missingMembers": {
             "type": "array",
             "items": {
               "type": "string"

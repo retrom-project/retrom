@@ -33,11 +33,11 @@ export function BiosList({
   const groups = [
     {
       name: "需要处理",
-      items: filtered.filter((item) => item.required && !item.installed),
+      items: filtered.filter((item) => needsAttention(item)),
     },
     {
       name: "已安装与可选项",
-      items: filtered.filter((item) => item.installed || !item.required),
+      items: filtered.filter((item) => !needsAttention(item)),
     },
   ];
   return (
@@ -49,11 +49,11 @@ export function BiosList({
           <p>运行声明中的共享要求</p>
         </article>
         <article className="has-danger">
-          <small>必需文件缺失</small>
+          <small>需要处理</small>
           <strong>
-            {items.filter((item) => item.required && !item.installed).length}
+            {items.filter((item) => needsAttention(item)).length}
           </strong>
-          <p>可能阻止相关游戏运行</p>
+          <p>缺失或成员校验未通过</p>
         </article>
         <article>
           <small>可选文件</small>
@@ -192,9 +192,9 @@ function BiosRow({
         <small>{item.coreIds.join("、")}</small>
       </div>
       <span
-        className={`status ${item.installed ? "good" : item.required ? "bad" : "neutral"}`}
+        className={`status ${needsAttention(item) ? "bad" : item.installed ? "good" : "neutral"}`}
       >
-        {item.installed ? "已安装" : "缺少文件"}
+        {installationLabel(item)}
       </span>
       <div className="runtime-usage">
         <strong>共享要求</strong>
@@ -231,7 +231,17 @@ function BiosRow({
           </button>
         ) : null}
       </div>
-      <BiosValidationRequirements items={item.requirements} catalog={catalog} />
+      <BiosValidationRequirements items={item.requirements} catalog={catalog} verification={item.verification} />
     </article>
   );
+}
+
+function needsAttention(item: Schema<"BiosRequirement">) {
+  return (item.required && !item.installed) || (item.verification !== undefined && item.verification.status !== "valid");
+}
+
+function installationLabel(item: Schema<"BiosRequirement">) {
+  if (item.verification?.status === "invalid") { return "已安装 · 无法校验"; }
+  if (item.verification?.status === "incomplete") { return "已安装 · 成员不完整"; }
+  return item.installed ? "已安装" : "缺少文件";
 }
