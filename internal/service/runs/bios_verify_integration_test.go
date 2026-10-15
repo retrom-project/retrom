@@ -27,8 +27,11 @@ func TestInstalledBIOSMustSatisfyRequiredMembersBeforeLaunch(t *testing.T) {
 			t.Error(closeErr)
 		}
 	})
-	client, err := runtimeclient.Open(t.Context(), os.Getenv("RETROM_RUNTIME_TOOL_INPUT"),
-		filepath.Join(os.Getenv("NODE_HOME"), "bin/node"), os.Getenv("RETROM_PROVIDER_INPUT"))
+	node := "node"
+	if nodeHome := os.Getenv("NODE_HOME"); nodeHome != "" {
+		node = filepath.Join(nodeHome, "bin", "node")
+	}
+	client, err := runtimeclient.Open(t.Context(), os.Getenv("RETROM_RUNTIME_TOOL_INPUT"), node, os.Getenv("RETROM_PROVIDER_INPUT"))
 	if err != nil {
 		t.Fatal(err)
 	}

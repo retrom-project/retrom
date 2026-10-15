@@ -127,7 +127,10 @@ func mameScanRuntime(t *testing.T) (*storage.Store, *runtimeclient.Client) {
 			t.Error(closeErr)
 		}
 	})
-	node := filepath.Join(os.Getenv("NODE_HOME"), "bin", "node")
+	node := "node"
+	if nodeHome := os.Getenv("NODE_HOME"); nodeHome != "" {
+		node = filepath.Join(nodeHome, "bin", "node")
+	}
 	client, err := runtimeclient.Open(t.Context(), os.Getenv("RETROM_RUNTIME_TOOL_INPUT"), node, os.Getenv("RETROM_PROVIDER_INPUT"))
 	if err != nil {
 		t.Fatal(err)
