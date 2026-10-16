@@ -13,6 +13,7 @@ import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import { verifyHomeFeatured } from "./home-featured";
+import { verifyGameDetailLayout } from "./game-detail-layout";
 import {
   instantConflict,
   newInstantSave,
@@ -100,6 +101,7 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: game.title, exact: true }),
   ).toBeVisible();
+  await verifyGameDetailLayout(page);
   const start = page.getByRole("button", { name: "重新开始游戏", exact: true });
   if (!(await start.isVisible())) {
     await page.getByRole("button", { name: "启动选项", exact: true }).click();
