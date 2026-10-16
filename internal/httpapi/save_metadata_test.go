@@ -87,3 +87,32 @@ func TestQueryRejectsPostgresUnsafeText(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveMetadataAcceptsShiinaNativeProgress(t *testing.T) {
+	t.Parallel()
+	decode, err := saveMetadataValidator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal([]byte(validSaveMetadata), &fields); err != nil {
+		t.Fatal(err)
+	}
+	extinfo, ok := fields["extinfo"].(map[string]any)
+	if !ok {
+		t.Fatal("fixture extinfo must be an object")
+	}
+	extinfo["coreId"] = "openshiina"
+	extinfo["providerId"] = "retrom-runtime"
+	extinfo["targetId"] = "shiina-rio"
+	extinfo["checkpointFormat"] = "shiina-game-save-v1-storage-v1"
+	extinfo["content"] = map[string]any{"kind": "SHIINA_PROJECT", "entryFile": "RIO.INI"}
+	raw, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output model.SaveInput
+	if err := decode(string(raw), &output); err != nil {
+		t.Fatalf("valid Shiina native progress rejected: %v", err)
+	}
+}

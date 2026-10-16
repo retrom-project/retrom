@@ -17,6 +17,7 @@
 | [验收](project-acceptance.md) | 完整检查项、证据、性能和未完成边界 |
 | [PFB](pfb-development.md) | 隔离工作树、持久状态与不可变工具 |
 | [PWA](pwa.md) | 安装、联网游玩、断网提示与更新边界 |
+| [ShiinaRio](shiina-rio.md) | OpenShiina 项目内容、原生存档与候选验收边界 |
 | [实施状态](implementation-plan.md) | 分阶段门禁与本次可验证状态 |
 
 API字段以当前OpenAPI及Provider V1 schema为准；运行规则、核心声明和指纹由retrom-runtime拥有。正式文档不依赖临时设计目录。验收记录和私有素材位于忽略的验收workspace，不能把历史截图或运行时声明数量当作当前产品通过证据。

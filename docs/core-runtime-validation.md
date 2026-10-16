@@ -5,3 +5,5 @@
 记录实际coreId/providerId/targetId、工具/Provider/指纹、真实合法来源、画面或状态变化、输入、payload保存与新实例恢复，以及故障/不适用原因。支持checkpoint的Target必须验证退出后新run恢复；不支持的能力按实际声明展示。隔离web项目必须验证SW/MessagePort/Range及原生导航/import/Worker/media。
 
 本次公共MIT NES已通过正常导入、输入计数器和frameCount；保存/新实例与最终候选的证据仍由当前验收执行更新。私有全平台素材的不足或不适用明确登记，不替换为假ROM、假HTTP payload或假成功。参见project-acceptance.md及配套runtime仓库产品矩阵。
+
+ShiinaRio 使用 OpenShiina 独立 Target，项目内容、原生存档操作和首批样本范围见 [接入说明](shiina-rio.md)。候选产品验收与正式 Release 复验分别记录，不能将一个日文发行版的结果扩展为全部加密方案或汉化版兼容。

@@ -143,6 +143,7 @@ const contentNames: Record<Schema<"RuntimeContent">["kind"], string> = {
   ARCADE: "街机游戏",
   RPG_MAKER_PROJECT: "RPG Maker 游戏项目",
   SCUMMVM_PROJECT: "ScummVM 游戏项目",
+  SHIINA_PROJECT: "ShiinaRio 游戏项目",
   ONS_PROJECT: "ONS 游戏项目",
   KIRIKIRI_PROJECT: "吉里吉里游戏项目",
   BUTTERSCOTCH_PROJECT: "Butterscotch 游戏项目",
