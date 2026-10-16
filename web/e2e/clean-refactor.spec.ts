@@ -11,6 +11,7 @@ import { verifyRPGEntrySelection } from "./rpg-entry-selection";
 import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
+import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import {
   instantConflict,
   newInstantSave,
@@ -277,6 +278,7 @@ test("populated pages keep their viewport and functional favorite classification
     (await request<Schema<"FavoriteFolder">>(page, "/api/v1/favorite-folders", {
       name: folderName,
     }));
+  await verifyLibraryCollectionDialog(page, game, folder);
   await page.goto("/favorites");
   await page
     .locator(".favorite-game-card")

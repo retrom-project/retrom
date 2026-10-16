@@ -211,6 +211,7 @@ select[multiple], select[size]:not([size=&quot;0&quot;], [size=&quot;1&quot;]) {
 &lt;!-- Static UI review examples. Product behavior is implemented against the formal OpenAPI contract. --&gt;
 &lt;div id=&quot;retrom-ui-review&quot;&gt;
   &lt;!-- Mobile admin and user pages retain bottom navigation clearance so the final content and controls remain reachable. --&gt;
+  &lt;!-- Collection organizer: portal the shared dialog to body, above card hearts and phone navigation. Keep its heading/actions visible at short viewport heights; only the folder list scrolls. Restore focus to the opening control. Card/cover/navigation geometry stays unchanged. --&gt;
   &lt;!-- PWA: account installation uses a real browser event; iOS shows share-menu guidance. Updates wait for all Player/immersive windows to exit and refresh only the requesting window. --&gt;
   &lt;!-- Library filters sort Chinese pinyin and Latin names together; hide platforms with zero published games; show published counts such as Arcade(863), 步步高 RPG(12), NES(999+). Directory/tag selects use the same sort, with 全部 first. --&gt;
   &lt;!-- Home platform rail includes only directories with published gameCount &gt; 0; hide the entire section when none qualify. --&gt;

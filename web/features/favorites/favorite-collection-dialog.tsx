@@ -82,6 +82,8 @@ function CollectionForm({
   return (
     <ConfirmDialog
       open
+      portalToBody
+      dialogClassName="favorite-collection-dialog"
       title="整理收藏夹"
       description={
         ids.length === 1
