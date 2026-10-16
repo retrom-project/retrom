@@ -14,6 +14,7 @@ import { verifyTouchButtonAlignment } from "./touch-button-alignment";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import { verifyHomeFeatured } from "./home-featured";
 import { verifyGameDetailLayout } from "./game-detail-layout";
+import { verifyDetailTitle } from "./detail-title";
 import {
   instantConflict,
   newInstantSave,
@@ -102,6 +103,7 @@ test("shared review, real NES save and new-instance restore", async ({
     page.getByRole("heading", { level: 1, name: game.title, exact: true }),
   ).toBeVisible();
   await verifyGameDetailLayout(page);
+  await verifyDetailTitle(page, game.id);
   const start = page.getByRole("button", { name: "重新开始游戏", exact: true });
   if (!(await start.isVisible())) {
     await page.getByRole("button", { name: "启动选项", exact: true }).click();

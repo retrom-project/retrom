@@ -42,21 +42,23 @@
 .game-detail-breadcrumb { margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .game-detail-breadcrumb a { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: var(--text-body); font-weight: var(--weight-medium); }
 .game-detail-breadcrumb svg { width: 18px; height: 18px; }
-.game-detail-hero { min-width: 0; min-height: 427px; display: grid; grid-template-columns: 260px minmax(280px, 1fr) minmax(280px, 520px); grid-template-rows: auto; align-items: center; gap: var(--space-6); padding: var(--space-5) var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
+.game-detail-hero { min-width: 0; height: 427px; display: grid; grid-template-columns: 260px minmax(280px, 1fr) minmax(280px, 520px); grid-template-rows: minmax(0, 1fr); align-items: center; gap: var(--space-6); padding: var(--space-5) var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .game-detail-poster-shell { width: 100%; min-width: 0; align-self: start; }
 .game-detail-main { min-width: 0; min-height: 0; container-type: inline-size; }
 /* Keep the desktop identity at the top and the complete launch group at the
-   bottom. Intrinsic row height protects long titles without an inner scrollbar. */
+   bottom. A single scrolling title line keeps this geometry independent of title length. */
 .game-detail-main:has(> .launch-panel) { align-self: stretch; display: flex; flex-direction: column; }
 .game-detail-main:has(> .launch-panel) > * { flex-shrink: 0; }
-.game-detail-main:has(> .launch-panel) > .game-detail-eyebrow { margin-bottom: var(--space-3); }
+.game-detail-main:has(> .launch-panel) > .game-detail-eyebrow { margin-bottom: var(--space-2); }
 .game-detail-main:has(> .launch-panel) > .game-detail-title-row { margin-bottom: var(--space-2); }
-.game-detail-main > .launch-panel { margin-top: auto; padding-top: var(--space-3); }
+.game-detail-main > .launch-panel { margin-top: auto; padding-top: var(--space-2); }
 .game-detail-tags { height: 36px; display: flex; align-items: start; flex-wrap: nowrap; gap: var(--space-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .game-detail-tags > a { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .game-detail-eyebrow { margin: 0 0 var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-small); }
 .game-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
-.game-detail-title-row h1 { flex: 0 1 auto; min-width: 0; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
+.game-detail-title-row h1 { flex: 0 1 auto; min-width: 0; margin: 0; display: block; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; white-space: nowrap; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
+.game-detail-title > span { display: inline-block; }
+.game-detail-title:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 .game-detail-title-row .favorite-actions { flex: 0 0 auto; }
 .game-detail-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-small); }
 .game-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-body); }
@@ -84,7 +86,7 @@
 .launch-actions > .button, .launch-actions > .home-launch-control > .button { min-width: 148px; }
 .launch-actions > .status { flex-basis: 100%; white-space: normal; }
 .launch-hint { margin: var(--space-1) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
-.launch-panel .launch-hint { margin-top: var(--space-2); }
+.launch-panel > .launch-hint { margin-top: var(--space-2); }
 .launch-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-3); padding-top: var(--space-2); }
 .launch-runtime-choice, .launch-runtime-choice > div { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .launch-runtime-choice { flex-wrap: wrap; }
@@ -153,7 +155,7 @@
   .game-detail-feature-shot, .game-detail-video-stage { flex: 1; min-height: 0; aspect-ratio: auto; }
 }
 @media (max-width: 1599px) {
-  .game-detail-hero { min-height: 800px; grid-template-columns: 200px minmax(0, 1fr); grid-template-rows: minmax(365px, auto) minmax(360px, 1fr); gap: var(--space-5); padding: var(--space-5); }
+  .game-detail-hero { height: 800px; grid-template-columns: 200px minmax(0, 1fr); grid-template-rows: 365px minmax(0, 1fr); gap: var(--space-5); padding: var(--space-5); }
   .game-detail-feature-preview { grid-column: 1 / -1; width: 100%; max-width: 640px; justify-self: center; }
   .game-detail-title-row h1 { font-size: var(--text-page); }
   .game-detail-save-card { grid-template-columns: minmax(0, 1fr); align-content: start; }
@@ -172,7 +174,7 @@
   .game-detail-drawer-row > .status { grid-column: 1 / -1; width: 100%; }
   .game-detail-page { padding-bottom: 100px; }
   .game-detail-breadcrumb { display: none; }
-  .game-detail-hero { min-height: 0; grid-template-columns: 108px minmax(0, 1fr); grid-template-rows: 144px auto; padding: 0; gap: var(--space-4); border: 0; background: transparent; }
+  .game-detail-hero { height: auto; grid-template-columns: 108px minmax(0, 1fr); grid-template-rows: 144px auto; padding: 0; gap: var(--space-4); border: 0; background: transparent; }
   .game-detail-title-row { margin-bottom: var(--space-1); gap: var(--space-2); }
   .game-detail-title-row h1 { font-size: var(--text-heading); }
   .game-detail-eyebrow { font-size: var(--text-caption); }

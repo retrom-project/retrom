@@ -29,15 +29,15 @@ export function HomeFeatured({ data }: { data: HomeData }) {
       </article>
     );
   }
-  const { recent, save, saveCount } = featured;
+  const { recent, save } = featured;
   const game = recent.game;
   return (
     <article className="panel home-featured-panel">
-      <HomeFeaturedMedia key={game.id} game={game} save={save} />
+      <HomeFeaturedMedia key={`${game.id}:${save?.id}:${save?.version}`} game={game} save={save} />
       <div className="home-featured-copy">
         <p className="home-featured-kicker">
           <AppIcon name="history" />
-          最近游玩
+          {save ? "继续上次的冒险" : "最近玩过"}
         </p>
         <h2 title={game.title}>{game.title}</h2>
         <div className="home-featured-meta">
@@ -45,7 +45,8 @@ export function HomeFeatured({ data }: { data: HomeData }) {
             <span>{game.directoryName}</span>
           </span>
           <span>
-            上次游玩 · <BrowserTime value={recent.lastPlayedAtMs} />
+            {save ? <>{save.kind === "checkpoint" ? "即时存档" : "游戏内存档"} · <BrowserTime value={save.updatedAtMs} /></>
+              : <>上次游玩 · <BrowserTime value={recent.lastPlayedAtMs} /></>}
           </span>
         </div>
         <div className="home-featured-actions">
@@ -53,32 +54,33 @@ export function HomeFeatured({ data }: { data: HomeData }) {
             gameId={game.id}
             saveId={save?.id} restoreWarning={save?.restoreWarning}
             coreId={save?.extinfo.coreId}
+            disabled={save ? !save.restorable : false}
             returnTo="/"
           >
-            {save ? "从存档继续" : "开始游戏"}
+            {save ? "从存档继续" : <span className="home-launch-label">
+              <span className="home-launch-label-sizer" aria-hidden="true">从存档继续</span>
+              <span>新的开始</span>
+            </span>}
           </LaunchButton>
           <Link className="home-detail-link" href={`/games/${game.id}`}>
             查看游戏详情
           </Link>
         </div>
-        <p className="home-featured-save-status">
-          {save ? <>{save.kind === "checkpoint" ? "即时存档" : "游戏内存档"} · <BrowserTime value={save.updatedAtMs} format="compact" /></>
-            : saveCount ? "存档暂不可恢复" : "暂无存档"}
-        </p>
         <p className="home-launch-note">
           {launchNote(save)}
         </p>
-        <div className="home-save-link-row">
-          {saveCount > 0 ? <Link className="home-save-link" href={`/saves?gameId=${game.id}`}>查看存档</Link> : null}
-        </div>
+        <Link className="home-save-link" href={`/saves?gameId=${game.id}`}>
+          查看存档
+        </Link>
       </div>
     </article>
   );
 }
 function launchNote(save: Schema<"Save"> | undefined) {
+  if (save && !save.restorable) { return "最新存档暂不可恢复，可在“查看存档”中查看详情。"; }
   if (save?.restoreWarning === "core_changed") { return "核心版本已变化，确认后尝试恢复。"; }
   if (save?.kind === "game_save") { return "启动后请在游戏内读取进度。"; }
-  return save ? "本次将从存档位置启动。" : "本次正常启动游戏。";
+  return save ? "本次将从存档位置启动" : "本次将启动全新游戏";
 }
 export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
   const recentRail = useHorizontalWheel<HTMLDivElement>();

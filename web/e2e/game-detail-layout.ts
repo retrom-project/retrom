@@ -21,6 +21,9 @@ export async function verifyGameDetailLayout(page: Page) {
     const eyebrow = bounds(".game-detail-eyebrow"), title = bounds(".game-detail-title-row");
     const tags = bounds(".game-detail-tags");
     return {
+      heroHeight: heroBox.height,
+      headingHeight: bounds("h1").height,
+      headingLine: parseFloat(getComputedStyle(element.querySelector("h1")!).lineHeight),
       topGap: box.top - heroBox.top - parseFloat(style.paddingTop) - parseFloat(style.borderTopWidth),
       headingGap: title.top - eyebrow.bottom,
       tagsGap: tags.top - title.bottom,
@@ -32,10 +35,12 @@ export async function verifyGameDetailLayout(page: Page) {
       fits: element.scrollHeight <= element.clientHeight + 1,
     };
   });
+  expect(geometry.heroHeight).toBe((page.viewportSize()?.width ?? 0) >= 1600 ? 427 : 800);
+  expect(geometry.headingHeight).toBeLessThanOrEqual(geometry.headingLine + 1);
   expect(Math.abs(geometry.topGap)).toBeLessThanOrEqual(1);
-  expect(geometry.headingGap).toBeGreaterThanOrEqual(12);
+  expect(geometry.headingGap).toBeGreaterThanOrEqual(8);
   expect(geometry.tagsGap).toBeGreaterThanOrEqual(8);
-  expect(geometry.loadingGap).toBeGreaterThanOrEqual(12);
+  expect(geometry.loadingGap).toBeGreaterThanOrEqual(8);
   expect(geometry.actionsGap).toBeGreaterThanOrEqual(12);
   expect(geometry.hintGap).toBeGreaterThanOrEqual(8);
   expect(geometry.runtimeGap).toBeGreaterThanOrEqual(12);

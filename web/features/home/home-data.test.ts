@@ -11,27 +11,27 @@ function responses(...payloads: unknown[]) {
 const latest = { game: { id: "latest" }, lastPlayedAtMs: 3000 };
 const home = { recent: [latest], saves: [{ id: "unrelated", restorable: true, game: { id: "older" } }] };
 
-it("queries saves for the latest played game, including progress absent from the global home slice", async () => {
-  const save = { id: "older-progress", restorable: true, game: latest.game };
-  const fetch = responses(home, { items: [save], total: 1 });
+it("queries the latest save for the last played game, even when it predates the latest play", async () => {
+  const save = { id: "older-progress", restorable: true, updatedAtMs: 1000, game: latest.game };
+  const fetch = responses(home, { items: [save], total: 120 });
   const data = await loadHome();
-  expect(data.featured).toEqual({ recent: latest, save, saveCount: 1 });
+  expect(data.featured).toEqual({ recent: latest, save });
   const url = new URL(fetch.mock.calls[1][0].url);
   expect(url.pathname).toBe("/api/v1/saves");
-  expect(Object.fromEntries(url.searchParams)).toEqual({ gameId: "latest", sort: "recent", offset: "0", limit: "100" });
+  expect(Object.fromEntries(url.searchParams)).toEqual({ gameId: "latest", sort: "recent", limit: "1" });
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
-it("finds the newest restorable save beyond a page of unavailable progress", async () => {
-  const unavailable = Array.from({ length: 100 }, (_, id) => ({ id: `${id}`, restorable: false }));
-  const save = { id: "valid", restorable: true };
-  const fetch = responses(home, { items: unavailable, total: 102 }, { items: [save, { id: "older-valid", restorable: true }], total: 102 });
-  expect((await loadHome()).featured).toEqual({ recent: latest, save, saveCount: 102 });
-  expect(new URL(fetch.mock.calls[2][0].url).searchParams.get("offset")).toBe("100");
+it("keeps the newest unavailable save visible rather than showing an older save", async () => {
+  const save = { id: "newest", restorable: false, screenshotUrl: "/latest.png" };
+  const fetch = responses(home, { items: [save], total: 2 });
+  expect((await loadHome()).featured).toEqual({ recent: latest, save });
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
-it.each([{ items: [] }, { items: [{ id: "unavailable", restorable: false }] }])("distinguishes no saves from unavailable saves", async ({ items }) => {
-  responses(home, { items, total: items.length });
-  expect((await loadHome()).featured).toEqual({ recent: latest, save: undefined, saveCount: items.length });
+it("uses the no-save state only when this game has no saves", async () => {
+  responses(home, { items: [], total: 0 });
+  expect((await loadHome()).featured).toEqual({ recent: latest, save: undefined });
 });
 
 it("never substitutes a saved game when there is no recent play", async () => {
