@@ -4,7 +4,7 @@ import { ImmersiveEntryDialog } from "@/features/immersive/entry-dialog";
 import { ImmersiveHomeEntry } from "./immersive-home-entry";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
 import { PhoneHome } from "./phone-home";
-import { api, result } from "@/lib/api/client";
+import { loadHome } from "./home-data";
 import { useResource } from "@/lib/use-resource";
 import { PageHeader } from "@/components/ui";
 import { ResourceState } from "@/components/resource-state";
@@ -16,9 +16,6 @@ import {
   HomeDirectories,
   featuredGameId,
 } from "./home-sections";
-async function loadHome() {
-  return result(await api.GET("/api/v1/home"));
-}
 export function HomePage() {
   const home = useResource(loadHome);
   const phone = usePhoneLayout();

@@ -5,13 +5,14 @@ import { useState } from "react";
 import { useResource } from "@/lib/use-resource";
 import { loadGames } from "@/features/library/api";
 import { HomeFeatured } from "./home-sections";
+import type { HomeData } from "./home-data";
 import { ResourceState } from "@/components/resource-state";
 import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 async function loadDiscover() {
   return loadGames("library", { q: "", offset: 0, limit: 6 });
 }
-export function PhoneHome({ data }: { data: Schema<"Home"> }) {
+export function PhoneHome({ data }: { data: HomeData }) {
   const [query, setQuery] = useState("");
   const discover = useResource(loadDiscover);
   return (

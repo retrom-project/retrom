@@ -12,6 +12,7 @@ import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
+import { verifyHomeFeatured } from "./home-featured";
 import {
   instantConflict,
   newInstantSave,
@@ -267,6 +268,7 @@ test("populated pages keep their viewport and functional favorite classification
   page.on("pageerror", (error) => errors.push(error.message));
   await login(page);
   const game = await fixtureGame(page);
+  await verifyHomeFeatured(page);
   await request(page, `/api/v1/favorites/${game.id}`, { folderIds: [] }, "PUT");
   const folders = await request<Schema<"FolderList">>(
     page,
