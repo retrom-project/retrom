@@ -2,6 +2,8 @@ import type { Page } from "@playwright/test";
 
 type ControllerWindow = Window & {
   retromTestButtons?: number[];
+  retromTestPressedRead?: boolean;
+  retromTestReleaseOnRead?: boolean;
   retromTestNeutralReads?: { first: number; last: number };
 };
 
@@ -13,6 +15,10 @@ export async function installStandardController(page: Page) {
       value: () => {
         let pressed: number[];
         try { pressed = host.retromTestButtons ?? []; } catch { return []; }
+        if (window === host && pressed.length > 0) {
+          host.retromTestPressedRead = true;
+          if (host.retromTestReleaseOnRead) { host.retromTestButtons = []; }
+        }
         if (window === host && pressed.length === 0) {
           const now = Number(document.timeline.currentTime ?? performance.now());
           host.retromTestNeutralReads ??= { first: now, last: now };
@@ -27,12 +33,14 @@ export async function installStandardController(page: Page) {
   });
 }
 
-export async function holdController(page: Page, buttons: number[]) {
-  await page.evaluate((pressed) => {
+export async function holdController(page: Page, buttons: number[], releaseOnRead = false) {
+  await page.evaluate(({ pressed, releaseOnRead }) => {
     const host = window as ControllerWindow;
     host.retromTestButtons = pressed;
     host.retromTestNeutralReads = undefined;
-  }, buttons);
+    host.retromTestPressedRead = false;
+    host.retromTestReleaseOnRead = releaseOnRead;
+  }, { pressed: buttons, releaseOnRead });
 }
 
 export async function settleController(page: Page) {
@@ -46,8 +54,9 @@ export async function settleController(page: Page) {
 }
 
 export async function pressController(page: Page, buttons: number[]) {
-  await holdController(page, buttons);
-  await page.waitForTimeout(100);
-  await holdController(page, []);
-  await page.waitForTimeout(200);
+  // Deliver one sampled press. Trace snapshots can otherwise stretch a Node
+  // timer past the repeat delay; release inside the browser, not over the wire.
+  await holdController(page, buttons, true);
+  await page.waitForFunction(() => (window as ControllerWindow).retromTestPressedRead === true, undefined, { timeout: 5_000 });
+  await settleController(page);
 }

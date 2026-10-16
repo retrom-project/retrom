@@ -111,6 +111,10 @@
 .favorite-folder-name { margin-top: 0; }
 .favorite-folder-search input, .favorite-folder-name input { width: 100%; height: 42px; padding: 0 11px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
 .favorite-folder-search input { padding-inline: 9px; border-radius: var(--radius-control); background: var(--surface-subtle); }
+.favorite-collection-dialog { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); }
+.favorite-collection-dialog :is(.dialog-copy, .dialog-actions) { flex-shrink: 0; }
+.favorite-collection-dialog .dialog-impact { min-height: 0; display: flex; flex-direction: column; }
+.favorite-collection-dialog .favorite-folder-options { min-height: 0; }
 .favorite-folder-options { max-height: 260px; margin-top: 7px; overflow: auto; display: grid; gap: 0; }
 .favorite-folder-options label { min-height: 42px; padding: 0 8px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; align-items: center; border-radius: var(--radius-control); color: var(--muted); cursor: pointer; font-size: var(--text-caption); }
 .favorite-folder-options label:hover { background: var(--surface-subtle); }
