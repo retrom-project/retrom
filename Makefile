@@ -330,8 +330,7 @@ pfb-core-build: require-local-user
 
 pfb-provider-import: require-local-user
 	@test -n "$(PFB)" && test -n "$(SOURCE_ROOT)" && test -n "$(CONFIRM)" || { echo 'PFB, SOURCE_ROOT and CONFIRM are required' >&2; exit 2; }
-	@test "$(or $(RETIRE_CORE_INPUTS),false)" = true || test "$(or $(RETIRE_CORE_INPUTS),false)" = false || { echo 'RETIRE_CORE_INPUTS must be true or false' >&2; exit 2; }
-	@python3 -m scripts.pfb.cli provider-import --root "$(CURDIR)" --pfb "$(PFB)" --source-root "$(SOURCE_ROOT)" --confirm "$(CONFIRM)" $(if $(filter true,$(RETIRE_CORE_INPUTS)),--retire-core-inputs)
+	@python3 -m scripts.pfb.cli provider-import --root "$(CURDIR)" --pfb "$(PFB)" --source-root "$(SOURCE_ROOT)" --confirm "$(CONFIRM)"
 
 pfb-data-reset: require-local-user
 	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }

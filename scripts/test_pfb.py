@@ -326,27 +326,6 @@ class LightweightDevelopmentContractTests(unittest.TestCase):
             self.assertGreaterEqual(len(validations), 4)
             self.assertFalse((root / ".pfb/.providers-importing").exists())
 
-            selection = destination["providerDev"] / "core-inputs.json"
-            original = b'{"schemaVersion":1,"cores":[{"id":"siglus","directory":"/candidate"}]}\n'
-            selection.write_bytes(original)
-            import_provider_base(root, source, validate, lambda _current, _incoming: None)
-            self.assertEqual(selection.read_bytes(), original)
-            with self.assertRaisesRegex(PFBError, "production-required"):
-                import_provider_base(root, source, validate, lambda _current, _incoming: None,
-                                     retire_core_inputs=True)
-            self.assertEqual(selection.read_bytes(), original)
-
-            active["source"] = "production"
-            (source / "active.json").write_text(json.dumps(active), encoding="utf-8")
-            promoted = import_provider_base(root, source, validate, lambda _current, _incoming: None,
-                                            retire_core_inputs=True)
-            self.assertFalse(selection.exists())
-            self.assertEqual(Path(promoted["retiredCoreInputs"]).read_bytes(), original)
-            self.assertEqual(json.loads(destination["providerActive"].read_text())["source"], "production")
-            repeated = import_provider_base(root, source, validate, lambda _current, _incoming: None,
-                                           retire_core_inputs=True)
-            self.assertIsNone(repeated["retiredCoreInputs"])
-
     def test_provider_import_can_use_a_separate_current_base_validator(self) -> None:
         with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
             root = Path(temporary) / "retrom"
