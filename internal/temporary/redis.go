@@ -17,6 +17,11 @@ type Redis struct {
 	prefix string
 }
 
+const (
+	maximumHashFields = 100_000
+	maximumHashBytes  = 64 * 1024 * 1024
+)
+
 func New(address, prefix string) (*Redis, error) {
 	if !strings.Contains(address, "://") {
 		address = "redis://" + address
@@ -54,14 +59,14 @@ func (r *Redis) Delete(ctx context.Context, key string) error {
 }
 
 func (r *Redis) PutHash(ctx context.Context, key string, values map[string]string, ttl time.Duration) error {
-	if ttl <= 0 || len(values) > 20000 {
+	if ttl <= 0 || len(values) > maximumHashFields {
 		return model.ErrInvalid
 	}
 	total := 0
 	for field, value := range values {
 		total += len(field) + len(value)
 	}
-	if total > 8*1024*1024 {
+	if total > maximumHashBytes {
 		return model.ErrInvalid
 	}
 	_, err := r.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {

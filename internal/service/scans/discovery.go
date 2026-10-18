@@ -38,7 +38,7 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 	if err != nil {
 		return nil, err
 	}
-	if len(output.Files) > 10000 {
+	if len(output.Files) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
 	for _, reference := range output.Files {
@@ -49,7 +49,7 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 			continue
 		}
 		source, exists := origins[reference.RelativeTo]
-		if !exists && reference.SourcePath == "" || len(files) >= 10000 {
+		if !exists && reference.SourcePath == "" || len(files) >= maximumGameFiles {
 			return nil, model.ErrInvalid
 		}
 		file, err := s.copyReference(ctx, root, id, reference, source)

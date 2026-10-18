@@ -48,7 +48,7 @@ func (s *Service) normalize(ctx context.Context, id, platform string,
 	}, &output); err != nil {
 		return nil, wrap(err)
 	}
-	if len(output.Files) == 0 || len(output.Files) > 10000 {
+	if len(output.Files) == 0 || len(output.Files) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
 	result := make([]model.GameFile, 0, len(output.Files))

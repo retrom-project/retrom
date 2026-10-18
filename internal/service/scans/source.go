@@ -213,7 +213,7 @@ func readBounded(root *os.Root, name string, limit int64) ([]byte, error) {
 }
 
 func readDir(root *os.Root, name string) ([]os.DirEntry, error) {
-	return readDirLimit(root, name, 10000)
+	return readDirLimit(root, name, maximumGameFiles)
 }
 
 func readDirLimit(root *os.Root, name string, limit int) ([]os.DirEntry, error) {
