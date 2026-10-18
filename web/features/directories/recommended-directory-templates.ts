@@ -42,6 +42,7 @@ export const recommendedDirectoryTemplates: ReadonlyArray<readonly [platform: st
   ["kirikiri", "kirikiri2", "KiriKiri 游戏"],
   ["butterscotch", "butterscotch", "GameMaker 游戏"],
   ["tyranoscript", "tyranoscript", "TyranoScript 游戏"],
+  ["siglus", "siglus", "Siglus 游戏"],
   ["wasm4", "wasm4", "WASM-4 游戏"],
   ["j2me", "j2me", "Java ME 游戏"],
   ["tic80", "tic80", "TIC-80 游戏"],

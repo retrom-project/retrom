@@ -1,5 +1,13 @@
 # 当前项目验收
 
+2026-10-18 Siglus 核心 `retrom-core-g5f358ef1360b-r2` 与 runtime `v0.72.0` 已正式发行，Retrom 固定同次配套工具和两个 Provider。正式资产完成审核预览／发布／原生退出、两款汉化样本读档与继续输入、《初恋 1/1》连续 24 次对白语音点击、第五槽原生保存自动同步及新 Run 恢复；旧存档保留。独立冷缓存的约 8 GB 项目进入标题仅请求约 84.5 MB，未预读 EXE 或其余 BGM；完整缓存、故障、取消和视口的实际范围见 [Siglus 集成验证](siglus-integration-validation.md)。runtime 最终 346 文件／2,028 项、核心 Rust 269 项（7 项原有忽略）、JS 11 项及真实 JSPI 语音回归通过。Retrom 后端／Web／API／契约、独立 PostgreSQL 集成测试与正式输入的完整四视口 `ACC-RF-BROWSER` 32/32（`e5421cd781dc4909`）通过。不提升全作品、真机性能、外设或 T01–T47 的完整验收状态。以下 Siglus dev 记录保留为此前候选历史。
+
+2026-10-18 Siglus 对白语音回调修复已在同一 PFB 的 `0.71.2-dev.3` 候选复验：旧候选中鼠标推进首次语音时的 SuspendError 在合成音频和真实游戏中均已复现；修复后连续点击 24 次、新原生存档、不同 Run 第三槽读档及继续输入通过。核心 Rust 269 项、JS 11 项和新增真实语音浏览器回归通过，PFB 校验 VERIFIED；只改变 Siglus 核心指纹，runtime 源码未变。此前按需验证及本次范围分别记录于 [Siglus 集成验证](siglus-integration-validation.md)，未提升全作品或完整 ACC 验收状态。已有 Run 固定旧核心，须从游戏详情新建运行取得修复。
+
+2026-10-18 Siglus 加载链路改为直接使用公共 Content I/O，默认按需读取并保留显式全量下载。最终候选下，约 8 GB 样本到标题画面读取约 85 MB，未读取 EXE 或未使用的 BGM；全量缓存后新 Run 启动、原生读档及断网继续操作均为零游戏文件请求。《初恋 1/1》新原生存档、同核心新 Run 读取与继续输入，以及既有 WASM4 存档恢复和输入回归通过。runtime 1,987 项及核心 JS 11 项测试通过，PFB 校验 VERIFIED；本次范围与历史结果分开记录于 [Siglus 集成验证](siglus-integration-validation.md)。正式 Provider pin 未改变，未重跑全部四视口 ACC 或提升 T01–T47 总体验收状态。
+
+2026-10-17 Siglus 首次核心集成在 `siglus-compat` PFB 完成本地候选验证：两款汉化样本正常导入、审核、发布、原生保存与不同 Run 读档、继续输入、完整缓存复用、断网操作及原生退出通过。最终四视口 `ACC-RF-BROWSER` 32/32 通过（`118353827ea6483c`）。样本、资产身份、实际缺陷修复、T01–T47 范围、软件渲染性能和正式发行前置项见 [Siglus 集成验证](siglus-integration-validation.md)。正式 Provider pin 未改变，不提升全作品、真机性能或 T01–T47 总体验收状态。
+
 2026-10-16 MAME Current CHD 与 BIOS 多候选选择完成 PFB 产品验证：元文件目录边界、依赖补齐、第一关操作、保存与新实例恢复、冷预加载及离线继续操作通过。实际范围、正式输入复验要求和未覆盖边界见 [MAME CHD 验证](mame-chd-validation.md)。无数据库结构或特定游戏逻辑变更，不提升全核心或 T01–T47 总体验收状态。
 
 2026-10-14 核心缓存修复的覆盖、真实问题复验和未完成边界见 [核心资源缓存验证](core-asset-cache-validation.md)。本轮未修改数据库结构，不提升全核心游玩或 T01–T47 总体验收状态。

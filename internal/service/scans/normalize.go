@@ -48,19 +48,11 @@ func (s *Service) normalize(ctx context.Context, id, platform string,
 	}, &output); err != nil {
 		return nil, wrap(err)
 	}
-	if len(output.Files) == 0 || len(output.Files) > maximumGameFiles {
-		return nil, model.ErrInvalid
+	if err = validateNormalizedFiles(output.Files); err != nil {
+		return nil, err
 	}
 	result := make([]model.GameFile, 0, len(output.Files))
-	seen := make(map[string]bool, len(output.Files))
-	var total int64
 	for _, file := range output.Files {
-		total += file.SizeBytes
-		if !storage.SafeRelative(file.LogicalKey) || seen[file.LogicalKey] || !model.Hash(file.SHA256) ||
-			file.SizeBytes < 0 || total > storage.MaximumFileSize {
-			return nil, model.ErrInvalid
-		}
-		seen[file.LogicalKey] = true
 		value, importErr := s.normalizedFile(ctx, id, key, absolute, file, original)
 		if importErr != nil {
 			return nil, importErr
@@ -99,4 +91,24 @@ func (s *Service) normalizedFile(ctx context.Context, id, key, absolute string, 
 		ID: uuid.NewString(), LogicalKey: file.LogicalKey, Role: "rom",
 		SHA256: prepared.SHA256, SizeBytes: prepared.Size, StorageKey: prepared.Key,
 	}, nil
+}
+
+func validateNormalizedFiles(files []normalizedFile) error {
+	if len(files) == 0 || len(files) > maximumGameFiles {
+		return model.ErrInvalid
+	}
+	seen := make(map[string]bool, len(files))
+	var total int64
+	for _, file := range files {
+		if !storage.SafeRelative(file.LogicalKey) || seen[file.LogicalKey] || !model.Hash(file.SHA256) ||
+			file.SizeBytes < 0 || file.SizeBytes > storage.MaximumFileSize {
+			return model.ErrInvalid
+		}
+		total += file.SizeBytes
+		if total > maximumContentSize {
+			return model.ErrInvalid
+		}
+		seen[file.LogicalKey] = true
+	}
+	return nil
 }

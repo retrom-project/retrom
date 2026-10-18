@@ -95,6 +95,7 @@ const platformCategory: Record<string, DirectoryCategory> = {
   satellaview: "console",
   saturn: "console",
   scummvm: "runtime",
+  siglus: "runtime",
   sega32x: "console",
   segacd: "console",
   sg1000: "console",

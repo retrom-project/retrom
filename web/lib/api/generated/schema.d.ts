@@ -1633,7 +1633,7 @@ export interface components {
         };
         RuntimeContent: {
             /** @enum {string} */
-            kind: "SINGLE_FILE" | "DOS_BUNDLE" | "ARCADE" | "RPG_MAKER_PROJECT" | "SCUMMVM_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "NXENGINE_PROJECT" | "DAPHNE_PROJECT";
+            kind: "SINGLE_FILE" | "DOS_BUNDLE" | "ARCADE" | "RPG_MAKER_PROJECT" | "SCUMMVM_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "NXENGINE_PROJECT" | "DAPHNE_PROJECT" | "SIGLUS_PROJECT";
             entryFile?: string;
             entryPath?: string;
             /** @enum {string} */

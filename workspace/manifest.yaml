@@ -67,7 +67,8 @@
         "mame2003",
         "mame2003_plus",
         "fbalpha2012_cps2",
-        "parallel-n64"
+        "parallel-n64",
+        "siglus-rs"
       ]
     },
     {
@@ -635,6 +636,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/parallel-n64.git",
       "defaultBranch": "retrom/g56f4daf8ec9b",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "siglus-rs",
+      "path": "project/retrom-core/siglus_rs",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/siglus_rs.git",
+      "defaultBranch": "retrom/g5f358ef1360b",
       "submodules": false,
       "dependsOn": []
     }
