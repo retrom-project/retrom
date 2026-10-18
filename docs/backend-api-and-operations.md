@@ -4,6 +4,8 @@
 
 账号密码使用已锁定Argon2组件及密码blocklist，验证后短事务再次围栏确认同一credential/active User，防密码变化后的旧验证创建新会话。密码变化增加session_version并撤销旧会话，selfchange生成新cookie。邀请/重置hash token一次消费、可撤销；重新创建reset撤销旧记录并增加其版本。账号停用/删除撤销有效会话和待用链接。Redis限流按IP/账号hash作用域原子TTL执行，存储不可用失败关闭。
 
+登录会话最长有效7天，连续3天没有成功认证请求时失效。每次成功认证将闲置到期时间顺延3天，但不得超过创建会话后的第7天；到期后必须重新登录。浏览器登录Cookie的Max-Age为7天，从签发时固定计算，请求续期不重发Cookie；HttpOnly、SameSite=Strict及HTTPS下的Secure保持启用。新时长用于新建会话，已有会话仍遵循其已保存的绝对到期时间和浏览器Cookie期限，不批量改写历史记录。
+
 | 配置 | 含义 |
 | --- | --- |
 | RETROM_DATABASE_URL | PostgreSQL连接URL，凭据通过私有环境注入 |

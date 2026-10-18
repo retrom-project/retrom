@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/authn"
 	"retrom/internal/model"
 )
 
@@ -61,9 +62,10 @@ func (r *Repository) CreateSession(ctx context.Context, id, userID, token string
 	digest := sha256.Sum256([]byte(token))
 	tag, err := r.db.Exec(ctx, `INSERT INTO auth_session_tab
  (id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms)
- SELECT $1,id,$3,session_version,$4::bigint,$4::bigint,$4::bigint+28800000,$4::bigint+86400000
+ SELECT $1,id,$3,session_version,$4::bigint,$4::bigint,$5::bigint,$6::bigint
  FROM user_tab WHERE id=$2 AND status='active'`,
-		id, userID, digest[:], now)
+		id, userID, digest[:], now,
+		now+authn.SessionIdleLifetime.Milliseconds(), now+authn.SessionAbsoluteLifetime.Milliseconds())
 	if err != nil {
 		return failure("create session", err)
 	}
@@ -112,7 +114,8 @@ func (r *Repository) Authenticate(ctx context.Context, token string, now int64) 
 		return principal, failure("read session", err)
 	}
 	if err = r.Execute(ctx, `UPDATE auth_session_tab SET last_seen_at_ms=$2,
- idle_expires_at_ms=LEAST($2::bigint+28800000,absolute_expires_at_ms) WHERE id=$1`, id, now); err != nil {
+ idle_expires_at_ms=LEAST($2::bigint+$3::bigint,absolute_expires_at_ms) WHERE id=$1`,
+		id, now, authn.SessionIdleLifetime.Milliseconds()); err != nil {
 		return principal, err
 	}
 	principal.User = user

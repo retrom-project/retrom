@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/model"
 	"retrom/internal/runtimeclient"
 	"retrom/internal/service/accounts"
@@ -155,7 +156,7 @@ func csrf(token string) string {
 func (s *Server) setCookie(w http.ResponseWriter, token string) {
 	cookie := &http.Cookie{
 		Name: s.CookieName, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode,
-		Secure: strings.HasPrefix(s.Origin, "https://"), MaxAge: 86400,
+		Secure: strings.HasPrefix(s.Origin, "https://"), MaxAge: int(authn.SessionAbsoluteLifetime / time.Second),
 	}
 	if token == "" {
 		cookie.MaxAge = -1
