@@ -20,6 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const maximumGameFiles = 50_000
+
 type entry struct {
 	name string
 	size int64
@@ -48,7 +50,7 @@ func (s *Service) content(ctx context.Context,
 			origins[key] = source
 		}
 	}
-	if len(result) > 10000 {
+	if len(result) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
 	return s.discoverContent(ctx, root, id, result, origins, directory, inventory)
@@ -149,7 +151,7 @@ func (s *Service) walk(ctx context.Context, root *os.Root, id, base, current str
 			return nil, fmt.Errorf("close project file: %w", closeErr)
 		}
 		result = append(result, stored)
-		if len(result) > 10000 {
+		if len(result) > maximumGameFiles {
 			return nil, model.ErrInvalid
 		}
 	}
@@ -199,7 +201,7 @@ func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext stri
 }
 
 func (s *Service) extract(ctx context.Context, id string, entries []entry) ([]model.GameFile, error) {
-	if len(entries) == 0 || len(entries) > 10000 {
+	if len(entries) == 0 || len(entries) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
 	seen := make(map[string]bool, len(entries))
