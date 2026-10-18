@@ -39,7 +39,7 @@ export function createRuntimeHost(
       frame.referrerPolicy = "no-referrer";
       frame.setAttribute(
         "sandbox",
-        "allow-scripts allow-same-origin allow-pointer-lock",
+        "allow-scripts allow-same-origin allow-pointer-lock allow-modals",
       );
       frames.add(frame);
       if (
