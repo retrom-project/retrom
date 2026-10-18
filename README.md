@@ -1,53 +1,51 @@
 # Retrom
 
-[![Retrom 宣传插画：你的游戏库，打开浏览器就能玩][promotion-preview]][promotion-original]
+[![Retrom：自托管多平台浏览器游戏库][promotion-preview]][promotion-original]
 
-*项目宣传插画（AI 生成）。*
+Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。集中整理游戏，直接在浏览器中游玩，随时从存档继续进度。
 
-Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。把游戏整理到自己的服务器，在浏览器中启动游玩，再从存档继续上次的进度。管理员维护共享游戏库，每个用户独立管理自己的存档、收藏和最近游玩记录。
+管理员维护共享游戏库，每个用户拥有独立的存档、收藏夹和最近游玩记录。
 
-[快速部署](#快速部署) · [功能预览](#功能预览) · [平台与核心](#平台与核心) · [文档](#文档)
+[快速部署](#快速部署) · [功能预览](#功能预览) · [支持平台](#支持平台) · [文档](#文档)
 
 [![Retrom 首页：纯白之夏主视觉、多平台最近游玩和个人收藏][home-preview]][home-original]
-
-实机截图取自 v0.0.133，按 4K、150% 缩放采集。此处使用压缩展示版，点击图片可查看原图；[全部截图与素材说明](https://github.com/retrom-project/retrom-images)。
 
 ## 功能预览
 
 ### 浏览游戏，直接开玩
 
-通过封面、游戏详情、平台分类、共享标签和搜索筛选找到想玩的游戏，在浏览器中启动。支持普通界面和手柄沉浸界面，具体输入能力取决于游戏与核心。
+通过封面、游戏详情、平台分类、共享标签和搜索筛选找到想玩的游戏，在浏览器中启动。支持普通界面和手柄沉浸界面。
 
 [![游戏库：封面墙、平台分类、搜索和筛选][library-preview]][library-original]
 
-### 看着存档画面，继续上次的冒险
+### 保存进度，随时继续
 
-为进度保留截图和名称，在“我的存档”中查找、筛选并恢复。支持即时存档与游戏原生存档，具体保存和恢复能力取决于对应核心。
+支持即时存档与游戏原生存档，提供截图预览、重命名、搜索筛选和恢复入口，方便找到想要继续的进度。
 
 [![我的存档：索尼克2的多份即时存档、截图、名称和继续游玩入口][saves-preview]][saves-original]
 
-### 整理喜欢的游戏，找回最近的游玩记录
+### 收藏分类与最近游玩
 
-用收藏夹整理不同平台、系列或心情下的游戏，首页集中展示最近玩过和一直喜欢的作品。每个用户拥有独立的收藏、收藏夹和最近游玩记录。
+按平台、系列或主题建立收藏夹，在首页查看最近玩过和一直喜欢的游戏。
 
 [![我的收藏：跨平台游戏封面和收藏夹分类导航][favorites-preview]][favorites-original]
 
 <details>
-<summary>更多实机截图：首页其他主视觉与最近游玩</summary>
+<summary>更多界面预览</summary>
 
-首页 · 索尼克主视觉：
+首页：
 
 [![Retrom 首页：索尼克2的存档主视觉和多平台游戏记录][sonic-preview]][sonic-original]
 
-最近游玩 · 按时间找回玩过的游戏：
+最近游玩：
 
 [![最近游玩：按时间排列的游戏记录及开始游戏入口][recent-preview]][recent-original]
 
 </details>
 
-## 平台与核心
+## 支持平台
 
-运行支持涵盖 NES、SNES、Mega Drive、GBA、Nintendo DS、街机，以及 RPG Maker、ONScripter、Siglus 等引擎游戏。平台、核心和游戏格式由配套的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 提供，管理员可配置目录和默认核心。
+支持 NES、SNES、Mega Drive、GBA、Nintendo DS、街机，以及 RPG Maker、ONScripter、Siglus 等引擎游戏。平台与核心由配套的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 提供，具体游戏格式、输入方式和存档类型随核心而异。
 
 ## 快速部署
 
@@ -62,7 +60,7 @@ Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。�
 
 ## 管理自己的游戏库
 
-管理员通过服务器目录扫描导入 Pegasus / EmulationStation 来源，整理资料、试玩审核后发布，也可替换已入库游戏的文件、封面和视频。每个游戏条目对应一份独立作品内容。
+管理员通过服务器目录扫描导入 Pegasus / EmulationStation 来源，整理资料、试玩审核后发布，也可替换已入库游戏的文件、封面和视频。
 
 | 管理能力 | 用途 |
 | --- | --- |
@@ -71,21 +69,21 @@ Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。�
 | 资料与标签 | 维护游戏详情、封面、视频和共享标签 |
 | 账号管理 | 管理用户、邀请和密码重置 |
 
-## 开发
-
-后端使用 Go，前端使用 Next.js / TypeScript。持久数据存放在 PostgreSQL 中，临时运行状态由 Redis 管理；游戏运行与核心适配由 retrom-runtime 提供。
-
-联合开发使用 [retrom-project](https://github.com/retrom-project/retrom-project) 工作区中的命名 PFB。环境准备和日常开发流程见 [PFB 开发说明](docs/pfb-development.md)，检查命令和测试要求见[工程质量与测试](docs/engineering-quality-and-testing.md)。贡献代码前请阅读 [AGENTS.md](AGENTS.md)。
-
 ## 文档
 
 | 文档 | 内容 |
 | --- | --- |
 | [Docker 部署指南](docs/docker-deployment.md) | 安装配置、启动检查、数据备份、升级与故障排查 |
-| [文档索引](docs/README.md) | 产品、API、数据模型及工程文档的完整入口 |
+| [文档索引](docs/README.md) | 使用、管理和开发文档的完整入口 |
 | [导入与审核](docs/import-and-review.md) | 来源扫描、游戏审核和内容维护 |
-| [运行与存档](docs/runtime-and-play-data.md) | 游戏运行、存档身份与恢复规则 |
-| [账号、配置与部署](docs/backend-api-and-operations.md) | 服务配置、账号机制和代理要求 |
+| [运行与存档](docs/runtime-and-play-data.md) | 游戏运行、存档保存与恢复 |
+| [账号、配置与部署](docs/backend-api-and-operations.md) | 账号管理、服务配置和反向代理 |
+
+## 开发
+
+后端使用 Go，前端使用 Next.js / TypeScript。持久数据存放在 PostgreSQL 中，临时运行状态由 Redis 管理；游戏运行与核心适配由 retrom-runtime 提供。
+
+联合开发使用 [retrom-project](https://github.com/retrom-project/retrom-project) 工作区中的命名 PFB。环境准备和日常开发流程见 [PFB 开发说明](docs/pfb-development.md)，检查命令和测试要求见[工程质量与测试](docs/engineering-quality-and-testing.md)。贡献代码前请阅读 [AGENTS.md](AGENTS.md)。
 
 本项目不附带商业游戏或 BIOS。
 
