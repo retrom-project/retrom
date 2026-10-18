@@ -4,7 +4,9 @@
 
 ## 当前正式版本
 
-当前 pin 使用 [retrom-runtime v0.71.4](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.71.4)。旧版 TyranoScript 的零时长转场在遗漏结束事件时补发一次，暂停时不推进；同一音频对象上被后续播放取代的取消请求不再误报。旧存档插件缺少保存日期时，只在捕获的快照副本中补齐，支持试玩存档及新实例恢复。保留 v0.71.3 的 Web Storage、恢复对话与执行位置、稳定选择界面再次存档和返回标题后重连修复，以及 RPG Maker MV/MZ 启动与恢复修复。核心身份、checkpoint 格式和数据库结构保持不变；游戏原始资源不作修改。
+当前 pin 使用 [retrom-runtime v0.72.0](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.72.0)，新增 Siglus 项目的公共 Content I/O 按需读取、显式全量缓存、汉化资源选择和 `GAME_SAVE` 原生存档。Siglus 固定为 `retrom-core-g5f358ef1360b-r2`，附完整依赖许可和可重建源码；实际样本与正式包复验范围见 [Siglus 集成验证](siglus-integration-validation.md)。
+
+继续保留 v0.71.4 的修复：旧版 TyranoScript 的零时长转场在遗漏结束事件时补发一次，暂停时不推进；同一音频对象上被后续播放取代的取消请求不再误报。旧存档插件缺少保存日期时，只在捕获的快照副本中补齐，支持试玩存档及新实例恢复。保留 v0.71.3 的 Web Storage、恢复对话与执行位置、稳定选择界面再次存档和返回标题后重连修复，以及 RPG Maker MV/MZ 启动与恢复修复。核心身份、checkpoint 格式和数据库结构保持不变；游戏原始资源不作修改。
 
 MAME Current 支持 DAT 驱动的 CHD 发现、Worker 按需读取和携带差异磁盘的存档；BIOS ZIP 候选按实际成员去重和排序，保留已有安装。MAME 固定为 `retrom-core-gf65d5ba9bc42-r6`。实际产品、缓存与存档验证范围见 [MAME CHD 验证](mame-chd-validation.md)。
 
@@ -18,7 +20,7 @@ v0.66.1 的 RPG Maker 音频编码解析修复继续保留：仅在原生音频�
 
 v0.66.0 引入的原始 Parent ZIP 逐文件交付和独立 BIOS 继续生效，包含 FBAlpha 0.2.97.44。相同原始内容的 MAME 存档身份编码保持不变；恢复历史加工父包会改变游戏内容身份，原有存档仍保留但不能强制视为新内容的可恢复存档。实际样例、已知兼容性问题和验收范围见 [Parent 完整性验证](parent-integrity-validation.md)。
 
-`make runtime-provider-pin-release TAG=v0.71.4` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+`make runtime-provider-pin-release TAG=v0.72.0` 先下载该发行的 `runtime-inputs.json`，验证同一发行的两份 Provider 和一份 host-tool 原始归档，再更新仓库 pin。默认下载地址由描述中的真实 repository/tag 派生，无需配置临时运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare

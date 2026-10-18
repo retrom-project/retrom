@@ -1,8 +1,58 @@
-# Siglus 核心集成候选
+# Siglus 核心集成与发布验证
 
-2026-10-17 首轮在 `siglus-compat` PFB 中完成 `retrom-runtime / siglus` Target 的本地集成和限定产品验收，核心为独立 `siglus_rs` 候选。尚未发布核心或 runtime Release，也未改变 Retrom 的正式发行锁定；两款样本通过不代表全部 Siglus 作品兼容。
+2026-10-18 已发布独立核心与 runtime，Retrom 使用标准 pin 命令固定同次发行的工具和两个完整 Provider，在 `siglus-compat` PFB 使用正式资产复验。下文将正式结果与此前候选记录分开；两款汉化样本通过不代表全部 Siglus 作品兼容。
 
-## 10 月 18 日对白语音回调修复
+## 10 月 18 日正式发行身份
+
+| 输入 | 正式身份 |
+| --- | --- |
+| 核心 Release | [retrom-core-g5f358ef1360b-r2](https://github.com/retrom-project/siglus_rs/releases/tag/retrom-core-g5f358ef1360b-r2) |
+| 核心 commit / ABI | `467ffb4017b138aec93135fb2e4ba2e61efb4fd2` / `siglus-host-v1` |
+| 核心源码树 SHA-256 | `d20e965ac8695ee7f01f867c0d828024f3c2dbb0512b955234477bdcaad79b65` |
+| 核心 MJS SHA-256 | `19cd14570522c289b8c0cea7d275949c9f6d4d9eece667ecab463fd8f6b7505e` |
+| 核心 WASM SHA-256 | `2c54b55c049734814b301ce3ac43c89ce02446437de836a88fc32da97f532b6a` |
+| 对应源码归档 SHA-256 | `206743ad7c7cb58f294d481676cff7dd3af0ac377c6cb942fd247e6b45bbb254` |
+| runtime Release / commit | [v0.72.0](https://github.com/retrom-project/retrom-runtime/releases/tag/v0.72.0) / `30ed177bc6bc1e4ef1c4b72d5947f0c0c977d91d` |
+| runtime 源码树 SHA-256 | `fc1ede63c1f55222958abe62879729af6e004ecef9cc9249d8e01f7fd069f471` |
+| 实际 retrom-runtime Bundle SHA-256 | `b05b44c8cafd5156b62f14ac672bbc5422e1eb84033c77ef394f1e404ebb5055` |
+| 实际 retrom-runtime Module SHA-256 | `2bfd8a339805b83263fa2d9912f4b34a23faa32126fed33be30e380dcf6169ea` |
+| 实际 Siglus 核心文件指纹 | `5af346c994e27d024f8d58bb53da7021b950909e0515485e6ddcfc430cd978dc` |
+
+核心维护分支为 `retrom/g5f358ef1360b`，上游 `main` 保留镜像用途。核心 PR [#1](https://github.com/retrom-project/siglus_rs/pull/1)、[#2](https://github.com/retrom-project/siglus_rs/pull/2) 及 runtime PR [#163](https://github.com/retrom-project/retrom-runtime/pull/163) 已合入。固定的 r2 资产、源码树、commit、归档字节数及摘要均重新下载核对。r1 标签因发布检查发现本地 checkout 剥离 annotated tag 而未生成 Release 资产，保留不可移动；r2 使用独立 tag ref 校验，并有真实 Git 仓库的红绿回归。
+
+Release 包含 MPL 主许可、完整链接依赖许可清单、OFL 字体、精确 Cargo 依赖源码和重建／重新链接说明。已移除上游未附再分发许可的 MS PGothic，使用 Noto 字体。正式包没有游戏资源或游戏密钥。源码归档曾在隔离 Cargo home、离线锁定依赖条件下重建通过；不将不同绝对构建路径的 WASM 声称为字节可复现。
+
+## 正式包产品与工程复验
+
+正式记录位于忽略的 `.pfb/evidence/siglus-integration/publication/`。PFB 通过正常 Provider 准备、导入、工具选择与重启使用 v0.72.0；实际浏览器 Module 与发行 Module 摘要相同，没有手工改写资产或 active 元数据。正常 PFB 校验 `20261018T093223Z` 为 VERIFIED。
+
+| Case | 正式包实际结果 |
+| --- | --- |
+| 审核试玩、发布、原生退出 | 第二款大目录样本退回审核，正式 Run `40e87907-f4b8-457b-a6e8-e487a1c01970` 显示汉化提示和实际标题；游戏内 Exit 触发平台退出检查，两个音频上下文均为 closed，随后正常批准发布 |
+| 《初恋 1/1》汉化、对白语音 | Run `04e19343-9641-4bae-83a7-534110cde2ef` 原生第三槽读档后连续鼠标点击 24 次，468 次 KOE 分段读取，实际非零音频；无 SuspendError、核心失败或未捕获异常 |
+| 标准手柄 | 同一正式 Run 的左摇杆移动指针、A 确认，前后截图确认中文对白推进；使用标准 Gamepad API 注入，未测试物理手柄 |
+| 原生保存与自动同步 | 保留原第四槽，新增第五槽；平台自动生成存档 `75fa78d0-7c1d-4255-8c4f-bd0a9f145d21`。服务端 payload 解压一次即为 13 个原生文件，`0005.sav` SHA-256 为 `bff6e5decfb80fd43a664901d092625642dbb264d54818f8c5bcec2518877f0f`，与核心导出一致；源存档 version 5 未被覆盖 |
+| 新 Run 恢复并继续输入 | Run `2ecea4ce-d99c-4192-98a5-29510a5d6dbe` 启动前导入上述 13 文件，从游戏内第五槽恢复后再点击 8 次，中文对白继续推进、108 次 KOE 读取，无核心变化警告 |
+| 冷缓存默认按需 | 独立空浏览器缓存的 Run `d2600a8a-74cd-4223-b89b-f5e833717b1a` 到实际标题，3,174 文件／7,994,917,791 字节项目只读取 69 文件、84,536,707 字节；213 个请求最大响应 1,029,081 字节。EXE、DLL、备份均未读取，BGM 只有 `a1.nwa`；普通 HTTP 缓存禁用 |
+| 冷缓存至完整预下载 | 同一独立空缓存从按需、取消预下载到 Run `385e5ba5-ca8d-46ff-a9e6-859ebc0f2dba` 完成 PRELOAD；下载期间上报进度且引擎未启动，完成后启动。实际请求覆盖全部 3,174 文件／7,994,917,791 字节，无缺失；此样本文件 basename 全部唯一，用认证 index 匹配不同 Run 的实际资源请求 |
+| 完整下载后的独立实例复用 | 同一独立缓存的新 Run `7f8d418c-a3f7-4d93-86da-6e505e923e37` 切回 ON_DEMAND，从游戏内第零槽读出中文正文，再断网点击推进至新对白；从启动至离线操作，游戏文件请求均为零，无核心或浏览器异常，前后截图已检查 |
+| 已完成缓存的正式新 Run、断网输入 | Run `a9d20e8a-8552-4ddd-995c-736d700aa3f1` 从原生第零槽恢复中文正文，启动、读档和断网后鼠标推进均为零游戏文件请求。缓存来自此前公共全量下载，普通 HTTP 缓存禁用；正式冷下载另行记录 |
+| 预下载取消 | 正式 PRELOAD Run `ba1bc76a-5850-4060-9871-1aa26c1329d8` 下载期间退出，核心尚未启动，退出稳定后无新增游戏文件请求；随后从同一公共缓存继续下载 |
+| 缓存不可用 | 通过 CDP 暂停公共缓存 Worker、禁用其 IndexedDB，未修改正式 Provider 或 Worker 资产。PRELOAD Run `2dce5afb-c433-4dd2-8a54-696f0d7a167a` 明确显示存储不可用，核心未启动；相同注入下 ON_DEMAND Run `788b7389-e169-406d-9094-fc2c33272601` 通过网络回源启动，帧数继续推进，无核心或浏览器异常 |
+| 代表性既有核心 | WASM4 正式 Run `4635c7dd-d4a0-4904-97b4-0c410913a025` 从原公开存档恢复方块 x=38，键盘左移后 x=0；实际像素与指纹核对通过，未出现核心变化警告 |
+| 视口 | 1440×960、390×844、2560×1440／DPR 1.5（实际截图 3840×2160），再恢复桌面；画布始终 1280×720、保持 16:9、无横向溢出，逐图检查通过。390px 仅验证布局，不代表真机可读性或触摸性能 |
+
+核心 Rust lib 269 项通过、7 项原有忽略；核心 JS 11 项、真实语音 JSPI 浏览器探针和 3 项 tag 校验回归通过。runtime 合并同期 TyranoScript 修复后的最终源码通过 346 文件／2,028 项测试、lint、类型、构建、包检查、Provider 输入／构建／校验及发行聚合；相应 PR、master 和 tag CI 均通过。
+
+Retrom 后端、Web、API、契约与显式独立 PostgreSQL 的集成测试通过。正式输入的未过滤四视口 `ACC-RF-BROWSER` 为 `e5421cd781dc4909`，32/32 通过、887.205 秒，输入摘要 `ed085e066d20c552f92e43ce7c4945793f89cf0ce5d5bfe828beb00ed09a27db`。独立数据库没有使用 PFB 数据；通用浏览器门禁不替代上表的实际商业游戏验证。
+
+正式主要会话无 console error、pageerror 或 crash；保留并分析的 warning 为既有 iframe sandbox、Next Image LCP 提示和截图回读时的图形管线 stall 性能提示，没有非法 WebGL 调用。冷缓存完成后的取证脚本曾额外查询已退出 Run 的 index，得到预期的两次 `409 CONTEXT_EXPIRED`，原始记录和原因保留在 `cold-cache/full-preload-coverage.json`，不归为产品启动错误。
+
+本次 T18、T19、T27、T32、T33、T38 的正式身份与受影响产品链已补充复验，其余 T01–T47 按下方原范围追踪，不提升全核心、全作品、20,000 Game／50,000 文件查询或 200 用户负载状态。当前项目文件数上限沿用合并后宿主的 50,000，单文件 8 GiB、目录总量 64 GiB。
+
+以下候选记录保留各阶段原始身份、失败与修复结果，不代表正式发行字节。
+
+## 10 月 18 日对白语音回调修复（历史）
 
 `0.71.2-dev.2` 的限定按需检查没有覆盖首次带语音的对白。随后用户在《初恋 1/1》中正常点击画面时报告 `SuspendError: trying to suspend without WebAssembly.promising`。从原生第二槽读档后连续点击，在第 11 次点击触发了完全相同的堆栈：WASM `0x67c017` 至 `0x92b059`，生成 JS `bt` 的 `1:68549` 和 `i` 的 `2:1869`。这不是旧候选或缺少浏览器 JSPI API。
 
@@ -75,7 +125,7 @@
 - 手柄沿用公共指针：方向键或左摇杆移动，A 左键确认，B 右键；键盘和鼠标保持独立。
 - 影片采用有界解码和帧队列；大文件仍占浏览器磁盘缓存，不能把磁盘缓存大小等同于播放内存需求。声音和压缩资源的具体上限以核心文档为准。
 
-导入时发现旧目录总量校验误用了 8 GiB 单文件上限。现分别验证单文件不超过 8 GiB、整个目录或归档展开内容不超过 64 GiB，保留 10,000 个项目文件的既有边界。
+导入时发现旧目录总量校验误用了 8 GiB 单文件上限。分别验证单文件不超过 8 GiB、整个目录或归档展开内容不超过 64 GiB；10 月 17 日的项目文件数边界为 10,000，最终合并上游后沿用 50,000。
 
 ## 10 月 17 日首次候选身份（历史）
 
@@ -166,8 +216,10 @@ T01–T47 逐项记录在忽略的 `case-scope.json`，这里按本轮证据范�
 
 10 月 17 日候选仅支持完整预下载；此限制已由 10 月 18 日的公共按需读取修复解除。显式全量下载仍需要足够浏览器持久存储空间。没有承诺所有汉化补丁、全部路线、影片、浏览器、物理手柄或移动设备兼容。128 MiB 平台存档集合上限、单文件及目录导入上限仍适用。
 
-## 发布边界
+## 发布与兼容范围
 
-核心 fork 地址与维护分支仍是本地候选的发布准备。正式发行前还须完成核心链接依赖的许可证清单、精确源码配套和不可移动的核心资产发布，runtime 固定其 Release 身份并发布新版本，Retrom 再固定正式配套输入、复验同一产品案例。当前 `data/runtime-inputs.json` 保持原正式输入；本轮没有新提交、远端写入、PR、合并或 tag。
+核心与 runtime 按依赖顺序发行，Retrom 的 `data/runtime-inputs.json` 固定正式 v0.72.0 配套输入，完整来源见本文开头及 [配套运行输入](dependency-management.md)。已有 Run 冻结创建时的资产，取得修复须从游戏详情新建 Run。
 
-改动保留在 `siglus-compat` 的三个独立工作树：Retrom 与 runtime 为 `codex/siglus-compat`，核心为 `feat/siglus-compat`，包括前一阶段既有核心修复。PFB 保持运行供人工试用。基线三个 checkout 检查时均干净，根仓库原有未跟踪 `docs/` 保留；未在根仓库登记或暂存子仓库源码。
+浏览器仍须提供 WebAssembly JSPI；全量下载需要足够持久存储。影片采用有界解码，已选中的压缩资源仍可能由原生解码器完整读取。仅验证记录中的汉化样本与操作，不承诺全部汉化补丁、路线、影片、浏览器或物理外设兼容；SwiftShader 结果不代表硬件加速性能。
+
+开发与证据保持在 `siglus-compat` 的三个独立工作树，PFB 保持运行。基线 working files 保留，根仓库原有未跟踪 `docs/` 保留；未在根仓库登记或暂存子仓库源码。
