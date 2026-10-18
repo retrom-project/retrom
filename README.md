@@ -1,6 +1,8 @@
 # Retrom
 
-**你的游戏库，打开浏览器就能玩。**
+[![Retrom 宣传插画：你的游戏库，打开浏览器就能玩][promotion-preview]][promotion-original]
+
+*项目宣传插画（AI 生成）。*
 
 Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。把游戏整理到自己的服务器，在浏览器中启动游玩，再从存档继续上次的进度。管理员维护共享游戏库，每个用户独立管理自己的存档、收藏和最近游玩记录。
 
@@ -84,17 +86,6 @@ Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。�
 | [导入与审核](docs/import-and-review.md) | 来源扫描、游戏审核和内容维护 |
 | [运行与存档](docs/runtime-and-play-data.md) | 游戏运行、存档身份与恢复规则 |
 | [账号、配置与部署](docs/backend-api-and-operations.md) | 服务配置、账号机制和代理要求 |
-
-<details>
-<summary>宣传插画与原始素材</summary>
-
-[![Retrom 宣传插画：自托管游戏库、多平台浏览器游玩、存档与收藏][promotion-preview]][promotion-original]
-
-此图为 AI 生成的概念插画，未使用游戏库中的游戏素材，与上方实机截图分开标注。原图尺寸为 1672×941。
-
-[公开图片仓库](https://github.com/retrom-project/retrom-images) · [完整原图下载](https://github.com/retrom-project/retrom-images/releases/tag/showcase-2026-10-18-v0.0.133)
-
-</details>
 
 本项目不附带商业游戏或 BIOS。
 
