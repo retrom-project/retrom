@@ -1,33 +1,75 @@
 # Retrom
 
-Retrom 是面向个人和可信朋友的自托管浏览器游戏库。管理员导入游戏、整理资料和运行依赖，用户在浏览器中游玩，并管理自己的存档、收藏和最近游玩记录。
+**你的游戏库，打开浏览器就能玩。**
 
-支持普通界面和手柄沉浸界面。平台、核心和游戏格式由配套的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 提供，实际验证范围与已知限制见[验收记录](docs/project-acceptance.md)。
+Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。把游戏整理到自己的服务器，在浏览器中启动游玩，再从存档继续上次的进度。管理员维护共享游戏库，每个用户独立管理自己的存档、收藏和最近游玩记录。
 
-## 主要功能
+[快速部署](#快速部署) · [功能预览](#功能预览) · [平台与核心](#平台与核心) · [文档](#文档)
 
-| 功能 | 说明 |
-| --- | --- |
-| 游戏库 | 游戏详情、搜索筛选、封面与视频、共享标签 |
-| 浏览器游玩 | 在浏览器中启动游戏，使用普通界面或手柄沉浸界面 |
-| 存档 | 即时存档、游戏原生存档、重命名与恢复；具体能力取决于核心 |
-| 收藏与最近游玩 | 每个用户独立管理收藏、收藏夹和最近游玩记录 |
-| 游戏导入 | 扫描服务器上的 Pegasus / EmulationStation 来源，审核、试玩后发布 |
-| 目录与运行依赖 | 配置平台和默认核心，安装 BIOS，查看并补齐缺失依赖与街机父包 |
-| 用户管理 | 首次管理员初始化、账号管理、邀请和密码重置 |
+[![Retrom 首页：纯白之夏主视觉、多平台最近游玩和个人收藏][home-preview]][home-original]
 
-每个游戏条目对应一份独立作品内容。游戏导入通过服务器目录扫描完成，管理员也可替换已入库游戏的文件、封面和视频。
+实机截图取自 v0.0.133，按 4K、150% 缩放采集。此处使用压缩展示版，点击图片可查看原图；[全部截图与素材说明](https://github.com/retrom-project/retrom-images)。
 
-## Docker 部署
+## 功能预览
 
-使用 Linux 服务器、Docker Engine 和 Compose 部署。发行镜像已包含应用及配套运行资源，游戏和 BIOS 由管理员自行准备。
+### 浏览游戏，直接开玩
+
+通过封面、游戏详情、平台分类、共享标签和搜索筛选找到想玩的游戏，在浏览器中启动。支持普通界面和手柄沉浸界面，具体输入能力取决于游戏与核心。
+
+[![游戏库：封面墙、平台分类、搜索和筛选][library-preview]][library-original]
+
+### 看着存档画面，继续上次的冒险
+
+为进度保留截图和名称，在“我的存档”中查找、筛选并恢复。支持即时存档与游戏原生存档，具体保存和恢复能力取决于对应核心。
+
+[![我的存档：索尼克2的多份即时存档、截图、名称和继续游玩入口][saves-preview]][saves-original]
+
+### 整理喜欢的游戏，找回最近的游玩记录
+
+用收藏夹整理不同平台、系列或心情下的游戏，首页集中展示最近玩过和一直喜欢的作品。每个用户拥有独立的收藏、收藏夹和最近游玩记录。
+
+[![我的收藏：跨平台游戏封面和收藏夹分类导航][favorites-preview]][favorites-original]
+
+<details>
+<summary>更多实机截图：首页其他主视觉与最近游玩</summary>
+
+首页 · 索尼克主视觉：
+
+[![Retrom 首页：索尼克2的存档主视觉和多平台游戏记录][sonic-preview]][sonic-original]
+
+最近游玩 · 按时间找回玩过的游戏：
+
+[![最近游玩：按时间排列的游戏记录及开始游戏入口][recent-preview]][recent-original]
+
+</details>
+
+## 平台与核心
+
+运行支持涵盖 NES、SNES、Mega Drive、GBA、Nintendo DS、街机，以及 RPG Maker、ONScripter、Siglus 等引擎游戏。平台、核心和游戏格式由配套的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 提供，管理员可配置目录和默认核心。
+
+具体作品与版本的兼容性、输入和存档能力取决于所用核心；实际验证范围与已知限制见[验收记录](docs/project-acceptance.md)。
+
+## 快速部署
+
+准备 Linux 服务器、Docker Engine 和 Compose，以及应用域名、游戏隔离泛域名和覆盖两者的 HTTPS 证书。发行镜像已包含应用及配套运行资源，游戏和 BIOS 由管理员自行准备。
 
 1. 从 [Releases](https://github.com/retrom-project/retrom/releases) 选择发行版本。
-2. 按照 [Docker 部署指南](docs/docker-deployment.md) 配置域名、HTTPS、数据目录并启动服务。
+2. 按照 [Docker 部署指南](docs/docker-deployment.md) 获取该版本的 Compose 和 Nginx 配置，设置域名、HTTPS、持久数据目录并启动服务。
 3. 打开 `https://你的域名/setup` 创建首个管理员。
 4. 在“游戏目录”创建目录，再从“游戏入库 → 来源扫描”导入游戏，审核并发布。
 
 首次安装、版本兼容、备份和升级的具体步骤均见部署指南。
+
+## 管理自己的游戏库
+
+管理员通过服务器目录扫描导入 Pegasus / EmulationStation 来源，整理资料、试玩审核后发布，也可替换已入库游戏的文件、封面和视频。每个游戏条目对应一份独立作品内容。
+
+| 管理能力 | 用途 |
+| --- | --- |
+| 目录与核心 | 配置平台目录、可用核心和默认核心 |
+| 运行依赖 | 安装 BIOS，查看并补齐缺失依赖与街机父包 |
+| 资料与标签 | 维护游戏详情、封面、视频和共享标签 |
+| 账号管理 | 管理用户、邀请和密码重置 |
 
 ## 开发
 
@@ -42,8 +84,35 @@ Retrom 是面向个人和可信朋友的自托管浏览器游戏库。管理员�
 | [Docker 部署指南](docs/docker-deployment.md) | 安装配置、启动检查、数据备份、升级与故障排查 |
 | [文档索引](docs/README.md) | 产品、API、数据模型及工程文档的完整入口 |
 | [导入与审核](docs/import-and-review.md) | 来源扫描、游戏审核和内容维护 |
+| [运行与存档](docs/runtime-and-play-data.md) | 游戏运行、存档身份与恢复规则 |
 | [账号、配置与部署](docs/backend-api-and-operations.md) | 服务配置、账号机制和代理要求 |
 | [配套依赖输入与发布](docs/dependency-management.md) | runtime、Provider 和镜像的配套关系 |
 | [验收记录](docs/project-acceptance.md) | 实际验证范围与已知限制 |
 
+<details>
+<summary>宣传插画与原始素材</summary>
+
+[![Retrom 宣传插画：自托管游戏库、多平台浏览器游玩、存档与收藏][promotion-preview]][promotion-original]
+
+此图为 AI 生成的概念插画，未使用游戏库中的游戏素材，与上方实机截图分开标注。原图尺寸为 1672×941。
+
+[公开图片仓库](https://github.com/retrom-project/retrom-images) · [完整原图下载](https://github.com/retrom-project/retrom-images/releases/tag/showcase-2026-10-18-v0.0.133)
+
+</details>
+
 本项目不附带商业游戏或 BIOS。
+
+[home-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/03-home-purewhite.webp
+[home-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/03-home-purewhite.png
+[library-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/10-library-overview.webp
+[library-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/10-library-overview.png
+[saves-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/21-saves-sonic.webp
+[saves-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/21-saves-sonic.png
+[favorites-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/30-favorites-all.webp
+[favorites-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/30-favorites-all.png
+[sonic-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/02-home-sonic.webp
+[sonic-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/02-home-sonic.png
+[recent-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/40-recent-overview.webp
+[recent-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/40-recent-overview.png
+[promotion-preview]: https://raw.githubusercontent.com/retrom-project/retrom-images/014c6fccd243d8a57e50876707dc49bf53eb9b74/showcase/2026-10-18-v0.0.133/retrom-promotion-20261018.webp
+[promotion-original]: https://github.com/retrom-project/retrom-images/releases/download/showcase-2026-10-18-v0.0.133/retrom-promotion-20261018.png
