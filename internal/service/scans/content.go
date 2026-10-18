@@ -26,6 +26,9 @@ type entry struct {
 	open func() (io.ReadCloser, error)
 }
 
+// A project consists of independently bounded files, rather than one upload.
+const maximumContentSize int64 = 64 * 1024 * 1024 * 1024
+
 func (s *Service) content(ctx context.Context,
 	root *os.Root,
 	id string,
@@ -206,12 +209,12 @@ func (s *Service) extract(ctx context.Context, id string, entries []entry) ([]mo
 	var total int64
 	result := make([]model.GameFile, 0, len(entries))
 	for _, entry := range entries {
-		if !storage.SafeRelative(entry.name) || seen[entry.name] || entry.size < 0 {
+		if !storage.SafeRelative(entry.name) || seen[entry.name] || entry.size < 0 || entry.size > storage.MaximumFileSize {
 			return nil, model.ErrInvalid
 		}
 		seen[entry.name] = true
 		total += entry.size
-		if total > storage.MaximumFileSize {
+		if total > maximumContentSize {
 			return nil, model.ErrInvalid
 		}
 		reader, err := entry.open()

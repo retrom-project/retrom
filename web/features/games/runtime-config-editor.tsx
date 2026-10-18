@@ -149,6 +149,7 @@ const contentNames: Record<Schema<"RuntimeContent">["kind"], string> = {
   TYRANOSCRIPT_PROJECT: "TyranoScript 游戏项目",
   NXENGINE_PROJECT: "洞窟物语游戏项目",
   DAPHNE_PROJECT: "Daphne 游戏项目",
+  SIGLUS_PROJECT: "Siglus 游戏项目",
 };
 
 function ContentFields({

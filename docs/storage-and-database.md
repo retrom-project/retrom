@@ -4,6 +4,8 @@ PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本�
 
 所有权目录为managed/games/<game-id>、saves/<save-id>、bios/<bios-file-id>和temporary/<uuid>。准备先写temporary独占文件，计算SHA/大小、fsync，再原子rename并fsync文件/父目录。通用存储允许0字节项目文件；ROM/save/BIOS领域在适用边界要求非空。DB事务内不进行复制、解包或Node运行准备。
 
+单个受管文件上限为8 GiB；目录项目和压缩包展开后的文件总量上限为64 GiB，每个成员仍受单文件上限约束。两种限制分别检查，避免把多个合法文件组成的大型游戏误判为单个超限文件。上传压缩包本身仍受8 GiB单文件上限约束。
+
 文件替换写新路径，再短事务活动切换；退休文件24小时宽限。单维护worker每分钟处理≤50个deleted Game、每类≤100退休文件、≤50个仍有私人资源的deleted User，以及≤1000个文件系统遍历步骤。扫描器保留目录偏移，空ReadDir批次和并发消失目录安全处理，不全量walk/sort。终态scan进度超过24小时分批删除≤200。
 
 删除Game先收回Game及Save owner字节，再短事务清关系和从属行、标记purged。移除失败保留deleted和从属路径，下轮重试；退休单文件先复查当前active引用，引用存在保留字节。孤立文件只在宽限后且当前引用复核为否时移除；active文件不因旧row或历史source而被误删。清理失败记录错误，不建立持久工作流事件或恢复计划。

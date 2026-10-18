@@ -113,7 +113,7 @@ function OptionField({
           <option value="">使用默认值</option>
           {field.choices.map((choice) => (
             <option key={choice} value={choice}>
-              {choice}
+              {field.key === "language" ? (languageChoices[choice] ?? choice) : choice}
             </option>
           ))}
         </select>
@@ -130,6 +130,7 @@ function OptionField({
     </label>
   );
 }
+const languageChoices: Record<string, string> = {chs: "简体中文（汉化资源）", original: "原版资源"};
 const optionLabels: Record<string, string> = {
   engineId: "引擎",
   gameId: "游戏版本",

@@ -2054,7 +2054,8 @@
               "BUTTERSCOTCH_PROJECT",
               "TYRANOSCRIPT_PROJECT",
               "NXENGINE_PROJECT",
-              "DAPHNE_PROJECT"
+              "DAPHNE_PROJECT",
+              "SIGLUS_PROJECT"
             ]
           },
           "entryFile": {
