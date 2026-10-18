@@ -1,41 +1,41 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/retrom-project/retrom-runtime",
-  "sourceTreeSha256": "9bc07c3d2a72a5505908df8719ee92d4860c19454c005f03edea77c042e24a25",
+  "sourceTreeSha256": "e5de397199a883e7a8fbf94e400ae6513d413c8b96da431374c175f042d5bb75",
   "release": {
     "repository": "https://github.com/retrom-project/retrom-runtime",
-    "tag": "v0.71.1",
-    "commit": "d4a3fa95ec7100e681a312e360de534e3f2b3a52"
+    "tag": "v0.71.3",
+    "commit": "0f8c93498cf571ed03f8b5b4e9f84ff4e3d2280a"
   },
   "tool": {
-    "archive": "retrom-runtime-host-tool-0.71.1.tar.gz",
-    "sizeBytes": 11470487,
-    "sha256": "b088ed4f14326c6aa072d279f97606df196e421a1fdb7b997320e753d6f51873"
+    "archive": "retrom-runtime-host-tool-0.71.3.tar.gz",
+    "sizeBytes": 11472786,
+    "sha256": "5896a8740145e399b2c71f03f36087d39831b78191b079f68d9f68e9e2dff84e"
   },
   "providers": [
     {
-      "archive": "emulatorjs/emulatorjs-provider-0.71.1.tar.gz",
-      "bundleDirectory": "emulatorjs/emulatorjs-0.71.1",
-      "bundleSha256": "6de0fcd04ec170896bcd837f0b40122cc540c79f209874e5d3d285e09903cb04",
-      "bundleSizeBytes": 343877030,
+      "archive": "emulatorjs/emulatorjs-provider-0.71.3.tar.gz",
+      "bundleDirectory": "emulatorjs/emulatorjs-0.71.3",
+      "bundleSha256": "1357be44078818745e11237f484f943f19979724f8302859a88e6cadf79982bb",
+      "bundleSizeBytes": 343877034,
       "fileCount": 270,
-      "manifestSha256": "dbe2dee1c3d1d9a2eb611559885c6dbf6bfd6891b670a5eb8fbdf6db3a9b480b",
-      "moduleSha256": "c85f50075571a76f66977f38d8040960da169970daed588b1f0a066fe30f02e4",
+      "manifestSha256": "42c29125ec1955951a6f9de5a2359986d1d1afa58267691d31511324784209b6",
+      "moduleSha256": "f737c1bb05afcee3388bc26dbcb47ba45957914a37b6be60dd5a8d746bd5cec8",
       "providerId": "emulatorjs",
-      "providerVersion": "0.71.1",
+      "providerVersion": "0.71.3",
       "unpackedSizeBytes": 366751042
     },
     {
-      "archive": "retrom-runtime/retrom-runtime-provider-0.71.1.tar.gz",
-      "bundleDirectory": "retrom-runtime/retrom-runtime-0.71.1",
-      "bundleSha256": "79c4e2a746a529e31b957038ba5c91591fcc3d5905b29bc76696d338f49a17f3",
-      "bundleSizeBytes": 338507723,
+      "archive": "retrom-runtime/retrom-runtime-provider-0.71.3.tar.gz",
+      "bundleDirectory": "retrom-runtime/retrom-runtime-0.71.3",
+      "bundleSha256": "37f6d1cecded975511038fe56219aab744d51121c7e211be6210fa8906830311",
+      "bundleSizeBytes": 338508689,
       "fileCount": 541,
-      "manifestSha256": "dc91cdae0a9bb56d5d689eae537692c773ef9b198f5b0ea134003806e412ff2c",
-      "moduleSha256": "502e77725beb870398b1a6ba2cf7b9178eb7f6fef91a94462e70047631cdbfb7",
+      "manifestSha256": "c11e71b711b64295fc1760195e638ec7509c149d00e757c1c8c7d40a7858d72b",
+      "moduleSha256": "324357ff2ce54a22bb68be6f8bb136fc10795f9e2150b3dacde2932059b87751",
       "providerId": "retrom-runtime",
-      "providerVersion": "0.71.1",
-      "unpackedSizeBytes": 888709823
+      "providerVersion": "0.71.3",
+      "unpackedSizeBytes": 888712386
     }
   ]
 }

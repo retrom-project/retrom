@@ -94,7 +94,7 @@ func (s *Service) normalizedFile(ctx context.Context, id, key, absolute string, 
 }
 
 func validateNormalizedFiles(files []normalizedFile) error {
-	if len(files) == 0 || len(files) > 10000 {
+	if len(files) == 0 || len(files) > maximumGameFiles {
 		return model.ErrInvalid
 	}
 	seen := make(map[string]bool, len(files))
