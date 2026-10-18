@@ -6,16 +6,14 @@ import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
 import { HomePlatformArt } from "./home-platform-art";
+import { HomeFeaturedMedia } from "./home-featured-media";
+import type { HomeData } from "./home-data";
 export function featuredGameId(data: Schema<"Home">) {
-  return (
-    data.saves.find((save) => save.restorable)?.game.id ??
-    data.recent[0]?.game.id
-  );
+  return data.recent[0]?.game.id;
 }
-export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
-  const save = data.saves.find((item) => item.restorable);
-  const game = save?.game ?? data.recent[0]?.game;
-  if (!game) {
+export function HomeFeatured({ data }: { data: HomeData }) {
+  const featured = data.featured;
+  if (!featured) {
     return (
       <article className="panel home-featured-panel home-featured-empty">
         <div className="home-featured-copy">
@@ -31,40 +29,24 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
       </article>
     );
   }
-  const image = featuredImage(game, save);
+  const { recent, save } = featured;
+  const game = recent.game;
   return (
     <article className="panel home-featured-panel">
-      {image ? (
-        <div className="home-featured-media">
-          <Image
-            className="home-featured-art is-ready"
-            src={image}
-            fill
-            unoptimized
-            alt=""
-            sizes="60vw"
-          />
-        </div>
-      ) : null}
+      <HomeFeaturedMedia key={`${game.id}:${save?.id}:${save?.version}`} game={game} save={save} />
       <div className="home-featured-copy">
         <p className="home-featured-kicker">
           <AppIcon name="history" />
           {save ? "继续上次的冒险" : "最近玩过"}
         </p>
-        <h2>{game.title}</h2>
+        <h2 title={game.title}>{game.title}</h2>
         <div className="home-featured-meta">
           <span className="home-featured-platform">
             <span>{game.directoryName}</span>
           </span>
           <span>
-            {save ? (
-              <>
-                {save.kind === "checkpoint" ? "即时存档" : "游戏内存档"} ·{" "}
-                <BrowserTime value={save.updatedAtMs} />
-              </>
-            ) : (
-              "最近玩过"
-            )}
+            {save ? <>{save.kind === "checkpoint" ? "即时存档" : "游戏内存档"} · <BrowserTime value={save.updatedAtMs} /></>
+              : <>上次游玩 · <BrowserTime value={recent.lastPlayedAtMs} /></>}
           </span>
         </div>
         <div className="home-featured-actions">
@@ -72,9 +54,13 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
             gameId={game.id}
             saveId={save?.id} restoreWarning={save?.restoreWarning}
             coreId={save?.extinfo.coreId}
+            disabled={save ? !save.restorable : false}
             returnTo="/"
           >
-            {save ? "从存档继续" : "再玩一次"}
+            {save ? "从存档继续" : <span className="home-launch-label">
+              <span className="home-launch-label-sizer" aria-hidden="true">从存档继续</span>
+              <span>新的开始</span>
+            </span>}
           </LaunchButton>
           <Link className="home-detail-link" href={`/games/${game.id}`}>
             查看游戏详情
@@ -91,8 +77,10 @@ export function HomeFeatured({ data }: { data: Schema<"Home"> }) {
   );
 }
 function launchNote(save: Schema<"Save"> | undefined) {
-  if (save?.restoreWarning === "core_changed") { return "本次将尝试恢复旧版本存档"; }
-  return `本次将从${save ? "存档位置" : "游戏开头"}启动`;
+  if (save && !save.restorable) { return "最新存档暂不可恢复，可在“查看存档”中查看详情。"; }
+  if (save?.restoreWarning === "core_changed") { return "核心版本已变化，确认后尝试恢复。"; }
+  if (save?.kind === "game_save") { return "启动后请在游戏内读取进度。"; }
+  return save ? "本次将从存档位置启动" : "本次将启动全新游戏";
 }
 export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
   const recentRail = useHorizontalWheel<HTMLDivElement>();
@@ -211,12 +199,5 @@ function Cover({ game }: { game: Game }) {
       <small>{game.platformId}</small>
       <span>{game.title}</span>
     </span>
-  );
-}
-
-function featuredImage(game: Game, save: Schema<"Save"> | undefined) {
-  return (
-    save?.screenshotUrl ||
-    game.media.find((media) => media.kind === "cover")?.url
   );
 }

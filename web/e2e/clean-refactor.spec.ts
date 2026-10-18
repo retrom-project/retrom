@@ -11,6 +11,10 @@ import { verifyRPGEntrySelection } from "./rpg-entry-selection";
 import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
+import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
+import { verifyHomeFeatured } from "./home-featured";
+import { verifyGameDetailLayout } from "./game-detail-layout";
+import { verifyDetailTitle } from "./detail-title";
 import {
   instantConflict,
   newInstantSave,
@@ -98,6 +102,8 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: game.title, exact: true }),
   ).toBeVisible();
+  await verifyGameDetailLayout(page);
+  await verifyDetailTitle(page, game.id);
   const start = page.getByRole("button", { name: "重新开始游戏", exact: true });
   if (!(await start.isVisible())) {
     await page.getByRole("button", { name: "启动选项", exact: true }).click();
@@ -266,6 +272,7 @@ test("populated pages keep their viewport and functional favorite classification
   page.on("pageerror", (error) => errors.push(error.message));
   await login(page);
   const game = await fixtureGame(page);
+  await verifyHomeFeatured(page);
   await request(page, `/api/v1/favorites/${game.id}`, { folderIds: [] }, "PUT");
   const folders = await request<Schema<"FolderList">>(
     page,
@@ -277,6 +284,7 @@ test("populated pages keep their viewport and functional favorite classification
     (await request<Schema<"FavoriteFolder">>(page, "/api/v1/favorite-folders", {
       name: folderName,
     }));
+  await verifyLibraryCollectionDialog(page, game, folder);
   await page.goto("/favorites");
   await page
     .locator(".favorite-game-card")

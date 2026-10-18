@@ -6,6 +6,7 @@ import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { DetailLaunch } from "./detail-launch";
+import { DetailTitle } from "./detail-title";
 import { SaveCard } from "@/features/saves/save-card";
 type DetailProps = {
   detail: Schema<"GameDetail">;
@@ -73,7 +74,7 @@ function DetailControls({
     <div className="game-detail-main">
       <p className="game-detail-eyebrow" title={game.directoryName}>{game.directoryName}</p>
       <div className="game-detail-title-row">
-        <h1 title={game.title}>{game.title}</h1>
+        <DetailTitle title={game.title} />
         {mode !== "review" ? (
           <div className="favorite-actions favorite-actions-detail">
             <button
